@@ -79,6 +79,7 @@ private const val SCREEN_PROHUD = "prohud"
 private const val SCREEN_HUDSETTINGS = "hudsettings"
 private const val SCREEN_CALIBRATE = "calibrate"
 private const val SCREEN_LUTIMPORT = "lutimport"
+private const val SCREEN_GLPREVIEW = "glpreview"
 
 const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 
@@ -125,6 +126,7 @@ fun CameraCapabilitiesProbe(
     var showHudSettings by remember { mutableStateOf(false) }
     var showCalibrate by remember { mutableStateOf(false) }
     var showLutImport by remember { mutableStateOf(false) }
+    var showGlPreview by remember { mutableStateOf(false) }
 
     val activity = context as? ComponentActivity
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
@@ -191,6 +193,8 @@ fun CameraCapabilitiesProbe(
             showCalibrate = true
         } else if (launchScreen == SCREEN_LUTIMPORT) {
             showLutImport = true
+        } else if (launchScreen == SCREEN_GLPREVIEW) {
+            showGlPreview = true
         }
     }
 
@@ -341,6 +345,11 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showGlPreview) {
+        GLPreviewScreen(onBack = { showGlPreview = false })
+        return
+    }
+
     val insets = rememberSystemInsetsDp()
     ProbeHomeContent(
             padding = insets.asPaddingValues(extra = 16.dp),
@@ -364,6 +373,7 @@ fun CameraCapabilitiesProbe(
             onShowHudSettings = { showHudSettings = true },
             onShowCalibrate = { showCalibrate = true },
             onShowLutImport = { showLutImport = true },
+            onShowGlPreview = { showGlPreview = true },
             onDumpDiagnostics = {
                 DiagnosticsMode.setEnabled(context, true)
                 val path = DiagnosticsMode.dump(context)
@@ -403,6 +413,7 @@ private fun ProbeHomeContent(
     onShowHudSettings: () -> Unit,
     onShowCalibrate: () -> Unit,
     onShowLutImport: () -> Unit,
+    onShowGlPreview: () -> Unit,
     onDumpDiagnostics: () -> Unit,
     onRequestPermission: () -> Unit,
     onExport: () -> Unit,
@@ -489,6 +500,7 @@ private fun ProbeHomeContent(
         ) {
             OutlinedButton(onClick = onShowCalibrate) { Text("Calibrate") }
             OutlinedButton(onClick = onShowLutImport) { Text("Import LUT") }
+            OutlinedButton(onClick = onShowGlPreview) { Text("Live preview LUT") }
         }
 
         Row(

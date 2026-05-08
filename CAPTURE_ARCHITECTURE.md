@@ -1,0 +1,75 @@
+# Capture engine architecture
+
+Source-of-truth for **threading, queueing, and lifecycle** of the Phase 1+ capture engine. Satisfies the BUILD_PLAN §9 cross-cutting requirement: "Camera control thread + image-reader thread separation; backpressure rules; cancellation policy".
+
+This document describes the **target** architecture. It will land incrementally as Phase 1 progresses; the existing `PreviewEngineScreen.kt` (probe) and the new helpers (`Dng12Saver`, `CaptureStorage`, `BracketPlan`, `HighlightMeter`, `CaptureHaptics`) already follow these rules.
+
+## Threads & executors
+
+| Lane | Backed by | Used for | Key constraint |
+|---|---|---|---|
+| **UI / Compose** | Android main looper | Compose state, gesture (`Modifier.tapToShoot`), navigation, Toast | Never blocks; never opens Camera2 device |
+| **Camera control** | `HandlerThread("PNS.Cam")` | `CameraDevice` open/close, `CameraCaptureSession` create/destroy, `setRepeatingRequest`, `capture`, `captureBurst` | Single-threaded. All Camera2 callbacks dispatch here. |
+| **Image reader / encode** | `Executors.newSingleThreadExecutor("PNS.Reader")` | `ImageReader.OnImageAvailableListener`, `DngCreator.writeImage`, AVIF / JXL encode (NDK) | Single-threaded so we never overlap two saves. Writes flow into `CaptureStorage` which uses `MediaStore`. |
+| **Histogram / metering** | `Executors.newSingleThreadExecutor("PNS.Meter")` | Downsample preview YUV -> 256-bin luma histogram, call `HighlightMeter.suggestEvCorrection` | Drops frames freely (see backpressure). |
+| **Haptics** | Main thread + `Handler.postDelayed` | `CaptureHaptics.scheduleStillTick()` (30 ms post-readout) | Light; safe on main. |
+| **Diagnostics dump** | Caller thread (button press) | `DiagnosticsMode.dump` | One-shot. Acceptable to do from main because it's user-initiated and fast. |
+
+### Lifecycle ownership
+
+* The `CameraDevice` is opened on the camera-control thread and **lives for the entire active screen** (probe / Pro HUD). Reopens happen only on configuration change or error.
+* Each `CameraCaptureSession` is owned by the screen that created it. Mode switches (e.g., switching profile from Standard Pro to Ultra-Max with a different RAW format) tear down the session and rebuild it on the camera-control thread.
+* The image-reader / encode executor is created with the screen and shut down in `onDispose` / `onStop`. In-flight image saves get a 5-second drain window before forced shutdown.
+
+## Backpressure rules
+
+These rules exist because **the sensor never stops** - even when we cannot keep up with saves, the preview must remain smooth.
+
+1. **Preview is sacred.** The preview SurfaceTexture target is always attached to the repeating request. If something has to be dropped, drop *anything but* the preview frame.
+2. **Histogram metering drops freely.** When the meter executor is busy, the next preview frame intended for histogram analysis is silently dropped (no queue). The next frame replaces it. The meter therefore runs at "as-fast-as-it-can-finish" rather than "every frame".
+3. **Image-reader queue depth is bounded.** `ImageReader` is constructed with `maxImages = 4`. If the queue fills, the *oldest* frame is dropped (`acquireLatestImage()` semantics). Diagnostic counters log every drop with `Log.w("PNS.Reader", "drop oldest queue=N")`.
+4. **Burst captures (BKT 3/5/7) reserve full queue capacity.** Before submitting a `BracketPlan` to `captureBurst`, the engine asserts that the queue is empty (no in-flight still saves) and waits up to 200 ms for the encode executor to drain. If the wait expires, the bracket is rejected with a Toast ("Engine busy - retry") and the BKT mode segment briefly flashes.
+5. **Video and stills don't overlap.** While `isRecording == true`, still-capture taps are ignored. The HUD's `RecordButton` and the still-capture path share a single `AtomicReference<EngineState>`; the gesture handler reads this before forwarding to `TapToShootHandler`.
+
+## Cancellation policy
+
+* **Mode switches cancel in-flight non-still work.** Switching dial mode (M / H / S / BKT) calls `setRepeatingRequest` with the new request and **does not** wait for any pending still callback to fire. The still callback either lands shortly after the switch (its `CaptureResult` is honored if it arrives within 250 ms) or is treated as orphaned and discarded.
+* **Bracket cancellation is all-or-nothing.** If the user lifts off in the middle of a bracket, the engine waits for the in-flight `captureBurst` to complete naturally (you cannot cancel an individual burst slot with Camera2) but discards any results that arrive after the cancel timestamp.
+* **`onPause` shuts the camera.** The camera-control thread calls `cameraDevice.close()` from `onPause`; the encode executor is given 1 s to drain before forced shutdown.
+
+## Color & LUT pipeline (Phase 4)
+
+The color pipeline lives **between** the existing capture stages and the final encode/send-to-display step. See `COLOR_PIPELINE.md` for the end-to-end stage ordering and pinned constants; this section describes only the threading + executor placement so the rules above stay self-contained.
+
+| Stage | Lane | Notes |
+|---|---|---|
+| Preview LUT (live HUD overlay) | **GLES surface compositor** thread (the same thread that owns the preview `SurfaceTexture`) | A single `sampler3D` upload + trilinear lookup in the existing fragment shader; no extra Java thread. The repeating preview request remains attached to a `SurfaceTexture` target; the LUT step happens during compositing into the on-screen `Surface` |
+| Video LUT (recording lane) | **GLES** (encode-side surface) | The MediaCodec input `Surface` is wrapped by the same shader as preview; this guarantees what the user sees through the viewfinder matches what is encoded |
+| Still LUT (CPU pass) | **Image reader / encode executor** (`PNS.Reader`) | Runs after tone curve, before AVIF/JXL/JPEG encode. Uses `LutPipeline.applyTrilinearInto` (allocation-free) so the encode lane stays GC-quiet. Budgeted at <= 80 ms for 12 MP (`PerfBudget.Defaults.LUT_CPU_STILL_12MP_MS`) |
+| RAW path | **Skipped entirely** | RAW (DNG12) is *never* baked through a LUT (per `COLOR_PIPELINE.md`'s "RAW is sacred" rule). The active LUT id + SHA256 ride along as DNG metadata so the desktop converter can re-apply later |
+| Calibration solve | **Image reader / encode executor** (`PNS.Reader`) | One-shot per calibration session: `CalibrationSampler.sample` -> `CalibrationMath.computeWbGains` / `computeCcm` -> `CalibrationToLut.toLut3D`. Budgeted at <= 200 ms total |
+| LUT cube parse / serialize | **Image reader / encode executor** (`PNS.Reader`) when triggered by import; **camera-control thread** is never touched | `LutPipeline.parseCube` is pure-CPU; SAF picker callbacks dispatch to the encode lane to keep main responsive |
+
+### LUT-pipeline backpressure rules (additions)
+
+1. **GLES LUT does not change preview backpressure** - the shader runs in the existing compositor pass; if it ever pushes a frame past its 16.7 ms budget at 60 fps, the preview is sacred (rule 1) so the LUT is *disabled* with a transient toast and `DiagnosticsMode.dump` records the regression rather than dropping the preview frame.
+2. **Still LUT runs strictly serially** with DNG / AVIF / JXL save - the encode lane is single-threaded and the LUT step shares its budget with the encoder. If the LUT pass exceeds `LUT_CPU_STILL_12MP_MS` it logs a `PerfBudget.check(... severity=WARN)` event but does not interrupt the encode.
+3. **RAW captures bypass the LUT entirely** - the saver checks `frame.outputKind == RAW` and skips the LUT pass with a single-pixel-cost no-op.
+
+
+
+* `CameraDevice.StateCallback.onError` triggers an exponential-backoff reopen (250 ms, 500 ms, 1 s) up to 3 attempts. After the last failure, the screen surfaces an error message and offers a "Retry" button.
+* `CameraCaptureSession.StateCallback.onConfigureFailed` logs the offending stream configuration to `PNS.SessionMatrix` (the same tag the probe uses) and falls back to the previous known-good session, if any.
+* MediaStore insert failures (no external storage, IO error) cause the saver to call `CaptureStorage.Handle.discard()` - the partial row is removed.
+
+## Tying it back to the BUILD_PLAN
+
+* §0 / §8: this doc + the executor names above satisfy the "Camera control thread + image-reader thread separation" requirement.
+* §4 (Phase 1) sensor-stability protocol: `CaptureHaptics.scheduleStillTick()` is invoked from the camera-control thread's `onCaptureCompleted`, posting back to the main looper for the actual vibrator call.
+* §8 vendor-tag safety: every Camera2 vendor tag must go through `VendorKeyGuard.useIfAvailable` from the camera-control thread.
+* §8 storage strategy: `CaptureStorage.openOutput` must be called from the encode executor (it uses `ContentResolver.openOutputStream`, which is fine off-main but slow enough that we never want it on the camera-control thread).
+
+## Outstanding decisions (revisit during Phase 1)
+
+* AVIF vs JXL encoding inside the encode executor vs a separate `Executors.newFixedThreadPool(2, "PNS.Encode")`. Decision deferred until we benchmark `libavif` and `libjxl` on the OnePlus 13.
+* Whether the histogram path becomes `RenderScript`-free (RenderScript is deprecated; we will likely use a tiny C++ kernel via JNI tied into the same NDK pipeline as AVIF / JXL).

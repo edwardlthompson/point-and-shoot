@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import android.util.Size
 import android.view.SurfaceHolder
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -73,6 +74,11 @@ private const val SCREEN_BURST = "burst"
 private const val SCREEN_LOGICAL_PHYSICAL = "logicalphysical"
 private const val SCREEN_EXHAUSTIVE = "exhaustive"
 private const val SCREEN_CAMERA1 = "camera1"
+private const val SCREEN_ABOUT = "about"
+private const val SCREEN_PROHUD = "prohud"
+private const val SCREEN_HUDSETTINGS = "hudsettings"
+private const val SCREEN_CALIBRATE = "calibrate"
+private const val SCREEN_LUTIMPORT = "lutimport"
 
 const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 
@@ -114,6 +120,11 @@ fun CameraCapabilitiesProbe(
     var showBurstProbe by remember { mutableStateOf(false) }
     var showLogicalPhysical by remember { mutableStateOf(false) }
     var showExhaustive by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
+    var showProHud by remember { mutableStateOf(false) }
+    var showHudSettings by remember { mutableStateOf(false) }
+    var showCalibrate by remember { mutableStateOf(false) }
+    var showLutImport by remember { mutableStateOf(false) }
 
     val activity = context as? ComponentActivity
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
@@ -170,6 +181,16 @@ fun CameraCapabilitiesProbe(
             showExhaustive = true
         } else if (launchScreen == SCREEN_CAMERA1) {
             showLegacyCamera1 = true
+        } else if (launchScreen == SCREEN_ABOUT) {
+            showAbout = true
+        } else if (launchScreen == SCREEN_PROHUD) {
+            showProHud = true
+        } else if (launchScreen == SCREEN_HUDSETTINGS) {
+            showHudSettings = true
+        } else if (launchScreen == SCREEN_CALIBRATE) {
+            showCalibrate = true
+        } else if (launchScreen == SCREEN_LUTIMPORT) {
+            showLutImport = true
         }
     }
 
@@ -281,6 +302,45 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showAbout) {
+        // BUILD_PLAN \u00a72 Phase 0 V&V "Engine consumption (drive HUD chips /
+        // About-page recipe list off `EncoderSummary`)": when the user opens
+        // About / Heritage we hydrate the live "From the latest probe (live)"
+        // section from whatever exhaustive_probe_*.json is most recent under
+        // getExternalFilesDir(null). On the first device run (no probe artifact
+        // yet) liveSummary is null and the section is hidden entirely.
+        val live = remember {
+            EncoderAttemptJsonAdapter.loadLatest(context)?.let { result ->
+                EncoderResultAggregator.summarize(result.attempts)
+            }
+        }
+        AboutScreen(
+            onBack = { showAbout = false },
+            liveSummary = live,
+        )
+        return
+    }
+
+    if (showProHud) {
+        ProHudScreen(onBack = { showProHud = false })
+        return
+    }
+
+    if (showHudSettings) {
+        HudSettingsScreen(onBack = { showHudSettings = false })
+        return
+    }
+
+    if (showCalibrate) {
+        CalibrateScreen(onBack = { showCalibrate = false })
+        return
+    }
+
+    if (showLutImport) {
+        LutImporterScreen(onBack = { showLutImport = false })
+        return
+    }
+
     val insets = rememberSystemInsetsDp()
     ProbeHomeContent(
             padding = insets.asPaddingValues(extra = 16.dp),
@@ -299,6 +359,17 @@ fun CameraCapabilitiesProbe(
             onShowBurstProbe = { showBurstProbe = true },
             onShowLogicalPhysical = { showLogicalPhysical = true },
             onShowExhaustive = { showExhaustive = true },
+            onShowAbout = { showAbout = true },
+            onShowProHud = { showProHud = true },
+            onShowHudSettings = { showHudSettings = true },
+            onShowCalibrate = { showCalibrate = true },
+            onShowLutImport = { showLutImport = true },
+            onDumpDiagnostics = {
+                DiagnosticsMode.setEnabled(context, true)
+                val path = DiagnosticsMode.dump(context)
+                val msg = if (path != null) "Diagnostics written to $path" else "Diagnostics dump skipped (no external storage)"
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            },
             onRequestPermission = { requestPermission.launch(Manifest.permission.CAMERA) },
             onExport = {
                 val ts = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
@@ -327,6 +398,12 @@ private fun ProbeHomeContent(
     onShowBurstProbe: () -> Unit,
     onShowLogicalPhysical: () -> Unit,
     onShowExhaustive: () -> Unit,
+    onShowAbout: () -> Unit,
+    onShowProHud: () -> Unit,
+    onShowHudSettings: () -> Unit,
+    onShowCalibrate: () -> Unit,
+    onShowLutImport: () -> Unit,
+    onDumpDiagnostics: () -> Unit,
     onRequestPermission: () -> Unit,
     onExport: () -> Unit,
 ) {
@@ -392,6 +469,26 @@ private fun ProbeHomeContent(
             OutlinedButton(onClick = onShowExhaustive, enabled = hasCameraPermission) {
                 Text("Exhaustive matrix (JSON)")
             }
+            OutlinedButton(onClick = onShowAbout) { Text("About / Heritage") }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(onClick = onShowProHud) { Text("Pro HUD (preview)") }
+            OutlinedButton(onClick = onShowHudSettings) { Text("Settings > HUD") }
+            OutlinedButton(onClick = onDumpDiagnostics) { Text("Diagnostics dump") }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(onClick = onShowCalibrate) { Text("Calibrate") }
+            OutlinedButton(onClick = onShowLutImport) { Text("Import LUT") }
         }
 
         Row(

@@ -21,9 +21,15 @@ pns-live-logcat.txt
 .DS_Store
 Thumbs.db
 
-# Keystores
+# Keystores + signing material (NEVER commit)
 *.jks
 *.keystore
+keystore.properties
+keystore.b64
 
 # NDK / CMake build outputs
 .cxx/
+
+# CycloneDX SBOM artifacts emitted on demand by scripts/pns_sbom.ps1
+# (gate verifies in-memory; no need to commit the JSON).
+docs/sbom.json

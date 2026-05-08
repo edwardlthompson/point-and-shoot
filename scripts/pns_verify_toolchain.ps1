@@ -1,10 +1,17 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
-# Proves: Gradle assembleDebug, UTF-8 host scripts + Kotlin sources, PowerShell parse OK.
-# Usage: .\scripts\pns_verify_toolchain.ps1 [-ProjectRoot path] [-SkipGradle] [-ReportDir path]
+# Proves: Gradle assembleDebug, UTF-8 host scripts + Kotlin sources, PowerShell parse OK,
+#         FOSS dep-audit (no Play Services / proprietary SDK references), and (with -RunTests)
+#         JVM unit tests (:app:testDebugUnitTest).
+# Usage:
+#   .\scripts\pns_verify_toolchain.ps1                              # full
+#   .\scripts\pns_verify_toolchain.ps1 -SkipGradle                  # docs-only
+#   .\scripts\pns_verify_toolchain.ps1 -RunTests                    # full + unit tests
+#   .\scripts\pns_verify_toolchain.ps1 -SkipGradle -RunTests        # tests only (still needs Gradle)
 
 param(
   [string]$ProjectRoot = "",
   [switch]$SkipGradle,
+  [switch]$RunTests,
   [string]$ReportDir = ""
 )
 
@@ -91,7 +98,9 @@ if (-not $SkipGradle.IsPresent) {
 $scriptFiles = @(
   (Join-Path $PSScriptRoot "pns_hfr_autorun.ps1"),
   (Join-Path $PSScriptRoot "pns_probe_watch.ps1"),
-  (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1")
+  (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1"),
+  (Join-Path $PSScriptRoot "pns_license_inventory.ps1"),
+  (Join-Path $PSScriptRoot "pns_sbom.ps1")
 )
 
 foreach ($sf in $scriptFiles) {
@@ -125,6 +134,78 @@ if (Test-Path -LiteralPath $kotlinRoot) {
   }
 }
 
+# FOSS dependency audit: reject proprietary / Play Services groups in any Gradle build script
+# or version catalog. Scope: any .gradle, .gradle.kts, libs.versions.toml under the project root,
+# excluding build/ and .gradle/ caches.
+$forbiddenGroups = @(
+  'com.google.android.gms',     # Play Services
+  'com.google.firebase',        # Firebase
+  'com.google.mlkit',           # ML Kit (proprietary)
+  'com.google.android.play',    # Play Core / In-App Updates / Asset Delivery
+  'com.google.android.libraries.places',
+  'com.android.billingclient',  # Play Billing
+  'com.google.ads.mediation',
+  'com.google.android.ads'
+)
+
+$auditPaths = @()
+$auditPaths += Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue -Include *.gradle, *.gradle.kts |
+  Where-Object {
+    $full = $_.FullName.Replace('\','/').ToLowerInvariant()
+    ($full -notmatch '/(build|\.gradle|_gradle_extract)/')
+  }
+$catalog = Join-Path $ProjectRoot "gradle/libs.versions.toml"
+if (Test-Path -LiteralPath $catalog) { $auditPaths += Get-Item -LiteralPath $catalog }
+
+$audited = 0
+foreach ($f in $auditPaths) {
+  $audited++
+  $text = ''
+  try { $text = [System.IO.File]::ReadAllText($f.FullName) } catch { $text = '' }
+  if ([string]::IsNullOrEmpty($text)) { continue }
+  foreach ($g in $forbiddenGroups) {
+    if ($text -match [regex]::Escape($g)) {
+      [void]$report.Add(("FAIL: dep-audit {0} references forbidden group '{1}'" -f $f.FullName, $g))
+      $failed = $true
+    }
+  }
+}
+[void]$report.Add(("OK: dep-audit (no Play Services / proprietary SDK references in {0} Gradle file(s))" -f $audited))
+
+# License inventory drift check: cross-reference gradle/libs.versions.toml against
+# the static license map in scripts/pns_license_inventory.ps1 (which mirrors LICENSES.md).
+$licenseScript = Join-Path $PSScriptRoot "pns_license_inventory.ps1"
+if (Test-Path -LiteralPath $licenseScript) {
+  Write-Verify "License inventory drift check"
+  & pwsh -NoProfile -ExecutionPolicy Bypass -File $licenseScript -ProjectRoot $ProjectRoot | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    [void]$report.Add("FAIL: license inventory drift (run pns_license_inventory.ps1 manually for details)")
+    $failed = $true
+  } else {
+    [void]$report.Add("OK: license inventory (LICENSES.md in sync with libs.versions.toml)")
+  }
+} else {
+  [void]$report.Add("SKIP: license inventory (pns_license_inventory.ps1 missing)")
+}
+
+# CycloneDX SBOM emit + structural verify. Closes BUILD_PLAN.md §9
+# "SBOM generation". Does not write to disk by default; just confirms the
+# emitter parses libs.versions.toml + the embedded SPDX map and produces
+# valid CycloneDX 1.5 JSON.
+$sbomScript = Join-Path $PSScriptRoot "pns_sbom.ps1"
+if (Test-Path -LiteralPath $sbomScript) {
+  Write-Verify "CycloneDX SBOM emit + structural verify"
+  & pwsh -NoProfile -ExecutionPolicy Bypass -File $sbomScript -ProjectRoot $ProjectRoot -Verify | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    [void]$report.Add("FAIL: SBOM emit/verify (run pns_sbom.ps1 -Verify manually for details)")
+    $failed = $true
+  } else {
+    [void]$report.Add("OK: CycloneDX 1.5 SBOM emit + structural verify")
+  }
+} else {
+  [void]$report.Add("SKIP: SBOM (pns_sbom.ps1 missing)")
+}
+
 $apkDir = [System.IO.Path]::Combine($ProjectRoot, "app", "build", "outputs", "apk", "debug")
 if ((Test-Path -LiteralPath $apkDir) -and -not $SkipGradle.IsPresent) {
   $apk = @(Get-ChildItem -LiteralPath $apkDir -Filter *.apk -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)[0]
@@ -132,6 +213,39 @@ if ((Test-Path -LiteralPath $apkDir) -and -not $SkipGradle.IsPresent) {
     [void]$report.Add(("OK: APK {0} ({1} KB)" -f $apk.Name, [int]($apk.Length / 1024)))
   } else {
     [void]$report.Add("WARN: no APK under debug output (build may have skipped APK)")
+  }
+}
+
+# Optional JVM unit tests. Useful in CI and any time Kotlin in app/src/test changes.
+# Requires gradlew to be available (skipped if not). Failures bubble up to the report.
+if ($RunTests.IsPresent) {
+  Write-Verify "Gradle :app:testDebugUnitTest (no-daemon) in $ProjectRoot"
+  $gradlewBat = Join-Path $ProjectRoot "gradlew.bat"
+  $gradlewSh = Join-Path $ProjectRoot "gradlew"
+  $gradlew = $null
+  if ((Test-Path -LiteralPath $gradlewBat) -and ($null -ne $env:OS -and $env:OS -match '(?i)Windows')) {
+    $gradlew = $gradlewBat
+  } elseif (Test-Path -LiteralPath $gradlewSh) {
+    $gradlew = $gradlewSh
+  } elseif (Test-Path -LiteralPath $gradlewBat) {
+    $gradlew = $gradlewBat
+  }
+  if (-not $gradlew) {
+    [void]$report.Add("FAIL: -RunTests requested but gradlew not found")
+    $failed = $true
+  } else {
+    Push-Location $ProjectRoot
+    try {
+      & $gradlew :app:testDebugUnitTest --no-daemon
+      if ($LASTEXITCODE -ne 0) {
+        [void]$report.Add("FAIL: :app:testDebugUnitTest exit code $LASTEXITCODE")
+        $failed = $true
+      } else {
+        [void]$report.Add("OK: :app:testDebugUnitTest BUILD SUCCESSFUL")
+      }
+    } finally {
+      Pop-Location
+    }
   }
 }
 

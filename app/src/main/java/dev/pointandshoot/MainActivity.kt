@@ -3,13 +3,17 @@ package dev.pointandshoot
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.core.view.WindowCompat
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Cache the debug/diagnostics policy once so PnsLog.v / .d are no-ops in release.
+        // Diagnostics dumps still go through Log.i directly, so the diagnostic dump path
+        // remains unaffected when verbose is muted in release.
+        PnsLog.init(applicationContext)
 
         // We handle all system insets ourselves (status/nav bars + cutout) in Compose.
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -30,7 +34,7 @@ class MainActivity : ComponentActivity() {
         val autoLegacy = intent?.getBooleanExtra(EXTRA_PNS_AUTOLEGACY, false) ?: false
 
         setContent {
-            MaterialTheme {
+            PnsTheme {
                 Surface {
                     CameraCapabilitiesProbe(
                         launchScreen = launchScreen,

@@ -62,8 +62,31 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Run pns_verify_toolchain.ps1
+      - name: Run pns_verify_toolchain.ps1 (assembleDebug + dep-audit + UTF-8 + parse)
         shell: pwsh
         run: |
           Set-Location "${{ github.workspace }}"
           ./scripts/pns_verify_toolchain.ps1
+
+      - name: Run JVM unit tests (:app:testDebugUnitTest)
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Upload unit-test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pns-unit-test-reports-${{ github.sha }}
+          path: |
+            app/build/reports/tests/**
+            app/build/test-results/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload debug APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pns-debug-apk-${{ github.sha }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14

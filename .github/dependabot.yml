@@ -5,3 +5,31 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+
+  # Android / Gradle dependency updates (Compose BOM, AGP, Kotlin, AndroidX, CameraX).
+  # The toolchain gate (scripts/pns_verify_toolchain.ps1) blocks any PR that introduces
+  # forbidden groups (Play Services / Firebase / ML Kit / Play Core / Billing / Ads),
+  # so Dependabot can never silently regress the FOSS-only constraint.
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      androidx-compose:
+        patterns:
+          - "androidx.compose*"
+          - "androidx.compose.*"
+      androidx-core:
+        patterns:
+          - "androidx.core*"
+          - "androidx.activity*"
+          - "androidx.lifecycle*"
+      androidx-camera:
+        patterns:
+          - "androidx.camera*"
+          - "androidx.graphics*"
+      kotlin-and-agp:
+        patterns:
+          - "org.jetbrains.kotlin*"
+          - "com.android.tools.build:gradle"

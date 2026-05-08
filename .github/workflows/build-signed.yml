@@ -1,0 +1,137 @@
+name: Build signed release APK
+
+# Manual / tag-driven signed release build. Produces an artifact suitable for
+# private distribution (sideload, F-Droid pre-flight, internal testers).
+#
+# Required GitHub Actions secrets (configure under Settings -> Secrets -> Actions):
+#   ANDROID_KEYSTORE_BASE64    base64-encoded JKS / PKCS#12 keystore
+#   ANDROID_KEYSTORE_PASSWORD  store password
+#   ANDROID_KEY_ALIAS          alias inside the keystore
+#   ANDROID_KEY_PASSWORD       per-key password (often == store password)
+#
+# If any secret is missing the build short-circuits with a clear error so we
+# never accidentally publish an unsigned (or debug-signed) "release" APK.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref / tag / SHA to build (default: workflow ref)'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: build-signed-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-signed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android platform (compileSdk 36)
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate signing secrets are present
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "::error::Missing required secret: $v"
+              missing=1
+            fi
+          done
+          if [ $missing -ne 0 ]; then
+            echo "::error::Refusing to produce a 'release' APK without real signing secrets."
+            exit 1
+          fi
+
+      - name: Decode keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pns-signing"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/pns-signing/release.keystore"
+          ls -l "$RUNNER_TEMP/pns-signing/release.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/pns-signing/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Toolchain verify (full gate)
+        shell: pwsh
+        run: |
+          Set-Location "${{ github.workspace }}"
+          ./scripts/pns_verify_toolchain.ps1
+
+      - name: Assemble signed release APK
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ env.ANDROID_KEYSTORE_PATH }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Locate signed APK
+        id: locate
+        run: |
+          set -euo pipefail
+          apk="$(ls -1 app/build/outputs/apk/release/*.apk | head -n1)"
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          echo "Found APK: $apk"
+          ls -l "$apk"
+
+      - name: Verify signature (apksigner)
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS_DIR="$ANDROID_HOME/build-tools"
+          APKSIGNER="$(find "$BUILD_TOOLS_DIR" -maxdepth 2 -name apksigner -type f -executable | sort | tail -n1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found under $BUILD_TOOLS_DIR"
+            exit 1
+          fi
+          echo "Using apksigner at: $APKSIGNER"
+          "$APKSIGNER" verify --verbose "${{ steps.locate.outputs.apk }}"
+
+      - name: Upload signed APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pns-release-apk-${{ github.ref_name }}
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Cleanup signing material
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/pns-signing" || true

@@ -3,8 +3,15 @@
 
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Required for the 30 ms post-readout still-capture tick (CaptureHaptics).
+         Vibrator does not require runtime permission - the manifest entry is
+         sufficient. Video start/stop deliberately never vibrates. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Point &amp; Shoot"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
         android:supportsRtl="true">

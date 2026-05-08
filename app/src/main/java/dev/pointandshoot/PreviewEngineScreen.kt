@@ -21,7 +21,9 @@ import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.view.Surface
 import android.view.TextureView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,9 +32,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -265,33 +271,144 @@ private fun PreviewEngineContent(
 
         Spacer(Modifier.height(4.dp))
 
-        AndroidView(
-            modifier = Modifier.fillMaxSize(),
-            factory = { ctx ->
-                TextureView(ctx).apply {
-                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                        override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
-                            controller.onSurfaceTextureAvailable(st, width, height)
-                        }
+        // Live preview surface + Pro HUD overlays per BUILD_PLAN \u00a75 ("HUD
+        // chip 'LUT' alongside the imaging-profile selector; default Pro HUD
+        // surfaces command dial + readouts during live preview"). The
+        // TextureView still owns the camera surface; the HUD chrome rides on
+        // top via a Box stack.
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    TextureView(ctx).apply {
+                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
+                                controller.onSurfaceTextureAvailable(st, width, height)
+                            }
 
-                        override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
-                            controller.onSurfaceTextureSizeChanged(width, height)
-                        }
+                            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, width: Int, height: Int) {
+                                controller.onSurfaceTextureSizeChanged(width, height)
+                            }
 
-                        override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
-                            controller.onTextureUpdated()
-                        }
+                            override fun onSurfaceTextureUpdated(st: SurfaceTexture) {
+                                controller.onTextureUpdated()
+                            }
 
-                        override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
-                            controller.onSurfaceTextureDestroyed()
-                            // We own the SurfaceTexture lifetime (TextureView will release it).
-                            return true
+                            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean {
+                                controller.onSurfaceTextureDestroyed()
+                                return true
+                            }
                         }
                     }
+                },
+                update = {},
+            )
+            LivePreviewHudOverlay(
+                measuredFps = measuredFps,
+                desiredFps = selectedFps,
+                cameraId = selectedCameraId,
+            )
+        }
+    }
+}
+
+/**
+ * Pro HUD chrome that rides on top of the live preview surface per
+ * BUILD_PLAN \u00a75 ("default Pro HUD surfaces during live preview").
+ * Reads [HudSettings] so the user's Settings > HUD toggles are honored
+ * here too. EyeAfOverlay receives an empty target list - the face / eye
+ * detection pipeline is shipped with placeholder output until the
+ * Camera2-based detector lands.
+ */
+@Composable
+private fun LivePreviewHudOverlay(
+    measuredFps: Double,
+    desiredFps: Int,
+    cameraId: String?,
+) {
+    val state = rememberHudSettings()
+    val settings = state.current
+
+    Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                if (settings.showFpsReadout || settings.showIsoShutterReadout) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        val text = buildString {
+                            if (settings.showFpsReadout) {
+                                append("fps ${"%.1f".format(measuredFps)} (target $desiredFps)")
+                            }
+                            if (settings.showIsoShutterReadout) {
+                                if (isNotEmpty()) append("  ")
+                                append("ISO -- 1/--")
+                            }
+                        }
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White,
+                        )
+                    }
                 }
-            },
-            update = {},
-        )
+                if (cameraId != null) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            text = "cam $cameraId",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Eye AF overlay (placeholder - empty list until Camera2 face metadata is wired).
+        if (settings.showEyeAfOverlay) {
+            EyeAfOverlay(eyes = emptyList(), modifier = Modifier.fillMaxSize())
+        }
+
+        // Bottom row: command dial + LUT chip.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Spacer(Modifier.height(0.dp))
+        }
+
+        // Bottom-aligned dock so dial + LUT chip never overlap the top readouts.
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 4.dp),
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            LutChipRow(state = state, modifier = Modifier.padding(bottom = 8.dp))
+            if (settings.showCommandDial) {
+                CommandDial(
+                    selected = CommandDialMode.M,
+                    onSelect = {},
+                )
+            }
+        }
     }
 }
 

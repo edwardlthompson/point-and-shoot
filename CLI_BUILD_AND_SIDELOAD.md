@@ -66,3 +66,42 @@ Stream logs for just the app process:
 adb logcat -v time --pid=<PID> *:V
 ```
 
+### 4) Toolchain gate (run after Kotlin or PowerShell changes)
+
+```
+.\scripts\pns_verify_toolchain.ps1                # full (assembleDebug + UTF-8 + dep audit)
+.\scripts\pns_verify_toolchain.ps1 -SkipGradle    # docs / scripts only
+```
+
+Exit code 0 = pass. The same gate runs in CI on Ubuntu via
+`.github/workflows/toolchain-verify.yml`.
+
+### 5) Release / signed builds (optional)
+
+Local debug-key release (for sanity-checking release-mode behavior; not for distribution):
+
+```
+.\scripts\pns_hfr_autorun.ps1 -AssembleReleaseOnly
+# APK at: app\build\outputs\apk\release\app-release.apk (signed with the debug key)
+```
+
+Local **real** signed release:
+
+1. Generate (or copy in) a keystore at the repo root, e.g. `release.keystore`.
+2. Copy `keystore.properties.example` -> `keystore.properties` (gitignored) and fill in the
+   `storeFile` / `storePassword` / `keyAlias` / `keyPassword` values.
+3. Build:
+
+   ```
+   .\gradlew.bat :app:assembleRelease
+   ```
+
+   Gradle will log `[pns] release signing source = keystore.properties` to confirm the
+   real signing key was used (instead of the debug-key fallback).
+
+CI signed builds: `.github/workflows/build-signed.yml` (manual `workflow_dispatch` or
+push to a `v*` tag). Requires the four secrets documented in that workflow file
+(`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+`ANDROID_KEY_PASSWORD`). It runs the toolchain gate, builds, verifies the signature
+with `apksigner verify --verbose`, and uploads the APK as a workflow artifact.
+

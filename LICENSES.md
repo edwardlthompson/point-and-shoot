@@ -58,6 +58,19 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 | org.jetbrains.kotlin.android | 2.1.21 | Apache-2.0 | Kotlin |
 | org.jetbrains.kotlin.plugin.compose | 2.1.21 | Apache-2.0 | Kotlin |
 
+## Bundled font assets (shipped in the APK)
+
+| Asset | Source | Pinned tag | SPDX | SHA-256 | Notes |
+|---|---|---|---|---|---|
+| JetBrains Mono Regular | https://github.com/JetBrains/JetBrainsMono | v2.304 | OFL-1.1 | `a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f` | `app/src/main/res/font/jetbrainsmono_regular.ttf` (273900 bytes); used as `MonoFamily` in `PnsTheme.kt` for HUD readouts. License text vendored at `app/src/main/assets/fonts/jetbrainsmono/LICENSE.txt` (SHA-256 `30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad`). Refresh procedure documented in `app/src/main/assets/fonts/jetbrainsmono/SOURCE.txt`. |
+
+**OFL-1.1 compatibility statement**: SIL OFL v1.1 is a FOSS font license
+explicitly compatible with Apache-2.0 redistribution provided we (a) retain
+the upstream copyright and license text (we do — see LICENSE.txt next to the
+font), (b) don't sell the font itself as a standalone product (we don't —
+it's bundled inside the application APK), and (c) don't apply a "Reserved
+Font Name" to a modified version (we ship the unmodified upstream binary).
+
 ## Build / verification tooling (not a Gradle dep, listed for completeness)
 
 | Tool | Version pin | SPDX | Origin |
@@ -81,6 +94,9 @@ is verified to be license-compatible with Apache-2.0 redistribution.
   Classpath Exception explicitly permits linking application code without
   GPL contagion.
 * **MIT** (PowerShell tooling) - ALLOWED.
+* **OFL-1.1** (JetBrains Mono Regular) - ALLOWED. Compatible with Apache-2.0
+  redistribution per the OFL FAQ; we ship the unmodified upstream binary
+  alongside the full license text.
 
 No copyleft license appears in any **shipped** artifact.
 

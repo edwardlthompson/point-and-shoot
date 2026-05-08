@@ -1,0 +1,32 @@
+JetBrains Mono Regular - vendored asset for Point & Shoot
+==========================================================
+
+Upstream:    https://github.com/JetBrains/JetBrainsMono
+Version:     v2.304
+Released:    2023-01-14
+License:     SIL Open Font License v1.1 (see LICENSE.txt next to this file)
+Authors:     The JetBrains Mono Project Authors
+             https://github.com/JetBrains/JetBrainsMono/blob/v2.304/AUTHORS.txt
+
+Files vendored from this upstream release:
+  app/src/main/res/font/jetbrainsmono_regular.ttf
+    URL: https://github.com/JetBrains/JetBrainsMono/raw/v2.304/fonts/ttf/JetBrainsMono-Regular.ttf
+    SHA-256: a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f
+    Size:    273900 bytes
+
+  app/src/main/assets/fonts/jetbrainsmono/LICENSE.txt
+    URL: https://github.com/JetBrains/JetBrainsMono/raw/v2.304/OFL.txt
+    SHA-256: 30f0c136e3c88e422d0791acd97238870f9054a9729bc34cf2ff0d4ed8cac4ad
+    Size:    4399 bytes
+
+Modifications:
+  None. The .ttf binary is committed verbatim from the upstream release tag.
+  The license text is the unmodified OFL.txt distributed with that release.
+
+Refresh procedure (for a future version bump):
+  1. Pick a new release tag at https://github.com/JetBrains/JetBrainsMono/releases
+  2. Update the URLs above to point at the new tag
+  3. Recompute SHA-256 of both files (PowerShell `Get-FileHash -Algorithm SHA256`)
+  4. Update SHA256.txt next to this file with the new TTF digest
+  5. Replace jetbrainsmono_regular.ttf and LICENSE.txt with the new bytes
+  6. Run `scripts/pns_verify_toolchain.ps1 -RunTests` to re-validate the build

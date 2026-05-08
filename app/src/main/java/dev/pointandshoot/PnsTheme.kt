@@ -8,6 +8,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
@@ -32,10 +33,12 @@ object PnsColors {
 }
 
 // Monospaced typography for technical readouts (Part 4 spec: JetBrains Mono).
-// Until JetBrains Mono is vendored as a font asset (SIL OFL 1.1), we fall back to
-// `FontFamily.Monospace` which Android maps to a system monospaced face. Swap in
-// JetBrains Mono later by replacing `MonoFamily` with a `FontFamily(Font(R.font.jetbrains_mono...))`.
-val MonoFamily: FontFamily = FontFamily.Monospace
+// Vendored from upstream v2.304 (SIL OFL 1.1) - see
+// `app/src/main/assets/fonts/jetbrainsmono/SOURCE.txt` for the pinned URL,
+// SHA-256, and refresh procedure. The .ttf lives at
+// `res/font/jetbrainsmono_regular.ttf` so Compose's `Font(R.font.*)` lookup
+// works without additional asset-loader plumbing.
+val MonoFamily: FontFamily = FontFamily(Font(R.font.jetbrainsmono_regular))
 
 /**
  * Compact typography preset for HUD readouts (timecode, ISO, shutter, FPS, etc.).

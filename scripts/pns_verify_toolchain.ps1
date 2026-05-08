@@ -134,6 +134,28 @@ if (Test-Path -LiteralPath $kotlinRoot) {
   }
 }
 
+# Plan / docs encoding gate: the build plan, changelog, README, and audit log
+# are all edited by hand on Windows where Notepad happily saves UTF-16 LE
+# without warning. UTF-16 documentation files break GitHub rendering and
+# trip the diff-as-binary heuristic, which masks meaningful changes during
+# review. Walk every committed *.md under the project root (excluding
+# build / cache / probe-artifact directories) and reject UTF-16 LE.
+$docCount = 0
+$docBad = @()
+Get-ChildItem -LiteralPath $ProjectRoot -Filter *.md -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+  $full = $_.FullName.Replace('\','/').ToLowerInvariant()
+  if ($full -match '/(build|\.gradle|_gradle_extract|\.git|hfr-runs|node_modules)/') { return }
+  $docCount++
+  if (Test-LikelyUtf16LeFile $_.FullName) {
+    $docBad += $_.FullName
+    [void]$report.Add(("FAIL: {0} looks UTF-16 LE - re-save as UTF-8" -f $_.FullName))
+    $failed = $true
+  }
+}
+if ($docBad.Count -eq 0) {
+  [void]$report.Add(("OK: doc encoding ({0} *.md files; none UTF-16 LE)" -f $docCount))
+}
+
 # FOSS dependency audit: reject proprietary / Play Services groups in any Gradle build script
 # or version catalog. Scope: any .gradle, .gradle.kts, libs.versions.toml under the project root,
 # excluding build/ and .gradle/ caches.

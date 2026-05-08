@@ -1,0 +1,31 @@
+name: Plan doc verify
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'PROBE_BUILD_PLAN.md'
+  pull_request:
+    paths:
+      - 'PROBE_BUILD_PLAN.md'
+
+concurrency:
+  group: plan-doc-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  skipgradle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SkipGradle (scripts + Kotlin UTF-8 scan)
+        shell: pwsh
+        run: |
+          Set-Location "${{ github.workspace }}"
+          ./scripts/pns_verify_toolchain.ps1 -SkipGradle

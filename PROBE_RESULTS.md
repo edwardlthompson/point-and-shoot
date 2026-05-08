@@ -1,6 +1,6 @@
 # Point & Shoot — PROBE RESULTS
 
-- Generated: 2026-05-07T07:12:50.387342Z
+- Generated: 2026-05-07T08:05:32.746482Z
 - Device: OnePlus CPH2655 (OP5D55L1)
 - Android: 16 (SDK 36)
 
@@ -413,13 +413,163 @@
 - `android.control.aeTargetFpsRange`
 - `android.control.videoStabilizationMode`
 
+### Typed values (selected)
+
+- android.request.availableCapabilities: [0, 9, 3, 7, 4, 5, 1, 6, 2, 19, 18, 20, 11]
+- android.request.availableDynamicRangeProfiles: [64, 1, 2, 4, 8]
+- android.request.recommendedTenBitDynamicRangeProfile: 2
+- android.control.aeAvailableTargetFpsRanges: [[15, 15], [15, 24], [24, 24], [15, 30], [30, 30], [15, 60], [60, 60]]
+- android.request.maxNumOutputRaw: 1
+- physicalCameraIds: [2, 3, 4]
+
+### StreamConfigurationMap (derived FPS candidates)
+
+#### Preview (SurfaceTexture)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### Preview (SurfaceHolder)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### RAW_SENSOR (ImageFormat.RAW_SENSOR)
+- 4096x3072  maxFps≈30.0
+
+#### YUV_420_888 (ImageFormat.YUV_420_888)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### High-speed video (Camera2 constrained high speed)
+- 640x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 720x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 1280x720 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240], [30, 480], [60, 480], [480, 480]]
+- 1920x1080 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240], [30, 480], [60, 480], [480, 480]]
+
+### Vendor-key highlights (name-based)
+
+- LBMF / MFHDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR
+- DCG-HDR / HDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableAutoHDR, org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR, org.codeaurora.qcamera3.sessionParameters.EnableQHDR, org.codeaurora.qcamera3.sessionParameters.EnableSHDR, org.codeaurora.qcamera3.sessionParameters.EnableXHDR, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.HDRVideoMode, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode, org.codeaurora.qcamera3.sessionParameters.numHDRexposure
+- Hybrid AE candidates: android.control.aeAntibandingMode, android.control.aeExposureCompensation, android.control.aeLock, android.control.aeMode, android.control.aePrecaptureTrigger, android.control.aeRegions, android.control.aeState, android.control.aeTargetFpsRange, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.dynamicFPSConfig, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode
+- Bracketing candidates: org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing
+
 ### Face detect modes
 
 - STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES: [0, 1]
 
 ### High-speed video configurations
 
-- (enumeration TODO: add StreamConfigurationMap + HFR ranges)
+- (see StreamConfigurationMap-derived FPS candidates above)
 
 - Camera 1: facing=FRONT focalLengths=[3.23] activeArray=Rect(0, 0 - 3280, 2464) pixelArray=3280x2464
 
@@ -817,13 +967,154 @@
 - `android.control.videoStabilizationMode`
 - `android.sensor.testPatternMode`
 
+### Typed values (selected)
+
+- android.request.availableCapabilities: [0, 9, 3, 7, 4, 5, 1, 6, 2, 19, 18, 20]
+- android.request.availableDynamicRangeProfiles: [64, 1, 2, 4, 8]
+- android.request.recommendedTenBitDynamicRangeProfile: 2
+- android.control.aeAvailableTargetFpsRanges: [[15, 15], [24, 24], [15, 30], [30, 30], [15, 60], [60, 60]]
+- android.request.maxNumOutputRaw: 1
+- physicalCameraIds: []
+
+### StreamConfigurationMap (derived FPS candidates)
+
+#### Preview (SurfaceTexture)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+
+#### Preview (SurfaceHolder)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+
+#### RAW_SENSOR (ImageFormat.RAW_SENSOR)
+- 3280x2464  maxFps≈30.0
+
+#### YUV_420_888 (ImageFormat.YUV_420_888)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+
+#### High-speed video (Camera2 constrained high speed)
+- 640x480 fpsRanges=[[30, 120], [60, 120], [120, 120]]
+- 720x480 fpsRanges=[[30, 120], [60, 120], [120, 120]]
+- 1280x720 fpsRanges=[[30, 120], [60, 120], [120, 120]]
+- 1920x1080 fpsRanges=[[30, 120], [60, 120], [120, 120]]
+
+### Vendor-key highlights (name-based)
+
+- LBMF / MFHDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR
+- DCG-HDR / HDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableAutoHDR, org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR, org.codeaurora.qcamera3.sessionParameters.EnableQHDR, org.codeaurora.qcamera3.sessionParameters.EnableSHDR, org.codeaurora.qcamera3.sessionParameters.EnableXHDR, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.HDRVideoMode, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode, org.codeaurora.qcamera3.sessionParameters.numHDRexposure
+- Hybrid AE candidates: android.control.aeAntibandingMode, android.control.aeExposureCompensation, android.control.aeLock, android.control.aeMode, android.control.aePrecaptureTrigger, android.control.aeRegions, android.control.aeState, android.control.aeTargetFpsRange, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.dynamicFPSConfig, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode
+- Bracketing candidates: org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing
+
 ### Face detect modes
 
 - STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES: [0, 1]
 
 ### High-speed video configurations
 
-- (enumeration TODO: add StreamConfigurationMap + HFR ranges)
+- (see StreamConfigurationMap-derived FPS candidates above)
 
 - Camera 2: facing=BACK focalLengths=[6.06] activeArray=Rect(0, 0 - 4096, 3072) pixelArray=4096x3072
 
@@ -1223,13 +1514,163 @@
 - `android.control.videoStabilizationMode`
 - `android.sensor.testPatternMode`
 
+### Typed values (selected)
+
+- android.request.availableCapabilities: [0, 9, 3, 7, 4, 5, 1, 6, 2, 19, 18, 20]
+- android.request.availableDynamicRangeProfiles: [64, 1, 2, 4, 8]
+- android.request.recommendedTenBitDynamicRangeProfile: 2
+- android.control.aeAvailableTargetFpsRanges: [[15, 15], [15, 24], [24, 24], [15, 30], [30, 30], [15, 60], [60, 60]]
+- android.request.maxNumOutputRaw: 1
+- physicalCameraIds: []
+
+### StreamConfigurationMap (derived FPS candidates)
+
+#### Preview (SurfaceTexture)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### Preview (SurfaceHolder)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### RAW_SENSOR (ImageFormat.RAW_SENSOR)
+- 4096x3072  maxFps≈30.0
+
+#### YUV_420_888 (ImageFormat.YUV_420_888)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### High-speed video (Camera2 constrained high speed)
+- 640x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 720x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 1280x720 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240], [30, 480], [60, 480], [480, 480]]
+- 1920x1080 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240], [30, 480], [60, 480], [480, 480]]
+
+### Vendor-key highlights (name-based)
+
+- LBMF / MFHDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR
+- DCG-HDR / HDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableAutoHDR, org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR, org.codeaurora.qcamera3.sessionParameters.EnableQHDR, org.codeaurora.qcamera3.sessionParameters.EnableSHDR, org.codeaurora.qcamera3.sessionParameters.EnableXHDR, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.HDRVideoMode, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode, org.codeaurora.qcamera3.sessionParameters.numHDRexposure
+- Hybrid AE candidates: android.control.aeAntibandingMode, android.control.aeExposureCompensation, android.control.aeLock, android.control.aeMode, android.control.aePrecaptureTrigger, android.control.aeRegions, android.control.aeState, android.control.aeTargetFpsRange, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.dynamicFPSConfig, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode
+- Bracketing candidates: org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing
+
 ### Face detect modes
 
 - STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES: [0, 1]
 
 ### High-speed video configurations
 
-- (enumeration TODO: add StreamConfigurationMap + HFR ranges)
+- (see StreamConfigurationMap-derived FPS candidates above)
 
 - Camera 3: facing=BACK focalLengths=[2.3] activeArray=Rect(0, 0 - 4096, 3072) pixelArray=4096x3072
 
@@ -1629,13 +2070,163 @@
 - `android.control.videoStabilizationMode`
 - `android.sensor.testPatternMode`
 
+### Typed values (selected)
+
+- android.request.availableCapabilities: [0, 9, 3, 7, 4, 5, 1, 6, 2, 19, 18, 20]
+- android.request.availableDynamicRangeProfiles: [64, 1, 2, 4, 8]
+- android.request.recommendedTenBitDynamicRangeProfile: 2
+- android.control.aeAvailableTargetFpsRanges: [[15, 15], [24, 24], [15, 30], [30, 30], [15, 60], [60, 60]]
+- android.request.maxNumOutputRaw: 1
+- physicalCameraIds: []
+
+### StreamConfigurationMap (derived FPS candidates)
+
+#### Preview (SurfaceTexture)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### Preview (SurfaceHolder)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### RAW_SENSOR (ImageFormat.RAW_SENSOR)
+- 4096x3072  maxFps≈30.0
+
+#### YUV_420_888 (ImageFormat.YUV_420_888)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### High-speed video (Camera2 constrained high speed)
+- 640x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 720x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 1280x720 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 1920x1080 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+
+### Vendor-key highlights (name-based)
+
+- LBMF / MFHDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR
+- DCG-HDR / HDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableAutoHDR, org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR, org.codeaurora.qcamera3.sessionParameters.EnableQHDR, org.codeaurora.qcamera3.sessionParameters.EnableSHDR, org.codeaurora.qcamera3.sessionParameters.EnableXHDR, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.HDRVideoMode, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode, org.codeaurora.qcamera3.sessionParameters.numHDRexposure
+- Hybrid AE candidates: android.control.aeAntibandingMode, android.control.aeExposureCompensation, android.control.aeLock, android.control.aeMode, android.control.aePrecaptureTrigger, android.control.aeRegions, android.control.aeState, android.control.aeTargetFpsRange, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.dynamicFPSConfig, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode
+- Bracketing candidates: org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing
+
 ### Face detect modes
 
 - STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES: [0, 1]
 
 ### High-speed video configurations
 
-- (enumeration TODO: add StreamConfigurationMap + HFR ranges)
+- (see StreamConfigurationMap-derived FPS candidates above)
 
 - Camera 4: facing=BACK focalLengths=[13.85] activeArray=Rect(0, 0 - 4096, 3072) pixelArray=4096x3072
 
@@ -2035,11 +2626,161 @@
 - `android.control.videoStabilizationMode`
 - `android.sensor.testPatternMode`
 
+### Typed values (selected)
+
+- android.request.availableCapabilities: [0, 9, 3, 7, 4, 5, 1, 6, 2, 19, 18, 20]
+- android.request.availableDynamicRangeProfiles: [64, 1, 2, 4, 8]
+- android.request.recommendedTenBitDynamicRangeProfile: 2
+- android.control.aeAvailableTargetFpsRanges: [[15, 15], [24, 24], [15, 30], [30, 30], [15, 60], [60, 60]]
+- android.request.maxNumOutputRaw: 1
+- physicalCameraIds: []
+
+### StreamConfigurationMap (derived FPS candidates)
+
+#### Preview (SurfaceTexture)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### Preview (SurfaceHolder)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### RAW_SENSOR (ImageFormat.RAW_SENSOR)
+- 4096x3072  maxFps≈30.0
+
+#### YUV_420_888 (ImageFormat.YUV_420_888)
+- 176x144  maxFps≈60.0
+- 320x240  maxFps≈60.0
+- 352x288  maxFps≈60.0
+- 480x270  maxFps≈60.0
+- 640x290  maxFps≈60.0
+- 480x480  maxFps≈60.0
+- 640x360  maxFps≈60.0
+- 792x360  maxFps≈60.0
+- 640x480  maxFps≈60.0
+- 800x400  maxFps≈60.0
+- 720x480  maxFps≈60.0
+- 720x540  maxFps≈60.0
+- 864x480  maxFps≈60.0
+- 1188x540  maxFps≈60.0
+- 1024x768  maxFps≈60.0
+- 1280x720  maxFps≈60.0
+- 1584x720  maxFps≈60.0
+- 1080x1080  maxFps≈60.0
+- 1280x960  maxFps≈60.0
+- 1600x800  maxFps≈60.0
+- 1200x1200  maxFps≈60.0
+- 1440x1080  maxFps≈60.0
+- 1664x936  maxFps≈60.0
+- 1600x1200  maxFps≈60.0
+- 1920x1080  maxFps≈60.0
+- 2160x1080  maxFps≈60.0
+- 1920x1296  maxFps≈60.0
+- 2376x1080  maxFps≈60.0
+- 2520x1080  maxFps≈60.0
+- 1920x1440  maxFps≈60.0
+- 2560x1440  maxFps≈60.0
+- 3168x1440  maxFps≈60.0
+- 2560x1920  maxFps≈60.0
+- 3264x1836  maxFps≈60.0
+- 3280x1856  maxFps≈60.0
+- 3840x1644  maxFps≈60.0
+- 3280x2464  maxFps≈60.0
+- 3840x2160  maxFps≈60.0
+- 4096x3072  maxFps≈30.0
+
+#### High-speed video (Camera2 constrained high speed)
+- 640x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 720x480 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 1280x720 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+- 1920x1080 fpsRanges=[[30, 120], [60, 120], [120, 120], [30, 240], [60, 240], [240, 240]]
+
+### Vendor-key highlights (name-based)
+
+- LBMF / MFHDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR
+- DCG-HDR / HDR candidates: org.codeaurora.qcamera3.sessionParameters.EnableAutoHDR, org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode, org.codeaurora.qcamera3.sessionParameters.EnableMFHDR, org.codeaurora.qcamera3.sessionParameters.EnableQHDR, org.codeaurora.qcamera3.sessionParameters.EnableSHDR, org.codeaurora.qcamera3.sessionParameters.EnableXHDR, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.HDRVideoMode, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode, org.codeaurora.qcamera3.sessionParameters.numHDRexposure
+- Hybrid AE candidates: android.control.aeAntibandingMode, android.control.aeExposureCompensation, android.control.aeLock, android.control.aeMode, android.control.aePrecaptureTrigger, android.control.aeRegions, android.control.aeState, android.control.aeTargetFpsRange, org.codeaurora.qcamera3.sessionParameters.HDRMode, org.codeaurora.qcamera3.sessionParameters.HDRModePreference, org.codeaurora.qcamera3.sessionParameters.SnapshotHDRMode, org.codeaurora.qcamera3.sessionParameters.dynamicFPSConfig, org.codeaurora.qcamera3.sessionParameters.inSensorSHDRMode
+- Bracketing candidates: org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing
+
 ### Face detect modes
 
 - STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES: [0, 1]
 
 ### High-speed video configurations
 
-- (enumeration TODO: add StreamConfigurationMap + HFR ranges)
+- (see StreamConfigurationMap-derived FPS candidates above)
 

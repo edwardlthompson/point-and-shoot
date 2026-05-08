@@ -16,9 +16,17 @@ android {
         versionName = "0.0.0"
     }
 
+    signingConfigs {
+        // Allows `assembleRelease` without a separate keystore (debug key; internal / probe builds only).
+        create("releaseDebugKey") {
+            initWith(signingConfigs.getByName("debug"))
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("releaseDebugKey")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -42,6 +50,11 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    lint {
+        // Avoid AGP lint JVM crashes on some JDK/tooling combos during release vital lint.
+        checkReleaseBuilds = false
     }
 }
 

@@ -6,12 +6,15 @@
     <application
         android:allowBackup="false"
         android:label="Point &amp; Shoot"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
         android:supportsRtl="true">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="Point &amp; Shoot">
+            android:label="Point &amp; Shoot"
+            android:screenOrientation="locked"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -21,3 +24,4 @@
     </application>
 
 </manifest>
+

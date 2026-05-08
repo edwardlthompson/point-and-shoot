@@ -124,7 +124,7 @@ jobs:
           "$APKSIGNER" verify --verbose "${{ steps.locate.outputs.apk }}"
 
       - name: Upload signed APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pns-release-apk-${{ github.ref_name }}
           path: app/build/outputs/apk/release/*.apk

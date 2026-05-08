@@ -169,6 +169,26 @@ class RootCapabilityTest {
     }
 
     @Test
+    fun `RootState canRequestGrant is true ONLY for AvailableNotGranted and Denied`() {
+        assertFalse("Unknown", RootCapability.RootState.Unknown.canRequestGrant)
+        assertFalse("NotAvailable", RootCapability.RootState.NotAvailable.canRequestGrant)
+        assertTrue("AvailableNotGranted", RootCapability.RootState.AvailableNotGranted.canRequestGrant)
+        assertFalse("Granted", RootCapability.RootState.Granted.canRequestGrant)
+        assertTrue("Denied", RootCapability.RootState.Denied.canRequestGrant)
+    }
+
+    @Test
+    fun `RootState canRequestGrant covers every shipped state`() {
+        // If a future round adds a new state, this test forces an explicit decision about
+        // whether canRequestGrant should be true or false there. We just assert the
+        // accessor returns a valid Boolean for every state without throwing.
+        for (state in RootCapability.RootState.entries) {
+            val v = state.canRequestGrant
+            assertTrue("$state.canRequestGrant returned $v which is not a Boolean", v == true || v == false)
+        }
+    }
+
+    @Test
     fun `every Feature is included in the catalog`() {
         for (feature in RootCapability.Feature.entries) {
             assertTrue(

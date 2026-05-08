@@ -54,6 +54,27 @@ object RootCapability {
         /** True iff a root-only feature should run its privileged path. */
         val grantsPrivileged: Boolean get() = this == Granted
 
+        /**
+         * True iff the "Grant Su" button should be enabled in this state.
+         *
+         * Only [AvailableNotGranted] (the canonical "we found SU paths,
+         * tap Grant Su to escalate") and [Denied] (let the user retry
+         * after a misclick on the SU manager dialog) qualify. The other
+         * three states all suppress the button:
+         *
+         *   * [Unknown] - probe hasn't run yet; nothing to escalate.
+         *   * [NotAvailable] - no SU binary found; an active probe would
+         *     just crash with `Exception: su: not found` and confuse the
+         *     user. The fallback path is the only path here.
+         *   * [Granted] - already granted; the button would be a no-op.
+         *
+         * Surfaced as a pure-data accessor so the Compose drawer can ask
+         * `state.canRequestGrant` and JVM tests can exhaustively pin the
+         * single-row truth table without needing Robolectric.
+         */
+        val canRequestGrant: Boolean
+            get() = this == AvailableNotGranted || this == Denied
+
         /** Human-readable, single-line status string for the HUD / drawer banner. */
         val displayName: String
             get() = when (this) {

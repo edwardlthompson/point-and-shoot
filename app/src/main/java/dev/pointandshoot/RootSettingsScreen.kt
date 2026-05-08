@@ -116,7 +116,7 @@ fun RootSettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Button(
-                enabled = !pending && state != RootCapability.RootState.Granted,
+                enabled = !pending && state.canRequestGrant,
                 onClick = {
                     pending = true
                     scope.launch {
@@ -210,12 +210,5 @@ private fun RootFeatureRow(result: RootGate.GateResult) {
             style = MaterialTheme.typography.bodySmall,
             color = accentColor,
         )
-        if (!result.enabled && result.disabledReason != null) {
-            Text(
-                text = result.disabledReason,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.45f),
-            )
-        }
     }
 }

@@ -80,6 +80,7 @@ private const val SCREEN_HUDSETTINGS = "hudsettings"
 private const val SCREEN_CALIBRATE = "calibrate"
 private const val SCREEN_LUTIMPORT = "lutimport"
 private const val SCREEN_GLPREVIEW = "glpreview"
+private const val SCREEN_NATIVE = "native"
 
 const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 
@@ -127,6 +128,7 @@ fun CameraCapabilitiesProbe(
     var showCalibrate by remember { mutableStateOf(false) }
     var showLutImport by remember { mutableStateOf(false) }
     var showGlPreview by remember { mutableStateOf(false) }
+    var showNativeDiagnostics by remember { mutableStateOf(false) }
 
     val activity = context as? ComponentActivity
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
@@ -156,6 +158,16 @@ fun CameraCapabilitiesProbe(
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
             requestPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    // Native diagnostics is the one launch screen that does not require
+    // CAMERA permission (it inspects the .so / Kotlin facade only). Run a
+    // separate effect for it so `--es pns_screen native` works on a fresh
+    // install before the runtime permission dialog has been answered.
+    LaunchedEffect(launchScreen) {
+        if (launchScreen == SCREEN_NATIVE) {
+            showNativeDiagnostics = true
         }
     }
 
@@ -195,6 +207,8 @@ fun CameraCapabilitiesProbe(
             showLutImport = true
         } else if (launchScreen == SCREEN_GLPREVIEW) {
             showGlPreview = true
+        } else if (launchScreen == SCREEN_NATIVE) {
+            showNativeDiagnostics = true
         }
     }
 
@@ -350,6 +364,11 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showNativeDiagnostics) {
+        NativeDiagnosticsScreen(onBack = { showNativeDiagnostics = false })
+        return
+    }
+
     val insets = rememberSystemInsetsDp()
     ProbeHomeContent(
             padding = insets.asPaddingValues(extra = 16.dp),
@@ -374,6 +393,7 @@ fun CameraCapabilitiesProbe(
             onShowCalibrate = { showCalibrate = true },
             onShowLutImport = { showLutImport = true },
             onShowGlPreview = { showGlPreview = true },
+            onShowNativeDiagnostics = { showNativeDiagnostics = true },
             onDumpDiagnostics = {
                 DiagnosticsMode.setEnabled(context, true)
                 val path = DiagnosticsMode.dump(context)
@@ -414,6 +434,7 @@ private fun ProbeHomeContent(
     onShowCalibrate: () -> Unit,
     onShowLutImport: () -> Unit,
     onShowGlPreview: () -> Unit,
+    onShowNativeDiagnostics: () -> Unit,
     onDumpDiagnostics: () -> Unit,
     onRequestPermission: () -> Unit,
     onExport: () -> Unit,
@@ -501,6 +522,7 @@ private fun ProbeHomeContent(
             OutlinedButton(onClick = onShowCalibrate) { Text("Calibrate") }
             OutlinedButton(onClick = onShowLutImport) { Text("Import LUT") }
             OutlinedButton(onClick = onShowGlPreview) { Text("Live preview LUT") }
+            OutlinedButton(onClick = onShowNativeDiagnostics) { Text("Native diagnostics") }
         }
 
         Row(

@@ -187,14 +187,14 @@ Before flipping ANY `[ ]` to `[x]`:
 - [ ] Preview + capture engine with:
   - 120fps preview on supported path(s) — proven by probe `PreviewEngineScreen.kt` constrained high-speed sweep; full capture engine pending.
   - RAW12 DNG saving — saver (`Dng12Saver.kt`) scaffolded; capture pipeline integration pending.
-  - NDK pipeline callable from Kotlin — `native/CMakeLists.txt` stub exists; Gradle wiring + libavif/libjxl pending.
+  - NDK pipeline callable from Kotlin — `native/CMakeLists.txt` skeleton + JNI stubs (`Java_dev_pointandshoot_NativeEncoders_*` symbols) + `NativeEncoders` Kotlin facade + `EncoderRoute` router shipped (Phase 0 scaffolding); Gradle `externalNativeBuild` block + libavif/libjxl `FetchContent` pin pending Phase 1 (human action; see `NDK_PLAN.md`).
 
 ### Phase 1 work items
 - [ ] Implement `CameraDevice` + `CaptureSession` targeting 120fps preview where supported (`PreviewEngineScreen.kt` already proves the HFR session path; production engine still pending).
 - [x] RAW12 DNG saver (lossless + uncompressed modes per imaging profile) — `Dng12Saver.kt` (Camera2 `DngCreator` wrapper). Profile selection drives the session bit-depth choice; saver writes whatever Camera2 delivers.
 - [ ] NDK pipeline integration (planning doc: [`NDK_PLAN.md`](NDK_PLAN.md) - library choice + license matrix + JNI surface + Gradle/CMake wiring + fallback strategy):
-  - [ ] `libavif` path (10-bit AVIF HDR)
-  - [ ] `libjxl` path (12-bit JXL)
+  - [ ] `libavif` path (10-bit AVIF HDR) — **Phase 0 scaffolding shipped**: `NativeEncoders.encodeAvif10Hdr(...)` Kotlin facade with defensive `System.loadLibrary` (`isAvailable` flips false when the .so is missing; `lastLoadError` surfaces the dlopen message); JNI symbol `Java_dev_pointandshoot_NativeEncoders_nativeEncodeAvif10Hdr` stubbed in `native/pns_native.cpp` (returns `nullptr`); `EncoderRoute.decide(StandardPro, nativeAvailable = false)` substitutes a JPEG fallback per `FAILURE_MATRIX.md`. **JUnit-tested** in `NativeEncodersFallbackTest` (10 tests, all green: isAvailable false on JVM, encodeAvif10Hdr returns NotAvailable instead of throwing, Result.Success ByteArray equality, etc.) + `EncoderRouteTest` (9 tests, all green: decide() routes both profiles, downgradedProfiles enumerates AVIF + JXL, DOWNGRADE_MESSAGE is non-blank). **Device-validated on adb 8bf09993**: `--es pns_screen native` brings up `NativeDiagnosticsScreen` showing "Native library: NOT LOADED" + `loadLibrary error: dlopen failed: library "libpns_native.so" not found` + per-profile rows reporting "Tonal: DOWNGRADED to JPEG" exactly as specified (`docs/screenshots/smoke_native_diag.png`). Real `libavif` body lands once `externalNativeBuild` is wired and the FetchContent URL + SHA-256 are pinned (see `NDK_PLAN.md` "Human action required").
+  - [ ] `libjxl` path (12-bit JXL) — **Phase 0 scaffolding shipped**: same shape as the AVIF row (`NativeEncoders.encodeJxl12Rec2020(...)` + JNI stub + `EncoderRoute.decide(UltraMax, nativeAvailable = false)` -> JPEG fallback). Covered by the same `NativeEncodersFallbackTest` + `EncoderRouteTest` suites. Real `libjxl` body lands alongside libavif.
 - [x] Implement the 30ms haptic delay logic (still capture only) — `CaptureHaptics.kt`; uses `VibrationEffect.EFFECT_TICK` on API 29+ with a 12 ms one-shot fallback.
 
 ### Phase 1 V&V gate (must pass before Phase 2)

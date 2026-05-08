@@ -5,9 +5,16 @@ working JNI surface that the Kotlin capture engine can call. This document
 has no device dependency and no upstream binaries are committed - it
 describes how Phase 1+ will source and link them.
 
-> Status: **planning**. The on-device engine wiring depends on Phase 0
-> probe results (RAW + dynamic-range exclusivity, 10-bit pipeline support).
-> See `BUILD_PLAN.md` §4 / §9 for the surrounding task context.
+> Status: **scaffolding shipped (Phase 0)**. The Kotlin facade
+> (`NativeEncoders`), the routing layer (`EncoderRoute`), the JNI stubs
+> (`native/pns_native.cpp`), the CMake skeleton with commented
+> `FetchContent` blocks (`native/CMakeLists.txt`), and the
+> `NativeDiagnosticsScreen` for on-device validation are all in place.
+> What is NOT yet wired: the `externalNativeBuild` block in
+> `app/build.gradle.kts` and the libavif / libjxl `FetchContent` URL +
+> SHA-256 pins. The fallback path (`isAvailable = false` -> JPEG output)
+> is JUnit-tested and ADB-validated. See `BUILD_PLAN.md` §4 / §9 for the
+> surrounding task context.
 
 ## Goals
 
@@ -63,36 +70,70 @@ Acceptance criteria for the fetch step:
 - Sources are extracted into `<build>/_deps/` and never copied into
   `native/` (which stays as JNI glue + headers only).
 
-## JNI surface (target)
+## JNI surface (shipped Phase 0)
+
+The actual shape lives in
+`app/src/main/java/dev/pointandshoot/NativeEncoders.kt`. The defensive
+loader returns `Result.NotAvailable` whenever the .so is absent, so the
+capture engine never sees an `UnsatisfiedLinkError`:
 
 ```kotlin
-// app/src/main/java/dev/pointandshoot/NativeEncoders.kt (planned)
 object NativeEncoders {
-    /**
-     * Encode a 10-bit HDR plane to AVIF (Display P3) and write to [output].
-     * Returns the number of bytes written.
-     */
-    external fun encodeAvif10Hdr(
+    sealed class Result {
+        data class Success(val bytes: ByteArray) : Result()
+        data object NotAvailable : Result()
+        data class NativeError(val code: Int, val message: String? = null) : Result()
+    }
+
+    val isAvailable: Boolean
+    val lastLoadError: String?
+    fun version(): Int
+
+    fun encodeAvif10Hdr(
         planeY: ByteArray, planeU: ByteArray, planeV: ByteArray,
         width: Int, height: Int, strideY: Int, strideUV: Int,
-        output: java.io.OutputStream,
-    ): Long
+    ): Result
 
-    /**
-     * Encode a 12-bit RGB plane to JPEG XL (Rec. 2020). Single planar buffer.
-     */
-    external fun encodeJxl12Rec2020(
-        planeRGB: ByteArray, width: Int, height: Int, stride: Int,
-        output: java.io.OutputStream,
-    ): Long
+    fun encodeJxl12Rec2020(
+        planeRgb: ByteArray, width: Int, height: Int, stride: Int,
+    ): Result
 
-    init { System.loadLibrary("pns_native") }
+    @JvmStatic private external fun nativeVersion(): Int
+    @JvmStatic private external fun nativeEncodeAvif10Hdr(...): ByteArray?
+    @JvmStatic private external fun nativeEncodeJxl12Rec2020(...): ByteArray?
 }
 ```
 
-The capture pipeline will call these from the IO/encode lane (see
-`CAPTURE_ARCHITECTURE.md`), with bounded queue depth so the preview lane
-never stalls.
+Why `ByteArray?` instead of `OutputStream` (versus the original draft
+above): streams across the JNI boundary trigger one upcall per chunk and
+are easy to misuse. Returning the encoded bytes lets the encode-lane
+executor pick the on-disk write strategy (atomic-rename-on-temp, MediaStore
+pending entry, etc.). The capture pipeline calls these from the IO/encode
+lane (`CAPTURE_ARCHITECTURE.md`) with bounded queue depth so the preview
+lane never stalls.
+
+The companion router lives at
+`app/src/main/java/dev/pointandshoot/EncoderRoute.kt`:
+
+```kotlin
+object EncoderRoute {
+    data class Decision(
+        val profile: ImagingProfile,
+        val rawWritten: RawMode,
+        val tonalWritten: TonalContainer?,  // null when fallbackJpeg is true
+        val fallbackJpeg: Boolean,
+        val downgradeReason: String?,
+    )
+
+    fun decide(profile: ImagingProfile, nativeAvailable: Boolean): Decision
+    fun downgradedProfiles(nativeAvailable: Boolean): List<ImagingProfile>
+}
+```
+
+`EncoderRoute` is pure-data and JUnit-tested in `EncoderRouteTest` (9
+tests). The Kotlin facade is JUnit-tested in `NativeEncodersFallbackTest`
+(10 tests) covering the no-.so fallback path that the JVM unit-test
+classpath always exercises.
 
 ## Gradle / CMake wiring (target)
 
@@ -164,8 +205,30 @@ capture engine. It blocks the **Standard Pro** and **Ultra-Max** imaging
 profiles' tonal-container outputs (AVIF / JXL) but not the DNG path. The
 recommended order is:
 
-1. Land Phase 1 capture engine + DNG path (no NDK needed).
-2. Then land NDK pipeline (this doc) behind a `BuildConfig`-style flag so
-   we can ship JPEG-only release builds in the meantime.
-3. Validate AVIF / JXL outputs by pulling files and opening in desktop
+1. **DONE (Phase 0)**. Ship the Kotlin facade + JNI stubs + CMake
+   skeleton + diagnostics screen + JVM tests + install script. The
+   capture engine can already call `EncoderRoute.decide(...)` and degrade
+   to JPEG without the .so.
+2. Land Phase 1 capture engine + DNG path (no NDK needed). The capture
+   engine drives `EncoderRoute` per-shot.
+3. Then land NDK pipeline behind the `pns.nativeEncoders` Gradle property
+   so we can ship JPEG-only release builds in the meantime.
+4. Validate AVIF / JXL outputs by pulling files and opening in desktop
    tooling (Phase 1 V&V gate in `BUILD_PLAN.md`).
+
+## Human action required (before Phase 1)
+
+Two things need a human decision before the encoder bodies can land:
+
+1. **Install the NDK + CMake on dev hosts and CI runners.** Run
+   `scripts/pns_install_ndk.ps1` to do this non-interactively once
+   Android SDK Command-line Tools are present (the script prints exact
+   instructions if they are not). On CI, use the `setup-android` action
+   with the `ndk-version` and `cmake-version` inputs.
+2. **Pin the libavif / libjxl tags + SHA-256s** in
+   `native/CMakeLists.txt` and update the table in `native/THIRD_PARTY.md`.
+   Both upstreams release frequently enough that the bake-in of a tag
+   should be a deliberate review action, not an automated bump.
+
+Everything else - the Kotlin facade, the route, the diagnostics screen,
+the JNI symbol layout, and the fallback contract - is already in tree.

@@ -100,7 +100,8 @@ $scriptFiles = @(
   (Join-Path $PSScriptRoot "pns_probe_watch.ps1"),
   (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1"),
   (Join-Path $PSScriptRoot "pns_license_inventory.ps1"),
-  (Join-Path $PSScriptRoot "pns_sbom.ps1")
+  (Join-Path $PSScriptRoot "pns_sbom.ps1"),
+  (Join-Path $PSScriptRoot "pns_install_ndk.ps1")
 )
 
 foreach ($sf in $scriptFiles) {

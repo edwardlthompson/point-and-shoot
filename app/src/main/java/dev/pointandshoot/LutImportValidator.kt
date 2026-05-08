@@ -48,8 +48,13 @@ object LutImportValidator {
     const val ALLOWED_MAX: Float = 1.001f
 
     /**
-     * Validate a candidate `.cube` import. Always returns a [Result];
-     * never throws.
+     * Validate a candidate LUT import. Always returns a [Result];
+     * never throws. Routes by content sniff: `.cube` text is recognized by
+     * the `LUT_3D_SIZE` keyword; `.3dl` text is recognized by the
+     * absence of `LUT_3D_SIZE` plus the presence of an integer-only
+     * shaper line. Use [validate] when you have only the file body
+     * (the SAF picker may have stripped the original filename); use
+     * [validateForFormat] when the format is already known.
      */
     fun validate(text: String): Result {
         val byteSize = text.toByteArray(Charsets.UTF_8).size.toLong()
@@ -60,19 +65,68 @@ object LutImportValidator {
                 cause = null,
             )
         }
+        return validateForFormat(text, sniffFormat(text))
+    }
+
+    /**
+     * Sniff the LUT text format: the `.cube` header keyword wins
+     * unambiguously; otherwise we assume `.3dl` (the Autodesk format
+     * is integer-only and has no header keyword).
+     */
+    fun sniffFormat(text: String): Format {
+        val firstNonComment = text.lineSequence()
+            .map { it.substringBefore('#').trim() }
+            .firstOrNull { it.isNotEmpty() }
+            ?: return Format.Cube
+        // .cube files almost always start with TITLE / LUT_3D_SIZE / DOMAIN_*.
+        // .3dl files start with an integer-only shaper line.
+        if (firstNonComment.uppercase().startsWith("LUT_3D_SIZE") ||
+            firstNonComment.uppercase().startsWith("TITLE") ||
+            firstNonComment.uppercase().startsWith("DOMAIN_") ||
+            firstNonComment.uppercase().startsWith("LUT_1D_SIZE")
+        ) {
+            return Format.Cube
+        }
+        val tokens = firstNonComment.split(Regex("\\s+"))
+        // .3dl shapers always have >= MIN supported size (17) integers
+        // on a single line; anything shorter is a `.cube` body row that
+        // happens to contain only integers (e.g. "0 0 0"). Routing those
+        // shorter lines to `.cube` preserves the canonical `MalformedHeader`
+        // failure category for body-only `.cube` payloads.
+        val minDl3Shaper = Lut3D.SUPPORTED_SIZES.min()
+        return if (tokens.size >= minDl3Shaper && tokens.all { it.toIntOrNull() != null }) {
+            Format.Dl3
+        } else {
+            Format.Cube
+        }
+    }
+
+    /** Validate against the explicit [format]; useful for round-trip tests. */
+    fun validateForFormat(text: String, format: Format): Result {
+        val byteSize = text.toByteArray(Charsets.UTF_8).size.toLong()
+        if (byteSize > MAX_TEXT_BYTES) {
+            return Result.Failure(
+                category = FailureCategory.TooLarge,
+                message = "LUT text exceeds the $MAX_TEXT_BYTES-byte limit (got $byteSize bytes).",
+                cause = null,
+            )
+        }
 
         val lut: Lut3D = try {
-            LutPipeline.parseCube(text)
+            when (format) {
+                Format.Cube -> LutPipeline.parseCube(text)
+                Format.Dl3 -> LutPipeline.parseDl3(text)
+            }
         } catch (ex: IllegalArgumentException) {
             return Result.Failure(
                 category = categorize(ex.message ?: ""),
-                message = ex.message ?: "Invalid .cube file.",
+                message = ex.message ?: "Invalid LUT file.",
                 cause = ex,
             )
         } catch (ex: IllegalStateException) {
             return Result.Failure(
                 category = categorize(ex.message ?: ""),
-                message = ex.message ?: "Invalid .cube file.",
+                message = ex.message ?: "Invalid LUT file.",
                 cause = ex,
             )
         }
@@ -125,15 +179,23 @@ object LutImportValidator {
         return when {
             lower.contains("did not declare lut_3d_size") -> FailureCategory.MalformedHeader
             lower.contains("unsupported lut_3d_size") -> FailureCategory.UnsupportedSize
+            lower.contains("unsupported 3dl shaper size") -> FailureCategory.UnsupportedSize
             lower.contains("lut_3d_size") -> FailureCategory.MalformedHeader
             lower.contains("lut_1d_size") -> FailureCategory.OneDLut
             lower.contains("domain_min") || lower.contains("domain_max") -> FailureCategory.NonUnitDomain
             lower.contains("expected rgb triple") -> FailureCategory.MalformedBody
             lower.contains("not a float") -> FailureCategory.MalformedBody
             lower.contains("cube body has") -> FailureCategory.SizeMismatch
+            lower.contains("3dl body has") -> FailureCategory.SizeMismatch
+            lower.contains("3dl shaper") -> FailureCategory.MalformedHeader
+            lower.contains("3dl file contained no integer rows") -> FailureCategory.MalformedHeader
+            lower.contains("3dl body row") -> FailureCategory.MalformedBody
             else -> FailureCategory.MalformedBody
         }
     }
+
+    /** Recognized LUT text formats. */
+    enum class Format { Cube, Dl3 }
 
     /** Validation outcome - sealed so callers can pattern-match. */
     sealed class Result {

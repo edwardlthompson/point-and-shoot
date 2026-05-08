@@ -150,6 +150,95 @@ object LutPipeline {
         return Lut3D(size, triples.toFloatArray())
     }
 
+    /**
+     * Parse Autodesk Lustre `.3dl` (Mesh) text into a [Lut3D] per
+     * BUILD_PLAN §7 ("`.3dl` import path"). The Autodesk format is:
+     *
+     *   1. Optional `#`-comment lines.
+     *   2. A **shaper** line: N integers forming a uniform ramp from 0
+     *      to `(2 ^ outputBits) - 1`. The bit depth is inferred from the
+     *      shaper's max value (1023 -> 10-bit, 4095 -> 12-bit, etc.).
+     *   3. **N^3 body lines**, each carrying one RGB integer triple.
+     *      Per the Autodesk specification, **R varies fastest**, then G,
+     *      then B (same convention as `.cube`).
+     *
+     * Integer values are normalized to `[0, 1]` floats by dividing by the
+     * inferred max. Out-of-range values are NOT clamped - the validator
+     * (`LutImportValidator`) is the single place that rejects values
+     * outside `[ALLOWED_MIN, ALLOWED_MAX]` for both `.cube` and `.3dl`.
+     *
+     * The shaper ramp is checked for uniformity to within 1 step of
+     * tolerance: a non-uniform shaper means the file is encoding a
+     * `Log` or other non-linear domain mapping that we cannot apply
+     * verbatim through a uniform `[0, 1]` 3D-texture sampler. Such files
+     * are rejected with a clear error.
+     */
+    fun parseDl3(text: String): Lut3D {
+        val tokens = mutableListOf<List<String>>()
+        var lineNo = 0
+        for (raw in text.lineSequence()) {
+            lineNo += 1
+            val stripped = raw.substringBefore('#').trim()
+            if (stripped.isEmpty()) continue
+            // Autodesk's docs allow keyword lines like "Mesh <inBits>
+            // <outBits>" before the shaper. We tolerate any leading line
+            // that has non-integer tokens by treating it as a header
+            // hint that we ignore.
+            val parts = stripped.split(Regex("\\s+"))
+            if (parts.all { it.toIntOrNull() != null }) {
+                tokens.add(parts)
+            }
+            // else: header / metadata line, ignored.
+        }
+        require(tokens.isNotEmpty()) { "3dl file contained no integer rows" }
+
+        // The first all-integer row is the shaper; subsequent rows are the body.
+        val shaper = tokens[0].map { it.toInt() }
+        val body = tokens.drop(1)
+
+        val size = shaper.size
+        require(size in Lut3D.SUPPORTED_SIZES) {
+            "Unsupported 3DL shaper size=$size; allowed: ${Lut3D.SUPPORTED_SIZES}"
+        }
+        require(shaper.first() == 0) {
+            "3DL shaper must start at 0 (got ${shaper.first()})"
+        }
+        val maxValue = shaper.last()
+        require(maxValue > 0) {
+            "3DL shaper must end with a positive max value (got $maxValue)"
+        }
+        // Uniform ramp: consecutive deltas must agree to within 1 (the
+        // ramp can only be approximately uniform when (maxValue / (size - 1))
+        // is fractional, e.g. 4095 / 16 = 255.9375 -> deltas of 256 and 255).
+        val nominalStep = maxValue.toDouble() / (size - 1).toDouble()
+        for (i in 1 until size) {
+            val delta = shaper[i] - shaper[i - 1]
+            val deviation = kotlin.math.abs(delta - nominalStep)
+            require(deviation <= 1.0 + 1e-6) {
+                "3DL shaper is non-uniform at index $i: delta=$delta, expected ~$nominalStep " +
+                    "(non-linear shapers are not supported - re-bake to a [0, 1] domain first)"
+            }
+        }
+        require(body.size.toLong() == size.toLong() * size.toLong() * size.toLong()) {
+            "3DL body has ${body.size} rows, expected ${size * size * size} for size=$size"
+        }
+
+        val samples = FloatArray(size * size * size * 3)
+        val invMax = 1f / maxValue.toFloat()
+        for ((idx, row) in body.withIndex()) {
+            require(row.size == 3) {
+                "3DL body row $idx must have 3 integers (got ${row.size})"
+            }
+            val r = row[0].toInt()
+            val g = row[1].toInt()
+            val b = row[2].toInt()
+            samples[idx * 3] = r * invMax
+            samples[idx * 3 + 1] = g * invMax
+            samples[idx * 3 + 2] = b * invMax
+        }
+        return Lut3D(size, samples)
+    }
+
     private fun requireDomain(tokens: List<String>, expected: Float, lineNo: Int, name: String) {
         require(tokens.size >= 4) { "line $lineNo: $name expects 3 floats" }
         for (i in 1..3) {

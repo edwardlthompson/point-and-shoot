@@ -152,11 +152,40 @@ class ReferenceTargetTest {
         }
     }
 
+    // ---------- ColorChecker Passport 24 ----------
+
+    @Test
+    fun `ColorCheckerPassport24 has the same patch values as Classic 24`() {
+        val classic = BundledReferenceTargets.ColorCheckerClassic24
+        val passport = BundledReferenceTargets.ColorCheckerPassport24
+        assertEquals(classic.rows, passport.rows)
+        assertEquals(classic.cols, passport.cols)
+        assertEquals(classic.patches.size, passport.patches.size)
+        // Reference values are identical (the Passport ships the same 24
+        // primaries on the front side; the Creative Enhancement extras
+        // are tracked as a separate BUILD_PLAN row).
+        for (p in classic.patches) {
+            val match = passport.patches.first { it.row == p.row && it.col == p.col }
+            assertTrue(p.referenceRgb.contentEquals(match.referenceRgb))
+            assertEquals(p.role, match.role)
+            assertEquals(p.name, match.name)
+        }
+    }
+
+    @Test
+    fun `ColorCheckerPassport24 carries a Passport-specific id and source`() {
+        val passport = BundledReferenceTargets.ColorCheckerPassport24
+        assertEquals("passport24", passport.id)
+        assertTrue(passport.source.contains("Passport"))
+        assertTrue(passport.displayName.contains("Passport"))
+    }
+
     // ---------- Catalog ----------
 
     @Test
     fun `byId resolves bundled targets`() {
         assertNotNull(BundledReferenceTargets.byId("colorchecker24"))
+        assertNotNull(BundledReferenceTargets.byId("passport24"))
         assertNotNull(BundledReferenceTargets.byId("generic24"))
     }
 
@@ -172,6 +201,7 @@ class ReferenceTargetTest {
         val ids = all.map { it.id }
         assertEquals(ids.distinct().size, ids.size)
         assertTrue(ids.contains("colorchecker24"))
+        assertTrue(ids.contains("passport24"))
         assertTrue(ids.contains("generic24"))
     }
 

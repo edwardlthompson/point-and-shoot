@@ -121,8 +121,46 @@ object BundledReferenceTargets {
         )
     }
 
+    /**
+     * X-Rite ColorChecker Passport 24-patch subset. The Passport's "main"
+     * 24-patch grid uses identical reference values to [ColorCheckerClassic24]
+     * (the Passport just adds a Creative Enhancement Target on the back of
+     * the chart with portrait-warming + landscape-cooling patches that
+     * are NOT yet bundled here - those values still need to be transcribed
+     * from the X-Rite published data sheet). This entry exists so a user
+     * with a Passport can pick "Passport 24-patch" in the calibrate flow
+     * and get a chart-name match without any IP entanglement: the patch
+     * coordinates and reference values are identical to Classic 24, but
+     * the displayed name + source string are Passport-specific so the
+     * resulting `CalibrationProfile.targetId` records which physical
+     * chart was actually photographed.
+     *
+     * The "ColorChecker" trademark is NOT used in any user-facing string;
+     * the registered name lives only in source comments. The Passport's
+     * Creative Enhancement patches are tracked as a separate (still-`[ ]`)
+     * BUILD_PLAN row.
+     */
+    val ColorCheckerPassport24: ReferenceTarget by lazy {
+        ReferenceTarget(
+            id = "passport24",
+            displayName = "Passport 24-patch (X-Rite layout)",
+            rows = ColorCheckerClassic24.rows,
+            cols = ColorCheckerClassic24.cols,
+            illuminant = ColorCheckerClassic24.illuminant,
+            source = "X-Rite ColorChecker Passport 24-patch subset (D50, sRGB linear-light); reference values shared with Classic 24",
+            patches = ColorCheckerClassic24.patches.map { p ->
+                ReferenceTarget.Patch(
+                    row = p.row, col = p.col, name = p.name, role = p.role,
+                    referenceRgb = p.referenceRgb.copyOf(),
+                )
+            },
+        )
+    }
+
     /** All bundled reference targets. */
-    val All: List<ReferenceTarget> by lazy { listOf(ColorCheckerClassic24, Generic24) }
+    val All: List<ReferenceTarget> by lazy {
+        listOf(ColorCheckerClassic24, ColorCheckerPassport24, Generic24)
+    }
 
     /** Look up a target by its [ReferenceTarget.id]. Throws if unknown. */
     fun byId(id: String): ReferenceTarget =

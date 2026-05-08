@@ -81,6 +81,7 @@ private const val SCREEN_CALIBRATE = "calibrate"
 private const val SCREEN_LUTIMPORT = "lutimport"
 private const val SCREEN_GLPREVIEW = "glpreview"
 private const val SCREEN_NATIVE = "native"
+private const val SCREEN_ROOT_SETTINGS = "rootsettings"
 
 const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 
@@ -129,6 +130,7 @@ fun CameraCapabilitiesProbe(
     var showLutImport by remember { mutableStateOf(false) }
     var showGlPreview by remember { mutableStateOf(false) }
     var showNativeDiagnostics by remember { mutableStateOf(false) }
+    var showRootSettings by remember { mutableStateOf(false) }
 
     val activity = context as? ComponentActivity
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
@@ -168,6 +170,8 @@ fun CameraCapabilitiesProbe(
     LaunchedEffect(launchScreen) {
         if (launchScreen == SCREEN_NATIVE) {
             showNativeDiagnostics = true
+        } else if (launchScreen == SCREEN_ROOT_SETTINGS) {
+            showRootSettings = true
         }
     }
 
@@ -209,6 +213,8 @@ fun CameraCapabilitiesProbe(
             showGlPreview = true
         } else if (launchScreen == SCREEN_NATIVE) {
             showNativeDiagnostics = true
+        } else if (launchScreen == SCREEN_ROOT_SETTINGS) {
+            showRootSettings = true
         }
     }
 
@@ -369,6 +375,11 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showRootSettings) {
+        RootSettingsScreen(onBack = { showRootSettings = false })
+        return
+    }
+
     val insets = rememberSystemInsetsDp()
     ProbeHomeContent(
             padding = insets.asPaddingValues(extra = 16.dp),
@@ -394,6 +405,7 @@ fun CameraCapabilitiesProbe(
             onShowLutImport = { showLutImport = true },
             onShowGlPreview = { showGlPreview = true },
             onShowNativeDiagnostics = { showNativeDiagnostics = true },
+            onShowRootSettings = { showRootSettings = true },
             onDumpDiagnostics = {
                 DiagnosticsMode.setEnabled(context, true)
                 val path = DiagnosticsMode.dump(context)
@@ -435,6 +447,7 @@ private fun ProbeHomeContent(
     onShowLutImport: () -> Unit,
     onShowGlPreview: () -> Unit,
     onShowNativeDiagnostics: () -> Unit,
+    onShowRootSettings: () -> Unit,
     onDumpDiagnostics: () -> Unit,
     onRequestPermission: () -> Unit,
     onExport: () -> Unit,
@@ -523,6 +536,7 @@ private fun ProbeHomeContent(
             OutlinedButton(onClick = onShowLutImport) { Text("Import LUT") }
             OutlinedButton(onClick = onShowGlPreview) { Text("Live preview LUT") }
             OutlinedButton(onClick = onShowNativeDiagnostics) { Text("Native diagnostics") }
+            OutlinedButton(onClick = onShowRootSettings) { Text("Root Only") }
         }
 
         Row(

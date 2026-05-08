@@ -239,6 +239,134 @@ object LutPipeline {
         return Lut3D(size, samples)
     }
 
+    /**
+     * Parse Sony Pictures Imageworks `.spi3d` text into a [Lut3D] per
+     * BUILD_PLAN §7. The format (publicly documented in the OpenColorIO
+     * `FileFormatSpi3D.cpp` source and shipped under BSD-3-Clause):
+     *
+     *   1. Header line: `SPILUT 1.0` (or other version tag - we tolerate
+     *      any uppercase header that starts with `SPILUT`).
+     *   2. Dim line: `<inputDim> <outputDim>` - we require `3 3` (a
+     *      3D-input, 3D-output LUT). 1D variants are rejected because
+     *      they require a different parser (`.spi1d`) and call site.
+     *   3. Size line: 3 integers giving the cube size on R, G, B.
+     *      Only cubic shapes (`size_R == size_G == size_B`) and only
+     *      sizes in [Lut3D.SUPPORTED_SIZES] are accepted, matching the
+     *      `.cube` and `.3dl` constraints.
+     *   4. Body: `size_R * size_G * size_B` lines, each carrying
+     *      `r_idx g_idx b_idx out_R out_G out_B`. Indices are integers
+     *      in `[0, size - 1]`; outputs are float values typically in
+     *      `[0, 1]`. Lines may appear in **arbitrary order** - the
+     *      parser places each entry by its `(r_idx, g_idx, b_idx)`,
+     *      not by file order, so AMPAS / Imageworks generators that
+     *      emit B-fastest are accepted alongside R-fastest exporters.
+     *   5. Comments: lines starting with `#` are ignored.
+     *
+     * Closes the host-side blocker for the BUILD_PLAN §7 ACES sRGB →
+     * ACEScct, ACEScct → sRGB Display, and Filmic (Blender) rows -
+     * those upstream packages ship `.spi3d` files directly.
+     */
+    fun parseSpi3d(text: String): Lut3D {
+        val rows = mutableListOf<List<String>>()
+        var lineNo = 0
+        for (raw in text.lineSequence()) {
+            lineNo += 1
+            val stripped = raw.substringBefore('#').trim()
+            if (stripped.isEmpty()) continue
+            rows.add(stripped.split(Regex("\\s+")))
+        }
+        require(rows.size >= 3) {
+            "spi3d file too short: expected SPILUT header + dim + size + body (got ${rows.size} non-blank lines)"
+        }
+
+        val header = rows[0].joinToString(" ").uppercase()
+        require(header.startsWith("SPILUT")) {
+            "spi3d header must start with 'SPILUT' (got '${rows[0].joinToString(" ")}')"
+        }
+
+        val dimRow = rows[1]
+        require(dimRow.size == 2) {
+            "spi3d dim line must be '<inputDim> <outputDim>' (got '${dimRow.joinToString(" ")}')"
+        }
+        val inputDim = dimRow[0].toIntOrNull()
+        val outputDim = dimRow[1].toIntOrNull()
+        require(inputDim == 3 && outputDim == 3) {
+            "spi3d only supports 3-input / 3-output LUTs (got input=$inputDim, output=$outputDim); " +
+                "1D variants belong in a separate .spi1d parser"
+        }
+
+        val sizeRow = rows[2]
+        require(sizeRow.size == 3) {
+            "spi3d size line must be 3 integers (got '${sizeRow.joinToString(" ")}')"
+        }
+        val sizeR = sizeRow[0].toIntOrNull()
+            ?: error("spi3d size_R is not an integer ('${sizeRow[0]}')")
+        val sizeG = sizeRow[1].toIntOrNull()
+            ?: error("spi3d size_G is not an integer ('${sizeRow[1]}')")
+        val sizeB = sizeRow[2].toIntOrNull()
+            ?: error("spi3d size_B is not an integer ('${sizeRow[2]}')")
+        require(sizeR == sizeG && sizeG == sizeB) {
+            "spi3d only supports cubic LUTs (got ${sizeR}x${sizeG}x$sizeB)"
+        }
+        val size = sizeR
+        require(size in Lut3D.SUPPORTED_SIZES) {
+            "Unsupported spi3d size=$size; allowed: ${Lut3D.SUPPORTED_SIZES}"
+        }
+
+        val expectedBody = size * size * size
+        val body = rows.subList(3, rows.size)
+        require(body.size == expectedBody) {
+            "spi3d body has ${body.size} rows, expected $expectedBody for size=$size"
+        }
+
+        val samples = FloatArray(size * size * size * 3)
+        val seen = BooleanArray(size * size * size)
+        for ((idx, row) in body.withIndex()) {
+            require(row.size == 6) {
+                "spi3d body row $idx must be '<r_idx> <g_idx> <b_idx> <out_R> <out_G> <out_B>' (got ${row.size} tokens)"
+            }
+            val r = row[0].toIntOrNull()
+                ?: error("spi3d body row $idx r_idx is not an integer ('${row[0]}')")
+            val g = row[1].toIntOrNull()
+                ?: error("spi3d body row $idx g_idx is not an integer ('${row[1]}')")
+            val b = row[2].toIntOrNull()
+                ?: error("spi3d body row $idx b_idx is not an integer ('${row[2]}')")
+            require(r in 0 until size && g in 0 until size && b in 0 until size) {
+                "spi3d body row $idx index ($r, $g, $b) out of range [0, ${size - 1}]"
+            }
+            val outR = row[3].toFloatOrNull()
+                ?: error("spi3d body row $idx out_R is not a float ('${row[3]}')")
+            val outG = row[4].toFloatOrNull()
+                ?: error("spi3d body row $idx out_G is not a float ('${row[4]}')")
+            val outB = row[5].toFloatOrNull()
+                ?: error("spi3d body row $idx out_B is not a float ('${row[5]}')")
+
+            val cellIdx = (b * size + g) * size + r
+            require(!seen[cellIdx]) {
+                "spi3d duplicate entry for cell ($r, $g, $b) at body row $idx"
+            }
+            seen[cellIdx] = true
+            samples[cellIdx * 3] = outR
+            samples[cellIdx * 3 + 1] = outG
+            samples[cellIdx * 3 + 2] = outB
+        }
+
+        // Verify every cell was written. (`body.size == expectedBody` plus
+        // the duplicate check guarantees this, but we double-check so a
+        // malformed body that re-uses an index pair is rejected with a
+        // clearer error than "missing samples".)
+        for (i in seen.indices) {
+            require(seen[i]) {
+                val r = i % size
+                val g = (i / size) % size
+                val b = i / (size * size)
+                "spi3d missing entry for cell ($r, $g, $b)"
+            }
+        }
+
+        return Lut3D(size, samples)
+    }
+
     private fun requireDomain(tokens: List<String>, expected: Float, lineNo: Int, name: String) {
         require(tokens.size >= 4) { "line $lineNo: $name expects 3 floats" }
         for (i in 1..3) {

@@ -69,21 +69,24 @@ object LutImportValidator {
     }
 
     /**
-     * Sniff the LUT text format: the `.cube` header keyword wins
-     * unambiguously; otherwise we assume `.3dl` (the Autodesk format
-     * is integer-only and has no header keyword).
+     * Sniff the LUT text format: the `.cube` and `.spi3d` header
+     * keywords win unambiguously; otherwise we assume `.3dl` (Autodesk
+     * Mesh, integer-only, no header keyword) when the first integer
+     * line is long enough to be a shaper, falling back to `.cube` so
+     * the canonical `MalformedHeader` failure category is preserved
+     * for body-only `.cube` payloads.
      */
     fun sniffFormat(text: String): Format {
         val firstNonComment = text.lineSequence()
             .map { it.substringBefore('#').trim() }
             .firstOrNull { it.isNotEmpty() }
             ?: return Format.Cube
-        // .cube files almost always start with TITLE / LUT_3D_SIZE / DOMAIN_*.
-        // .3dl files start with an integer-only shaper line.
-        if (firstNonComment.uppercase().startsWith("LUT_3D_SIZE") ||
-            firstNonComment.uppercase().startsWith("TITLE") ||
-            firstNonComment.uppercase().startsWith("DOMAIN_") ||
-            firstNonComment.uppercase().startsWith("LUT_1D_SIZE")
+        val upper = firstNonComment.uppercase()
+        if (upper.startsWith("SPILUT")) return Format.Spi3d
+        if (upper.startsWith("LUT_3D_SIZE") ||
+            upper.startsWith("TITLE") ||
+            upper.startsWith("DOMAIN_") ||
+            upper.startsWith("LUT_1D_SIZE")
         ) {
             return Format.Cube
         }
@@ -116,6 +119,7 @@ object LutImportValidator {
             when (format) {
                 Format.Cube -> LutPipeline.parseCube(text)
                 Format.Dl3 -> LutPipeline.parseDl3(text)
+                Format.Spi3d -> LutPipeline.parseSpi3d(text)
             }
         } catch (ex: IllegalArgumentException) {
             return Result.Failure(
@@ -190,12 +194,24 @@ object LutImportValidator {
             lower.contains("3dl shaper") -> FailureCategory.MalformedHeader
             lower.contains("3dl file contained no integer rows") -> FailureCategory.MalformedHeader
             lower.contains("3dl body row") -> FailureCategory.MalformedBody
+            lower.contains("spi3d only supports 3-input") -> FailureCategory.OneDLut
+            lower.contains("unsupported spi3d size") -> FailureCategory.UnsupportedSize
+            lower.contains("spi3d only supports cubic luts") -> FailureCategory.UnsupportedSize
+            lower.contains("spi3d header") -> FailureCategory.MalformedHeader
+            lower.contains("spi3d dim line") -> FailureCategory.MalformedHeader
+            lower.contains("spi3d size line") -> FailureCategory.MalformedHeader
+            lower.contains("spi3d size_") -> FailureCategory.MalformedHeader
+            lower.contains("spi3d file too short") -> FailureCategory.MalformedHeader
+            lower.contains("spi3d body has") -> FailureCategory.SizeMismatch
+            lower.contains("spi3d body row") -> FailureCategory.MalformedBody
+            lower.contains("spi3d duplicate entry") -> FailureCategory.MalformedBody
+            lower.contains("spi3d missing entry") -> FailureCategory.MalformedBody
             else -> FailureCategory.MalformedBody
         }
     }
 
     /** Recognized LUT text formats. */
-    enum class Format { Cube, Dl3 }
+    enum class Format { Cube, Dl3, Spi3d }
 
     /** Validation outcome - sealed so callers can pattern-match. */
     sealed class Result {

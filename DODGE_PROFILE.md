@@ -125,13 +125,63 @@ with the filename pattern `pns_<utc>_<profile>_<seq>.<ext>`
 stable `BracketPlan.bracketGroupingId` so desktop tooling can re-group them
 post-capture; the GroupingID is mirrored into the DNG metadata (Phase 1).
 
-## Next probe deltas needed to finalize mapping (Phase 0 follow-on)
+## Lens + sensor info (from probe)
 
-- Add to probe output (typed, per cameraId):
-  - `android.lens.info.availableApertures`
-  - `android.lens.info.availableOpticalStabilization` + `android.lens.opticalStabilizationMode` support
-  - `android.lens.info.minimumFocusDistance` (macro proof)
-  - `android.sensor.info.physicalSize` (sensor size sanity)
-  - `android.sensor.orientation`
-  - Any vendor tags that explicitly label “main/uw/tele” roles
+The deep-caps probe (`DeepCapsProbeScreen.runDeepCapsProbe`) emits a
+typed `lensInfo` block per cameraId, surfaced in
+`hfr-runs/deep_caps_round11.json` and parsed back through
+`LensInfoSummaryJson.decode`. Values are framework-reported.
+
+| cameraId | facing | apertures | OIS modes | min focus | hyperfocal | focal length | sensor size (mm) | active array (px) | orientation |
+|---|---|---|---|---|---|---|---|---|---|
+| `0` (logical) | BACK | f/1.60 | OFF only | 10 diopters (10 cm) | 0.10 diopters (10.2 m) | 6.06 mm | 9.18 x 6.88 | 4096 x 3072 | 90 deg |
+| `1` (front IMX615) | FRONT | f/2.40 | OFF only | 0 (fixed-focus) | 0.37 diopters (2.7 m) | 3.23 mm | 5.25 x 3.94 | 3280 x 2464 | 270 deg |
+| `2` (LYT-808 main wide) | BACK | f/1.60 | OFF only | 10 diopters (10 cm) | 0.10 diopters (10.2 m) | 6.06 mm | 9.18 x 6.88 | 4096 x 3072 | 90 deg |
+| `3` (S5KJN5 ultra-wide) | BACK | f/2.05 | OFF only | **25 diopters (4 cm)** | 0.50 diopters (2.0 m) | 2.30 mm | 5.24 x 3.93 | 4096 x 3072 | 90 deg |
+| `4` (LYT-600 tele) | BACK | f/2.60 | OFF only | 1.72 diopters (58 cm) | 0.022 diopters (46 m) | 13.85 mm | 6.55 x 4.92 | 4096 x 3072 | 90 deg |
+
+### Findings
+
+- **Macro confirmation**: `cameraId=3` reports a 25-diopter minimum focus
+  distance (~ 4 cm). This is well above the
+  `LensInfoSummary.MACRO_MIN_DIOPTERS_THRESHOLD = 15f` threshold (6.7 cm)
+  and confirms super-macro is wired to the ultra-wide. The threshold
+  was tuned UPWARD from an initial 10 diopters because the LYT-808 main
+  wide reports exactly 10 diopters of close-focus capability, which would
+  have falsely triggered the macro mode.
+- **OIS gap**: NO camera advertises a non-`OFF` mode in
+  `LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION`, even though the OnePlus
+  13 ships hardware OIS on the LYT-808 (main wide, `cameraId=2`) and
+  the LYT-600 (periscope tele, `cameraId=4`). This means OIS is NOT
+  exposed via the standard Camera2 API on this device; we will need to
+  surface it later via vendor capture-request keys or accept that OIS
+  stays hardware-default. `CapabilityGate.Feature.OpticalStabilization`
+  is currently False across the board until that vendor key is
+  identified.
+- **Aperture pinning**: every back camera reports a single fixed aperture
+  (no variable-aperture support), as expected for a phone optical stack.
+- **Sensor size sanity**: the LYT-808 (1/1.4 inch effective area,
+  9.18 x 6.88 mm) and LYT-600 (1/2.7 inch, 6.55 x 4.92 mm) match
+  published OnePlus 13 specifications; the S5KJN5 footprint matches a
+  1/3.4 inch UW-class sensor.
+
+### Source artifact
+
+`hfr-runs/deep_caps_round11.json` (pulled 2026-05-08 from adb 8bf09993).
+Re-run via `adb shell am start -W -n dev.pointandshoot/.MainActivity
+--es pns_screen deepcaps --ez pns_autodeepcaps true`; the JSON lands in
+`getExternalFilesDir(null)/deep_caps_<utc>.json` and can be pulled
+with `adb pull`.
+
+## Outstanding Phase 0 follow-ons
+
+- Vendor key search for OIS exposure on `cameraId=2` (LYT-808 main) and
+  `cameraId=4` (LYT-600 tele): both have hardware OIS but the standard
+  Camera2 API surfaces only `OFF`. Probe the vendor request-key
+  namespace (`com.oplus.*`, `com.oneplus.*`) for an `oisMode`
+  analogue.
+- Vendor tags that explicitly label main / uw / tele roles - the
+  deep-caps probe enumerates every characteristic / request / result key
+  by name; an audit pass on `deep_caps_round11.json` against the
+  `cameraId=2/3/4` key lists is the next step.
 

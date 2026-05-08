@@ -60,6 +60,11 @@ object CapabilityGate {
             enabled = caps.has10BitHdrPipeline,
             disabledReason = "10-bit AVIF (HDR) requires the Android 16 hybrid AE / 10-bit pipeline.",
         ),
+        gate(
+            feature = Feature.OpticalStabilization,
+            enabled = caps.hasOpticalStabilization,
+            disabledReason = "Optical image stabilization is not advertised by this lens.",
+        ),
     )
 
     /**
@@ -92,6 +97,12 @@ data class HardwareCaps(
     val aeCompensationStepsAvailable: Int,
     val hasMacroMode: Boolean,
     val has10BitHdrPipeline: Boolean,
+    /**
+     * True when the active camera advertises any non-`OFF` mode in
+     * `LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION`. Populated from
+     * [LensInfoSummary.hasOpticalStabilization] at the engine boundary.
+     */
+    val hasOpticalStabilization: Boolean = false,
 )
 
 enum class Feature(val displayName: String) {
@@ -103,6 +114,7 @@ enum class Feature(val displayName: String) {
     BracketBurst("Exposure bracketing"),
     SuperMacroLock("Super Macro lock"),
     TenBitHdrAvif("10-bit AVIF (HDR)"),
+    OpticalStabilization("Optical image stabilization"),
 }
 
 /**

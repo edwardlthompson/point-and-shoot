@@ -18,6 +18,7 @@ class CapabilityGateTest {
         aeCompensationStepsAvailable = 24,
         hasMacroMode = true,
         has10BitHdrPipeline = true,
+        hasOpticalStabilization = true,
     )
 
     private val barebones = HardwareCaps(
@@ -29,6 +30,7 @@ class CapabilityGateTest {
         aeCompensationStepsAvailable = 0,
         hasMacroMode = false,
         has10BitHdrPipeline = false,
+        hasOpticalStabilization = false,
     )
 
     @Test
@@ -75,5 +77,41 @@ class CapabilityGateTest {
         for (feat in Feature.entries) {
             assertTrue("expected $feat in defaults", defaults.contains(feat))
         }
+    }
+
+    @Test
+    fun `OIS gate flips with hasOpticalStabilization`() {
+        val withOis = barebones.copy(hasOpticalStabilization = true)
+        val withoutOis = barebones.copy(hasOpticalStabilization = false)
+        val on = CapabilityGate.evaluate(withOis).first { it.feature == Feature.OpticalStabilization }
+        val off = CapabilityGate.evaluate(withoutOis).first { it.feature == Feature.OpticalStabilization }
+
+        assertTrue(on.enabled)
+        assertNull(on.disabledReason)
+        assertFalse(off.enabled)
+        assertNotNull(off.disabledReason)
+    }
+
+    @Test
+    fun `OIS feature is included in the gate output and surfaces a stable display name`() {
+        val results = CapabilityGate.evaluate(fullStack)
+        val ois = results.first { it.feature == Feature.OpticalStabilization }
+        assertTrue(ois.enabled)
+        assertEquals("Optical image stabilization", Feature.OpticalStabilization.displayName)
+    }
+
+    @Test
+    fun `HardwareCaps OIS field defaults to false for backward compatibility`() {
+        val caps = HardwareCaps(
+            hasRawCapability = true,
+            has12BitDepth = true,
+            has120FpsHfr = false,
+            hasFaceDetectFull = false,
+            hasPreviewHistogram = false,
+            aeCompensationStepsAvailable = 0,
+            hasMacroMode = false,
+            has10BitHdrPipeline = true,
+        )
+        assertFalse(caps.hasOpticalStabilization)
     }
 }

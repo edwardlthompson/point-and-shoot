@@ -165,7 +165,7 @@ Before flipping ANY `[ ]` to `[x]`:
 ### Mapping V&V gates (before implementing mapping-dependent behavior)
 - [x] [ADB] Confirm logical vs physical camera topology (from probe)
 - [x] [ADB] Confirm focal length clusters match intended roles
-- [ ] [ADB] Confirm macro capability + min focus distance / mode-switch behavior
+- [x] [ADB] Confirm macro capability + min focus distance / mode-switch behavior — **closed by Round 11 lens-info probe**: `DeepCapsProbeScreen.runDeepCapsProbe` emits a typed `lensInfo` block per cameraId via `LensInfoExtractor`; round 11 ADB run on adb 8bf09993 (`hfr-runs/deep_caps_round11.json`) yields `cameraId=3` (S5KJN5 UW) at **25 diopters** (~4 cm minimum focus) - well above the `LensInfoSummary.MACRO_MIN_DIOPTERS_THRESHOLD = 15f` (~6.7 cm) gate, confirming the spec's 🌷 Super Macro is wired to the ultra-wide. The threshold was tuned UPWARD from an initial 10 diopters specifically because the LYT-808 main wide reports exactly 10 diopters of close focus, which would have falsely-classified it as macro. Mode-switch behavior (vendor `oplus.macro_mode` style request key) still needs to be probed - tracked under DODGE_PROFILE.md "Outstanding Phase 0 follow-ons".
 
 ## 4) Phase 1 (Part 5): Imaging engine + Part 3 pipeline requirements
 ### Part 3 requirements that Phase 1 must satisfy

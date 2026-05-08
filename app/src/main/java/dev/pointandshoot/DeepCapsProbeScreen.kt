@@ -213,6 +213,20 @@ private suspend fun runDeepCapsProbe(
             camObj.put("hardwareLevel", cc.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ?: JSONObject.NULL)
             camObj.put("physicalCameraIds", JSONArray(runCatching { cc.physicalCameraIds.toList() }.getOrDefault(emptyList())))
 
+            onProgress(" id=$cameraId: lens info (apertures / OIS / focus / sensor size)…")
+            val lensInfoJson = runCatching { LensInfoExtractor.extractToJson(cameraId, cc) }.fold(
+                onSuccess = { it },
+                onFailure = { e ->
+                    Log.e(TAG, "lensInfo failed for camera $cameraId", e)
+                    JSONObject().apply {
+                        put("schemaVersion", LensInfoSummaryJson.SCHEMA_VERSION)
+                        put("cameraId", cameraId)
+                        put("error", "${e::class.java.simpleName}: ${e.message}")
+                    }
+                },
+            )
+            camObj.put(LensInfoSummaryJson.KEY_LENS_INFO, lensInfoJson)
+
             camObj.put("availableCapabilities", intArrayToJson(cc.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)))
             camObj.put("aeTargetFpsRanges", rangeArrayToJson(cc.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)))
 

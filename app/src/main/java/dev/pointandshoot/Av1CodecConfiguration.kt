@@ -255,6 +255,25 @@ object Av1CodecConfiguration {
                 chromaSubsamplingX = true,
                 chromaSubsamplingY = true,
             )
+
+            /**
+             * Canonical default config for an 8-bit monochrome
+             * AV1 still — the typical alpha-channel auxiliary
+             * image bitstream for AVIF spec § 3.4. `seq_profile
+             * = 0`, `seq_level_idx_0 = 8` (Level 4.0). Chroma
+             * subsampling fields default to 1 per AV1 spec when
+             * `monochrome = 1` (the encoder writes them but
+             * decoders ignore them in monochrome mode).
+             */
+            val DEFAULT_8BIT_MONOCHROME: Config = Config(
+                seqProfile = 0,
+                seqLevelIdx0 = 8,
+                highBitdepth = false,
+                twelveBit = false,
+                monochrome = true,
+                chromaSubsamplingX = true,
+                chromaSubsamplingY = true,
+            )
         }
     }
 

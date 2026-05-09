@@ -878,6 +878,412 @@ class AvifStillMuxerTest {
         )
     }
 
+    // ------------------------------------------------------------------
+    // Alpha auxiliary image item integration (Round 38)
+    // ------------------------------------------------------------------
+
+    /** Tiny non-empty placeholder for an alpha bitstream. */
+    private val tinyAlpha = byteArrayOf(0x07, 0x42, 0x00, 0xAA.toByte(), 0x55, 0x33)
+
+    @Test
+    fun `ALPHA_ITEM_ID pin is 4 (distinct from PRIMARY EXIF XMP)`() {
+        assertEquals(4, AvifStillMuxer.ALPHA_ITEM_ID)
+        assertNotEquals(AvifStillMuxer.PRIMARY_ITEM_ID, AvifStillMuxer.ALPHA_ITEM_ID)
+        assertNotEquals(AvifStillMuxer.EXIF_ITEM_ID, AvifStillMuxer.ALPHA_ITEM_ID)
+        assertNotEquals(AvifStillMuxer.XMP_ITEM_ID, AvifStillMuxer.ALPHA_ITEM_ID)
+    }
+
+    @Test
+    fun `BIT_DEPTHS_ALPHA_8 pin`() {
+        assertArrayEquals(intArrayOf(8), AvifStillMuxer.BIT_DEPTHS_ALPHA_8)
+    }
+
+    @Test
+    fun `BIT_DEPTHS_ALPHA_10 pin`() {
+        assertArrayEquals(intArrayOf(10), AvifStillMuxer.BIT_DEPTHS_ALPHA_10)
+    }
+
+    @Test
+    fun `BIT_DEPTHS_ALPHA_12 pin`() {
+        assertArrayEquals(intArrayOf(12), AvifStillMuxer.BIT_DEPTHS_ALPHA_12)
+    }
+
+    @Test
+    fun `Input rejects empty alphaBitstream when set`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AvifStillMuxer.Input(
+                widthPx = 100,
+                heightPx = 100,
+                bitDepths = intArrayOf(8, 8, 8),
+                cicp = WorkingSpace.SRGB.cicp,
+                av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+                alphaBitstream = ByteArray(0),
+                alphaConfiguration = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME,
+            )
+        }
+    }
+
+    @Test
+    fun `Input rejects alphaBitstream without alphaConfiguration`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AvifStillMuxer.Input(
+                widthPx = 100,
+                heightPx = 100,
+                bitDepths = intArrayOf(8, 8, 8),
+                cicp = WorkingSpace.SRGB.cicp,
+                av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+                alphaBitstream = tinyAlpha,
+                alphaConfiguration = null,
+            )
+        }
+    }
+
+    @Test
+    fun `Input rejects alphaConfiguration without alphaBitstream`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AvifStillMuxer.Input(
+                widthPx = 100,
+                heightPx = 100,
+                bitDepths = intArrayOf(8, 8, 8),
+                cicp = WorkingSpace.SRGB.cicp,
+                av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+                alphaBitstream = null,
+                alphaConfiguration = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME,
+            )
+        }
+    }
+
+    @Test
+    fun `Input rejects multi-channel alphaBitDepths`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AvifStillMuxer.Input(
+                widthPx = 100,
+                heightPx = 100,
+                bitDepths = intArrayOf(8, 8, 8),
+                cicp = WorkingSpace.SRGB.cicp,
+                av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+                alphaBitDepths = intArrayOf(8, 8),
+            )
+        }
+    }
+
+    @Test
+    fun `alpha set produces two iinf entries (av01 primary + av01 alpha)`() {
+        val out = AvifStillMuxer.encode(canonicalAlphaInput())
+        val iinfPayload = findBoxPayload(out, "iinf")
+        val version = iinfPayload[0].toInt() and 0xFF
+        val entryCount = if (version == 0) {
+            ((iinfPayload[4].toInt() and 0xFF) shl 8) or (iinfPayload[5].toInt() and 0xFF)
+        } else {
+            ((iinfPayload[4].toInt() and 0xFF) shl 24) or
+                ((iinfPayload[5].toInt() and 0xFF) shl 16) or
+                ((iinfPayload[6].toInt() and 0xFF) shl 8) or
+                (iinfPayload[7].toInt() and 0xFF)
+        }
+        assertEquals(2, entryCount)
+        // Both entries should declare itemType="av01" — count the
+        // occurrences of "av01" in the iinf bytes (must be 2).
+        val asString = String(iinfPayload, Charsets.US_ASCII)
+        var idx = 0
+        var occurrences = 0
+        while (true) {
+            val found = asString.indexOf("av01", idx)
+            if (found == -1) break
+            occurrences++
+            idx = found + 4
+        }
+        assertEquals("two av01 entries (primary + alpha)", 2, occurrences)
+    }
+
+    @Test
+    fun `alpha set emits iref auxl reference from alpha to primary`() {
+        val out = AvifStillMuxer.encode(canonicalAlphaInput())
+        val irefPayload = findBoxPayload(out, "iref")
+        // iref has at least one sub-box; first sub-box starts at offset 4
+        // (after version+flags). Walk the iref looking for an "auxl"
+        // sub-box.
+        var i = 4
+        var foundAuxl = false
+        while (i < irefPayload.size) {
+            val size = ((irefPayload[i].toInt() and 0xFF) shl 24) or
+                ((irefPayload[i + 1].toInt() and 0xFF) shl 16) or
+                ((irefPayload[i + 2].toInt() and 0xFF) shl 8) or
+                (irefPayload[i + 3].toInt() and 0xFF)
+            val type = String(irefPayload.copyOfRange(i + 4, i + 8), Charsets.US_ASCII)
+            if (type == "auxl") {
+                foundAuxl = true
+                val from = ((irefPayload[i + 8].toInt() and 0xFF) shl 8) or
+                    (irefPayload[i + 9].toInt() and 0xFF)
+                val refCount = ((irefPayload[i + 10].toInt() and 0xFF) shl 8) or
+                    (irefPayload[i + 11].toInt() and 0xFF)
+                val to = ((irefPayload[i + 12].toInt() and 0xFF) shl 8) or
+                    (irefPayload[i + 13].toInt() and 0xFF)
+                assertEquals(AvifStillMuxer.ALPHA_ITEM_ID, from)
+                assertEquals(1, refCount)
+                assertEquals(AvifStillMuxer.PRIMARY_ITEM_ID, to)
+                break
+            }
+            i += size
+        }
+        assertTrue("auxl sub-box must be present in iref when alpha set", foundAuxl)
+    }
+
+    @Test
+    fun `alpha set appends pixi av1C and auxC to ipco`() {
+        val baseline = AvifStillMuxer.encode(canonicalInput())
+        val withAlpha = AvifStillMuxer.encode(canonicalAlphaInput())
+
+        val baselineIpco = findBoxPayload(baseline, "ipco")
+        val baselineCount = splitChildBoxes(baselineIpco).size
+        val alphaIpco = findBoxPayload(withAlpha, "ipco")
+        val alphaChildren = splitChildBoxes(alphaIpco)
+        val alphaTypes = alphaChildren.map { boxType(it) }
+
+        // alpha appends: pixi (alpha), av1C (alpha), auxC. ispe is shared
+        // with the primary, so ipco count = baselineCount + 3.
+        assertEquals(baselineCount + 3, alphaChildren.size)
+
+        // The last three properties must be pixi, av1C, auxC in that order.
+        val last3 = alphaTypes.takeLast(3)
+        assertEquals(listOf("pixi", "av1C", "auxC"), last3)
+    }
+
+    @Test
+    fun `alpha set emits a second ipma entry binding ALPHA_ITEM_ID`() {
+        val out = AvifStillMuxer.encode(canonicalAlphaInput())
+        val ipmaPayload = findBoxPayload(out, "ipma")
+        // FullBox: 4 bytes version+flags. Body:
+        //   uint32_be entry_count
+        //   per entry:
+        //     uint16 itemId  // for v=0
+        //     uint8  association_count
+        //     association_count bytes (1 byte each, since flags=0).
+        val entryCount = ((ipmaPayload[4].toLong() and 0xFF) shl 24) or
+            ((ipmaPayload[5].toLong() and 0xFF) shl 16) or
+            ((ipmaPayload[6].toLong() and 0xFF) shl 8) or
+            (ipmaPayload[7].toLong() and 0xFF)
+        assertEquals(2L, entryCount)
+
+        // First entry is the primary; second is alpha.
+        val firstItemId = ((ipmaPayload[8].toInt() and 0xFF) shl 8) or
+            (ipmaPayload[9].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.PRIMARY_ITEM_ID, firstItemId)
+        val firstAssocCount = ipmaPayload[10].toInt() and 0xFF
+        // Skip past primary's associations (1 byte each).
+        val secondEntryStart = 11 + firstAssocCount
+        val secondItemId = ((ipmaPayload[secondEntryStart].toInt() and 0xFF) shl 8) or
+            (ipmaPayload[secondEntryStart + 1].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.ALPHA_ITEM_ID, secondItemId)
+
+        // Alpha must have exactly 4 associations: ispe + pixi + av1C + auxC.
+        val secondAssocCount = ipmaPayload[secondEntryStart + 2].toInt() and 0xFF
+        assertEquals(4, secondAssocCount)
+    }
+
+    @Test
+    fun `alpha set associations all marked essential`() {
+        val out = AvifStillMuxer.encode(canonicalAlphaInput())
+        val ipmaPayload = findBoxPayload(out, "ipma")
+        val firstAssocCount = ipmaPayload[10].toInt() and 0xFF
+        val secondEntryStart = 11 + firstAssocCount
+        val secondAssocCount = ipmaPayload[secondEntryStart + 2].toInt() and 0xFF
+        for (i in 0 until secondAssocCount) {
+            // Each association is a single byte: high bit = essential flag.
+            val assoc = ipmaPayload[secondEntryStart + 3 + i].toInt() and 0xFF
+            assertTrue(
+                "alpha association $i must be essential (high bit set)",
+                (assoc and 0x80) != 0,
+            )
+        }
+    }
+
+    @Test
+    fun `alpha set places alpha bytes at end of mdat (no prefix)`() {
+        val input = canonicalAlphaInput()
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatHeaderSize = MediaDataBox.headerSize(
+            input.av1Bitstream.size.toLong() + tinyAlpha.size.toLong(),
+        )
+        val alphaStart = mdatStart + mdatHeaderSize + input.av1Bitstream.size
+        val alphaBytes = out.copyOfRange(alphaStart, alphaStart + tinyAlpha.size)
+        assertArrayEquals(tinyAlpha, alphaBytes)
+        // mdat ends exactly at the alpha end (no trailing bytes).
+        assertEquals(out.size, alphaStart + tinyAlpha.size)
+    }
+
+    @Test
+    fun `alpha iloc has two extents with alpha offset right after AV1 primary`() {
+        val input = canonicalAlphaInput()
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatHeaderSize = MediaDataBox.headerSize(
+            input.av1Bitstream.size.toLong() + tinyAlpha.size.toLong(),
+        )
+        val expectedAv1Offset = (mdatStart + mdatHeaderSize).toLong()
+        val expectedAlphaOffset = expectedAv1Offset + input.av1Bitstream.size.toLong()
+
+        val ilocPayload = findBoxPayload(out, "iloc")
+        val body = ilocPayload.copyOfRange(4, ilocPayload.size)
+        val entry1Start = 4
+        val item1OffsetStart = entry1Start + 2 + 2 + 2
+        val item1Offset = ((body[item1OffsetStart].toLong() and 0xFF) shl 24) or
+            ((body[item1OffsetStart + 1].toLong() and 0xFF) shl 16) or
+            ((body[item1OffsetStart + 2].toLong() and 0xFF) shl 8) or
+            (body[item1OffsetStart + 3].toLong() and 0xFF)
+        assertEquals(expectedAv1Offset, item1Offset)
+
+        val entry2Start = entry1Start + 2 + 2 + 2 + 4 + 4
+        val entry2ItemId = ((body[entry2Start].toInt() and 0xFF) shl 8) or
+            (body[entry2Start + 1].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.ALPHA_ITEM_ID, entry2ItemId)
+        val item2OffsetStart = entry2Start + 2 + 2 + 2
+        val item2Offset = ((body[item2OffsetStart].toLong() and 0xFF) shl 24) or
+            ((body[item2OffsetStart + 1].toLong() and 0xFF) shl 16) or
+            ((body[item2OffsetStart + 2].toLong() and 0xFF) shl 8) or
+            (body[item2OffsetStart + 3].toLong() and 0xFF)
+        assertEquals(expectedAlphaOffset, item2Offset)
+    }
+
+    @Test
+    fun `alpha set keeps file ftyp meta mdat top-level structure`() {
+        val out = AvifStillMuxer.encode(canonicalAlphaInput())
+        val ftypType = String(out.copyOfRange(4, 8), Charsets.US_ASCII)
+        assertEquals("ftyp", ftypType)
+        val ftypSize = readBoxSize(out, 0)
+        val metaType = String(out.copyOfRange(ftypSize + 4, ftypSize + 8), Charsets.US_ASCII)
+        assertEquals("meta", metaType)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatType = String(
+            out.copyOfRange(ftypSize + metaSize + 4, ftypSize + metaSize + 8),
+            Charsets.US_ASCII,
+        )
+        assertEquals("mdat", mdatType)
+    }
+
+    @Test
+    fun `alpha set ends mdat exactly at the alpha end (no trailing bytes)`() {
+        val input = canonicalAlphaInput()
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatSize = readBoxSize(out, mdatStart)
+        assertEquals(out.size, mdatStart + mdatSize)
+    }
+
+    @Test
+    fun `alpha null does not emit auxC property`() {
+        val out = AvifStillMuxer.encode(canonicalInput())
+        val ipco = findBoxPayload(out, "ipco")
+        val types = splitChildBoxes(ipco).map { boxType(it) }
+        assertTrue("auxC must NOT appear when alpha is null", !types.contains("auxC"))
+    }
+
+    @Test
+    fun `alpha null vs alpha set produce different outputs`() {
+        val noAlpha = AvifStillMuxer.encode(canonicalInput())
+        val withAlpha = AvifStillMuxer.encode(canonicalAlphaInput())
+        assertTrue("alpha must change the output", !noAlpha.contentEquals(withAlpha))
+        assertTrue(
+            "alpha must grow the file by at least the alpha size",
+            withAlpha.size > noAlpha.size + tinyAlpha.size,
+        )
+    }
+
+    @Test
+    fun `exif xmp and alpha all set lays out mdat as AV1 then EXIF then XMP then ALPHA`() {
+        val input = canonicalInput().copy(
+            exifPayload = tinyExif,
+            xmpPayload = tinyXmp,
+            alphaBitstream = tinyAlpha,
+            alphaConfiguration = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME,
+        )
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val totalMetaSize = input.av1Bitstream.size +
+            AvifStillMuxer.EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE +
+            tinyExif.size +
+            tinyXmp.size +
+            tinyAlpha.size
+        val mdatHeaderSize = MediaDataBox.headerSize(totalMetaSize.toLong())
+        val av1End = mdatStart + mdatHeaderSize + input.av1Bitstream.size
+        // 4-byte zero prefix before EXIF
+        assertEquals(0, out[av1End].toInt() and 0xFF)
+        val exifEnd = av1End + 4 + tinyExif.size
+        assertArrayEquals(tinyExif, out.copyOfRange(av1End + 4, exifEnd))
+        val xmpEnd = exifEnd + tinyXmp.size
+        assertArrayEquals(tinyXmp, out.copyOfRange(exifEnd, xmpEnd))
+        val alphaEnd = xmpEnd + tinyAlpha.size
+        assertArrayEquals(tinyAlpha, out.copyOfRange(xmpEnd, alphaEnd))
+        assertEquals(out.size, alphaEnd)
+    }
+
+    @Test
+    fun `exif xmp and alpha all set produces four iinf entries`() {
+        val input = canonicalInput().copy(
+            exifPayload = tinyExif,
+            xmpPayload = tinyXmp,
+            alphaBitstream = tinyAlpha,
+            alphaConfiguration = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME,
+        )
+        val out = AvifStillMuxer.encode(input)
+        val iinfPayload = findBoxPayload(out, "iinf")
+        val version = iinfPayload[0].toInt() and 0xFF
+        val entryCount = if (version == 0) {
+            ((iinfPayload[4].toInt() and 0xFF) shl 8) or (iinfPayload[5].toInt() and 0xFF)
+        } else {
+            ((iinfPayload[4].toInt() and 0xFF) shl 24) or
+                ((iinfPayload[5].toInt() and 0xFF) shl 16) or
+                ((iinfPayload[6].toInt() and 0xFF) shl 8) or
+                (iinfPayload[7].toInt() and 0xFF)
+        }
+        assertEquals(4, entryCount)
+    }
+
+    @Test
+    fun `exif xmp and alpha all set produces iref with three sub-boxes (cdsc cdsc auxl)`() {
+        val input = canonicalInput().copy(
+            exifPayload = tinyExif,
+            xmpPayload = tinyXmp,
+            alphaBitstream = tinyAlpha,
+            alphaConfiguration = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME,
+        )
+        val out = AvifStillMuxer.encode(input)
+        val irefPayload = findBoxPayload(out, "iref")
+        val subBoxTypes = mutableListOf<String>()
+        var i = 4
+        while (i < irefPayload.size) {
+            val size = ((irefPayload[i].toInt() and 0xFF) shl 24) or
+                ((irefPayload[i + 1].toInt() and 0xFF) shl 16) or
+                ((irefPayload[i + 2].toInt() and 0xFF) shl 8) or
+                (irefPayload[i + 3].toInt() and 0xFF)
+            val type = String(irefPayload.copyOfRange(i + 4, i + 8), Charsets.US_ASCII)
+            subBoxTypes.add(type)
+            i += size
+        }
+        assertEquals(listOf("cdsc", "cdsc", "auxl"), subBoxTypes)
+    }
+
+    @Test
+    fun `Av1CodecConfiguration DEFAULT_8BIT_MONOCHROME has monochrome flag set`() {
+        val cfg = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME
+        assertTrue("DEFAULT_8BIT_MONOCHROME.monochrome must be true", cfg.monochrome)
+        assertEquals(0, cfg.seqProfile)
+        assertEquals(8, cfg.seqLevelIdx0)
+        assertTrue("highBitdepth must be false for 8-bit", !cfg.highBitdepth)
+    }
+
     // ==================================================================
     // Helpers
     // ==================================================================
@@ -889,6 +1295,11 @@ class AvifStillMuxerTest {
         cicp = WorkingSpace.SRGB.cicp,
         av1Bitstream = tinyAv1,
         av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+    )
+
+    private fun canonicalAlphaInput(): AvifStillMuxer.Input = canonicalInput().copy(
+        alphaBitstream = tinyAlpha,
+        alphaConfiguration = Av1CodecConfiguration.Config.DEFAULT_8BIT_MONOCHROME,
     )
 
     private fun readBoxSize(buf: ByteArray, offset: Int): Int {

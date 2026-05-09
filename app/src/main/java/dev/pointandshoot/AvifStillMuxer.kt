@@ -75,8 +75,6 @@ import java.io.ByteArrayOutputStream
  *
  * ### What this round does NOT yet ship
  *
- *  * Auxiliary alpha image items (require an `iref` "auxl"
- *    reference + `auxC` property; planned for a future round).
  *  * Animated AVIF (`avis`) sequences (require track-based
  *    boxes from § 8.x; this muxer is still-image only).
  *
@@ -112,10 +110,32 @@ import java.io.ByteArrayOutputStream
  *    prefix — the XMP packet (the `<?xpacket begin=...` …
  *    `<?xpacket end=...` byte sequence) lands raw in `mdat`.
  *
- * The full mdat layout is `[AV1 bitstream] [exif_tiff_header_offset
- * (4 BE) | EXIF TIFF block]? [XMP packet]?` — entries appear in
- * that fixed order regardless of which optional metadata items
- * are set.
+ * ### Optional alpha auxiliary image (Round 38)
+ *
+ * When [Input.alphaBitstream] (and [Input.alphaConfiguration])
+ * are non-null, the muxer emits an AVIF alpha auxiliary image
+ * item per AVIF spec § 3.4:
+ *
+ *  * a fourth `infe` entry (`itemType = "av01"`, `itemId = 4`)
+ *    in `iinf` for the alpha AV1 image,
+ *  * an `iref` `auxl` reference from the alpha image item to
+ *    the primary AV1 image item,
+ *  * a fourth `iloc` extent pointing to the alpha bitstream
+ *    inside `mdat`,
+ *  * a second `ipma` entry binding the alpha item's
+ *    properties: a shared `ispe` (alpha dimensions must match
+ *    primary per AVIF spec § 4), an alpha-only `pixi`
+ *    (single-channel, typically 8-bit), an alpha-only `av1C`
+ *    (the alpha bitstream's own AV1 sequence header), and an
+ *    `auxC` declaring `aux_type =
+ *    "urn:mpeg:mpegB:cicp:systems:auxiliary:alpha"`. All four
+ *    are marked `essential = true` per AVIF spec § 3.4 (the
+ *    decoder MUST fail if it can't honor any of these).
+ *
+ * The full `mdat` layout is `[AV1 primary] [exif_tiff_header_
+ * offset (4 BE) | EXIF TIFF block]? [XMP packet]? [AV1 alpha]?`
+ * — entries appear in that fixed order regardless of which
+ * optional items are set.
  *
  * Pinned schema version: bumped only when the on-disk byte
  * layout changes incompatibly.
@@ -159,6 +179,25 @@ object AvifStillMuxer {
      * XMP `infe` entry's `content_type` field.
      */
     const val XMP_MIME_TYPE: String = "application/rdf+xml"
+
+    /**
+     * The canonical itemId for the optional alpha auxiliary
+     * image item when [Input.alphaBitstream] is set (Round 38).
+     * Pinned to `4` so the wire layout stays deterministic
+     * regardless of which optional metadata items are also
+     * set. AVIF spec § 3.4 mandates that the alpha is carried
+     * as an auxiliary image item.
+     */
+    const val ALPHA_ITEM_ID: Int = 4
+
+    /** Per-channel bit-depth list shorthand for monochrome 8-bit alpha. */
+    val BIT_DEPTHS_ALPHA_8: IntArray = intArrayOf(8)
+
+    /** Per-channel bit-depth list shorthand for monochrome 10-bit alpha. */
+    val BIT_DEPTHS_ALPHA_10: IntArray = intArrayOf(10)
+
+    /** Per-channel bit-depth list shorthand for monochrome 12-bit alpha. */
+    val BIT_DEPTHS_ALPHA_12: IntArray = intArrayOf(12)
 
     /**
      * Per-channel bit-depth list shorthands matching
@@ -228,6 +267,29 @@ object AvifStillMuxer {
      *     muxer does NOT prepend any framing bytes. Caller is
      *     responsible for the packet being well-formed XMP — the
      *     muxer does not parse it.
+     * @param alphaBitstream optional AV1 image bitstream for an
+     *     alpha auxiliary image item (Round 38). When non-null,
+     *     [alphaConfiguration] MUST also be set; the muxer
+     *     emits an alpha `infe` entry, an `iref` `auxl`
+     *     reference from the alpha item to the primary image,
+     *     a second `ipma` entry binding shared-`ispe` +
+     *     alpha-`pixi` + alpha-`av1C` + `auxC` properties, and
+     *     a final `iloc` extent. Per AVIF spec § 4 the alpha
+     *     image dimensions MUST match [widthPx] / [heightPx],
+     *     so the muxer shares the primary item's `ispe` between
+     *     the two items rather than emitting a duplicate.
+     * @param alphaConfiguration the AV1 codec configuration for
+     *     the alpha bitstream (Round 38). Required iff
+     *     [alphaBitstream] is set; ignored otherwise. Typically
+     *     8-bit monochrome ([Av1CodecConfiguration.Config.
+     *     DEFAULT_8BIT_MONOCHROME]), but the muxer accepts any
+     *     valid config — it just rides as the alpha item's
+     *     `av1C` ItemProperty.
+     * @param alphaBitDepths per-channel bit-depth list for the
+     *     alpha `pixi` ItemProperty (Round 38). Defaults to
+     *     [BIT_DEPTHS_ALPHA_8] (single-channel 8-bit, the AVIF
+     *     spec's recommended alpha depth). Must be exactly one
+     *     channel since alpha is monochrome.
      */
     data class Input(
         val widthPx: Int,
@@ -244,6 +306,9 @@ object AvifStillMuxer {
         val clli: ContentLightLevel? = null,
         val exifPayload: ByteArray? = null,
         val xmpPayload: ByteArray? = null,
+        val alphaBitstream: ByteArray? = null,
+        val alphaConfiguration: Av1CodecConfiguration.Config? = null,
+        val alphaBitDepths: IntArray = BIT_DEPTHS_ALPHA_8,
     ) {
         init {
             require(widthPx >= 1) { "widthPx must be >= 1; got $widthPx" }
@@ -259,6 +324,26 @@ object AvifStillMuxer {
                 require(xmpPayload.isNotEmpty()) {
                     "xmpPayload must be null or non-empty; got 0-byte payload"
                 }
+            }
+            if (alphaBitstream != null) {
+                require(alphaBitstream.isNotEmpty()) {
+                    "alphaBitstream must be null or non-empty; got 0-byte payload"
+                }
+                require(alphaConfiguration != null) {
+                    "alphaConfiguration must be set when alphaBitstream is set"
+                }
+            }
+            require((alphaBitstream == null) == (alphaConfiguration == null)) {
+                "alphaBitstream and alphaConfiguration must both be null or both be set; " +
+                    "got alphaBitstream=${if (alphaBitstream == null) "null" else "set"}, " +
+                    "alphaConfiguration=${if (alphaConfiguration == null) "null" else "set"}"
+            }
+            require(alphaBitDepths.size == 1) {
+                "alphaBitDepths must have exactly one channel (alpha is monochrome); " +
+                    "got ${alphaBitDepths.size}"
+            }
+            require(alphaBitDepths[0] in 1..255) {
+                "alphaBitDepths[0] must be in [1, 255]; got ${alphaBitDepths[0]}"
             }
         }
     }
@@ -325,15 +410,56 @@ object AvifStillMuxer {
             associations.add(ItemPropertyAssociation.Association(propertyIndex = idx, essential = false))
         }
 
+        // Alpha auxiliary item properties (Round 38). The alpha
+        // image item shares `ispe` with the primary because AVIF
+        // spec § 4 requires matching dimensions; emit dedicated
+        // pixi / av1C / auxC.
+        val alphaAssociations = mutableListOf<ItemPropertyAssociation.Association>()
+        if (input.alphaBitstream != null) {
+            val alphaConfig = checkNotNull(input.alphaConfiguration) {
+                "alphaConfiguration must be non-null when alphaBitstream is set"
+            }
+            alphaAssociations.add(
+                ItemPropertyAssociation.Association(propertyIndex = ispeIdx, essential = true),
+            )
+            val alphaPixiBox = IsobmffBox.encodeBox(
+                "pixi",
+                AvifAuxiliaryBoxes.encodePixi(AvifAuxiliaryBoxes.PixiPayload(input.alphaBitDepths)),
+            )
+            val alphaPixiIdx = ipcoBuilder.add(alphaPixiBox)
+            alphaAssociations.add(
+                ItemPropertyAssociation.Association(propertyIndex = alphaPixiIdx, essential = true),
+            )
+            val alphaAv1cBox = Av1CodecConfiguration.encodeBox(alphaConfig)
+            val alphaAv1cIdx = ipcoBuilder.add(alphaAv1cBox)
+            alphaAssociations.add(
+                ItemPropertyAssociation.Association(propertyIndex = alphaAv1cIdx, essential = true),
+            )
+            val auxCBox = AvifAuxiliaryTypeProperty.encodeAlphaBox()
+            val auxCIdx = ipcoBuilder.add(auxCBox)
+            alphaAssociations.add(
+                ItemPropertyAssociation.Association(propertyIndex = auxCIdx, essential = true),
+            )
+        }
+
         val ipcoBox = ipcoBuilder.build()
-        val ipmaBox = ItemPropertyAssociation.encodeBox(
-            listOf(
-                ItemPropertyAssociation.Entry(
-                    itemId = PRIMARY_ITEM_ID.toLong(),
-                    associations = associations.toList(),
-                ),
+
+        val ipmaEntries = mutableListOf<ItemPropertyAssociation.Entry>()
+        ipmaEntries.add(
+            ItemPropertyAssociation.Entry(
+                itemId = PRIMARY_ITEM_ID.toLong(),
+                associations = associations.toList(),
             ),
         )
+        if (input.alphaBitstream != null) {
+            ipmaEntries.add(
+                ItemPropertyAssociation.Entry(
+                    itemId = ALPHA_ITEM_ID.toLong(),
+                    associations = alphaAssociations.toList(),
+                ),
+            )
+        }
+        val ipmaBox = ItemPropertyAssociation.encodeBox(ipmaEntries)
         val iprpBox = IsobmffItemProperties.encodeIprpBox(ipcoBox, listOf(ipmaBox))
 
         val hdlrBox = HandlerReferenceBox.encodePictBox()
@@ -369,6 +495,16 @@ object AvifStillMuxer {
                 ),
             )
         }
+        if (input.alphaBitstream != null) {
+            infeBoxes.add(
+                ItemInfoEntry.encodeBox(
+                    ItemInfoEntry.Entry(
+                        itemId = ALPHA_ITEM_ID.toLong(),
+                        itemType = ItemInfoEntry.ITEM_TYPE_AV01,
+                    ),
+                ),
+            )
+        }
         val iinfBox = ItemInfoBox.encodeBox(infeBoxes)
 
         val irefReferences = mutableListOf<ItemReferenceBox.Reference>()
@@ -390,6 +526,15 @@ object AvifStillMuxer {
                 ),
             )
         }
+        if (input.alphaBitstream != null) {
+            irefReferences.add(
+                ItemReferenceBox.Reference(
+                    referenceType = ItemReferenceBox.REFERENCE_TYPE_AUXL,
+                    fromItemId = ALPHA_ITEM_ID.toLong(),
+                    toItemIds = listOf(PRIMARY_ITEM_ID.toLong()),
+                ),
+            )
+        }
         val irefBox: ByteArray? =
             if (irefReferences.isNotEmpty()) ItemReferenceBox.encodeBox(irefReferences) else null
 
@@ -401,22 +546,25 @@ object AvifStillMuxer {
             out.toByteArray()
         }
         val xmpItemContent: ByteArray? = input.xmpPayload
+        val alphaItemContent: ByteArray? = input.alphaBitstream
 
         // ----------------------------------------------------------------
         // Two-pass offset planning. Build an iloc with placeholder offsets
         // that have the same byte width as the real offsets, compute the
         // meta size, then rebuild iloc with the real offsets and verify
         // the size didn't change. mdat layout:
-        //   [AV1 bitstream]
+        //   [AV1 primary bitstream]
         //   [exif_tiff_header_offset (4 BE bytes) | TIFF]?
         //   [XMP packet]?
+        //   [AV1 alpha bitstream]?
         // Items appear in that fixed order regardless of which optional
-        // metadata blobs are set.
+        // metadata / aux blobs are set.
         // ----------------------------------------------------------------
 
         val mdatPayloadSize = input.av1Bitstream.size.toLong() +
             (exifItemContent?.size?.toLong() ?: 0L) +
-            (xmpItemContent?.size?.toLong() ?: 0L)
+            (xmpItemContent?.size?.toLong() ?: 0L) +
+            (alphaItemContent?.size?.toLong() ?: 0L)
         val mdatHeaderSize = MediaDataBox.headerSize(mdatPayloadSize)
 
         var cursor = 1L
@@ -461,6 +609,20 @@ object AvifStillMuxer {
                 )
                 cursor += xmpItemContent.size.toLong()
             }
+            if (alphaItemContent != null) {
+                add(
+                    ItemLocationBox.Item(
+                        itemId = ALPHA_ITEM_ID.toLong(),
+                        extents = listOf(
+                            ItemLocationBox.Extent(
+                                offset = cursor,
+                                length = alphaItemContent.size.toLong(),
+                            ),
+                        ),
+                    ),
+                )
+                cursor += alphaItemContent.size.toLong()
+            }
         }
 
         val placeholderIloc = ItemLocationBox.encodeBox(placeholderItems)
@@ -478,6 +640,7 @@ object AvifStillMuxer {
         val av1Offset = mdatStart + mdatHeaderSize.toLong()
         val exifOffset = av1Offset + input.av1Bitstream.size.toLong()
         val xmpOffset = exifOffset + (exifItemContent?.size?.toLong() ?: 0L)
+        val alphaOffset = xmpOffset + (xmpItemContent?.size?.toLong() ?: 0L)
 
         val realItems = buildList {
             add(
@@ -517,6 +680,19 @@ object AvifStillMuxer {
                     ),
                 )
             }
+            if (alphaItemContent != null) {
+                add(
+                    ItemLocationBox.Item(
+                        itemId = ALPHA_ITEM_ID.toLong(),
+                        extents = listOf(
+                            ItemLocationBox.Extent(
+                                offset = alphaOffset,
+                                length = alphaItemContent.size.toLong(),
+                            ),
+                        ),
+                    ),
+                )
+            }
         }
 
         val realIloc = ItemLocationBox.encodeBox(realItems)
@@ -540,6 +716,7 @@ object AvifStillMuxer {
         val mdatChunks = mutableListOf<ByteArray>(input.av1Bitstream)
         if (exifItemContent != null) mdatChunks.add(exifItemContent)
         if (xmpItemContent != null) mdatChunks.add(xmpItemContent)
+        if (alphaItemContent != null) mdatChunks.add(alphaItemContent)
         val mdatBox = if (mdatChunks.size == 1) {
             MediaDataBox.encodeBox(mdatChunks[0])
         } else {

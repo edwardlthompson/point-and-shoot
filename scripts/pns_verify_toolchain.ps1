@@ -172,10 +172,15 @@ $forbiddenGroups = @(
 )
 
 $auditPaths = @()
-$auditPaths += Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue -Include *.gradle, *.gradle.kts |
+# NOTE: `Get-ChildItem -LiteralPath ... -Recurse -Include *.gradle` is a known
+# Windows PowerShell trap: `-Include` is silently ignored when `-LiteralPath`
+# does not end in a wildcard, so the cmdlet returns every file in the tree.
+# Filter by extension explicitly with `Where-Object` to avoid auditing
+# markdown / logcat / build artifacts.
+$auditPaths += Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue |
   Where-Object {
-    $full = $_.FullName.Replace('\','/').ToLowerInvariant()
-    ($full -notmatch '/(build|\.gradle|_gradle_extract)/')
+    ($_.Name -like '*.gradle' -or $_.Name -like '*.gradle.kts') -and
+    ($_.FullName.Replace('\','/').ToLowerInvariant() -notmatch '/(build|\.gradle|_gradle_extract)/')
   }
 $catalog = Join-Path $ProjectRoot "gradle/libs.versions.toml"
 if (Test-Path -LiteralPath $catalog) { $auditPaths += Get-Item -LiteralPath $catalog }

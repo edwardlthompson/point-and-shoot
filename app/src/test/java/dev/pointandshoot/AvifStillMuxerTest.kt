@@ -75,6 +75,7 @@ class AvifStillMuxerTest {
                 bitDepths = intArrayOf(8, 8, 8),
                 cicp = WorkingSpace.SRGB.cicp,
                 av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
             )
         }
     }
@@ -88,6 +89,7 @@ class AvifStillMuxerTest {
                 bitDepths = intArrayOf(8, 8, 8),
                 cicp = WorkingSpace.SRGB.cicp,
                 av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
             )
         }
     }
@@ -101,6 +103,7 @@ class AvifStillMuxerTest {
                 bitDepths = intArrayOf(),
                 cicp = WorkingSpace.SRGB.cicp,
                 av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
             )
         }
     }
@@ -114,6 +117,7 @@ class AvifStillMuxerTest {
                 bitDepths = intArrayOf(8, 8, 8),
                 cicp = WorkingSpace.SRGB.cicp,
                 av1Bitstream = ByteArray(0),
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
             )
         }
     }
@@ -183,14 +187,15 @@ class AvifStillMuxerTest {
     // ------------------------------------------------------------------
 
     @Test
-    fun `ipco contains exactly 3 mandatory properties when no auxiliaries set`() {
+    fun `ipco contains exactly 4 mandatory properties when no auxiliaries set`() {
         val out = AvifStillMuxer.encode(canonicalInput())
         val ipco = findBoxPayload(out, "ipco")
         val children = splitChildBoxes(ipco)
-        assertEquals(3, children.size)
+        assertEquals(4, children.size)
         assertEquals("ispe", boxType(children[0]))
         assertEquals("pixi", boxType(children[1]))
         assertEquals("colr", boxType(children[2]))
+        assertEquals("av1C", boxType(children[3]))
     }
 
     @Test
@@ -200,8 +205,8 @@ class AvifStillMuxerTest {
         )
         val ipco = findBoxPayload(out, "ipco")
         val children = splitChildBoxes(ipco)
-        assertEquals(4, children.size)
-        assertEquals("irot", boxType(children[3]))
+        assertEquals(5, children.size)
+        assertEquals("irot", boxType(children[4]))
     }
 
     @Test
@@ -211,8 +216,8 @@ class AvifStillMuxerTest {
         )
         val ipco = findBoxPayload(out, "ipco")
         val children = splitChildBoxes(ipco)
-        assertEquals(4, children.size)
-        assertEquals("imir", boxType(children[3]))
+        assertEquals(5, children.size)
+        assertEquals("imir", boxType(children[4]))
     }
 
     @Test
@@ -222,8 +227,8 @@ class AvifStillMuxerTest {
         )
         val ipco = findBoxPayload(out, "ipco")
         val children = splitChildBoxes(ipco)
-        assertEquals(4, children.size)
-        assertEquals("pasp", boxType(children[3]))
+        assertEquals(5, children.size)
+        assertEquals("pasp", boxType(children[4]))
     }
 
     @Test
@@ -236,13 +241,13 @@ class AvifStillMuxerTest {
         )
         val ipco = findBoxPayload(out, "ipco")
         val children = splitChildBoxes(ipco)
-        assertEquals(5, children.size)
-        assertEquals("mdcv", boxType(children[3]))
-        assertEquals("clli", boxType(children[4]))
+        assertEquals(6, children.size)
+        assertEquals("mdcv", boxType(children[4]))
+        assertEquals("clli", boxType(children[5]))
     }
 
     @Test
-    fun `ipco contains all 8 properties when every auxiliary is set`() {
+    fun `ipco contains all 10 properties when every auxiliary is set`() {
         val out = AvifStillMuxer.encode(
             canonicalInput().copy(
                 rotation = AvifAuxiliaryBoxes.Rotation.Rot180,
@@ -263,7 +268,21 @@ class AvifStillMuxerTest {
         val ipco = findBoxPayload(out, "ipco")
         val children = splitChildBoxes(ipco)
         val types = children.map { boxType(it) }
-        assertEquals(listOf("ispe", "pixi", "colr", "irot", "imir", "pasp", "clap", "mdcv", "clli"), types)
+        assertEquals(
+            listOf("ispe", "pixi", "colr", "av1C", "irot", "imir", "pasp", "clap", "mdcv", "clli"),
+            types,
+        )
+    }
+
+    @Test
+    fun `ipco av1C box round-trips back to the input config`() {
+        val out = AvifStillMuxer.encode(canonicalInput())
+        val ipco = findBoxPayload(out, "ipco")
+        val av1cBox = splitChildBoxes(ipco).first { boxType(it) == "av1C" }
+        // Strip the 8-byte plain header to get just the av1C payload.
+        val payload = av1cBox.copyOfRange(8, av1cBox.size)
+        val decoded = Av1CodecConfiguration.decodePayload(payload)
+        assertEquals(Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420, decoded)
     }
 
     // ------------------------------------------------------------------
@@ -325,6 +344,7 @@ class AvifStillMuxerTest {
                 bitDepths = AvifStillMuxer.BIT_DEPTHS_RGB_8,
                 cicp = WorkingSpace.SRGB.cicp,
                 av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
             ),
         )
         val convenient = AvifStillMuxer.encodeSrgbStill(4096, 3072, tinyAv1)
@@ -344,6 +364,7 @@ class AvifStillMuxerTest {
                 bitDepths = AvifStillMuxer.BIT_DEPTHS_RGB_10,
                 cicp = WorkingSpace.REC2020_PQ.cicp,
                 av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_10BIT_YUV420,
                 mdcv = MasteringDisplayMetadata.REC2020_1000_NITS,
                 clli = ContentLightLevel(maxCll = 1000, maxFall = 400),
             ),
@@ -370,6 +391,7 @@ class AvifStillMuxerTest {
         bitDepths = intArrayOf(8, 8, 8),
         cicp = WorkingSpace.SRGB.cicp,
         av1Bitstream = tinyAv1,
+        av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
     )
 
     private fun readBoxSize(buf: ByteArray, offset: Int): Int {

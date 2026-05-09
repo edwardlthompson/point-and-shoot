@@ -115,6 +115,15 @@ object AvifStillMuxer {
      *     image item. Caller is responsible for ensuring this is
      *     a valid AV1 still bitstream (the muxer does not validate
      *     the bytes — that's the encoder's job).
+     * @param av1Configuration the AV1 codec configuration that
+     *     describes [av1Bitstream]. Surfaces as the `av1C`
+     *     ItemProperty per AVIF spec § 2.2.1 — **mandatory**;
+     *     without it, no decoder can bootstrap the AV1 sequence
+     *     header. The fields must match what the encoder used to
+     *     produce [av1Bitstream]; if the bitstream embeds its own
+     *     sequence-header OBU, copy those bytes into
+     *     [Av1CodecConfiguration.Config.configOBUs] for fully
+     *     self-contained decoding.
      * @param rotation optional clockwise rotation; surfaces as
      *     `irot`. Spec allows 0 / 90 / 180 / 270 degrees only.
      * @param mirror optional mirror axis; surfaces as `imir`.
@@ -138,6 +147,7 @@ object AvifStillMuxer {
         val bitDepths: IntArray,
         val cicp: Cicp,
         val av1Bitstream: ByteArray,
+        val av1Configuration: Av1CodecConfiguration.Config,
         val rotation: AvifAuxiliaryBoxes.Rotation? = null,
         val mirror: AvifAuxiliaryBoxes.MirrorAxis? = null,
         val pasp: IsobmffSampleAspect.PaspPayload? = null,
@@ -179,6 +189,10 @@ object AvifStillMuxer {
         val colrBox = IsobmffBox.encodeBox("colr", colrPayload)
         val colrIdx = ipcoBuilder.add(colrBox)
         associations.add(ItemPropertyAssociation.Association(propertyIndex = colrIdx, essential = true))
+
+        val av1cBox = Av1CodecConfiguration.encodeBox(input.av1Configuration)
+        val av1cIdx = ipcoBuilder.add(av1cBox)
+        associations.add(ItemPropertyAssociation.Association(propertyIndex = av1cIdx, essential = true))
 
         if (input.rotation != null) {
             val irotBox = IsobmffBox.encodeBox("irot", AvifAuxiliaryBoxes.encodeIrot(input.rotation))
@@ -305,14 +319,16 @@ object AvifStillMuxer {
     }
 
     /**
-     * Convenience that picks 8-bit RGB depths and the sRGB
-     * working-space tag — the most common still-image case for a
+     * Convenience that picks 8-bit RGB depths, the sRGB
+     * working-space tag, and the canonical 8-bit YUV 4:2:0 AV1
+     * configuration — the most common still-image case for a
      * camera app exporting an SDR JPEG-class still.
      */
     fun encodeSrgbStill(
         widthPx: Int,
         heightPx: Int,
         av1Bitstream: ByteArray,
+        av1Configuration: Av1CodecConfiguration.Config = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
     ): ByteArray = encode(
         Input(
             widthPx = widthPx,
@@ -320,6 +336,7 @@ object AvifStillMuxer {
             bitDepths = BIT_DEPTHS_RGB_8,
             cicp = WorkingSpace.SRGB.cicp,
             av1Bitstream = av1Bitstream,
+            av1Configuration = av1Configuration,
         ),
     )
 }

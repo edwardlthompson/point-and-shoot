@@ -82,6 +82,38 @@ object ItemInfoEntry {
     /** HEIF HEVC image item. Emitted by HEIF-HEVC stills (the legacy "HEIC" path). */
     const val ITEM_TYPE_HVC1: String = "hvc1"
 
+    /**
+     * AVIF / HEIF derived-image grid item (ISO/IEC 23008-12
+     * §6.6.2.3). Stitches an `(rows × columns)` array of equally-
+     * sized tile image items into one logical canvas. The tile
+     * order in the `iref` `dimg` reference dictates the row-major
+     * fill order of the grid. The actual grid recipe (rows /
+     * columns / output dimensions) lives in the item's content
+     * — see `AvifImageGrid` for the wire-format formatter.
+     */
+    const val ITEM_TYPE_GRID: String = "grid"
+
+    /**
+     * AVIF / HEIF derived-image overlay item (ISO/IEC 23008-12
+     * §6.6.2.4). Composites multiple source items at declared
+     * `(x, y)` offsets — used for sticker / overlay HDR-to-SDR
+     * compositions. Pure-data carriers for `iovl` content are
+     * not yet shipped; the constant is here as a forward-
+     * looking placeholder so the muxer can recognize the
+     * `item_type` without a magic-string lookup.
+     */
+    const val ITEM_TYPE_IOVL: String = "iovl"
+
+    /**
+     * AVIF / HEIF derived-image identity item (ISO/IEC 23008-12
+     * §6.6.2.2). A 0-byte content item that wraps a single
+     * source item with optional transformative properties
+     * (`irot` / `imir` / `clap`). Equivalent of "alias" — useful
+     * for emitting the same primary image with multiple
+     * orientation hints without re-encoding.
+     */
+    const val ITEM_TYPE_IDEN: String = "iden"
+
     /** Maximum item ID encodable with `version = 2`. */
     const val MAX_SMALL_ITEM_ID: Long = 0xFFFFL
 

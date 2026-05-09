@@ -639,6 +639,245 @@ class AvifStillMuxerTest {
         )
     }
 
+    // ------------------------------------------------------------------
+    // XMP item integration (Round 36)
+    // ------------------------------------------------------------------
+
+    /** Minimal XMP-class packet (not a full RDF tree, but the bytes
+     *  the muxer carries are opaque so this is enough). */
+    private val tinyXmp: ByteArray = (
+        "<?xpacket begin=\"\uFEFF\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>" +
+            "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\"></x:xmpmeta>" +
+            "<?xpacket end=\"r\"?>"
+        ).toByteArray(Charsets.UTF_8)
+
+    @Test
+    fun `Input rejects empty xmpPayload when set`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AvifStillMuxer.Input(
+                widthPx = 100,
+                heightPx = 100,
+                bitDepths = intArrayOf(8, 8, 8),
+                cicp = WorkingSpace.SRGB.cicp,
+                av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+                xmpPayload = ByteArray(0),
+            )
+        }
+    }
+
+    @Test
+    fun `XMP_ITEM_ID pin is 3 (distinct from PRIMARY and EXIF)`() {
+        assertEquals(3, AvifStillMuxer.XMP_ITEM_ID)
+        assertNotEquals(AvifStillMuxer.PRIMARY_ITEM_ID, AvifStillMuxer.XMP_ITEM_ID)
+        assertNotEquals(AvifStillMuxer.EXIF_ITEM_ID, AvifStillMuxer.XMP_ITEM_ID)
+    }
+
+    @Test
+    fun `XMP_MIME_TYPE pin is application slash rdf+xml`() {
+        assertEquals("application/rdf+xml", AvifStillMuxer.XMP_MIME_TYPE)
+    }
+
+    @Test
+    fun `xmp set produces two iinf entries (av01 then mime)`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(xmpPayload = tinyXmp))
+        val iinfPayload = findBoxPayload(out, "iinf")
+        val version = iinfPayload[0].toInt() and 0xFF
+        val entryCount = if (version == 0) {
+            ((iinfPayload[4].toInt() and 0xFF) shl 8) or (iinfPayload[5].toInt() and 0xFF)
+        } else {
+            ((iinfPayload[4].toInt() and 0xFF) shl 24) or
+                ((iinfPayload[5].toInt() and 0xFF) shl 16) or
+                ((iinfPayload[6].toInt() and 0xFF) shl 8) or
+                (iinfPayload[7].toInt() and 0xFF)
+        }
+        assertEquals(2, entryCount)
+        val asString = String(iinfPayload, Charsets.US_ASCII)
+        assertTrue("iinf payload must contain 'av01'", asString.contains("av01"))
+        assertTrue("iinf payload must contain 'mime'", asString.contains("mime"))
+        assertTrue(
+            "iinf payload must contain 'application/rdf+xml' content_type",
+            asString.contains("application/rdf+xml"),
+        )
+    }
+
+    @Test
+    fun `xmp set emits iref cdsc reference from XMP item to primary`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(xmpPayload = tinyXmp))
+        val irefPayload = findBoxPayload(out, "iref")
+        val subBoxStart = 4
+        val subBoxType = String(
+            irefPayload.copyOfRange(subBoxStart + 4, subBoxStart + 8),
+            Charsets.US_ASCII,
+        )
+        assertEquals("cdsc", subBoxType)
+        val bodyStart = subBoxStart + 8
+        val fromItemId = ((irefPayload[bodyStart].toInt() and 0xFF) shl 8) or
+            (irefPayload[bodyStart + 1].toInt() and 0xFF)
+        val refCount = ((irefPayload[bodyStart + 2].toInt() and 0xFF) shl 8) or
+            (irefPayload[bodyStart + 3].toInt() and 0xFF)
+        val toItemId = ((irefPayload[bodyStart + 4].toInt() and 0xFF) shl 8) or
+            (irefPayload[bodyStart + 5].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.XMP_ITEM_ID, fromItemId)
+        assertEquals(1, refCount)
+        assertEquals(AvifStillMuxer.PRIMARY_ITEM_ID, toItemId)
+    }
+
+    @Test
+    fun `xmp set places XMP bytes immediately after AV1 in mdat (no prefix)`() {
+        val input = canonicalInput().copy(xmpPayload = tinyXmp)
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatHeaderSize = MediaDataBox.headerSize(
+            input.av1Bitstream.size.toLong() + tinyXmp.size.toLong(),
+        )
+        val xmpStart = mdatStart + mdatHeaderSize + input.av1Bitstream.size
+        // No 4-byte prefix for XMP — bytes start directly with the
+        // XMP packet, beginning with `<?xpacket`.
+        val xmpBytes = out.copyOfRange(xmpStart, xmpStart + tinyXmp.size)
+        assertArrayEquals(tinyXmp, xmpBytes)
+    }
+
+    @Test
+    fun `xmp iloc has two extents with XMP offset right after AV1`() {
+        val input = canonicalInput().copy(xmpPayload = tinyXmp)
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatHeaderSize = MediaDataBox.headerSize(
+            input.av1Bitstream.size.toLong() + tinyXmp.size.toLong(),
+        )
+        val expectedAv1Offset = (mdatStart + mdatHeaderSize).toLong()
+        val expectedXmpOffset = expectedAv1Offset + input.av1Bitstream.size.toLong()
+
+        val ilocPayload = findBoxPayload(out, "iloc")
+        val body = ilocPayload.copyOfRange(4, ilocPayload.size)
+        val entry1Start = 4
+        val item1OffsetStart = entry1Start + 2 + 2 + 2
+        val item1Offset = ((body[item1OffsetStart].toLong() and 0xFF) shl 24) or
+            ((body[item1OffsetStart + 1].toLong() and 0xFF) shl 16) or
+            ((body[item1OffsetStart + 2].toLong() and 0xFF) shl 8) or
+            (body[item1OffsetStart + 3].toLong() and 0xFF)
+        assertEquals(expectedAv1Offset, item1Offset)
+
+        val entry2Start = entry1Start + 2 + 2 + 2 + 4 + 4
+        val entry2ItemId = ((body[entry2Start].toInt() and 0xFF) shl 8) or
+            (body[entry2Start + 1].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.XMP_ITEM_ID, entry2ItemId)
+        val item2OffsetStart = entry2Start + 2 + 2 + 2
+        val item2Offset = ((body[item2OffsetStart].toLong() and 0xFF) shl 24) or
+            ((body[item2OffsetStart + 1].toLong() and 0xFF) shl 16) or
+            ((body[item2OffsetStart + 2].toLong() and 0xFF) shl 8) or
+            (body[item2OffsetStart + 3].toLong() and 0xFF)
+        assertEquals(expectedXmpOffset, item2Offset)
+    }
+
+    @Test
+    fun `exif and xmp set produces three iinf entries`() {
+        val out = AvifStillMuxer.encode(
+            canonicalInput().copy(exifPayload = tinyExif, xmpPayload = tinyXmp),
+        )
+        val iinfPayload = findBoxPayload(out, "iinf")
+        val version = iinfPayload[0].toInt() and 0xFF
+        val entryCount = if (version == 0) {
+            ((iinfPayload[4].toInt() and 0xFF) shl 8) or (iinfPayload[5].toInt() and 0xFF)
+        } else {
+            ((iinfPayload[4].toInt() and 0xFF) shl 24) or
+                ((iinfPayload[5].toInt() and 0xFF) shl 16) or
+                ((iinfPayload[6].toInt() and 0xFF) shl 8) or
+                (iinfPayload[7].toInt() and 0xFF)
+        }
+        assertEquals(3, entryCount)
+    }
+
+    @Test
+    fun `exif and xmp set produces iref with two cdsc sub-boxes (EXIF then XMP)`() {
+        val out = AvifStillMuxer.encode(
+            canonicalInput().copy(exifPayload = tinyExif, xmpPayload = tinyXmp),
+        )
+        val irefPayload = findBoxPayload(out, "iref")
+        val subBoxes = mutableListOf<Pair<Int, Int>>() // from, to
+        var i = 4 // skip version+flags
+        while (i < irefPayload.size) {
+            val size = ((irefPayload[i].toInt() and 0xFF) shl 24) or
+                ((irefPayload[i + 1].toInt() and 0xFF) shl 16) or
+                ((irefPayload[i + 2].toInt() and 0xFF) shl 8) or
+                (irefPayload[i + 3].toInt() and 0xFF)
+            val type = String(irefPayload.copyOfRange(i + 4, i + 8), Charsets.US_ASCII)
+            assertEquals("cdsc", type)
+            val from = ((irefPayload[i + 8].toInt() and 0xFF) shl 8) or
+                (irefPayload[i + 9].toInt() and 0xFF)
+            val to = ((irefPayload[i + 12].toInt() and 0xFF) shl 8) or
+                (irefPayload[i + 13].toInt() and 0xFF)
+            subBoxes.add(from to to)
+            i += size
+        }
+        assertEquals(2, subBoxes.size)
+        assertEquals(AvifStillMuxer.EXIF_ITEM_ID to AvifStillMuxer.PRIMARY_ITEM_ID, subBoxes[0])
+        assertEquals(AvifStillMuxer.XMP_ITEM_ID to AvifStillMuxer.PRIMARY_ITEM_ID, subBoxes[1])
+    }
+
+    @Test
+    fun `exif and xmp set lays out mdat as AV1 then EXIF then XMP`() {
+        val input = canonicalInput().copy(exifPayload = tinyExif, xmpPayload = tinyXmp)
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val totalMetaSize = input.av1Bitstream.size +
+            AvifStillMuxer.EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE +
+            tinyExif.size +
+            tinyXmp.size
+        val mdatHeaderSize = MediaDataBox.headerSize(totalMetaSize.toLong())
+        val av1End = mdatStart + mdatHeaderSize + input.av1Bitstream.size
+        // 4-byte zero prefix before EXIF
+        assertEquals(0, out[av1End].toInt() and 0xFF)
+        assertEquals(0, out[av1End + 1].toInt() and 0xFF)
+        assertEquals(0, out[av1End + 2].toInt() and 0xFF)
+        assertEquals(0, out[av1End + 3].toInt() and 0xFF)
+        val exifEnd = av1End + 4 + tinyExif.size
+        assertArrayEquals(tinyExif, out.copyOfRange(av1End + 4, exifEnd))
+        val xmpEnd = exifEnd + tinyXmp.size
+        assertArrayEquals(tinyXmp, out.copyOfRange(exifEnd, xmpEnd))
+        assertEquals(out.size, xmpEnd)
+    }
+
+    @Test
+    fun `xmp null does not emit iref box (regression guard)`() {
+        val out = AvifStillMuxer.encode(canonicalInput())
+        assertEquals(-1, findBoxOffset(out, "iref"))
+    }
+
+    @Test
+    fun `xmp set keeps file ftyp meta mdat top-level structure`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(xmpPayload = tinyXmp))
+        val ftypType = String(out.copyOfRange(4, 8), Charsets.US_ASCII)
+        assertEquals("ftyp", ftypType)
+        val ftypSize = readBoxSize(out, 0)
+        val metaType = String(out.copyOfRange(ftypSize + 4, ftypSize + 8), Charsets.US_ASCII)
+        assertEquals("meta", metaType)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatType = String(
+            out.copyOfRange(ftypSize + metaSize + 4, ftypSize + metaSize + 8),
+            Charsets.US_ASCII,
+        )
+        assertEquals("mdat", mdatType)
+    }
+
+    @Test
+    fun `xmp null vs xmp set produce different outputs`() {
+        val noXmp = AvifStillMuxer.encode(canonicalInput())
+        val withXmp = AvifStillMuxer.encode(canonicalInput().copy(xmpPayload = tinyXmp))
+        assertTrue("XMP must change the output", !noXmp.contentEquals(withXmp))
+        assertTrue(
+            "XMP must grow the file by at least the XMP size",
+            withXmp.size > noXmp.size + tinyXmp.size,
+        )
+    }
+
     // ==================================================================
     // Helpers
     // ==================================================================

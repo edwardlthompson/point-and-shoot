@@ -95,12 +95,27 @@ import java.io.ByteArrayOutputStream
  *    (per HEIF § 11.4.4) prepended to the EXIF TIFF block before
  *    it lands in `mdat`.
  *
- * The mdat layout is `[AV1 bitstream][exif_tiff_header_offset (4
- * BE bytes) | EXIF TIFF block]` (AV1 always first so the primary
- * image's `iloc` offset stays at the smallest value). The 4-byte
- * prefix is the spec-mandated "offset from end of this field to
- * the TIFF header byte order marker"; we always set it to `0`
- * because the TIFF header begins immediately after.
+ * ### Optional XMP metadata item (Round 36)
+ *
+ * When [Input.xmpPayload] is non-null, the muxer adds (per HEIF
+ * spec § 11.6.2 / AVIF spec § 3.6):
+ *
+ *  * a third `infe` entry (`itemType = "mime"`,
+ *    `content_type = "application/rdf+xml"`, `itemId = 3`) in
+ *    `iinf`,
+ *  * an additional `iref` `cdsc` sub-box from the XMP item to
+ *    the primary AV1 image item — when both EXIF and XMP are
+ *    present, the same `iref` FullBox carries TWO `cdsc` sub-
+ *    boxes (one per metadata item),
+ *  * a third `iloc` extent pointing to the XMP byte range
+ *    inside `mdat`. Unlike EXIF, XMP carries NO 4-byte offset
+ *    prefix — the XMP packet (the `<?xpacket begin=...` …
+ *    `<?xpacket end=...` byte sequence) lands raw in `mdat`.
+ *
+ * The full mdat layout is `[AV1 bitstream] [exif_tiff_header_offset
+ * (4 BE) | EXIF TIFF block]? [XMP packet]?` — entries appear in
+ * that fixed order regardless of which optional metadata items
+ * are set.
  *
  * Pinned schema version: bumped only when the on-disk byte
  * layout changes incompatibly.
@@ -129,6 +144,21 @@ object AvifStillMuxer {
      * begins immediately after the prefix.
      */
     const val EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE: Int = 4
+
+    /**
+     * The canonical itemId for the optional XMP metadata item
+     * when [Input.xmpPayload] is set (Round 36). Pinned to `3`
+     * so the wire layout stays deterministic for tests
+     * regardless of whether [Input.exifPayload] is also set.
+     */
+    const val XMP_ITEM_ID: Int = 3
+
+    /**
+     * MIME type for an XMP metadata packet per HEIF spec § 11.6.2
+     * and the XMP specification (ISO 16684-1). Surfaces in the
+     * XMP `infe` entry's `content_type` field.
+     */
+    const val XMP_MIME_TYPE: String = "application/rdf+xml"
 
     /**
      * Per-channel bit-depth list shorthands matching
@@ -188,6 +218,16 @@ object AvifStillMuxer {
      *     4-byte `exif_tiff_header_offset = 0` itself. Caller is
      *     responsible for the TIFF block being well-formed
      *     EXIF — the muxer does not parse it.
+     * @param xmpPayload optional XMP metadata packet (Round 36).
+     *     When non-null, the muxer adds an `infe` mime entry
+     *     (`content_type = "application/rdf+xml"`), an `iref`
+     *     `cdsc` reference from the XMP item to the primary AV1
+     *     image, and an additional `iloc` extent. The byte
+     *     sequence should be the raw XMP packet starting with
+     *     the `<?xpacket begin=...?>` PI per ISO 16684-1; the
+     *     muxer does NOT prepend any framing bytes. Caller is
+     *     responsible for the packet being well-formed XMP — the
+     *     muxer does not parse it.
      */
     data class Input(
         val widthPx: Int,
@@ -203,6 +243,7 @@ object AvifStillMuxer {
         val mdcv: MasteringDisplayMetadata? = null,
         val clli: ContentLightLevel? = null,
         val exifPayload: ByteArray? = null,
+        val xmpPayload: ByteArray? = null,
     ) {
         init {
             require(widthPx >= 1) { "widthPx must be >= 1; got $widthPx" }
@@ -212,6 +253,11 @@ object AvifStillMuxer {
             if (exifPayload != null) {
                 require(exifPayload.isNotEmpty()) {
                     "exifPayload must be null or non-empty; got 0-byte payload"
+                }
+            }
+            if (xmpPayload != null) {
+                require(xmpPayload.isNotEmpty()) {
+                    "xmpPayload must be null or non-empty; got 0-byte payload"
                 }
             }
         }
@@ -312,21 +358,40 @@ object AvifStillMuxer {
                 ),
             )
         }
-        val iinfBox = ItemInfoBox.encodeBox(infeBoxes)
-
-        val irefBox: ByteArray? = if (input.exifPayload != null) {
-            ItemReferenceBox.encodeBox(
-                listOf(
-                    ItemReferenceBox.Reference(
-                        referenceType = ItemReferenceBox.REFERENCE_TYPE_CDSC,
-                        fromItemId = EXIF_ITEM_ID.toLong(),
-                        toItemIds = listOf(PRIMARY_ITEM_ID.toLong()),
+        if (input.xmpPayload != null) {
+            infeBoxes.add(
+                ItemInfoEntry.encodeBox(
+                    ItemInfoEntry.Entry(
+                        itemId = XMP_ITEM_ID.toLong(),
+                        itemType = ItemInfoEntry.ITEM_TYPE_MIME,
+                        contentType = XMP_MIME_TYPE,
                     ),
                 ),
             )
-        } else {
-            null
         }
+        val iinfBox = ItemInfoBox.encodeBox(infeBoxes)
+
+        val irefReferences = mutableListOf<ItemReferenceBox.Reference>()
+        if (input.exifPayload != null) {
+            irefReferences.add(
+                ItemReferenceBox.Reference(
+                    referenceType = ItemReferenceBox.REFERENCE_TYPE_CDSC,
+                    fromItemId = EXIF_ITEM_ID.toLong(),
+                    toItemIds = listOf(PRIMARY_ITEM_ID.toLong()),
+                ),
+            )
+        }
+        if (input.xmpPayload != null) {
+            irefReferences.add(
+                ItemReferenceBox.Reference(
+                    referenceType = ItemReferenceBox.REFERENCE_TYPE_CDSC,
+                    fromItemId = XMP_ITEM_ID.toLong(),
+                    toItemIds = listOf(PRIMARY_ITEM_ID.toLong()),
+                ),
+            )
+        }
+        val irefBox: ByteArray? =
+            if (irefReferences.isNotEmpty()) ItemReferenceBox.encodeBox(irefReferences) else null
 
         val exifItemContent: ByteArray? = input.exifPayload?.let { tiffBlock ->
             val out = ByteArrayOutputStream(EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE + tiffBlock.size)
@@ -335,43 +400,66 @@ object AvifStillMuxer {
             out.write(tiffBlock)
             out.toByteArray()
         }
+        val xmpItemContent: ByteArray? = input.xmpPayload
 
         // ----------------------------------------------------------------
         // Two-pass offset planning. Build an iloc with placeholder offsets
         // that have the same byte width as the real offsets, compute the
         // meta size, then rebuild iloc with the real offsets and verify
-        // the size didn't change. mdat layout when EXIF is present:
-        //   [AV1 bitstream][exif_tiff_header_offset (4 BE bytes) | TIFF].
+        // the size didn't change. mdat layout:
+        //   [AV1 bitstream]
+        //   [exif_tiff_header_offset (4 BE bytes) | TIFF]?
+        //   [XMP packet]?
+        // Items appear in that fixed order regardless of which optional
+        // metadata blobs are set.
         // ----------------------------------------------------------------
 
         val mdatPayloadSize = input.av1Bitstream.size.toLong() +
-            (exifItemContent?.size?.toLong() ?: 0L)
+            (exifItemContent?.size?.toLong() ?: 0L) +
+            (xmpItemContent?.size?.toLong() ?: 0L)
         val mdatHeaderSize = MediaDataBox.headerSize(mdatPayloadSize)
 
+        var cursor = 1L
         val placeholderItems = buildList {
             add(
                 ItemLocationBox.Item(
                     itemId = PRIMARY_ITEM_ID.toLong(),
                     extents = listOf(
                         ItemLocationBox.Extent(
-                            offset = 1L,
+                            offset = cursor,
                             length = input.av1Bitstream.size.toLong(),
                         ),
                     ),
                 ),
             )
+            cursor += input.av1Bitstream.size.toLong()
             if (exifItemContent != null) {
                 add(
                     ItemLocationBox.Item(
                         itemId = EXIF_ITEM_ID.toLong(),
                         extents = listOf(
                             ItemLocationBox.Extent(
-                                offset = 1L + input.av1Bitstream.size.toLong(),
+                                offset = cursor,
                                 length = exifItemContent.size.toLong(),
                             ),
                         ),
                     ),
                 )
+                cursor += exifItemContent.size.toLong()
+            }
+            if (xmpItemContent != null) {
+                add(
+                    ItemLocationBox.Item(
+                        itemId = XMP_ITEM_ID.toLong(),
+                        extents = listOf(
+                            ItemLocationBox.Extent(
+                                offset = cursor,
+                                length = xmpItemContent.size.toLong(),
+                            ),
+                        ),
+                    ),
+                )
+                cursor += xmpItemContent.size.toLong()
             }
         }
 
@@ -389,6 +477,7 @@ object AvifStillMuxer {
         val mdatStart = ftypBox.size.toLong() + metaPlaceholder.size.toLong()
         val av1Offset = mdatStart + mdatHeaderSize.toLong()
         val exifOffset = av1Offset + input.av1Bitstream.size.toLong()
+        val xmpOffset = exifOffset + (exifItemContent?.size?.toLong() ?: 0L)
 
         val realItems = buildList {
             add(
@@ -415,6 +504,19 @@ object AvifStillMuxer {
                     ),
                 )
             }
+            if (xmpItemContent != null) {
+                add(
+                    ItemLocationBox.Item(
+                        itemId = XMP_ITEM_ID.toLong(),
+                        extents = listOf(
+                            ItemLocationBox.Extent(
+                                offset = xmpOffset,
+                                length = xmpItemContent.size.toLong(),
+                            ),
+                        ),
+                    ),
+                )
+            }
         }
 
         val realIloc = ItemLocationBox.encodeBox(realItems)
@@ -435,10 +537,13 @@ object AvifStillMuxer {
             .setItemProperties(iprpBox)
             .build()
 
-        val mdatBox = if (exifItemContent != null) {
-            MediaDataBox.encodeBox(listOf(input.av1Bitstream, exifItemContent))
+        val mdatChunks = mutableListOf<ByteArray>(input.av1Bitstream)
+        if (exifItemContent != null) mdatChunks.add(exifItemContent)
+        if (xmpItemContent != null) mdatChunks.add(xmpItemContent)
+        val mdatBox = if (mdatChunks.size == 1) {
+            MediaDataBox.encodeBox(mdatChunks[0])
         } else {
-            MediaDataBox.encodeBox(input.av1Bitstream)
+            MediaDataBox.encodeBox(mdatChunks)
         }
 
         val out = ByteArrayOutputStream(ftypBox.size + metaBox.size + mdatBox.size)

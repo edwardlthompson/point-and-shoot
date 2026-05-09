@@ -122,6 +122,32 @@ class AvifStillMuxerTest {
         }
     }
 
+    @Test
+    fun `Input rejects empty exifPayload when set`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AvifStillMuxer.Input(
+                widthPx = 100,
+                heightPx = 100,
+                bitDepths = intArrayOf(8, 8, 8),
+                cicp = WorkingSpace.SRGB.cicp,
+                av1Bitstream = tinyAv1,
+                av1Configuration = Av1CodecConfiguration.Config.DEFAULT_8BIT_YUV420,
+                exifPayload = ByteArray(0),
+            )
+        }
+    }
+
+    @Test
+    fun `EXIF_ITEM_ID pin is 2 (distinct from PRIMARY_ITEM_ID)`() {
+        assertEquals(2, AvifStillMuxer.EXIF_ITEM_ID)
+        assertNotEquals(AvifStillMuxer.PRIMARY_ITEM_ID, AvifStillMuxer.EXIF_ITEM_ID)
+    }
+
+    @Test
+    fun `EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE pin is 4`() {
+        assertEquals(4, AvifStillMuxer.EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE)
+    }
+
     // ------------------------------------------------------------------
     // Top-level structure: ftyp then meta then mdat
     // ------------------------------------------------------------------
@@ -381,6 +407,238 @@ class AvifStillMuxerTest {
         assertTrue("clli must appear in HDR ipco", types.contains("clli"))
     }
 
+    // ------------------------------------------------------------------
+    // EXIF item integration (Round 35)
+    // ------------------------------------------------------------------
+
+    /**
+     * Minimal but valid little-endian TIFF block: byte order
+     * marker `II`, magic 42, IFD0 offset at byte 8, then a
+     * single IFD entry (count = 1) with tag 0x010E (`ImageDescription`),
+     * type 2 (ASCII), count 5 ("PNS\0"), value "PNS\0" packed inline,
+     * then the IFD terminator (next IFD offset = 0).
+     */
+    private val tinyExif: ByteArray = byteArrayOf(
+        // TIFF header (II*\0 + IFD0 offset = 8)
+        'I'.code.toByte(), 'I'.code.toByte(),
+        0x2A, 0x00,
+        0x08, 0x00, 0x00, 0x00,
+        // IFD0: 1 entry
+        0x01, 0x00,
+        // Entry: tag 0x010E (ImageDescription), type 2 (ASCII), count = 4
+        0x0E, 0x01,
+        0x02, 0x00,
+        0x04, 0x00, 0x00, 0x00,
+        // Inline 4-byte value "PNS\0"
+        'P'.code.toByte(), 'N'.code.toByte(), 'S'.code.toByte(), 0x00,
+        // Next-IFD offset = 0
+        0x00, 0x00, 0x00, 0x00,
+    )
+
+    @Test
+    fun `exif null produces a single iinf entry for av01`() {
+        val out = AvifStillMuxer.encode(canonicalInput())
+        val iinfPayload = findBoxPayload(out, "iinf")
+        // iinf is a FullBox; payload starts with 4 bytes version+flags,
+        // then either uint16 or uint32 entry_count. Pick by version.
+        val version = iinfPayload[0].toInt() and 0xFF
+        val entryCount = if (version == 0) {
+            ((iinfPayload[4].toInt() and 0xFF) shl 8) or (iinfPayload[5].toInt() and 0xFF)
+        } else {
+            ((iinfPayload[4].toInt() and 0xFF) shl 24) or
+                ((iinfPayload[5].toInt() and 0xFF) shl 16) or
+                ((iinfPayload[6].toInt() and 0xFF) shl 8) or
+                (iinfPayload[7].toInt() and 0xFF)
+        }
+        assertEquals(1, entryCount)
+    }
+
+    @Test
+    fun `exif null does not emit iref box`() {
+        val out = AvifStillMuxer.encode(canonicalInput())
+        // iref must not appear anywhere in the file when no EXIF.
+        assertEquals(-1, findBoxOffset(out, "iref"))
+    }
+
+    @Test
+    fun `exif set produces two iinf entries (av01 then Exif)`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(exifPayload = tinyExif))
+        val iinfPayload = findBoxPayload(out, "iinf")
+        val version = iinfPayload[0].toInt() and 0xFF
+        val entryCount = if (version == 0) {
+            ((iinfPayload[4].toInt() and 0xFF) shl 8) or (iinfPayload[5].toInt() and 0xFF)
+        } else {
+            ((iinfPayload[4].toInt() and 0xFF) shl 24) or
+                ((iinfPayload[5].toInt() and 0xFF) shl 16) or
+                ((iinfPayload[6].toInt() and 0xFF) shl 8) or
+                (iinfPayload[7].toInt() and 0xFF)
+        }
+        assertEquals(2, entryCount)
+        // Second infe should declare itemType="Exif" — scan for the
+        // 4-byte ASCII anywhere after the first infe.
+        val asString = String(iinfPayload, Charsets.US_ASCII)
+        assertTrue("iinf payload must contain 'av01'", asString.contains("av01"))
+        assertTrue("iinf payload must contain 'Exif'", asString.contains("Exif"))
+    }
+
+    @Test
+    fun `exif set emits iref cdsc reference from Exif item to primary`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(exifPayload = tinyExif))
+        val irefPayload = findBoxPayload(out, "iref")
+        // iref is a FullBox; first 4 bytes are version+flags. Then a
+        // sequence of SingleItemTypeReferenceBoxes. For canonical
+        // small itemIds, version=0 (16-bit). The first sub-box is at
+        // offset 4 in irefPayload.
+        val subBoxStart = 4
+        val subBoxSize = ((irefPayload[subBoxStart].toInt() and 0xFF) shl 24) or
+            ((irefPayload[subBoxStart + 1].toInt() and 0xFF) shl 16) or
+            ((irefPayload[subBoxStart + 2].toInt() and 0xFF) shl 8) or
+            (irefPayload[subBoxStart + 3].toInt() and 0xFF)
+        val subBoxType = String(
+            irefPayload.copyOfRange(subBoxStart + 4, subBoxStart + 8),
+            Charsets.US_ASCII,
+        )
+        assertEquals("cdsc", subBoxType)
+        // SingleItemTypeReferenceBox v=0 body:
+        //   uint16 from_item_ID (= EXIF_ITEM_ID = 2)
+        //   uint16 reference_count (= 1)
+        //   uint16 to_item_ID (= PRIMARY_ITEM_ID = 1)
+        val bodyStart = subBoxStart + 8
+        val fromItemId = ((irefPayload[bodyStart].toInt() and 0xFF) shl 8) or
+            (irefPayload[bodyStart + 1].toInt() and 0xFF)
+        val refCount = ((irefPayload[bodyStart + 2].toInt() and 0xFF) shl 8) or
+            (irefPayload[bodyStart + 3].toInt() and 0xFF)
+        val toItemId = ((irefPayload[bodyStart + 4].toInt() and 0xFF) shl 8) or
+            (irefPayload[bodyStart + 5].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.EXIF_ITEM_ID, fromItemId)
+        assertEquals(1, refCount)
+        assertEquals(AvifStillMuxer.PRIMARY_ITEM_ID, toItemId)
+        assertEquals(subBoxStart + subBoxSize, irefPayload.size)
+    }
+
+    @Test
+    fun `exif set places EXIF bytes immediately after AV1 in mdat with 4-byte zero prefix`() {
+        val input = canonicalInput().copy(exifPayload = tinyExif)
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatHeaderSize = MediaDataBox.headerSize(
+            input.av1Bitstream.size.toLong() +
+                AvifStillMuxer.EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE.toLong() +
+                tinyExif.size.toLong(),
+        )
+        val av1End = mdatStart + mdatHeaderSize + input.av1Bitstream.size
+        // 4-byte big-endian exif_tiff_header_offset = 0
+        assertEquals(0, out[av1End].toInt() and 0xFF)
+        assertEquals(0, out[av1End + 1].toInt() and 0xFF)
+        assertEquals(0, out[av1End + 2].toInt() and 0xFF)
+        assertEquals(0, out[av1End + 3].toInt() and 0xFF)
+        // Then the TIFF block byte-for-byte
+        val tiff = out.copyOfRange(av1End + 4, av1End + 4 + tinyExif.size)
+        assertArrayEquals(tinyExif, tiff)
+    }
+
+    @Test
+    fun `exif iloc has two extents with EXIF offset right after AV1`() {
+        val input = canonicalInput().copy(exifPayload = tinyExif)
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatHeaderSize = MediaDataBox.headerSize(
+            input.av1Bitstream.size.toLong() +
+                AvifStillMuxer.EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE.toLong() +
+                tinyExif.size.toLong(),
+        )
+        val expectedAv1Offset = (mdatStart + mdatHeaderSize).toLong()
+        val expectedExifOffset = expectedAv1Offset + input.av1Bitstream.size.toLong()
+
+        val ilocPayload = findBoxPayload(out, "iloc")
+        val body = ilocPayload.copyOfRange(4, ilocPayload.size)
+        // v=0, fieldSizes (4,4,0,0): packed (1) + packed_base_index (1) +
+        // item_count (uint16). Body:
+        //   per item: item_ID (uint16) + data_ref (uint16) + extent_count (uint16)
+        //             + extent_offset (uint32) + extent_length (uint32)
+        // entry 1
+        val entry1Start = 4
+        val item1OffsetStart = entry1Start + 2 + 2 + 2
+        val item1Offset = ((body[item1OffsetStart].toLong() and 0xFF) shl 24) or
+            ((body[item1OffsetStart + 1].toLong() and 0xFF) shl 16) or
+            ((body[item1OffsetStart + 2].toLong() and 0xFF) shl 8) or
+            (body[item1OffsetStart + 3].toLong() and 0xFF)
+        assertEquals(expectedAv1Offset, item1Offset)
+
+        val entry2Start = entry1Start + 2 + 2 + 2 + 4 + 4
+        val entry2ItemId = ((body[entry2Start].toInt() and 0xFF) shl 8) or
+            (body[entry2Start + 1].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.EXIF_ITEM_ID, entry2ItemId)
+        val item2OffsetStart = entry2Start + 2 + 2 + 2
+        val item2Offset = ((body[item2OffsetStart].toLong() and 0xFF) shl 24) or
+            ((body[item2OffsetStart + 1].toLong() and 0xFF) shl 16) or
+            ((body[item2OffsetStart + 2].toLong() and 0xFF) shl 8) or
+            (body[item2OffsetStart + 3].toLong() and 0xFF)
+        assertEquals(expectedExifOffset, item2Offset)
+    }
+
+    @Test
+    fun `exif set keeps ipma binding properties only to primary item`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(exifPayload = tinyExif))
+        val ipmaPayload = findBoxPayload(out, "ipma")
+        // ipma is a FullBox: 4 bytes version+flags. Version = 0 for
+        // small itemIds. Body:
+        //   uint32_be entry_count
+        //   per entry: uint16 itemId + uint8 association_count + ...
+        val entryCount = ((ipmaPayload[4].toLong() and 0xFF) shl 24) or
+            ((ipmaPayload[5].toLong() and 0xFF) shl 16) or
+            ((ipmaPayload[6].toLong() and 0xFF) shl 8) or
+            (ipmaPayload[7].toLong() and 0xFF)
+        // Only primary image needs property associations; EXIF item
+        // does not need any properties.
+        assertEquals(1L, entryCount)
+        val firstItemId = ((ipmaPayload[8].toInt() and 0xFF) shl 8) or
+            (ipmaPayload[9].toInt() and 0xFF)
+        assertEquals(AvifStillMuxer.PRIMARY_ITEM_ID, firstItemId)
+    }
+
+    @Test
+    fun `exif set keeps file ftyp meta mdat top-level structure`() {
+        val out = AvifStillMuxer.encode(canonicalInput().copy(exifPayload = tinyExif))
+        val ftypType = String(out.copyOfRange(4, 8), Charsets.US_ASCII)
+        assertEquals("ftyp", ftypType)
+        val ftypSize = readBoxSize(out, 0)
+        val metaType = String(out.copyOfRange(ftypSize + 4, ftypSize + 8), Charsets.US_ASCII)
+        assertEquals("meta", metaType)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatType = String(
+            out.copyOfRange(ftypSize + metaSize + 4, ftypSize + metaSize + 8),
+            Charsets.US_ASCII,
+        )
+        assertEquals("mdat", mdatType)
+    }
+
+    @Test
+    fun `exif set ends mdat exactly at the EXIF end (no trailing bytes)`() {
+        val input = canonicalInput().copy(exifPayload = tinyExif)
+        val out = AvifStillMuxer.encode(input)
+        val ftypSize = readBoxSize(out, 0)
+        val metaSize = readBoxSize(out, ftypSize)
+        val mdatStart = ftypSize + metaSize
+        val mdatSize = readBoxSize(out, mdatStart)
+        assertEquals(out.size, mdatStart + mdatSize)
+    }
+
+    @Test
+    fun `exif null vs exif set produce different outputs`() {
+        val noExif = AvifStillMuxer.encode(canonicalInput())
+        val withExif = AvifStillMuxer.encode(canonicalInput().copy(exifPayload = tinyExif))
+        assertTrue("EXIF must change the output", !noExif.contentEquals(withExif))
+        assertTrue(
+            "EXIF must increase total file size by at least exif size",
+            withExif.size > noExif.size + tinyExif.size,
+        )
+    }
+
     // ==================================================================
     // Helpers
     // ==================================================================
@@ -432,6 +690,38 @@ class AvifStillMuxerTest {
     private fun findBoxPayload(buf: ByteArray, type: String): ByteArray {
         return findBoxPayloadRecursive(buf, 0, buf.size, type)
             ?: error("box type '$type' not found in buffer")
+    }
+
+    /**
+     * Locate the absolute offset of the first box of `type`
+     * anywhere in `buf`, by recursively descending into known
+     * container box types (`meta`, `iprp`, `ipco`). Returns -1
+     * when the type is not present.
+     */
+    private fun findBoxOffset(buf: ByteArray, type: String): Int {
+        return findBoxOffsetRecursive(buf, 0, buf.size, type)
+    }
+
+    private fun findBoxOffsetRecursive(
+        buf: ByteArray,
+        start: Int,
+        end: Int,
+        type: String,
+    ): Int {
+        var i = start
+        while (i < end) {
+            val size = readBoxSize(buf, i)
+            val t = String(buf.copyOfRange(i + 4, i + 8), Charsets.US_ASCII)
+            if (t == type) return i
+            val payloadStart = if (t == "meta") i + 12 else i + 8
+            val payloadEnd = i + size
+            if (t == "meta" || t == "iprp") {
+                val nested = findBoxOffsetRecursive(buf, payloadStart, payloadEnd, type)
+                if (nested != -1) return nested
+            }
+            i += size
+        }
+        return -1
     }
 
     private fun findBoxPayloadRecursive(

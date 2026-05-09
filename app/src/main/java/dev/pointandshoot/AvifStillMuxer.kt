@@ -75,12 +75,32 @@ import java.io.ByteArrayOutputStream
  *
  * ### What this round does NOT yet ship
  *
- *  * EXIF metadata items (require an `iref` "cdsc" reference
- *    box; planned for a future round).
  *  * Auxiliary alpha image items (require an `iref` "auxl"
  *    reference + `auxC` property; planned for a future round).
  *  * Animated AVIF (`avis`) sequences (require track-based
  *    boxes from § 8.x; this muxer is still-image only).
+ *
+ * ### Optional EXIF metadata item (Round 35)
+ *
+ * When [Input.exifPayload] is non-null, the muxer adds:
+ *
+ *  * a second `infe` entry (`itemType = "Exif"`, `itemId = 2`)
+ *    in `iinf`,
+ *  * an `iref` `cdsc` reference from the EXIF item (subject) to
+ *    the primary AV1 image item (object), per HEIF spec § 11.4.2
+ *    and AVIF spec § 3.5,
+ *  * a second `iloc` extent pointing to the EXIF byte range
+ *    inside `mdat`,
+ *  * a 4-byte big-endian `exif_tiff_header_offset = 0` prefix
+ *    (per HEIF § 11.4.4) prepended to the EXIF TIFF block before
+ *    it lands in `mdat`.
+ *
+ * The mdat layout is `[AV1 bitstream][exif_tiff_header_offset (4
+ * BE bytes) | EXIF TIFF block]` (AV1 always first so the primary
+ * image's `iloc` offset stays at the smallest value). The 4-byte
+ * prefix is the spec-mandated "offset from end of this field to
+ * the TIFF header byte order marker"; we always set it to `0`
+ * because the TIFF header begins immediately after.
  *
  * Pinned schema version: bumped only when the on-disk byte
  * layout changes incompatibly.
@@ -92,6 +112,23 @@ object AvifStillMuxer {
 
     /** The canonical primary item ID for a single-image AVIF still. */
     const val PRIMARY_ITEM_ID: Int = 1
+
+    /**
+     * The canonical itemId for the optional EXIF metadata item
+     * when [Input.exifPayload] is set (Round 35). HEIF / AVIF do
+     * not mandate a specific itemId for the EXIF item — it just
+     * has to be unique and != [PRIMARY_ITEM_ID] — but pinning it
+     * here keeps the wire layout deterministic for tests.
+     */
+    const val EXIF_ITEM_ID: Int = 2
+
+    /**
+     * Fixed 4-byte `exif_tiff_header_offset` prefix written at
+     * the very front of the EXIF item content per HEIF spec
+     * § 11.4.4. Always `0` for the muxer because the TIFF header
+     * begins immediately after the prefix.
+     */
+    const val EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE: Int = 4
 
     /**
      * Per-channel bit-depth list shorthands matching
@@ -140,6 +177,17 @@ object AvifStillMuxer {
      * @param clli optional CTA-861.3 content light-level info;
      *     surfaces as `clli`. Strongly recommended whenever
      *     [mdcv] is set.
+     * @param exifPayload optional EXIF TIFF block (Round 35).
+     *     When non-null, the muxer adds an `Exif` `infe` entry,
+     *     an `iref` `cdsc` reference from the EXIF item to the
+     *     primary AV1 image, and a second `iloc` extent pointing
+     *     to the EXIF byte range inside `mdat`. The byte sequence
+     *     should start with the TIFF byte-order marker
+     *     (`II` `*` `\0` for little-endian or `MM` `\0` `*` for
+     *     big-endian) — the muxer prepends the spec-mandated
+     *     4-byte `exif_tiff_header_offset = 0` itself. Caller is
+     *     responsible for the TIFF block being well-formed
+     *     EXIF — the muxer does not parse it.
      */
     data class Input(
         val widthPx: Int,
@@ -154,12 +202,18 @@ object AvifStillMuxer {
         val clap: IsobmffSampleAspect.ClapPayload? = null,
         val mdcv: MasteringDisplayMetadata? = null,
         val clli: ContentLightLevel? = null,
+        val exifPayload: ByteArray? = null,
     ) {
         init {
             require(widthPx >= 1) { "widthPx must be >= 1; got $widthPx" }
             require(heightPx >= 1) { "heightPx must be >= 1; got $heightPx" }
             require(bitDepths.isNotEmpty()) { "bitDepths must not be empty" }
             require(av1Bitstream.isNotEmpty()) { "av1Bitstream must not be empty" }
+            if (exifPayload != null) {
+                require(exifPayload.isNotEmpty()) {
+                    "exifPayload must be null or non-empty; got 0-byte payload"
+                }
+            }
         }
     }
 
@@ -239,23 +293,63 @@ object AvifStillMuxer {
         val hdlrBox = HandlerReferenceBox.encodePictBox()
         val pitmBox = PrimaryItemBox.encodeBox(PRIMARY_ITEM_ID.toLong())
 
-        val infeBox = ItemInfoEntry.encodeBox(
-            ItemInfoEntry.Entry(
-                itemId = PRIMARY_ITEM_ID.toLong(),
-                itemType = ItemInfoEntry.ITEM_TYPE_AV01,
+        val infeBoxes = mutableListOf<ByteArray>()
+        infeBoxes.add(
+            ItemInfoEntry.encodeBox(
+                ItemInfoEntry.Entry(
+                    itemId = PRIMARY_ITEM_ID.toLong(),
+                    itemType = ItemInfoEntry.ITEM_TYPE_AV01,
+                ),
             ),
         )
-        val iinfBox = ItemInfoBox.encodeBox(listOf(infeBox))
+        if (input.exifPayload != null) {
+            infeBoxes.add(
+                ItemInfoEntry.encodeBox(
+                    ItemInfoEntry.Entry(
+                        itemId = EXIF_ITEM_ID.toLong(),
+                        itemType = ItemInfoEntry.ITEM_TYPE_EXIF,
+                    ),
+                ),
+            )
+        }
+        val iinfBox = ItemInfoBox.encodeBox(infeBoxes)
+
+        val irefBox: ByteArray? = if (input.exifPayload != null) {
+            ItemReferenceBox.encodeBox(
+                listOf(
+                    ItemReferenceBox.Reference(
+                        referenceType = ItemReferenceBox.REFERENCE_TYPE_CDSC,
+                        fromItemId = EXIF_ITEM_ID.toLong(),
+                        toItemIds = listOf(PRIMARY_ITEM_ID.toLong()),
+                    ),
+                ),
+            )
+        } else {
+            null
+        }
+
+        val exifItemContent: ByteArray? = input.exifPayload?.let { tiffBlock ->
+            val out = ByteArrayOutputStream(EXIF_TIFF_HEADER_OFFSET_PREFIX_SIZE + tiffBlock.size)
+            // 4-byte big-endian exif_tiff_header_offset = 0 per HEIF § 11.4.4.
+            out.write(0); out.write(0); out.write(0); out.write(0)
+            out.write(tiffBlock)
+            out.toByteArray()
+        }
 
         // ----------------------------------------------------------------
         // Two-pass offset planning. Build an iloc with placeholder offsets
         // that have the same byte width as the real offsets, compute the
         // meta size, then rebuild iloc with the real offsets and verify
-        // the size didn't change.
+        // the size didn't change. mdat layout when EXIF is present:
+        //   [AV1 bitstream][exif_tiff_header_offset (4 BE bytes) | TIFF].
         // ----------------------------------------------------------------
 
-        val placeholderIloc = ItemLocationBox.encodeBox(
-            listOf(
+        val mdatPayloadSize = input.av1Bitstream.size.toLong() +
+            (exifItemContent?.size?.toLong() ?: 0L)
+        val mdatHeaderSize = MediaDataBox.headerSize(mdatPayloadSize)
+
+        val placeholderItems = buildList {
+            add(
                 ItemLocationBox.Item(
                     itemId = PRIMARY_ITEM_ID.toLong(),
                     extents = listOf(
@@ -265,23 +359,39 @@ object AvifStillMuxer {
                         ),
                     ),
                 ),
-            ),
-        )
+            )
+            if (exifItemContent != null) {
+                add(
+                    ItemLocationBox.Item(
+                        itemId = EXIF_ITEM_ID.toLong(),
+                        extents = listOf(
+                            ItemLocationBox.Extent(
+                                offset = 1L + input.av1Bitstream.size.toLong(),
+                                length = exifItemContent.size.toLong(),
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+
+        val placeholderIloc = ItemLocationBox.encodeBox(placeholderItems)
 
         val metaPlaceholder = MetaBox.Builder()
             .setHandler(hdlrBox)
             .setPrimaryItem(pitmBox)
             .setItemInfo(iinfBox)
             .setItemLocation(placeholderIloc)
+            .also { if (irefBox != null) it.setItemReference(irefBox) }
             .setItemProperties(iprpBox)
             .build()
 
-        val mdatHeaderSize = MediaDataBox.headerSize(input.av1Bitstream.size.toLong())
         val mdatStart = ftypBox.size.toLong() + metaPlaceholder.size.toLong()
         val av1Offset = mdatStart + mdatHeaderSize.toLong()
+        val exifOffset = av1Offset + input.av1Bitstream.size.toLong()
 
-        val realIloc = ItemLocationBox.encodeBox(
-            listOf(
+        val realItems = buildList {
+            add(
                 ItemLocationBox.Item(
                     itemId = PRIMARY_ITEM_ID.toLong(),
                     extents = listOf(
@@ -291,8 +401,23 @@ object AvifStillMuxer {
                         ),
                     ),
                 ),
-            ),
-        )
+            )
+            if (exifItemContent != null) {
+                add(
+                    ItemLocationBox.Item(
+                        itemId = EXIF_ITEM_ID.toLong(),
+                        extents = listOf(
+                            ItemLocationBox.Extent(
+                                offset = exifOffset,
+                                length = exifItemContent.size.toLong(),
+                            ),
+                        ),
+                    ),
+                )
+            }
+        }
+
+        val realIloc = ItemLocationBox.encodeBox(realItems)
 
         check(realIloc.size == placeholderIloc.size) {
             "iloc size changed between placeholder and real pass " +
@@ -306,10 +431,15 @@ object AvifStillMuxer {
             .setPrimaryItem(pitmBox)
             .setItemInfo(iinfBox)
             .setItemLocation(realIloc)
+            .also { if (irefBox != null) it.setItemReference(irefBox) }
             .setItemProperties(iprpBox)
             .build()
 
-        val mdatBox = MediaDataBox.encodeBox(input.av1Bitstream)
+        val mdatBox = if (exifItemContent != null) {
+            MediaDataBox.encodeBox(listOf(input.av1Bitstream, exifItemContent))
+        } else {
+            MediaDataBox.encodeBox(input.av1Bitstream)
+        }
 
         val out = ByteArrayOutputStream(ftypBox.size + metaBox.size + mdatBox.size)
         out.write(ftypBox)

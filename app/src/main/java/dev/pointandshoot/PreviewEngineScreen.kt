@@ -219,7 +219,7 @@ private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
         ChromeGridSlotSpec.ExpandShortcut(1, 1, "Guides", Icons.Outlined.GridOn, "Guides"),
         ChromeGridSlotSpec.ExpandShortcut(1, 2, "Looks / LUT", Icons.Outlined.Palette, "Looks and LUT"),
         ChromeGridSlotSpec.ExpandShortcut(1, 3, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
-        ChromeGridSlotSpec.ExpandShortcut(1, 5, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 4, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
         ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Palette, "Cycle stills LUT", ChromeGridQuickAction.CycleStillsLut),
         ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.FlashOn, "Flash", ChromeGridQuickAction.FlashStub),
         ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.Timer, "Self timer", ChromeGridQuickAction.TimerStub),
@@ -2224,84 +2224,80 @@ private fun PreviewChromeGrid7x7(
         )
     }
 
-    val chromeTileSpacing = 6.dp
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(chromeTileSpacing),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(chromeTileSpacing),
-        ) {
-            for (c in 0 until 7) {
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .aspectRatio(1f),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (c < focalSlots.size) {
-                        val slot = focalSlots[c]
-                        val enabled =
-                            resolveFocalMmSlot(context.applicationContext, slot, cameraIds) != null
-                        val selected =
-                            focalMmSlotIsActive(
-                                context.applicationContext,
-                                slot,
-                                cameraIds,
-                                selectedCameraId,
-                                focalCrop,
-                            )
-                        FpsQuickChip(
-                            label = slot.labelMm,
-                            selected = selected,
-                            requiresRoot = false,
-                            enabled = enabled,
-                            onClick = { onApplyFocalMmSlot(slot) },
-                            fillMaxTile = true,
-                            modifier =
-                                Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 2.dp, vertical = 2.dp)
-                                    .chromeGlyphRotation(uiRotationDeg),
-                        )
+    val gap = 6.dp
+    val cols = 7
+    val shortcutLogicalRows = previewChromeGridSlots.map { it.row }.distinct().size
+    val physicalRows = 1 + shortcutLogicalRows
+    BoxWithConstraints(modifier = modifier) {
+        val cellW = (maxWidth - gap * (cols - 1)) / cols
+        val cellH = (maxHeight - gap * (physicalRows - 1)) / physicalRows
+        val cell = minOf(cellW, cellH).coerceAtLeast(1.dp)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(gap),
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    for (c in 0 until cols) {
+                        Box(
+                            modifier = Modifier.size(cell),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (c < focalSlots.size) {
+                                val slot = focalSlots[c]
+                                val enabled =
+                                    resolveFocalMmSlot(context.applicationContext, slot, cameraIds) != null
+                                val selected =
+                                    focalMmSlotIsActive(
+                                        context.applicationContext,
+                                        slot,
+                                        cameraIds,
+                                        selectedCameraId,
+                                        focalCrop,
+                                    )
+                                FpsQuickChip(
+                                    label = slot.labelMm,
+                                    selected = selected,
+                                    requiresRoot = false,
+                                    enabled = enabled,
+                                    onClick = { onApplyFocalMmSlot(slot) },
+                                    fillMaxTile = true,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxSize()
+                                            .padding(horizontal = 2.dp, vertical = 2.dp)
+                                            .chromeGlyphRotation(uiRotationDeg),
+                                )
+                            }
+                        }
                     }
                 }
-            }
-        }
-        // Sparse logical rows (e.g. row 1 uses cols 1–3 and 5 only): never merge different `row`
-        // indices into one physical Row — that caused staggered backgrounds / banding.
-        val gridRows = previewChromeGridSlots.map { it.row }.distinct().sorted()
-        val specAt =
-            previewChromeGridSlots.associateBy { it.row to it.col }
-        for (gridRow in gridRows) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(chromeTileSpacing),
-            ) {
-                repeat(7) { col ->
-                    val spec = specAt[gridRow to col]
-                    Box(
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .aspectRatio(1f),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (spec != null) {
-                            PreviewChromeScrollSlot(
-                                spec = spec,
-                                expandedKey = expandedKey,
-                                onToggleShortcutTitle = onToggleShortcutTitle,
-                                hudState = hudState,
-                                chromePrefs = chromePrefs,
-                                uiRotationDeg = uiRotationDeg,
-                                fineLocationGranted = fineLocationGranted,
-                                onPendingEnableGeotagChange = onPendingEnableGeotagChange,
-                                onRequestLocationForGeotag = onRequestLocationForGeotag,
-                                layoutPortrait = layoutPortrait,
-                            )
+                val gridRows = previewChromeGridSlots.map { it.row }.distinct().sorted()
+                val specAt =
+                    previewChromeGridSlots.associateBy { it.row to it.col }
+                for (gridRow in gridRows) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        repeat(cols) { col ->
+                            val spec = specAt[gridRow to col]
+                            Box(
+                                modifier = Modifier.size(cell),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                if (spec != null) {
+                                    PreviewChromeScrollSlot(
+                                        spec = spec,
+                                        expandedKey = expandedKey,
+                                        onToggleShortcutTitle = onToggleShortcutTitle,
+                                        hudState = hudState,
+                                        chromePrefs = chromePrefs,
+                                        uiRotationDeg = uiRotationDeg,
+                                        fineLocationGranted = fineLocationGranted,
+                                        onPendingEnableGeotagChange = onPendingEnableGeotagChange,
+                                        onRequestLocationForGeotag = onRequestLocationForGeotag,
+                                        layoutPortrait = layoutPortrait,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -2358,10 +2354,11 @@ private fun PreviewRightRail(
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .background(Color.Black.copy(alpha = 0.92f))
-                .padding(vertical = 2.dp, horizontal = 2.dp),
+                .padding(horizontal = 4.dp)
+                .padding(top = 4.dp, bottom = 8.dp),
     ) {
         PreviewChromeGrid7x7(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
             cameraIds = cameraIds,
             selectedCameraId = selectedCameraId,
             focalCrop = focalCrop,

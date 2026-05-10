@@ -90,7 +90,9 @@ function Get-AdbOnlineSerials {
             $ids += $Matches[1]
         }
     }
-    return $ids
+    # Unary comma: PowerShell unwraps single-element arrays from `return $ids`, which makes
+    # `$onlineSerials[0]` index the first *character* of the serial string — breaking adb -s.
+    return , $ids
 }
 
 if ([string]::IsNullOrWhiteSpace($Serial)) {
@@ -112,7 +114,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "adb devices -l failed exit=$LASTEXITCODE"
 }
 
-$onlineSerials = Get-AdbOnlineSerials
+$onlineSerials = @(Get-AdbOnlineSerials)
 if ([string]::IsNullOrWhiteSpace($Serial)) {
     if ($onlineSerials.Count -gt 1) {
         throw "Multiple adb devices online ($($onlineSerials -join ', ')). Set PNS_ADB_SERIAL in scripts/pns_adb_device.env or pass -Serial."

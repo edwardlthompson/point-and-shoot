@@ -167,6 +167,12 @@ import kotlin.text.Charsets
  */
 private val PreviewChromeGridIconSize = 28.dp
 
+private fun Modifier.chromeGlyphRotation(degrees: Float): Modifier =
+    graphicsLayer {
+        rotationZ = degrees
+        transformOrigin = TransformOrigin(0.5f, 0.5f)
+    }
+
 private enum class ChromeGridQuickAction {
     CycleStillsLut,
     FlashStub,
@@ -202,10 +208,9 @@ private sealed class ChromeGridSlotSpec {
     ) : ChromeGridSlotSpec()
 }
 
-/** Row 0 focal mm chips; rows 1–6 icon-only; Settings at (6,6); row 2 quick actions per roadmap. */
+/** Scroll-area shortcuts (packed into rows of 7); focal-length row is separate. Target FPS lives on the readout strip. */
 private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
     listOf(
-        ChromeGridSlotSpec.ExpandShortcut(1, 0, "Target FPS", Icons.Outlined.Speed, "Target FPS"),
         ChromeGridSlotSpec.ExpandShortcut(1, 1, "Guides", Icons.Outlined.GridOn, "Guides"),
         ChromeGridSlotSpec.ExpandShortcut(1, 2, "Looks / LUT", Icons.Outlined.Palette, "Looks and LUT"),
         ChromeGridSlotSpec.ExpandShortcut(1, 3, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
@@ -258,7 +263,7 @@ private fun formatDngUniqueCameraModelLine(cameraId: String, lut: LutCatalog): S
 fun PreviewEngineScreen(
     onBack: () -> Unit,
     onOpenDeveloperMenu: () -> Unit = {},
-    onOpenHudSettings: () -> Unit = {},
+    onOpenHudSettings: (HudSettingsFocus) -> Unit = {},
     startAutoSweep: Boolean = false,
     /** From `am start` extras — see `EXTRA_PNS_PREVIEW_*` in [CameraCapabilitiesProbe]. */
     adbInitialDial: CommandDialMode? = null,
@@ -754,7 +759,7 @@ fun PreviewEngineScreen(
     }
 
     PreviewEngineContent(
-        padding = insets.asPaddingValues(extra = 0.dp),
+        padding = insets.asPaddingValuesWithExtraTopBarBand(),
         lastGalleryUri = lastGalleryUri,
         cameraIds = controller.cameraIds(),
         selectedCameraId = selectedCameraId,
@@ -935,7 +940,7 @@ private fun PreviewEngineContent(
     isRecording: Boolean,
     onRecordingChange: (Boolean) -> Unit,
     onOpenDeveloperMenu: () -> Unit,
-    onOpenHudSettings: () -> Unit,
+    onOpenHudSettings: (HudSettingsFocus) -> Unit,
     onPickFirstCamera: () -> Unit,
     onSetFps: (Int) -> Unit,
     onStartSweep: () -> Unit,
@@ -1237,6 +1242,10 @@ private fun PreviewEngineContent(
                 onStillCaptureJpegCompanionChange = { next ->
                     chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = next))
                 },
+                onIsoClick = { onOpenHudSettings(HudSettingsFocus.IsoShutterReadout) },
+                onShutterClick = { onOpenHudSettings(HudSettingsFocus.IsoShutterReadout) },
+                onAwbClick = { onOpenHudSettings(HudSettingsFocus.WhiteBalanceInfo) },
+                onFpsClick = { onOpenHudSettings(HudSettingsFocus.FpsReadout) },
                 modifier = Modifier.fillMaxWidth(),
             )
             PreviewRightRail(
@@ -2010,6 +2019,142 @@ private fun ShortcutBlock(
 }
 
 @Composable
+private fun PreviewChromeScrollSlot(
+    spec: ChromeGridSlotSpec,
+    expandedKey: String?,
+    onToggleShortcutTitle: (String) -> Unit,
+    hudState: HudSettingsState,
+    chromePrefs: PreviewChromePreferencesState,
+    uiRotationDeg: Float,
+) {
+    val context = LocalContext.current
+    val hud = hudState.current
+    val rot = Modifier.chromeGlyphRotation(uiRotationDeg)
+    when (spec) {
+        is ChromeGridSlotSpec.ExpandShortcut ->
+            IconCubeVectorButton(
+                onClick = { onToggleShortcutTitle(spec.title) },
+                contentDescription = spec.contentDescription,
+                imageVector = spec.icon,
+                selected = expandedKey == spec.title,
+                size = PreviewChromeGridIconSize,
+                modifier = rot,
+            )
+        is ChromeGridSlotSpec.QuickAction -> {
+            val selectedQuick =
+                when (spec.kind) {
+                    ChromeGridQuickAction.CycleStillsLut ->
+                        hud.stillsLut() != LutCatalog.None
+                    ChromeGridQuickAction.ToggleHistogram ->
+                        hud.showHistogram
+                    ChromeGridQuickAction.TimerStub ->
+                        chromePrefs.current.selfTimerDelaySec > 0
+                    ChromeGridQuickAction.FlashStub ->
+                        false
+                    ChromeGridQuickAction.ToggleHorizonLevel ->
+                        hud.showHorizonLevel
+                    ChromeGridQuickAction.ToggleEyeAfOverlay ->
+                        hud.showEyeAfOverlay
+                    ChromeGridQuickAction.ToggleVideoTally ->
+                        hud.showVideoTally
+                    ChromeGridQuickAction.ToggleMaxBrightnessPreview ->
+                        chromePrefs.current.maxBrightnessInPreview
+                    ChromeGridQuickAction.ToggleDndInPreview ->
+                        chromePrefs.current.dndWhileInPreview
+                    ChromeGridQuickAction.ToggleTapPreviewCapture ->
+                        chromePrefs.current.tapPreviewToCapture
+                    ChromeGridQuickAction.ToggleVolumeKeysCapture ->
+                        chromePrefs.current.volumeKeysCapture
+                }
+            IconCubeVectorButton(
+                onClick = {
+                    when (spec.kind) {
+                        ChromeGridQuickAction.CycleStillsLut ->
+                            cycleStillsLutQuick(hudState)
+                        ChromeGridQuickAction.ToggleHistogram -> {
+                            val cur = hudState.current
+                            hudState.update(
+                                cur.copy(showHistogram = !cur.showHistogram),
+                            )
+                        }
+                        ChromeGridQuickAction.FlashStub ->
+                            Toast.makeText(
+                                context,
+                                "Flash — not wired to AE/flash units yet.",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        ChromeGridQuickAction.TimerStub -> {
+                            val next =
+                                PreviewChromePreferences.cycleSelfTimerDelaySec(
+                                    chromePrefs.current.selfTimerDelaySec,
+                                )
+                            chromePrefs.update(
+                                chromePrefs.current.copy(selfTimerDelaySec = next),
+                            )
+                            val msg =
+                                if (next == 0) {
+                                    "Self-timer off"
+                                } else {
+                                    "Self-timer ${next}s"
+                                }
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            Log.i("PNS.ChromeUx", "selfTimerSec=$next")
+                        }
+                        ChromeGridQuickAction.ToggleHorizonLevel -> {
+                            val cur = hudState.current
+                            hudState.update(
+                                cur.copy(showHorizonLevel = !cur.showHorizonLevel),
+                            )
+                        }
+                        ChromeGridQuickAction.ToggleEyeAfOverlay -> {
+                            val cur = hudState.current
+                            hudState.update(
+                                cur.copy(showEyeAfOverlay = !cur.showEyeAfOverlay),
+                            )
+                        }
+                        ChromeGridQuickAction.ToggleVideoTally -> {
+                            val cur = hudState.current
+                            hudState.update(
+                                cur.copy(showVideoTally = !cur.showVideoTally),
+                            )
+                        }
+                        ChromeGridQuickAction.ToggleMaxBrightnessPreview -> {
+                            val c = chromePrefs.current
+                            chromePrefs.update(
+                                c.copy(maxBrightnessInPreview = !c.maxBrightnessInPreview),
+                            )
+                        }
+                        ChromeGridQuickAction.ToggleDndInPreview -> {
+                            val c = chromePrefs.current
+                            chromePrefs.update(
+                                c.copy(dndWhileInPreview = !c.dndWhileInPreview),
+                            )
+                        }
+                        ChromeGridQuickAction.ToggleTapPreviewCapture -> {
+                            val c = chromePrefs.current
+                            chromePrefs.update(
+                                c.copy(tapPreviewToCapture = !c.tapPreviewToCapture),
+                            )
+                        }
+                        ChromeGridQuickAction.ToggleVolumeKeysCapture -> {
+                            val c = chromePrefs.current
+                            chromePrefs.update(
+                                c.copy(volumeKeysCapture = !c.volumeKeysCapture),
+                            )
+                        }
+                    }
+                },
+                contentDescription = spec.contentDescription,
+                imageVector = spec.icon,
+                selected = selectedQuick,
+                size = PreviewChromeGridIconSize,
+                modifier = rot,
+            )
+        }
+    }
+}
+
+@Composable
 private fun PreviewChromeGrid7x7(
     cameraIds: List<String>,
     selectedCameraId: String?,
@@ -2019,15 +2164,15 @@ private fun PreviewChromeGrid7x7(
     onToggleShortcutTitle: (String) -> Unit,
     hudState: HudSettingsState,
     chromePrefs: PreviewChromePreferencesState,
+    uiRotationDeg: Float,
 ) {
     val context = LocalContext.current
     val focalSlots = FocalMmSlot.entries
-    val hud = hudState.current
 
     LaunchedEffect(Unit) {
         Log.i(
             "PNS.ChromeUx",
-            "grid7=layout settingsAt=r6c6=true quickActions=lut,flash,timer,histogram,horizon,eyeAf,tally,bright,dnd,tap,volKeys",
+            "quickGrid=focalRow7_packedScrollSlots targetFpsOnReadout=true",
         )
     }
 
@@ -2035,12 +2180,58 @@ private fun PreviewChromeGrid7x7(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        for (r in 0 until 7) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            for (c in 0 until 7) {
+                Box(
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.28f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (c < focalSlots.size) {
+                        val slot = focalSlots[c]
+                        val enabled =
+                            resolveFocalMmSlot(context.applicationContext, slot, cameraIds) != null
+                        val selected =
+                            focalMmSlotIsActive(
+                                context.applicationContext,
+                                slot,
+                                cameraIds,
+                                selectedCameraId,
+                                focalCrop,
+                            )
+                        FpsQuickChip(
+                            label = slot.labelMm,
+                            selected = selected,
+                            requiresRoot = false,
+                            enabled = enabled,
+                            onClick = { onApplyFocalMmSlot(slot) },
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 2.dp, vertical = 2.dp)
+                                    .chromeGlyphRotation(uiRotationDeg),
+                        )
+                    }
+                }
+            }
+        }
+        val ordered =
+            previewChromeGridSlots.sortedWith(
+                compareBy({ it.row }, { it.col }),
+            )
+        ordered.chunked(7).forEach { chunk ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(1.dp),
             ) {
-                for (c in 0 until 7) {
+                chunk.forEach { spec ->
                     Box(
                         modifier =
                             Modifier
@@ -2050,170 +2241,14 @@ private fun PreviewChromeGrid7x7(
                                 .background(Color.Black.copy(alpha = 0.28f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        when {
-                            r == 0 && c < focalSlots.size -> {
-                                val slot = focalSlots[c]
-                                val enabled =
-                                    resolveFocalMmSlot(context.applicationContext, slot, cameraIds) != null
-                                val selected =
-                                    focalMmSlotIsActive(
-                                        context.applicationContext,
-                                        slot,
-                                        cameraIds,
-                                        selectedCameraId,
-                                        focalCrop,
-                                    )
-                                FpsQuickChip(
-                                    label = slot.labelMm,
-                                    selected = selected,
-                                    requiresRoot = false,
-                                    enabled = enabled,
-                                    onClick = { onApplyFocalMmSlot(slot) },
-                                    modifier =
-                                        Modifier
-                                            .fillMaxSize()
-                                            .padding(horizontal = 2.dp, vertical = 2.dp),
-                                )
-                            }
-                            else -> {
-                                when (val cell = previewChromeGridSlots.find { it.row == r && it.col == c }) {
-                                    is ChromeGridSlotSpec.ExpandShortcut ->
-                                        IconCubeVectorButton(
-                                            onClick = { onToggleShortcutTitle(cell.title) },
-                                            contentDescription = cell.contentDescription,
-                                            imageVector = cell.icon,
-                                            selected = expandedKey == cell.title,
-                                            size = PreviewChromeGridIconSize,
-                                        )
-                                    is ChromeGridSlotSpec.QuickAction -> {
-                                        val selectedQuick =
-                                            when (cell.kind) {
-                                                ChromeGridQuickAction.CycleStillsLut ->
-                                                    hud.stillsLut() != LutCatalog.None
-                                                ChromeGridQuickAction.ToggleHistogram ->
-                                                    hud.showHistogram
-                                                ChromeGridQuickAction.TimerStub ->
-                                                    chromePrefs.current.selfTimerDelaySec > 0
-                                                ChromeGridQuickAction.FlashStub ->
-                                                    false
-                                                ChromeGridQuickAction.ToggleHorizonLevel ->
-                                                    hud.showHorizonLevel
-                                                ChromeGridQuickAction.ToggleEyeAfOverlay ->
-                                                    hud.showEyeAfOverlay
-                                                ChromeGridQuickAction.ToggleVideoTally ->
-                                                    hud.showVideoTally
-                                                ChromeGridQuickAction.ToggleMaxBrightnessPreview ->
-                                                    chromePrefs.current.maxBrightnessInPreview
-                                                ChromeGridQuickAction.ToggleDndInPreview ->
-                                                    chromePrefs.current.dndWhileInPreview
-                                                ChromeGridQuickAction.ToggleTapPreviewCapture ->
-                                                    chromePrefs.current.tapPreviewToCapture
-                                                ChromeGridQuickAction.ToggleVolumeKeysCapture ->
-                                                    chromePrefs.current.volumeKeysCapture
-                                            }
-                                        IconCubeVectorButton(
-                                            onClick = {
-                                                when (cell.kind) {
-                                                    ChromeGridQuickAction.CycleStillsLut ->
-                                                        cycleStillsLutQuick(hudState)
-                                                    ChromeGridQuickAction.ToggleHistogram -> {
-                                                        val cur = hudState.current
-                                                        hudState.update(
-                                                            cur.copy(showHistogram = !cur.showHistogram),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.FlashStub ->
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Flash — not wired to AE/flash units yet.",
-                                                            Toast.LENGTH_SHORT,
-                                                        ).show()
-                                                    ChromeGridQuickAction.TimerStub -> {
-                                                        val next =
-                                                            PreviewChromePreferences.cycleSelfTimerDelaySec(
-                                                                chromePrefs.current.selfTimerDelaySec,
-                                                            )
-                                                        chromePrefs.update(
-                                                            chromePrefs.current.copy(selfTimerDelaySec = next),
-                                                        )
-                                                        val msg =
-                                                            if (next == 0) {
-                                                                "Self-timer off"
-                                                            } else {
-                                                                "Self-timer ${next}s"
-                                                            }
-                                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                                        Log.i("PNS.ChromeUx", "selfTimerSec=$next")
-                                                    }
-                                                    ChromeGridQuickAction.ToggleHorizonLevel -> {
-                                                        val cur = hudState.current
-                                                        hudState.update(
-                                                            cur.copy(showHorizonLevel = !cur.showHorizonLevel),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.ToggleEyeAfOverlay -> {
-                                                        val cur = hudState.current
-                                                        hudState.update(
-                                                            cur.copy(showEyeAfOverlay = !cur.showEyeAfOverlay),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.ToggleVideoTally -> {
-                                                        val cur = hudState.current
-                                                        hudState.update(
-                                                            cur.copy(showVideoTally = !cur.showVideoTally),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.ToggleMaxBrightnessPreview -> {
-                                                        val c = chromePrefs.current
-                                                        chromePrefs.update(
-                                                            c.copy(maxBrightnessInPreview = !c.maxBrightnessInPreview),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.ToggleDndInPreview -> {
-                                                        val c = chromePrefs.current
-                                                        chromePrefs.update(
-                                                            c.copy(dndWhileInPreview = !c.dndWhileInPreview),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.ToggleTapPreviewCapture -> {
-                                                        val c = chromePrefs.current
-                                                        chromePrefs.update(
-                                                            c.copy(tapPreviewToCapture = !c.tapPreviewToCapture),
-                                                        )
-                                                    }
-                                                    ChromeGridQuickAction.ToggleVolumeKeysCapture -> {
-                                                        val c = chromePrefs.current
-                                                        chromePrefs.update(
-                                                            c.copy(volumeKeysCapture = !c.volumeKeysCapture),
-                                                        )
-                                                    }
-                                                }
-                                            },
-                                            contentDescription = cell.contentDescription,
-                                            imageVector = cell.icon,
-                                            selected = selectedQuick,
-                                            size = PreviewChromeGridIconSize,
-                                        )
-                                    }
-                                    null -> {
-                                        IconCubeVectorButton(
-                                            onClick = {
-                                                Toast.makeText(
-                                                    context,
-                                                    "Reserved grid slot (roadmap).",
-                                                    Toast.LENGTH_SHORT,
-                                                ).show()
-                                            },
-                                            contentDescription = "Reserved slot",
-                                            imageVector = Icons.Outlined.GridOn,
-                                            selected = false,
-                                            modifier = Modifier.alpha(0.38f),
-                                            size = PreviewChromeGridIconSize,
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        PreviewChromeScrollSlot(
+                            spec = spec,
+                            expandedKey = expandedKey,
+                            onToggleShortcutTitle = onToggleShortcutTitle,
+                            hudState = hudState,
+                            chromePrefs = chromePrefs,
+                            uiRotationDeg = uiRotationDeg,
+                        )
                     }
                 }
             }
@@ -2227,7 +2262,7 @@ private fun PreviewRightRail(
     uiRotationDeg: Float,
     cameraIds: List<String>,
     onApplyFocalMmSlot: (FocalMmSlot) -> Unit,
-    onOpenHudSettings: () -> Unit,
+    onOpenHudSettings: (HudSettingsFocus) -> Unit,
     onOpenDeveloperMenu: () -> Unit,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     selectedFps: Int,
@@ -2269,8 +2304,7 @@ private fun PreviewRightRail(
                 .background(Color.Black.copy(alpha = 0.92f))
                 .padding(vertical = 4.dp, horizontal = 4.dp),
     ) {
-        // Photo/video dual shutters live in [PreviewBottomCaptureTray]. Only the 7×7 focal/tool grid rotates with
-        // [uiRotationDeg]; shortcut panels stay upright so landscape remains readable.
+        // Quick-settings strip scrolls; focal row stays fixed. Glyph cubes rotate per-icon via [uiRotationDeg].
         Column(
             modifier =
                 Modifier
@@ -2280,29 +2314,19 @@ private fun PreviewRightRail(
                     .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight()
-                        .graphicsLayer {
-                            rotationZ = uiRotationDeg
-                            transformOrigin = TransformOrigin(0.5f, 0.5f)
-                        },
-            ) {
-                PreviewChromeGrid7x7(
-                    cameraIds = cameraIds,
-                    selectedCameraId = selectedCameraId,
-                    focalCrop = focalCrop,
-                    onApplyFocalMmSlot = onApplyFocalMmSlot,
-                    expandedKey = expandedKey,
-                    onToggleShortcutTitle = { title ->
-                        expandedKey = if (expandedKey == title) null else title
-                    },
-                    hudState = hudState,
-                    chromePrefs = chromePrefs,
-                )
-            }
+            PreviewChromeGrid7x7(
+                cameraIds = cameraIds,
+                selectedCameraId = selectedCameraId,
+                focalCrop = focalCrop,
+                onApplyFocalMmSlot = onApplyFocalMmSlot,
+                expandedKey = expandedKey,
+                onToggleShortcutTitle = { title ->
+                    expandedKey = if (expandedKey == title) null else title
+                },
+                hudState = hudState,
+                chromePrefs = chromePrefs,
+                uiRotationDeg = uiRotationDeg,
+            )
                 ShortcutBlock(
                     title = "Settings",
                     icon = Icons.Outlined.Settings,
@@ -2320,7 +2344,7 @@ private fun PreviewRightRail(
                     showIconHeader = false,
                 ) {
             OutlinedButton(
-                onClick = onOpenHudSettings,
+                onClick = { onOpenHudSettings(HudSettingsFocus.None) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("HUD settings", style = MaterialTheme.typography.labelSmall)

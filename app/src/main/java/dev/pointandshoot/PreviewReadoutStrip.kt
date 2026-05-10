@@ -4,14 +4,17 @@ import android.hardware.camera2.CaptureResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,7 +30,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -59,8 +61,8 @@ object PreviewReadoutFormat {
 }
 
 /**
- * Thin exposure readout above the chrome rails; counter-rotates with device UI rotation like other
- * Sony-style chrome (preview buffer stays fixed).
+ * Exposure readout above the chrome rails: tappable ISO / shutter / WB / FPS open HUD focus targets;
+ * RAW | RAW+ on the right. The strip counter-rotates with [uiRotationDeg] like other Sony-style chrome.
  */
 @Composable
 fun PreviewReadoutStrip(
@@ -69,9 +71,12 @@ fun PreviewReadoutStrip(
     awbMode: Int?,
     measuredFps: Double,
     uiRotationDeg: Float,
-    /** Preferred still pipeline: DNG-only (`false`) vs RAW+JPEG companion (`true`). Persists with preview chrome prefs. */
     stillCaptureJpegCompanion: Boolean,
     onStillCaptureJpegCompanionChange: (Boolean) -> Unit,
+    onIsoClick: () -> Unit,
+    onShutterClick: () -> Unit,
+    onAwbClick: () -> Unit,
+    onFpsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isoText = iso?.toString() ?: "—"
@@ -83,14 +88,13 @@ fun PreviewReadoutStrip(
         } else {
             "—"
         }
-    val line = "ISO $isoText   $ss   $awb   ${fpsText}fps"
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .height(PreviewReadoutStripHeight)
                 .background(Color.Black.copy(alpha = 0.88f))
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
                 .graphicsLayer {
                     rotationZ = uiRotationDeg
                     transformOrigin = TransformOrigin(0.5f, 0.5f)
@@ -98,15 +102,39 @@ fun PreviewReadoutStrip(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = line,
-            modifier = Modifier.weight(1f, fill = true),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.92f),
-            fontFamily = FontFamily.Monospace,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(
+            modifier =
+                Modifier
+                    .weight(1f, fill = true)
+                    .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ReadoutMetricChip(
+                label = "ISO",
+                value = isoText,
+                onClick = onIsoClick,
+                accessibilityLabel = "ISO settings. Current $isoText",
+            )
+            ReadoutMetricChip(
+                label = "Ss",
+                value = ss,
+                onClick = onShutterClick,
+                accessibilityLabel = "Shutter speed settings. Current $ss",
+            )
+            ReadoutMetricChip(
+                label = "WB",
+                value = awb,
+                onClick = onAwbClick,
+                accessibilityLabel = "White balance info. Current $awb",
+            )
+            ReadoutMetricChip(
+                label = "FPS",
+                value = "${fpsText}fps",
+                onClick = onFpsClick,
+                accessibilityLabel = "FPS readout settings. Current ${fpsText}fps",
+            )
+        }
         RawStillPipelineToggle(
             jpegCompanion = stillCaptureJpegCompanion,
             onChange = onStillCaptureJpegCompanionChange,
@@ -114,7 +142,45 @@ fun PreviewReadoutStrip(
     }
 }
 
-val PreviewReadoutStripHeight = 34.dp
+val PreviewReadoutStripHeight = 40.dp
+
+@Composable
+private fun ReadoutMetricChip(
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    accessibilityLabel: String,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        modifier =
+            Modifier
+                .semantics { contentDescription = accessibilityLabel }
+                .clip(shape)
+                .border(1.dp, Color.White.copy(alpha = 0.28f), shape)
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    onClick = onClick,
+                ).background(Color.Black.copy(alpha = 0.45f))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.55f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White.copy(alpha = 0.94f),
+            maxLines = 1,
+        )
+    }
+}
 
 @Composable
 private fun RawStillPipelineToggle(
@@ -164,7 +230,7 @@ private fun RawStillPipelineToggleSegment(
     Box(
         modifier =
             Modifier
-                .semantics { contentDescription = semanticsLabel }
+                .semantics { this.contentDescription = semanticsLabel }
                 .clickable(
                     interactionSource = interaction,
                     indication = null,

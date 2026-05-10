@@ -163,6 +163,7 @@ fun CameraCapabilitiesProbe(
     var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
     var showProHud by remember { mutableStateOf(false) }
     var showHudSettings by remember { mutableStateOf(false) }
+    var hudSettingsFocus by remember { mutableStateOf(HudSettingsFocus.None) }
     var showCalibrate by remember { mutableStateOf(false) }
     var showLutImport by remember { mutableStateOf(false) }
     var showGlPreview by remember { mutableStateOf(false) }
@@ -354,7 +355,8 @@ fun CameraCapabilitiesProbe(
                 showPreviewEngine = false
                 showDebugMenu = true
             },
-            onOpenHudSettings = {
+            onOpenHudSettings = { focus ->
+                hudSettingsFocus = focus
                 showHudSettings = true
                 showPreviewEngine = false
             },
@@ -470,7 +472,13 @@ fun CameraCapabilitiesProbe(
     }
 
     if (showHudSettings) {
-        HudSettingsScreen(onBack = { showHudSettings = false })
+        HudSettingsScreen(
+            onBack = {
+                showHudSettings = false
+                hudSettingsFocus = HudSettingsFocus.None
+            },
+            initialFocus = hudSettingsFocus,
+        )
         return
     }
 
@@ -567,6 +575,7 @@ fun CameraCapabilitiesProbe(
             },
             onShowHudSettings = {
                 showDebugMenu = false
+                hudSettingsFocus = HudSettingsFocus.None
                 showHudSettings = true
             },
             onShowCalibrate = {
@@ -615,7 +624,10 @@ fun CameraCapabilitiesProbe(
         PreviewEngineScreen(
             onBack = { activity?.finish() },
             onOpenDeveloperMenu = { showDebugMenu = true },
-            onOpenHudSettings = { showHudSettings = true },
+            onOpenHudSettings = { focus ->
+                hudSettingsFocus = focus
+                showHudSettings = true
+            },
             startAutoSweep = autoSweep,
         )
         return
@@ -641,7 +653,10 @@ fun CameraCapabilitiesProbe(
         onShowExhaustive = { showExhaustive = true },
         onShowAbout = { showAbout = true },
         onShowProHud = { showProHud = true },
-        onShowHudSettings = { showHudSettings = true },
+        onShowHudSettings = {
+            hudSettingsFocus = HudSettingsFocus.None
+            showHudSettings = true
+        },
         onShowCalibrate = { showCalibrate = true },
         onShowLutImport = { showLutImport = true },
         onShowGlPreview = { showGlPreview = true },

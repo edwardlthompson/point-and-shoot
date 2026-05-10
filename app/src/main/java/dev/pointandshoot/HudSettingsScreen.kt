@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,7 +41,10 @@ import androidx.core.content.ContextCompat
  *     additional dependencies required.
  */
 @Composable
-fun HudSettingsScreen(onBack: () -> Unit) {
+fun HudSettingsScreen(
+    onBack: () -> Unit,
+    initialFocus: HudSettingsFocus = HudSettingsFocus.None,
+) {
     val state = rememberHudSettings()
     val insets = rememberSystemInsetsDp()
     HudSettingsScreenContent(
@@ -47,6 +52,7 @@ fun HudSettingsScreen(onBack: () -> Unit) {
         settings = state.current,
         onUpdate = state.update,
         onBack = onBack,
+        initialFocus = initialFocus,
     )
 }
 
@@ -56,6 +62,7 @@ private fun HudSettingsScreenContent(
     settings: HudSettings,
     onUpdate: (HudSettings) -> Unit,
     onBack: () -> Unit,
+    initialFocus: HudSettingsFocus,
 ) {
     val ctx = LocalContext.current
     val cameraGranted =
@@ -186,15 +193,62 @@ private fun HudSettingsScreenContent(
             }
         }
 
+        val listState = rememberLazyListState()
+        LaunchedEffect(initialFocus, rows) {
+            if (initialFocus == HudSettingsFocus.None) return@LaunchedEffect
+            delay(80)
+            val index =
+                when (initialFocus) {
+                    HudSettingsFocus.IsoShutterReadout ->
+                        rows.indexOfFirst { it.title.startsWith("ISO + shutter") }
+                    HudSettingsFocus.FpsReadout ->
+                        rows.indexOfFirst { it.title.startsWith("FPS readout") }
+                    HudSettingsFocus.WhiteBalanceInfo -> rows.size
+                    HudSettingsFocus.None -> -1
+                }
+            if (index >= 0) {
+                listState.scrollToItem(index)
+            }
+        }
+
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(rows.size + 1) { index ->
-                if (index < rows.size) HudToggle(rows[index])
-                else CompositionGuideQuickControls()
+            items(rows, key = { it.title }) { row -> HudToggle(row) }
+            item(key = "wb_readout_info") {
+                WhiteBalanceReadoutInfoCard()
+            }
+            item(key = "composition_guides") {
+                CompositionGuideQuickControls()
             }
         }
+    }
+}
+
+@Composable
+private fun WhiteBalanceReadoutInfoCard() {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "White balance (readout)",
+            style = MaterialTheme.typography.titleMedium,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "The preview strip shows the active AWB mode from the camera pipeline " +
+                    "(e.g. AWB, DAYLIGHT). There is no separate manual WB dial yet; " +
+                    "use your camera vendor app for vendor-specific WB locks.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.72f),
+        )
     }
 }
 

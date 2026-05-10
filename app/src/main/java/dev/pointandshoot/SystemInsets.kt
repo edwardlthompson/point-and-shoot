@@ -108,3 +108,12 @@ fun SystemInsetsDp.asPaddingValues(extra: Dp = 0.dp): PaddingValues =
         bottom = bottom + extra,
     )
 
+/** Adds another full **top** inset (matches status-bar band) so preview clears punch-hole cameras. */
+fun SystemInsetsDp.asPaddingValuesWithExtraTopBarBand(): PaddingValues =
+    PaddingValues(
+        start = left,
+        top = top + top,
+        end = right,
+        bottom = bottom,
+    )
+

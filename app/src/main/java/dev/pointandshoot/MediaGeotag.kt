@@ -35,6 +35,21 @@ object MediaGeotag {
         }.onFailure { e -> Log.w(TAG, "MediaStore image lat/lon failed uri=$uri err=${e.message}") }
     }
 
+    /**
+     * MediaStore indexing columns only — use after in-file EXIF GPS is written elsewhere
+     * (e.g. [StillCaptureMetadata]) so galleries still index lat/lon.
+     */
+    fun applyMediaStoreImageLocationColumns(context: Context, uri: Uri, location: Location) {
+        runCatching {
+            val values =
+                ContentValues().apply {
+                    put(MediaStore.Images.Media.LATITUDE, location.latitude)
+                    put(MediaStore.Images.Media.LONGITUDE, location.longitude)
+                }
+            context.contentResolver.update(uri, values, null, null)
+        }.onFailure { e -> Log.w(TAG, "MediaStore image lat/lon failed uri=$uri err=${e.message}") }
+    }
+
     fun applyToVideoUri(context: Context, uri: Uri, location: Location) {
         runCatching {
             val values =

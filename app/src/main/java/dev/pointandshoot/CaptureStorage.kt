@@ -73,6 +73,13 @@ object CaptureStorage {
         kind: CaptureKind,
         sequence: Long? = null,
         location: Location? = null,
+        /**
+         * When **true** (default), a null [location] is replaced with [CaptureLocationBridge.snapshot]
+         * for [Handle.close] geotagging. When **false**, null stays null — callers that post-process
+         * EXIF/GPS via [StillCaptureMetadata] after close must use **false** to avoid duplicate or
+         * overwritten tags.
+         */
+        useLocationBridge: Boolean = true,
         /** Appended before the extension, e.g. bracket stop id + grouping (`bkt3of5-bkt-abc123`). */
         filenameSuffix: String? = null,
     ): Handle {
@@ -81,7 +88,12 @@ object CaptureStorage {
         val seq = sequence ?: seqCounter.incrementAndGet()
         val displayName = filename(profile, kind, seq, filenameSuffix)
         val relativePath = relativePath(profile)
-        val fix = location ?: CaptureLocationBridge.snapshot()
+        val fix =
+            when {
+                location != null -> location
+                useLocationBridge -> CaptureLocationBridge.snapshot()
+                else -> null
+            }
 
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, displayName)

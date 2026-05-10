@@ -36,6 +36,7 @@ import android.graphics.ImageFormat
 import android.graphics.Point
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
+import android.location.Location
 import java.util.concurrent.Executor
 import android.net.Uri
 import android.provider.Settings
@@ -94,7 +95,6 @@ import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
@@ -214,7 +214,6 @@ private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
         ChromeGridSlotSpec.ExpandShortcut(1, 1, "Guides", Icons.Outlined.GridOn, "Guides"),
         ChromeGridSlotSpec.ExpandShortcut(1, 2, "Looks / LUT", Icons.Outlined.Palette, "Looks and LUT"),
         ChromeGridSlotSpec.ExpandShortcut(1, 3, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
-        ChromeGridSlotSpec.ExpandShortcut(1, 4, "Spin (preview)", Icons.Outlined.RotateRight, "Spin preview"),
         ChromeGridSlotSpec.ExpandShortcut(1, 5, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
         ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Palette, "Cycle stills LUT", ChromeGridQuickAction.CycleStillsLut),
         ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.FlashOn, "Flash", ChromeGridQuickAction.FlashStub),
@@ -646,6 +645,12 @@ fun PreviewEngineScreen(
             sampler.stop()
             CaptureLocationBridge.update(null)
         }
+    }
+
+    val embedStillLocation =
+        chromePrefs.current.saveLocationWithMedia && fineLocationGranted
+    SideEffect {
+        controller.setStillEmbedLocationInFiles(embedStillLocation)
     }
 
     PreviewMaxBrightnessEffect(chromePrefs.current.maxBrightnessInPreview)
@@ -1278,9 +1283,6 @@ private fun PreviewEngineContent(
                 hudState = hudState,
                 compositionGuide = compositionGuide,
                 chromePrefs = chromePrefs,
-                fineLocationGranted = fineLocationGranted,
-                onPendingEnableGeotagChange = onPendingEnableGeotagChange,
-                onRequestLocationForGeotag = onRequestLocationForGeotag,
                 isSweeping = isSweeping,
                 onPickFirstCamera = onPickFirstCamera,
                 onStartSweep = onStartSweep,
@@ -1300,6 +1302,15 @@ private fun PreviewEngineContent(
                 onCalibrateFromPreviewFrame = { openCalibrateFromPreviewFrame() },
                 previewJpegCompanion = previewJpegCompanion,
                 rawStillNotReadyReason = controller.rawStillNotReadyReason(),
+            )
+            PreviewChromeBottomQuickStrip(
+                modifier = Modifier.fillMaxWidth(),
+                chromePrefs = chromePrefs,
+                fineLocationGranted = fineLocationGranted,
+                onPendingEnableGeotagChange = onPendingEnableGeotagChange,
+                onRequestLocationForGeotag = onRequestLocationForGeotag,
+                uiRotationDeg = uiRotationDeg,
+                layoutPortrait = layoutPortrait,
             )
             val showBottomTray =
                 chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial
@@ -2256,6 +2267,86 @@ private fun PreviewChromeGrid7x7(
     }
 }
 
+/** Location toggle + preview spin between the scrollable chrome rail and the shutter tray. */
+@Composable
+private fun PreviewChromeBottomQuickStrip(
+    modifier: Modifier = Modifier,
+    chromePrefs: PreviewChromePreferencesState,
+    fineLocationGranted: Boolean,
+    onPendingEnableGeotagChange: (Boolean) -> Unit,
+    onRequestLocationForGeotag: () -> Unit,
+    uiRotationDeg: Float,
+    layoutPortrait: Boolean,
+) {
+    val chrome = chromePrefs.current
+    Row(
+        modifier =
+            modifier
+                .background(Color.Black.copy(alpha = 0.94f))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.chromeGlyphRotation(uiRotationDeg),
+        ) {
+            Text(
+                "Location",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.88f),
+                maxLines = 1,
+            )
+            Switch(
+                checked = chrome.saveLocationWithMedia && fineLocationGranted,
+                onCheckedChange = { want ->
+                    if (!want) {
+                        chromePrefs.update(chrome.copy(saveLocationWithMedia = false))
+                        CaptureLocationBridge.update(null)
+                        return@Switch
+                    }
+                    if (fineLocationGranted) {
+                        chromePrefs.update(chrome.copy(saveLocationWithMedia = true))
+                    } else {
+                        onPendingEnableGeotagChange(true)
+                        onRequestLocationForGeotag()
+                    }
+                },
+            )
+        }
+        if (chrome.saveLocationWithMedia && !fineLocationGranted) {
+            TextButton(
+                onClick = onRequestLocationForGeotag,
+                modifier = Modifier.chromeGlyphRotation(uiRotationDeg),
+            ) {
+                Text(
+                    "Grant",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = PnsColors.WarnAmber,
+                    maxLines = 1,
+                )
+            }
+        }
+        OutlinedButton(
+            onClick = {
+                val nextDeg =
+                    PreviewChromePreferences.normalizeStaticRotation(
+                        chrome.staticPreviewRotationDeg + 90,
+                    )
+                chromePrefs.update(chrome.copy(staticPreviewRotationDeg = nextDeg))
+            },
+            modifier = Modifier.chromeGlyphRotation(uiRotationDeg),
+        ) {
+            Text(
+                "Spin ${effectivePreviewStaticRotationDeg(chrome.staticPreviewRotationDeg, layoutPortrait)}°",
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
 @Composable
 private fun PreviewRightRail(
     modifier: Modifier = Modifier,
@@ -2270,9 +2361,6 @@ private fun PreviewRightRail(
     hudState: HudSettingsState,
     compositionGuide: CompositionGuideSettingsState,
     chromePrefs: PreviewChromePreferencesState,
-    fineLocationGranted: Boolean,
-    onPendingEnableGeotagChange: (Boolean) -> Unit,
-    onRequestLocationForGeotag: () -> Unit,
     isSweeping: Boolean,
     onPickFirstCamera: () -> Unit,
     onStartSweep: () -> Unit,
@@ -2611,84 +2699,6 @@ private fun PreviewRightRail(
                 },
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Geo\ntag", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-            Switch(
-                checked = chrome.saveLocationWithMedia && fineLocationGranted,
-                onCheckedChange = { want ->
-                    if (!want) {
-                        chromePrefs.update(chrome.copy(saveLocationWithMedia = false))
-                        CaptureLocationBridge.update(null)
-                        return@Switch
-                    }
-                    if (fineLocationGranted) {
-                        chromePrefs.update(chrome.copy(saveLocationWithMedia = true))
-                    } else {
-                        onPendingEnableGeotagChange(true)
-                        onRequestLocationForGeotag()
-                    }
-                },
-            )
-        }
-        if (chrome.saveLocationWithMedia && !fineLocationGranted) {
-            TextButton(
-                onClick = onRequestLocationForGeotag,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Location\npermission", style = MaterialTheme.typography.labelSmall, color = PnsColors.WarnAmber)
-            }
-        }
-        }
-
-                ShortcutBlock(
-                    title = "Spin (preview)",
-                    icon = Icons.Outlined.RotateRight,
-                    expanded = expandedKey == "Spin (preview)",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Spin (preview)"
-                            } else if (expandedKey == "Spin (preview)") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-            Text(
-                "Static preview spin",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.85f),
-            )
-            Text(
-                "DGK / USAF charts (e.g. 8.5×11): grayscale ramps on the short edges (top/bottom " +
-                    "when the sheet is upright), skin-tone column toward camera-left, primary patches " +
-                    "toward camera-right; tap Spin until the live image matches.",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.62f),
-            )
-            // Cycle 0 → 90 → 180 → 270 → 0. Applied as a single fixed offset to the camera
-            // buffer in the user's view; the preview never rotates again as the phone tilts.
-            OutlinedButton(
-                onClick = {
-                    val nextDeg =
-                        PreviewChromePreferences.normalizeStaticRotation(
-                            chrome.staticPreviewRotationDeg + 90,
-                        )
-                    chromePrefs.update(chrome.copy(staticPreviewRotationDeg = nextDeg))
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    "${effectivePreviewStaticRotationDeg(chrome.staticPreviewRotationDeg, false)}°",
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
         }
 
                 ShortcutBlock(
@@ -2969,6 +2979,8 @@ private class PreviewController(
      * Mirrors [PreviewChromePreferences.previewTextureCoverCrop] for tap/metering math in buffer space.
      */
     @Volatile private var previewTextureCoverCrop: Boolean = true
+    /** When true and still pipeline uses [CaptureLocationBridge.snapshot], embed GPS in DNG/JPEG EXIF. */
+    @Volatile private var stillEmbedLocationInFiles: Boolean = false
     @Volatile private var textureWindowStartNs: Long = 0L
     @Volatile private var textureWindowFrames: Long = 0L
 
@@ -3309,6 +3321,13 @@ private class PreviewController(
         refreshRepeatingPreviewOnly()
     }
 
+    fun setStillEmbedLocationInFiles(enabled: Boolean) {
+        stillEmbedLocationInFiles = enabled
+    }
+
+    private fun locationForStillMetadata(): Location? =
+        if (stillEmbedLocationInFiles) CaptureLocationBridge.snapshot() else null
+
     /** RAW DNG path requires non-HFR session with [ImageReader] attached (BUILD_PLAN §4). */
     fun canCaptureRawStill(): Boolean =
         rawImageReader != null &&
@@ -3404,6 +3423,7 @@ private class PreviewController(
             px[i] = (0xFF shl 24) or (r shl 16) or (g shl 8) or b
         }
         val outBmp = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+        val loc = locationForStillMetadata()
         var handle: CaptureStorage.Handle? = null
         try {
             handle =
@@ -3411,6 +3431,7 @@ private class PreviewController(
                     appContext.applicationContext,
                     profile,
                     CaptureStorage.CaptureKind.JpegSdr,
+                    useLocationBridge = false,
                 )
             if (!outBmp.compress(Bitmap.CompressFormat.JPEG, 92, handle.output)) {
                 throw IllegalStateException("JPEG compress failed")
@@ -3419,7 +3440,13 @@ private class PreviewController(
             val jpegUri = handle.uri
             handle.close()
             handle = null
-            StillCaptureMetadata.applyToJpegUri(appContext.applicationContext, jpegUri, characteristics, captureResult)
+            StillCaptureMetadata.applyToJpegUri(
+                appContext.applicationContext,
+                jpegUri,
+                characteristics,
+                captureResult,
+                location = loc,
+            )
             LutCaptureSidecars.writeBundledLutSidecarIfNeeded(
                 appContext.applicationContext,
                 profile,
@@ -3556,11 +3583,13 @@ private class PreviewController(
                 try {
                     val orient =
                         RawCaptureSupport.orientationClockwiseDegForDng(chars, surfaceRotation)
+                    val loc = locationForStillMetadata()
                     handle =
                         CaptureStorage.openOutput(
                             appContext.applicationContext,
                             profile,
                             profile.toDngCaptureKind(),
+                            useLocationBridge = false,
                         )
                     Dng12Saver(chars, profile).save(
                         rawImg,
@@ -3576,7 +3605,13 @@ private class PreviewController(
                     val dngUri = handle.uri
                     handle.close()
                     handle = null
-                    StillCaptureMetadata.applyToDngUri(appContext.applicationContext, dngUri, chars, result)
+                    StillCaptureMetadata.applyToDngUri(
+                        appContext.applicationContext,
+                        dngUri,
+                        chars,
+                        result,
+                        location = loc,
+                    )
                     writeCalibrationSidecarIfNeeded(appContext, profile, dngDisplayName)
                     if (jpegImg != null) {
                         try {
@@ -3796,11 +3831,13 @@ private class PreviewController(
                         val orient =
                             RawCaptureSupport.orientationClockwiseDegForDng(chars, surfaceRotation)
                         val suffix = "bkt${idx + 1}of${aeInts.size}-${plan.groupingId}"
+                        val loc = locationForStillMetadata()
                         handle =
                             CaptureStorage.openOutput(
                                 appContext.applicationContext,
                                 profile,
                                 profile.toDngCaptureKind(),
+                                useLocationBridge = false,
                                 filenameSuffix = suffix,
                             )
                         Dng12Saver(chars, profile).save(
@@ -3817,7 +3854,13 @@ private class PreviewController(
                         val dngUri = handle.uri
                         handle.close()
                         handle = null
-                        StillCaptureMetadata.applyToDngUri(appContext.applicationContext, dngUri, chars, result)
+                        StillCaptureMetadata.applyToDngUri(
+                            appContext.applicationContext,
+                            dngUri,
+                            chars,
+                            result,
+                            location = loc,
+                        )
                         writeCalibrationSidecarIfNeeded(appContext, profile, dngDisplayName)
                         if (jpegImg != null) {
                             try {

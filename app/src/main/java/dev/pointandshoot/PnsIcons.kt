@@ -86,7 +86,7 @@ fun IconCubeVectorButton(
     size: Dp = 44.dp,
     selected: Boolean = false,
     enabled: Boolean = true,
-    /** When true, unselected uses a transparent fill so a parent cell background is not double-darkened. */
+    /** When true, unselected uses [PnsColors.ChromeQuickGridCell] so cells do not double-stack transparency. */
     blendCubeIntoParent: Boolean = false,
 ) {
     val borderColor =
@@ -97,7 +97,7 @@ fun IconCubeVectorButton(
         }
     val bg =
         when {
-            blendCubeIntoParent && !selected -> Color.Transparent
+            blendCubeIntoParent && !selected -> PnsColors.ChromeQuickGridCell
             selected -> PnsColors.PhotoOrange.copy(alpha = 0.18f)
             else -> Color.Black.copy(alpha = 0.55f)
         }

@@ -2222,26 +2222,28 @@ private fun PreviewChromeGrid7x7(
     LaunchedEffect(Unit) {
         Log.i(
             "PNS.ChromeUx",
-            "quickGrid=focalRow7_packedScrollSlots targetFpsOnReadout=true",
+            "quickGrid=focalRow7_logicalRows_scrollSlotsByCol targetFpsOnReadout=true",
         )
     }
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        // Zero gap: 1.dp spaced rows could read as a horizontal seam on OLED + certain scaling ratios.
+        verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(1.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(PnsColors.ChromeQuickGridCell),
         ) {
             for (c in 0 until 7) {
                 Box(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color.Black.copy(alpha = 0.28f)),
+                            .aspectRatio(1f),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (c < focalSlots.size) {
@@ -2272,24 +2274,26 @@ private fun PreviewChromeGrid7x7(
                 }
             }
         }
-        val ordered =
-            previewChromeGridSlots.sortedWith(
-                compareBy({ it.row }, { it.col }),
-            )
-        ordered.chunked(7).forEach { chunk ->
+        // Sparse logical rows (e.g. row 1 uses cols 1–3 and 5 only): never merge different `row`
+        // indices into one physical Row — that caused staggered backgrounds / banding.
+        val gridRows = previewChromeGridSlots.map { it.row }.distinct().sorted()
+        val specAt =
+            previewChromeGridSlots.associateBy { it.row to it.col }
+        for (gridRow in gridRows) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(1.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(PnsColors.ChromeQuickGridCell),
             ) {
-                repeat(7) { idx ->
-                    val spec = chunk.getOrNull(idx)
+                repeat(7) { col ->
+                    val spec = specAt[gridRow to col]
                     Box(
                         modifier =
                             Modifier
                                 .weight(1f)
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color.Black.copy(alpha = 0.28f)),
+                                .aspectRatio(1f),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (spec != null) {

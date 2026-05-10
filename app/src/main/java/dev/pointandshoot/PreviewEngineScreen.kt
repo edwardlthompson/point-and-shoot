@@ -168,8 +168,6 @@ import kotlin.text.Charsets
  * "more settings" the BUILD_PLAN UI milestone calls for, instead of putting the shutter over
  * the preview.
  */
-private val PreviewChromeGridIconSize = 24.dp
-
 private fun Modifier.chromeGlyphRotation(degrees: Float): Modifier =
     graphicsLayer {
         rotationZ = degrees
@@ -2053,9 +2051,9 @@ private fun PreviewChromeScrollSlot(
                 contentDescription = spec.contentDescription,
                 imageVector = spec.icon,
                 selected = expandedKey == spec.title,
-                size = PreviewChromeGridIconSize,
-                modifier = rot,
-                blendCubeIntoParent = true,
+                modifier = rot.then(Modifier.fillMaxSize()),
+                chromeChipStyle = true,
+                fillMaxTile = true,
             )
         is ChromeGridSlotSpec.QuickAction -> {
             val selectedQuick =
@@ -2191,9 +2189,9 @@ private fun PreviewChromeScrollSlot(
                 contentDescription = spec.contentDescription,
                 imageVector = spec.icon,
                 selected = selectedQuick,
-                size = PreviewChromeGridIconSize,
-                modifier = rot,
-                blendCubeIntoParent = true,
+                modifier = rot.then(Modifier.fillMaxSize()),
+                chromeChipStyle = true,
+                fillMaxTile = true,
             )
         }
     }
@@ -2222,21 +2220,18 @@ private fun PreviewChromeGrid7x7(
     LaunchedEffect(Unit) {
         Log.i(
             "PNS.ChromeUx",
-            "quickGrid=focalRow7_logicalRows_scrollSlotsByCol targetFpsOnReadout=true",
+            "quickGrid=focalRow7_iconTiles_matchFpsChip_scrolledSlots targetFpsOnReadout=true",
         )
     }
 
+    val chromeTileSpacing = 6.dp
     Column(
         modifier = modifier.fillMaxWidth(),
-        // Zero gap: 1.dp spaced rows could read as a horizontal seam on OLED + certain scaling ratios.
-        verticalArrangement = Arrangement.spacedBy(0.dp),
+        verticalArrangement = Arrangement.spacedBy(chromeTileSpacing),
     ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(PnsColors.ChromeQuickGridCell),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(chromeTileSpacing),
         ) {
             for (c in 0 until 7) {
                 Box(
@@ -2264,6 +2259,7 @@ private fun PreviewChromeGrid7x7(
                             requiresRoot = false,
                             enabled = enabled,
                             onClick = { onApplyFocalMmSlot(slot) },
+                            fillMaxTile = true,
                             modifier =
                                 Modifier
                                     .fillMaxSize()
@@ -2281,11 +2277,8 @@ private fun PreviewChromeGrid7x7(
             previewChromeGridSlots.associateBy { it.row to it.col }
         for (gridRow in gridRows) {
             Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(PnsColors.ChromeQuickGridCell),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(chromeTileSpacing),
             ) {
                 repeat(7) { col ->
                     val spec = specAt[gridRow to col]
@@ -2868,6 +2861,8 @@ private fun FpsQuickChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    /** Fill square chrome tiles (same footprint as [IconCubeVectorButton] with [fillMaxTile]). */
+    fillMaxTile: Boolean = false,
 ) {
     val borderColor =
         when {
@@ -2892,8 +2887,13 @@ private fun FpsQuickChip(
     Box(
         modifier =
             modifier
-                .height(44.dp)
-                .widthIn(min = PnsDimens.quickSettingsChipMinWidth)
+                .then(
+                    if (fillMaxTile) {
+                        Modifier.fillMaxSize()
+                    } else {
+                        Modifier.height(44.dp).widthIn(min = PnsDimens.quickSettingsChipMinWidth)
+                    },
+                )
                 .clip(RoundedCornerShape(10.dp))
                 .border(1.dp, borderColor, RoundedCornerShape(10.dp))
                 .background(bg)

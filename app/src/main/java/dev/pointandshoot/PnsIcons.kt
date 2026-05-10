@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -86,37 +88,64 @@ fun IconCubeVectorButton(
     size: Dp = 44.dp,
     selected: Boolean = false,
     enabled: Boolean = true,
-    /** When true, unselected uses [PnsColors.ChromeQuickGridCell] so cells do not double-stack transparency. */
-    blendCubeIntoParent: Boolean = false,
+    /**
+     * Match [FpsQuickChip] border/fill/tints so focal-length and icon tiles read as one family
+     * (distinct rounded blocks in the preview chrome grid).
+     */
+    chromeChipStyle: Boolean = false,
+    /** Expand to the caller's max constraints; glyph scales with the shorter tile edge (~2× in the 7-column grid). */
+    fillMaxTile: Boolean = false,
 ) {
+    val shape = RoundedCornerShape(10.dp)
     val borderColor =
         when {
+            chromeChipStyle && !enabled -> Color.White.copy(alpha = 0.12f)
+            chromeChipStyle && selected -> PnsColors.PhotoOrange
+            chromeChipStyle -> Color.White.copy(alpha = 0.35f)
             selected -> PnsColors.PhotoOrange
             enabled -> Color.White.copy(alpha = 0.30f)
             else -> Color.White.copy(alpha = 0.15f)
         }
     val bg =
         when {
-            blendCubeIntoParent && !selected -> PnsColors.ChromeQuickGridCell
+            chromeChipStyle && !enabled -> Color.Black.copy(alpha = 0.25f)
+            chromeChipStyle && selected -> PnsColors.PhotoOrange
+            chromeChipStyle -> Color.Black.copy(alpha = 0.45f)
             selected -> PnsColors.PhotoOrange.copy(alpha = 0.18f)
             else -> Color.Black.copy(alpha = 0.55f)
         }
-    Box(
-        modifier =
-            modifier
-                .size(size)
-                .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-                .background(bg)
-                .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = imageVector,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(size * 0.52f),
-            tint = Color.White.copy(alpha = if (enabled) 0.92f else 0.45f),
-        )
+    val iconTint =
+        when {
+            chromeChipStyle && !enabled -> Color.White.copy(alpha = 0.35f)
+            chromeChipStyle && selected -> Color.Black.copy(alpha = 0.92f)
+            chromeChipStyle -> Color.White.copy(alpha = 0.92f)
+            else -> Color.White.copy(alpha = if (enabled) 0.92f else 0.45f)
+        }
+    val layered =
+        modifier
+            .clip(shape)
+            .border(1.dp, borderColor, shape)
+            .background(bg)
+            .clickable(enabled = enabled, onClick = onClick)
+    if (fillMaxTile) {
+        BoxWithConstraints(modifier = layered, contentAlignment = Alignment.Center) {
+            val edge = minOf(maxWidth, maxHeight)
+            Icon(
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(edge * 0.56f),
+                tint = iconTint,
+            )
+        }
+    } else {
+        Box(modifier = layered.size(size), contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = imageVector,
+                contentDescription = contentDescription,
+                modifier = Modifier.size(size * 0.52f),
+                tint = iconTint,
+            )
+        }
     }
 }
 

@@ -34,9 +34,6 @@ object PnsColors {
     /** Charcoal background tone (matches the launcher icon background). */
     val Charcoal = Color(0xFF181A1B)
 
-    /** Preview chrome 7× grid cell fill — opaque so nested icon cubes do not alpha-stack banding. */
-    val ChromeQuickGridCell = Color(0xFF1C1C1C)
-
     /** Soft warning amber for non-fatal pipeline messages. */
     val WarnAmber = Color(0xFFE6A23C)
 

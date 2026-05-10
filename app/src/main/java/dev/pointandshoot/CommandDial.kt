@@ -23,14 +23,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Command-dial modes from BUILD_PLAN §5 (Phase 2): **M**anual / **H**ighlight /
- * **S**nap (Ricoh GR-style fixed focus) / **BKT** (bracket).
+ * Command-dial modes from BUILD_PLAN §5 (Phase 2): **A**uto / **M**anual /
+ * **H**ighlight / **S**nap (Ricoh GR-style fixed focus) / **BKT** (bracket).
  *
  * Each mode is a deterministic capture program; the engine reads the active
  * mode and reconfigures `CaptureRequest.Builder` accordingly. Defaults are
  * documented per spec and intentionally narrow.
  */
 enum class CommandDialMode(val label: String, val description: String) {
+    Auto("A", "Auto: continuous AE/AF — standard point-and-shoot behavior"),
     M("M", "Manual: full ISO / shutter / focus control"),
     H("H", "Highlight: 95th-percentile-luma metering (Ricoh GR style)"),
     S("S", "Snap: street preset — AF at infinity (tap preview to refocus)"),
@@ -42,7 +43,7 @@ enum class CommandDialMode(val label: String, val description: String) {
  * directly on top of the live preview without further wiring.
  *
  * Visual feedback per Part 4: selected segment uses [PnsColors.PhotoOrange]
- * (Hasselblad orange) for *photo* dial states (M/H/S/BKT). The video tally
+ * (Hasselblad orange) for *photo* dial states (A/M/H/S/BKT). The video tally
  * uses [PnsColors.RecordRed] separately (`VideoTallyOverlay`).
  */
 @Composable

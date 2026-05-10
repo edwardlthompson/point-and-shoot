@@ -144,3 +144,16 @@ fun focalMmSlotIsActive(
     val resolved = resolveFocalMmSlot(context, slot, ids) ?: return false
     return resolved.first == cameraId && resolved.second == focal
 }
+
+/**
+ * Initial preview camera: prefer **M23** wide mapping from [resolveFocalMmSlot]; else first id.
+ * Used so row-0 **23mm** chip highlights on cold start (Milestone 9 / BUILD_PLAN).
+ */
+internal fun pickCameraIdFromM23Resolve(
+    m23: Pair<String, FocalMode?>?,
+    ids: List<String>,
+): String? {
+    if (ids.isEmpty()) return null
+    val wide = m23?.first?.takeIf { it in ids }
+    return wide ?: ids.firstOrNull()
+}

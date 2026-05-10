@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.max
 
 data class SystemInsetsDp(
     val left: Dp,
@@ -29,23 +30,51 @@ fun rememberSystemInsetsDp(): SystemInsetsDp {
 
     var insetsPx by remember { mutableStateOf(intArrayOf(0, 0, 0, 0)) }
 
-    fun toSystemBarsInsetsPx(insets: WindowInsets): IntArray =
-        if (Build.VERSION.SDK_INT >= 30) {
-            val i = insets.getInsets(WindowInsets.Type.systemBars())
-            intArrayOf(i.left, i.top, i.right, i.bottom)
-        } else {
-            @Suppress("DEPRECATION")
-            intArrayOf(
-                insets.systemWindowInsetLeft,
-                insets.systemWindowInsetTop,
-                insets.systemWindowInsetRight,
-                insets.systemWindowInsetBottom,
-            )
+    /**
+     * Status/nav bars plus display cutout so preview/chrome clears punch-hole/camera (Milestone 9).
+     */
+    fun toMergedSystemBarsAndCutoutPx(insets: WindowInsets): IntArray =
+        when {
+            Build.VERSION.SDK_INT >= 30 -> {
+                val types = WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
+                val i = insets.getInsets(types)
+                intArrayOf(i.left, i.top, i.right, i.bottom)
+            }
+            Build.VERSION.SDK_INT >= 28 -> {
+                @Suppress("DEPRECATION")
+                val sys =
+                    intArrayOf(
+                        insets.systemWindowInsetLeft,
+                        insets.systemWindowInsetTop,
+                        insets.systemWindowInsetRight,
+                        insets.systemWindowInsetBottom,
+                    )
+                val cut = insets.displayCutout
+                if (cut == null) {
+                    sys
+                } else {
+                    intArrayOf(
+                        max(sys[0], cut.safeInsetLeft),
+                        max(sys[1], cut.safeInsetTop),
+                        max(sys[2], cut.safeInsetRight),
+                        max(sys[3], cut.safeInsetBottom),
+                    )
+                }
+            }
+            else -> {
+                @Suppress("DEPRECATION")
+                intArrayOf(
+                    insets.systemWindowInsetLeft,
+                    insets.systemWindowInsetTop,
+                    insets.systemWindowInsetRight,
+                    insets.systemWindowInsetBottom,
+                )
+            }
         }
 
     DisposableEffect(view) {
         val listener = View.OnApplyWindowInsetsListener { _, insets ->
-            insetsPx = toSystemBarsInsetsPx(insets)
+            insetsPx = toMergedSystemBarsAndCutoutPx(insets)
             insets
         }
         view.setOnApplyWindowInsetsListener(listener)
@@ -53,7 +82,7 @@ fun rememberSystemInsetsDp(): SystemInsetsDp {
 
         val rootInsets = view.rootWindowInsets
         if (rootInsets != null) {
-            insetsPx = toSystemBarsInsetsPx(rootInsets)
+            insetsPx = toMergedSystemBarsAndCutoutPx(rootInsets)
         }
 
         onDispose {

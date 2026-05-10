@@ -27,9 +27,12 @@
 |------|------|
 | `scripts/pns_verify_toolchain.ps1 -RunTests` | Host gate: assembleDebug, unit tests, FOSS dep-audit, license/SBOM, script UTF-8 |
 | `scripts/pns_hfr_autorun.ps1` | Device probe automation (`-RunProbeSmoke`, `-RunFullSuite`, …) |
-| `scripts/pns_adb_preview_validate.ps1` | Scripted preview / RAW / BKT scenarios + log capture |
+| `scripts/pns_adb_preview_validate.ps1` | Scripted preview / RAW / BKT scenarios + log capture; **`-ChromeUxPack`** → **`chrome_ux_smoke.json`** (self-timer ADB seed) |
 | `scripts/pns_milestone6_gate.ps1` | Milestone 6 pack: `assembleDebug` + `-Milestone6Pack` (DNG 50708, LUT FPS probe, Calibrate + GLES smoke) → **`milestone6_gate.json`** |
 | `scripts/pns_failure_matrix_smoke.ps1` | Milestone 7 smoke: preview cold start + CAMERA revoked preview → **`failure_matrix_smoke.json`** (no AndroidRuntime fatal for `dev.pointandshoot`) |
+| `scripts/pns_chrome_ux_gate.ps1` | Milestone 9 pack: toolchain + optional device **`PNS.ChromeUx`** checks (**`seedOk`** … **`grid7=`**, **`modeDialPopout=`**, **`readoutCapture=`**, **`selfTimerSec=`**) → **`chrome_ux_gate.json`** |
+| `scripts/pns_automation_smoke.ps1` | Fleet orchestration: **`pns_verify_toolchain -RunTests`** → **`pns_chrome_ux_gate -SkipHost`** → **`pns_failure_matrix_smoke`** → **`pns_adb_preview_validate -ChromeUxPack`** (device present); optional **`-TryAdbRoot`** → **`automation_smoke.json`** |
+| `scripts/pns_device_screencap.ps1` | **`adb exec-out screencap -p`** to PNG via **`Process` stdout stream** (avoids broken PS pipelines); use for **`BUILD_PLAN`** UI verification artifacts |
 | `scripts/pns_adb_device.env` (gitignored; copy `.example`) | Default **`PNS_ADB_SERIAL`** for scripts when `-Serial` omitted (Wi‑Fi **`ip:port`** OK) |
 | `.github/workflows/toolchain-verify.yml` | CI mirror of toolchain |
 
@@ -41,6 +44,15 @@
 
 These behaviors are **easy to break with layout math mistakes**. Any change to `PreviewMainViewport`, `TexturePreviewFit`, `effectivePreviewStaticRotationDeg`, `BackCameraRoleResolver`, or the 7×7 focal row **must** close the checklist below with evidence in `PROBE_BUILD_PLAN.md` §5 (timestamp + device serial + what was verified).
 
+#### UI change verification (screenshots mandatory)
+
+Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, shutters, mode dial, 7×7 grid), **preview rotation**, or **insets** change:
+
+1. **Do not merge or declare complete from screenshots in chat alone** — verify on a **physical device** (this host cannot judge color, distortion, or gravity alignment).
+2. Capture **before** and **after** PNGs on device using **`scripts/pns_device_screencap.ps1`** (streams raw bytes to disk on Windows) or USB **`adb exec-out screencap -p > docs/screenshots/ui_<area>_YYYYMMDD_before.png`** / **`…_after.png`** via **`cmd.exe` redirection** — do **not** pipe PNG bytes through PowerShell `Set-Content` without raw byte arrays (common corruption). Same lighting where possible; Android Studio capture also OK.
+3. Store artifacts under **`docs/screenshots/`** (or `hfr-runs/` for scripted gates) and note paths in **`PROBE_BUILD_PLAN.md`** §5 or the PR description (serial + build / APK identity).
+4. For **orientation / distortion / color**, use a **known chart** (e.g. DGK ColorChecker-style target): legend readable upright vs gravity; square targets stay square; compare to prior screenshot — **do not guess**.
+
 | Item | Pass criterion (on-device) |
 |------|---------------------------|
 | **No side pillarbars** | In preview screen, live image **fills the finder width**; any crop is **top/bottom only** (center-crop), not black bars left/right from aspect-fit “contain”. |
@@ -48,6 +60,25 @@ These behaviors are **easy to break with layout math mistakes**. Any change to `
 | **Preview locked on rotation** | Rotating the phone **does not** change static preview rotation automatically; only **Spin (preview)** changes buffer rotation. Finder does not jump between portrait/landscape. |
 | **Tele focal presets** | With ≥3 rear cameras, tapping **73 / 85 / 150** selects the **tele** camera (check status line `cameraId=…` or mode-transition log); preview FOV changes. Resolution uses **BackCameraRoleResolver** (focal-length clustering), not hard-coded `"4"` only. |
 | **Host regression** | `pns_verify_toolchain.ps1 -RunTests` exit 0; `TexturePreviewFitTest` + `PreviewLayoutOrientationTest` green. |
+
+#### Screenshot verification queue (UI items — tick only with device PNG)
+
+**Rule:** Do not change `- [ ]` to `- [x]` until a **physical device** PNG under **`docs/screenshots/`** (or **`hfr-runs/`**) proves the item; add the filename in the line when closing. Host rebuilds use Gradle logs, not this list.
+
+**Host rebuild (2026-05-10):** `.\gradlew.bat :app:assembleDebug` → **PASSED**.
+
+- [ ] **Immersive window** — Status + nav bars hidden (`enableEdgeToEdge` + `WindowInsetsControllerCompat`); transient swipe reveal only. **Evidence:** _pending_ (top/bottom bands still visible in latest capture — see note below).
+- [x] **Live preview** — Camera stream visible in finder. **Evidence:** `docs/screenshots/ui_verify_20260510_rebuild_preview_main.png`
+- [x] **Readout strip** — ISO, shutter, AWB / FPS, **`RAW`** or **`RAW+`**. **Evidence:** same PNG.
+- [x] **Right rail + focal row** — mm chips **`14…150`** with selection highlight. **Evidence:** same PNG.
+- [x] **7×7 grid** — Row **0** focal + rows **1–3** shortcuts + placeholders **4–6** + **Settings** at **`r6c6`**. **Evidence:** same PNG.
+- [x] **Bottom tray** — Gallery thumb (when URI), dual shutters, mode letter FAB when HUD dial on. **Evidence:** same PNG.
+- [ ] **Expand shortcut → modal** — Row **1** icon opens centered **`Dialog`**, not a strip under the grid. **Evidence:** _pending_
+- [ ] **Mode menu** — FAB opens **`DropdownMenu`** listing **M/H/S/BKT**. **Evidence:** _pending_
+- [ ] **Finder — no side pillarboxing** — Live image fills finder width (center-crop top/bottom only). **Evidence:** _pending_
+- [ ] **Finder — uniform scale** — Square calibration target stays square. **Evidence:** _pending_
+- [ ] **Spin / chart upright** — Printed chart matches **DGK 8.5×11** legend vs gravity. **Evidence:** _pending_
+- [ ] **Tele presets** — **73 / 85 / 150** selects tele camera + visible FOV change. **Evidence:** _pending_
 
 ---
 
@@ -259,6 +290,79 @@ These behaviors are **easy to break with layout math mistakes**. Any change to `
 - [ ] [CI] Healthy pipeline on a connected mirror (**depends on Milestone H** for mirror + secrets).
 
 **Milestone 8 gate:** `pns_verify_toolchain.ps1 -RunTests` PASSED; `:app:assembleRelease` with debug-key fallback passes locally / CI; signing secrets **not** required for this gate.
+
+---
+
+## Milestone 9 — Finder & operator chrome (**ADB automation; no human gate**)
+
+**Objective:** Machine-verified operator UX from the UI roadmap: wide/M23 preview seed, **`PNS.ChromeUx`** log hooks for scripted gates, and an aggregate gate script. Expand sprints as the readout bar, icon grid, dual shutters, and DND land.
+
+**Living doc:** `.cursor/plans/ui_roadmap_build_plan_73a866c1.plan.md` (full UX intent + Sprint 9.x backlog).
+
+### Sprint 9.1 — Host + FOSS baseline
+
+- [x] [HOST] **`PickCameraIdFromM23ResolveTest`** + **`pickCameraIdFromM23Resolve`** — deterministic wide-vs-first-id selection ([`BackCameraRoleResolver.kt`](app/src/main/java/dev/pointandshoot/BackCameraRoleResolver.kt)).
+- [x] [HOST] **`scripts/pns_verify_toolchain.ps1`** lists **`pns_chrome_ux_gate.ps1`** (UTF-8 + parse check).
+
+### Sprint 9.2 — Preview seed & ChromeUx log (ADB)
+
+- [x] [ADB] Cold-start preview seeds **`resolveFocalMmSlot(M23)`** wide id; logs **`PNS.ChromeUx`** **`seedOk slot=M23 cameraId=…`** on success ([`PreviewEngineScreen.kt`](app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt)).
+
+### Sprint 9.3 — Chrome UX gate script
+
+- [x] [HOST] **`scripts/pns_chrome_ux_gate.ps1`** — runs **`pns_verify_toolchain.ps1 -RunTests`** (unless **`-SkipHost`** / **`-SkipHostTests`**), optional **`assembleDebug`**, installs APK when a device is connected, cold-starts **`MainActivity`** with **`pns_screen=preview`**, captures logcat, asserts **`PNS.ChromeUx`** **`seedOk slot=M23`** **and** **`safeInsetsTopPx=`** (merged bars + cutout log); writes **`chrome_ux_gate.json`** (**`safeInsetsOk`**). Without an authorized device: **`pass`** follows **host-only** success (device checks skipped). Parameters: **`-SkipInstall`**, **`-SkipGradle`**. §5 append for this JSON is **manual** until **`pns_probe_append_section5.ps1`** accepts **`chrome_ux_gate.json`** shape.
+
+### Sprint 9.4 — Safe area / cutout (host + ADB)
+
+- [x] [HOST] **`MainActivity`** calls **`enableEdgeToEdge()`** and hides status + navigation bars via **`WindowInsetsControllerCompat`** (**`BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE`**) so the window uses the **full physical display**; bars return transiently on edge swipe. Re-applied in **`onWindowFocusChanged`** after transient reveal.
+- [x] [HOST] **`rememberSystemInsetsDp`** merges **`systemBars` ∪ `displayCutout`** (API 30+ union; API 28–29 max per edge) so **`PaddingValues`** clear punch-hole / nav gestures when those insets are non-zero ([`SystemInsets.kt`](app/src/main/java/dev/pointandshoot/SystemInsets.kt)).
+- [x] [ADB] **`PNS.ChromeUx`** logs **`safeInsetsTopPx=… mergedBarsCutout=true`** once inset top is known ([`PreviewEngineScreen.kt`](app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt)).
+
+### Sprint 9.5 — DND in preview (host + ADB)
+
+- [x] [HOST] **`InterruptionFilterHold`** ref-count in **`PreviewWindowEffects.kt`** so **DND while recording** and **DND in preview** nest without clobbering the saved filter.
+- [x] [HOST] **`PreviewForegroundDndEffect`** + pref **`dndWhileInPreview`** (default on) + **Preview & keys** toggle; logs **`PNS.ChromeUx`** **`dndPreview=applied|skipped_no_policy|skipped_disabled|…`**.
+- [x] [HOST] **`pns_chrome_ux_gate.ps1`** — device JSON field **`dndPreviewOk`** (log line present).
+
+### Sprint 9.6 — Exposure readout strip (host + ADB)
+
+- [x] [HOST] **`PreviewReadoutStrip`** + **`PreviewReadoutFormat`** — ISO / shutter / AWB / measured FPS; counter-rotates with **`uiRotationDeg`**; repeating-request metadata from **`PreviewController`** (**`SENSOR_*`**, **`CONTROL_AWB_MODE`**).
+- [x] [HOST] **`PNS.ChromeUx`** **`readout=live`** (first metadata frame) or **`readout=fallback`** (~10s if OEM omits keys); **`pns_chrome_ux_gate.ps1`** field **`readoutOk`**.
+- [x] [HOST] **`PreviewReadoutFormatTest`**.
+
+### Sprint 9.7 — Dual shutters (photo / video)
+
+- [x] [HOST] **`PreviewBottomCaptureTray`** — **`PnsColors.PhotoOrange`** still + **`PnsColors.RecordRed`** video; inactive mode smaller (**52.dp**) + **`alpha=0.38`** left; tap inactive swaps primary (**`rememberSaveable`**); center video toggles **`isRecording`**; returning to photo stops recording if active; **`PNS.ChromeUx`** **`dualShutter=visible`** when on-screen shutter enabled.
+- [x] [HOST] **`pns_chrome_ux_gate.ps1`** — **`dualShutterOk`**.
+
+### Sprint 9.8 — 7×7 grid layout + Settings `[6,6]`
+
+- [x] [HOST] **`previewChromeGridSlots`** — row **0** focal mm chips unchanged; **row 1** cols **0–5**: expand shortcuts **Target FPS, Guides, Looks / LUT, Preview & keys, Spin (preview), Capture & tools**; **Settings** **`ExpandShortcut`** at **`(row=6,col=6)`**; additional quick-action rows **2–3** (see Sprint **9.9**).
+- [x] [HOST] **`PNS.ChromeUx`** **`grid7=layout settingsAt=r6c6=true`** (+ **`quickActions=…`** list); **`PreviewReadoutStrip`** uses **`TransformOrigin(0.5f,0.5f)`** with **`uiRotationDeg`** (matches grid rotation pivot).
+- [x] [HOST] **`pns_chrome_ux_gate.ps1`** — **`grid7Ok`**.
+
+### Sprint 9.9 — Grid quick actions (LUT, flash, timer, histogram, …)
+
+- [x] [HOST] **`ChromeGridSlotSpec`** — **`ExpandShortcut`** vs **`QuickAction`**; row **2**: **LUT** (cycle stills), **Flash** (stub), **Timer** (self-timer — Sprint **9.11**), **Histogram**, **Horizon level**, **Eye-AF overlay**, **Video tally**; row **3**: **Max brightness in preview**, **DND in preview**, **Tap preview to capture**, **Volume keys capture**.
+- [x] [HOST] **`PNS.ChromeUx`** — **`grid7=… quickActions=lut,flash,timer,histogram,horizon,eyeAf,tally,bright,dnd,tap,volKeys`** (see log line in **`PreviewEngineScreen`**).
+
+### Sprint 9.10 — Shooting-mode menu + **`RAW`/`RAW+`** readout badge
+
+- [x] [HOST] When **`HudSettings.showCommandDial`**: bottom tray **`PreviewBottomCaptureTray`** shows a **48.dp** orange **FAB** with the current **`CommandDialMode.label`**; tap opens **`DropdownMenu`** for **M/H/S/BKT**; **`PNS.ChromeUx`** **`modeDialPopout=menuSelect`** on pick (legacy **`anchorVisible`/`expanded`/`skipped_no_dial`** may still appear from older HUD paths — gate accepts **`menuSelect`**).
+- [x] [HOST] **`PreviewController.previewUsesJpegCompanion()`** (JPEG **`ImageReader`** active); readout strip suffix **`RAW`** / **`RAW+`** + **`readoutCapture=`** **`PNS.ChromeUx`** line.
+- [x] [HOST] **`pns_chrome_ux_gate.ps1`** — **`modeDialPopoutOk`**, **`readoutCaptureOk`**.
+
+### Sprint 9.11 — Self-timer (pref + grid + still paths)
+
+- [x] [HOST] **`PreviewChromePreferences.selfTimerDelaySec`** (**0 / 3 / 5 / 10**), persisted; grid **Timer** icon cycles delay + toast + **`PNS.ChromeUx`** **`selfTimerSec=`**; icon **selected** when delay **> 0**.
+- [x] [HOST] Still capture via volume-up (non-BKT), tap-to-shoot, bottom orange shutter, **Save DNG**: **`triggerStillCapture()`** — countdown overlay on finder, then existing **`onCaptureDng`** (**bracket / BKT** unchanged).
+- [x] [ADB] **`--ei pns_preview_self_timer_sec`** (`EXTRA_PNS_PREVIEW_SELF_TIMER_SEC`) seeds **`PreviewChromePreferences.selfTimerDelaySec`** before **`PNS.ChromeUx`** **`selfTimerSec=`**; **`pns_chrome_ux_gate.ps1`** defaults **`-SelfTimerSec 3`** on device **`am start`** (allowed **0 / 3 / 5 / 10**).
+- [x] [ADB] **`pns_adb_preview_validate.ps1 -ChromeUxPack`** — short **`m9_self_timer_adb_seed`** scenario + **`chrome_ux_smoke.json`** (**`selfTimerChromeUxOk`**, **`adbSelfTimerSeedOk`**); logcat tag filter includes **`PNS.ChromeUx`**.
+- [x] [HOST] **`pns_chrome_ux_gate.ps1`** — **`selfTimerOk`** (**`selfTimerSec=`** on cold start).
+
+**Follow-on sprints (open):** real flash AE wiring; zebras GLSL.
+
+**Milestone 9 gate (current):** `pns_verify_toolchain.ps1 -RunTests` PASSED; with device: **`scripts/pns_chrome_ux_gate.ps1`** exit 0 and **`chrome_ux_gate.json`** **`pass: true`**; §5 row when a physical device is used. UI tweaks **also** require § **Preview finder acceptance → UI change verification (screenshots mandatory)** above.
 
 ---
 

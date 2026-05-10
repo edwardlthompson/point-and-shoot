@@ -64,6 +64,21 @@ data class HudSettings(
         private const val KEY_FOCUS_PEAKING = "show_focus_peaking"
         private const val KEY_LUT_STILLS = "selected_lut_stills"
         private const val KEY_LUT_VIDEO = "selected_lut_video"
+        private const val KEY_COMMAND_DIAL_MODE = "command_dial_mode"
+
+        /** Last shooting-mode dial selection (persists across launches). */
+        fun loadCommandDialMode(context: Context): CommandDialMode {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val name = prefs.getString(KEY_COMMAND_DIAL_MODE, null) ?: return CommandDialMode.M
+            return CommandDialMode.entries.firstOrNull { it.name == name } ?: CommandDialMode.M
+        }
+
+        fun saveCommandDialMode(context: Context, mode: CommandDialMode) {
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_COMMAND_DIAL_MODE, mode.name)
+                .apply()
+        }
 
         fun load(context: Context): HudSettings {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

@@ -21,6 +21,7 @@ import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.Build
 import android.os.SystemClock
 import android.util.Range
 import android.util.Size
@@ -30,11 +31,11 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.graphics.ImageFormat
 import android.graphics.Point
 import android.graphics.Rect
 import android.graphics.SurfaceTexture
-import android.os.Build
 import java.util.concurrent.Executor
 import android.net.Uri
 import android.provider.Settings
@@ -77,16 +78,31 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.BrightnessHigh
+import androidx.compose.material.icons.outlined.DoNotDisturb
+import androidx.compose.material.icons.outlined.Face
+import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.CameraEnhance
+import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.TouchApp
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.alpha
@@ -98,6 +114,8 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntSize
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -107,6 +125,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
@@ -121,7 +140,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -141,12 +165,79 @@ import kotlin.text.Charsets
  * "more settings" the BUILD_PLAN UI milestone calls for, instead of putting the shutter over
  * the preview.
  */
-private val PreviewChromeGridIconSize = 36.dp
+private val PreviewChromeGridIconSize = 28.dp
+
+private enum class ChromeGridQuickAction {
+    CycleStillsLut,
+    FlashStub,
+    TimerStub,
+    ToggleHistogram,
+    ToggleHorizonLevel,
+    ToggleEyeAfOverlay,
+    ToggleVideoTally,
+    ToggleMaxBrightnessPreview,
+    ToggleDndInPreview,
+    ToggleTapPreviewCapture,
+    ToggleVolumeKeysCapture,
+}
+
+private sealed class ChromeGridSlotSpec {
+    abstract val row: Int
+    abstract val col: Int
+
+    data class ExpandShortcut(
+        override val row: Int,
+        override val col: Int,
+        val title: String,
+        val icon: ImageVector,
+        val contentDescription: String,
+    ) : ChromeGridSlotSpec()
+
+    data class QuickAction(
+        override val row: Int,
+        override val col: Int,
+        val icon: ImageVector,
+        val contentDescription: String,
+        val kind: ChromeGridQuickAction,
+    ) : ChromeGridSlotSpec()
+}
+
+/** Row 0 focal mm chips; rows 1–6 icon-only; Settings at (6,6); row 2 quick actions per roadmap. */
+private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
+    listOf(
+        ChromeGridSlotSpec.ExpandShortcut(1, 0, "Target FPS", Icons.Outlined.Speed, "Target FPS"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 1, "Guides", Icons.Outlined.GridOn, "Guides"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 2, "Looks / LUT", Icons.Outlined.Palette, "Looks and LUT"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 3, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 4, "Spin (preview)", Icons.Outlined.RotateRight, "Spin preview"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 5, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
+        ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Palette, "Cycle stills LUT", ChromeGridQuickAction.CycleStillsLut),
+        ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.FlashOn, "Flash", ChromeGridQuickAction.FlashStub),
+        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.Timer, "Self timer", ChromeGridQuickAction.TimerStub),
+        ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.BarChart, "Histogram", ChromeGridQuickAction.ToggleHistogram),
+        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.Landscape, "Horizon level", ChromeGridQuickAction.ToggleHorizonLevel),
+        ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
+        ChromeGridSlotSpec.QuickAction(2, 6, Icons.Outlined.Videocam, "Video tally", ChromeGridQuickAction.ToggleVideoTally),
+        ChromeGridSlotSpec.QuickAction(3, 0, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview),
+        ChromeGridSlotSpec.QuickAction(3, 1, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
+        ChromeGridSlotSpec.QuickAction(3, 2, Icons.Outlined.TouchApp, "Tap preview to capture", ChromeGridQuickAction.ToggleTapPreviewCapture),
+        ChromeGridSlotSpec.QuickAction(3, 3, Icons.AutoMirrored.Outlined.VolumeUp, "Volume keys capture", ChromeGridQuickAction.ToggleVolumeKeysCapture),
+        ChromeGridSlotSpec.ExpandShortcut(6, 6, "Settings", Icons.Outlined.Settings, "Settings"),
+    )
+
+private fun cycleStillsLutQuick(hudState: HudSettingsState) {
+    val options = LutCatalog.forScope(LutCatalog.Scope.Stills)
+    if (options.isEmpty()) return
+    val curName = hudState.current.selectedLutForStills
+    val idx = options.indexOfFirst { it.name == curName }.let { i -> if (i >= 0) i else 0 }
+    val next = options[(idx + 1) % options.size]
+    hudState.update(hudState.current.copy(selectedLutForStills = next.name))
+}
 
 /** Max height for the scrollable chrome stack (grid + expanded panels) under the preview. */
-private val PreviewChromeScrollMaxHeight = 520.dp
+private val PreviewChromeScrollMaxHeight = 380.dp
 
-private val PreviewBottomTrayHeight = 88.dp
+private val PreviewBottomTrayHeight = 92.dp
 private val PreviewGalleryThumbSize = 56.dp
 
 private fun formatDngSoftwareLine(context: Context, lut: LutCatalog): String =
@@ -182,6 +273,8 @@ fun PreviewEngineScreen(
     adbM6FpsLutProbe: Boolean = false,
     /** Milestone 6.2 — ADB grab of one preview frame; logs `calibrate preview frame grab ok`. */
     adbCalibrateGrabSmoke: Boolean = false,
+    /** `--ei pns_preview_self_timer_sec N` — seeds [PreviewChromePreferences.selfTimerDelaySec] (normalized). */
+    adbInitialSelfTimerSec: Int? = null,
 ) {
     val context = LocalContext.current
     val controller = remember { PreviewController(context.applicationContext) }
@@ -204,7 +297,8 @@ fun PreviewEngineScreen(
             adbSuperMacroProbe ||
             adbM6FpsLutProbe ||
             adbCalibrateGrabSmoke ||
-            !adbPreviewStillsLutName.isNullOrBlank()
+            !adbPreviewStillsLutName.isNullOrBlank() ||
+            adbInitialSelfTimerSec != null
     controller.suppressPeriodicFpsLogs =
         adbSequentialRawStills > 0 ||
             adbBracketPattern != null ||
@@ -212,7 +306,8 @@ fun PreviewEngineScreen(
             !adbSeedCameraId.isNullOrBlank() ||
             adbSuperMacroProbe ||
             adbM6FpsLutProbe ||
-            adbCalibrateGrabSmoke
+            adbCalibrateGrabSmoke ||
+            adbInitialSelfTimerSec != null
     controller.superMacroAdbProbe = adbSuperMacroProbe
     // RAW + bracket runs disable face stats to cut CameraMetadataJV noise; dial-only (H, BKT UI) keeps Eye-AF / tracker.
     controller.automationSuppressFacePipeline =
@@ -222,6 +317,10 @@ fun PreviewEngineScreen(
     var selectedFps by remember { mutableStateOf(60) }
     var status by remember { mutableStateOf("Idle") }
     var measuredFps by remember { mutableStateOf(0.0) }
+    var previewReadoutIso by remember { mutableStateOf<Int?>(null) }
+    var previewReadoutExposureNs by remember { mutableStateOf<Long?>(null) }
+    var previewReadoutAwbMode by remember { mutableStateOf<Int?>(null) }
+    var previewJpegCompanion by remember { mutableStateOf(false) }
     var surfaceInfo by remember { mutableStateOf("surface=?") }
     var previewBufferSize by remember { mutableStateOf<Size?>(null) }
     var sensorOrientationDeg by remember { mutableStateOf<Int?>(null) }
@@ -243,6 +342,7 @@ fun PreviewEngineScreen(
         adbPreviewStillsLutName,
         adbM6FpsLutProbe,
         adbCalibrateGrabSmoke,
+        adbInitialSelfTimerSec,
     ) {
         if (adbSequentialRawStills > 0 ||
             adbBracketPattern != null ||
@@ -252,11 +352,12 @@ fun PreviewEngineScreen(
             adbSuperMacroProbe ||
             adbM6FpsLutProbe ||
             adbCalibrateGrabSmoke ||
-            !adbPreviewStillsLutName.isNullOrBlank()
+            !adbPreviewStillsLutName.isNullOrBlank() ||
+            adbInitialSelfTimerSec != null
         ) {
             Log.i(
                 "PNS.AdbValidation",
-                "automation extras raw=$adbSequentialRawStills bracket=$adbBracketPattern dial=$adbInitialDial profile=${adbInitialImagingProfile?.id} seedCam=$adbSeedCameraId superMacroProbe=$adbSuperMacroProbe stillsLutSeed=$adbPreviewStillsLutName m6FpsLutProbe=$adbM6FpsLutProbe calibrateGrabSmoke=$adbCalibrateGrabSmoke suppressFps=${controller.suppressPeriodicFpsLogs} suppressFacePipeline=${controller.automationSuppressFacePipeline}",
+                "automation extras raw=$adbSequentialRawStills bracket=$adbBracketPattern dial=$adbInitialDial profile=${adbInitialImagingProfile?.id} seedCam=$adbSeedCameraId superMacroProbe=$adbSuperMacroProbe stillsLutSeed=$adbPreviewStillsLutName m6FpsLutProbe=$adbM6FpsLutProbe calibrateGrabSmoke=$adbCalibrateGrabSmoke selfTimerSecSeed=$adbInitialSelfTimerSec suppressFps=${controller.suppressPeriodicFpsLogs} suppressFacePipeline=${controller.automationSuppressFacePipeline}",
             )
         }
     }
@@ -265,6 +366,10 @@ fun PreviewEngineScreen(
         while (true) {
             status = controller.status()
             measuredFps = controller.measuredFps()
+            previewReadoutIso = controller.previewMeterIso()
+            previewReadoutExposureNs = controller.previewMeterExposureNs()
+            previewReadoutAwbMode = controller.previewMeterAwbMode()
+            previewJpegCompanion = controller.previewUsesJpegCompanion()
             surfaceInfo = controller.surfaceDebug()
             previewBufferSize = controller.previewBufferSize()
             sensorOrientationDeg = controller.sensorOrientationDegrees()
@@ -287,7 +392,20 @@ fun PreviewEngineScreen(
                 selectedCameraId = seed
                 Log.i("PNS.AdbValidation", "preview seed cameraId=$seed ok")
             }
-            selectedCameraId == null -> selectedCameraId = ids.firstOrNull()
+            selectedCameraId == null -> {
+                val appCtx = context.applicationContext
+                val m23 = resolveFocalMmSlot(appCtx, FocalMmSlot.M23, ids)
+                val picked = pickCameraIdFromM23Resolve(m23, ids)
+                selectedCameraId = picked
+                if (m23 != null && picked == m23.first) {
+                    Log.i("PNS.ChromeUx", "seedOk slot=M23 cameraId=${m23.first}")
+                } else {
+                    Log.w(
+                        "PNS.ChromeUx",
+                        "seedOk fallback cameraId=$picked m23Wide=${m23?.first} ids=$ids",
+                    )
+                }
+            }
         }
         if (seed != null && seed !in ids) {
             Log.w("PNS.Preview", "adb seed cameraId=$seed not in ids=$ids")
@@ -346,6 +464,14 @@ fun PreviewEngineScreen(
     }
 
     val insets = rememberSystemInsetsDp()
+    val density = LocalDensity.current
+    LaunchedEffect(insets.top) {
+        val topPx = with(density) { insets.top.toPx() }.toInt()
+        Log.i(
+            "PNS.ChromeUx",
+            "safeInsetsTopPx=$topPx mergedBarsCutout=true",
+        )
+    }
     val fpsOptions =
         remember(selectedCameraId, context) {
             PreviewFpsSupport.enumerateQuickFpsOptions(context, selectedCameraId)
@@ -398,6 +524,44 @@ fun PreviewEngineScreen(
         }
     }
     val chromePrefs = rememberPreviewChromePreferences()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var previewNeedsResumeKick by remember { mutableStateOf(false) }
+    DisposableEffect(lifecycleOwner, controller) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_PAUSE -> previewNeedsResumeKick = true
+                    Lifecycle.Event.ON_RESUME -> {
+                        if (previewNeedsResumeKick) {
+                            previewNeedsResumeKick = false
+                            controller.kickPreviewPipelineRestart()
+                        }
+                    }
+                    else -> Unit
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    SideEffect {
+        controller.setPreferredJpegCompanion(chromePrefs.current.stillCaptureJpegCompanion)
+    }
+
+    LaunchedEffect(adbInitialSelfTimerSec) {
+        if (adbInitialSelfTimerSec != null) {
+            val norm = PreviewChromePreferences.normalizeSelfTimerDelaySec(adbInitialSelfTimerSec)
+            val cur = chromePrefs.current
+            if (cur.selfTimerDelaySec != norm) {
+                chromePrefs.update(cur.copy(selfTimerDelaySec = norm))
+            }
+            Log.i(
+                "PNS.AdbValidation",
+                "preview adb seed selfTimerDelaySec=$norm raw=$adbInitialSelfTimerSec",
+            )
+        }
+        Log.i("PNS.ChromeUx", "selfTimerSec=${chromePrefs.current.selfTimerDelaySec}")
+    }
+
     var isRecording by remember { mutableStateOf(false) }
     /** Latest indexed capture for gallery thumb + open-in-viewer (typically DNG URI). */
     var lastGalleryUri by remember { mutableStateOf<Uri?>(null) }
@@ -480,20 +644,24 @@ fun PreviewEngineScreen(
     }
 
     PreviewMaxBrightnessEffect(chromePrefs.current.maxBrightnessInPreview)
+    PreviewForegroundDndEffect(optionEnabled = chromePrefs.current.dndWhileInPreview)
     RecordingDndEffect(
         optionEnabled = chromePrefs.current.dndWhileRecording,
         isRecording = isRecording,
     )
 
-    LaunchedEffect(isRecording, chromePrefs.current.dndWhileRecording) {
-        if (!isRecording || !chromePrefs.current.dndWhileRecording || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return@LaunchedEffect
-        }
+    LaunchedEffect(isRecording, chromePrefs.current.dndWhileRecording, chromePrefs.current.dndWhileInPreview) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return@LaunchedEffect
         val nm = context.getSystemService(NotificationManager::class.java) ?: return@LaunchedEffect
-        if (!nm.isNotificationPolicyAccessGranted) {
+        if (nm.isNotificationPolicyAccessGranted) return@LaunchedEffect
+        val chrome = chromePrefs.current
+        val needsPolicy =
+            chrome.dndWhileInPreview ||
+            (isRecording && chrome.dndWhileRecording)
+        if (needsPolicy) {
             Toast.makeText(
                 context,
-                "Do Not Disturb while recording needs access — tap “Notification policy” in preview options.",
+                "Do Not Disturb in camera needs notification-policy access — tap “Policy access” in preview options.",
                 Toast.LENGTH_LONG,
             ).show()
         }
@@ -594,6 +762,10 @@ fun PreviewEngineScreen(
         fpsOptions = fpsOptions,
         status = status,
         measuredFps = measuredFps,
+        previewReadoutIso = previewReadoutIso,
+        previewReadoutExposureNs = previewReadoutExposureNs,
+        previewReadoutAwbMode = previewReadoutAwbMode,
+        previewJpegCompanion = previewJpegCompanion,
         surfaceInfo = surfaceInfo,
         previewBufferSize = previewBufferSize,
         sensorOrientationDeg = sensorOrientationDeg,
@@ -613,7 +785,8 @@ fun PreviewEngineScreen(
         onOpenHudSettings = onOpenHudSettings,
         onPickFirstCamera = {
             val ids = controller.cameraIds()
-            selectedCameraId = ids.firstOrNull()
+            val m23 = resolveFocalMmSlot(context.applicationContext, FocalMmSlot.M23, ids)
+            selectedCameraId = pickCameraIdFromM23Resolve(m23, ids)
             status = if (selectedCameraId == null) "No cameras" else "Selected cameraId=$selectedCameraId"
         },
         onSetFps = { selectedFps = it },
@@ -691,7 +864,6 @@ fun PreviewEngineScreen(
                     onSuccess = { uri ->
                         lastGalleryUri =
                             runCatching { Uri.parse(uri) }.getOrElse { lastGalleryUri }
-                        Toast.makeText(context, "DNG saved\n$uri", Toast.LENGTH_LONG).show()
                     },
                     onFailure = { e ->
                         Toast.makeText(context, e.message ?: "DNG failed", Toast.LENGTH_LONG).show()
@@ -717,8 +889,6 @@ fun PreviewEngineScreen(
                             lastGalleryUri =
                                 runCatching { Uri.parse(last) }.getOrElse { lastGalleryUri }
                         }
-                        val n = lines.size
-                        Toast.makeText(context, "Bracket: $n DNG(s) saved", Toast.LENGTH_LONG).show()
                     },
                     onFailure = { e ->
                         Toast.makeText(context, e.message ?: "Bracket failed", Toast.LENGTH_LONG).show()
@@ -748,6 +918,10 @@ private fun PreviewEngineContent(
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     status: String,
     measuredFps: Double,
+    previewReadoutIso: Int?,
+    previewReadoutExposureNs: Long?,
+    previewReadoutAwbMode: Int?,
+    previewJpegCompanion: Boolean,
     surfaceInfo: String,
     previewBufferSize: Size?,
     sensorOrientationDeg: Int?,
@@ -779,6 +953,36 @@ private fun PreviewEngineContent(
     val context = LocalContext.current
     val settings = hudState.current
     val chrome = chromePrefs.current
+    val captureScope = rememberCoroutineScope()
+    var selfTimerRemaining by remember { mutableIntStateOf(0) }
+    var selfTimerCountdownActive by remember { mutableStateOf(false) }
+
+    fun triggerStillCapture() {
+        val delaySec =
+            PreviewChromePreferences.normalizeSelfTimerDelaySec(chromePrefs.current.selfTimerDelaySec)
+        if (delaySec <= 0) {
+            onCaptureDng()
+            return
+        }
+        if (selfTimerCountdownActive) return
+        selfTimerCountdownActive = true
+        captureScope.launch {
+            try {
+                var remaining = delaySec
+                while (remaining > 0) {
+                    selfTimerRemaining = remaining
+                    delay(1000)
+                    remaining--
+                }
+                selfTimerRemaining = 0
+                onCaptureDng()
+            } finally {
+                selfTimerCountdownActive = false
+                selfTimerRemaining = 0
+            }
+        }
+    }
+
     val layoutPortrait =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val liveChartTarget = remember { BundledReferenceTargets.Generic24 }
@@ -791,12 +995,17 @@ private fun PreviewEngineContent(
     var previewTilePx by remember { mutableStateOf(IntSize.Zero) }
     val focusRequester = remember { FocusRequester() }
     var commandDialMode by remember(adbInitialDial) {
-        mutableStateOf(adbInitialDial ?: CommandDialMode.M)
+        mutableStateOf(
+            adbInitialDial ?: HudSettings.loadCommandDialMode(context),
+        )
     }
     // Same-frame sync: LaunchedEffect runs after the first frame, so a TextureView-driven
     // maybeRestart could observe a stale dial on the controller — SideEffect aligns first.
     SideEffect {
         controller.setCommandDialMode(commandDialMode)
+    }
+    SideEffect {
+        controller.setPreviewTextureCoverCrop(chrome.previewTextureCoverCrop)
     }
     TrackModeTransition("camera", selectedCameraId ?: "null")
     TrackModeTransition("fps", selectedFps.toString())
@@ -812,6 +1021,24 @@ private fun PreviewEngineContent(
 
     LaunchedEffect(settings.showEyeAfOverlay) {
         controller.setHudFaceOverlayEnabled(settings.showEyeAfOverlay)
+    }
+
+    LaunchedEffect(settings.showCommandDial) {
+        Log.i(
+            "PNS.ChromeUx",
+            if (settings.showCommandDial) {
+                "modeDialPopout=anchorVisible"
+            } else {
+                "modeDialPopout=skipped_no_dial"
+            },
+        )
+    }
+
+    LaunchedEffect(previewJpegCompanion) {
+        Log.i(
+            "PNS.ChromeUx",
+            "readoutCapture=${if (previewJpegCompanion) "RAW+" else "RAW"}",
+        )
     }
 
     DisposableEffect(controller) {
@@ -867,7 +1094,7 @@ private fun PreviewEngineContent(
     }
 
     val eyeMarksView =
-        remember(eyeMarksBuffer, previewTilePx, previewBufferSize) {
+        remember(eyeMarksBuffer, previewTilePx, previewBufferSize, chrome.previewTextureCoverCrop) {
             val buf = previewBufferSize
             val vw = previewTilePx.width
             val vh = previewTilePx.height
@@ -883,6 +1110,7 @@ private fun PreviewEngineContent(
                             vh,
                             buf.width,
                             buf.height,
+                            coverCrop = chrome.previewTextureCoverCrop,
                         )
                     EyeMark(
                         Offset(vx, vy),
@@ -909,7 +1137,7 @@ private fun PreviewEngineContent(
                         when {
                             commandDialMode == CommandDialMode.BKT && controller.canCaptureBracketBurst() ->
                                 onBracketBurst(BracketPattern.Five)
-                            controller.canCaptureRawStill() -> onCaptureDng()
+                            controller.canCaptureRawStill() -> triggerStillCapture()
                             else ->
                                 Toast.makeText(
                                     context,
@@ -933,41 +1161,89 @@ private fun PreviewEngineContent(
                 }
             }
 
-    // Preview fills width above the chrome band; grid + panels sit below (not beside) the finder.
+    // Preview tile: **3:4** width:height (4:3 sensor upright — long edge vertical). Chrome scroll stack fills remaining height.
     Box(modifier = previewChromeModifier) {
         Column(modifier = Modifier.fillMaxSize()) {
-            PreviewMainViewport(
+            // Share vertical space with the chrome rail (2:1) so the finder column can breathe;
+            // keep a strict **width / height = 3 / 4** tile (upright 4:3 sensor), centered in the slot.
+            Box(
+                modifier =
+                    Modifier
+                        .weight(2f)
+                        .fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(3f / 4f),
+                    ) {
+                        PreviewMainViewport(
+                            modifier = Modifier.fillMaxSize(),
+                            centerViewSize = centerViewSize,
+                            onCenterViewSize = { centerViewSize = it },
+                            onPreviewTilePx = { previewTilePx = it },
+                            previewTextureSlot = previewTextureSlot,
+                            controller = controller,
+                            uiRotationDeg = uiRotationDeg,
+                            uiRotationDegSmooth = uiRotationDegSmooth,
+                            hudState = hudState,
+                            compositionGuide = compositionGuide,
+                            previewBufferSize = previewBufferSize,
+                            isRecording = isRecording,
+                            eyeMarks = eyeMarksView,
+                            focusRequester = focusRequester,
+                            previewTextureCoverCrop = chrome.previewTextureCoverCrop,
+                            tapPreviewToCapture = chrome.tapPreviewToCapture,
+                            liveChartCornerOverlay = chrome.liveChartCornerOverlay,
+                            chartCorners = chartCorners,
+                            onChartCornersChange = { chartCorners = it },
+                            liveChartRows = liveChartTarget.rows,
+                            liveChartCols = liveChartTarget.cols,
+                            staticPreviewRotationDeg = chrome.staticPreviewRotationDeg,
+                            layoutPortrait = layoutPortrait,
+                            sensorOrientationDeg = sensorOrientationDeg,
+                            onCaptureDng = { triggerStillCapture() },
+                        )
+                        if (selfTimerRemaining > 0) {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.45f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = selfTimerRemaining.toString(),
+                                    style = MaterialTheme.typography.displayLarge,
+                                    color = Color.White,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            PreviewReadoutStrip(
+                iso = previewReadoutIso,
+                exposureNs = previewReadoutExposureNs,
+                awbMode = previewReadoutAwbMode,
+                measuredFps = measuredFps,
+                uiRotationDeg = uiRotationDeg,
+                stillCaptureJpegCompanion = chrome.stillCaptureJpegCompanion,
+                onStillCaptureJpegCompanionChange = { next ->
+                    chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = next))
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            PreviewRightRail(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                centerViewSize = centerViewSize,
-                onCenterViewSize = { centerViewSize = it },
-                onPreviewTilePx = { previewTilePx = it },
-                previewTextureSlot = previewTextureSlot,
-                controller = controller,
-                uiRotationDeg = uiRotationDeg,
-                uiRotationDegSmooth = uiRotationDegSmooth,
-                hudState = hudState,
-                compositionGuide = compositionGuide,
-                previewBufferSize = previewBufferSize,
-                isRecording = isRecording,
-                eyeMarks = eyeMarksView,
-                focusRequester = focusRequester,
-                tapPreviewToCapture = chrome.tapPreviewToCapture,
-                liveChartCornerOverlay = chrome.liveChartCornerOverlay,
-                chartCorners = chartCorners,
-                onChartCornersChange = { chartCorners = it },
-                liveChartRows = liveChartTarget.rows,
-                liveChartCols = liveChartTarget.cols,
-                staticPreviewRotationDeg = chrome.staticPreviewRotationDeg,
-                layoutPortrait = layoutPortrait,
-                sensorOrientationDeg = sensorOrientationDeg,
-                onCaptureDng = onCaptureDng,
-            )
-            PreviewRightRail(
-                modifier =
-                    Modifier.fillMaxWidth(),
                 uiRotationDeg = uiRotationDeg,
                 cameraIds = cameraIds,
                 onApplyFocalMmSlot = onApplyFocalMmSlot,
@@ -993,21 +1269,139 @@ private fun PreviewEngineContent(
                 focalCrop = focalCrop,
                 imagingProfile = imagingProfile,
                 onCycleImagingProfile = onCycleImagingProfile,
-                onCaptureDng = onCaptureDng,
+                onCaptureDng = { triggerStillCapture() },
                 onBracketBurst = onBracketBurst,
                 canCaptureRawStill = controller.canCaptureRawStill(),
                 canCaptureBracketBurst = controller.canCaptureBracketBurst(),
                 commandDialMode = commandDialMode,
-                onCommandDialModeChange = { commandDialMode = it },
                 onCalibrateFromPreviewFrame = { openCalibrateFromPreviewFrame() },
+                previewJpegCompanion = previewJpegCompanion,
+                rawStillNotReadyReason = controller.rawStillNotReadyReason(),
             )
-            val showBottomTray = chrome.showOnScreenShutter || lastGalleryUri != null
+            val showBottomTray =
+                chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial
             if (showBottomTray) {
                 PreviewBottomCaptureTray(
                     lastGalleryUri = lastGalleryUri,
                     showOnScreenShutter = chrome.showOnScreenShutter,
                     canCaptureRawStill = controller.canCaptureRawStill(),
-                    onCaptureDng = onCaptureDng,
+                    onCaptureDng = { triggerStillCapture() },
+                    isRecording = isRecording,
+                    onRecordingChange = onRecordingChange,
+                    shootingModesSlot =
+                        if (settings.showCommandDial) {
+                            {
+                                var modeMenuExpanded by remember { mutableStateOf(false) }
+                                Box(
+                                    modifier =
+                                        Modifier.graphicsLayer {
+                                            rotationZ = uiRotationDeg
+                                            transformOrigin = TransformOrigin(1f, 1f)
+                                        },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center,
+                                    ) {
+                                        Text(
+                                            text = "Mode",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            color = Color.White.copy(alpha = 0.72f),
+                                            maxLines = 1,
+                                        )
+                                        Spacer(modifier = Modifier.height(3.dp))
+                                        FloatingActionButton(
+                                            onClick = { modeMenuExpanded = true },
+                                            modifier =
+                                                Modifier
+                                                    .size(52.dp)
+                                                    .border(
+                                                        2.dp,
+                                                        Color.White.copy(alpha = 0.88f),
+                                                        CircleShape,
+                                                    ).semantics {
+                                                        contentDescription =
+                                                            "Shooting mode ${commandDialMode.label}. Tap to choose Auto, Manual, Highlight, Snap, or Bracket."
+                                                    },
+                                            containerColor = PnsColors.PhotoOrange.copy(alpha = 0.92f),
+                                            contentColor = Color.Black,
+                                            shape = CircleShape,
+                                        ) {
+                                            Text(
+                                                text = commandDialMode.label,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontSize =
+                                                    if (commandDialMode == CommandDialMode.BKT) {
+                                                        11.sp
+                                                    } else {
+                                                        17.sp
+                                                    },
+                                                maxLines = 1,
+                                            )
+                                        }
+                                        Text(
+                                            text = "Tap to change",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 9.sp,
+                                            color = Color.White.copy(alpha = 0.55f),
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = modeMenuExpanded,
+                                        onDismissRequest = { modeMenuExpanded = false },
+                                        modifier = Modifier.widthIn(min = 288.dp),
+                                    ) {
+                                        Text(
+                                            text = "Shooting mode",
+                                            modifier =
+                                                Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                        HorizontalDivider()
+                                        CommandDialMode.entries.forEach { mode ->
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text("${mode.label} — ${mode.description}")
+                                                },
+                                                leadingIcon = {
+                                                    Box(
+                                                        modifier =
+                                                            Modifier
+                                                                .width(28.dp)
+                                                                .height(24.dp),
+                                                        contentAlignment = Alignment.Center,
+                                                    ) {
+                                                        if (mode == commandDialMode) {
+                                                            Icon(
+                                                                imageVector = Icons.Outlined.Check,
+                                                                contentDescription = null,
+                                                                tint = PnsColors.PhotoOrange,
+                                                                modifier = Modifier.size(20.dp),
+                                                            )
+                                                        }
+                                                    }
+                                                },
+                                                onClick = {
+                                                    commandDialMode = mode
+                                                    HudSettings.saveCommandDialMode(context, mode)
+                                                    modeMenuExpanded = false
+                                                    Log.i(
+                                                        "PNS.ChromeUx",
+                                                        "modeDialPopout=menuSelect mode=${mode.name}",
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            null
+                        },
                 )
             }
         }
@@ -1046,6 +1440,8 @@ private fun PreviewMainViewport(
     isRecording: Boolean,
     eyeMarks: List<EyeMark>,
     focusRequester: FocusRequester,
+    /** When true, TextureView uses center-crop (fill); when false, center-contain (matches still JPEG framing). */
+    previewTextureCoverCrop: Boolean,
     tapPreviewToCapture: Boolean,
     liveChartCornerOverlay: Boolean,
     chartCorners: List<Offset>,
@@ -1053,7 +1449,7 @@ private fun PreviewMainViewport(
     liveChartRows: Int,
     liveChartCols: Int,
     staticPreviewRotationDeg: Int,
-    /** When true, preview uses [effectivePreviewStaticRotationDeg] (+90° CW vs landscape chrome). */
+    /** Reserved — rotation follows [effectivePreviewStaticRotationDeg] only (no orientation coupling). */
     layoutPortrait: Boolean,
     sensorOrientationDeg: Int?,
     onCaptureDng: () -> Unit,
@@ -1075,7 +1471,7 @@ private fun PreviewMainViewport(
     //     TextureView fills that box — center-fit transform stays uniform scale (no stretch).
     //     While `previewBufferSize` is unknown, the TextureView fills the parent.
     //
-    //   * Static rotation ([effectivePreviewStaticRotationDeg] from prefs + portrait +90° CW)
+    //   * Static rotation ([effectivePreviewStaticRotationDeg] from prefs only)
     //     is applied via `graphicsLayer` on the content box. Footprint flips W↔H for 90°/270°.
     //
     // Layout tree:
@@ -1245,6 +1641,7 @@ private fun PreviewMainViewport(
                                 tv.width,
                                 tv.height,
                                 uiTwistDegrees = 0f,
+                                coverCrop = previewTextureCoverCrop,
                             )
                         }
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
@@ -1280,6 +1677,7 @@ private fun PreviewMainViewport(
                         tv.width,
                         tv.height,
                         uiTwistDegrees = 0f,
+                        coverCrop = previewTextureCoverCrop,
                     )
                 },
             )
@@ -1333,17 +1731,29 @@ private fun PreviewMainViewport(
     }
 }
 
-/** Bottom tray: last capture thumbnail (tap → system resolver / viewer) + centered shutter FAB. */
+/** Bottom tray: optional thumbnail (start), dual shutters + shooting-mode dial (end, dial right of shutters). */
 @Composable
 private fun PreviewBottomCaptureTray(
     lastGalleryUri: Uri?,
     showOnScreenShutter: Boolean,
     canCaptureRawStill: Boolean,
     onCaptureDng: () -> Unit,
+    isRecording: Boolean,
+    onRecordingChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** Mode dial / Tune FAB — anchored to the bottom-right as the right neighbour of the shutters. */
+    shootingModesSlot: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var thumbBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    /** When true, photo shutter is primary (center); when false, video record is primary. */
+    var primaryPhoto by rememberSaveable { mutableStateOf(true) }
+
+    LaunchedEffect(showOnScreenShutter) {
+        if (showOnScreenShutter) {
+            Log.i("PNS.ChromeUx", "dualShutter=visible")
+        }
+    }
 
     LaunchedEffect(lastGalleryUri) {
         thumbBitmap?.recycle()
@@ -1358,6 +1768,8 @@ private fun PreviewBottomCaptureTray(
         }
     }
 
+    /** Match gallery thumb width so the shutter cluster stays centered in the window (symmetric gutters). */
+    val edgeSlotWidth = PreviewGalleryThumbSize
     Box(
         modifier =
             modifier
@@ -1365,75 +1777,157 @@ private fun PreviewBottomCaptureTray(
                 .height(PreviewBottomTrayHeight)
                 .background(Color.Black.copy(alpha = 0.92f)),
     ) {
-        val tapUri = lastGalleryUri
-        if (tapUri != null) {
-            val openLast: () -> Unit = {
-                openMediaWithSystemResolver(context, tapUri)
-            }
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(start = 8.dp, end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val tapUri = lastGalleryUri
             Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 12.dp)
-                        .size(PreviewGalleryThumbSize)
-                        .clip(RoundedCornerShape(8.dp))
-                        .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .clickable(onClick = openLast),
-                contentAlignment = Alignment.Center,
+                modifier = Modifier.width(edgeSlotWidth),
+                contentAlignment = Alignment.CenterStart,
             ) {
-                val bmp = thumbBitmap
-                if (bmp != null) {
-                    Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = "Last capture",
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    Text(
-                        "…",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White.copy(alpha = 0.65f),
-                    )
+                if (tapUri != null) {
+                    val openLast: () -> Unit = {
+                        openMediaWithSystemResolver(context, tapUri)
+                    }
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(PreviewGalleryThumbSize)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .clickable(onClick = openLast),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        val bmp = thumbBitmap
+                        if (bmp != null) {
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "Last capture",
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        } else {
+                            Text(
+                                "…",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.65f),
+                            )
+                        }
+                    }
                 }
             }
-        }
 
-        if (showOnScreenShutter) {
-            FloatingActionButton(
-                onClick = {
-                    if (canCaptureRawStill) {
-                        onCaptureDng()
-                    } else {
-                        Toast.makeText(
-                            context,
-                            "DNG: ≤119 fps preview (RAW session)",
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
-                },
-                modifier =
-                    Modifier
-                        .align(Alignment.Center)
-                        .size(64.dp)
-                        .alpha(if (canCaptureRawStill) 1f else 0.45f),
-                containerColor = PnsColors.PhotoOrange,
-                contentColor = Color.Black,
-                shape = CircleShape,
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "●",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.Black,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (showOnScreenShutter) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            if (primaryPhoto) {
+                                FloatingActionButton(
+                                    onClick = { primaryPhoto = false },
+                                    modifier = Modifier.size(52.dp).alpha(0.38f),
+                                    containerColor = PnsColors.RecordRed,
+                                    contentColor = Color.White,
+                                    shape = CircleShape,
+                                ) {
+                                    Text(
+                                        "▶",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(20.dp))
+                                FloatingActionButton(
+                                    onClick = {
+                                        if (canCaptureRawStill) {
+                                            onCaptureDng()
+                                        } else {
+                                            Toast.makeText(
+                                                context,
+                                                "DNG: ≤119 fps preview (RAW session)",
+                                                Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .size(64.dp)
+                                            .alpha(if (canCaptureRawStill) 1f else 0.45f),
+                                    containerColor = PnsColors.PhotoOrange,
+                                    contentColor = Color.Black,
+                                    shape = CircleShape,
+                                ) {
+                                    Text(
+                                        "●",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = Color.Black,
+                                    )
+                                }
+                            } else {
+                                FloatingActionButton(
+                                    onClick = {
+                                        if (isRecording) {
+                                            onRecordingChange(false)
+                                        }
+                                        primaryPhoto = true
+                                    },
+                                    modifier = Modifier.size(52.dp).alpha(0.38f),
+                                    containerColor = PnsColors.PhotoOrange,
+                                    contentColor = Color.Black,
+                                    shape = CircleShape,
+                                ) {
+                                    Text(
+                                        "●",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.Black,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(20.dp))
+                                FloatingActionButton(
+                                    onClick = { onRecordingChange(!isRecording) },
+                                    modifier = Modifier.size(64.dp),
+                                    containerColor = PnsColors.RecordRed,
+                                    contentColor = Color.White,
+                                    shape = CircleShape,
+                                ) {
+                                    Text(
+                                        if (isRecording) "■" else "●",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = Color.White,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier.width(edgeSlotWidth),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                shootingModesSlot?.invoke()
             }
         }
     }
 }
 
 /**
- * Collapsible quick-setting block. The 7×7 [PreviewChromeGrid7x7] icon buttons and this panel
- * share expansion state. When [showIconHeader] is false, only the expanded body is shown.
+ * Quick-setting block used under the 7×7 grid. When [showIconHeader] is **false** (preview chrome),
+ * expansion opens a **modal [Dialog]** instead of stacking panels below the grid (grid icons still
+ * toggle the same [expanded] state).
  */
 @Composable
 private fun ShortcutBlock(
@@ -1445,6 +1939,45 @@ private fun ShortcutBlock(
     showIconHeader: Boolean = true,
     content: @Composable () -> Unit,
 ) {
+    if (!showIconHeader && expanded) {
+        Dialog(onDismissRequest = { onExpandedChange(false) }) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.92f),
+                shape = RoundedCornerShape(18.dp),
+                shadowElevation = 12.dp,
+                color = Color.Black.copy(alpha = 0.94f),
+            ) {
+                Column(
+                    modifier =
+                        Modifier
+                            .padding(16.dp)
+                            .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White,
+                        )
+                        TextButton(onClick = { onExpandedChange(false) }) {
+                            Text("Close", color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+                    content()
+                }
+            }
+        }
+        return
+    }
+    if (!showIconHeader && !expanded) {
+        return
+    }
     Column(
         modifier
             .then(modifier)
@@ -1484,17 +2017,28 @@ private fun PreviewChromeGrid7x7(
     onApplyFocalMmSlot: (FocalMmSlot) -> Unit,
     expandedKey: String?,
     onToggleShortcutTitle: (String) -> Unit,
+    hudState: HudSettingsState,
+    chromePrefs: PreviewChromePreferencesState,
 ) {
     val context = LocalContext.current
     val focalSlots = FocalMmSlot.entries
+    val hud = hudState.current
+
+    LaunchedEffect(Unit) {
+        Log.i(
+            "PNS.ChromeUx",
+            "grid7=layout settingsAt=r6c6=true quickActions=lut,flash,timer,histogram,horizon,eyeAf,tally,bright,dnd,tap,volKeys",
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         for (r in 0 until 7) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(1.dp),
             ) {
                 for (c in 0 until 7) {
                     Box(
@@ -1531,63 +2075,144 @@ private fun PreviewChromeGrid7x7(
                                             .padding(horizontal = 2.dp, vertical = 2.dp),
                                 )
                             }
-                            r == 1 && c == 0 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Settings") },
-                                    contentDescription = "Settings",
-                                    imageVector = Icons.Outlined.Settings,
-                                    selected = expandedKey == "Settings",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            r == 1 && c == 1 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Target FPS") },
-                                    contentDescription = "Target FPS",
-                                    imageVector = Icons.Outlined.Speed,
-                                    selected = expandedKey == "Target FPS",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            r == 1 && c == 2 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Guides") },
-                                    contentDescription = "Guides",
-                                    imageVector = Icons.Outlined.GridOn,
-                                    selected = expandedKey == "Guides",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            r == 1 && c == 3 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Mode") },
-                                    contentDescription = "Mode",
-                                    imageVector = Icons.Outlined.CameraEnhance,
-                                    selected = expandedKey == "Mode",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            r == 1 && c == 4 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Preview & keys") },
-                                    contentDescription = "Preview & keys",
-                                    imageVector = Icons.Outlined.TouchApp,
-                                    selected = expandedKey == "Preview & keys",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            r == 1 && c == 5 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Spin (preview)") },
-                                    contentDescription = "Spin preview",
-                                    imageVector = Icons.Outlined.RotateRight,
-                                    selected = expandedKey == "Spin (preview)",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            r == 1 && c == 6 ->
-                                IconCubeVectorButton(
-                                    onClick = { onToggleShortcutTitle("Capture & tools") },
-                                    contentDescription = "Capture & tools",
-                                    imageVector = Icons.Outlined.PhotoCamera,
-                                    selected = expandedKey == "Capture & tools",
-                                    size = PreviewChromeGridIconSize,
-                                )
-                            else -> {}
+                            else -> {
+                                when (val cell = previewChromeGridSlots.find { it.row == r && it.col == c }) {
+                                    is ChromeGridSlotSpec.ExpandShortcut ->
+                                        IconCubeVectorButton(
+                                            onClick = { onToggleShortcutTitle(cell.title) },
+                                            contentDescription = cell.contentDescription,
+                                            imageVector = cell.icon,
+                                            selected = expandedKey == cell.title,
+                                            size = PreviewChromeGridIconSize,
+                                        )
+                                    is ChromeGridSlotSpec.QuickAction -> {
+                                        val selectedQuick =
+                                            when (cell.kind) {
+                                                ChromeGridQuickAction.CycleStillsLut ->
+                                                    hud.stillsLut() != LutCatalog.None
+                                                ChromeGridQuickAction.ToggleHistogram ->
+                                                    hud.showHistogram
+                                                ChromeGridQuickAction.TimerStub ->
+                                                    chromePrefs.current.selfTimerDelaySec > 0
+                                                ChromeGridQuickAction.FlashStub ->
+                                                    false
+                                                ChromeGridQuickAction.ToggleHorizonLevel ->
+                                                    hud.showHorizonLevel
+                                                ChromeGridQuickAction.ToggleEyeAfOverlay ->
+                                                    hud.showEyeAfOverlay
+                                                ChromeGridQuickAction.ToggleVideoTally ->
+                                                    hud.showVideoTally
+                                                ChromeGridQuickAction.ToggleMaxBrightnessPreview ->
+                                                    chromePrefs.current.maxBrightnessInPreview
+                                                ChromeGridQuickAction.ToggleDndInPreview ->
+                                                    chromePrefs.current.dndWhileInPreview
+                                                ChromeGridQuickAction.ToggleTapPreviewCapture ->
+                                                    chromePrefs.current.tapPreviewToCapture
+                                                ChromeGridQuickAction.ToggleVolumeKeysCapture ->
+                                                    chromePrefs.current.volumeKeysCapture
+                                            }
+                                        IconCubeVectorButton(
+                                            onClick = {
+                                                when (cell.kind) {
+                                                    ChromeGridQuickAction.CycleStillsLut ->
+                                                        cycleStillsLutQuick(hudState)
+                                                    ChromeGridQuickAction.ToggleHistogram -> {
+                                                        val cur = hudState.current
+                                                        hudState.update(
+                                                            cur.copy(showHistogram = !cur.showHistogram),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.FlashStub ->
+                                                        Toast.makeText(
+                                                            context,
+                                                            "Flash — not wired to AE/flash units yet.",
+                                                            Toast.LENGTH_SHORT,
+                                                        ).show()
+                                                    ChromeGridQuickAction.TimerStub -> {
+                                                        val next =
+                                                            PreviewChromePreferences.cycleSelfTimerDelaySec(
+                                                                chromePrefs.current.selfTimerDelaySec,
+                                                            )
+                                                        chromePrefs.update(
+                                                            chromePrefs.current.copy(selfTimerDelaySec = next),
+                                                        )
+                                                        val msg =
+                                                            if (next == 0) {
+                                                                "Self-timer off"
+                                                            } else {
+                                                                "Self-timer ${next}s"
+                                                            }
+                                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                                        Log.i("PNS.ChromeUx", "selfTimerSec=$next")
+                                                    }
+                                                    ChromeGridQuickAction.ToggleHorizonLevel -> {
+                                                        val cur = hudState.current
+                                                        hudState.update(
+                                                            cur.copy(showHorizonLevel = !cur.showHorizonLevel),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.ToggleEyeAfOverlay -> {
+                                                        val cur = hudState.current
+                                                        hudState.update(
+                                                            cur.copy(showEyeAfOverlay = !cur.showEyeAfOverlay),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.ToggleVideoTally -> {
+                                                        val cur = hudState.current
+                                                        hudState.update(
+                                                            cur.copy(showVideoTally = !cur.showVideoTally),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.ToggleMaxBrightnessPreview -> {
+                                                        val c = chromePrefs.current
+                                                        chromePrefs.update(
+                                                            c.copy(maxBrightnessInPreview = !c.maxBrightnessInPreview),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.ToggleDndInPreview -> {
+                                                        val c = chromePrefs.current
+                                                        chromePrefs.update(
+                                                            c.copy(dndWhileInPreview = !c.dndWhileInPreview),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.ToggleTapPreviewCapture -> {
+                                                        val c = chromePrefs.current
+                                                        chromePrefs.update(
+                                                            c.copy(tapPreviewToCapture = !c.tapPreviewToCapture),
+                                                        )
+                                                    }
+                                                    ChromeGridQuickAction.ToggleVolumeKeysCapture -> {
+                                                        val c = chromePrefs.current
+                                                        chromePrefs.update(
+                                                            c.copy(volumeKeysCapture = !c.volumeKeysCapture),
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            contentDescription = cell.contentDescription,
+                                            imageVector = cell.icon,
+                                            selected = selectedQuick,
+                                            size = PreviewChromeGridIconSize,
+                                        )
+                                    }
+                                    null -> {
+                                        IconCubeVectorButton(
+                                            onClick = {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Reserved grid slot (roadmap).",
+                                                    Toast.LENGTH_SHORT,
+                                                ).show()
+                                            },
+                                            contentDescription = "Reserved slot",
+                                            imageVector = Icons.Outlined.GridOn,
+                                            selected = false,
+                                            modifier = Modifier.alpha(0.38f),
+                                            size = PreviewChromeGridIconSize,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1629,8 +2254,9 @@ private fun PreviewRightRail(
     canCaptureRawStill: Boolean,
     canCaptureBracketBurst: Boolean,
     commandDialMode: CommandDialMode,
-    onCommandDialModeChange: (CommandDialMode) -> Unit,
     onCalibrateFromPreviewFrame: () -> Unit,
+    previewJpegCompanion: Boolean,
+    rawStillNotReadyReason: String?,
 ) {
     val context = LocalContext.current
     val chrome = chromePrefs.current
@@ -1639,19 +2265,20 @@ private fun PreviewRightRail(
         modifier =
             modifier
                 .fillMaxWidth()
-                .wrapContentHeight()
+                .fillMaxHeight()
                 .background(Color.Black.copy(alpha = 0.92f))
-                .padding(vertical = 8.dp, horizontal = 6.dp),
+                .padding(vertical = 4.dp, horizontal = 4.dp),
     ) {
-        // Orange shutter is in [PreviewBottomCaptureTray]. Only the 7×7 focal/tool grid rotates with
+        // Photo/video dual shutters live in [PreviewBottomCaptureTray]. Only the 7×7 focal/tool grid rotates with
         // [uiRotationDeg]; shortcut panels stay upright so landscape remains readable.
         Column(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .weight(1f)
                     .heightIn(max = PreviewChromeScrollMaxHeight)
                     .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Box(
                 modifier =
@@ -1672,6 +2299,8 @@ private fun PreviewRightRail(
                     onToggleShortcutTitle = { title ->
                         expandedKey = if (expandedKey == title) null else title
                     },
+                    hudState = hudState,
+                    chromePrefs = chromePrefs,
                 )
             }
                 ShortcutBlock(
@@ -1789,14 +2418,14 @@ private fun PreviewRightRail(
         }
 
                 ShortcutBlock(
-                    title = "Mode",
-                    icon = Icons.Outlined.CameraEnhance,
-                    expanded = expandedKey == "Mode",
+                    title = "Looks / LUT",
+                    icon = Icons.Outlined.Palette,
+                    expanded = expandedKey == "Looks / LUT",
                     onExpandedChange = { exp ->
                         expandedKey =
                             if (exp) {
-                                "Mode"
-                            } else if (expandedKey == "Mode") {
+                                "Looks / LUT"
+                            } else if (expandedKey == "Looks / LUT") {
                                 null
                             } else {
                                 expandedKey
@@ -1804,15 +2433,8 @@ private fun PreviewRightRail(
                     },
                     showIconHeader = false,
                 ) {
-            if (hudState.current.showCommandDial) {
-                CommandDial(
-                    selected = commandDialMode,
-                    onSelect = onCommandDialModeChange,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            LutChipRow(state = hudState, modifier = Modifier.fillMaxWidth())
-        }
+                    LutChipRow(state = hudState, modifier = Modifier.fillMaxWidth())
+                }
 
                 ShortcutBlock(
                     title = "Preview & keys",
@@ -1870,6 +2492,34 @@ private fun PreviewRightRail(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
+                    "Zoom-fill\npreview",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.85f),
+                )
+                Switch(
+                    checked = chrome.previewTextureCoverCrop,
+                    onCheckedChange = {
+                        chromePrefs.update(chrome.copy(previewTextureCoverCrop = it))
+                    },
+                )
+            }
+            Text(
+                text =
+                    if (chrome.previewTextureCoverCrop) {
+                        "On: finder fills the tile (may crop tighter than JPEG/DNG)."
+                    } else {
+                        "Off: letterboxed preview matches still framing (whole sensor crop visible)."
+                    },
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.48f),
+                maxLines = 3,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
                     "Chart\ngrid",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.85f),
@@ -1908,6 +2558,19 @@ private fun PreviewRightRail(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            Text("DND\nprev", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
+            Switch(
+                checked = chrome.dndWhileInPreview,
+                onCheckedChange = {
+                    chromePrefs.update(chrome.copy(dndWhileInPreview = it))
+                },
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text("DND\nrec", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
             Switch(
                 checked = chrome.dndWhileRecording,
@@ -1918,7 +2581,8 @@ private fun PreviewRightRail(
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val nm = context.getSystemService(NotificationManager::class.java)
-            if (chrome.dndWhileRecording && nm != null && !nm.isNotificationPolicyAccessGranted) {
+            val wantsPolicy = chrome.dndWhileInPreview || chrome.dndWhileRecording
+            if (wantsPolicy && nm != null && !nm.isNotificationPolicyAccessGranted) {
                 TextButton(
                     onClick = {
                         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
@@ -1996,6 +2660,13 @@ private fun PreviewRightRail(
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.85f),
             )
+            Text(
+                "DGK / USAF charts (e.g. 8.5×11): grayscale ramps on the short edges (top/bottom " +
+                    "when the sheet is upright), skin-tone column toward camera-left, primary patches " +
+                    "toward camera-right; tap Spin until the live image matches.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.62f),
+            )
             // Cycle 0 → 90 → 180 → 270 → 0. Applied as a single fixed offset to the camera
             // buffer in the user's view; the preview never rotates again as the phone tilts.
             OutlinedButton(
@@ -2009,7 +2680,7 @@ private fun PreviewRightRail(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    "${chrome.staticPreviewRotationDeg}°",
+                    "${effectivePreviewStaticRotationDeg(chrome.staticPreviewRotationDeg, false)}°",
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
@@ -2043,6 +2714,42 @@ private fun PreviewRightRail(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Save DNG", style = MaterialTheme.typography.labelSmall)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "RAW+\n(JPEG)",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.85f),
+            )
+            Switch(
+                checked = chrome.stillCaptureJpegCompanion,
+                onCheckedChange = {
+                    chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = it))
+                },
+            )
+        }
+        Text(
+            text =
+                if (previewJpegCompanion) {
+                    "Still pipeline: RAW + JPEG companion (readout RAW+)"
+                } else {
+                    "Still pipeline: RAW DNG only (no JPEG sidecar in this session)"
+                },
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.78f),
+            maxLines = 3,
+        )
+        rawStillNotReadyReason?.let { reason ->
+            Text(
+                text = reason,
+                style = MaterialTheme.typography.labelSmall,
+                color = PnsColors.WarnAmber,
+                maxLines = 4,
+            )
         }
         if (commandDialMode == CommandDialMode.BKT) {
             Text("BKT RAW", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f))
@@ -2253,8 +2960,19 @@ private class PreviewController(
     @Volatile private var lastFrameNs: Long = 0L
     @Volatile private var smoothedFrameFps: Double = 0.0
     @Volatile private var framesFromTexture: Long = 0L
+    /**
+     * Mirrors [PreviewChromePreferences.previewTextureCoverCrop] for tap/metering math in buffer space.
+     */
+    @Volatile private var previewTextureCoverCrop: Boolean = true
     @Volatile private var textureWindowStartNs: Long = 0L
     @Volatile private var textureWindowFrames: Long = 0L
+
+    /** Latest repeating-request metadata for the preview readout strip (Milestone 9). */
+    @Volatile private var lastPreviewIso: Int? = null
+    @Volatile private var lastPreviewExposureNs: Long? = null
+    @Volatile private var lastPreviewAwbMode: Int? = null
+    private var loggedChromeUxReadout: Boolean = false
+    private var readoutFallbackRunnable: Runnable? = null
 
     private var rawImageReader: ImageReader? = null
     /** Hardware JPEG still target for RAW+JPEG dual capture (tonal companion). */
@@ -2341,9 +3059,11 @@ private class PreviewController(
     fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
         Log.d(tag, "textureAvailable ${width}x${height}")
         previewSurfaceTexture = st
-        currentSurfaceSize = if (width > 0 && height > 0) Size(width, height) else null
-        // Initialize buffer size to the current view size; we will override per-mode later.
-        if (width > 0 && height > 0) {
+        reconcilePreviewBufferSizeFromCallbacks(width, height)
+        // Never call setDefaultBufferSize(width,height) from TextureView hints alone — those are often
+        // the **layout** size, not the negotiated camera stream; wrong aspect → non-uniform scale
+        // (horizontal stretch) vs RAW. [maybeRestartBody] sets the authoritative size from Camera2.
+        if (desiredSurfaceSize == null && width > 0 && height > 0) {
             runCatching { st.setDefaultBufferSize(width, height) }
         }
         rebuildSurfaceIfPossible()
@@ -2352,8 +3072,24 @@ private class PreviewController(
 
     fun onSurfaceTextureSizeChanged(width: Int, height: Int) {
         Log.d(tag, "textureSizeChanged ${width}x${height}")
-        currentSurfaceSize = if (width > 0 && height > 0) Size(width, height) else null
+        reconcilePreviewBufferSizeFromCallbacks(width, height)
         maybeRestart()
+    }
+
+    /**
+     * Keep [currentSurfaceSize] aligned with [desiredSurfaceSize] once the camera stream is
+     * negotiated. TextureView listener width/height are **view/buffer surface hints** and on some
+     * OEMs diverge from [setDefaultBufferSize] — treating them as the camera buffer WxH breaks
+     * [TexturePreviewFit] aspect math and distorts the chart vs RAW.
+     */
+    private fun reconcilePreviewBufferSizeFromCallbacks(textureWidth: Int, textureHeight: Int) {
+        val want = desiredSurfaceSize
+        currentSurfaceSize =
+            when {
+                want != null -> want
+                textureWidth > 0 && textureHeight > 0 -> Size(textureWidth, textureHeight)
+                else -> null
+            }
     }
 
     /**
@@ -2475,6 +3211,12 @@ private class PreviewController(
         maybeRestart()
     }
 
+    fun setPreviewTextureCoverCrop(coverCrop: Boolean) {
+        if (previewTextureCoverCrop == coverCrop) return
+        previewTextureCoverCrop = coverCrop
+        Log.d(tag, "setPreviewTextureCoverCrop coverCrop=$coverCrop")
+    }
+
     /** BUILD_PLAN §4 Eye-AF: enable face detect + publish [EyeMark]s when HUD toggle is on. */
     fun setHudFaceOverlayEnabled(enabled: Boolean) {
         if (hudFaceOverlayEnabled == enabled) return
@@ -2494,7 +3236,7 @@ private class PreviewController(
 
     /**
      * Negotiated Camera2 preview stream size ([desiredSurfaceSize]), falling back to the current
-     * [TextureView] buffer. UI letterboxing must match [applyPreviewTextureTransform], which uses
+     * [TextureView] buffer. UI center-crop mapping must match [applyPreviewTextureTransform], which uses
      * [desiredSurfaceSize] — using only [currentSurfaceSize] caused horizontal stretch when they
      * diverged briefly or after layout.
      */
@@ -2546,15 +3288,27 @@ private class PreviewController(
         return bytes
     }
 
+    private fun rotateBitmapClockwise90(src: Bitmap): Bitmap {
+        val m =
+            Matrix().apply {
+                postRotate(90f)
+            }
+        return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+    }
+
     /**
-     * Decode hardware JPEG, optionally apply [StillRgbLut], re-compress, MediaStore,
-     * then [LutCaptureSidecars] when [stillsLut] ≠ None.
+     * Decode hardware JPEG, rotate **90° clockwise** so the sRGB companion matches the DNG /
+     * preview upright framing, optionally apply [StillRgbLut], re-compress, MediaStore,
+     * then [LutCaptureSidecars] when [stillsLut] ≠ None. Writes standard camera EXIF via
+     * [StillCaptureMetadata].
      */
     private fun saveHardwareJpegCompanion(
         appContext: Context,
         profile: ImagingProfile,
         jpegImage: Image,
         stillsLut: LutCatalog,
+        characteristics: CameraCharacteristics,
+        captureResult: TotalCaptureResult,
     ) {
         val jpegBytes = jpegImageToByteArray(jpegImage)
         val decoded =
@@ -2563,15 +3317,19 @@ private class PreviewController(
                     Log.w(tag, "companion JPEG decode failed")
                     return
                 }
-        val w = decoded.width
-        val h = decoded.height
-        if (w <= 0 || h <= 0) {
+        val oriented = rotateBitmapClockwise90(decoded)
+        if (oriented !== decoded) {
             decoded.recycle()
+        }
+        val w = oriented.width
+        val h = oriented.height
+        if (w <= 0 || h <= 0) {
+            oriented.recycle()
             return
         }
         val px = IntArray(w * h)
-        decoded.getPixels(px, 0, w, 0, 0, w, h)
-        decoded.recycle()
+        oriented.getPixels(px, 0, w, 0, 0, w, h)
+        oriented.recycle()
         val rgb = ByteArray(w * h * 3)
         var o = 0
         for (i in px.indices) {
@@ -2603,8 +3361,10 @@ private class PreviewController(
                 throw IllegalStateException("JPEG compress failed")
             }
             val displayName = handle.displayName
+            val jpegUri = handle.uri
             handle.close()
             handle = null
+            StillCaptureMetadata.applyToJpegUri(appContext.applicationContext, jpegUri, characteristics, captureResult)
             LutCaptureSidecars.writeBundledLutSidecarIfNeeded(
                 appContext.applicationContext,
                 profile,
@@ -2758,13 +3518,22 @@ private class PreviewController(
                     rawImg.close()
                     val uri = handle.uri.toString()
                     val dngDisplayName = handle.displayName
+                    val dngUri = handle.uri
                     handle.close()
                     handle = null
+                    StillCaptureMetadata.applyToDngUri(appContext.applicationContext, dngUri, chars, result)
                     writeCalibrationSidecarIfNeeded(appContext, profile, dngDisplayName)
                     if (jpegImg != null) {
                         try {
                             runCatching {
-                                saveHardwareJpegCompanion(appContext, profile, jpegImg, stillsLut)
+                                saveHardwareJpegCompanion(
+                                    appContext,
+                                    profile,
+                                    jpegImg,
+                                    stillsLut,
+                                    chars,
+                                    result,
+                                )
                             }.onFailure { Log.w(tag, "companion JPEG pipeline failed", it) }
                         } finally {
                             jpegImg.close()
@@ -2990,13 +3759,22 @@ private class PreviewController(
                         rawImg.close()
                         val uri = handle.uri.toString()
                         val dngDisplayName = handle.displayName
+                        val dngUri = handle.uri
                         handle.close()
                         handle = null
+                        StillCaptureMetadata.applyToDngUri(appContext.applicationContext, dngUri, chars, result)
                         writeCalibrationSidecarIfNeeded(appContext, profile, dngDisplayName)
                         if (jpegImg != null) {
                             try {
                                 runCatching {
-                                    saveHardwareJpegCompanion(appContext, profile, jpegImg, stillsLut)
+                                    saveHardwareJpegCompanion(
+                                        appContext,
+                                        profile,
+                                        jpegImg,
+                                        stillsLut,
+                                        chars,
+                                        result,
+                                    )
                                 }.onFailure { Log.w(tag, "bracket companion JPEG failed", it) }
                             } finally {
                                 jpegImg.close()
@@ -3113,6 +3891,30 @@ private class PreviewController(
         }
     }
 
+    fun previewMeterIso(): Int? = lastPreviewIso
+
+    fun previewMeterExposureNs(): Long? = lastPreviewExposureNs
+
+    fun previewMeterAwbMode(): Int? = lastPreviewAwbMode
+
+    /** True when preview session includes a JPEG companion surface (RAW+ pipeline). */
+    fun previewUsesJpegCompanion(): Boolean = jpegImageReader != null
+
+    private var preferredJpegCompanion: Boolean = true
+
+    /** Mirrors [PreviewChromePreferences.stillCaptureJpegCompanion]; triggers session rebuild. */
+    fun setPreferredJpegCompanion(want: Boolean) {
+        if (preferredJpegCompanion == want) return
+        preferredJpegCompanion = want
+        Log.d(tag, "setPreferredJpegCompanion want=$want")
+        maybeRestart()
+    }
+
+    /** After returning from another activity (e.g. gallery viewer), rebuild the capture session. */
+    fun kickPreviewPipelineRestart() {
+        maybeRestart()
+    }
+
     /**
      * When a calibration JSON exists on disk (newest profile wins), writes a gallery-visible
      * `.pns-calibration.json` next to the DNG via MediaStore (API 29+). Desktop tools can merge
@@ -3166,16 +3968,22 @@ private class PreviewController(
         viewWidthPx: Int,
         viewHeightPx: Int,
         uiTwistDegrees: Float = 0f,
+        coverCrop: Boolean,
     ) {
-        val buf = desiredSurfaceSize
+        // Must match [previewBufferSize]: always prefer negotiated stream dimensions. Never infer
+        // buffer WxH from the TextureView widget — layout size can differ from camera pixels.
+        val buf = desiredSurfaceSize ?: currentSurfaceSize
         if (buf == null || buf.width <= 0 || buf.height <= 0) {
             textureView.setTransform(android.graphics.Matrix())
             return
         }
-        val key = "${viewWidthPx}x${viewHeightPx}/${buf.width}x${buf.height}/${uiTwistDegrees}"
+        val key = "${viewWidthPx}x${viewHeightPx}/${buf.width}x${buf.height}/${uiTwistDegrees}/crop=$coverCrop"
         if (key != lastTransformLogKey) {
             lastTransformLogKey = key
-            Log.d(tag, "applyPreviewTextureTransform view=${viewWidthPx}x${viewHeightPx} buffer=${buf.width}x${buf.height} twist=${uiTwistDegrees}")
+            Log.d(
+                tag,
+                "applyPreviewTextureTransform view=${viewWidthPx}x${viewHeightPx} buffer=${buf.width}x${buf.height} twist=${uiTwistDegrees} coverCrop=$coverCrop",
+            )
         }
         TexturePreviewFit.applyCenterFitWithUiTwist(
             textureView,
@@ -3184,6 +3992,7 @@ private class PreviewController(
             buf.width,
             buf.height,
             uiTwistDegrees,
+            coverCrop,
         )
     }
 
@@ -3224,6 +4033,12 @@ private class PreviewController(
         framesFromTexture = 0L
         textureWindowStartNs = 0L
         textureWindowFrames = 0L
+        lastPreviewIso = null
+        lastPreviewExposureNs = null
+        lastPreviewAwbMode = null
+        loggedChromeUxReadout = false
+        readoutFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        readoutFallbackRunnable = null
     }
 
     fun stop() {
@@ -3311,7 +4126,7 @@ private class PreviewController(
                 // Constrained high-speed requires one of these exact sizes.
                 desiredHighSpeedSize
             } else {
-                pickNormalPreviewSize(map, activeArray) ?: emergencyPreview
+                pickNormalPreviewSize(map, activeArray, chars) ?: emergencyPreview
             }
         desiredSurfaceSize = wantedSurfaceSize
 
@@ -3323,7 +4138,7 @@ private class PreviewController(
         // Some devices never report this back via callbacks, so we treat this as authoritative.
         if (wantedSurfaceSize != null) {
             runCatching { previewSurfaceTexture?.setDefaultBufferSize(wantedSurfaceSize.width, wantedSurfaceSize.height) }
-            currentSurfaceSize = Size(wantedSurfaceSize.width, wantedSurfaceSize.height)
+            currentSurfaceSize = wantedSurfaceSize
             rebuildSurfaceIfPossible()
             Log.d(tag, "setDefaultBufferSize ${wantedSurfaceSize.width}x${wantedSurfaceSize.height}")
         }
@@ -3467,13 +4282,17 @@ private class PreviewController(
                 Log.d(tag, "RAW ImageReader ${size.width}x${size.height} format=$fmt")
 
                 val jpegSize = mapForStreams?.let { RawCaptureSupport.pickLargestJpegSize(it) }
-                if (jpegSize != null) {
+                if (preferredJpegCompanion && jpegSize != null) {
                     jpegImageReader =
                         ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 2)
                     surfaces.add(jpegImageReader!!.surface)
                     Log.d(tag, "JPEG ImageReader ${jpegSize.width}x${jpegSize.height}")
                 } else {
-                    Log.w(tag, "No JPEG output sizes — RAW-only still capture")
+                    if (!preferredJpegCompanion) {
+                        Log.d(tag, "JPEG companion disabled by preference — RAW-only still capture")
+                    } else {
+                        Log.w(tag, "No JPEG output sizes — RAW-only still capture")
+                    }
                 }
             }
 
@@ -3889,7 +4708,15 @@ private class PreviewController(
         val buf = desiredSurfaceSize ?: return
         if (viewW <= 0 || viewH <= 0 || buf.width <= 0 || buf.height <= 0) return
         val (bx, by) =
-            TexturePreviewFit.mapViewToBuffer(viewX, viewY, viewW, viewH, buf.width, buf.height)
+            TexturePreviewFit.mapViewToBuffer(
+                viewX,
+                viewY,
+                viewW,
+                viewH,
+                buf.width,
+                buf.height,
+                coverCrop = previewTextureCoverCrop,
+            )
         val camId = selectedCameraId ?: return
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
         val active = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: return
@@ -4046,6 +4873,9 @@ private class PreviewController(
         if (tap == null && commandDialMode == CommandDialMode.S) {
             applyStreetSnapAf(req, chars)
         }
+        if (tap == null && commandDialMode == CommandDialMode.Auto) {
+            applyAutoProgramAfAe(req, chars)
+        }
         if (aeHighlightComp != null) {
             req.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeHighlightComp)
         }
@@ -4071,6 +4901,24 @@ private class PreviewController(
             afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE) -> {
                 req.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
             }
+        }
+    }
+
+    /** Full-auto program: automatic exposure + continuous picture AF when the user has not tap-metered. */
+    private fun applyAutoProgramAfAe(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
+        val aeModes = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES) ?: intArrayOf()
+        when {
+            aeModes.contains(CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH) ->
+                req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH)
+            aeModes.contains(CaptureRequest.CONTROL_AE_MODE_ON) ->
+                req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+        }
+        val afModes = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
+        when {
+            afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE) ->
+                req.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+            afModes.contains(CaptureRequest.CONTROL_AF_MODE_AUTO) ->
+                req.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
         }
     }
 
@@ -4114,6 +4962,7 @@ private class PreviewController(
                     sess.setRepeatingBurst(list, fpsMeasuringCallback(), handler)
                     lastStatus = "Preview running (HFR ${fpsRange?.upper ?: "?"}fps)"
                     Log.d(tag, "HFR repeatingBurst started (n=${list.size})")
+                    scheduleReadoutChromeUxFallback()
                     return
                 }
             }
@@ -4121,11 +4970,53 @@ private class PreviewController(
             sess.setRepeatingRequest(req, fpsMeasuringCallback(), handler)
             lastStatus = "Preview running (normal)"
             Log.d(tag, "Normal repeatingRequest started")
+            scheduleReadoutChromeUxFallback()
         } catch (e: CameraAccessException) {
             lastStatus = "Repeating failed: ${e.reason}"
         } catch (t: Throwable) {
             lastStatus = "Repeating failed: ${t::class.java.simpleName}"
         }
+    }
+
+    private fun updatePreviewMetadata(result: CaptureResult) {
+        result.get(CaptureResult.SENSOR_SENSITIVITY)?.let { lastPreviewIso = it }
+        result.get(CaptureResult.SENSOR_EXPOSURE_TIME)?.let { lastPreviewExposureNs = it }
+        result.get(CaptureResult.CONTROL_AWB_MODE)?.let { lastPreviewAwbMode = it }
+        maybeLogChromeUxReadout()
+    }
+
+    private fun maybeLogChromeUxReadout() {
+        if (loggedChromeUxReadout) return
+        if (lastPreviewIso == null && lastPreviewExposureNs == null && lastPreviewAwbMode == null) return
+        loggedChromeUxReadout = true
+        readoutFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        readoutFallbackRunnable = null
+        val iso = lastPreviewIso
+        val ss = PreviewReadoutFormat.formatShutter(lastPreviewExposureNs)
+        val awb = PreviewReadoutFormat.awbModeLabel(lastPreviewAwbMode)
+        val fps = "%.1f".format(smoothedFps)
+        mainHandler.post {
+            Log.i(
+                "PNS.ChromeUx",
+                "readout=live iso=${iso ?: "—"} ss=$ss awb=$awb fps=$fps",
+            )
+        }
+    }
+
+    /** When preview metadata keys never arrive, still emit a gate-friendly ChromeUx line. */
+    private fun scheduleReadoutChromeUxFallback() {
+        readoutFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
+        val r =
+            Runnable {
+                if (loggedChromeUxReadout) return@Runnable
+                loggedChromeUxReadout = true
+                Log.i(
+                    "PNS.ChromeUx",
+                    "readout=fallback fps=${"%.1f".format(smoothedFps)} metadata=pending",
+                )
+            }
+        readoutFallbackRunnable = r
+        mainHandler.postDelayed(r, 10_000L)
     }
 
     private fun fpsMeasuringCallback(): CameraCaptureSession.CaptureCallback =
@@ -4147,6 +5038,7 @@ private class PreviewController(
             ) {
                 // Some devices deliver timestamps in partials; accept if present.
                 onWallTick()
+                updatePreviewMetadata(partialResult)
                 val ts = partialResult.get(CaptureResult.SENSOR_TIMESTAMP)
                 if (ts == null) {
                     framesMissingTimestamp++
@@ -4157,6 +5049,7 @@ private class PreviewController(
             }
 
             private fun onCaptureResult(result: TotalCaptureResult) {
+                updatePreviewMetadata(result)
                 val ts = result.get(CaptureResult.SENSOR_TIMESTAMP)
                 if (ts == null) {
                     framesMissingTimestamp++
@@ -4230,14 +5123,14 @@ private class PreviewController(
     }
 
     /**
-     * BUILD_PLAN UI milestone: the preview must always show the full sensor frame, never a
-     * cropped or distorted slice. We therefore prefer preview sizes whose aspect ratio matches
-     * [CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE] (typically 4:3 on phone sensors).
-     * The view-side letterbox is handled by [TexturePreviewFit].
+     * BUILD_PLAN UI milestone: pick preview sizes whose aspect matches the active sensor array when
+     * possible; [TexturePreviewFit] applies uniform **center-crop** in the [TextureView] so the
+     * finder fills width without side pillarboxing (cropping top/bottom or left/right as needed).
      */
     private fun pickNormalPreviewSize(
         map: StreamConfigurationMap?,
         activeArray: Rect? = null,
+        chars: CameraCharacteristics? = null,
     ): Size? {
         if (map == null) return null
         val sizes = runCatching { map.getOutputSizes(SurfaceTexture::class.java)?.toList() }.getOrNull().orEmpty()
@@ -4247,17 +5140,25 @@ private class PreviewController(
         // the size whose aspect best matches the full sensor (no crop, no distortion).
         val maxArea = 1920L * 1440L
 
+        // Prefer the same aspect as the largest RAW still output when advertised — aligns finder
+        // geometry with DNG; fall back to active array (preview crop) aspect.
         val sensorAspect =
-            if (activeArray != null && activeArray.width() > 0 && activeArray.height() > 0) {
-                activeArray.width().toFloat() / activeArray.height().toFloat()
-            } else {
-                4f / 3f
-            }
+            chars
+                ?.let { ch ->
+                    RawCaptureSupport.pickRawOutput(ch)?.second?.let { sz ->
+                        sz.width.toFloat() / sz.height.toFloat()
+                    }
+                }
+                ?: if (activeArray != null && activeArray.width() > 0 && activeArray.height() > 0) {
+                    activeArray.width().toFloat() / activeArray.height().toFloat()
+                } else {
+                    4f / 3f
+                }
 
         val matching =
             sizes.filter { size ->
                 val a = size.width.toFloat() / size.height.toFloat()
-                kotlin.math.abs(a - sensorAspect) < 0.02f
+                kotlin.math.abs(a - sensorAspect) < 0.015f
             }
         val pool = if (matching.isNotEmpty()) matching else sizes
 

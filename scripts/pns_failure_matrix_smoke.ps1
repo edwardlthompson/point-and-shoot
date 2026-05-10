@@ -93,11 +93,12 @@ function Save-LogcatTail([string]$OutPath) {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
     try {
+        # Keep this modest: huge `-t` transfers over TCP/IP adb can stall for many minutes.
         $tail = if ($Serial) {
-            @(& adb -s $Serial shell "logcat -d -t 120000" 2>&1)
+            @(& adb -s $Serial shell "logcat -d -t 25000" 2>&1)
         }
         else {
-            @(adb shell "logcat -d -t 120000" 2>&1)
+            @(adb shell "logcat -d -t 25000" 2>&1)
         }
         $utf8 = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllLines($OutPath, $tail, $utf8)
@@ -126,11 +127,15 @@ function Test-NoFatalForPackage([string]$LogPath, [string]$PackageName) {
 function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmExtraArgs) {
     Write-Host ""
     Write-Host "=== failure_matrix_smoke: $Name (${WaitSec}s) ==="
-    Invoke-AdbIgnore @("logcat", "-c")
-    Invoke-Adb @("shell", "am", "force-stop", $pkg)
+    $null = Invoke-AdbIgnore @("logcat", "-c")
+    $null = Invoke-Adb @("shell", "am", "force-stop", $pkg)
     Start-Sleep -Milliseconds 600
-    $amFull = @("shell", "am", "start", "-W", "-n", "${pkg}/.MainActivity") + $AmExtraArgs
-    Invoke-Adb @amFull
+    # Avoid `am start -W` on Wi-Fi adb (can block). Use one shell string — on Windows, splitting
+    # `adb shell am …` into many argv tokens sometimes wedges the transport until timeout.
+    $extraFlat = ($AmExtraArgs | ForEach-Object { "$_" }) -join " "
+    $shellCmd = "am start -n ${pkg}/.MainActivity $extraFlat"
+    # adb prints "Starting: Intent …" to stdout; swallow so Run-Scenario returns only $logPath.
+    $null = Invoke-Adb @("shell", $shellCmd)
     Start-Sleep -Seconds $WaitSec
     $logPath = Join-Path $OutDir "logcat_$Name.txt"
     Save-LogcatTail $logPath

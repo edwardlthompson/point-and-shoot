@@ -23,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -42,10 +43,13 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun ProHudScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
     val state = rememberHudSettings()
     val settings = state.current
 
-    var dialMode by remember { mutableStateOf(CommandDialMode.M) }
+    var dialMode by remember {
+        mutableStateOf(HudSettings.loadCommandDialMode(context))
+    }
     var isRecording by remember { mutableStateOf(false) }
     var recordStartMs by remember { mutableStateOf<Long?>(null) }
     var imagingProfile by remember { mutableStateOf<ImagingProfile>(ImagingProfile.StandardPro) }
@@ -121,7 +125,10 @@ fun ProHudScreen(onBack: () -> Unit) {
                 if (settings.showCommandDial) {
                     CommandDial(
                         selected = dialMode,
-                        onSelect = { dialMode = it },
+                        onSelect = {
+                            dialMode = it
+                            HudSettings.saveCommandDialMode(context, it)
+                        },
                         modifier = Modifier.wrapContentSize(),
                     )
                 }

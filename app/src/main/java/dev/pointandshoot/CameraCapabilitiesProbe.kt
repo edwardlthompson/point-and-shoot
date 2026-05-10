@@ -92,6 +92,12 @@ const val EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE = "pns_preview_m6_fps_lut_probe"
 /** When true with [SCREEN_PREVIEW]: after the stream is up, grab one `TextureView` frame for calibration smoke (logs `calibrate preview frame grab ok`). */
 const val EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE = "pns_preview_calibrate_grab_smoke"
 
+/**
+ * Optional `--ei pns_preview_self_timer_sec N` with [SCREEN_PREVIEW]: seeds [PreviewChromePreferences.selfTimerDelaySec]
+ * (**0 / 3 / 5 / 10**; invalid values normalize to **0**). Logged as **`PNS.ChromeUx`** **`selfTimerSec=`** after apply.
+ */
+const val EXTRA_PNS_PREVIEW_SELF_TIMER_SEC = "pns_preview_self_timer_sec"
+
 private const val SCREEN_PREVIEW = "preview"
 private const val SCREEN_ENC = "enc"
 private const val SCREEN_DEEPCAPS = "deepcaps"
@@ -310,7 +316,8 @@ fun CameraCapabilitiesProbe(
                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE).isNullOrBlank() ||
                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
-                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false))
+                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
+                        inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC)
                     )
         if (!suppressHugeMarkdownDump) {
             Log.i(TAG, "\n$report")
@@ -334,6 +341,7 @@ fun CameraCapabilitiesProbe(
         val adbM6FpsLutProbe = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false) ?: false
         val adbCalibrateGrabSmoke =
             activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false) ?: false
+        val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
         PreviewEngineScreen(
             onBack = {
                 showPreviewEngine = false
@@ -360,6 +368,7 @@ fun CameraCapabilitiesProbe(
             adbPreviewStillsLutName = adbPreviewStillsLutName,
             adbM6FpsLutProbe = adbM6FpsLutProbe,
             adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
+            adbInitialSelfTimerSec = adbSelfTimerSec,
         )
         return
     }
@@ -1028,6 +1037,7 @@ private fun appendKeysSection(sb: StringBuilder, title: String, keys: List<Strin
 private fun Intent?.previewDialModeExtra(): CommandDialMode? {
     val s = this?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL) ?: return null
     return when (s.trim().uppercase()) {
+        "A", "AUTO" -> CommandDialMode.Auto
         "M" -> CommandDialMode.M
         "H" -> CommandDialMode.H
         "S" -> CommandDialMode.S
@@ -1057,4 +1067,11 @@ private fun Intent?.previewImagingProfileExtra(): ImagingProfile? {
 
 private fun Intent?.previewStillsLutNameExtra(): String? =
     this?.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT)?.trim()?.takeIf { it.isNotBlank() }
+
+private fun Intent?.previewSelfTimerSecExtra(): Int? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC)) {
+        getIntExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC, 0)
+    } else {
+        null
+    }
 

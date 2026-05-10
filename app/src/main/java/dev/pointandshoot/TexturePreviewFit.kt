@@ -3,23 +3,21 @@ package dev.pointandshoot
 import android.graphics.Matrix
 import android.view.TextureView
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
 /**
- * Scales the camera buffer to fit inside the [TextureView] without cropping or
- * distorting it (letterbox / pillarbox), preserving the buffer's native aspect
- * ratio — i.e. the full sensor frame.
+ * Preview uses **center-crop** scaling (`max` scale, ImageView-style `CENTER_CROP`):
+ * the camera buffer always fills the [TextureView] without side pillarboxing; excess is
+ * cropped top/bottom or left/right. This matches `BUILD_PLAN` finder acceptance (no side bars).
  *
- * The matrix produced by [computeCenterFitMatrix] is applied via
- * [TextureView.setTransform], which post-multiplies the matrix on top of the
- * default *stretch-to-view* draw. We therefore have to express the desired
- * letterbox in **view space**: scale by `(bufW * scale / viewW, bufH * scale / viewH)`
- * (which "undoes" the stretch on the cropped axis) and translate to center the
- * scaled rect inside the view.
+ * The matrix produced by [computeCenterCropMatrix] is applied via [TextureView.setTransform],
+ * which post-multiplies on top of the default stretch-to-view draw.
  *
- * [mapBufferToView] computes the same buffer→view mapping in plain pixel coords
- * so overlays drawn in Compose space land on the correct part of the preview.
+ * [computeCenterFitMatrix] remains for tests / tooling that need letterboxed “show full frame”.
+ *
+ * [mapBufferToView] follows center-crop mapping so overlays and tap-to-focus align with pixels.
  */
 object TexturePreviewFit {
     /**
@@ -120,6 +118,36 @@ object TexturePreviewFit {
     }
 
     /**
+     * Center-crop matrix: scales with `max(view/buffer)` so the buffer covers the view; crops
+     * overflow (used for live preview).
+     */
+    fun computeCenterCropMatrix(
+        viewWidthPx: Int,
+        viewHeightPx: Int,
+        bufferWidthPx: Int,
+        bufferHeightPx: Int,
+    ): Matrix {
+        val matrix = Matrix()
+        if (viewWidthPx <= 0 || viewHeightPx <= 0 || bufferWidthPx <= 0 || bufferHeightPx <= 0) {
+            return matrix
+        }
+        val vw = viewWidthPx.toFloat()
+        val vh = viewHeightPx.toFloat()
+        val bw = bufferWidthPx.toFloat()
+        val bh = bufferHeightPx.toFloat()
+        val scale = max(vw / bw, vh / bh)
+        val drawnW = bw * scale
+        val drawnH = bh * scale
+        val sx = drawnW / vw
+        val sy = drawnH / vh
+        val tx = (vw - drawnW) / 2f
+        val ty = (vh - drawnH) / 2f
+        matrix.setScale(sx, sy)
+        matrix.postTranslate(tx, ty)
+        return matrix
+    }
+
+    /**
      * Bounds of the letterbox/pillarbox-fit camera image in view pixels — i.e. the rect that
      * actually shows the camera buffer (the "live" area), with the unrendered black bars
      * outside. Use this to clip overlays (rule-of-thirds, horizon level reference, focus
@@ -144,17 +172,11 @@ object TexturePreviewFit {
         }
         val vw = viewWidthPx.toFloat()
         val vh = viewHeightPx.toFloat()
-        val bw = bufferWidthPx.toFloat()
-        val bh = bufferHeightPx.toFloat()
-        val scale = min(vw / bw, vh / bh)
-        val drawnW = bw * scale
-        val drawnH = bh * scale
-        val left = (vw - drawnW) / 2f
-        val top = (vh - drawnH) / 2f
-        return FitRect(left = left, top = top, width = drawnW, height = drawnH)
+        // Center-crop preview fills the TextureView — clip overlays to the full view rect.
+        return FitRect(left = 0f, top = 0f, width = vw, height = vh)
     }
 
-    /** Letterbox-fit rect in view pixel coords (matches [applyCenterFit] / [computeCenterFitMatrix]). */
+    /** Visible image rect in view coords under center-crop preview (full [TextureView]). */
     data class FitRect(val left: Float, val top: Float, val width: Float, val height: Float) {
         val right: Float get() = left + width
         val bottom: Float get() = top + height
@@ -171,6 +193,8 @@ object TexturePreviewFit {
         viewHeightPx: Int,
         bufferWidthPx: Int,
         bufferHeightPx: Int,
+        /** When true, center-**crop** (fills view); when false, center-**contain** (matches still JPEG framing). */
+        coverCrop: Boolean = true,
     ): Pair<Float, Float> {
         if (viewWidthPx <= 0 || viewHeightPx <= 0 || bufferWidthPx <= 0 || bufferHeightPx <= 0) {
             return bufferX to bufferY
@@ -179,31 +203,15 @@ object TexturePreviewFit {
         val vh = viewHeightPx.toFloat()
         val bw = bufferWidthPx.toFloat()
         val bh = bufferHeightPx.toFloat()
-        val scale = min(vw / bw, vh / bh)
+        val scale =
+            if (coverCrop) {
+                max(vw / bw, vh / bh)
+            } else {
+                min(vw / bw, vh / bh)
+            }
         val dx = (vw - bw * scale) / 2f
         val dy = (vh - bh * scale) / 2f
         return (bufferX * scale + dx) to (bufferY * scale + dy)
-    }
-
-    /**
-     * Applies [applyCenterFit], then rotates the preview **within** the [TextureView] about its
-     * center so camera chrome (rails, overlays) can stay aligned using the same angle in Compose.
-     */
-    fun applyCenterFitWithUiTwist(
-        textureView: TextureView,
-        viewWidthPx: Int,
-        viewHeightPx: Int,
-        bufferWidthPx: Int,
-        bufferHeightPx: Int,
-        uiTwistDegrees: Float,
-    ) {
-        val m = computeCenterFitMatrix(viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx)
-        if (uiTwistDegrees != 0f) {
-            val cx = viewWidthPx / 2f
-            val cy = viewHeightPx / 2f
-            m.postRotate(uiTwistDegrees, cx, cy)
-        }
-        textureView.setTransform(m)
     }
 
     /** [mapBufferToView] followed by the same center rotation as [applyCenterFitWithUiTwist]. */
@@ -215,6 +223,7 @@ object TexturePreviewFit {
         bufferWidthPx: Int,
         bufferHeightPx: Int,
         uiTwistDegrees: Float,
+        coverCrop: Boolean = true,
     ): Pair<Float, Float> {
         val (x, y) =
             mapBufferToView(
@@ -224,6 +233,7 @@ object TexturePreviewFit {
                 viewHeightPx,
                 bufferWidthPx,
                 bufferHeightPx,
+                coverCrop,
             )
         return rotateAroundCenter(x, y, viewWidthPx / 2f, viewHeightPx / 2f, uiTwistDegrees)
     }
@@ -248,6 +258,7 @@ object TexturePreviewFit {
         viewHeightPx: Int,
         bufferWidthPx: Int,
         bufferHeightPx: Int,
+        coverCrop: Boolean = true,
     ): Pair<Float, Float> {
         if (viewWidthPx <= 0 || viewHeightPx <= 0 || bufferWidthPx <= 0 || bufferHeightPx <= 0) {
             return viewX to viewY
@@ -256,7 +267,12 @@ object TexturePreviewFit {
         val vh = viewHeightPx.toFloat()
         val bw = bufferWidthPx.toFloat()
         val bh = bufferHeightPx.toFloat()
-        val scale = min(vw / bw, vh / bh)
+        val scale =
+            if (coverCrop) {
+                max(vw / bw, vh / bh)
+            } else {
+                min(vw / bw, vh / bh)
+            }
         val dx = (vw - bw * scale) / 2f
         val dy = (vh - bh * scale) / 2f
         val bx = ((viewX - dx) / scale).coerceIn(0f, bw)
@@ -273,10 +289,38 @@ object TexturePreviewFit {
         bufferWidthPx: Int,
         bufferHeightPx: Int,
         uiTwistDegrees: Float,
+        coverCrop: Boolean = true,
     ): Pair<Float, Float> {
         val cx = viewWidthPx / 2f
         val cy = viewHeightPx / 2f
         val (xr, yr) = rotateAroundCenter(viewX, viewY, cx, cy, -uiTwistDegrees)
-        return mapViewToBuffer(xr, yr, viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx)
+        return mapViewToBuffer(xr, yr, viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx, coverCrop)
+    }
+
+    /**
+     * Applies center-crop or center-contain scaling, then rotates the preview **within** the
+     * [TextureView] about its center so camera chrome can stay aligned using the same angle in Compose.
+     */
+    fun applyCenterFitWithUiTwist(
+        textureView: TextureView,
+        viewWidthPx: Int,
+        viewHeightPx: Int,
+        bufferWidthPx: Int,
+        bufferHeightPx: Int,
+        uiTwistDegrees: Float,
+        coverCrop: Boolean = true,
+    ) {
+        val m =
+            if (coverCrop) {
+                computeCenterCropMatrix(viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx)
+            } else {
+                computeCenterFitMatrix(viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx)
+            }
+        if (uiTwistDegrees != 0f) {
+            val cx = viewWidthPx / 2f
+            val cy = viewHeightPx / 2f
+            m.postRotate(uiTwistDegrees, cx, cy)
+        }
+        textureView.setTransform(m)
     }
 }

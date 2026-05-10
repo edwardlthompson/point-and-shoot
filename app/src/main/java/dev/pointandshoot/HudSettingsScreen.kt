@@ -69,7 +69,7 @@ private fun HudSettingsScreenContent(
     val rows: List<HudToggleRow> = remember(settings) {
         listOf(
             HudToggleRow(
-                title = "Command dial (M / H / S / BKT)",
+                title = "Command dial (A / M / H / S / BKT)",
                 description = "Rotary mode selector overlay (Hasselblad-orange selected segment).",
                 enabled = settings.showCommandDial,
                 onChange = { onUpdate(settings.copy(showCommandDial = it)) },

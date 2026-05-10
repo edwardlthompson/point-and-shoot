@@ -3,20 +3,28 @@ package dev.pointandshoot
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.Surface
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Draw behind the status bar + nav bar; pair with hideSystemBarsForImmersive() so the
+        // finder uses the full display (swipe from edge reveals transient system bars).
+        enableEdgeToEdge()
 
         // Cache the debug/diagnostics policy once so PnsLog.v / .d are no-ops in release.
         // Diagnostics dumps still go through Log.i directly, so the diagnostic dump path
         // remains unaffected when verbose is muted in release.
         PnsLog.init(applicationContext)
 
-        // We handle all system insets ourselves (status/nav bars + cutout) in Compose.
+        // We handle merged cutout + gesture insets in Compose via rememberSystemInsetsDp.
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        hideSystemBarsForImmersive()
 
         val launchScreen = intent?.getStringExtra(EXTRA_PNS_SCREEN)
         val autoSweep = intent?.getBooleanExtra(EXTRA_PNS_AUTOSWEEP, false) ?: false
@@ -55,5 +63,19 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            hideSystemBarsForImmersive()
+        }
+    }
+
+    private fun hideSystemBarsForImmersive() {
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }

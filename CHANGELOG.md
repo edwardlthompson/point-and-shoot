@@ -6,6 +6,10 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ### Changed
 
+- **Preview finder** — **`TexturePreviewFit`** uses **center-crop** (`max` scale) for **`TextureView.setTransform`** and **`mapBufferToView`** / **`mapViewToBuffer`** so the live image fills the view (BUILD_PLAN “no side pillarbars”); **`applyPreviewTextureTransform`** uses **`desiredSurfaceSize ?: currentSurfaceSize`** to match Compose sizing. Default **`staticPreviewRotationDeg`** for **new** prefs is **90°** (clockwise spin baseline — fleet still tunes via **Spin**).
+
+- **Preview chrome layout** — **CommandDial** (**M / H / S / BKT**) is **always visible** in the bottom tray **right of shutters** (no Tune FAB popout). **7×7** adds wired quick toggles: horizon, Eye AF, video tally, max brightness, preview DND, tap-to-capture, volume keys. **`BUILD_PLAN.md`** — mandatory **device screenshots** for UI changes.
+
 - **`BUILD_PLAN.md` (Milestones 6–7)** — Sprint **6.3** LUT FPS budget **[ADB]** closed against existing **`milestone6_gate.json`** §5 evidence; encoding/export follow-ups called out as backlog (not 6.3 gates). Sprint **7.2** failure-matrix **`pns_failure_matrix_smoke.ps1`** + **7.4** **`CapabilityGate`** UX marked **[HOST]** complete.
 
 - **`BUILD_PLAN.md` (Milestone 6)** — Kickoff block for **Color, calibration & LUT pipeline**: sprint order **6.1→6.2→6.3**; explicit note that **`DngCreator`** exposes **no public API for DNG tag 50708** (`UniqueCameraModel`); **`DngLutMetadata`** / **`Dng12Saver`** KDoc aligned.
@@ -13,6 +17,16 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 - **`BUILD_PLAN.md` (Milestone 5)** — Sprint **5.5** preview sizing description aligned with **cover-fit** + clipped finder (**`TexturePreviewFit.smallestCoveringAxisAlignedRectWithAspect`**); Sprint **5.3** closed (**Snap AF**, **`HardwareCapsSnapshot`**, **[MIXED] Super Macro gate**). Evidence: **`PROBE_BUILD_PLAN.md` §5** ( **`hfr-runs/adb_preview_validate_20260510_061124/`** , **`super_macro_gate.json`** **`pass: true`** ) + **`pns_verify_toolchain.ps1 -RunTests`**.
 
 ### Added
+
+- **`scripts/pns_device_screencap.ps1`** — Writes **`adb exec-out screencap -p`** PNGs by streaming **`Process.StandardOutput`** to disk (PowerShell **`Set-Content`** / naive pipelines corrupt binary captures on Windows PS 5.x).
+
+- **`scripts/pns_chrome_ux_gate.ps1`** — **`Save-LogcatTail`** uses a **250k** mixed ring tail plus tag-filtered **`PNS.ChromeUx`** / **`PNS.AdbValidation`** supplement so noisy OEM HAL spam does not evict **`seedOk`** / **`grid7=`** lines before grep.
+
+- **`scripts/pns_automation_smoke.ps1`** — One-shot host + device automation: verify toolchain → chrome UX gate (device) → failure-matrix smoke → optional **`-ChromeUxPack`** when adb authorized; **`-TryAdbRoot`** for fleet **`adb root`**; **`hfr-runs/automation_smoke_*/automation_smoke.json`**.
+
+- **Milestone 9 — self-timer (Sprint 9.11)** — **`PreviewChromePreferences.selfTimerDelaySec`** (**0 / 3 / 5 / 10**); grid timer icon cycles + cold-start **`PNS.ChromeUx`** **`selfTimerSec=`**; countdown overlay + **`triggerStillCapture()`** for volume-up still, tap-to-shoot, bottom shutter, **Save DNG** (**BKT** unchanged). **`--ei pns_preview_self_timer_sec`** (`EXTRA_PNS_PREVIEW_SELF_TIMER_SEC`) seeds prefs from **`am start`**; **`pns_chrome_ux_gate.ps1`** passes **`3`** and asserts **`selfTimerOk`**. **`pns_adb_preview_validate.ps1 -ChromeUxPack`** writes **`chrome_ux_smoke.json`**. **`PreviewChromePreferencesTest`**.
+
+- **Milestone 9 (started)** — **`pickCameraIdFromM23Resolve`** + **`PickCameraIdFromM23ResolveTest`**: preview cold-start prefers **`resolveFocalMmSlot(M23)`** wide camera instead of raw **`cameraIdList` order**; logs **`PNS.ChromeUx`** **`seedOk slot=M23`** when aligned. **`rememberSystemInsetsDp`** merges display cutout + system bars; **`PNS.ChromeUx`** **`safeInsetsTopPx`** for gate scripts. **`PreviewForegroundDndEffect`** + **`dndWhileInPreview`** + **`InterruptionFilterHold`**: notification-policy DND in preview (nests with recording DND); **`PNS.ChromeUx`** **`dndPreview=`**. **`PreviewReadoutStrip`** / **`PreviewReadoutFormat`**: live ISO / shutter / AWB / FPS from repeating **`CaptureResult`**; **`PNS.ChromeUx`** **`readout=live`** or **`readout=fallback`**. **`PreviewBottomCaptureTray`** dual shutters (orange still / red record, inactive dimmed left, **`dualShutter=visible`**). **7×7 chrome grid**: Settings at **`[6,6]`**, **`ChromeGridSlotSpec`** expand vs quick actions — row **2** LUT cycle / flash+timer stubs / histogram toggle + **`grid7=layout`** **`PNS.ChromeUx`**. **Tune** FAB **mode dial popout** over finder + **`RAW`/`RAW+`** readout badge via **`previewUsesJpegCompanion()`** + **`readoutCapture=`** log; chrome gate JSON **`modeDialPopoutOk`** / **`readoutCaptureOk`**. **`scripts/pns_chrome_ux_gate.ps1`** asserts **`seedOk`** + **`safeInsetsTopPx`** + **`dndPreview=`** + **`readout=`** + **`dualShutter=`** + **`grid7=`** on device; **`BUILD_PLAN.md`** Milestone 9.
 
 - **`CapabilityGateBridge.kt`** + **HUD Settings** — Shared formatting for **`CapabilityGate`** lines from live **`HardwareCapsSnapshot`**; **Settings > HUD** lists **`ok` / `off`** plus truncated disabled reasons ( **`CAMERA`** permission gate). **`scripts/pns_failure_matrix_smoke.ps1`** — Milestone 7 smoke (**preview granted** + **CAMERA revoked** preview) → **`failure_matrix_smoke.json`**. **`CapabilityGateBridgeTest`**.
 

@@ -33,11 +33,16 @@
   Run only BUILD_PLAN Milestone 6 scenarios (DNG 50708 stamp, LUT FPS probe, Calibrate +
   GLES preview smoke). Implies short run — skips Sprint 5.2/5.3/4 highlight/BKT suite.
 
+.PARAMETER ChromeUxPack
+  Run only BUILD_PLAN Milestone 9 ChromeUx intent scenarios (`pns_preview_self_timer_sec`, …).
+  Writes chrome_ux_smoke.json (device-only). Mutually exclusive with -Milestone6Pack and -SuperMacroOnly.
+
 .EXAMPLE
   .\scripts\pns_adb_preview_validate.ps1
   .\scripts\pns_adb_preview_validate.ps1 -Serial 8bf09993
   .\scripts\pns_adb_preview_validate.ps1 -SuperMacroOnly -RequireSuperMacroPass
   .\scripts\pns_adb_preview_validate.ps1 -Milestone6Pack
+  .\scripts\pns_adb_preview_validate.ps1 -ChromeUxPack
 #>
 param(
     [string]$Serial = "",
@@ -46,10 +51,15 @@ param(
     [switch]$SuperMacroOnly,
     [string]$UltraWideCameraId = "3",
     [switch]$RequireSuperMacroPass,
-    [switch]$Milestone6Pack
+    [switch]$Milestone6Pack,
+    [switch]$ChromeUxPack
 )
 
 $ErrorActionPreference = "Stop"
+
+if (($ChromeUxPack -and $Milestone6Pack) -or ($ChromeUxPack -and $SuperMacroOnly)) {
+    throw "ChromeUxPack is mutually exclusive with Milestone6Pack and SuperMacroOnly."
+}
 
 $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
@@ -191,7 +201,7 @@ function Write-ScenarioLogcat([string]$OutPath) {
         foreach ($ln in $tailLines) { [void]$sb.AppendLine($ln) }
         # Tag-filtered dump survives even when the mixed ring drops app lines (filters apply before line cap).
         [void]$sb.AppendLine("--- supplement: tag-filtered PNS.* (bounded tail) ---")
-        $tagCmd = "logcat -d -t 80000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.GLES:I PNS.ModeTransition:I"
+        $tagCmd = "logcat -d -t 80000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.GLES:I PNS.ModeTransition:I PNS.ChromeUx:I"
         $tagLines = if ($Serial) {
             @(& adb -s $Serial shell $tagCmd 2>&1)
         } else {
@@ -227,7 +237,14 @@ function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmArgs) {
     Write-Host "Wrote $logPath"
 }
 
-if ($Milestone6Pack) {
+if ($ChromeUxPack) {
+    Write-Host "[adb_preview_validate] ChromeUxPack: BUILD_PLAN Milestone 9 ChromeUx intent scenarios only"
+    Run-Scenario "m9_self_timer_adb_seed" 22 @(
+        "--es", "pns_screen", "preview",
+        "--ei", "pns_preview_self_timer_sec", "3"
+    )
+}
+elseif ($Milestone6Pack) {
     Write-Host "[adb_preview_validate] Milestone6Pack: BUILD_PLAN M6 automation only"
     # 1) DNG UniqueCameraModel 50708 IFD append + Software LUT line (Ultra-Max RAW12 single still).
     Run-Scenario "m6_raw12_ultra_50708" 75 @(
@@ -266,7 +283,7 @@ else {
     )
 }
 
-if (-not $Milestone6Pack) {
+if (-not $Milestone6Pack -and -not $ChromeUxPack) {
     # Sprint 5.3 — ultra-wide + OPLUS macro close-up vendor key on repeating preview (BUILD_PLAN MIXED gate).
     Run-Scenario "sprint53_super_macro_vv" 35 @(
         "--es", "pns_screen", "preview",
@@ -275,7 +292,7 @@ if (-not $Milestone6Pack) {
     )
 }
 
-if (-not $SuperMacroOnly -and -not $Milestone6Pack) {
+if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
     # 1) Highlight metering (dial H, ~119 fps default 60) — allow time for YUV histogram + AE comp iterations.
     Run-Scenario "highlight_dial_H" 45 @(
         "--es", "pns_screen", "preview",
@@ -326,7 +343,10 @@ $patterns = @(
     "calibrate screen compose",
     "calibrate preview frame grab ok",
     "glpreview screen compose",
-    "preview seeded stillsLut"
+    "preview seeded stillsLut",
+    "PNS.ChromeUx",
+    "selfTimerSec=",
+    "preview adb seed selfTimerDelaySec="
 )
 $sb = New-Object System.Text.StringBuilder
 foreach ($p in $patterns) {
@@ -383,7 +403,7 @@ else {
 ($gateTxtLines -join "`n") | Set-Content -LiteralPath $gateTxt -Encoding utf8
 Write-Host "[adb_preview_validate] super_macro_gate pass=$macroPass -> $gateJson"
 
-if ($RequireSuperMacroPass -and -not $Milestone6Pack -and -not $macroPass) {
+if ($RequireSuperMacroPass -and -not $Milestone6Pack -and -not $ChromeUxPack -and -not $macroPass) {
     throw "Super Macro gate failed: expected PNS.AdbValidation line containing 'superMacroCloseup probe' and 'vendorKeyApplied=true' in $macroLog"
 }
 
@@ -417,6 +437,32 @@ if ($Milestone6Pack) {
     Write-Host "[adb_preview_validate] milestone6_gate pass=$($m6Obj.pass) -> $m6Json"
     if (-not $m6Obj.pass) {
         throw "Milestone 6 gate failed (see logcat_m6_*.txt and $m6Json under $OutDir)"
+    }
+}
+
+if ($ChromeUxPack) {
+    $m9Log = Join-Path $OutDir "logcat_m9_self_timer_adb_seed.txt"
+    $m9Text = ""
+    if (Test-Path -LiteralPath $m9Log) {
+        $m9Text = [System.IO.File]::ReadAllText($m9Log)
+    }
+    $selfTimerUxOk = $m9Text -match 'PNS\.ChromeUx.*selfTimerSec=3'
+    $adbSeedOk = $m9Text -match 'preview adb seed selfTimerDelaySec=3'
+    $cxObj = [ordered]@{
+        schema             = "pns.chrome_ux_smoke.v1"
+        scenario           = "m9_self_timer_adb_seed"
+        pass               = ($selfTimerUxOk -and $adbSeedOk)
+        selfTimerChromeUxOk = $selfTimerUxOk
+        adbSelfTimerSeedOk = $adbSeedOk
+        logArtifact        = "logcat_m9_self_timer_adb_seed.txt"
+        outDir             = $OutDir
+        generatedAtUtc     = [DateTime]::UtcNow.ToString("o")
+    }
+    $cxJson = Join-Path $OutDir "chrome_ux_smoke.json"
+    $cxObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $cxJson -Encoding utf8
+    Write-Host "[adb_preview_validate] chrome_ux_smoke pass=$($cxObj.pass) -> $cxJson"
+    if (-not $cxObj.pass) {
+        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3 and AdbValidation preview adb seed selfTimerDelaySec=3 in $m9Log"
     }
 }
 

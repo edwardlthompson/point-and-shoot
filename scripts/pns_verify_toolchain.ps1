@@ -106,7 +106,10 @@ $scriptFiles = @(
   (Join-Path $PSScriptRoot "pns_super_macro_gate.ps1"),
   (Join-Path $PSScriptRoot "pns_milestone6_gate.ps1"),
   (Join-Path $PSScriptRoot "pns_probe_append_section5.ps1"),
-  (Join-Path $PSScriptRoot "pns_failure_matrix_smoke.ps1")
+  (Join-Path $PSScriptRoot "pns_failure_matrix_smoke.ps1"),
+  (Join-Path $PSScriptRoot "pns_chrome_ux_gate.ps1"),
+  (Join-Path $PSScriptRoot "pns_automation_smoke.ps1"),
+  (Join-Path $PSScriptRoot "pns_device_screencap.ps1")
 )
 
 foreach ($sf in $scriptFiles) {

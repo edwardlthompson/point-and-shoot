@@ -13,9 +13,15 @@
 3. **After each sprint:** run the **Sprint check** row in that sprint’s gate table. If any check fails, **stop**, fix, re-run.
 4. **After all sprints in a milestone:** run the full **Milestone gate**. Only then proceed to the next milestone.
 5. **Tick rules:** Never mark `[x]` without meeting **Appendix A — Verification protocol**. Host work requires `scripts/pns_verify_toolchain.ps1 -RunTests` (and `ReadLints` on touched Kotlin). Device work requires evidence in `PROBE_BUILD_PLAN.md` §5.
-6. **JAVA_HOME (Windows):** use `C:\Program Files\Android\Android Studio\jbr` when Gradle fails with “no java”.
-7. **ADB:** prefer `%LOCALAPPDATA%\Android\Sdk\platform-tools` first on `PATH` (pair/connect vs legacy adb).
-8. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** for **`pns_adb_preview_validate.ps1`** / **`pns_milestone6_gate.ps1`** when `-Serial` is omitted; Wi‑Fi **`host:port`** values trigger **`adb connect`** in the script.
+6. **UI work gate (mandatory — blocks completion of any UI task):** If the change touches **user-visible surfaces** (Compose screens/layouts, preview/chrome/readout, themes, `res/` drawables or dimensions, navigation, dialogs, `MainActivity` window flags), the task is **not done** until all of the following succeed on a **physical device** (emulator only if no USB device is available — say so in §5):
+   1. **`.\gradlew.bat :app:assembleDebug`** (or `assembleDebug` as part of your workflow) — zero compile errors.
+   2. **Install + launch** the debug APK on the device — use **`scripts/pns_sideload_and_launch.ps1`** (build + install + grant + `am start` preview) or equivalent **`adb install -r -t`** + **`am start -n dev.pointandshoot/.MainActivity --es pns_screen preview`**. Prefer **`scripts/pns_adb_device.env`** for `PNS_ADB_SERIAL` when `-Serial` is omitted.
+   3. **Verify** on the glass that the UI matches the intent (layout, spacing, rotation behavior, no obvious regressions).
+   4. **Capture proof:** **`scripts/pns_device_screencap.ps1 -OutPath docs\screenshots\ui_<area>_YYYYMMDD.png`** (raw PNG; do not corrupt via naive PowerShell piping — see script header). Record the path + device serial in **`PROBE_BUILD_PLAN.md` §5** or the PR body.
+   Pure refactors with **no** visual or behavioral UI change (rename-only, dead-code removal) may skip the device step with a one-line justification. **Agents:** treat this gate as **non-optional** for normal UI work; do not declare UI changes “complete” from IDE previews or chat screenshots alone.
+7. **JAVA_HOME (Windows):** use `C:\Program Files\Android\Android Studio\jbr` when Gradle fails with “no java”.
+8. **ADB:** prefer `%LOCALAPPDATA%\Android\Sdk\platform-tools` first on `PATH` (pair/connect vs legacy adb).
+9. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** for **`pns_sideload_and_launch.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_milestone6_gate.ps1`**, **`pns_device_screencap.ps1`** when `-Serial` is omitted; Wi‑Fi **`host:port`** values trigger **`adb connect`** where scripts support it.
 
 **Human work:** Only **Milestone H — Human & publication** contains tasks that require a person (accounts, subjective judgment, physical charts, desktop apps). Agents prepare artifacts; humans close **[HUMAN]** items.
 
@@ -33,6 +39,7 @@
 | `scripts/pns_chrome_ux_gate.ps1` | Milestone 9 pack: toolchain + optional device **`PNS.ChromeUx`** checks (**`seedOk`** … **`grid7=`**, **`modeDialPopout=`**, **`readoutCapture=`**, **`selfTimerSec=`**) → **`chrome_ux_gate.json`** |
 | `scripts/pns_automation_smoke.ps1` | Fleet orchestration: **`pns_verify_toolchain -RunTests`** → **`pns_chrome_ux_gate -SkipHost`** → **`pns_failure_matrix_smoke`** → **`pns_adb_preview_validate -ChromeUxPack`** (device present); optional **`-TryAdbRoot`** → **`automation_smoke.json`** |
 | `scripts/pns_device_screencap.ps1` | **`adb exec-out screencap -p`** to PNG via **`Process` stdout stream** (avoids broken PS pipelines); use for **`BUILD_PLAN`** UI verification artifacts |
+| `scripts/pns_sideload_and_launch.ps1` | **`assembleDebug`** + **`adb install -r -t`** + runtime grants + **`am start`** preview (`--es pns_screen preview`); primary fast path for **UI work gate** (“How agents must execute”, item 6) |
 | `scripts/pns_adb_device.env` (gitignored; copy `.example`) | Default **`PNS_ADB_SERIAL`** for scripts when `-Serial` omitted (Wi‑Fi **`ip:port`** OK) |
 | `.github/workflows/toolchain-verify.yml` | CI mirror of toolchain |
 
@@ -44,7 +51,9 @@
 
 These behaviors are **easy to break with layout math mistakes**. Any change to `PreviewMainViewport`, `TexturePreviewFit`, `effectivePreviewStaticRotationDeg`, `BackCameraRoleResolver`, or the 7×7 focal row **must** close the checklist below with evidence in `PROBE_BUILD_PLAN.md` §5 (timestamp + device serial + what was verified).
 
-#### UI change verification (screenshots mandatory)
+#### UI change verification (screenshots mandatory — implements item 6 UI work gate)
+
+This checklist is the **detailed acceptance criteria** for preview/chrome work; it **must** be satisfied together with **How agents must execute → item 6** (build → sideload → on-device verify → `pns_device_screencap` → §5 or PR note). Do not treat UI as shipped until both match.
 
 Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, shutters, mode dial, 7×7 grid), **preview rotation**, or **insets** change:
 

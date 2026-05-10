@@ -1098,6 +1098,11 @@ private fun PreviewEngineContent(
         Log.e("PNS.AdbValidation", "calibrate preview grab smoke FAILED (no successful grab)")
     }
 
+    val readoutMenuSnapshot =
+        remember(selectedCameraId) {
+            controller.readoutMenuSnapshot()
+        }
+
     val eyeMarksView =
         remember(eyeMarksBuffer, previewTilePx, previewBufferSize, chrome.previewTextureCoverCrop) {
             val buf = previewBufferSize
@@ -1237,15 +1242,16 @@ private fun PreviewEngineContent(
                 exposureNs = previewReadoutExposureNs,
                 awbMode = previewReadoutAwbMode,
                 measuredFps = measuredFps,
-                uiRotationDeg = uiRotationDeg,
                 stillCaptureJpegCompanion = chrome.stillCaptureJpegCompanion,
-                onStillCaptureJpegCompanionChange = { next ->
-                    chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = next))
+                menu = readoutMenuSnapshot,
+                fpsOptions = fpsOptions,
+                onPickIso = { iso -> controller.setReadoutManualIso(iso) },
+                onPickShutter = { ns -> controller.setReadoutManualShutter(ns) },
+                onPickAwb = { mode -> controller.setReadoutManualAwbMode(mode) },
+                onPickFps = onSetFps,
+                onPickStillPipeline = { jpeg ->
+                    chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = jpeg))
                 },
-                onIsoClick = { onOpenHudSettings(HudSettingsFocus.IsoShutterReadout) },
-                onShutterClick = { onOpenHudSettings(HudSettingsFocus.IsoShutterReadout) },
-                onAwbClick = { onOpenHudSettings(HudSettingsFocus.WhiteBalanceInfo) },
-                onFpsClick = { onOpenHudSettings(HudSettingsFocus.FpsReadout) },
                 modifier = Modifier.fillMaxWidth(),
             )
             PreviewRightRail(
@@ -1287,6 +1293,14 @@ private fun PreviewEngineContent(
                 previewJpegCompanion = previewJpegCompanion,
                 rawStillNotReadyReason = controller.rawStillNotReadyReason(),
             )
+            LutChipRow(
+                state = hudState,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black.copy(alpha = 0.92f))
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+            )
             val showBottomTray =
                 chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial
             if (showBottomTray) {
@@ -1301,14 +1315,7 @@ private fun PreviewEngineContent(
                         if (settings.showCommandDial) {
                             {
                                 var modeMenuExpanded by remember { mutableStateOf(false) }
-                                Box(
-                                    modifier =
-                                        Modifier.graphicsLayer {
-                                            rotationZ = uiRotationDeg
-                                            transformOrigin = TransformOrigin(1f, 1f)
-                                        },
-                                    contentAlignment = Alignment.Center,
-                                ) {
+                                Box(contentAlignment = Alignment.Center) {
                                     Column(
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center,
@@ -1332,7 +1339,7 @@ private fun PreviewEngineContent(
                                                         CircleShape,
                                                     ).semantics {
                                                         contentDescription =
-                                                            "Shooting mode ${commandDialMode.label}. Tap to choose Auto, Manual, Highlight, Snap, or Bracket."
+                                                            "Shooting mode ${commandDialMode.label}. Opens menu: Auto, Manual, Highlight, Snap, Bracket."
                                                     },
                                             containerColor = PnsColors.PhotoOrange.copy(alpha = 0.92f),
                                             contentColor = Color.Black,
@@ -1350,13 +1357,6 @@ private fun PreviewEngineContent(
                                                 maxLines = 1,
                                             )
                                         }
-                                        Text(
-                                            text = "Tap to change",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontSize = 9.sp,
-                                            color = Color.White.copy(alpha = 0.55f),
-                                            maxLines = 1,
-                                        )
                                     }
                                     DropdownMenu(
                                         expanded = modeMenuExpanded,
@@ -2442,25 +2442,6 @@ private fun PreviewRightRail(
         }
 
                 ShortcutBlock(
-                    title = "Looks / LUT",
-                    icon = Icons.Outlined.Palette,
-                    expanded = expandedKey == "Looks / LUT",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Looks / LUT"
-                            } else if (expandedKey == "Looks / LUT") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-                    LutChipRow(state = hudState, modifier = Modifier.fillMaxWidth())
-                }
-
-                ShortcutBlock(
                     title = "Preview & keys",
                     icon = Icons.Outlined.TouchApp,
                     expanded = expandedKey == "Preview & keys",
@@ -2995,6 +2976,14 @@ private class PreviewController(
     @Volatile private var lastPreviewIso: Int? = null
     @Volatile private var lastPreviewExposureNs: Long? = null
     @Volatile private var lastPreviewAwbMode: Int? = null
+
+    /** Null = automatic AE for sensitivity / exposure time; non-null forces manual sensor row (AE off). */
+    @Volatile private var manualIsoOverride: Int? = null
+
+    @Volatile private var manualExposureNsOverride: Long? = null
+
+    /** Null = do not override AWB; non-null forces [CaptureRequest.CONTROL_AWB_MODE]. */
+    @Volatile private var manualAwbModeOverride: Int? = null
     private var loggedChromeUxReadout: Boolean = false
     private var readoutFallbackRunnable: Runnable? = null
 
@@ -3210,7 +3199,12 @@ private class PreviewController(
     fun setDesired(selectedCameraId: String?, desiredFps: Int) {
         val camChanged = this.selectedCameraId != selectedCameraId
         val changed = camChanged || this.desiredFps != desiredFps
-        if (camChanged) tapMeteringRect = null
+        if (camChanged) {
+            tapMeteringRect = null
+            manualIsoOverride = null
+            manualExposureNsOverride = null
+            manualAwbModeOverride = null
+        }
         this.selectedCameraId = selectedCameraId
         this.desiredFps = desiredFps
         if (changed) Log.d(tag, "setDesired cameraId=${selectedCameraId ?: "null"} fps=$desiredFps")
@@ -3276,6 +3270,43 @@ private class PreviewController(
         return runCatching {
             cm.getCameraCharacteristics(camId).get(CameraCharacteristics.SENSOR_ORIENTATION)
         }.getOrNull()
+    }
+
+    fun readoutMenuSnapshot(): ReadoutMenuSnapshot {
+        val camId = selectedCameraId ?: return ReadoutMenuSnapshot.EMPTY
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+            ?: return ReadoutMenuSnapshot.EMPTY
+        return ReadoutMenuSnapshot(
+            isoChoices = ReadoutExposureCatalog.isoChoices(chars),
+            exposureChoices = ReadoutExposureCatalog.exposureChoices(chars),
+            awbChoices = ReadoutExposureCatalog.awbChoices(chars),
+        )
+    }
+
+    fun setReadoutManualIsoExposure(
+        iso: Int?,
+        exposureNs: Long?,
+    ) {
+        manualIsoOverride = iso
+        manualExposureNsOverride = exposureNs
+        refreshRepeatingPreviewOnly()
+    }
+
+    /** Adjust ISO only; keeps the current manual shutter selection (or auto). */
+    fun setReadoutManualIso(iso: Int?) {
+        manualIsoOverride = iso
+        refreshRepeatingPreviewOnly()
+    }
+
+    /** Adjust shutter only; keeps the current manual ISO selection (or auto). */
+    fun setReadoutManualShutter(exposureNs: Long?) {
+        manualExposureNsOverride = exposureNs
+        refreshRepeatingPreviewOnly()
+    }
+
+    fun setReadoutManualAwbMode(mode: Int?) {
+        manualAwbModeOverride = mode
+        refreshRepeatingPreviewOnly()
     }
 
     /** RAW DNG path requires non-HFR session with [ImageReader] attached (BUILD_PLAN §4). */
@@ -4522,11 +4553,51 @@ private class PreviewController(
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
             }
             if (chars != null) {
-                applyScalerCropAndMetering(this, chars, camId, aeHighlightCompensationValue())
+                val manualSensor = manualIsoOverride != null || manualExposureNsOverride != null
+                applyScalerCropAndMetering(
+                    this,
+                    chars,
+                    camId,
+                    if (manualSensor) null else aeHighlightCompensationValue(),
+                )
                 applyFaceDetectMode(this, chars)
                 applySuperMacroVendorProbe(this, chars, camId)
+                applyReadoutManualExposureAndWb(this, chars)
             }
         }.build()
+    }
+
+    private fun applyReadoutManualExposureAndWb(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+    ) {
+        val aeModes = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES) ?: intArrayOf()
+        val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+        val expRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+        val wantsManualSensor = manualIsoOverride != null || manualExposureNsOverride != null
+        if (wantsManualSensor) {
+            if (!aeModes.contains(CaptureRequest.CONTROL_AE_MODE_OFF)) {
+                Log.w(tag, "Readout manual ISO/shutter unavailable: no CONTROL_AE_MODE_OFF")
+                return
+            }
+            req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+            val isoPick = manualIsoOverride ?: lastPreviewIso ?: isoRange?.lower ?: 100
+            val isoClamped = ReadoutExposureCatalog.clampIso(isoRange, isoPick)
+            req.set(CaptureRequest.SENSOR_SENSITIVITY, isoClamped)
+            val expPick =
+                manualExposureNsOverride
+                    ?: lastPreviewExposureNs
+                    ?: expRange?.lower
+                    ?: 33_333_333L
+            val expClamped = ReadoutExposureCatalog.clampExposure(expRange, expPick)
+            req.set(CaptureRequest.SENSOR_EXPOSURE_TIME, expClamped)
+        }
+        manualAwbModeOverride?.let { mode ->
+            val awbAvail = chars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES) ?: intArrayOf()
+            if (awbAvail.contains(mode)) {
+                req.set(CaptureRequest.CONTROL_AWB_MODE, mode)
+            }
+        }
     }
 
     /**

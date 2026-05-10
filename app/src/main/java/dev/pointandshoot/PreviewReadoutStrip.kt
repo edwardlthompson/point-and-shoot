@@ -13,19 +13,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -61,8 +63,8 @@ object PreviewReadoutFormat {
 }
 
 /**
- * Exposure readout above the chrome rails: tappable ISO / shutter / WB / FPS open HUD focus targets;
- * RAW | RAW+ on the right. The strip counter-rotates with [uiRotationDeg] like other Sony-style chrome.
+ * Exposure readout above the chrome rails: tappable chips open popups (ISO / Ss / WB / FPS / RAW mode).
+ * The strip stays screen-aligned — it does **not** counter-rotate with device/chrome twist.
  */
 @Composable
 fun PreviewReadoutStrip(
@@ -70,13 +72,14 @@ fun PreviewReadoutStrip(
     exposureNs: Long?,
     awbMode: Int?,
     measuredFps: Double,
-    uiRotationDeg: Float,
     stillCaptureJpegCompanion: Boolean,
-    onStillCaptureJpegCompanionChange: (Boolean) -> Unit,
-    onIsoClick: () -> Unit,
-    onShutterClick: () -> Unit,
-    onAwbClick: () -> Unit,
-    onFpsClick: () -> Unit,
+    menu: ReadoutMenuSnapshot,
+    fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
+    onPickIso: (Int?) -> Unit,
+    onPickShutter: (Long?) -> Unit,
+    onPickAwb: (Int?) -> Unit,
+    onPickFps: (Int) -> Unit,
+    onPickStillPipeline: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isoText = iso?.toString() ?: "—"
@@ -88,17 +91,19 @@ fun PreviewReadoutStrip(
         } else {
             "—"
         }
+    var isoMenu by remember { mutableStateOf(false) }
+    var ssMenu by remember { mutableStateOf(false) }
+    var awbMenu by remember { mutableStateOf(false) }
+    var fpsMenu by remember { mutableStateOf(false) }
+    var rawMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .height(PreviewReadoutStripHeight)
                 .background(Color.Black.copy(alpha = 0.88f))
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-                .graphicsLayer {
-                    rotationZ = uiRotationDeg
-                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                },
+                .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -110,35 +115,125 @@ fun PreviewReadoutStrip(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ReadoutMetricChip(
-                label = "ISO",
-                value = isoText,
-                onClick = onIsoClick,
-                accessibilityLabel = "ISO settings. Current $isoText",
-            )
-            ReadoutMetricChip(
-                label = "Ss",
-                value = ss,
-                onClick = onShutterClick,
-                accessibilityLabel = "Shutter speed settings. Current $ss",
-            )
-            ReadoutMetricChip(
-                label = "WB",
-                value = awb,
-                onClick = onAwbClick,
-                accessibilityLabel = "White balance info. Current $awb",
-            )
-            ReadoutMetricChip(
-                label = "FPS",
-                value = "${fpsText}fps",
-                onClick = onFpsClick,
-                accessibilityLabel = "FPS readout settings. Current ${fpsText}fps",
-            )
+            Box {
+                ReadoutMetricChip(
+                    label = "ISO",
+                    value = isoText,
+                    onClick = { isoMenu = true },
+                    accessibilityLabel = "ISO. Current $isoText. Opens ISO menu.",
+                )
+                DropdownMenu(expanded = isoMenu, onDismissRequest = { isoMenu = false }) {
+                    for (choice in menu.isoChoices) {
+                        val label = if (choice == null) "Auto" else choice.toString()
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                onPickIso(choice)
+                                isoMenu = false
+                            },
+                        )
+                    }
+                }
+            }
+            Box {
+                ReadoutMetricChip(
+                    label = "Ss",
+                    value = ss,
+                    onClick = { ssMenu = true },
+                    accessibilityLabel = "Shutter speed. Current $ss. Opens shutter menu.",
+                )
+                DropdownMenu(expanded = ssMenu, onDismissRequest = { ssMenu = false }) {
+                    for (choice in menu.exposureChoices) {
+                        val label =
+                            if (choice == null) {
+                                "Auto"
+                            } else {
+                                PreviewReadoutFormat.formatShutter(choice)
+                            }
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                onPickShutter(choice)
+                                ssMenu = false
+                            },
+                        )
+                    }
+                }
+            }
+            Box {
+                ReadoutMetricChip(
+                    label = "WB",
+                    value = awb,
+                    onClick = { awbMenu = true },
+                    accessibilityLabel = "White balance. Current $awb. Opens WB menu.",
+                )
+                DropdownMenu(expanded = awbMenu, onDismissRequest = { awbMenu = false }) {
+                    for (choice in menu.awbChoices) {
+                        val label =
+                            when (choice) {
+                                null -> "Default (program)"
+                                else -> PreviewReadoutFormat.awbModeLabel(choice)
+                            }
+                        DropdownMenuItem(
+                            text = { Text(label) },
+                            onClick = {
+                                onPickAwb(choice)
+                                awbMenu = false
+                            },
+                        )
+                    }
+                }
+            }
+            Box {
+                ReadoutMetricChip(
+                    label = "FPS",
+                    value = "${fpsText}fps",
+                    onClick = { fpsMenu = true },
+                    accessibilityLabel = "Target FPS. Current ${fpsText}fps. Opens FPS menu.",
+                )
+                DropdownMenu(expanded = fpsMenu, onDismissRequest = { fpsMenu = false }) {
+                    for (opt in fpsOptions) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    buildString {
+                                        append(opt.targetFps)
+                                        append(" fps")
+                                        if (opt.requiresRoot) append(" (root)")
+                                    },
+                                )
+                            },
+                            onClick = {
+                                onPickFps(opt.targetFps)
+                                fpsMenu = false
+                            },
+                        )
+                    }
+                }
+            }
         }
-        RawStillPipelineToggle(
-            jpegCompanion = stillCaptureJpegCompanion,
-            onChange = onStillCaptureJpegCompanionChange,
-        )
+        Box {
+            RawStillPipelineChip(
+                jpegCompanion = stillCaptureJpegCompanion,
+                onOpenMenu = { rawMenu = true },
+            )
+            DropdownMenu(expanded = rawMenu, onDismissRequest = { rawMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("RAW (DNG only)") },
+                    onClick = {
+                        onPickStillPipeline(false)
+                        rawMenu = false
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("RAW+ (DNG + JPEG)") },
+                    onClick = {
+                        onPickStillPipeline(true)
+                        rawMenu = false
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -183,68 +278,35 @@ private fun ReadoutMetricChip(
 }
 
 @Composable
-private fun RawStillPipelineToggle(
+private fun RawStillPipelineChip(
     jpegCompanion: Boolean,
-    onChange: (Boolean) -> Unit,
+    onOpenMenu: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(6.dp)
-    val divider = Color.White.copy(alpha = 0.28f)
+    val label = if (jpegCompanion) "RAW+" else "RAW"
     Row(
         modifier =
             Modifier
+                .semantics {
+                    contentDescription =
+                        "Still capture pipeline. Current $label. Opens RAW or RAW plus JPEG menu."
+                }
                 .clip(shape)
                 .border(1.dp, Color.White.copy(alpha = 0.38f), shape)
-                .background(Color.Black.copy(alpha = 0.62f)),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        RawStillPipelineToggleSegment(
-            label = "RAW",
-            selected = !jpegCompanion,
-            onClick = { onChange(false) },
-            semanticsLabel = "Still capture RAW only",
-        )
-        Box(
-            modifier =
-                Modifier
-                    .width(1.dp)
-                    .height(18.dp)
-                    .background(divider),
-        )
-        RawStillPipelineToggleSegment(
-            label = "RAW+",
-            selected = jpegCompanion,
-            onClick = { onChange(true) },
-            semanticsLabel = "Still capture RAW plus JPEG companion",
-        )
-    }
-}
-
-@Composable
-private fun RawStillPipelineToggleSegment(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    semanticsLabel: String,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        modifier =
-            Modifier
-                .semantics { this.contentDescription = semanticsLabel }
+                .background(Color.Black.copy(alpha = 0.62f))
                 .clickable(
                     interactionSource = interaction,
                     indication = null,
-                    onClick = onClick,
-                ).background(
-                    if (selected) Color.White.copy(alpha = 0.24f) else Color.Transparent,
-                ).padding(horizontal = 8.dp, vertical = 3.dp),
-        contentAlignment = Alignment.Center,
+                    onClick = onOpenMenu,
+                ).padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = Color.White.copy(alpha = if (selected) 0.98f else 0.72f),
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = 0.94f),
             maxLines = 1,
         )
     }

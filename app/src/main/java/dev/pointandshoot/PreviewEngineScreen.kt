@@ -93,8 +93,10 @@ import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.CameraEnhance
 import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.GridOn
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
@@ -146,6 +148,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -165,7 +168,7 @@ import kotlin.text.Charsets
  * "more settings" the BUILD_PLAN UI milestone calls for, instead of putting the shutter over
  * the preview.
  */
-private val PreviewChromeGridIconSize = 28.dp
+private val PreviewChromeGridIconSize = 24.dp
 
 private fun Modifier.chromeGlyphRotation(degrees: Float): Modifier =
     graphicsLayer {
@@ -185,6 +188,10 @@ private enum class ChromeGridQuickAction {
     ToggleDndInPreview,
     ToggleTapPreviewCapture,
     ToggleVolumeKeysCapture,
+    /** Icon-only: embed GPS in DNG/JPEG when permission allows. */
+    ToggleSaveLocation,
+    /** Icon-only: cycle static preview rotation. */
+    CyclePreviewSpin,
 }
 
 private sealed class ChromeGridSlotSpec {
@@ -226,7 +233,9 @@ private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
         ChromeGridSlotSpec.QuickAction(3, 1, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
         ChromeGridSlotSpec.QuickAction(3, 2, Icons.Outlined.TouchApp, "Tap preview to capture", ChromeGridQuickAction.ToggleTapPreviewCapture),
         ChromeGridSlotSpec.QuickAction(3, 3, Icons.AutoMirrored.Outlined.VolumeUp, "Volume keys capture", ChromeGridQuickAction.ToggleVolumeKeysCapture),
-        ChromeGridSlotSpec.ExpandShortcut(6, 6, "Settings", Icons.Outlined.Settings, "Settings"),
+        ChromeGridSlotSpec.QuickAction(3, 4, Icons.Outlined.LocationOn, "Save location in files", ChromeGridQuickAction.ToggleSaveLocation),
+        ChromeGridSlotSpec.QuickAction(3, 5, Icons.Outlined.RotateRight, "Spin preview", ChromeGridQuickAction.CyclePreviewSpin),
+        ChromeGridSlotSpec.ExpandShortcut(3, 6, "Settings", Icons.Outlined.Settings, "Settings"),
     )
 
 private fun cycleStillsLutQuick(hudState: HudSettingsState) {
@@ -237,9 +246,6 @@ private fun cycleStillsLutQuick(hudState: HudSettingsState) {
     val next = options[(idx + 1) % options.size]
     hudState.update(hudState.current.copy(selectedLutForStills = next.name))
 }
-
-/** Max height for the scrollable chrome stack (grid + expanded panels) under the preview. */
-private val PreviewChromeScrollMaxHeight = 380.dp
 
 private val PreviewBottomTrayHeight = 92.dp
 private val PreviewGalleryThumbSize = 56.dp
@@ -1302,14 +1308,9 @@ private fun PreviewEngineContent(
                 onCalibrateFromPreviewFrame = { openCalibrateFromPreviewFrame() },
                 previewJpegCompanion = previewJpegCompanion,
                 rawStillNotReadyReason = controller.rawStillNotReadyReason(),
-            )
-            PreviewChromeBottomQuickStrip(
-                modifier = Modifier.fillMaxWidth(),
-                chromePrefs = chromePrefs,
                 fineLocationGranted = fineLocationGranted,
                 onPendingEnableGeotagChange = onPendingEnableGeotagChange,
                 onRequestLocationForGeotag = onRequestLocationForGeotag,
-                uiRotationDeg = uiRotationDeg,
                 layoutPortrait = layoutPortrait,
             )
             val showBottomTray =
@@ -2037,6 +2038,10 @@ private fun PreviewChromeScrollSlot(
     hudState: HudSettingsState,
     chromePrefs: PreviewChromePreferencesState,
     uiRotationDeg: Float,
+    fineLocationGranted: Boolean,
+    onPendingEnableGeotagChange: (Boolean) -> Unit,
+    onRequestLocationForGeotag: () -> Unit,
+    layoutPortrait: Boolean,
 ) {
     val context = LocalContext.current
     val hud = hudState.current
@@ -2076,6 +2081,13 @@ private fun PreviewChromeScrollSlot(
                         chromePrefs.current.tapPreviewToCapture
                     ChromeGridQuickAction.ToggleVolumeKeysCapture ->
                         chromePrefs.current.volumeKeysCapture
+                    ChromeGridQuickAction.ToggleSaveLocation ->
+                        chromePrefs.current.saveLocationWithMedia && fineLocationGranted
+                    ChromeGridQuickAction.CyclePreviewSpin ->
+                        effectivePreviewStaticRotationDeg(
+                            chromePrefs.current.staticPreviewRotationDeg,
+                            layoutPortrait,
+                        ) != 0
                 }
             IconCubeVectorButton(
                 onClick = {
@@ -2153,6 +2165,26 @@ private fun PreviewChromeScrollSlot(
                                 c.copy(volumeKeysCapture = !c.volumeKeysCapture),
                             )
                         }
+                        ChromeGridQuickAction.ToggleSaveLocation -> {
+                            val c = chromePrefs.current
+                            if (c.saveLocationWithMedia && fineLocationGranted) {
+                                chromePrefs.update(c.copy(saveLocationWithMedia = false))
+                                CaptureLocationBridge.update(null)
+                            } else if (fineLocationGranted) {
+                                chromePrefs.update(c.copy(saveLocationWithMedia = true))
+                            } else {
+                                onPendingEnableGeotagChange(true)
+                                onRequestLocationForGeotag()
+                            }
+                        }
+                        ChromeGridQuickAction.CyclePreviewSpin -> {
+                            val c = chromePrefs.current
+                            val nextDeg =
+                                PreviewChromePreferences.normalizeStaticRotation(
+                                    c.staticPreviewRotationDeg + 90,
+                                )
+                            chromePrefs.update(c.copy(staticPreviewRotationDeg = nextDeg))
+                        }
                     }
                 },
                 contentDescription = spec.contentDescription,
@@ -2167,6 +2199,7 @@ private fun PreviewChromeScrollSlot(
 
 @Composable
 private fun PreviewChromeGrid7x7(
+    modifier: Modifier = Modifier,
     cameraIds: List<String>,
     selectedCameraId: String?,
     focalCrop: FocalMode?,
@@ -2176,6 +2209,10 @@ private fun PreviewChromeGrid7x7(
     hudState: HudSettingsState,
     chromePrefs: PreviewChromePreferencesState,
     uiRotationDeg: Float,
+    fineLocationGranted: Boolean,
+    onPendingEnableGeotagChange: (Boolean) -> Unit,
+    onRequestLocationForGeotag: () -> Unit,
+    layoutPortrait: Boolean,
 ) {
     val context = LocalContext.current
     val focalSlots = FocalMmSlot.entries
@@ -2188,7 +2225,7 @@ private fun PreviewChromeGrid7x7(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Row(
@@ -2259,90 +2296,14 @@ private fun PreviewChromeGrid7x7(
                             hudState = hudState,
                             chromePrefs = chromePrefs,
                             uiRotationDeg = uiRotationDeg,
+                            fineLocationGranted = fineLocationGranted,
+                            onPendingEnableGeotagChange = onPendingEnableGeotagChange,
+                            onRequestLocationForGeotag = onRequestLocationForGeotag,
+                            layoutPortrait = layoutPortrait,
                         )
                     }
                 }
             }
-        }
-    }
-}
-
-/** Location toggle + preview spin between the scrollable chrome rail and the shutter tray. */
-@Composable
-private fun PreviewChromeBottomQuickStrip(
-    modifier: Modifier = Modifier,
-    chromePrefs: PreviewChromePreferencesState,
-    fineLocationGranted: Boolean,
-    onPendingEnableGeotagChange: (Boolean) -> Unit,
-    onRequestLocationForGeotag: () -> Unit,
-    uiRotationDeg: Float,
-    layoutPortrait: Boolean,
-) {
-    val chrome = chromePrefs.current
-    Row(
-        modifier =
-            modifier
-                .background(Color.Black.copy(alpha = 0.94f))
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.chromeGlyphRotation(uiRotationDeg),
-        ) {
-            Text(
-                "Location",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.88f),
-                maxLines = 1,
-            )
-            Switch(
-                checked = chrome.saveLocationWithMedia && fineLocationGranted,
-                onCheckedChange = { want ->
-                    if (!want) {
-                        chromePrefs.update(chrome.copy(saveLocationWithMedia = false))
-                        CaptureLocationBridge.update(null)
-                        return@Switch
-                    }
-                    if (fineLocationGranted) {
-                        chromePrefs.update(chrome.copy(saveLocationWithMedia = true))
-                    } else {
-                        onPendingEnableGeotagChange(true)
-                        onRequestLocationForGeotag()
-                    }
-                },
-            )
-        }
-        if (chrome.saveLocationWithMedia && !fineLocationGranted) {
-            TextButton(
-                onClick = onRequestLocationForGeotag,
-                modifier = Modifier.chromeGlyphRotation(uiRotationDeg),
-            ) {
-                Text(
-                    "Grant",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = PnsColors.WarnAmber,
-                    maxLines = 1,
-                )
-            }
-        }
-        OutlinedButton(
-            onClick = {
-                val nextDeg =
-                    PreviewChromePreferences.normalizeStaticRotation(
-                        chrome.staticPreviewRotationDeg + 90,
-                    )
-                chromePrefs.update(chrome.copy(staticPreviewRotationDeg = nextDeg))
-            },
-            modifier = Modifier.chromeGlyphRotation(uiRotationDeg),
-        ) {
-            Text(
-                "Spin ${effectivePreviewStaticRotationDeg(chrome.staticPreviewRotationDeg, layoutPortrait)}°",
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
-            )
         }
     }
 }
@@ -2380,445 +2341,439 @@ private fun PreviewRightRail(
     onCalibrateFromPreviewFrame: () -> Unit,
     previewJpegCompanion: Boolean,
     rawStillNotReadyReason: String?,
+    fineLocationGranted: Boolean,
+    onPendingEnableGeotagChange: (Boolean) -> Unit,
+    onRequestLocationForGeotag: () -> Unit,
+    layoutPortrait: Boolean,
 ) {
     val context = LocalContext.current
     val chrome = chromePrefs.current
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
-    Column(
+    val dialogScroll = rememberScrollState()
+    Box(
         modifier =
             modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
                 .background(Color.Black.copy(alpha = 0.92f))
-                .padding(vertical = 4.dp, horizontal = 4.dp),
+                .padding(vertical = 2.dp, horizontal = 2.dp),
     ) {
-        // Quick-settings strip scrolls; focal row stays fixed. Glyph cubes rotate per-icon via [uiRotationDeg].
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .heightIn(max = PreviewChromeScrollMaxHeight)
-                    .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            PreviewChromeGrid7x7(
-                cameraIds = cameraIds,
-                selectedCameraId = selectedCameraId,
-                focalCrop = focalCrop,
-                onApplyFocalMmSlot = onApplyFocalMmSlot,
-                expandedKey = expandedKey,
-                onToggleShortcutTitle = { title ->
-                    expandedKey = if (expandedKey == title) null else title
-                },
-                hudState = hudState,
-                chromePrefs = chromePrefs,
-                uiRotationDeg = uiRotationDeg,
-            )
-                ShortcutBlock(
-                    title = "Settings",
-                    icon = Icons.Outlined.Settings,
-                    expanded = expandedKey == "Settings",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Settings"
-                            } else if (expandedKey == "Settings") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-            OutlinedButton(
-                onClick = { onOpenHudSettings(HudSettingsFocus.None) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("HUD settings", style = MaterialTheme.typography.labelSmall)
-            }
-            OutlinedButton(
-                onClick = onOpenDeveloperMenu,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Developer menu", style = MaterialTheme.typography.labelSmall)
-            }
-        }
-                ShortcutBlock(
-                    title = "Target FPS",
-                    icon = Icons.Outlined.Speed,
-                    expanded = expandedKey == "Target FPS",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Target FPS"
-                            } else if (expandedKey == "Target FPS") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-            for (opt in fpsOptions) {
-                FpsQuickChip(
-                    label = "${opt.targetFps}",
-                    selected = opt.targetFps == selectedFps,
-                    requiresRoot = opt.requiresRoot,
-                    onClick = {
-                        if (opt.requiresRoot && opt.targetFps != selectedFps) {
-                            Toast.makeText(
-                                context,
-                                "Root-only on this camera: ${opt.targetFps} fps is not advertised without root or vendor unlock. You can still try; the app falls back if the HAL rejects it.",
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        }
-                        onSetFps(opt.targetFps)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (selectedFps >= 120 && focalCrop != null) {
-                Text(
-                    "≥120 fps: crop off",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = PnsColors.WarnAmber,
-                    maxLines = 2,
-                )
-            }
-        }
-                ShortcutBlock(
-                    title = "Guides",
-                    icon = Icons.Outlined.GridOn,
-                    expanded = expandedKey == "Guides",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Guides"
-                            } else if (expandedKey == "Guides") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-            OutlinedButton(
-                onClick = {
-                    val latest = compositionGuide.current
-                    compositionGuide.update(latest.copy(cropGuide = latest.cropGuide.next()))
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    "Crop\n${compositionGuide.current.cropGuide.label}",
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-            OutlinedButton(
-                onClick = {
-                    val latest = compositionGuide.current
-                    compositionGuide.update(latest.copy(gridMode = latest.gridMode.next()))
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = compositionGuide.current.gridMode.label.replace(' ', '\n'),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-        }
-
-                ShortcutBlock(
-                    title = "Preview & keys",
-                    icon = Icons.Outlined.TouchApp,
-                    expanded = expandedKey == "Preview & keys",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Preview & keys"
-                            } else if (expandedKey == "Preview & keys") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Shuttr\nbtn",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.85f),
-                )
-                Switch(
-                    checked = chrome.showOnScreenShutter,
-                    onCheckedChange = {
-                        chromePrefs.update(chrome.copy(showOnScreenShutter = it))
-                    },
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Tap\npreview",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.85f),
-                )
-                Switch(
-                    checked = chrome.tapPreviewToCapture,
-                    onCheckedChange = {
-                        chromePrefs.update(chrome.copy(tapPreviewToCapture = it))
-                    },
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Zoom-fill\npreview",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.85f),
-                )
-                Switch(
-                    checked = chrome.previewTextureCoverCrop,
-                    onCheckedChange = {
-                        chromePrefs.update(chrome.copy(previewTextureCoverCrop = it))
-                    },
-                )
-            }
-            Text(
-                text =
-                    if (chrome.previewTextureCoverCrop) {
-                        "On: finder fills the tile (may crop tighter than JPEG/DNG)."
-                    } else {
-                        "Off: letterboxed preview matches still framing (whole sensor crop visible)."
-                    },
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.48f),
-                maxLines = 3,
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    "Chart\ngrid",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.85f),
-                )
-                Switch(
-                    checked = chrome.liveChartCornerOverlay,
-                    onCheckedChange = {
-                        chromePrefs.update(chrome.copy(liveChartCornerOverlay = it))
-                    },
-                )
-            }
-            OutlinedButton(
-                onClick = onCalibrateFromPreviewFrame,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    "Calibrate\nfrom preview",
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-        Row(
+        PreviewChromeGrid7x7(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Max\nbright", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-            Switch(
-                checked = chrome.maxBrightnessInPreview,
-                onCheckedChange = {
-                    chromePrefs.update(chrome.copy(maxBrightnessInPreview = it))
-                },
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("DND\nprev", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-            Switch(
-                checked = chrome.dndWhileInPreview,
-                onCheckedChange = {
-                    chromePrefs.update(chrome.copy(dndWhileInPreview = it))
-                },
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("DND\nrec", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-            Switch(
-                checked = chrome.dndWhileRecording,
-                onCheckedChange = {
-                    chromePrefs.update(chrome.copy(dndWhileRecording = it))
-                },
-            )
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val nm = context.getSystemService(NotificationManager::class.java)
-            val wantsPolicy = chrome.dndWhileInPreview || chrome.dndWhileRecording
-            if (wantsPolicy && nm != null && !nm.isNotificationPolicyAccessGranted) {
-                TextButton(
-                    onClick = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Policy\naccess", style = MaterialTheme.typography.labelSmall, color = PnsColors.RootAccentBlue)
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("Vol\nkeys", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f))
-            Switch(
-                checked = chrome.volumeKeysCapture,
-                onCheckedChange = {
-                    chromePrefs.update(chrome.copy(volumeKeysCapture = it))
-                },
-            )
-        }
-        }
-
-                ShortcutBlock(
-                    title = "Capture & tools",
-                    icon = Icons.Outlined.PhotoCamera,
-                    expanded = expandedKey == "Capture & tools",
-                    onExpandedChange = { exp ->
-                        expandedKey =
-                            if (exp) {
-                                "Capture & tools"
-                            } else if (expandedKey == "Capture & tools") {
-                                null
-                            } else {
-                                expandedKey
-                            }
-                    },
-                    showIconHeader = false,
-                ) {
-        OutlinedButton(onClick = onCycleImagingProfile, modifier = Modifier.fillMaxWidth()) {
-            Text(
-                "Profile\n${imagingProfile.displayName}",
-                style = MaterialTheme.typography.labelSmall,
-            )
-        }
-        Button(
-            onClick = onCaptureDng,
-            enabled = canCaptureRawStill,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Save DNG", style = MaterialTheme.typography.labelSmall)
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                "RAW+\n(JPEG)",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.85f),
-            )
-            Switch(
-                checked = chrome.stillCaptureJpegCompanion,
-                onCheckedChange = {
-                    chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = it))
-                },
-            )
-        }
-        Text(
-            text =
-                if (previewJpegCompanion) {
-                    "Still pipeline: RAW + JPEG companion (readout RAW+)"
-                } else {
-                    "Still pipeline: RAW DNG only (no JPEG sidecar in this session)"
-                },
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.78f),
-            maxLines = 3,
+            cameraIds = cameraIds,
+            selectedCameraId = selectedCameraId,
+            focalCrop = focalCrop,
+            onApplyFocalMmSlot = onApplyFocalMmSlot,
+            expandedKey = expandedKey,
+            onToggleShortcutTitle = { title ->
+                expandedKey = if (expandedKey == title) null else title
+            },
+            hudState = hudState,
+            chromePrefs = chromePrefs,
+            uiRotationDeg = uiRotationDeg,
+            fineLocationGranted = fineLocationGranted,
+            onPendingEnableGeotagChange = onPendingEnableGeotagChange,
+            onRequestLocationForGeotag = onRequestLocationForGeotag,
+            layoutPortrait = layoutPortrait,
         )
-        rawStillNotReadyReason?.let { reason ->
-            Text(
-                text = reason,
-                style = MaterialTheme.typography.labelSmall,
-                color = PnsColors.WarnAmber,
-                maxLines = 4,
-            )
-        }
-        if (commandDialMode == CommandDialMode.BKT) {
-            Text("BKT RAW", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                for ((pat, label) in
-                    listOf(
-                        BracketPattern.Three to "×3",
-                        BracketPattern.Five to "×5",
-                        BracketPattern.Seven to "×7",
-                    )) {
-                    Button(
-                        onClick = { onBracketBurst(pat) },
-                        enabled = canCaptureBracketBurst,
-                        modifier = Modifier.weight(1f),
+        expandedKey?.let { key ->
+            Dialog(onDismissRequest = { expandedKey = null }) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF1A1A1A),
+                    tonalElevation = 6.dp,
+                ) {
+                    Column(
+                        Modifier
+                            .padding(12.dp)
+                            .widthIn(max = 420.dp)
+                            .verticalScroll(dialogScroll),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(label, style = MaterialTheme.typography.labelSmall)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(key, style = MaterialTheme.typography.titleSmall, color = Color.White)
+                            TextButton(onClick = { expandedKey = null }) {
+                                Text("Close", color = Color.White.copy(alpha = 0.85f))
+                            }
+                        }
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                        when (key) {
+                            "Settings" -> {
+                                OutlinedButton(
+                                    onClick = { onOpenHudSettings(HudSettingsFocus.None) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("HUD settings", style = MaterialTheme.typography.labelSmall)
+                                }
+                                OutlinedButton(
+                                    onClick = onOpenDeveloperMenu,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Developer menu", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                            "Target FPS" -> {
+                                for (opt in fpsOptions) {
+                                    FpsQuickChip(
+                                        label = "${opt.targetFps}",
+                                        selected = opt.targetFps == selectedFps,
+                                        requiresRoot = opt.requiresRoot,
+                                        onClick = {
+                                            if (opt.requiresRoot && opt.targetFps != selectedFps) {
+                                                Toast.makeText(
+                                                    context,
+                                                    "Root-only on this camera: ${opt.targetFps} fps is not advertised without root or vendor unlock. You can still try; the app falls back if the HAL rejects it.",
+                                                    Toast.LENGTH_LONG,
+                                                ).show()
+                                            }
+                                            onSetFps(opt.targetFps)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                if (selectedFps >= 120 && focalCrop != null) {
+                                    Text(
+                                        "≥120 fps: crop off",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PnsColors.WarnAmber,
+                                        maxLines = 2,
+                                    )
+                                }
+                            }
+                            "Guides" -> {
+                                OutlinedButton(
+                                    onClick = {
+                                        val latest = compositionGuide.current
+                                        compositionGuide.update(latest.copy(cropGuide = latest.cropGuide.next()))
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        "Crop\n${compositionGuide.current.cropGuide.label}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val latest = compositionGuide.current
+                                        compositionGuide.update(latest.copy(gridMode = latest.gridMode.next()))
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        text = compositionGuide.current.gridMode.label.replace(' ', '\n'),
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                            }
+                            "Preview & keys" -> {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Shuttr\nbtn",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                    )
+                                    Switch(
+                                        checked = chrome.showOnScreenShutter,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(showOnScreenShutter = it))
+                                        },
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Tap\npreview",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                    )
+                                    Switch(
+                                        checked = chrome.tapPreviewToCapture,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(tapPreviewToCapture = it))
+                                        },
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Zoom-fill\npreview",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                    )
+                                    Switch(
+                                        checked = chrome.previewTextureCoverCrop,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(previewTextureCoverCrop = it))
+                                        },
+                                    )
+                                }
+                                Text(
+                                    text =
+                                        if (chrome.previewTextureCoverCrop) {
+                                            "On: finder fills the tile (may crop tighter than JPEG/DNG)."
+                                        } else {
+                                            "Off: letterboxed preview matches still framing (whole sensor crop visible)."
+                                        },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.48f),
+                                    maxLines = 3,
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Chart\ngrid",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                    )
+                                    Switch(
+                                        checked = chrome.liveChartCornerOverlay,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(liveChartCornerOverlay = it))
+                                        },
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = onCalibrateFromPreviewFrame,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(
+                                        "Calibrate\nfrom preview",
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Max\nbright",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.8f),
+                                    )
+                                    Switch(
+                                        checked = chrome.maxBrightnessInPreview,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(maxBrightnessInPreview = it))
+                                        },
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "DND\nprev",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.8f),
+                                    )
+                                    Switch(
+                                        checked = chrome.dndWhileInPreview,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(dndWhileInPreview = it))
+                                        },
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "DND\nrec",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.8f),
+                                    )
+                                    Switch(
+                                        checked = chrome.dndWhileRecording,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(dndWhileRecording = it))
+                                        },
+                                    )
+                                }
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    val nm = context.getSystemService(NotificationManager::class.java)
+                                    val wantsPolicy = chrome.dndWhileInPreview || chrome.dndWhileRecording
+                                    if (wantsPolicy && nm != null && !nm.isNotificationPolicyAccessGranted) {
+                                        TextButton(
+                                            onClick = {
+                                                context.startActivity(
+                                                    Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Text(
+                                                "Policy\naccess",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = PnsColors.RootAccentBlue,
+                                            )
+                                        }
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "Vol\nkeys",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.8f),
+                                    )
+                                    Switch(
+                                        checked = chrome.volumeKeysCapture,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(volumeKeysCapture = it))
+                                        },
+                                    )
+                                }
+                            }
+                            "Capture & tools" -> {
+                                OutlinedButton(onClick = onCycleImagingProfile, modifier = Modifier.fillMaxWidth()) {
+                                    Text(
+                                        "Profile\n${imagingProfile.displayName}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                    )
+                                }
+                                Button(
+                                    onClick = onCaptureDng,
+                                    enabled = canCaptureRawStill,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Save DNG", style = MaterialTheme.typography.labelSmall)
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        "RAW+\n(JPEG)",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f),
+                                    )
+                                    Switch(
+                                        checked = chrome.stillCaptureJpegCompanion,
+                                        onCheckedChange = {
+                                            chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = it))
+                                        },
+                                    )
+                                }
+                                Text(
+                                    text =
+                                        if (previewJpegCompanion) {
+                                            "Still pipeline: RAW + JPEG companion (readout RAW+)"
+                                        } else {
+                                            "Still pipeline: RAW DNG only (no JPEG sidecar in this session)"
+                                        },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.78f),
+                                    maxLines = 3,
+                                )
+                                rawStillNotReadyReason?.let { reason ->
+                                    Text(
+                                        text = reason,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PnsColors.WarnAmber,
+                                        maxLines = 4,
+                                    )
+                                }
+                                if (commandDialMode == CommandDialMode.BKT) {
+                                    Text(
+                                        "BKT RAW",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.75f),
+                                    )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        for ((pat, label) in
+                                            listOf(
+                                                BracketPattern.Three to "×3",
+                                                BracketPattern.Five to "×5",
+                                                BracketPattern.Seven to "×7",
+                                            )) {
+                                            Button(
+                                                onClick = { onBracketBurst(pat) },
+                                                enabled = canCaptureBracketBurst,
+                                                modifier = Modifier.weight(1f),
+                                            ) {
+                                                Text(label, style = MaterialTheme.typography.labelSmall)
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!canCaptureRawStill) {
+                                    Text(
+                                        "DNG needs ≤119 fps",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = PnsColors.WarnAmber,
+                                        maxLines = 2,
+                                    )
+                                }
+                                Button(onClick = onPickFirstCamera, modifier = Modifier.fillMaxWidth()) {
+                                    Text("1st cam", style = MaterialTheme.typography.labelSmall)
+                                }
+                                if (!isSweeping) {
+                                    Button(onClick = onStartSweep, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Sweep", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                } else {
+                                    OutlinedButton(onClick = onStopSweep, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Stop", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
+                                Text(
+                                    "cam ${selectedCameraId ?: "?"}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.45f),
+                                )
+                                Text(
+                                    status,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.45f),
+                                    maxLines = 3,
+                                )
+                                Text(
+                                    surfaceInfo,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    maxLines = 2,
+                                )
+                                Text(
+                                    "${"%.1f".format(measuredFps)} fps",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.45f),
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-        if (!canCaptureRawStill) {
-            Text(
-                "DNG needs ≤119 fps",
-                style = MaterialTheme.typography.labelSmall,
-                color = PnsColors.WarnAmber,
-                maxLines = 2,
-            )
-        }
-        Button(onClick = onPickFirstCamera, modifier = Modifier.fillMaxWidth()) {
-            Text("1st cam", style = MaterialTheme.typography.labelSmall)
-        }
-        if (!isSweeping) {
-            Button(onClick = onStartSweep, modifier = Modifier.fillMaxWidth()) {
-                Text("Sweep", style = MaterialTheme.typography.labelSmall)
-            }
-        } else {
-            OutlinedButton(onClick = onStopSweep, modifier = Modifier.fillMaxWidth()) {
-                Text("Stop", style = MaterialTheme.typography.labelSmall)
-            }
-        }
-        Text(
-            "cam ${selectedCameraId ?: "?"}",
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.45f),
-        )
-        Text(status, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.45f), maxLines = 3)
-        Text(surfaceInfo, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.4f), maxLines = 2)
-                Text("${"%.1f".format(measuredFps)} fps", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.45f))
-                }
-            }
     }
+
 }
 
 /**
@@ -3596,6 +3551,7 @@ private class PreviewController(
                         result,
                         handle.output,
                         orientationDegrees = orient,
+                        location = loc,
                         softwareDescription = dngSoftwareDescription,
                         uniqueCameraModel = formatDngUniqueCameraModelLine(camId, stillsLut),
                     )
@@ -3845,6 +3801,7 @@ private class PreviewController(
                             result,
                             handle.output,
                             orientationDegrees = orient,
+                            location = loc,
                             softwareDescription = dngSoftwareDescription,
                             uniqueCameraModel = formatDngUniqueCameraModelLine(camId, stillsLut),
                         )

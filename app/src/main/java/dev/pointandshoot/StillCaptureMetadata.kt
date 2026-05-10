@@ -40,28 +40,55 @@ object StillCaptureMetadata {
         location: Location? = null,
     ) {
         runCatching {
-            val patchedBytes =
-                context.contentResolver.openInputStream(uri)?.use { ins ->
-                    val bytes = ins.readBytes()
-                    TiffIfd0Software305.patchSoftwarePreservingLength(bytes, "Point & Shoot")
-                } ?: run {
-                    Log.w(TAG, "DNG read failed uri=$uri")
-                    return@runCatching
-                }
+            val rawBytes =
+                context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: run {
+                        Log.w(TAG, "DNG read failed uri=$uri")
+                        return@runCatching
+                    }
+
+            val make = Build.MANUFACTURER?.takeIf { it.isNotBlank() } ?: "Unknown"
+            val model = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Device"
+            val dateStr = LocalDateTime.now().format(exifDateTimeFormatter)
+
+            var patchedBytes = TiffIfd0Software305.patchSoftwarePreservingLength(rawBytes, "Point & Shoot")
+            patchedBytes =
+                TiffIfd0Software305.patchPrimaryIfdAsciiTagPreservingLength(
+                    patchedBytes,
+                    TiffIfd0Software305.TAG_MAKE,
+                    make,
+                )
+            patchedBytes =
+                TiffIfd0Software305.patchPrimaryIfdAsciiTagPreservingLength(
+                    patchedBytes,
+                    TiffIfd0Software305.TAG_MODEL,
+                    model,
+                )
+            patchedBytes =
+                TiffIfd0Software305.patchPrimaryIfdAsciiTagPreservingLength(
+                    patchedBytes,
+                    TiffIfd0Software305.TAG_DATETIME,
+                    dateStr,
+                )
 
             val tmp = File.createTempFile("pns_dng_exif", ".dng", context.cacheDir)
             try {
                 tmp.writeBytes(patchedBytes)
-                val exif = ExifInterface(tmp.absolutePath)
-                fillExifFields(
-                    exif,
-                    characteristics,
-                    result,
-                    location,
-                    setOrientation = false,
-                    stampSoftwareTag = false,
-                )
-                exif.saveAttributes()
+                runCatching {
+                    val exif = ExifInterface(tmp.absolutePath)
+                    fillExifFields(
+                        exif,
+                        characteristics,
+                        result,
+                        location,
+                        setOrientation = false,
+                        stampSoftwareTag = false,
+                    )
+                    exif.saveAttributes()
+                }.onFailure { e ->
+                    Log.w(TAG, "DNG ExifInterface pass skipped/err uri=$uri err=${e.message}")
+                    tmp.writeBytes(patchedBytes)
+                }
                 context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
                     tmp.inputStream().use { ins -> ins.copyTo(outs) }
                 }

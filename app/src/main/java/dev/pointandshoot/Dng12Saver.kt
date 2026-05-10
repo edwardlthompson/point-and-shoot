@@ -85,7 +85,8 @@ class Dng12Saver(
     ): SaveStats {
         val started = SystemClock.elapsedRealtimeNanos()
 
-        val fix = location ?: CaptureLocationBridge.snapshot()
+        // GPS only when the caller passes a [Location] (still pipeline uses [PreviewController.locationForStillMetadata]).
+        val fix = location
         val creator = DngCreator(characteristics, captureResult).apply {
             setOrientation(orientationDegrees.toExifOrientation())
             if (fix != null) {

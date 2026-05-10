@@ -1,0 +1,11 @@
+---
+description: Preview chrome UI is frozen — no drive-by visual changes.
+alwaysApply: true
+---
+
+# Preview chrome UI (frozen)
+
+The **preview screen chrome** (readout strip, focal-length row, `PreviewChromeGrid7x7`, `PreviewRightRail` padding, bottom tray adjacency, `IconCubeVectorButton` grid tiles with `chromeChipStyle` / `fillMaxTile`, and in-grid `FpsQuickChip`) is **locked** as of the user-approved layout.
+
+- **Do not** change spacing, tile sizing (`BoxWithConstraints` cell math, `gap`), slot positions in `previewChromeGridSlots`, rail padding, colors, icon scale, or chip styling **unless the user explicitly asks** to change this UI.
+- Treat fixes here as **behavioral bugs only** (crashes, wrong wiring); prefer the smallest diff that preserves the current look.

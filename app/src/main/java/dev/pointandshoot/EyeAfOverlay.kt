@@ -45,29 +45,40 @@ fun EyeAfOverlay(
         for (eye in eyes) {
             val cx = eye.position.x
             val cy = eye.position.y
+            val drawColor =
+                when {
+                    eye.trackingLocked -> Color(0xFFFFFFFF)
+                    eye.referenceTrack -> Color(0xFF66FFCC)
+                    else -> color
+                }
+            val stroke =
+                when {
+                    eye.trackingLocked -> sw * 1.35f
+                    else -> sw
+                }
             val rect = Rect(
                 offset = Offset(cx - half, cy - half),
                 size = Size(half * 2f, half * 2f),
             )
             drawRect(
-                color = color,
+                color = drawColor,
                 topLeft = rect.topLeft,
                 size = rect.size,
-                style = Stroke(width = sw),
+                style = Stroke(width = stroke),
             )
             // Tiny crosshair so the lock is visible even on a green eye / skin tone.
             val tick = half / 2f
             drawLine(
-                color = color,
+                color = drawColor,
                 start = Offset(cx - tick, cy),
                 end = Offset(cx + tick, cy),
-                strokeWidth = sw,
+                strokeWidth = stroke,
             )
             drawLine(
-                color = color,
+                color = drawColor,
                 start = Offset(cx, cy - tick),
                 end = Offset(cx, cy + tick),
-                strokeWidth = sw,
+                strokeWidth = stroke,
             )
         }
     }
@@ -81,8 +92,12 @@ fun EyeAfOverlay(
  * @param confidence 0..1 score from the face detector. Currently unused by
  *   the renderer but plumbed through so future tuning (e.g., dim the
  *   rectangle for low-confidence detections) is one-line.
+ * @param trackingLocked true when [TrackerState] has promoted this face id to locked.
+ * @param referenceTrack reserved for primary-subject emphasis (e.g. BKT metering face).
  */
 data class EyeMark(
     val position: Offset,
     val confidence: Float = 1f,
+    val trackingLocked: Boolean = false,
+    val referenceTrack: Boolean = false,
 )

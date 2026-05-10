@@ -68,7 +68,7 @@ optionally.
 | Manual 4-corner tap UI | `CalibrationCaptureScreen.kt` | pending Compose work |
 | Patch sampler (homography + variance reject) | `CalibrationSampler.kt` | pending Phase 4 capture engine |
 | Slanted-edge MTF50 measurement | `CalibrationSampler.measureMtf50` | pending FFT helper |
-| Gradle `downloadBundledLuts` task (ACES, Filmic) | `app/build.gradle.kts` | pending Phase 4 capture engine |
+| Gradle `downloadBundledLuts` task (pinned ACES OCIO `.spi3d` / `.cube`; Filmic follow-up) | `app/build.gradle.kts` | **shipped** (see `LICENSES.md` § Bundled LUTs) |
 
 The split is intentional: **everything pure-data is shipped now and unit-tested
 on the JVM**. Anything that needs Camera2 frames (sampler), GLES context
@@ -143,7 +143,7 @@ sees what they'll record.
 11. Subsequent captures reference the active profile via its `cameraId` +
     `illuminant`.
 12. Host script `pns_hfr_autorun.ps1 -PullCalibration` copies the JSON +
-    `.cube` to `hfr-runs/calibration/` for reproducibility.
+    `.cube` to `<OutDir>/calibration/` (default `.\hfr-runs\calibration\`) for reproducibility.
 
 The 4-corner tap design avoids an OpenCV dependency entirely. We trade a
 small amount of user friction (4 taps instead of automatic alignment) for an

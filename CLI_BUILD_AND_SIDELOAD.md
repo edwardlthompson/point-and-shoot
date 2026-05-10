@@ -66,6 +66,17 @@ Stream logs for just the app process:
 adb logcat -v time --pid=<PID> *:V
 ```
 
+### 3a) Automated §4 preview validation (optional)
+
+Install a fresh **`app-debug.apk`**, grant **`CAMERA`**, run three scripted **`MainActivity`** launches (highlight dial **H**, **`pns_preview_raw_count`**, bracket **`3`**), and save logcat + grep summary under **`hfr-runs/`**:
+
+```
+.\scripts\pns_adb_preview_validate.ps1
+.\scripts\pns_adb_preview_validate.ps1 -Serial <adb_serial> -SkipInstall -OutDir .\hfr-runs\my_adb_run
+```
+
+Artifacts include **`logcat_*.txt`**, companion **`logcat_*_app_pid.txt`** (PID-filtered lines when the script used the tail fallback), and **`summary_grep.txt`**.
+
 ### 4) Toolchain gate (run after Kotlin or PowerShell changes)
 
 ```

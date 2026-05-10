@@ -60,6 +60,22 @@ enum class LutCatalog(
     /** Materialize this LUT at the requested grid size (default 33). */
     fun load(size: Int = BuiltInLuts.DEFAULT_SIZE): Lut3D = generator(size)
 
+    /**
+     * Stable SHA256 (IEEE-754 LE grid samples) for this catalog entry at [gridSize],
+     * suitable for [DngLutMetadata.LutIdentity.Bundled] and sidecars.
+     */
+    fun sha256Hex(gridSize: Int = BuiltInLuts.DEFAULT_SIZE): String =
+        LutSidecarWriter.sha256ForLut(load(gridSize))
+
+    /**
+     * LUT marker payload for DNG `Software` / description stamping when the user picked a
+     * non-identity stills LUT. Returns `null` for [None].
+     */
+    fun identityForDngMetadata(gridSize: Int = BuiltInLuts.DEFAULT_SIZE): DngLutMetadata.LutIdentity.Bundled? {
+        if (this == None) return null
+        return DngLutMetadata.LutIdentity.Bundled(name, sha256Hex(gridSize))
+    }
+
     enum class Scope { Stills, Video, Both }
 
     companion object {

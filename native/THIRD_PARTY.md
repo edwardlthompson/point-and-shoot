@@ -5,9 +5,8 @@ Tracks the upstream FOSS sources that `native/CMakeLists.txt` will consume via
 JNI stubs only; this file is intentionally pre-populated so license review
 can land before any source archives are fetched.
 
-> **Status:** Phase 0 / scaffolding. No upstream sources are committed to
-> this repository. Pinned tags + SHA-256 digests will be filled in by the
-> Phase 1 PR that turns on `pns.nativeEncoders=true`.
+> **Status:** Encode path uses CMake `FetchContent` (no vendor trees in git). Upstream
+> tarballs/git pins are listed below and duplicated in `native/CMakeLists.txt`.
 
 ## License compatibility summary
 
@@ -17,13 +16,14 @@ listed below has been hand-checked against
 the project's `pns_verify_toolchain.ps1` FOSS audit (which only rejects
 Play Services / Firebase / ML Kit / Play Billing / Ads).
 
-| Library  | Direct dep of | Upstream | License | SPDX | Apache-2.0 compat | Phase 0 status | Pinned tag | SHA-256 |
-|----------|---------------|----------|---------|------|---------------------|----------------|------------|---------|
-| libavif  | `pns_native`  | https://github.com/AOMediaCodec/libavif | BSD-2-Clause | BSD-2-Clause | OK | not fetched | TBD | TBD |
-| aom      | libavif (transitively) | https://aomedia.googlesource.com/aom | BSD-2 + Alliance for Open Media patent license | BSD-2-Clause AND ALLIANCE-FOR-OPEN-MEDIA-PATENT-LICENSE-1.0 | OK | not fetched | TBD | TBD |
-| libjxl   | `pns_native`  | https://github.com/libjxl/libjxl | BSD-3-Clause | BSD-3-Clause | OK | not fetched | TBD | TBD |
-| highway  | libjxl (transitively) | https://github.com/google/highway | Apache-2.0 | Apache-2.0 | OK (same license) | not fetched | TBD | TBD |
-| brotli   | libjxl (transitively) | https://github.com/google/brotli | MIT | MIT | OK | not fetched | TBD | TBD |
+| Library  | Direct dep of | Upstream | License | SPDX | Apache-2.0 compat | Pinned ref | SHA-256 (archive where used) |
+|----------|---------------|----------|---------|------|---------------------|------------|---------|
+| libavif  | `pns_native`  | https://github.com/AOMediaCodec/libavif | BSD-2-Clause | BSD-2-Clause | OK | tag `v1.2.1` tarball | `9c859c7c12ccb0f407511bfe303e6a7247f5f6738f54852662c6df8048daddf4` |
+| SVT-AV1  | libavif (LOCAL encoder; replaces libaom on Windows hosts without Perl) | https://gitlab.com/AOMediaCodec/SVT-AV1 | BSD-3-Clause | BSD-3-Clause | OK | Git tag `v3.0.1` (via libavif `LocalSvt.cmake`) | *(git clone; not SHA-pinned in CMake)* |
+| libjxl   | `pns_native`  | https://github.com/libjxl/libjxl | BSD-3-Clause | BSD-3-Clause | OK | tag `v0.11.1` tarball | `1492dfef8dd6c3036446ac3b340005d92ab92f7d48ee3271b5dac1d36945d3d9` |
+| highway  | libjxl `third_party` (vendored from tarball into extracted libjxl) | https://github.com/google/highway | Apache-2.0 | Apache-2.0 | OK (same license) | commit `457c891775a7397bdb0376bb1031e6e027af1c48` tarball | `5124b0501c98d9930dbb065bfa1a5bbbd59ce0f12facb7e1e33aaef01a5f1f1a` |
+| brotli   | libjxl `third_party` | https://github.com/google/brotli | MIT | MIT | OK | commit `36533a866ed1ca4b75cf049f4521e4ec5fe24727` tarball | `9dbeae5b67739ad00f8e355a20f9af5507ed578abace0a4939a54c6c2b597005` |
+| skcms    | libjxl `third_party` | https://skia.googlesource.com/skcms | BSD-3-Clause | BSD-3-Clause | OK | commit `42030a771244ba67f86b1c1c76a6493f873c5f91` git | *(git fetch; not tarball SHA)* |
 
 ## Sourcing rules
 

@@ -5,16 +5,14 @@ working JNI surface that the Kotlin capture engine can call. This document
 has no device dependency and no upstream binaries are committed - it
 describes how Phase 1+ will source and link them.
 
-> Status: **scaffolding shipped (Phase 0)**. The Kotlin facade
-> (`NativeEncoders`), the routing layer (`EncoderRoute`), the JNI stubs
-> (`native/pns_native.cpp`), the CMake skeleton with commented
-> `FetchContent` blocks (`native/CMakeLists.txt`), and the
-> `NativeDiagnosticsScreen` for on-device validation are all in place.
-> What is NOT yet wired: the `externalNativeBuild` block in
-> `app/build.gradle.kts` and the libavif / libjxl `FetchContent` URL +
-> SHA-256 pins. The fallback path (`isAvailable = false` -> JPEG output)
-> is JUnit-tested and ADB-validated. See `BUILD_PLAN.md` §4 / §9 for the
-> surrounding task context.
+> Status: **JNI stubs ship in the APK**. Gradle **`externalNativeBuild`**
+> (`app/build.gradle.kts`) builds **`libpns_native.so`** from
+> `native/pns_native.cpp` (stub encoders return `nullptr`). The Kotlin
+> facade (`NativeEncoders`), `EncoderRoute`, and `NativeDiagnosticsScreen`
+> are unchanged. What is NOT yet wired: **libavif / libjxl** via CMake
+> **`FetchContent`** (URL + SHA-256 pins) and real encode bodies. JVM unit
+> tests still exercise **`isAvailable = false`** (no `.so` on the test
+> classpath). See `BUILD_PLAN.md` §4 / §9 for task context.
 
 ## Goals
 
@@ -135,31 +133,18 @@ tests). The Kotlin facade is JUnit-tested in `NativeEncodersFallbackTest`
 (10 tests) covering the no-.so fallback path that the JVM unit-test
 classpath always exercises.
 
-## Gradle / CMake wiring (target)
+## Gradle / CMake wiring (shipped for JNI stubs)
 
-`app/build.gradle.kts` additions (NOT yet present - tracked here):
+`app/build.gradle.kts` includes **`ndkVersion`**, **`defaultConfig.ndk.abiFilters`**
+(`arm64-v8a`, `x86_64`), **`externalNativeBuild { cmake { path = rootProject.file("native/CMakeLists.txt") } }`**,
+and **`ANDROID_STL=c++_shared`**. When libavif/libjxl land, extend **`defaultConfig.externalNativeBuild.cmake`**
+with the flags below (optional; `CMakeLists.txt` already sets C++23):
 
 ```kotlin
-android {
-    defaultConfig {
-        ndk {
-            abiFilters += setOf("arm64-v8a")  // OnePlus 13 is 64-bit only
-        }
-        externalNativeBuild {
-            cmake {
-                cppFlags += listOf("-std=c++23", "-fno-rtti", "-fno-exceptions")
-                arguments += "-DPNS_USE_LIBAVIF=ON"
-                arguments += "-DPNS_USE_LIBJXL=ON"
-            }
-        }
-    }
-    externalNativeBuild {
-        cmake {
-            path = file("../native/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-}
+// Future (real encoders): add to defaultConfig.externalNativeBuild.cmake
+// cppFlags += listOf("-std=c++23", "-fno-rtti", "-fno-exceptions")
+// arguments += "-DPNS_USE_LIBAVIF=ON"
+// arguments += "-DPNS_USE_LIBJXL=ON"
 ```
 
 `native/CMakeLists.txt` will gain:
@@ -200,21 +185,16 @@ defensive against unexpected hosts), the Kotlin engine falls back per
 
 ## Schedule
 
-This work is **not on the critical path** for Phase 0 / Phase 1 of the
-capture engine. It blocks the **Standard Pro** and **Ultra-Max** imaging
-profiles' tonal-container outputs (AVIF / JXL) but not the DNG path. The
-recommended order is:
+Real encoders block **Standard Pro** / **Ultra-Max** tonal outputs (AVIF /
+JXL) but not DNG. Order:
 
-1. **DONE (Phase 0)**. Ship the Kotlin facade + JNI stubs + CMake
-   skeleton + diagnostics screen + JVM tests + install script. The
-   capture engine can already call `EncoderRoute.decide(...)` and degrade
-   to JPEG without the .so.
-2. Land Phase 1 capture engine + DNG path (no NDK needed). The capture
-   engine drives `EncoderRoute` per-shot.
-3. Then land NDK pipeline behind the `pns.nativeEncoders` Gradle property
-   so we can ship JPEG-only release builds in the meantime.
+1. **DONE**. Kotlin facade + JNI stubs + CMake + diagnostics + JVM tests +
+   install script; **`externalNativeBuild`** packages stub **`libpns_native.so`**.
+2. **DONE (host)**. Phase 1 preview RAW→DNG path; `EncoderRoute` per-shot.
+3. **NEXT**. CMake **`FetchContent`** libavif/libjxl + encoder bodies in
+   `pns_native.cpp` (pinned tags + SHA-256).
 4. Validate AVIF / JXL outputs by pulling files and opening in desktop
-   tooling (Phase 1 V&V gate in `BUILD_PLAN.md`).
+   tooling (`BUILD_PLAN.md` Phase 1 V&V gate).
 
 ## Human action required (before Phase 1)
 

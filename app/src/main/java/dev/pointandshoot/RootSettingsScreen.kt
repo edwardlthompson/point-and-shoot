@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -158,14 +160,20 @@ fun RootSettingsScreen(
             color = Color.White,
         )
 
+        Text(
+            text = "Blue callouts in quick settings mark modes that usually need root or vendor unlock; this list explains each feature.",
+            style = MaterialTheme.typography.bodySmall,
+            color = PnsColors.RootAccentBlue.copy(alpha = 0.85f),
+        )
+
         for (result in results) {
-            RootFeatureRow(result)
+            RootFeatureCard(result)
         }
 
         Spacer(Modifier.height(8.dp))
 
         Text(
-            text = "Detection paths checked: ${RootCapabilityProbe.CANONICAL_SU_PATHS.joinToString()}",
+            text = "Technical: paths probed for su — ${RootCapabilityProbe.CANONICAL_SU_PATHS.joinToString()}",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.45f),
         )
@@ -173,42 +181,45 @@ fun RootSettingsScreen(
 }
 
 @Composable
-private fun RootFeatureRow(result: RootGate.GateResult) {
+private fun RootFeatureCard(result: RootGate.GateResult) {
     val labelColor = if (result.enabled) Color.White else Color.White.copy(alpha = 0.55f)
-    val accentColor = if (result.enabled) PnsColors.PhotoOrange else Color.White.copy(alpha = 0.45f)
-    val statusText = if (result.enabled) "ENABLED" else "DISABLED"
+    val accentColor = if (result.enabled) PnsColors.PhotoOrange else PnsColors.RootAccentBlue.copy(alpha = 0.75f)
+    val statusText = if (result.enabled) "On" else "Off"
     val statusColor = if (result.enabled) PnsColors.PhotoOrange else PnsColors.RecordRed
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = result.descriptor.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = labelColor,
+                )
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = statusColor,
+                )
+            }
             Text(
-                text = result.descriptor.displayName,
-                style = MaterialTheme.typography.titleSmall,
-                color = labelColor,
+                text = result.descriptor.purpose,
+                style = MaterialTheme.typography.bodyMedium,
+                color = labelColor.copy(alpha = 0.88f),
             )
             Text(
-                text = statusText,
-                style = MaterialTheme.typography.labelSmall,
-                color = statusColor,
+                text = "Without root: ${result.descriptor.fallback}",
+                style = MaterialTheme.typography.bodySmall,
+                color = accentColor,
             )
         }
-        Text(
-            text = "Why: ${result.descriptor.purpose}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = labelColor.copy(alpha = 0.85f),
-        )
-        Text(
-            text = "Fallback: ${result.descriptor.fallback}",
-            style = MaterialTheme.typography.bodySmall,
-            color = accentColor,
-        )
     }
 }

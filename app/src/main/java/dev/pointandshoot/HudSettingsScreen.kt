@@ -1,5 +1,7 @@
 package dev.pointandshoot
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,11 +16,18 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 
 /**
  * `Settings > HUD` screen per BUILD_PLAN §5 (Phase 2).
@@ -48,6 +57,15 @@ private fun HudSettingsScreenContent(
     onUpdate: (HudSettings) -> Unit,
     onBack: () -> Unit,
 ) {
+    val ctx = LocalContext.current
+    val cameraGranted =
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+    var gateLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(cameraGranted, ctx) {
+        gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
+    }
+
     val rows: List<HudToggleRow> = remember(settings) {
         listOf(
             HudToggleRow(
@@ -93,6 +111,12 @@ private fun HudSettingsScreenContent(
                 onChange = { onUpdate(settings.copy(showEyeAfOverlay = it)) },
             ),
             HudToggleRow(
+                title = "Horizon level",
+                description = "Accelerometer line on the preview only (Sony Photography Pro style).",
+                enabled = settings.showHorizonLevel,
+                onChange = { onUpdate(settings.copy(showHorizonLevel = it)) },
+            ),
+            HudToggleRow(
                 title = "Histogram (experimental)",
                 description = "RGB histogram overlay; off by default until perf is profiled.",
                 enabled = settings.showHistogram,
@@ -129,11 +153,86 @@ private fun HudSettingsScreenContent(
             color = Color.White.copy(alpha = 0.7f),
         )
 
+        Text(
+            text = "Capability gate (rear camera)",
+            style = MaterialTheme.typography.titleMedium,
+            color = PnsColors.PhotoOrange,
+        )
+        if (!cameraGranted) {
+            Text(
+                text = "Grant camera permission to see which HUD-related features are supported on this device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.65f),
+            )
+        } else if (gateLines.isEmpty()) {
+            Text(
+                text = "No capability summary available (no cameras or probe failed).",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.65f),
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                gateLines.forEach { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                }
+            }
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(rows) { row -> HudToggle(row) }
+            items(rows.size + 1) { index ->
+                if (index < rows.size) HudToggle(rows[index])
+                else CompositionGuideQuickControls()
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompositionGuideQuickControls() {
+    val state = rememberCompositionGuideSettings()
+    val c = state.current
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            text = "Composition guides",
+            style = MaterialTheme.typography.titleMedium,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text = "Crop outlines and grids draw in white over the preview; the full sensor view stays visible (letterboxed).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        OutlinedButton(
+            onClick = {
+                val latest = state.current
+                state.update(latest.copy(cropGuide = latest.cropGuide.next()))
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Crop guide: ${c.cropGuide.label}")
+        }
+        OutlinedButton(
+            onClick = {
+                val latest = state.current
+                state.update(latest.copy(gridMode = latest.gridMode.next()))
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Grid: ${c.gridMode.label}")
         }
     }
 }

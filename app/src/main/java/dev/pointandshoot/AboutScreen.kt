@@ -81,6 +81,17 @@ private fun AboutScreenContent(
         }
 
         item {
+            SectionTitle("Command dial — Snap (street)")
+            Text(
+                text =
+                    "Heritage block credits Ricoh for Snap Focus: on the live preview, dial S runs that idea — " +
+                        "with no tap metering, focus stays at an infinity-style snap so you can lift-and-fire; " +
+                        "tap the finder when you need to refocus.",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
+        item {
             SectionTitle("What works on OnePlus 13 (dodge)")
             Text(
                 text = "Validated by the on-device probe suite (PROBE_BUILD_PLAN.md §5). " +

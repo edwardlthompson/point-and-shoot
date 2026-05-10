@@ -6,8 +6,8 @@ This document records the decision and rationale for **where Point & Shoot write
 
 | Imaging profile | Format(s) | Default destination | Indexed in MediaStore? | Manual export available? |
 |---|---|---|---|---|
-| **Standard Pro** | `.dng` (lossless) + `.avif` (10-bit HDR) | `MediaStore.Images` (`Pictures/Point & Shoot/`) | Yes | Yes (SAF "Save as ...") |
-| **Ultra-Max** | `.dng` (RAW12 uncompressed) + `.jxl` (12-bit) | `MediaStore.Images` (`Pictures/Point & Shoot/Ultra-Max/`) | Yes for DNG; AVIF / JXL added when the system MediaProvider learns the MIME types | Yes (SAF "Save as ...") |
+| **Standard Pro** | `.dng` (lossless) + `.avif` (10-bit HDR) | `MediaStore.Images` (`DCIM/Point & Shoot/`) | Yes | Yes (SAF "Save as ...") |
+| **Ultra-Max** | `.dng` (RAW12 uncompressed) + `.jxl` (12-bit) | `MediaStore.Images` (`DCIM/Point & Shoot/Ultra-Max/`) | Yes for DNG; AVIF / JXL added when the system MediaProvider learns the MIME types | Yes (SAF "Save as ...") |
 | **Probe artifacts** | `.json`, `.md`, `.txt` | App-private external files (`getExternalFilesDir(null)`) | No | Yes (`adb pull` or in-app SAF export) |
 
 Rationale and the constraints behind each row are below.
@@ -22,9 +22,9 @@ Rationale and the constraints behind each row are below.
 
 ## Capture outputs (DNG / AVIF / JXL)
 
-### Default: `MediaStore` insert into `Pictures/Point & Shoot/`
+### Default: `MediaStore` insert into `DCIM/Point & Shoot/`
 
-* Subfolder per imaging profile (`Pictures/Point & Shoot/` for Standard Pro, `Pictures/Point & Shoot/Ultra-Max/` for Ultra-Max).
+* Subfolder per imaging profile (`DCIM/Point & Shoot/` for Standard Pro, `DCIM/Point & Shoot/Ultra-Max/` for Ultra-Max). Stills and video share the same DCIM tree so gallery apps index alongside the device camera roll.
 * Filenames use a deterministic pattern: `pns_<utc>_<profile>_<seq>.<ext>` (e.g., `pns_20260507T203015Z_standard_pro_0001.dng`).
 * MIME types:
   * `image/x-adobe-dng` for DNG (recognized by AOSP MediaProvider since Q).
@@ -59,7 +59,7 @@ Rationale and the constraints behind each row are below.
 * [ ] [ADB] Files appear in gallery apps (when MediaStore) / export works (when app-private).
   * Validation gate: scroll the LineageOS Gallery + run `cmd content query --uri content://media/external/images/media` after a capture.
 * [ ] [HOST] Pull + verify files open in desktop tooling.
-  * Validation gate: `adb pull <Pictures/Point & Shoot/...> ./pulls/`, then open in `darktable` (DNG), `imv`/`gthumb` (AVIF), and `djxl` (JXL).
+  * Validation gate: `adb pull <DCIM/Point & Shoot/...> ./pulls/`, then open in `darktable` (DNG), `imv`/`gthumb` (AVIF), and `djxl` (JXL).
 
 ## Open questions (to resolve in Phase 1)
 

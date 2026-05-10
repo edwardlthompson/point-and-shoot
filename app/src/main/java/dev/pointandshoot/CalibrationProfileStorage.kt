@@ -14,7 +14,8 @@ import java.util.TimeZone
  *
  *     Profile JSON saved to app-private storage
  *     `getExternalFilesDir(null)/calibration/<illuminant>_<utc>.json`;
- *     pulled into `hfr-runs/calibration/` by `pns_hfr_autorun.ps1 -PullCalibration`.
+ *     pulled into `<OutDir>/calibration/` (default `.\\hfr-runs\\calibration\\`)
+ *     by `pns_hfr_autorun.ps1 -PullCalibration`.
  *
  * The storage layer is intentionally thin: the JSON encode/decode lives in
  * [CalibrationProfileJsonAdapter] (pure-data, JVM-testable), and this layer

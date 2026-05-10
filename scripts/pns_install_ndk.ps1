@@ -1,11 +1,10 @@
 # Point & Shoot - non-interactive NDK + CMake installer (host-side helper).
 #
-# This script is intentionally idempotent and human-triggered: the FOSS Pro
-# Camera build (Phase 0) does NOT require the NDK because the Kotlin facade
-# `dev.pointandshoot.NativeEncoders` short-circuits to JPEG fallback when
-# `libpns_native.so` is absent. Installing the NDK turns on the Phase 1 path
-# (libavif / libjxl encoders) once `app/build.gradle.kts` flips on the
-# `externalNativeBuild` block.
+# This script is intentionally idempotent and human-triggered. **assembleDebug**
+# now invokes CMake via **`externalNativeBuild`** and links **`libpns_native.so`**
+# (JNI stubs). Gradle can auto-install the pinned NDK side-by-side if licensed;
+# use this script for CI hosts / offline parity or to install CMake alongside.
+# Real libavif/libjxl encode bodies remain a CMake FetchContent follow-on.
 #
 # What it does:
 # 1. Locates the Android SDK (prefers $env:ANDROID_HOME, falls back to

@@ -17,6 +17,9 @@ PROBE_RESULTS_*.md
 hfr-runs/
 pns-live-logcat.txt
 
+# Local adb addressing (Wi‑Fi serial / USB); copy from scripts/pns_adb_device.env.example
+scripts/pns_adb_device.env
+
 # macOS / Windows
 .DS_Store
 Thumbs.db

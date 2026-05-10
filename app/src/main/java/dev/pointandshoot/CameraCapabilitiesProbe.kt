@@ -2,6 +2,8 @@ package dev.pointandshoot
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
@@ -31,6 +33,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -63,6 +66,32 @@ const val EXTRA_PNS_INCLUDE_LOGICAL = "pns_include_logical"
 /** When true with exhaustive screen: run constrained high-speed (HFR) encoder matrix only; skip regular (≤120fps) attempts. */
 const val EXTRA_PNS_EXHAUSTIVE_HFR_ONLY = "pns_exhaustive_hfr_only"
 const val EXTRA_PNS_AUTOLEGACY = "pns_autolegacy"
+/**
+ * Optional extras when `--es pns_screen preview` — drive dial / burst validation from ADB
+ * (see `scripts/pns_adb_preview_validate.ps1`).
+ */
+const val EXTRA_PNS_PREVIEW_DIAL = "pns_preview_dial"
+const val EXTRA_PNS_PREVIEW_RAW_COUNT = "pns_preview_raw_count"
+const val EXTRA_PNS_PREVIEW_BRACKET = "pns_preview_bracket"
+/** `standard_pro` or `ultra_max` — seeds [ImagingProfile] for scripted preview capture (Sprint 4.3 RAW12). */
+const val EXTRA_PNS_PREVIEW_IMAGING_PROFILE = "pns_preview_imaging_profile"
+/** Optional physical/logical id (e.g. `3` = ultra-wide on dodge) for scripted preview validation. */
+const val EXTRA_PNS_PREVIEW_CAMERA_ID = "pns_preview_camera_id"
+/**
+ * When true with [EXTRA_PNS_PREVIEW_CAMERA_ID] on ultra-wide: attempt `com.oplus.macro.closeup.enable` on the
+ * repeating preview request (Sprint 5.3 Super Macro ADB evidence).
+ */
+const val EXTRA_PNS_PREVIEW_SUPER_MACRO_PROBE = "pns_preview_super_macro_probe"
+
+/** Seeds [HudSettings.selectedLutForStills] by [LutCatalog] enum name (e.g. `PnsCinematic`). */
+const val EXTRA_PNS_PREVIEW_STILLS_LUT = "pns_preview_stills_lut"
+
+/** BUILD_PLAN Milestone 6.3 — logs baseline vs LUT preview FPS (`PNS.AdbValidation` `m6 lutFps*`). */
+const val EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE = "pns_preview_m6_fps_lut_probe"
+
+/** When true with [SCREEN_PREVIEW]: after the stream is up, grab one `TextureView` frame for calibration smoke (logs `calibrate preview frame grab ok`). */
+const val EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE = "pns_preview_calibrate_grab_smoke"
+
 private const val SCREEN_PREVIEW = "preview"
 private const val SCREEN_ENC = "enc"
 private const val SCREEN_DEEPCAPS = "deepcaps"
@@ -111,6 +140,7 @@ fun CameraCapabilitiesProbe(
     }
     var reportMd by remember { mutableStateOf("") }
     var cameraSummaries by remember { mutableStateOf(listOf<String>()) }
+    var capabilityGateLines by remember { mutableStateOf(listOf<String>()) }
     var showMapping by remember { mutableStateOf(false) }
     var showPreviewEngine by remember { mutableStateOf(false) }
     var showEncoderProbe by remember { mutableStateOf(false) }
@@ -124,6 +154,7 @@ fun CameraCapabilitiesProbe(
     var showLogicalPhysical by remember { mutableStateOf(false) }
     var showExhaustive by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
     var showProHud by remember { mutableStateOf(false) }
     var showHudSettings by remember { mutableStateOf(false) }
     var showCalibrate by remember { mutableStateOf(false) }
@@ -131,6 +162,8 @@ fun CameraCapabilitiesProbe(
     var showGlPreview by remember { mutableStateOf(false) }
     var showNativeDiagnostics by remember { mutableStateOf(false) }
     var showRootSettings by remember { mutableStateOf(false) }
+    var showDebugMenu by remember { mutableStateOf(false) }
+    var previewLaunchedFromDebug by remember { mutableStateOf(false) }
 
     val activity = context as? ComponentActivity
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
@@ -138,10 +171,13 @@ fun CameraCapabilitiesProbe(
     val effectiveIncludeLogical = exhaustiveIncludeLogical || intentIncludeLogical
     val effectiveExhaustiveHfrOnly = exhaustiveHfrOnly || intentExhaustiveHfrOnly
 
+    var permissionEpoch by remember { mutableIntStateOf(0) }
     val requestPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
-    ) { granted ->
-        hasCameraPermission = granted
+    ) { _ ->
+        permissionEpoch++
+        hasCameraPermission =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
 
     val exportLauncher = rememberLauncherForActivityResult(
@@ -157,10 +193,32 @@ fun CameraCapabilitiesProbe(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (!hasCameraPermission) {
-            requestPermission.launch(Manifest.permission.CAMERA)
-        }
+    var showPermissionWelcome by remember(launchScreen) {
+        mutableStateOf(
+            launchScreen == null &&
+                !WelcomePrefs.hasCompletedPermissionOnboarding(context.applicationContext),
+        )
+    }
+
+    if (showPermissionWelcome) {
+        val hasRuntimePermission =
+            remember(permissionEpoch) {
+                { perm: String ->
+                    ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+                }
+            }
+        WelcomePermissionsScreen(
+            hasRuntimePermission = hasRuntimePermission,
+            onRequestRuntimePermission = { perm -> requestPermission.launch(perm) },
+            onOpenNotificationPolicySettings = {
+                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
+            },
+            onFinished = {
+                WelcomePrefs.markPermissionOnboardingComplete(context.applicationContext)
+                showPermissionWelcome = false
+            },
+        )
+        return
     }
 
     // Native diagnostics is the one launch screen that does not require
@@ -173,6 +231,14 @@ fun CameraCapabilitiesProbe(
         } else if (launchScreen == SCREEN_ROOT_SETTINGS) {
             showRootSettings = true
         }
+    }
+
+    LaunchedEffect(showAbout) {
+        if (!showAbout) return@LaunchedEffect
+        aboutLiveSummary =
+            EncoderAttemptJsonAdapter.loadLatest(context)?.let { result ->
+                EncoderResultAggregator.summarize(result.attempts)
+            }
     }
 
     LaunchedEffect(hasCameraPermission, launchScreen) {
@@ -219,7 +285,10 @@ fun CameraCapabilitiesProbe(
     }
 
     LaunchedEffect(hasCameraPermission) {
-        if (!hasCameraPermission) return@LaunchedEffect
+        if (!hasCameraPermission) {
+            capabilityGateLines = emptyList()
+            return@LaunchedEffect
+        }
         val report = buildProbeReport(context)
         reportMd = report
         Log.i(TAG, "Probe built (${report.length} chars), ready to export.")
@@ -228,7 +297,24 @@ fun CameraCapabilitiesProbe(
             .filter { it.startsWith("- Camera ") }
             .toList()
 
-        Log.i(TAG, "\n$report")
+        capabilityGateLines = CapabilityGateBridge.uiLines(context)
+
+        val inz = (context as? ComponentActivity)?.intent
+        val suppressHugeMarkdownDump =
+            inz != null &&
+                inz.getStringExtra(EXTRA_PNS_SCREEN) == SCREEN_PREVIEW &&
+                (
+                    (inz.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0) > 0 ||
+                        inz.previewBracketExtra() != null ||
+                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank() ||
+                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE).isNullOrBlank() ||
+                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
+                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
+                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false))
+                    )
+        if (!suppressHugeMarkdownDump) {
+            Log.i(TAG, "\n$report")
+        }
     }
 
     if (showMapping) {
@@ -237,9 +323,43 @@ fun CameraCapabilitiesProbe(
     }
 
     if (showPreviewEngine) {
+        // Read intent extras every frame — `remember` cached stale 0 when preview opened without extras earlier in-process.
+        val adbDial = activity?.intent.previewDialModeExtra()
+        val adbRawCount = activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0
+        val adbBracket = activity?.intent.previewBracketExtra()
+        val adbImagingProfile = activity?.intent.previewImagingProfileExtra()
+        val adbCameraId = activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
+        val adbSuperMacroProbe = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SUPER_MACRO_PROBE, false) ?: false
+        val adbPreviewStillsLutName = activity?.intent.previewStillsLutNameExtra()
+        val adbM6FpsLutProbe = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false) ?: false
+        val adbCalibrateGrabSmoke =
+            activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false) ?: false
         PreviewEngineScreen(
-            onBack = { showPreviewEngine = false },
+            onBack = {
+                showPreviewEngine = false
+                if (previewLaunchedFromDebug) {
+                    showDebugMenu = true
+                }
+                previewLaunchedFromDebug = false
+            },
+            onOpenDeveloperMenu = {
+                showPreviewEngine = false
+                showDebugMenu = true
+            },
+            onOpenHudSettings = {
+                showHudSettings = true
+                showPreviewEngine = false
+            },
             startAutoSweep = autoSweep,
+            adbInitialDial = adbDial,
+            adbSequentialRawStills = adbRawCount,
+            adbBracketPattern = adbBracket,
+            adbInitialImagingProfile = adbImagingProfile,
+            adbSeedCameraId = adbCameraId,
+            adbSuperMacroProbe = adbSuperMacroProbe,
+            adbPreviewStillsLutName = adbPreviewStillsLutName,
+            adbM6FpsLutProbe = adbM6FpsLutProbe,
+            adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
         )
         return
     }
@@ -327,20 +447,10 @@ fun CameraCapabilitiesProbe(
     }
 
     if (showAbout) {
-        // BUILD_PLAN \u00a72 Phase 0 V&V "Engine consumption (drive HUD chips /
-        // About-page recipe list off `EncoderSummary`)": when the user opens
-        // About / Heritage we hydrate the live "From the latest probe (live)"
-        // section from whatever exhaustive_probe_*.json is most recent under
-        // getExternalFilesDir(null). On the first device run (no probe artifact
-        // yet) liveSummary is null and the section is hidden entirely.
-        val live = remember {
-            EncoderAttemptJsonAdapter.loadLatest(context)?.let { result ->
-                EncoderResultAggregator.summarize(result.attempts)
-            }
-        }
+        // BUILD_PLAN §2 Phase 0 V&V + §6: reload latest exhaustive_probe JSON each time About opens.
         AboutScreen(
             onBack = { showAbout = false },
-            liveSummary = live,
+            liveSummary = aboutLiveSummary,
         )
         return
     }
@@ -380,32 +490,96 @@ fun CameraCapabilitiesProbe(
         return
     }
 
-    val insets = rememberSystemInsetsDp()
-    ProbeHomeContent(
+    if (launchScreen == null && showDebugMenu) {
+        val insets = rememberSystemInsetsDp()
+        DebugMenuScreen(
             padding = insets.asPaddingValues(extra = 16.dp),
             hasCameraPermission = hasCameraPermission,
             reportMdReady = reportMd.isNotBlank(),
             cameraSummaries = cameraSummaries,
-            onShowMapping = { showMapping = true },
-            onShowPreviewEngine = { showPreviewEngine = true },
-            onShowEncoderProbe = { showEncoderProbe = true },
-            onShowLegacyCamera1 = { showLegacyCamera1 = true },
-            onShowDeepCaps = { showDeepCaps = true },
-            onShowSessionMatrix = { showSessionMatrix = true },
-            onShowHdrDcgRuntime = { showHdrDcgRuntime = true },
-            onShowCaptureLatency = { showCaptureLatency = true },
-            onShowRawHdrExcl = { showRawHdrExcl = true },
-            onShowBurstProbe = { showBurstProbe = true },
-            onShowLogicalPhysical = { showLogicalPhysical = true },
-            onShowExhaustive = { showExhaustive = true },
-            onShowAbout = { showAbout = true },
-            onShowProHud = { showProHud = true },
-            onShowHudSettings = { showHudSettings = true },
-            onShowCalibrate = { showCalibrate = true },
-            onShowLutImport = { showLutImport = true },
-            onShowGlPreview = { showGlPreview = true },
-            onShowNativeDiagnostics = { showNativeDiagnostics = true },
-            onShowRootSettings = { showRootSettings = true },
+            capabilityGateLines = capabilityGateLines,
+            onBackToCamera = { showDebugMenu = false },
+            onShowMapping = {
+                showDebugMenu = false
+                showMapping = true
+            },
+            onShowPreviewEngine = {
+                showDebugMenu = false
+                previewLaunchedFromDebug = true
+                showPreviewEngine = true
+            },
+            onShowEncoderProbe = {
+                showDebugMenu = false
+                showEncoderProbe = true
+            },
+            onShowLegacyCamera1 = {
+                showDebugMenu = false
+                showLegacyCamera1 = true
+            },
+            onShowDeepCaps = {
+                showDebugMenu = false
+                showDeepCaps = true
+            },
+            onShowSessionMatrix = {
+                showDebugMenu = false
+                showSessionMatrix = true
+            },
+            onShowHdrDcgRuntime = {
+                showDebugMenu = false
+                showHdrDcgRuntime = true
+            },
+            onShowCaptureLatency = {
+                showDebugMenu = false
+                showCaptureLatency = true
+            },
+            onShowRawHdrExcl = {
+                showDebugMenu = false
+                showRawHdrExcl = true
+            },
+            onShowBurstProbe = {
+                showDebugMenu = false
+                showBurstProbe = true
+            },
+            onShowLogicalPhysical = {
+                showDebugMenu = false
+                showLogicalPhysical = true
+            },
+            onShowExhaustive = {
+                showDebugMenu = false
+                showExhaustive = true
+            },
+            onShowAbout = {
+                showDebugMenu = false
+                showAbout = true
+            },
+            onShowProHud = {
+                showDebugMenu = false
+                showProHud = true
+            },
+            onShowHudSettings = {
+                showDebugMenu = false
+                showHudSettings = true
+            },
+            onShowCalibrate = {
+                showDebugMenu = false
+                showCalibrate = true
+            },
+            onShowLutImport = {
+                showDebugMenu = false
+                showLutImport = true
+            },
+            onShowGlPreview = {
+                showDebugMenu = false
+                showGlPreview = true
+            },
+            onShowNativeDiagnostics = {
+                showDebugMenu = false
+                showNativeDiagnostics = true
+            },
+            onShowRootSettings = {
+                showDebugMenu = false
+                showRootSettings = true
+            },
             onDumpDiagnostics = {
                 DiagnosticsMode.setEnabled(context, true)
                 val path = DiagnosticsMode.dump(context)
@@ -413,6 +587,11 @@ fun CameraCapabilitiesProbe(
                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             },
             onRequestPermission = { requestPermission.launch(Manifest.permission.CAMERA) },
+            onResetPermissionWelcome = {
+                WelcomePrefs.resetPermissionOnboardingForDebug(context.applicationContext)
+                showDebugMenu = false
+                showPermissionWelcome = true
+            },
             onExport = {
                 val ts = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
                     .withZone(ZoneId.systemDefault())
@@ -420,6 +599,59 @@ fun CameraCapabilitiesProbe(
                 exportLauncher.launch("PROBE_RESULTS_$ts.md")
             },
         )
+        return
+    }
+
+    if (launchScreen == null) {
+        PreviewEngineScreen(
+            onBack = { activity?.finish() },
+            onOpenDeveloperMenu = { showDebugMenu = true },
+            onOpenHudSettings = { showHudSettings = true },
+            startAutoSweep = autoSweep,
+        )
+        return
+    }
+
+    val insets = rememberSystemInsetsDp()
+    ProbeHomeContent(
+        padding = insets.asPaddingValues(extra = 16.dp),
+        hasCameraPermission = hasCameraPermission,
+        reportMdReady = reportMd.isNotBlank(),
+        cameraSummaries = cameraSummaries,
+        onShowMapping = { showMapping = true },
+        onShowPreviewEngine = { showPreviewEngine = true },
+        onShowEncoderProbe = { showEncoderProbe = true },
+        onShowLegacyCamera1 = { showLegacyCamera1 = true },
+        onShowDeepCaps = { showDeepCaps = true },
+        onShowSessionMatrix = { showSessionMatrix = true },
+        onShowHdrDcgRuntime = { showHdrDcgRuntime = true },
+        onShowCaptureLatency = { showCaptureLatency = true },
+        onShowRawHdrExcl = { showRawHdrExcl = true },
+        onShowBurstProbe = { showBurstProbe = true },
+        onShowLogicalPhysical = { showLogicalPhysical = true },
+        onShowExhaustive = { showExhaustive = true },
+        onShowAbout = { showAbout = true },
+        onShowProHud = { showProHud = true },
+        onShowHudSettings = { showHudSettings = true },
+        onShowCalibrate = { showCalibrate = true },
+        onShowLutImport = { showLutImport = true },
+        onShowGlPreview = { showGlPreview = true },
+        onShowNativeDiagnostics = { showNativeDiagnostics = true },
+        onShowRootSettings = { showRootSettings = true },
+        onDumpDiagnostics = {
+            DiagnosticsMode.setEnabled(context, true)
+            val path = DiagnosticsMode.dump(context)
+            val msg = if (path != null) "Diagnostics written to $path" else "Diagnostics dump skipped (no external storage)"
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        },
+        onRequestPermission = { requestPermission.launch(Manifest.permission.CAMERA) },
+        onExport = {
+            val ts = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.now())
+            exportLauncher.launch("PROBE_RESULTS_$ts.md")
+        },
+    )
 }
 
 @Composable
@@ -792,4 +1024,37 @@ private fun appendKeysSection(sb: StringBuilder, title: String, keys: List<Strin
         sb.appendLine()
     }
 }
+
+private fun Intent?.previewDialModeExtra(): CommandDialMode? {
+    val s = this?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL) ?: return null
+    return when (s.trim().uppercase()) {
+        "M" -> CommandDialMode.M
+        "H" -> CommandDialMode.H
+        "S" -> CommandDialMode.S
+        "BKT" -> CommandDialMode.BKT
+        else -> null
+    }
+}
+
+private fun Intent?.previewBracketExtra(): BracketPattern? {
+    val s = this?.getStringExtra(EXTRA_PNS_PREVIEW_BRACKET) ?: return null
+    return when (s.trim()) {
+        "3" -> BracketPattern.Three
+        "5" -> BracketPattern.Five
+        "7" -> BracketPattern.Seven
+        else -> null
+    }
+}
+
+private fun Intent?.previewImagingProfileExtra(): ImagingProfile? {
+    val s = this?.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE)?.trim()?.lowercase() ?: return null
+    return when (s) {
+        ImagingProfile.StandardPro.id -> ImagingProfile.StandardPro
+        ImagingProfile.UltraMax.id -> ImagingProfile.UltraMax
+        else -> null
+    }
+}
+
+private fun Intent?.previewStillsLutNameExtra(): String? =
+    this?.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT)?.trim()?.takeIf { it.isNotBlank() }
 

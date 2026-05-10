@@ -2,6 +2,7 @@ package dev.pointandshoot
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,6 +41,27 @@ class LutCatalogTest {
     fun `None entry resolves to a true identity LUT`() {
         val lut = LutCatalog.None.load()
         assertTrue(lut.isIdentity())
+    }
+
+    @Test
+    fun `None has no DNG LUT identity and non-None entries do`() {
+        assertNull(LutCatalog.None.identityForDngMetadata())
+        val id = LutCatalog.PnsCinematic.identityForDngMetadata()
+        assertNotNull(id)
+        assertEquals("PnsCinematic", id!!.catalogId)
+        assertEquals(64, id.sha256.length)
+        assertTrue(id.sha256.all { it in '0'..'9' || it in 'a'..'f' })
+    }
+
+    @Test
+    fun `sha256Hex is stable 64-char lowercase hex for None and cinematic`() {
+        val a = LutCatalog.None.sha256Hex()
+        val b = LutCatalog.None.sha256Hex()
+        assertEquals(a, b)
+        assertEquals(64, a.length)
+        assertTrue(a.all { it in '0'..'9' || it in 'a'..'f' })
+        val c = LutCatalog.PnsCinematic.sha256Hex()
+        assertEquals(64, c.length)
     }
 
     @Test

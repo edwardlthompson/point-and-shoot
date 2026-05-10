@@ -60,6 +60,15 @@ class BitmapRgbPlaneTest {
         assertEquals(1f, BitmapRgbPlane.srgbByteToLinear(300), 1e-6f)
     }
 
+    @Test
+    fun `linearToSrgbByte round-trips srgbByteToLinear for a sweep`() {
+        for (b in 0..255) {
+            val round =
+                BitmapRgbPlane.linearToSrgbByte(BitmapRgbPlane.srgbByteToLinear(b))
+            assertEquals(b, round)
+        }
+    }
+
     // ---------- scaledDimensionsFor ----------
 
     @Test

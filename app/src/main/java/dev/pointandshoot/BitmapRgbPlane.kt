@@ -71,6 +71,20 @@ object BitmapRgbPlane {
     }
 
     /**
+     * Inverse of [srgbByteToLinear]: maps linear-light `[0, 1]` to an sRGB 8-bit code.
+     */
+    fun linearToSrgbByte(linear: Float): Int {
+        val x = linear.coerceIn(0f, 1f)
+        val v =
+            if (x <= 0.0031308f) {
+                12.92f * x
+            } else {
+                1.055f * x.pow(1f / 2.4f) - 0.055f
+            }
+        return (v * 255f + 0.5f).toInt().coerceIn(0, 255)
+    }
+
+    /**
      * Compute the downsampled dimensions for [width] x [height], constraining
      * the longer edge to [maxEdge] while preserving aspect. Public for
      * testing.

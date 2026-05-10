@@ -38,13 +38,31 @@ sealed class ImagingProfile(
     )
 
     companion object {
-        val all: List<ImagingProfile> = listOf(StandardPro, UltraMax)
+        /**
+         * Lazy getter so `listOf` runs after [StandardPro] / [UltraMax] finish initializing — on JVM,
+         * eager `val all = listOf(StandardPro, UltraMax)` can briefly see null singleton fields during
+         * sealed-class companion load (same pattern as [EncoderRoute.downgradedProfiles]).
+         */
+        val all: List<ImagingProfile>
+            get() = listOf(StandardPro, UltraMax)
 
         val default: ImagingProfile = StandardPro
 
-        fun byId(id: String?): ImagingProfile = all.firstOrNull { it.id == id } ?: default
+        fun byId(id: String?): ImagingProfile =
+            when (id) {
+                StandardPro.id -> StandardPro
+                UltraMax.id -> UltraMax
+                else -> default
+            }
     }
 }
+
+/** Maps profile RAW intent to MediaStore kind for [CaptureStorage]. */
+fun ImagingProfile.toDngCaptureKind(): CaptureStorage.CaptureKind =
+    when (rawMode) {
+        RawMode.LosslessCompressedDng -> CaptureStorage.CaptureKind.DngLossless
+        RawMode.UncompressedRaw12Dng -> CaptureStorage.CaptureKind.DngRaw12
+    }
 
 enum class RawMode(val displayName: String) {
     LosslessCompressedDng("Lossless DNG"),

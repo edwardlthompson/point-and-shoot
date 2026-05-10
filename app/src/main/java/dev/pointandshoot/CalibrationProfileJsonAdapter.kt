@@ -8,7 +8,8 @@ import org.json.JSONObject
  * Stable JSON serializer + parser for [CalibrationProfile] per BUILD_PLAN §7
  * ("Profile JSON saved to app-private storage
  * `getExternalFilesDir(null)/calibration/<illuminant>_<utc>.json`; pulled into
- * `hfr-runs/calibration/` by `pns_hfr_autorun.ps1 -PullCalibration`").
+ * `<OutDir>/calibration/` (default `.\\hfr-runs\\calibration\\`) by
+ * `pns_hfr_autorun.ps1 -PullCalibration`").
  *
  * The schema is intentionally hand-rolled on top of `org.json` (Android
  * framework type; the test classpath has the real `org.json:json` lib via

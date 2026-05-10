@@ -76,8 +76,8 @@ object NativeEncoders {
 
     /**
      * `true` iff `libpns_native.so` was successfully loaded for the current
-     * process. Always `false` on JVM unit tests (no .so exists), and stays
-     * `false` until the NDK pipeline lands behind `pns.nativeEncoders=true`.
+     * process. Always `false` on JVM unit tests (no .so on the classpath).
+     * On device builds, `externalNativeBuild` packages the `.so` per ABI.
      */
     val isAvailable: Boolean
         get() = loadOutcome.loaded
@@ -93,8 +93,7 @@ object NativeEncoders {
 
     /**
      * Native library version, or [VERSION_UNAVAILABLE] when the .so is absent.
-     * Phase 0 stub returns `0` from C++ even when loaded; Phase 1 will return
-     * `1` once real encoders ship.
+     * Returns `1` when libavif + libjxl are linked (Android NDK build); stub/host builds use `0`.
      */
     fun version(): Int {
         if (!isAvailable) return VERSION_UNAVAILABLE

@@ -11,10 +11,19 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// Point & Shoot brand and visual-feedback color tokens (Part 4 / Phase 3 polish).
-// Centralizing them here keeps photo/video chrome consistent across screens.
+/**
+ * Point & Shoot design tokens (Material 3 + photo chrome).
+ *
+ * **Principles:** one dark surfaces base, high-contrast monospace readouts, orange
+ * for *selected* photo controls and primary actions, record red isolated to video,
+ * electric blue reserved for *root-only* affordances so they never read as generic
+ * chrome. Touch targets ≥ 48dp; quick settings use short labels; diagnostics copy
+ * is plain language with technical detail one level deeper.
+ */
 object PnsColors {
     /** Hasselblad orange - photo shutter / still-capture affordances (`#FF5C00`). */
     val PhotoOrange = Color(0xFFFF5C00)
@@ -30,6 +39,21 @@ object PnsColors {
 
     /** Soft success green for successful captures / probe rows. */
     val OkGreen = Color(0xFF4CAF50)
+
+    /**
+     * Root-only / vendor-unlock affordances — contrasts with [PhotoOrange] so
+     * stock-safe vs elevated paths are obvious in quick settings and badges.
+     */
+    val RootAccentBlue = Color(0xFF4DA3FF)
+
+    /** Dimmed preview scrim (top / bottom) for Hasselblad-style chrome legibility. */
+    val PreviewScrim = Color(0xCC000000)
+}
+
+object PnsDimens {
+    val chromeHorizontalPadding: Dp = 16.dp
+    val chromeVerticalPadding: Dp = 12.dp
+    val quickSettingsChipMinWidth: Dp = 52.dp
 }
 
 // Monospaced typography for technical readouts (Part 4 spec: JetBrains Mono).

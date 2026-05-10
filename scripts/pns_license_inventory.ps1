@@ -49,6 +49,7 @@ $LicenseMap = @{
   'androidx.compose.material3:material3'         = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.camera:camera-camera2'               = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.graphics:graphics-core'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
+  'androidx.exifinterface:exifinterface'         = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
 
   # Debug-only
   'androidx.compose.ui:ui-tooling'               = @{ Spdx = 'Apache-2.0'; Scope = 'debug' }
@@ -153,7 +154,7 @@ function Test-BundledLutFolders {
   }
 
   if (-not (Test-Path -LiteralPath $LutsRoot)) {
-    $report.Status = "no asset-backed LUTs (folder $LutsRoot does not exist - expected until downloadBundledLuts lands)"
+    $report.Status = "no asset-backed LUTs (folder $LutsRoot does not exist - run .\gradlew :app:downloadBundledLuts)"
     return $report
   }
   $report.Walked = $true

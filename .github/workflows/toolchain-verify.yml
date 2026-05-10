@@ -57,6 +57,11 @@ jobs:
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
           sdkmanager "platforms;android-36"
 
+      - name: Install NDK + CMake (JNI libpns_native.so)
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "ndk;26.3.11579264" "cmake;3.22.1"
+
       - name: Gradle wrapper executable (Unix)
         run: chmod +x ./gradlew
 

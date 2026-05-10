@@ -101,7 +101,12 @@ $scriptFiles = @(
   (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1"),
   (Join-Path $PSScriptRoot "pns_license_inventory.ps1"),
   (Join-Path $PSScriptRoot "pns_sbom.ps1"),
-  (Join-Path $PSScriptRoot "pns_install_ndk.ps1")
+  (Join-Path $PSScriptRoot "pns_install_ndk.ps1"),
+  (Join-Path $PSScriptRoot "pns_adb_preview_validate.ps1"),
+  (Join-Path $PSScriptRoot "pns_super_macro_gate.ps1"),
+  (Join-Path $PSScriptRoot "pns_milestone6_gate.ps1"),
+  (Join-Path $PSScriptRoot "pns_probe_append_section5.ps1"),
+  (Join-Path $PSScriptRoot "pns_failure_matrix_smoke.ps1")
 )
 
 foreach ($sf in $scriptFiles) {
@@ -239,6 +244,29 @@ if ((Test-Path -LiteralPath $apkDir) -and -not $SkipGradle.IsPresent) {
   $apk = @(Get-ChildItem -LiteralPath $apkDir -Filter *.apk -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)[0]
   if ($apk) {
     [void]$report.Add(("OK: APK {0} ({1} KB)" -f $apk.Name, [int]($apk.Length / 1024)))
+    try {
+      Add-Type -AssemblyName System.IO.Compression.FileSystem
+      $zip = [System.IO.Compression.ZipFile]::OpenRead($apk.FullName)
+      try {
+        $found = $false
+        foreach ($e in $zip.Entries) {
+          if ($e.FullName -match '^lib/[^/]+/libpns_native\.so$') {
+            $found = $true
+            break
+          }
+        }
+        if ($found) {
+          [void]$report.Add("OK: APK packages libpns_native.so (JNI)")
+        } else {
+          [void]$report.Add("FAIL: APK missing lib/*/libpns_native.so")
+          $failed = $true
+        }
+      } finally {
+        $zip.Dispose()
+      }
+    } catch {
+      [void]$report.Add(("WARN: could not inspect APK for native libs: {0}" -f $_.Exception.Message))
+    }
   } else {
     [void]$report.Add("WARN: no APK under debug output (build may have skipped APK)")
   }

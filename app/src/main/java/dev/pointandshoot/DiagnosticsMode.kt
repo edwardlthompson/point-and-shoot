@@ -88,7 +88,11 @@ object DiagnosticsMode {
         sb.appendLine("## Permissions")
         listOf(
             android.Manifest.permission.CAMERA,
+            android.Manifest.permission.RECORD_AUDIO,
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
             android.Manifest.permission.VIBRATE,
+            android.Manifest.permission.ACCESS_NOTIFICATION_POLICY,
         ).forEach { perm ->
             val granted = ctx.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED
             sb.appendLine("- $perm: ${if (granted) "GRANTED" else "DENIED"}")

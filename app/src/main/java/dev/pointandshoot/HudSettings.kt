@@ -30,6 +30,8 @@ data class HudSettings(
     val showHistogram: Boolean = false,        // disabled by default - cost vs benefit on small phones
     val showHighlightWeightedMeter: Boolean = true,
     val showEyeAfOverlay: Boolean = true,
+    /** Sony-style horizon line on the preview (accelerometer). */
+    val showHorizonLevel: Boolean = true,
     val showFocusPeaking: Boolean = false,     // requires NDK shader (Phase 1+) - off until then
     /**
      * Per-mode LUT memory per BUILD_PLAN \u00a77 ("HUD chip 'LUT' alongside the
@@ -58,6 +60,7 @@ data class HudSettings(
         private const val KEY_HISTOGRAM = "show_histogram"
         private const val KEY_HIGHLIGHT_METER = "show_highlight_meter"
         private const val KEY_EYE_AF = "show_eye_af_overlay"
+        private const val KEY_HORIZON = "show_horizon_level"
         private const val KEY_FOCUS_PEAKING = "show_focus_peaking"
         private const val KEY_LUT_STILLS = "selected_lut_stills"
         private const val KEY_LUT_VIDEO = "selected_lut_video"
@@ -74,6 +77,7 @@ data class HudSettings(
                 showHistogram = prefs.getBoolean(KEY_HISTOGRAM, defaults.showHistogram),
                 showHighlightWeightedMeter = prefs.getBoolean(KEY_HIGHLIGHT_METER, defaults.showHighlightWeightedMeter),
                 showEyeAfOverlay = prefs.getBoolean(KEY_EYE_AF, defaults.showEyeAfOverlay),
+                showHorizonLevel = prefs.getBoolean(KEY_HORIZON, defaults.showHorizonLevel),
                 showFocusPeaking = prefs.getBoolean(KEY_FOCUS_PEAKING, defaults.showFocusPeaking),
                 selectedLutForStills = prefs.getString(KEY_LUT_STILLS, defaults.selectedLutForStills) ?: defaults.selectedLutForStills,
                 selectedLutForVideo = prefs.getString(KEY_LUT_VIDEO, defaults.selectedLutForVideo) ?: defaults.selectedLutForVideo,
@@ -91,6 +95,7 @@ data class HudSettings(
                 .putBoolean(KEY_HISTOGRAM, settings.showHistogram)
                 .putBoolean(KEY_HIGHLIGHT_METER, settings.showHighlightWeightedMeter)
                 .putBoolean(KEY_EYE_AF, settings.showEyeAfOverlay)
+                .putBoolean(KEY_HORIZON, settings.showHorizonLevel)
                 .putBoolean(KEY_FOCUS_PEAKING, settings.showFocusPeaking)
                 .putString(KEY_LUT_STILLS, settings.selectedLutForStills)
                 .putString(KEY_LUT_VIDEO, settings.selectedLutForVideo)

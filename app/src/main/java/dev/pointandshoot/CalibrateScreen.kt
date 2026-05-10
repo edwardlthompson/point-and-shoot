@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -57,14 +58,22 @@ import androidx.compose.ui.unit.dp
  *      [CalibrationMath.computeCcm] and surface the resulting profile.
  *   5. Tap Save - we persist via [CalibrationProfileStorage.save].
  *
- * The screen uses a static photo (not the live preview) so it can ship now,
- * before the Camera2 capture engine is plumbed end-to-end. Once the live
- * preview surface lands the same Compute pipeline can be reused against an
- * `ImageReader`-derived bitmap from the engine.
+ * Supports loading a chart via SAF, or a **one-shot** bitmap from the live preview
+ * ([PreviewEngineScreen] grabs the current [TextureView] frame for Sprint 6.2).
+ * The same Compute / Save pipeline applies in both cases.
  */
 @Composable
-fun CalibrateScreen(onBack: () -> Unit) {
+fun CalibrateScreen(
+    onBack: () -> Unit,
+    /** Optional chart supplied by the caller (e.g. live preview grab); adopted into local state once. */
+    initialChartBitmap: Bitmap? = null,
+    onInitialChartBitmapConsumed: () -> Unit = {},
+) {
     val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        Log.i("PNS.AdbValidation", "calibrate screen compose active")
+    }
 
     var target by remember { mutableStateOf<ReferenceTarget>(BundledReferenceTargets.Generic24) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -74,6 +83,18 @@ fun CalibrateScreen(onBack: () -> Unit) {
     var status by remember { mutableStateOf("Pick a chart photo and tap the four corners (TL \u2192 TR \u2192 BR \u2192 BL).") }
     var statusIsError by remember { mutableStateOf(false) }
     var savedPath by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(initialChartBitmap) {
+        val init = initialChartBitmap ?: return@LaunchedEffect
+        bitmap?.recycle()
+        bitmap = init
+        corners = emptyList()
+        profile = null
+        savedPath = null
+        statusIsError = false
+        status = "Tap the four corners of the chart in TL \u2192 TR \u2192 BR \u2192 BL order."
+        onInitialChartBitmapConsumed()
+    }
 
     val pickImage = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -86,6 +107,7 @@ fun CalibrateScreen(onBack: () -> Unit) {
             status = "Could not decode image."
             return@rememberLauncherForActivityResult
         }
+        bitmap?.recycle()
         bitmap = newBitmap
         corners = emptyList()
         profile = null
@@ -108,7 +130,14 @@ fun CalibrateScreen(onBack: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedButton(onClick = onBack) { Text("Back") }
+            OutlinedButton(onClick = {
+                bitmap?.recycle()
+                bitmap = null
+                corners = emptyList()
+                profile = null
+                savedPath = null
+                onBack()
+            }) { Text("Back") }
             Text(
                 text = "Calibrate",
                 style = MaterialTheme.typography.titleLarge,

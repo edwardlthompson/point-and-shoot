@@ -35,21 +35,38 @@ import java.io.File
 object EncoderAttemptJsonAdapter {
 
     /**
+     * Lists every `exhaustive_probe_*.json` under [root], recursively up to [maxDepth].
+     * Used by [loadLatest] so nested dirs (e.g. `hfr-runs/`) still hydrate About.
+     */
+    fun collectExhaustiveProbeJsonFiles(root: File, maxDepth: Int = 8): List<File> {
+        if (maxDepth < 0 || !root.isDirectory) return emptyList()
+        val out = mutableListOf<File>()
+        val children = root.listFiles() ?: return emptyList()
+        for (f in children) {
+            when {
+                f.isFile &&
+                    f.name.startsWith("exhaustive_probe_") &&
+                    f.name.endsWith(".json") -> out.add(f)
+                f.isDirectory -> out.addAll(collectExhaustiveProbeJsonFiles(f, maxDepth - 1))
+            }
+        }
+        return out
+    }
+
+    /**
      * Find the most recent `exhaustive_probe_*.json` under
-     * `getExternalFilesDir(null)`, parse it, and return the flattened attempt
-     * list. Returns `null` if no artifact exists, the file is unreadable, or
-     * the JSON is malformed - callers should fall back to a static known-good
-     * list (e.g., the static `KNOWN_GOOD_RECIPES` in `AboutScreen`).
+     * `getExternalFilesDir(null)` (recursive, includes nested folders such as
+     * pulled `hfr-runs/`), parse it, and return the flattened attempt list.
+     * Returns `null` if no artifact exists, the file is unreadable, or the JSON
+     * is malformed - callers should fall back to a static known-good list.
      *
      * Returns a [LoadResult] that includes the source file path so the UI can
      * surface "hydrated from probe run <timestamp>".
      */
     fun loadLatest(context: Context): LoadResult? {
         val dir = context.applicationContext.getExternalFilesDir(null) ?: context.applicationContext.filesDir
-        val newest = dir
-            .listFiles { f -> f.isFile && f.name.startsWith("exhaustive_probe_") && f.name.endsWith(".json") }
-            ?.maxByOrNull { it.lastModified() }
-            ?: return null
+        val candidates = collectExhaustiveProbeJsonFiles(dir)
+        val newest = candidates.maxByOrNull { it.lastModified() } ?: return null
         return runCatching {
             val json = JSONObject(newest.readText(Charsets.UTF_8))
             LoadResult(

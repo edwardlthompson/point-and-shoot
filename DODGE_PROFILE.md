@@ -1,8 +1,25 @@
 # Dodge profile (OnePlus 13 / LineageOS 23 / Camera2)
 
-This document maps the **Point & Shoot** shooting modes (15/23/35/50/73/85/21mm) to **Camera2 cameraId(s)** on the OnePlus 13 (`dodge`).
+This document maps the **Point & Shoot** shooting modes (15/23/35/50/73/85/150/21mm eq.) to **Camera2 cameraId(s)** on the OnePlus 13 (`dodge`). It satisfies **BUILD_PLAN.md §3** (“hardware-to-software mapping”): each focal-equivalent mode lists **cameraId(s)**, **physicalCameraId(s)** where logical, **sensor role + constraints** (RAW / HDR·DCG / OIS / macro), and **digital-crop metadata strategy** for 35 / 50 / 85 / 150mm.
 
-Source of truth for this mapping is `PROBE_RESULTS.md` (exported from the on-device probe).
+Primary probe artifacts: exported **`PROBE_RESULTS.md`** (Markdown dump), **`hfr-runs/deep_caps_round11.json`** (lensInfo + keys; adb **8bf09993**), plus newer **`deep_caps_*.json`** / **`logical_physical_*.json`** runs under `hfr-runs/` when present.
+
+## Spec ↔ Camera2 mapping (master table)
+
+Auditors should reconcile this table with **§ Mode mapping** and **§ Lens + sensor info** below. Rows marked **digital crop** do not change `cameraId`; they rely on `CropPlan` + (Phase 1) `SCALER_CROP_REGION` + DNG tags.
+
+| Spec focal (eq.) | Vendor sensor (bill-of-materials) | Primary `cameraId` | Logical / physical | `physicalCameraIds` (if logical) | RAW12 / SENSOR | HDR / DCG (probe) | OIS (Camera2 API) | Macro / focus | Crop / metadata strategy |
+|---|---|---:|---|---|---|---|---|---|---|
+| **15mm** UW / 🌷 Super Macro | Samsung S5KJN5 | **3** | physical | — | yes (`4096×3072`) | session profiles in HDR probe | API reports OFF only | **~25 diopters** (~4 cm) UW — see § Lens + sensor | Lens switch only |
+| **23mm** main wide | Sony LYT-808 | **2** (alt. logical **0**) | physical (see logical row) | logical **0** → `[2, 3, 4]` | yes (`4096×3072`) | LBMF / DCG paths per vendor tags | API reports OFF only | 10 diopters (~10 cm) — not classified macro | Lens switch; optional seamless zoom via logical **0** |
+| **35mm** street | Sony LYT-808 | **2** | physical | — | same as 23mm | same | same | same | **Digital:** `CropPlan` **Street35** (1.5× center); **`PreviewEngineScreen`** **`SCALER_CROP_REGION`** (+ `DngDefaultUserCropRatios` for metadata parity); still-capture path Phase 1 |
+| **50mm** standard | Sony LYT-808 | **2** | physical | — | same | same | same | same | **Digital:** **Standard50** (2.2×) + **`CONTROL_AE_REGIONS`** center patch in preview; still capture Phase 1 |
+| **73mm** tele | Sony LYT-600 | **4** | physical | — | yes (`4096×3072`) | same | same | ~58 cm min focus | Lens switch only |
+| **85mm** portrait | Sony LYT-600 | **4** | physical | — | same | same | same | same | **Digital:** **Portrait85** (1.16×) + Eye-AF priority — preview **`SCALER_CROP_REGION`** wired |
+| **150mm** long tele | Sony LYT-600 | **4** | physical | — | same | same | same | same | **Digital:** **LongTele150** (~2.04×, 12 MP from 50 MP) — preview **`SCALER_CROP_REGION`** wired; still encode Phase 1 |
+| **21mm** selfie | Sony IMX615 | **1** | physical (FRONT) | — | yes (`3280×2464`) | front pipeline | OFF | fixed focus | Lens switch; “zero beauty” = policy later |
+
+**Logical `cameraId=0`:** Multi-camera wrapper exposing **`physicalCameraIds: [2, 3, 4]`** (wide / UW / tele). Use for OEM-style fused zoom; discrete Point & Shoot modes select **2 / 3 / 4** directly unless we intentionally fuse.
 
 ## Current Camera2 topology (from probe)
 
@@ -43,12 +60,12 @@ These are the most reasonable assignments based on focal length clustering and t
 | Spec mode | Intended sensor | Camera2 target(s) | Notes |
 |---|---|---|---|
 | 23mm Main wide | Sony LYT-808 | `cameraId=2` (and/or logical `cameraId=0`) | `cameraId=2` matches the 6.06mm focal cluster and has 480fps HFR; `cameraId=0` is a logical wrapper over [2,3,4]. |
-| 35mm Street crop | Sony LYT-808 crop | `cameraId=2` | Digital crop + metadata only (no lens switch). |
-| 50mm Standard crop | Sony LYT-808 crop | `cameraId=2` | Digital crop + center-weighted metering target in Phase 1/2. |
+| 35mm Street crop | Sony LYT-808 crop | `cameraId=2` | Digital crop + metadata only (no lens switch). Preview: **`SCALER_CROP_REGION`**. |
+| 50mm Standard crop | Sony LYT-808 crop | `cameraId=2` | Digital crop + center-weighted metering (`CONTROL_AE_REGIONS`) in preview. |
 | 15mm Ultra-wide / Macro | Samsung S5KJN5 | `cameraId=3` | 2.3mm focal cluster strongly suggests UW. Macro depends on min focus distance / mode-switch behavior (to confirm). |
 | 73mm Tele | Sony LYT-600 | `cameraId=4` | 13.85mm focal cluster strongly suggests tele. |
-| 85mm Portrait crop | Sony LYT-600 crop | `cameraId=4` | Digital crop + Eye-AF prioritization in Phase 2. |
-| 150mm Long-tele crop | Sony LYT-600 crop | `cameraId=4` | 12 MP center crop of the 50 MP sensor (~2.04x); Eye-AF priority retained from 85mm. Crop math lives in `CropPlan.LongTele150`; engine wiring (`SCALER_CROP_REGION` + 12 MP output sizing) pending Phase 1. |
+| 85mm Portrait crop | Sony LYT-600 crop | `cameraId=4` | Digital crop + Eye-AF prioritization; preview **`SCALER_CROP_REGION`** wired. |
+| 150mm Long-tele crop | Sony LYT-600 crop | `cameraId=4` | 12 MP center crop of the 50 MP sensor (~2.04x); preview **`SCALER_CROP_REGION`** wired; still encode output sizing Phase 1. |
 | 21mm Front | Sony IMX615 | `cameraId=1` | Front camera. “Zero beauty” is a capture-request/vendortag policy to enforce later. |
 
 ## Host-side mapping (FocalMode -> CropPlan -> CapabilityGate)
@@ -91,15 +108,13 @@ for any specific build.
 
 | cameraId | Best HFR (preview) | Best HFR (encoded video) | Notes |
 |---|---|---|---|
-| `0` (logical) | `1920x1080 @ [480, 480]` | encoder support pending exhaustive probe | Wraps physicals `[2, 3, 4]`. |
-| `1` (front) | `1280x720 @ [120, 120]` | encoder support pending exhaustive probe | IMX615. |
-| `2` (LYT-808) | `1920x1080 @ [480, 480]` | encoder support pending exhaustive probe | 23mm main wide. |
-| `3` (S5KJN5) | `1280x720 @ [240, 240]` | encoder support pending exhaustive probe | 15mm ultra-wide / macro. |
-| `4` (LYT-600) | `1280x720 @ [240, 240]` | encoder support pending exhaustive probe | 73mm tele. |
+| `0` (logical) | `1920x1080 @ [480, 480]` | from latest `exhaustive_probe_*.json` / About live | Wraps physicals `[2, 3, 4]`. |
+| `1` (front) | `1280x720 @ [120, 120]` | same | IMX615. |
+| `2` (LYT-808) | `1920x1080 @ [480, 480]` | same | 23mm main wide. |
+| `3` (S5KJN5) | `1280x720 @ [240, 240]` | same | 15mm ultra-wide / macro. |
+| `4` (LYT-600) | `1280x720 @ [240, 240]` | same | 73mm tele. |
 
-Run `scripts/pns_hfr_autorun.ps1 -RunFullSuite` to refresh the underlying
-`exhaustive_probe_*.json`; the AboutScreen "From the latest probe (live)"
-section consumes whatever lands in `getExternalFilesDir(null)` next.
+Run `scripts/pns_hfr_autorun.ps1 -RunExhaustive` (optionally `-ExhaustiveHfrOnly`) or `-RunFullSuite` to refresh on-device `exhaustive_probe_*.json`; **About → From the latest probe (live)** reads the newest file under `getExternalFilesDir(null)`.
 
 ## Imaging profile defaults per FocalMode
 

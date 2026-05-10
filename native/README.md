@@ -8,32 +8,26 @@ NDK / JNI layer for Point & Shoot:
   the actual implementation will live in a Compose-side fragment shader, not
   in C++)
 
-## Phase 0 (current) - JNI stubs only
+## Phase 0 / Phase 1 prep (current) — JNI stubs in the APK
 
-Phase 0 ships:
+Shipped:
 
-- `pns_native.cpp` - JNI stubs matching the
-  `dev.pointandshoot.NativeEncoders` Kotlin facade. Every encoder entry
-  point returns `nullptr` (and the Kotlin facade reports
-  `NativeEncoders.Result.NotAvailable`). Phase 1 replaces these bodies with
-  real `libavif` / `libjxl` calls.
-- `CMakeLists.txt` - builds `libpns_native.so` from `pns_native.cpp` and
-  carries the commented-out `FetchContent_Declare` blocks for the upstream
-  encoder sources; turning Phase 1 on is a comment-removal + a SHA-256 pin
-  + a `-DPNS_USE_LIBAVIF=ON` CMake arg.
-- `THIRD_PARTY.md` - license matrix for the planned upstream dependencies;
-  pre-populated so license review can happen before any source is fetched.
+- `pns_native.cpp` — JNI stubs matching `dev.pointandshoot.NativeEncoders`.
+  Encoder entry points return `nullptr`; Kotlin maps that to
+  `NativeError` / retries when real libavif/libjxl bodies land.
+- `CMakeLists.txt` — builds `libpns_native.so` from `pns_native.cpp`;
+  commented `FetchContent_Declare` blocks await libavif/libjxl pins.
+- `THIRD_PARTY.md` — license matrix for planned upstream dependencies.
 
-`app/build.gradle.kts` deliberately does NOT wire `externalNativeBuild` in
-Phase 0. The Kotlin facade lives entirely on the JVM classpath, so the
-debug + release builds produce the same APK whether or not the NDK is
-installed locally. JUnit unit tests (`:app:testDebugUnitTest`) exercise
-the no-native fallback path because the JVM never has a
-`libpns_native.so`.
+**Gradle:** `app/build.gradle.kts` wires **`externalNativeBuild`** (pinned
+**`ndkVersion`**, CMake **3.22.1**, ABI filters **arm64-v8a** + **x86_64**).
+Debug/release APKs include **`lib/*/libpns_native.so`**; on device,
+`NativeEncoders.isAvailable` is **`true`** when `loadLibrary` succeeds.
 
-When Phase 1 lands the `externalNativeBuild` block flips on and AGP starts
-invoking `cmake` against this directory, so the .so ships in the APK and
-`NativeEncoders.isAvailable` reports `true` at runtime.
+JUnit (`:app:testDebugUnitTest`) still has **no** `.so` on the classpath —
+`NativeEncodersFallbackTest` exercises the unload / fallback contract.
+
+**Next:** Uncomment FetchContent + link libavif/libjxl per `NDK_PLAN.md`.
 
 ## Layout
 
@@ -61,8 +55,8 @@ adb shell am start -n dev.pointandshoot/.MainActivity --es pns_screen native
 ```
 
 The "Native diagnostics" screen reports the runtime status of the .so and
-the per-profile encoder route. Phase 0 builds always show "NOT LOADED" +
-"DOWNGRADED to JPEG"; Phase 1 builds will show "LOADED" with version 1.
+the per-profile encoder route. Normal debug APKs show **LOADED** (stub
+version **0**); JVM tests still exercise the absent-.so path.
 
 ## How to install the NDK + CMake (Phase 1 prep)
 

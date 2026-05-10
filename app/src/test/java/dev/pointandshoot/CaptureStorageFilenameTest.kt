@@ -30,6 +30,16 @@ class CaptureStorageFilenameTest {
     }
 
     @Test
+    fun `JPEG companion capture has jpg extension`() {
+        val name = CaptureStorage.filename(
+            profile = ImagingProfile.StandardPro,
+            kind = CaptureStorage.CaptureKind.JpegSdr,
+            sequence = 3,
+        )
+        assertTrue("expected .jpg suffix; was $name", name.endsWith(".jpg"))
+    }
+
+    @Test
     fun `AVIF capture has avif extension`() {
         val name = CaptureStorage.filename(
             profile = ImagingProfile.StandardPro,
@@ -47,6 +57,16 @@ class CaptureStorageFilenameTest {
             sequence = 99,
         )
         assertTrue("expected .jxl suffix; was $name", name.endsWith(".jxl"))
+    }
+
+    @Test
+    fun `MP4 video capture has mp4 extension`() {
+        val name = CaptureStorage.filename(
+            profile = ImagingProfile.StandardPro,
+            kind = CaptureStorage.CaptureKind.Mp4,
+            sequence = 3,
+        )
+        assertTrue("expected .mp4 suffix; was $name", name.endsWith(".mp4"))
     }
 
     @Test
@@ -68,6 +88,19 @@ class CaptureStorageFilenameTest {
             sequence = 12_345,
         )
         assertTrue("expected _12345.dng suffix; was $name", name.endsWith("_12345.dng"))
+    }
+
+    @Test
+    fun `optional filename suffix is sanitized and inserted before extension`() {
+        val name =
+            CaptureStorage.filename(
+                profile = ImagingProfile.StandardPro,
+                kind = CaptureStorage.CaptureKind.DngLossless,
+                sequence = 1,
+                suffix = "bkt3of5-bkt-abc123",
+            )
+        assertTrue("expected .dng; was $name", name.endsWith(".dng"))
+        assertTrue("expected sanitized bracket token; was $name", name.contains("_bkt3of5-bkt-abc123"))
     }
 
     @Test

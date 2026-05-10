@@ -5,44 +5,30 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Outer reticle ring (light) -->
+    <!-- Compact point-and-shoot body -->
     <path
-        android:strokeColor="#E6E6E6"
-        android:strokeWidth="3.0"
-        android:strokeLineCap="round"
-        android:pathData="M30,54 a24,24 0 1,0 48,0 a24,24 0 1,0 -48,0" />
+        android:fillColor="#E8E8E8"
+        android:pathData="M28,40 L28,76 Q28,80 32,80 L76,80 Q80,80 80,76 L80,48 Q80,44 76,44 L68,44 L64,38 Q62,36 58,36 L50,36 Q46,36 44,38 L40,44 L32,44 Q28,44 28,48 Z" />
 
-    <!-- Crosshair: top -->
+    <!-- Lens barrel -->
     <path
-        android:strokeColor="#E6E6E6"
-        android:strokeWidth="3.0"
-        android:strokeLineCap="round"
-        android:pathData="M54,18 L54,28" />
+        android:fillColor="#2A2D30"
+        android:pathData="M42,54 a12,12 0 1,0 24,0 a12,12 0 1,0 -24,0" />
 
-    <!-- Crosshair: bottom -->
+    <!-- Lens highlight ring (photo orange) -->
     <path
-        android:strokeColor="#E6E6E6"
-        android:strokeWidth="3.0"
-        android:strokeLineCap="round"
-        android:pathData="M54,80 L54,90" />
+        android:strokeColor="#FF5C00"
+        android:strokeWidth="2.5"
+        android:pathData="M40,54 a14,14 0 1,0 28,0 a14,14 0 1,0 -28,0" />
 
-    <!-- Crosshair: left -->
+    <!-- Inner glass -->
     <path
-        android:strokeColor="#E6E6E6"
-        android:strokeWidth="3.0"
-        android:strokeLineCap="round"
-        android:pathData="M18,54 L28,54" />
+        android:fillColor="#1A1C1E"
+        android:pathData="M45,54 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" />
 
-    <!-- Crosshair: right -->
+    <!-- AF assist / flash window -->
     <path
-        android:strokeColor="#E6E6E6"
-        android:strokeWidth="3.0"
-        android:strokeLineCap="round"
-        android:pathData="M80,54 L90,54" />
-
-    <!-- Center shutter dot (Hasselblad orange) -->
-    <path
-        android:fillColor="#FF5C00"
-        android:pathData="M46,54 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+        android:fillColor="#CFCFCF"
+        android:pathData="M66,42 L74,42 Q75,42 75,43 L75,47 Q75,48 74,48 L66,48 Q65,48 65,47 L65,43 Q65,42 66,42 Z" />
 
 </vector>

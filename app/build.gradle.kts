@@ -1,3 +1,5 @@
+import com.android.build.gradle.BaseExtension
+import java.io.File
 import java.util.Properties
 import java.security.MessageDigest
 import java.net.URI
@@ -57,6 +59,8 @@ val releaseSigning: ReleaseSigning? = resolveReleaseSigning()
 android {
     namespace = "dev.pointandshoot"
     compileSdk = 36
+    // Pin NDK for reproducible CMake builds (matches scripts/pns_install_ndk.ps1 default).
+    ndkVersion = "26.3.11579264"
 
     defaultConfig {
         applicationId = "dev.pointandshoot"
@@ -64,6 +68,17 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.0.0"
+
+        ndk {
+            // Device (arm64) + emulator (x86_64). Omit 32-bit ABIs to keep CI/APK lean.
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
     }
 
     signingConfigs {
@@ -117,6 +132,13 @@ android {
         }
     }
 
+    externalNativeBuild {
+        cmake {
+            path = rootProject.file("native/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+
     lint {
         // `:app:lintDebug` is currently not runnable on this AGP 8.7.3 + Compose BOM
         // 2026.04.01 combo: multiple compose-lint detectors (`ComposableFlowOperator`,
@@ -140,9 +162,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    // Apache-2.0 Material Symbols–compatible glyphs (BOM controls version).
+    implementation("androidx.compose.material:material-icons-extended")
 
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.graphics.core)
+    implementation(libs.androidx.exifinterface)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -164,11 +189,10 @@ dependencies {
 // SHA-256 of the cached file already matches the expected value (idempotent;
 // CI hits the cache after the first run on a given runner).
 //
-// The URL list is INTENTIONALLY EMPTY today - this milestone ships the
-// infrastructure; the actual upstream URLs (ACES, Filmic, ...) will be wired
-// in once the LICENSES.md "Bundled LUTs" table is finalized for those entries
-// and a stable public mirror is selected. The task is registered so CI dry-
-// runs can confirm it parses + executes (no-op when empty).
+// `bundledLutSpecs` lists pinned upstream `.cube` / `.spi3d` blobs (ACES OCIO
+// configs). Filmic Blender upstream ships mostly `.spi1d` / large false-colour
+// `.spi3d`; optional Filmic asset wiring remains a follow-up when 1D LUT import
+// lands. Run `./gradlew :app:downloadBundledLutsDryRun` to print URLs + hashes.
 //
 // Task graph:
 //   :app:downloadBundledLuts             -> downloads + verifies + writes assets
@@ -183,18 +207,42 @@ data class BundledLutSpec(
     val sha256: String,
     val sourceUrl: String,
     val licenseText: String,
+    /** Output filename suffix after `${name}.` — OCIO ships `.cube` or Sony `.spi3d`. */
+    val fileExtension: String = "cube",
 )
 
-val bundledLutSpecs: List<BundledLutSpec> = emptyList()
-// To wire ACES (planned): add e.g.
-//   BundledLutSpec(
-//     name = "aces-srgb-to-acescct",
-//     spdx = "Apache-2.0",
-//     url = "https://github.com/AcademySoftwareFoundation/OpenColorIO-Configs/raw/<pinned-sha>/aces_1.0.3/luts/sRGB_to_ACEScct.cube",
-//     sha256 = "<pinned-64-char-lowercase-hex>",
-//     sourceUrl = "https://github.com/AcademySoftwareFoundation/OpenColorIO-Configs",
-//     licenseText = "Apache License 2.0 - Copyright (c) Academy of Motion Picture Arts and Sciences",
-//   )
+/** Pinned commit on https://github.com/colour-science/OpenColorIO-Configs (archived OCIO ACES configs; Apache-2.0). */
+private val ocioConfigsCommit = "3af87f1d70ca3ea2a19cfd431b80de8014a00763"
+
+private val ocioConfigsRaw =
+    "https://raw.githubusercontent.com/colour-science/OpenColorIO-Configs/$ocioConfigsCommit"
+
+/** SHA-256 verified host-side (`certutil` / Gradle task). Build-time fetch only — see LICENSES.md. */
+val bundledLutSpecs: List<BundledLutSpec> =
+    listOf(
+        BundledLutSpec(
+            name = "aces-rrt-v011-srgb",
+            spdx = "Apache-2.0",
+            url = "$ocioConfigsRaw/aces_0.1.1/luts/rrt/rrt_v0_1_1_sRGB.spi3d",
+            sha256 = "5091538e3d9d9b201fd4fc1f3b38a625f4138d1fb1764311248eaf768bfaecab",
+            sourceUrl = "https://github.com/colour-science/OpenColorIO-Configs",
+            licenseText =
+                "Apache License 2.0 — Academy of Motion Picture Arts and Sciences (AMPAS), Sony Pictures Imageworks, " +
+                    "and contributors. Full text: upstream LICENSE.AMPAS in colour-science/OpenColorIO-Configs.",
+            fileExtension = "spi3d",
+        ),
+        BundledLutSpec(
+            name = "alexa-logc-video-nuke1d",
+            spdx = "Apache-2.0",
+            url = "$ocioConfigsRaw/aces_0.7.1/luts/AlexaV3_K1S1_LogC2Video_EE_nuke1d.cube",
+            sha256 = "320004345d44b6a63152b6762c70e39ffe0d0863a05515644c366f50783b4b1f",
+            sourceUrl = "https://github.com/colour-science/OpenColorIO-Configs",
+            licenseText =
+                "Apache License 2.0 — Academy of Motion Picture Arts and Sciences (AMPAS), Sony Pictures Imageworks, " +
+                    "and contributors. Full text: upstream LICENSE.AMPAS in colour-science/OpenColorIO-Configs.",
+            fileExtension = "cube",
+        ),
+    )
 
 fun verifySha256(file: java.io.File, expected: String): Boolean {
     if (!file.isFile) return false
@@ -228,7 +276,7 @@ tasks.register("downloadBundledLuts") {
         }
         cacheDir.mkdirs()
         for (spec in specs) {
-            val cached = cacheDir.resolve("${spec.name}.cube")
+            val cached = cacheDir.resolve("${spec.name}.${spec.fileExtension}")
             if (verifySha256(cached, spec.sha256)) {
                 logger.lifecycle("[pns] cache hit: ${spec.name} (sha256 OK)")
             } else {
@@ -255,10 +303,11 @@ tasks.register("downloadBundledLuts") {
             }
             val leafDir = assetsDir.resolve("${spec.spdx}/${spec.name}")
             leafDir.mkdirs()
-            cached.copyTo(leafDir.resolve("${spec.name}.cube"), overwrite = true)
+            val assetLeaf = "${spec.name}.${spec.fileExtension}"
+            cached.copyTo(leafDir.resolve(assetLeaf), overwrite = true)
             leafDir.resolve("LICENSE.txt").writeText(spec.licenseText)
             leafDir.resolve("SOURCE.txt").writeText("Source: ${spec.sourceUrl}\nDirect URL: ${spec.url}\n")
-            leafDir.resolve("SHA256.txt").writeText("${spec.sha256}  ${spec.name}.cube\n")
+            leafDir.resolve("SHA256.txt").writeText("${spec.sha256}  $assetLeaf\n")
         }
     }
 }
@@ -280,4 +329,53 @@ tasks.register("downloadBundledLutsDryRun") {
 
 if (bundledLutSpecs.isNotEmpty()) {
     tasks.named("preBuild") { dependsOn("downloadBundledLuts") }
+}
+
+// SVT-AV1 emits Ninja archive rules that invoke `llvm-ar`/`llvm-ranlib` without a path; Windows PATH does not
+// include the NDK LLVM bin dir for the Ninja subprocess. Patch generated Ninja files after configure.
+fun pnsNdkLlvmTools(project: Project): Pair<String, String> {
+    val props = Properties().apply {
+        val lp = project.rootProject.file("local.properties")
+        if (lp.exists()) lp.inputStream().use { load(it) }
+    }
+    val sdkRoot = props.getProperty("sdk.dir")?.let { File(it) }
+        ?: error("local.properties must define sdk.dir")
+    val hostPrebuilt = when {
+        System.getProperty("os.name").contains("Windows", ignoreCase = true) -> "windows-x86_64"
+        System.getProperty("os.name").contains("Mac", ignoreCase = true) -> "darwin-x86_64"
+        else -> "linux-x86_64"
+    }
+    val ndkVer = project.extensions.getByType(BaseExtension::class.java).ndkVersion
+    val llvmDir = File(sdkRoot, "ndk/$ndkVer/toolchains/llvm/prebuilt/$hostPrebuilt/bin")
+    val llvmExe = if (System.getProperty("os.name").contains("Windows", ignoreCase = true)) ".exe" else ""
+    val llvmAr = File(llvmDir, "llvm-ar$llvmExe").absolutePath.replace("\\", "/")
+    val llvmRanlib = File(llvmDir, "llvm-ranlib$llvmExe").absolutePath.replace("\\", "/")
+    return Pair(llvmAr, llvmRanlib)
+}
+
+fun pnsPatchNinjaLlvm(project: Project, cxxRoot: File, llvmAr: String, llvmRanlib: String) {
+    if (!cxxRoot.isDirectory) return
+    project.fileTree(cxxRoot).matching {
+        include("**/build.ninja")
+        include("**/rules.ninja")
+    }.forEach { f ->
+        var s = f.readText()
+        val before = s
+        s = s.replace(Regex("""(?<![\\w/])llvm-ar\b"""), "\"$llvmAr\"")
+        s = s.replace(Regex("""(?<![\\w/])llvm-ranlib\b"""), "\"$llvmRanlib\"")
+        if (s != before) {
+            f.writeText(s)
+        }
+    }
+}
+
+afterEvaluate {
+    val cxxRoot = layout.projectDirectory.dir(".cxx").asFile
+    val (llvmAr, llvmRanlib) = pnsNdkLlvmTools(project)
+    tasks.configureEach {
+        if (!name.matches(Regex("""configureCMake(Debug|RelWithDebInfo)\[.*\]"""))) return@configureEach
+        doLast {
+            pnsPatchNinjaLlvm(project, cxxRoot, llvmAr, llvmRanlib)
+        }
+    }
 }

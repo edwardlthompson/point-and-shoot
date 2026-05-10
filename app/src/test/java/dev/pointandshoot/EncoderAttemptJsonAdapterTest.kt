@@ -5,9 +5,15 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
 
 class EncoderAttemptJsonAdapterTest {
+
+    @get:Rule
+    val tempFolder = TemporaryFolder()
 
     private fun attemptObj(
         ok: Boolean,
@@ -143,4 +149,37 @@ class EncoderAttemptJsonAdapterTest {
         val best = EncoderResultAggregator.bestHfrRecipe(summary, "0")
         assertEquals(480, best?.fpsUpper)
     }
+
+    @Test
+    fun `collectExhaustiveProbeJsonFiles finds nested exhaustive_probe json files`() {
+        val root = tempFolder.root
+        val nested = File(root, "hfr-runs/session-a").also { it.mkdirs() }
+        val rootProbe = File(root, "exhaustive_probe_old.json").also {
+            it.writeText(minimalProbeJson())
+            it.setLastModified(1_000L)
+        }
+        val nestedProbe = File(nested, "exhaustive_probe_new.json").also {
+            it.writeText(minimalProbeJson())
+            it.setLastModified(2_000_000L)
+        }
+        File(root, "other.json").writeText("{}")
+
+        val files = EncoderAttemptJsonAdapter.collectExhaustiveProbeJsonFiles(root)
+        assertEquals(setOf(rootProbe, nestedProbe), files.toSet())
+    }
+
+    @Test
+    fun `collectExhaustiveProbeJsonFiles with maxDepth 0 only scans immediate children`() {
+        val root = tempFolder.root
+        File(root, "exhaustive_probe_top.json").writeText(minimalProbeJson())
+        File(root, "nested").mkdirs()
+        File(root, "nested/exhaustive_probe_deep.json").writeText(minimalProbeJson())
+
+        val shallow = EncoderAttemptJsonAdapter.collectExhaustiveProbeJsonFiles(root, maxDepth = 0)
+        assertEquals(1, shallow.size)
+        assertEquals("exhaustive_probe_top.json", shallow.single().name)
+    }
+
+    private fun minimalProbeJson(): String =
+        JSONObject().put("cameras", JSONArray()).toString()
 }

@@ -1,0 +1,2 @@
+Source: https://github.com/colour-science/OpenColorIO-Configs
+Direct URL: https://raw.githubusercontent.com/colour-science/OpenColorIO-Configs/3af87f1d70ca3ea2a19cfd431b80de8014a00763/aces_0.7.1/luts/AlexaV3_K1S1_LogC2Video_EE_nuke1d.cube

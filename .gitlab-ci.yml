@@ -1,0 +1,72 @@
+# Mirrors `.github/workflows/toolchain-verify.yml` for GitLab mirrors / optional GitLab CI.
+# Requires Java 17 + Android SDK on the runner (use a GitLab Android image or install sdkmanager).
+
+variables:
+  GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
+
+default:
+  interruptible: true
+
+stages:
+  - verify
+  - package
+
+# Optional release APK (debug-key fallback in Gradle — same as local `assembleRelease`).
+# Run manually in GitLab when you want an unsigned-release-shaped artifact without secrets.
+assemble-release-debugkey:
+  stage: package
+  image: eclipse-temurin:17-jdk-jammy
+  timeout: 45m
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: never
+    - when: manual
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq wget unzip >/dev/null
+    - export ANDROID_SDK_ROOT="$CI_PROJECT_DIR/android-sdk"
+    - mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+    - |
+      if [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmd.zip
+        unzip -q /tmp/cmd.zip -d /tmp/cl
+        mv /tmp/cl/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+      fi
+    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null 2>&1 || true
+    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36" "ndk;26.3.11579264" "cmake;3.22.1"
+    - chmod +x ./gradlew
+  script:
+    - export ANDROID_HOME="$ANDROID_SDK_ROOT"
+    - ./gradlew :app:assembleRelease --no-daemon --stacktrace
+  artifacts:
+    when: on_success
+    expire_in: 14 days
+    paths:
+      - app/build/outputs/apk/release/
+
+toolchain-verify:
+  stage: verify
+  image: eclipse-temurin:17-jdk-jammy
+  timeout: 35m
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq wget unzip >/dev/null
+    - export ANDROID_SDK_ROOT="$CI_PROJECT_DIR/android-sdk"
+    - mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+    - |
+      if [ ! -d "$ANDROID_SDK_ROOT/cmdline-tools/latest" ]; then
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmd.zip
+        unzip -q /tmp/cmd.zip -d /tmp/cl
+        mv /tmp/cl/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+      fi
+    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null 2>&1 || true
+    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36" "ndk;26.3.11579264" "cmake;3.22.1"
+    - chmod +x ./gradlew
+  script:
+    - export ANDROID_HOME="$ANDROID_SDK_ROOT"
+    # Host parity with GitHub Actions: assemble + unit tests (full `pns_verify_toolchain.ps1` is PowerShell-only).
+    - ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon --stacktrace
+  artifacts:
+    when: on_failure
+    expire_in: 7 days
+    paths:
+      - app/build/reports/tests/
+      - app/build/test-results/

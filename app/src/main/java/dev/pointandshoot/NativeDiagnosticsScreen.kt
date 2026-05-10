@@ -29,16 +29,15 @@ import androidx.compose.ui.unit.dp
  * pure-data: it does not call into the camera / GLES stack and is safe to
  * launch without `CAMERA` permission.
  *
- * What you should see in Phase 0 (no NDK pipeline yet):
+ * Typical cases:
  *
- * - "Native library: NOT LOADED" with the underlying loadLibrary error
- *   (typically "Couldn't find 'libpns_native.so'" or similar).
- * - Per-profile rows that show the AVIF / JXL container as "DOWNGRADED to
- *   JPEG" alongside the canonical user-facing message.
- *
- * Once the NDK pipeline lands behind `pns.nativeEncoders=true` and
- * `libpns_native.so` ships in the APK, the same screen reports the loaded
- * version and stops downgrading.
+ * - **APK includes JNI stubs** (`externalNativeBuild`): Status **LOADED**,
+ *   version **0**; per-profile rows show AVIF / JXL as selected tonal
+ *   containers (encoder calls still return stub **`NativeError`** until
+ *   libavif/libjxl land).
+ * - **Missing/wrong ABI .so** (or pre-install diagnostics): **NOT LOADED**
+ *   + `loadLibrary` error; per-profile **DOWNGRADED to JPEG** when native is
+ *   unavailable.
  */
 @Composable
 fun NativeDiagnosticsScreen(
@@ -73,9 +72,9 @@ fun NativeDiagnosticsScreen(
         }
 
         Text(
-            text = "BUILD_PLAN \u00a74 / NDK_PLAN.md status. Phase 0 ships the Kotlin facade " +
-                "(NativeEncoders + EncoderRoute) so the capture engine can degrade gracefully " +
-                "to JPEG until libavif / libjxl land via the externalNativeBuild switch.",
+            text = "BUILD_PLAN \u00a74 / NDK_PLAN.md — Gradle externalNativeBuild ships " +
+                "libpns_native.so (JNI stubs). Kotlin facade + EncoderRoute degrade to JPEG " +
+                "when the .so is absent; real libavif/libjxl encode bodies are CMake FetchContent follow-on.",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.65f),
         )
@@ -121,10 +120,9 @@ fun NativeDiagnosticsScreen(
         if (!available) {
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "How this clears: install the NDK + CMake (Android Studio SDK Manager " +
-                    "OR scripts/pns_install_ndk.ps1), turn on the externalNativeBuild block in " +
-                    "app/build.gradle.kts (Phase 1 PR), and the .so ships in the APK. The " +
-                    "facade auto-detects the load and the downgrade banner clears.",
+                text = "If NOT LOADED: install NDK 26.3 + CMake 3.22 (Android Studio SDK Manager " +
+                    "or scripts/pns_install_ndk.ps1), then rebuild — Gradle links libpns_native.so. " +
+                    "Wrong ABI / corrupt .so shows the loadLibrary error above.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f),
             )

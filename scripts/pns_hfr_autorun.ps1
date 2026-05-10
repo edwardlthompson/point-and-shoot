@@ -20,9 +20,9 @@ param(
   # Skip regular (<=120fps) matrix; HFR/constrained high-speed attempts only per camera.
   [switch]$ExhaustiveHfrOnly,
   [switch]$RunLegacyCamera1,
-  # deep_caps -> session_matrix -> exhaustive -> encoder (skips legacy Camera1).
+  # deep_caps -> session_matrix -> exhaustive (HFR-only) -> encoder (skips legacy Camera1).
   [switch]$RunCoreProbePlan,
-  # Same as -RunCoreProbePlan but exhaustive runs full matrix (not HFR-only); legacy Camera1 still skipped.
+  # Same as -RunCoreProbePlan but exhaustive runs full ≤120fps + HFR matrix; legacy Camera1 still skipped.
   [switch]$RunCoreProbePlanFullMatrix,
   [switch]$RunFullSuite,
   # Same as -RunFullSuite but exhaustive phase omits HFR-only (full ≤120fps + HFR matrix; very long).
@@ -45,7 +45,11 @@ param(
   # With -RunProbeSmoke: also write Phase 9 thermal bundle (label smoke) after probes.
   [switch]$SmokeIncludeThermal,
   # Run scripts/pns_verify_toolchain.ps1 (assembleDebug + script parse + UTF-8); no device required. Exits process.
-  [switch]$VerifyToolchain
+  [switch]$VerifyToolchain,
+  # adb pull getExternalFilesDir(null)/calibration/* -> <OutDir>/calibration/ (JSON + optional .cube sidecars). No Gradle.
+  [switch]$PullCalibration,
+  # HOST: write perf-runs/<stamp>.md shell (cold start / meminfo placeholders); extend as capture engine lands (PERFORMANCE_BUDGETS.md).
+  [switch]$PerfReport
 )
 
 $ErrorActionPreference = "Stop"
@@ -61,6 +65,50 @@ if ($VerifyToolchain.IsPresent) {
   if (-not (Test-Path -LiteralPath $v)) { throw "Missing verifier script: $v" }
   & $v -ProjectRoot $ProjectRoot
   exit $LASTEXITCODE
+}
+
+if ($PerfReport.IsPresent) {
+  New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+  $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+  $perfDir = Join-Path $ProjectRoot "perf-runs"
+  New-Item -ItemType Directory -Force -Path $perfDir | Out-Null
+  $outFile = Join-Path $perfDir "perf_$stamp.md"
+  $lines = @(
+    "# Point & Shoot perf report (host stub)",
+    "",
+    "- Generated: $(Get-Date -Format 'o')",
+    "- OutDir: $OutDir",
+    "",
+    "## Planned captures (when wired)",
+    "- `am start -W` cold-start latency",
+    "- `dumpsys meminfo dev.pointandshoot` snapshot",
+    "- Logcat filter for `PNS.Reader` / drop counters vs PerfBudget.kt",
+    "",
+    "## Next steps",
+    "- Hook device runs after major camera pipeline changes; compare against PERFORMANCE_BUDGETS.md.",
+    ""
+  )
+  Set-Content -LiteralPath $outFile -Value ($lines -join [Environment]::NewLine) -Encoding utf8
+  Write-Host "[perf] Wrote $outFile"
+  exit 0
+}
+
+if ($PullCalibration.IsPresent) {
+  $adbCmd = Get-Command adb -ErrorAction SilentlyContinue
+  if (-not $adbCmd) { throw "Required command not found: adb" }
+  New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+  $localCal = Join-Path $OutDir "calibration"
+  New-Item -ItemType Directory -Force -Path $localCal | Out-Null
+  $remote = "/sdcard/Android/data/dev.pointandshoot/files/calibration"
+  Write-Host "[pull-cal] adb: pulling $remote -> $localCal"
+  try { adb wait-for-device | Out-Null } catch {}
+  & adb pull $remote $localCal
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "[pull-cal] WARN: adb pull exited $LASTEXITCODE (remote empty/missing, device offline, or permission). Remote=$remote"
+    exit 1
+  }
+  Write-Host "[pull-cal] OK"
+  exit 0
 }
 
 function Require-Cmd([string]$name) {
@@ -950,7 +998,7 @@ function Run-ExhaustiveOnce() {
 
   Clear-RemoteExhaustiveProbeJson
 
-  $useHfrOnly = $ExhaustiveHfrOnly.IsPresent
+  $useHfrOnly = $ExhaustiveHfrOnly.IsPresent -or $script:CorePlanExhaustiveHfrOnly
   if ($script:SuppressExhaustiveHfrOnly) {
     $useHfrOnly = $false
   }
@@ -1046,6 +1094,8 @@ $script:IsRoot = (Test-AdbRoot)
 Write-Host "ADB root available: $script:IsRoot"
 
 $script:SuppressExhaustiveHfrOnly = $false
+# When true, Run-ExhaustiveOnce launches --ez pns_exhaustive_hfr_only true (core plan default; not full-matrix).
+$script:CorePlanExhaustiveHfrOnly = $false
 
 if ($ThermalSnapshotOnly.IsPresent) {
   Write-Phase9ThermalArtifacts -OutDir $OutDir -SuiteLabel "standalone"
@@ -1081,6 +1131,7 @@ if (-not $RunCoreProbePlan.IsPresent -and -not $RunCoreProbePlanFullMatrix.IsPre
 
 if ($RunCoreProbePlan.IsPresent -or $RunCoreProbePlanFullMatrix.IsPresent) {
   $script:SuppressExhaustiveHfrOnly = $RunCoreProbePlanFullMatrix.IsPresent
+  $script:CorePlanExhaustiveHfrOnly = -not $RunCoreProbePlanFullMatrix.IsPresent
   if ($RunCoreProbePlanFullMatrix.IsPresent) {
     Write-Host "=== Core probe plan (FULL exhaustive matrix): deep_caps -> session_matrix -> hdr_dcg -> capture_latency -> raw_hdr -> burst -> logical_physical -> exhaustive FULL (${ExhaustiveTimeoutMinutes}m) -> encoder (MaxRuns=$MaxRuns) ==="
   } else {
@@ -1119,6 +1170,7 @@ if ($RunCoreProbePlan.IsPresent -or $RunCoreProbePlanFullMatrix.IsPresent) {
   $coreThermalLabel = if ($RunCoreProbePlanFullMatrix.IsPresent) { "core_matrix" } else { "core" }
   Write-Phase9ThermalArtifacts -OutDir $OutDir -SuiteLabel $coreThermalLabel
   Write-SuiteRunSummary -OutDir $OutDir -SuiteLabel $coreThermalLabel -ProjectRoot $ProjectRoot
+  $script:CorePlanExhaustiveHfrOnly = $false
 } elseif ($RunFullSuite.IsPresent -or $RunFullSuiteFullMatrix.IsPresent) {
   if ($RunFullSuiteFullMatrix.IsPresent) {
     Write-Host "=== Full probe suite (FULL exhaustive matrix; omit -ExhaustiveHfrOnly for device): deep_caps -> session_matrix -> hdr_dcg -> cap_lat -> raw_hdr -> burst -> logical_physical -> legacy1 -> exhaustive FULL (${ExhaustiveTimeoutMinutes}m) -> encoder (MaxRuns=$MaxRuns) ==="

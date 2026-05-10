@@ -9,11 +9,12 @@ package dev.pointandshoot
  *    processors (`darktable`, `RawTherapee`) can apply the same LUT
  *    optionally."
  *
- * The actual DNG-tag write happens in `Dng12Saver.writeStill` (Phase 1
- * capture engine); this module produces the **strings** that get stamped
- * into the `Software` (TIFF tag 305) and (optionally) `UniqueCameraModel`
- * (DNG tag 50708) fields. Splitting the formatter from the writer means
- * the strings are JVM-testable without an actual Camera2 stack.
+ * The actual `Software` string is written by `Dng12Saver.save` calling
+ * `DngCreator.setDescription`. DNG tag 50708 (`UniqueCameraModel`) has **no** public
+ * setter on `DngCreator`; `Dng12Saver.save(uniqueCameraModel = …)` post-processes the
+ * written TIFF via `TiffUniqueCameraModel50708`. This module produces the **strings**
+ * for `Software` (TIFF tag 305) and `UniqueCameraModel` (50708). Splitting formatters
+ * from IO keeps LUT identity logic JVM-testable without Camera2.
  *
  * Why two tags:
  *   * `Software` is the primary marker. It's a free-form ASCII string

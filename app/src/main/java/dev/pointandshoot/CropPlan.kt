@@ -16,9 +16,10 @@ import kotlin.math.roundToInt
  *
  * The plan is **engine-agnostic**: it produces a centered crop rectangle on
  * the active sensor array, plus engine-facing flags (metering / AF priority).
- * The capture engine consumes the rectangle via `SCALER_CROP_REGION` (digital
- * zoom) or post-process crop, and writes the requested `DefaultUserCrop` /
- * `DefaultCropOrigin` DNG tags from the same source of truth.
+ * [PreviewEngineScreen] consumes the rectangle via `SCALER_CROP_REGION` on the
+ * live preview path; still capture / `DngCreator` land with Phase 1. Host-side
+ * [DngDefaultUserCropRatios] mirrors normalized crop vs the active array for
+ * tooling parity with Adobe-style DefaultUserCrop semantics.
  *
  * Centered-crop math is pure-primitive so it is unit-testable on the JVM
  * without any Android stubs.

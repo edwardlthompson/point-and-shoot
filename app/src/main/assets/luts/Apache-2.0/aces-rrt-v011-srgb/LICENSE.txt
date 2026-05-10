@@ -1,0 +1,1 @@
+Apache License 2.0 — Academy of Motion Picture Arts and Sciences (AMPAS), Sony Pictures Imageworks, and contributors. Full text: upstream LICENSE.AMPAS in colour-science/OpenColorIO-Configs.

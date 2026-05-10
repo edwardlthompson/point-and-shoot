@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/icon.png" alt="Point & Shoot" width="160" height="160">
-</p>
-
 # Point & Shoot
 
 [![Toolchain verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml)
@@ -53,27 +49,7 @@ These are **not implemented yet** — they are the targets the probe is gating d
 
 ## Screenshots
 
-Live device validation captures from the OnePlus 13 running LineageOS 23 (`adb 8bf09993`). The Pro HUD overlays the live `TextureView` preview without dropping frames, the Calibrate / Import LUT screens are reachable from the probe home, and the About page hydrates from the latest `EncoderSummary` at runtime.
-
-| Probe home | Pro HUD + LUT picker | Live preview HUD overlay |
-|---|---|---|
-| <img src="docs/screenshots/smoke_home.png" alt="Probe home" width="220"> | <img src="docs/screenshots/smoke_lutpicker.png" alt="LUT picker" width="220"> | <img src="docs/screenshots/smoke_preview.png" alt="Live preview HUD" width="220"> |
-
-| Calibrate (chart-photo flavor) | Import LUT (SAF picker) | About (live `EncoderSummary` hydration) |
-|---|---|---|
-| <img src="docs/screenshots/smoke_calibrate.png" alt="Calibrate screen" width="220"> | <img src="docs/screenshots/smoke_lutimport.png" alt="LUT importer" width="220"> | <img src="docs/screenshots/smoke_about_live.png" alt="About live" width="220"> |
-
-| GLES preview · None (identity) | GLES preview · B&W BT.709 | GLES preview · PnS Cinematic |
-|---|---|---|
-| <img src="docs/screenshots/smoke_glpreview_none.png" alt="GLES preview · None" width="220"> | <img src="docs/screenshots/smoke_glpreview_bw709.png" alt="GLES preview · B&W BT.709" width="220"> | <img src="docs/screenshots/smoke_glpreview_cinematic.png" alt="GLES preview · PnS Cinematic" width="220"> |
-
-| Native diagnostics (Phase 0 fallback) | Lens info probe (deep caps with lensInfo) | |
-|---|---|---|
-| <img src="docs/screenshots/smoke_native_diag.png" alt="Native diagnostics" width="220"> | <img src="docs/screenshots/smoke_deepcaps_round11.png" alt="Deep caps probe" width="220"> | |
-
-The third row exercises the `LutShaderProgram` end-to-end on a synthetic `TestPattern` source: identity bypass passes the source through verbatim; B&W BT.709 collapses the bars with the documented luma weights (`Y = 0.2126R + 0.7152G + 0.0722B`); PnS Cinematic pulls shadows toward teal and highlights toward orange (visible on the wedge and the smooth ramp). The fourth row exercises the Phase 0 NDK scaffolding: `NativeEncoders.isAvailable` is `false` because `libpns_native.so` doesn't ship in the debug APK yet, and `EncoderRoute.decide(...)` correctly downgrades both Standard Pro (AVIF) and Ultra-Max (JXL) to the JPEG fallback per `FAILURE_MATRIX.md`.
-
-See `PROBE_BUILD_PLAN.md` §5 for the full device-validation log including the underlying logcat and `uidump` artifacts.
+Raster screenshots are **not** stored in this repository. Capture locally with `scripts/pns_device_screencap.ps1` after installing on a device. Historical validation narrative remains in `PROBE_BUILD_PLAN.md` §5.
 
 ## Quickstart
 

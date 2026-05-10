@@ -72,16 +72,16 @@ Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, sh
 
 #### Screenshot verification queue (UI items — tick only with device PNG)
 
-**Rule:** Do not change `- [ ]` to `- [x]` until a **physical device** PNG under **`docs/screenshots/`** (or **`hfr-runs/`**) proves the item; add the filename in the line when closing. Host rebuilds use Gradle logs, not this list.
+**Rule:** Do not change `- [ ]` to `- [x]` until **physical device** validation proves the item; optional PNG paths may be noted when captures exist locally (raster proof is **not** committed to this repo). Host rebuilds use Gradle logs, not this list.
 
 **Host rebuild (2026-05-10):** `.\gradlew.bat :app:assembleDebug` → **PASSED**.
 
 - [ ] **Immersive window** — Status + nav bars hidden (`enableEdgeToEdge` + `WindowInsetsControllerCompat`); transient swipe reveal only. **Evidence:** _pending_ (top/bottom bands still visible in latest capture — see note below).
-- [x] **Live preview** — Camera stream visible in finder. **Evidence:** `docs/screenshots/ui_verify_20260510_rebuild_preview_main.png`
-- [x] **Readout strip** — ISO, shutter, AWB / FPS, **`RAW`** or **`RAW+`**. **Evidence:** same PNG.
-- [x] **Right rail + focal row** — mm chips **`14…150`** with selection highlight. **Evidence:** same PNG.
-- [x] **7×7 grid** — Row **0** focal + rows **1–3** shortcuts + placeholders **4–6** + **Settings** at **`r6c6`**. **Evidence:** same PNG.
-- [x] **Bottom tray** — Gallery thumb (when URI), dual shutters, mode letter FAB when HUD dial on. **Evidence:** same PNG.
+- [x] **Live preview** — Camera stream visible in finder. **Evidence:** adb device validation (2026-05-10); raster PNG not in repo.
+- [x] **Readout strip** — ISO, shutter, AWB / FPS, **`RAW`** or **`RAW+`**. **Evidence:** same session.
+- [x] **Right rail + focal row** — mm chips **`14…150`** with selection highlight. **Evidence:** same session.
+- [x] **7×7 grid** — Row **0** focal + rows **1–3** shortcuts + placeholders **4–6** + **Settings** at **`r6c6`**. **Evidence:** same session.
+- [x] **Bottom tray** — Gallery thumb (when URI), dual shutters, mode letter FAB when HUD dial on. **Evidence:** same session.
 - [ ] **Expand shortcut → modal** — Row **1** icon opens centered **`Dialog`**, not a strip under the grid. **Evidence:** _pending_
 - [ ] **Mode menu** — FAB opens **`DropdownMenu`** listing **M/H/S/BKT**. **Evidence:** _pending_
 - [ ] **Finder — no side pillarboxing** — Live image fills finder width (center-crop top/bottom only). **Evidence:** _pending_

@@ -1249,6 +1249,14 @@ private fun PreviewEngineContent(
                 onPickShutter = { ns -> controller.setReadoutManualShutter(ns) },
                 onPickAwb = { mode -> controller.setReadoutManualAwbMode(mode) },
                 onPickFps = onSetFps,
+                stillLut = settings.stillsLut(),
+                videoLut = settings.videoLut(),
+                onPickStillLut = { entry ->
+                    hudState.update(settings.copy(selectedLutForStills = entry.name))
+                },
+                onPickVideoLut = { entry ->
+                    hudState.update(settings.copy(selectedLutForVideo = entry.name))
+                },
                 onPickStillPipeline = { jpeg ->
                     chromePrefs.update(chrome.copy(stillCaptureJpegCompanion = jpeg))
                 },
@@ -1292,14 +1300,6 @@ private fun PreviewEngineContent(
                 onCalibrateFromPreviewFrame = { openCalibrateFromPreviewFrame() },
                 previewJpegCompanion = previewJpegCompanion,
                 rawStillNotReadyReason = controller.rawStillNotReadyReason(),
-            )
-            LutChipRow(
-                state = hudState,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black.copy(alpha = 0.92f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
             )
             val showBottomTray =
                 chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial

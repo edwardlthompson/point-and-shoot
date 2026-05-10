@@ -6,8 +6,11 @@ import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.net.Uri
 import android.os.Build
+import android.system.Os
 import android.util.Log
 import androidx.exifinterface.media.ExifInterface
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -15,12 +18,18 @@ import kotlin.math.roundToInt
  * Writes camera-oriented EXIF/TIFF tags after MediaStore still capture so gallery apps and desktop
  * tools show Make / Model / exposure / focal length / ISO. Supplements platform [DngCreator] output
  * (which does not always surface tags in every viewer).
+ *
+ * **DNG:** Uses [android.os.ParcelFileDescriptor] in `"rw"` mode with an explicit [Os.fsync] after
+ * [ExifInterface.saveAttributes] so scoped-storage viewers see committed tags.
  */
 object StillCaptureMetadata {
     private const val TAG = "PNS.StillExif"
 
     /** Standard EXIF orientation tag value after JPEG pixels are physically rotated upright (see preview). */
     private const val ORIENTATION_NORMAL = ExifInterface.ORIENTATION_NORMAL.toString()
+
+    private val exifDateTimeFormatter: DateTimeFormatter =
+        DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
 
     fun applyToDngUri(
         context: Context,
@@ -61,12 +70,28 @@ object StillCaptureMetadata {
         stampSoftwareTag: Boolean,
     ) {
         runCatching {
-            context.contentResolver.openFileDescriptor(uri, "rw")?.use { pfd ->
-                val exif = ExifInterface(pfd.fileDescriptor)
-                val make = Build.MANUFACTURER?.takeIf { it.isNotBlank() } ?: "Unknown"
-                val model = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Device"
+            val iso = result.get(CaptureResult.SENSOR_SENSITIVITY) ?: fallbackIso(characteristics)
+            val exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
+            val focalMm = result.get(CaptureResult.LENS_FOCAL_LENGTH) ?: fallbackFocalMm(characteristics)
+            val aperture = result.get(CaptureResult.LENS_APERTURE) ?: fallbackAperture(characteristics)
+
+            val make = Build.MANUFACTURER?.takeIf { it.isNotBlank() } ?: "Unknown"
+            val model = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Device"
+            val dateStr = LocalDateTime.now().format(exifDateTimeFormatter)
+
+            val pfd =
+                context.contentResolver.openFileDescriptor(uri, "rw")
+                    ?: run {
+                        Log.w(TAG, "openFileDescriptor(rw) null uri=$uri")
+                        return@runCatching
+                    }
+            pfd.use {
+                val exif = ExifInterface(it.fileDescriptor)
                 exif.setAttribute(ExifInterface.TAG_MAKE, make)
                 exif.setAttribute(ExifInterface.TAG_MODEL, model)
+                exif.setAttribute(ExifInterface.TAG_DATETIME, dateStr)
+                exif.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, dateStr)
+                exif.setAttribute(ExifInterface.TAG_DATETIME_DIGITIZED, dateStr)
                 if (stampSoftwareTag) {
                     exif.setAttribute(ExifInterface.TAG_SOFTWARE, "Point & Shoot")
                 }
@@ -78,22 +103,20 @@ object StillCaptureMetadata {
                         CameraCharacteristics.LENS_FACING_BACK -> "Back Camera"
                         else -> null
                     }
-                lensDesc?.let { exif.setAttribute(ExifInterface.TAG_LENS_MODEL, it) }
+                lensDesc?.let { v -> exif.setAttribute(ExifInterface.TAG_LENS_MODEL, v) }
 
-                result.get(CaptureResult.SENSOR_SENSITIVITY)?.let { iso ->
-                    exif.setAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, iso.toString())
+                iso?.let { v -> exif.setAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, v.toString()) }
+
+                exposureNs?.let { ns ->
+                    exposureTimeExifString(ns)?.let { s -> exif.setAttribute(ExifInterface.TAG_EXPOSURE_TIME, s) }
                 }
 
-                result.get(CaptureResult.SENSOR_EXPOSURE_TIME)?.let { ns ->
-                    exposureTimeExifString(ns)?.let { exif.setAttribute(ExifInterface.TAG_EXPOSURE_TIME, it) }
-                }
-
-                result.get(CaptureResult.LENS_FOCAL_LENGTH)?.let { mm ->
+                focalMm?.let { mm ->
                     val scaled = (mm * 1000f).roundToInt().coerceAtLeast(1)
                     exif.setAttribute(ExifInterface.TAG_FOCAL_LENGTH, "$scaled/1000")
                 }
 
-                result.get(CaptureResult.LENS_APERTURE)?.let { av ->
+                aperture?.let { av ->
                     val scaled = (av * 100f).roundToInt().coerceAtLeast(1)
                     exif.setAttribute(ExifInterface.TAG_F_NUMBER, "$scaled/100")
                 }
@@ -110,17 +133,13 @@ object StillCaptureMetadata {
                 val summary =
                     buildString {
                         append("ISO ")
-                        append(result.get(CaptureResult.SENSOR_SENSITIVITY) ?: "?")
+                        append(iso ?: "?")
                         append(", ")
-                        append(result.get(CaptureResult.SENSOR_EXPOSURE_TIME)?.let { exposureTimeExifString(it) } ?: "?")
+                        append(exposureNs?.let { exposureTimeExifString(it) } ?: "?")
                         append("s, f/")
-                        append(
-                            result.get(CaptureResult.LENS_APERTURE)?.let { "%.2f".format(Locale.US, it) }
-                                ?: "?",
-                        )
+                        append(aperture?.let { v -> "%.2f".format(Locale.US, v) } ?: "?")
                         append(", ")
-                        append(result.get(CaptureResult.LENS_FOCAL_LENGTH)?.let { "%.2f".format(Locale.US, it) }
-                            ?: "?")
+                        append(focalMm?.let { v -> "%.2f".format(Locale.US, v) } ?: "?")
                         append("mm")
                     }
                 exif.setAttribute(ExifInterface.TAG_USER_COMMENT, summary)
@@ -130,10 +149,45 @@ object StillCaptureMetadata {
                 }
 
                 exif.saveAttributes()
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                        Os.fsync(it.fileDescriptor)
+                    }
+                }.onFailure { e -> Log.d(TAG, "fsync after exif uri=$uri err=${e.message}") }
             }
+            Log.i(
+                TAG,
+                "apply metadata ok uri=$uri make=$make model=$model iso=${iso ?: "?"} ssNs=${exposureNs ?: "?"}",
+            )
         }.onFailure { e ->
             Log.w(TAG, "apply metadata failed uri=$uri setOrientation=$setOrientation err=${e.message}")
         }
+    }
+
+    private fun fallbackFocalMm(chars: CameraCharacteristics): Float? {
+        val logical = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS) ?: return null
+        if (logical.isEmpty()) return null
+        return logical.minOrNull() ?: logical[0]
+    }
+
+    private fun fallbackAperture(chars: CameraCharacteristics): Float? {
+        val a = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES) ?: return null
+        if (a.isEmpty()) return null
+        return a.minOrNull() ?: a[0]
+    }
+
+    /**
+     * Rough fallback when [CaptureResult.SENSOR_SENSITIVITY] is missing on some RAW pipelines.
+     */
+    private fun fallbackIso(chars: CameraCharacteristics): Int? {
+        val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE) ?: return null
+        val maxAnalog = chars.get(CameraCharacteristics.SENSOR_MAX_ANALOG_SENSITIVITY)
+        val guess =
+            when {
+                maxAnalog != null && maxAnalog in isoRange.lower..isoRange.upper -> maxAnalog
+                else -> isoRange.upper / 2
+            }
+        return guess.coerceIn(isoRange.lower, isoRange.upper)
     }
 
     /**

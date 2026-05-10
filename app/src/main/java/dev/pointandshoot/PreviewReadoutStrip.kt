@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -63,7 +64,8 @@ object PreviewReadoutFormat {
 }
 
 /**
- * Exposure readout above the chrome rails: tappable chips open popups (ISO / Ss / WB / FPS / RAW mode).
+ * Exposure readout above the chrome rails: tappable chips open popups (ISO / Ss / WB / FPS /
+ * Still LUT / Video LUT / RAW pipeline).
  * The strip stays screen-aligned — it does **not** counter-rotate with device/chrome twist.
  */
 @Composable
@@ -79,6 +81,10 @@ fun PreviewReadoutStrip(
     onPickShutter: (Long?) -> Unit,
     onPickAwb: (Int?) -> Unit,
     onPickFps: (Int) -> Unit,
+    stillLut: LutCatalog,
+    videoLut: LutCatalog,
+    onPickStillLut: (LutCatalog) -> Unit,
+    onPickVideoLut: (LutCatalog) -> Unit,
     onPickStillPipeline: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -95,7 +101,11 @@ fun PreviewReadoutStrip(
     var ssMenu by remember { mutableStateOf(false) }
     var awbMenu by remember { mutableStateOf(false) }
     var fpsMenu by remember { mutableStateOf(false) }
+    var stillLutMenu by remember { mutableStateOf(false) }
+    var videoLutMenu by remember { mutableStateOf(false) }
     var rawMenu by remember { mutableStateOf(false) }
+    val stillLutChoices = remember { LutCatalog.forScope(LutCatalog.Scope.Stills) }
+    val videoLutChoices = remember { LutCatalog.forScope(LutCatalog.Scope.Video) }
 
     Row(
         modifier =
@@ -211,6 +221,44 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
+            Box {
+                ReadoutLutChip(
+                    label = "Still",
+                    current = stillLut,
+                    onClick = { stillLutMenu = true },
+                    accessibilityLabel = "Still capture LUT. Current ${stillLut.displayName}.",
+                )
+                DropdownMenu(expanded = stillLutMenu, onDismissRequest = { stillLutMenu = false }) {
+                    for (entry in stillLutChoices) {
+                        DropdownMenuItem(
+                            text = { Text(entry.displayName) },
+                            onClick = {
+                                onPickStillLut(entry)
+                                stillLutMenu = false
+                            },
+                        )
+                    }
+                }
+            }
+            Box {
+                ReadoutLutChip(
+                    label = "Video",
+                    current = videoLut,
+                    onClick = { videoLutMenu = true },
+                    accessibilityLabel = "Video LUT. Current ${videoLut.displayName}.",
+                )
+                DropdownMenu(expanded = videoLutMenu, onDismissRequest = { videoLutMenu = false }) {
+                    for (entry in videoLutChoices) {
+                        DropdownMenuItem(
+                            text = { Text(entry.displayName) },
+                            onClick = {
+                                onPickVideoLut(entry)
+                                videoLutMenu = false
+                            },
+                        )
+                    }
+                }
+            }
         }
         Box {
             RawStillPipelineChip(
@@ -238,6 +286,44 @@ fun PreviewReadoutStrip(
 }
 
 val PreviewReadoutStripHeight = 40.dp
+
+@Composable
+private fun ReadoutLutChip(
+    label: String,
+    current: LutCatalog,
+    onClick: () -> Unit,
+    accessibilityLabel: String,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        modifier =
+            Modifier
+                .semantics { contentDescription = accessibilityLabel }
+                .clip(shape)
+                .border(1.dp, Color.White.copy(alpha = 0.28f), shape)
+                .clickable(
+                    interactionSource = interaction,
+                    indication = null,
+                    onClick = onClick,
+                ).background(Color.Black.copy(alpha = 0.45f))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.55f),
+        )
+        Text(
+            text = current.displayName,
+            style = MaterialTheme.typography.labelSmall,
+            color = PnsColors.PhotoOrange.copy(alpha = 0.98f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
 
 @Composable
 private fun ReadoutMetricChip(

@@ -20,9 +20,12 @@ import kotlin.math.roundToInt
  * Writes camera-oriented EXIF/TIFF tags after MediaStore still capture so gallery apps and desktop
  * tools show Make / Model / exposure / focal length / ISO / GPS.
  *
- * **DNG:** Adobe DNG / TIFF IFD layout does not reliably persist tags via in-place
- * [ParcelFileDescriptor] updates on all OEMs; we write patched bytes to a temp file and use
- * [ExifInterface]’s file-path constructor, then copy back to the [Uri].
+ * **DNG (Adobe Digital Negative):** The DNG spec allows TIFF-EP–style tags in IFD0 **or** classic
+ * EXIF tags in the **EXIF SubIFD**; **the EXIF SubIFD location is preferred** for interoperability.
+ * Gallery apps (Google Photos, OEM galleries) typically surface ISO / shutter / aperture from that
+ * EXIF Photo block. We therefore patch IFD0 ASCII (Make/Model/DateTime/Software) **and** overwrite
+ * existing EXIF IFD entries in-place ([TiffExifSubIfdCapturePatch]), then run [ExifInterface] for any
+ * remaining tags.
  */
 object StillCaptureMetadata {
     private const val TAG = "PNS.StillExif"
@@ -71,6 +74,14 @@ object StillCaptureMetadata {
                     dateStr,
                 )
 
+            patchedBytes =
+                TiffExifSubIfdCapturePatch.patchFromCapture(
+                    patchedBytes,
+                    characteristics,
+                    result,
+                    dateStr,
+                )
+
             val tmp = File.createTempFile("pns_dng_exif", ".dng", context.cacheDir)
             try {
                 tmp.writeBytes(patchedBytes)
@@ -85,6 +96,11 @@ object StillCaptureMetadata {
                         stampSoftwareTag = false,
                     )
                     exif.saveAttributes()
+                    runCatching {
+                        val isoRead = exif.getAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY)
+                        val expRead = exif.getAttribute(ExifInterface.TAG_EXPOSURE_TIME)
+                        Log.d(TAG, "DNG post-save read-back iso=$isoRead exposure=$expRead")
+                    }
                 }.onFailure { e ->
                     Log.w(TAG, "DNG ExifInterface pass skipped/err uri=$uri err=${e.message}")
                     tmp.writeBytes(patchedBytes)
@@ -235,19 +251,19 @@ object StillCaptureMetadata {
         }
     }
 
-    private fun fallbackFocalMm(chars: CameraCharacteristics): Float? {
+    internal fun fallbackFocalMm(chars: CameraCharacteristics): Float? {
         val logical = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS) ?: return null
         if (logical.isEmpty()) return null
         return logical.minOrNull() ?: logical[0]
     }
 
-    private fun fallbackAperture(chars: CameraCharacteristics): Float? {
+    internal fun fallbackAperture(chars: CameraCharacteristics): Float? {
         val a = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES) ?: return null
         if (a.isEmpty()) return null
         return a.minOrNull() ?: a[0]
     }
 
-    private fun fallbackIso(chars: CameraCharacteristics): Int? {
+    internal fun fallbackIso(chars: CameraCharacteristics): Int? {
         val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE) ?: return null
         val maxAnalog = chars.get(CameraCharacteristics.SENSOR_MAX_ANALOG_SENSITIVITY)
         val guess =

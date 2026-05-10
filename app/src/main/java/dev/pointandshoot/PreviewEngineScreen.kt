@@ -2055,6 +2055,7 @@ private fun PreviewChromeScrollSlot(
                 selected = expandedKey == spec.title,
                 size = PreviewChromeGridIconSize,
                 modifier = rot,
+                blendCubeIntoParent = true,
             )
         is ChromeGridSlotSpec.QuickAction -> {
             val selectedQuick =
@@ -2192,6 +2193,7 @@ private fun PreviewChromeScrollSlot(
                 selected = selectedQuick,
                 size = PreviewChromeGridIconSize,
                 modifier = rot,
+                blendCubeIntoParent = true,
             )
         }
     }
@@ -2279,7 +2281,8 @@ private fun PreviewChromeGrid7x7(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(1.dp),
             ) {
-                chunk.forEach { spec ->
+                repeat(7) { idx ->
+                    val spec = chunk.getOrNull(idx)
                     Box(
                         modifier =
                             Modifier
@@ -2289,18 +2292,20 @@ private fun PreviewChromeGrid7x7(
                                 .background(Color.Black.copy(alpha = 0.28f)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        PreviewChromeScrollSlot(
-                            spec = spec,
-                            expandedKey = expandedKey,
-                            onToggleShortcutTitle = onToggleShortcutTitle,
-                            hudState = hudState,
-                            chromePrefs = chromePrefs,
-                            uiRotationDeg = uiRotationDeg,
-                            fineLocationGranted = fineLocationGranted,
-                            onPendingEnableGeotagChange = onPendingEnableGeotagChange,
-                            onRequestLocationForGeotag = onRequestLocationForGeotag,
-                            layoutPortrait = layoutPortrait,
-                        )
+                        if (spec != null) {
+                            PreviewChromeScrollSlot(
+                                spec = spec,
+                                expandedKey = expandedKey,
+                                onToggleShortcutTitle = onToggleShortcutTitle,
+                                hudState = hudState,
+                                chromePrefs = chromePrefs,
+                                uiRotationDeg = uiRotationDeg,
+                                fineLocationGranted = fineLocationGranted,
+                                onPendingEnableGeotagChange = onPendingEnableGeotagChange,
+                                onRequestLocationForGeotag = onRequestLocationForGeotag,
+                                layoutPortrait = layoutPortrait,
+                            )
+                        }
                     }
                 }
             }

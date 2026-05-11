@@ -5,9 +5,11 @@
 #   unless -SkipAppendSection5. Output defaults to hfr-runs\adb_preview_validate_milestone6_latest\.
 #
 # Prerequisites: adb on PATH; optional scripts/pns_adb_device.env with PNS_ADB_SERIAL (Wi-Fi IP:port OK).
+# Pass -Serial <usbSerial> to force a device when env points at an offline Wi-Fi adb endpoint.
 # Root on device is not required for this gate (optional pulls may use su in future scripts).
 
 param(
+    [string]$Serial = "",
     [switch]$SkipGradle,
     [switch]$SkipInstall,
     # Stable folder so milestone6_gate.json path is predictable (also enables §5 append).
@@ -26,7 +28,7 @@ if (-not (Test-Path -LiteralPath $envLocal)) {
 }
 
 if (-not $SkipGradle.IsPresent) {
-    Write-Host "[milestone6_gate] gradlew :app:assembleDebug"
+    Write-Host "`[milestone6_gate] gradlew :app:assembleDebug"
     $gradlew = Join-Path $projRoot "gradlew.bat"
     Push-Location $projRoot
     try {
@@ -39,7 +41,7 @@ if (-not $SkipGradle.IsPresent) {
 }
 
 $validate = Join-Path $PSScriptRoot "pns_adb_preview_validate.ps1"
-# Use hashtable splatting — an array starting with "-Milestone6Pack" binds positionally to
+# Use hashtable splatting  -  an array starting with "-Milestone6Pack" binds positionally to
 # [string]$Serial (first param of pns_adb_preview_validate.ps1), breaking adb -s.
 $packDir =
     if (-not [string]::IsNullOrWhiteSpace($PackOutDir)) {
@@ -48,17 +50,21 @@ $packDir =
     else {
         $defaultPackDir = Join-Path $projRoot "hfr-runs\adb_preview_validate_milestone6_latest"
         New-Item -ItemType Directory -Force -Path $defaultPackDir | Out-Null
-        Write-Host "[milestone6_gate] PackOutDir (default) $defaultPackDir"
+        Write-Host "`[milestone6_gate] PackOutDir (default) $defaultPackDir"
         $defaultPackDir
     }
 $m6Invoke = @{
     Milestone6Pack = $true
     OutDir         = $packDir
 }
+if (-not [string]::IsNullOrWhiteSpace($Serial)) {
+    $m6Invoke.Serial = $Serial
+    Write-Host "`[milestone6_gate] Serial=$Serial (passed through to adb preview validate; env PNS_ADB_SERIAL ignored)"
+}
 if ($SkipInstall.IsPresent) {
     $m6Invoke.SkipInstall = $true
 }
-Write-Host "[milestone6_gate] Invoke $validate -Milestone6Pack -OutDir $packDir"
+Write-Host "`[milestone6_gate] Invoke $validate -Milestone6Pack -OutDir $packDir"
 & $validate @m6Invoke
 if (-not $?) {
     throw "pns_adb_preview_validate.ps1 failed"
@@ -68,11 +74,11 @@ $gateJsonPath = Join-Path $packDir "milestone6_gate.json"
 
 if (-not $SkipAppendSection5.IsPresent -and (Test-Path -LiteralPath $gateJsonPath)) {
     $append = Join-Path $PSScriptRoot "pns_probe_append_section5.ps1"
-    Write-Host "[milestone6_gate] append PROBE_BUILD_PLAN section 5 <- $gateJsonPath"
+    Write-Host "`[milestone6_gate] append PROBE_BUILD_PLAN section 5 <- $gateJsonPath"
     & $append -GateJson $gateJsonPath -PassOnly
 }
 elseif (-not $SkipAppendSection5.IsPresent) {
     Write-Warning "[milestone6_gate] milestone6_gate.json missing at $gateJsonPath - skip §5 append"
 }
 
-Write-Host "[milestone6_gate] DONE"
+Write-Host "`[milestone6_gate] DONE"

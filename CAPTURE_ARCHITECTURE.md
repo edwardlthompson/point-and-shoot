@@ -27,9 +27,38 @@ These rules exist because **the sensor never stops** - even when we cannot keep 
 
 1. **Preview is sacred.** The preview SurfaceTexture target is always attached to the repeating request. If something has to be dropped, drop *anything but* the preview frame.
 2. **Histogram metering drops freely.** When the meter executor is busy, the next preview frame intended for histogram analysis is silently dropped (no queue). The next frame replaces it. The meter therefore runs at "as-fast-as-it-can-finish" rather than "every frame".
-3. **Image-reader queue depth is bounded.** `ImageReader` is constructed with `maxImages = 4`. If the queue fills, the *oldest* frame is dropped (`acquireLatestImage()` semantics). Diagnostic counters log every drop with `Log.w("PNS.Reader", "drop oldest queue=N")`.
-4. **Burst captures (BKT 3/5/7) reserve full queue capacity.** Before submitting a `BracketPlan` to `captureBurst`, the engine asserts that the queue is empty (no in-flight still saves) and waits up to 200 ms for the encode executor to drain. If the wait expires, the bracket is rejected with a Toast ("Engine busy - retry") and the BKT mode segment briefly flashes.
+3. **Image-reader queue depth is bounded.** `ImageReader` is constructed with **`maxImages = PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES`** (4). If the queue fills, the *oldest* frame is dropped (`acquireLatestImage()` semantics). Diagnostic counters log every drop with `Log.w("PNS.Reader", "drop oldest queue=N")`.
+4. **Burst captures (BKT 3/5/7) reserve full queue capacity.** Before starting a sequential RAW bracket, the engine waits up to **`PerfBudget.Defaults.ENCODE_LANE_DRAIN_WAIT_MS` (200 ms)** for the encode executor (`PNS.Reader`) to drain (noop `Future.get`), then best-effort discards any orphaned **`ImageReader`** frames. If the drain times out, the bracket is rejected with a Toast ("Engine busy - retry") and **`PNS.AdbValidation`** logs **`captureBracketBurst … err=encode_lane_busy`**. (Camera2 `captureBurst` is not used for BKT in the current engine — the same backpressure rule applies to the sequential still pipeline.)
 5. **Video and stills don't overlap.** While `isRecording == true`, still-capture taps are ignored. The HUD's `RecordButton` and the still-capture path share a single `AtomicReference<EngineState>`; the gesture handler reads this before forwarding to `TapToShootHandler`.
+
+### Host evidence rollup (Sprint 7.3)
+
+After **`pns_adb_preview_validate.ps1`** (or any run that saves **`logcat_*.txt`** under **`hfr-runs/`**), classify **`PNS.Reader`** **`drop oldest`** lines with **`scripts/pns_analyze_reader_backpressure.ps1`** (**`-LogDir`** or **`-LogPath`**). Prefer **`-OutFile`** under **`perf-runs/`** next to **`perf_*.md`**. Use the **acceptance gates** below when closing **`BUILD_PLAN.md`** Sprint **7.3** backpressure evidence.
+
+### Sprint 7.3 acceptance gates (`pns_adb_preview_validate`)
+
+These gates pair **`scripts/pns_analyze_reader_backpressure.ps1`** output with the bracket / encode-lane rows in **`PERFORMANCE_BUDGETS.md`** (especially **In-flight queue overflow = 0** and **`ENCODE_LANE_DRAIN_WAIT_MS`** / **`encode_lane_busy`** semantics).
+
+**Baseline log bundle (same `-OutDir`):** combine only
+
+- **`logcat_raw_still_x10.txt`** — ten sequential RAW stills (`Run-Scenario raw_still_x10` in **`pns_adb_preview_validate.ps1`**; 180 s wall budget for capture + IO), and  
+- **`logcat_bracket_bkt3.txt`** — sequential RAW BKT×3 (`Run-Scenario bracket_bkt3`).
+
+Run, for example (from repo root; use **`-Command`** so **`@(...)`** binds cleanly to **`[string[]]$LogPath`**):
+
+`powershell -NoProfile -Command "& .\scripts\pns_analyze_reader_backpressure.ps1 -LogPath @('<OutDir>\logcat_raw_still_x10.txt','<OutDir>\logcat_bracket_bkt3.txt') -OutFile .\perf-runs\reader_backpressure_validate_raw_and_bkt3.md"`
+
+**Pass criteria for fleet evidence (reference hardware, e.g. OnePlus CPH2655):**
+
+| Check | Target |
+|-------|--------|
+| **`encode_lane_busy`** (`PNS.AdbValidation`) | **0** hits in the two logs combined |
+| **`PNS.Reader` encode lane drain timed out** | **0** |
+| **`drop oldest` with `queue=superseded`** | **0** total (still + bracket channels) — supersede implies the encode lane took a newer buffer before finishing the prior still; should not occur during healthy sequential RAW / BKT3 on the baseline scenarios |
+
+**Informational (not automatic failures):** **`queue=pre-bracket-drain`** (intentional **`ImageReader`** discard before BKT) and **`queue=post-process`** (listener saw **`processed`** / abandoned path) may appear depending on timing; call them out in **§5** if non-zero.
+
+**Out of scope for this baseline:** arbitrary-length bursts, manual “machine-gun” taps, or pathological storage — capture separate logs, extend targets here, or document a **§5** waiver.
 
 ## Cancellation policy
 

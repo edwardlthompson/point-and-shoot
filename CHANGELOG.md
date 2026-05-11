@@ -4,7 +4,49 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
+### Added
+
+- **`scripts/pns_pull_dcim_captures.ps1`** — **`adb pull`** of **`/sdcard/DCIM/Point & Shoot`** (ampersand-safe path) to **`hfr-runs/pull_dcim_*`** or **`-OutDir`**; **`pns_adb_device.env`** / **`-Serial`** / Wi‑Fi **`adb connect`**. Supports **Sprint 7.3 / Milestone H.1** desktop validation (**`STORAGE_STRATEGY.md`**). Documented in **`BUILD_PLAN.md`** (global toolkit + Sprint **7.3** / **H.1**), **`CLI_BUILD_AND_SIDELOAD.md`**, **`PROBE_BUILD_PLAN.md` §2**, **`pns_adb_device.env.example`**, **`.cursor/rules/adb-device-env.mdc`**. **`STORAGE_STRATEGY.md`** open question **DCIM vs Pictures** corrected to match **`CaptureStorage`**.
+
 ### Changed
+
+- **`scripts/pns_adb_preview_validate.ps1` (`Write-MediaStorePnsProbe`)** — **Ampersand-safe** `adb shell` for **`DCIM/Point & Shoot`** (single-quoted paths); lists **`Ultra-Max/`**; **`find`** fallback for **`pns_*.{dng,jxl,avif}`**; **`mediastore_probe.json`** adds **`mediaTailPnsDisplayNameHits`**. Fixes false **`dcimHasPnsCapture=false`** when **`&`** was parsed as shell background.
+
+- **`scripts/pns_probe_append_section5.ps1`** — **§5** mediastore row includes **`mediaTailPnsDisplayNameHits`** when present.
+
+- **`BUILD_PLAN.md` (Milestone 7 / Sprint 7.3)** — Split **MediaStore**: **[ADB]** DCIM probe **closed** (evidence **`hfr-runs/mediastore_probe_retest_20260511`**); **[MIXED]** gallery/desktop remains **Milestone H**.
+
+- **`STORAGE_STRATEGY.md`** — Validation gate text documents the **`&`** / **`adb shell`** pitfall and new **`mediastore_probe`** fields (gallery scroll remains human **§9**).
+
+- **`BUILD_PLAN.md` (Milestone 7 / Sprint 7.3)** — **[MIXED]** backpressure row **closed** on **`CAPTURE_ARCHITECTURE.md`** acceptance gates + **`perf-runs/reader_backpressure_validate_raw_and_bkt3.md`** + **`PROBE_BUILD_PLAN.md` §5** ( **`raw_still_x10`** + **`bracket_bkt3`** logs, all counts **0**).
+
+- **`CAPTURE_ARCHITECTURE.md`** — Sprint **7.3 acceptance gates** table + **`-Command`** example for dual **`‑LogPath`** rollups.
+
+- **`PERFORMANCE_BUDGETS.md`** — Validation gates: **`[x]`** reader backpressure rollup vs bracket / overflow rows.
+
+- **`PROBE_BUILD_PLAN.md` §5** — Row **Sprint 7.3 — backpressure acceptance gates (pass)**.
+
+- **`BUILD_PLAN.md` (Milestone 7 / Sprint 7.1)** — **Perfetto** **[MIXED]** baseline closed on first fleet **light** trace (**`scripts/pns_capture_perfetto_light.ps1`**, **`PROBE_BUILD_PLAN.md` §5** **2026-05-11**); optional deeper **SurfaceFlinger** / **GPU** pbtxt configs called out as backlog. **[ADB]** **`gfxinfo`** baseline remains via **`scripts/pns_capture_gfxinfo_baseline.py`**.
+
+- **`PERFORMANCE_BUDGETS.md`** — § **Perfetto & frame jank**: **Option C** (Windows + device **`/system/bin/perfetto`** light mode, **`adb root`** note for **CPH2655**), validation-gate pairing text for **`perf_*.md`** + **`perfetto_*.perfetto-trace`**, purpose paragraph aligned with **§5** evidence.
+
+- **`scripts/pns_hfr_autorun.ps1` (`-PerfReport`)** — Perfetto section now points at **`pns_capture_perfetto_light.ps1`** instead of a static **not captured** line.
+
+- **`PROBE_BUILD_PLAN.md` §5** — Row for **Sprint 7.1** **Perfetto** light trace + paired **`perf_*.md`**; host-doc row **2026-05-11** no longer claims trace **TBD**.
+
+- **`scripts/pns_adb_device.env.example`** + **`.cursor/rules/adb-device-env.mdc`** — Document **`PNS_ADB_SERIAL`** when Wi‑Fi **`host:port`** is offline but USB adb is online (set USB serial in env or use **`-Serial`** on **`pns_milestone6_gate.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_hfr_autorun.ps1 -PerfReport`**, **`pns_capture_perfetto_light.ps1`**, …). Expanded the list of scripts that read the env file when **`-Serial`** is omitted.
+
+- **`scripts/pns_milestone6_gate.ps1`** — Optional **`-Serial`** forwarded to **`pns_adb_preview_validate.ps1`** so USB adb can be selected when **`pns_adb_device.env`** still lists an offline Wi‑Fi **`host:port`**.
+
+- **`scripts/pns_automation_smoke.ps1`** — **`-AppendSection5`**: **`mediastore_probe.json`** uses **`pns_probe_append_section5 -PassOnly`** only when **`dcimHasPnsCapture`** is true so **§5** still gets a row when the probe reports empty DCIM (OEM indexing path).
+
+- **`scripts/*.ps1` (Windows PS 5.1)** — Replaced Unicode em dashes with ASCII **` - `** in strings/comments and escaped leading **`[`** in **`Write-Host "`…`** messages (`` `[ ``) so **`[System.Management.Automation.Language.Parser]::ParseFile`** succeeds when files are UTF-8 without BOM. Avoids accidental double UTF-8 BOM on save.
+
+- **`scripts/pns_verify_toolchain.ps1`** — Discovers every **`scripts/*.ps1`** for UTF-8 + parse checks (no manual list drift); scans **`app/src/test/java/**/*.kt`** for UTF-16 LE the same way as **`app/src/main/java`**.
+
+- **`PerfBudget.Defaults`** — **`STILL_IMAGE_READER_MAX_IMAGES`** pins still / metering / YUV **`ImageReader` `maxImages`** (**4**); **`ENCODE_LANE_DRAIN_WAIT_MS`** pins BKT pre-bracket **`ioExecutor`** drain (**200 ms**). **`PreviewEngineScreen`** uses both; **`CAPTURE_ARCHITECTURE.md`**, **`PERFORMANCE_BUDGETS.md`**, **`BUILD_PLAN.md`** Sprint **7.3** aligned. **`.github/workflows/build-signed.yml`** runs **`pns_verify_toolchain.ps1 -RunTests`** before **`assembleRelease`** (parity with **`toolchain-verify.yml`**).
+
+- **Capture / encode lane** — **`PreviewController`** still / metering **`ImageReader`** instances use **`PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES`** (`maxImages`; aligned with **`CAPTURE_ARCHITECTURE.md`**); superseded or post-process-discarded RAW/JPEG frames log **`PNS.Reader`** **`drop oldest`** (still vs bracket channels) for **`pns_hfr_autorun.ps1 -PerfReport`** and scripted greps. **BKT** starts only after **`ioExecutor`** drains (**`PerfBudget.Defaults.ENCODE_LANE_DRAIN_WAIT_MS`** noop wait) plus best-effort reader queue discard; timeout → **`PNS.AdbValidation`** **`encode_lane_busy`** and Toast **"Engine busy - retry"**.
 
 - **Preview finder** — **`TexturePreviewFit`** uses **center-crop** (`max` scale) for **`TextureView.setTransform`** and **`mapBufferToView`** / **`mapViewToBuffer`** so the live image fills the view (BUILD_PLAN “no side pillarbars”); **`applyPreviewTextureTransform`** uses **`desiredSurfaceSize ?: currentSurfaceSize`** to match Compose sizing. Default **`staticPreviewRotationDeg`** for **new** prefs is **90°** (clockwise spin baseline — fleet still tunes via **Spin**).
 
@@ -16,21 +58,31 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **`BUILD_PLAN.md` (Milestone 5)** — Sprint **5.5** preview sizing description aligned with **cover-fit** + clipped finder (**`TexturePreviewFit.smallestCoveringAxisAlignedRectWithAspect`**); Sprint **5.3** closed (**Snap AF**, **`HardwareCapsSnapshot`**, **[MIXED] Super Macro gate**). Evidence: **`PROBE_BUILD_PLAN.md` §5** ( **`hfr-runs/adb_preview_validate_20260510_061124/`** , **`super_macro_gate.json`** **`pass: true`** ) + **`pns_verify_toolchain.ps1 -RunTests`**.
 
+- **`scripts/pns_probe_append_section5.ps1`** — Appends **§5** from **`milestone6_gate.json`**, **`mediastore_probe.json`**, **`chrome_ux_gate.json`** (**`pns.chrome_ux_gate.v1`**), **`super_macro_gate.json`**, or **`failure_matrix_smoke.json`** (**`pns.failure_matrix_smoke.v1`**, schema or fingerprint). **`scripts/pns_chrome_ux_gate.ps1`** now emits **`schema`** on **`chrome_ux_gate.json`**. **`scripts/pns_failure_matrix_smoke.ps1`** writes **`schema`** on **`failure_matrix_smoke.json`**; optional **`-AppendSection5`** / **`-ProbePlan`** after **`pass: true`**. **`scripts/pns_automation_smoke.ps1`**: optional **`-RunFullAdbPreviewValidate`** + **`-RequireMediaStoreDcim`**; optional **`-AppendSection5`** / **`-ProbePlan`** (all-green smoke only) runs **`pns_probe_append_section5.ps1 -PassOnly`** for gate JSON under that run’s **`outDir`** (**`chrome_ux_gate`** only when adb was authorized). Successful probe append ends with **`exit 0`** so callers are not polluted by a non-zero **`adb get-serialno`** **`LASTEXITCODE`** when adb is offline.
+
 ### Added
+
+- **`scripts/pns_capture_gfxinfo_baseline.py`** — After force-stop + **`dumpsys gfxinfo … reset`**, cold-starts **`MainActivity`** preview (`pns_screen=preview`), settles, then writes **`perf-runs/gfxinfo_<stamp>_serial-<adb>.txt`**. **`--serial`** or **`scripts/pns_adb_device.env`** (`PNS_ADB_SERIAL`). First fleet artifact: **`perf-runs/gfxinfo_20260510_232327_serial-8bf09993.txt`** (**§5** **2026-05-11**).
+
+- **`scripts/pns_analyze_reader_backpressure.ps1`** — Sprint **7.3** host rollup: scans **`logcat_*.txt`** for **`PNS.Reader`** **`drop oldest`** (**`queue=`** / **`channel=`**) and **`encode_lane_busy`** / encode-lane drain timeouts; **`-LogDir`** is recursive and skips **`*_app_pid.txt`**. Samples: **`perf-runs/reader_backpressure_smoke_20260511_030304.md`**, **`perf-runs/reader_backpressure_validate_raw_and_bkt3.md`** (**§5** **2026-05-11**).
+
+- **`scripts/pns_capture_perfetto_light.ps1`** — Device **`/system/bin/perfetto`** **light** mode (**`-t`**, **`-a dev.pointandshoot`**, default **gfx**/**view**/**sched**), writes under **`/data/misc/perfetto-traces/profiling/`**, **`adb pull`** to **`perf-runs/perfetto_<utc>_serial-<adb>.perfetto-trace`**. Runs **`adb root`** by default (many OEMs need it for the write path). Optional **`-AlsoPerfReport`**. First fleet pull: **`perf-runs/perfetto_20260511_033005_serial-8bf09993.perfetto-trace`** (**§5** **2026-05-11**).
+
+- **Milestone 9 chrome gate** — **`PreviewChromeGrid7x7`** now logs **`PNS.ChromeUx`** **`grid7=layout`** (with **`settingsAt`**, **`quickActions`**, and existing **`quickGrid`** tail) so **`pns_chrome_ux_gate.ps1`** can assert **`grid7Ok`** against logcat.
+
+- **`scripts/pns_root_capability_adb.ps1`** — USB ADB **transport root** probe: optional **`adb root`**, captures **`adb shell id`** (expect **`uid=0(root)`** when adbd is root), best-effort **`adb shell su -c id`**, writes **`root_capability_adb.json`** (**`schema`**: **`pns.root_capability_adb.v1`**). **`pns_probe_append_section5.ps1`** fingerprints **`pns.root_capability_adb.v1`** for **§5** rows.
+
+- **`scripts/pns_hfr_autorun.ps1 -PerfReport`** — Writes **`perf-runs/perf_<stamp>.md`**: compares **`am start -W`** cold start to **800 ms** and **`dumpsys meminfo`** PSS to **180 MB** (see **`PerfBudget.Defaults`** / **`PERFORMANCE_BUDGETS.md`**); counts **`PNS.Reader`** **`drop oldest`** lines in a log tail. Optional **`-Serial`** and **`scripts/pns_adb_device.env`** (`PNS_ADB_SERIAL`); Wi‑Fi **`host:port`** runs **`adb connect`**. Pair with **`scripts/pns_capture_perfetto_light.ps1`** (or Studio / desktop **perfetto**) for Sprint **7.1** traces (**`PERFORMANCE_BUDGETS.md`**).
 
 - **`scripts/pns_device_screencap.ps1`** — Writes **`adb exec-out screencap -p`** PNGs by streaming **`Process.StandardOutput`** to disk (PowerShell **`Set-Content`** / naive pipelines corrupt binary captures on Windows PS 5.x).
 
 - **`scripts/pns_chrome_ux_gate.ps1`** — **`Save-LogcatTail`** uses a **250k** mixed ring tail plus tag-filtered **`PNS.ChromeUx`** / **`PNS.AdbValidation`** supplement so noisy OEM HAL spam does not evict **`seedOk`** / **`grid7=`** lines before grep.
-
-- **`scripts/pns_automation_smoke.ps1`** — One-shot host + device automation: verify toolchain → chrome UX gate (device) → failure-matrix smoke → optional **`-ChromeUxPack`** when adb authorized; **`-TryAdbRoot`** for fleet **`adb root`**; **`hfr-runs/automation_smoke_*/automation_smoke.json`**.
 
 - **Milestone 9 — self-timer (Sprint 9.11)** — **`PreviewChromePreferences.selfTimerDelaySec`** (**0 / 3 / 5 / 10**); grid timer icon cycles + cold-start **`PNS.ChromeUx`** **`selfTimerSec=`**; countdown overlay + **`triggerStillCapture()`** for volume-up still, tap-to-shoot, bottom shutter, **Save DNG** (**BKT** unchanged). **`--ei pns_preview_self_timer_sec`** (`EXTRA_PNS_PREVIEW_SELF_TIMER_SEC`) seeds prefs from **`am start`**; **`pns_chrome_ux_gate.ps1`** passes **`3`** and asserts **`selfTimerOk`**. **`pns_adb_preview_validate.ps1 -ChromeUxPack`** writes **`chrome_ux_smoke.json`**. **`PreviewChromePreferencesTest`**.
 
 - **Milestone 9 (started)** — **`pickCameraIdFromM23Resolve`** + **`PickCameraIdFromM23ResolveTest`**: preview cold-start prefers **`resolveFocalMmSlot(M23)`** wide camera instead of raw **`cameraIdList` order**; logs **`PNS.ChromeUx`** **`seedOk slot=M23`** when aligned. **`rememberSystemInsetsDp`** merges display cutout + system bars; **`PNS.ChromeUx`** **`safeInsetsTopPx`** for gate scripts. **`PreviewForegroundDndEffect`** + **`dndWhileInPreview`** + **`InterruptionFilterHold`**: notification-policy DND in preview (nests with recording DND); **`PNS.ChromeUx`** **`dndPreview=`**. **`PreviewReadoutStrip`** / **`PreviewReadoutFormat`**: live ISO / shutter / AWB / FPS from repeating **`CaptureResult`**; **`PNS.ChromeUx`** **`readout=live`** or **`readout=fallback`**. **`PreviewBottomCaptureTray`** dual shutters (orange still / red record, inactive dimmed left, **`dualShutter=visible`**). **7×7 chrome grid**: Settings at **`[6,6]`**, **`ChromeGridSlotSpec`** expand vs quick actions — row **2** LUT cycle / flash+timer stubs / histogram toggle + **`grid7=layout`** **`PNS.ChromeUx`**. **Tune** FAB **mode dial popout** over finder + **`RAW`/`RAW+`** readout badge via **`previewUsesJpegCompanion()`** + **`readoutCapture=`** log; chrome gate JSON **`modeDialPopoutOk`** / **`readoutCaptureOk`**. **`scripts/pns_chrome_ux_gate.ps1`** asserts **`seedOk`** + **`safeInsetsTopPx`** + **`dndPreview=`** + **`readout=`** + **`dualShutter=`** + **`grid7=`** on device; **`BUILD_PLAN.md`** Milestone 9.
 
 - **`CapabilityGateBridge.kt`** + **HUD Settings** — Shared formatting for **`CapabilityGate`** lines from live **`HardwareCapsSnapshot`**; **Settings > HUD** lists **`ok` / `off`** plus truncated disabled reasons ( **`CAMERA`** permission gate). **`scripts/pns_failure_matrix_smoke.ps1`** — Milestone 7 smoke (**preview granted** + **CAMERA revoked** preview) → **`failure_matrix_smoke.json`**. **`CapabilityGateBridgeTest`**.
-
-- **`scripts/pns_adb_preview_validate.ps1`** — Automated Super Macro gate: **`super_macro_gate.json`** / **`super_macro_gate.txt`**, **`-SuperMacroOnly`**, **`-UltraWideCameraId`**, **`-RequireSuperMacroPass`**; wrapper **`scripts/pns_super_macro_gate.ps1`**.
 
 - **Sprint 5.3 — Snap AF + live capability gates + Super Macro ADB gate** — **`PreviewEngineScreen`**: street **Snap** dial sets infinity-style AF when not tap-metering (`applyStreetSnapAf`). **`HardwareCapsSnapshot`** + **`PreviewController.hardwareCaps()`** feed **`CapabilityGate`**; **Developer menu** lists gate results from live **`CameraCharacteristics`**. **`AboutScreen`**: Snap / Ricoh heritage blurb. **`VendorKeyGuard`**: **`trySetVendorSessionEnable`**, **`trySetVendorRequestEnable`**, shared **`trySetVendorEnableOnBuilder`**, expanded legacy **`set(Key,*)`** probes ( **`byte[]`** — validated on OnePlus 13 for **`com.oplus.macro.closeup.enable`**). **`SessionConfiguration.setSessionParameters`** path for Super Macro ADB probe when API ≥ **33** + ultra-wide camera matches **`BackCameraRoleResolver.ultraWide`**. Extras **`pns_preview_camera_id`** / **`pns_preview_super_macro_probe`**; **`pns_adb_preview_validate.ps1`** **`sprint53_super_macro_vv`** + **`super_macro_gate.json`**; **`scripts/pns_super_macro_gate.ps1`** (**`-RequireSuperMacroPass`**).
 

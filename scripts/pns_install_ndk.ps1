@@ -40,7 +40,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Write-Step([string]$msg) {
-    Write-Host "[install-ndk] $msg"
+    Write-Host "`[install-ndk] $msg"
 }
 
 function Resolve-AndroidSdk {

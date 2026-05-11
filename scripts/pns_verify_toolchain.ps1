@@ -1,10 +1,11 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
-# Proves: Gradle assembleDebug, UTF-8 host scripts + Kotlin sources, PowerShell parse OK,
-#         FOSS dep-audit (no Play Services / proprietary SDK references), and (with -RunTests)
-#         JVM unit tests (:app:testDebugUnitTest).
+# Proves: Gradle assembleDebug, UTF-8 for every scripts/*.ps1 + Kotlin sources (main + unit-test),
+#         PowerShell parse OK, FOSS dep-audit (no Play Services / proprietary SDK references),
+#         and (with -RunTests) JVM unit tests (:app:testDebugUnitTest).
+# CI (`.github/workflows/toolchain-verify.yml`) invokes `-RunTests` so Gradle runs once for assemble + tests.
 # Usage:
 #   .\scripts\pns_verify_toolchain.ps1                              # full
-#   .\scripts\pns_verify_toolchain.ps1 -SkipGradle                  # docs-only
+#   .\scripts\pns_verify_toolchain.ps1 -SkipGradle                # docs-only
 #   .\scripts\pns_verify_toolchain.ps1 -RunTests                    # full + unit tests
 #   .\scripts\pns_verify_toolchain.ps1 -SkipGradle -RunTests        # tests only (still needs Gradle)
 
@@ -18,7 +19,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Write-Verify([string]$msg) {
-  Write-Host "[verify] $msg"
+  Write-Host "`[verify] $msg"
 }
 
 function Test-AsciiLikeSourceByte([byte]$x) {
@@ -96,35 +97,24 @@ if (-not $SkipGradle.IsPresent) {
 }
 
 $scriptFiles = @(
-  (Join-Path $PSScriptRoot "pns_hfr_autorun.ps1"),
-  (Join-Path $PSScriptRoot "pns_probe_watch.ps1"),
-  (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1"),
-  (Join-Path $PSScriptRoot "pns_license_inventory.ps1"),
-  (Join-Path $PSScriptRoot "pns_sbom.ps1"),
-  (Join-Path $PSScriptRoot "pns_install_ndk.ps1"),
-  (Join-Path $PSScriptRoot "pns_adb_preview_validate.ps1"),
-  (Join-Path $PSScriptRoot "pns_super_macro_gate.ps1"),
-  (Join-Path $PSScriptRoot "pns_milestone6_gate.ps1"),
-  (Join-Path $PSScriptRoot "pns_probe_append_section5.ps1"),
-  (Join-Path $PSScriptRoot "pns_failure_matrix_smoke.ps1"),
-  (Join-Path $PSScriptRoot "pns_chrome_ux_gate.ps1"),
-  (Join-Path $PSScriptRoot "pns_automation_smoke.ps1"),
-  (Join-Path $PSScriptRoot "pns_device_screencap.ps1")
+  Get-ChildItem -LiteralPath $PSScriptRoot -Filter "*.ps1" -File -ErrorAction SilentlyContinue |
+    Sort-Object -Property Name
 )
+if ($scriptFiles.Count -eq 0) {
+  [void]$report.Add("FAIL: no *.ps1 scripts found under $PSScriptRoot")
+  $failed = $true
+}
 
 foreach ($sf in $scriptFiles) {
-  $leaf = Split-Path $sf -Leaf
-  if (-not (Test-Path -LiteralPath $sf)) {
-    [void]$report.Add("SKIP: $leaf (missing)")
-    continue
-  }
-  if (Test-LikelyUtf16LeFile $sf) {
+  $sfPath = $sf.FullName
+  $leaf = $sf.Name
+  if (Test-LikelyUtf16LeFile $sfPath) {
     [void]$report.Add("FAIL: $leaf looks UTF-16 LE - re-save as UTF-8")
     $failed = $true
   } else {
     [void]$report.Add("OK: $leaf encoding (not UTF-16 LE)")
   }
-  $parseErr = Test-Ps1ParseOk $sf
+  $parseErr = Test-Ps1ParseOk $sfPath
   if ($parseErr) {
     [void]$report.Add("FAIL: $leaf parse: $parseErr")
     $failed = $true
@@ -136,6 +126,16 @@ foreach ($sf in $scriptFiles) {
 $kotlinRoot = [System.IO.Path]::Combine($ProjectRoot, "app", "src", "main", "java")
 if (Test-Path -LiteralPath $kotlinRoot) {
   Get-ChildItem -LiteralPath $kotlinRoot -Filter *.kt -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+    if (Test-LikelyUtf16LeFile $_.FullName) {
+      [void]$report.Add(("FAIL: {0} looks UTF-16 LE - re-save as UTF-8" -f $_.FullName))
+      $failed = $true
+    }
+  }
+}
+
+$kotlinTestRoot = [System.IO.Path]::Combine($ProjectRoot, "app", "src", "test", "java")
+if (Test-Path -LiteralPath $kotlinTestRoot) {
+  Get-ChildItem -LiteralPath $kotlinTestRoot -Filter *.kt -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
     if (Test-LikelyUtf16LeFile $_.FullName) {
       [void]$report.Add(("FAIL: {0} looks UTF-16 LE - re-save as UTF-8" -f $_.FullName))
       $failed = $true
@@ -324,8 +324,8 @@ if (-not [string]::IsNullOrWhiteSpace($ReportDir)) {
 }
 
 if ($failed) {
-  Write-Host "[verify] RESULT: FAILED"
+  Write-Host "`[verify] RESULT: FAILED"
   exit 1
 }
-Write-Host "[verify] RESULT: PASSED"
+Write-Host "`[verify] RESULT: PASSED"
 exit 0

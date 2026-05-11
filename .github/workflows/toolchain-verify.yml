@@ -13,6 +13,11 @@ on:
       - 'gradle.properties'
       - 'gradlew'
       - 'gradlew.bat'
+      - 'BUILD_PLAN.md'
+      - 'PROBE_BUILD_PLAN.md'
+      - 'CAPTURE_ARCHITECTURE.md'
+      - 'PERFORMANCE_BUDGETS.md'
+      - 'STORAGE_STRATEGY.md'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   pull_request:
@@ -26,6 +31,11 @@ on:
       - 'gradle.properties'
       - 'gradlew'
       - 'gradlew.bat'
+      - 'BUILD_PLAN.md'
+      - 'PROBE_BUILD_PLAN.md'
+      - 'CAPTURE_ARCHITECTURE.md'
+      - 'PERFORMANCE_BUDGETS.md'
+      - 'STORAGE_STRATEGY.md'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   workflow_dispatch:
@@ -67,14 +77,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Run pns_verify_toolchain.ps1 (assembleDebug + dep-audit + UTF-8 + parse)
+      - name: Run pns_verify_toolchain.ps1 (assemble + gates + :app:testDebugUnitTest)
         shell: pwsh
         run: |
           Set-Location "${{ github.workspace }}"
-          ./scripts/pns_verify_toolchain.ps1
-
-      - name: Run JVM unit tests (:app:testDebugUnitTest)
-        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+          ./scripts/pns_verify_toolchain.ps1 -RunTests
 
       - name: Upload unit-test reports on failure
         if: failure()

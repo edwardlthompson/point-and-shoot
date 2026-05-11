@@ -5,13 +5,17 @@
 # - Restores CAMERA grant
 # Writes failure_matrix_smoke.json under -OutDir.
 #
+# Optional `-AppendSection5`: on **`pass: true`**, runs **`pns_probe_append_section5.ps1 -PassOnly`** for the written JSON (PROBE_BUILD_PLAN §5).
+#
 # If no authorized device: writes JSON with adbConnected=false and exits 0 (host-friendly).
 # Use scripts/pns_adb_device.env (PNS_ADB_SERIAL) or -Serial, same as pns_adb_preview_validate.ps1.
 
 param(
     [string]$Serial = "",
     [string]$OutDir = "",
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [switch]$AppendSection5,
+    [string]$ProbePlan = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,7 +53,7 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "[failure_matrix_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "`[failure_matrix_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
@@ -75,7 +79,7 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
 }
 
 if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "[failure_matrix_smoke] adb connect $Serial (TCP/IP)"
+    Write-Host "`[failure_matrix_smoke] adb connect $Serial (TCP/IP)"
     Invoke-AdbIgnore @("connect", $Serial)
 }
 
@@ -130,7 +134,7 @@ function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmExtraArgs) {
     $null = Invoke-AdbIgnore @("logcat", "-c")
     $null = Invoke-Adb @("shell", "am", "force-stop", $pkg)
     Start-Sleep -Milliseconds 600
-    # Avoid `am start -W` on Wi-Fi adb (can block). Use one shell string — on Windows, splitting
+    # Avoid `am start -W` on Wi-Fi adb (can block). Use one shell string  -  on Windows, splitting
     # `adb shell am …` into many argv tokens sometimes wedges the transport until timeout.
     $extraFlat = ($AmExtraArgs | ForEach-Object { "$_" }) -join " "
     $shellCmd = "am start -n ${pkg}/.MainActivity $extraFlat"
@@ -146,6 +150,7 @@ function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmExtraArgs) {
 if (-not (Test-AdbAuthorizedDevice)) {
     Write-Warning "[failure_matrix_smoke] No authorized adb device - skip scenarios."
     $stub = @{
+        schema              = "pns.failure_matrix_smoke.v1"
         adbConnected        = $false
         pass                = $false
         skippedReason       = "no_authorized_device"
@@ -155,7 +160,7 @@ if (-not (Test-AdbAuthorizedDevice)) {
         outDir              = $OutDir
     }
     $stub | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $OutDir "failure_matrix_smoke.json") -Encoding utf8
-    Write-Host "[failure_matrix_smoke] Wrote failure_matrix_smoke.json (stub)"
+    Write-Host "`[failure_matrix_smoke] Wrote failure_matrix_smoke.json (stub)"
     exit 0
 }
 
@@ -163,11 +168,11 @@ if (-not (Test-Path -LiteralPath $apk)) {
     throw "Missing APK: $apk - run .\gradlew.bat :app:assembleDebug first."
 }
 
-Write-Host "[failure_matrix_smoke] devices:"
+Write-Host "`[failure_matrix_smoke] devices:"
 Invoke-Adb @("devices", "-l")
 
 if (-not $SkipInstall.IsPresent) {
-    Write-Host "[failure_matrix_smoke] install $apk"
+    Write-Host "`[failure_matrix_smoke] install $apk"
     Invoke-Adb @("install", "-r", $apk)
 }
 
@@ -197,6 +202,7 @@ Grant-Camera
 
 $pass = $okGranted -and $okRevoked
 $obj = @{
+    schema           = "pns.failure_matrix_smoke.v1"
     adbConnected     = $true
     pass             = $pass
     previewGrantedOk = $okGranted
@@ -207,10 +213,22 @@ $obj = @{
 }
 $jsonPath = Join-Path $OutDir "failure_matrix_smoke.json"
 $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding utf8
-Write-Host "[failure_matrix_smoke] Wrote $jsonPath pass=$pass"
+Write-Host "`[failure_matrix_smoke] Wrote $jsonPath pass=$pass"
 
 if (-not $pass) {
-    Write-Host "[failure_matrix_smoke] FAIL: fatal detected or log parse failed"
+    Write-Host "`[failure_matrix_smoke] FAIL: fatal detected or log parse failed"
     exit 1
 }
+
+if ($AppendSection5.IsPresent) {
+    $append = Join-Path $PSScriptRoot "pns_probe_append_section5.ps1"
+    Write-Host "`[failure_matrix_smoke] AppendSection5 <- $jsonPath"
+    $invokeArgs = @{ GateJson = $jsonPath; PassOnly = $true }
+    if ($ProbePlan) { $invokeArgs["ProbePlan"] = $ProbePlan }
+    & $append @invokeArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "pns_probe_append_section5.ps1 failed exit=$LASTEXITCODE"
+    }
+}
+
 exit 0

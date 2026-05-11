@@ -128,12 +128,12 @@ if ($DumpMarkdown.IsPresent) {
 
 $failed = $false
 if ($missingFromMap.Count -gt 0) {
-  Write-Host "[license] FAIL: catalog deps not in LICENSES.md / pns_license_inventory.ps1:" -ForegroundColor Red
+  Write-Host "`[license] FAIL: catalog deps not in LICENSES.md / pns_license_inventory.ps1:" -ForegroundColor Red
   foreach ($c in $missingFromMap) { Write-Host "  - $c" }
   $failed = $true
 }
 if ($missingFromCatalog.Count -gt 0) {
-  Write-Host "[license] FAIL: license-map entries not in catalog (stale):" -ForegroundColor Red
+  Write-Host "`[license] FAIL: license-map entries not in catalog (stale):" -ForegroundColor Red
   foreach ($c in $missingFromCatalog) { Write-Host "  - $c" }
   $failed = $true
 }
@@ -217,14 +217,14 @@ if (-not $SkipLutWalk.IsPresent) {
     Write-Host ("[license] OK: bundled LUTs - {0}" -f $lutReport.Status)
   } else {
     if ($lutReport.MissingSidecars.Count -gt 0) {
-      Write-Host "[license] FAIL: bundled LUT leaf folders missing required sidecars (LICENSE.txt / SOURCE.txt / SHA256.txt):" -ForegroundColor Red
+      Write-Host "`[license] FAIL: bundled LUT leaf folders missing required sidecars (LICENSE.txt / SOURCE.txt / SHA256.txt):" -ForegroundColor Red
       foreach ($row in $lutReport.MissingSidecars) {
         Write-Host ("  - {0}: missing {1}" -f $row.Folder, $row.Missing)
       }
       $failed = $true
     }
     if ($lutReport.NotInLicensesMd.Count -gt 0) {
-      Write-Host "[license] FAIL: bundled LUT folders not referenced in LICENSES.md:" -ForegroundColor Red
+      Write-Host "`[license] FAIL: bundled LUT folders not referenced in LICENSES.md:" -ForegroundColor Red
       foreach ($f in $lutReport.NotInLicensesMd) { Write-Host "  - $f" }
       $failed = $true
     }
@@ -233,14 +233,14 @@ if (-not $SkipLutWalk.IsPresent) {
     }
   }
 } else {
-  Write-Host "[license] SKIP: bundled LUTs walk (-SkipLutWalk)"
+  Write-Host "`[license] SKIP: bundled LUTs walk (-SkipLutWalk)"
 }
 
 if ($failed) {
-  Write-Host "[license] RESULT: FAILED (drift)"
+  Write-Host "`[license] RESULT: FAILED (drift)"
   exit 1
 } else {
   Write-Host ("[license] OK: {0} coordinate(s) in catalog all accounted for in LICENSES.md" -f $coords.Count)
-  Write-Host "[license] RESULT: PASSED"
+  Write-Host "`[license] RESULT: PASSED"
   exit 0
 }

@@ -91,7 +91,7 @@ function Get-AdbOnlineSerials {
         }
     }
     # Unary comma: PowerShell unwraps single-element arrays from `return $ids`, which makes
-    # `$onlineSerials[0]` index the first *character* of the serial string — breaking adb -s.
+    # `$onlineSerials[0]` index the first *character* of the serial string  -  breaking adb -s.
     return , $ids
 }
 
@@ -99,16 +99,16 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "[sideload_launch] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "`[sideload_launch] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
 if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "[sideload_launch] adb connect $Serial (TCP/IP)"
+    Write-Host "`[sideload_launch] adb connect $Serial (TCP/IP)"
     Invoke-AdbIgnore @("connect", $Serial)
 }
 
-Write-Host "[sideload_launch] adb devices:"
+Write-Host "`[sideload_launch] adb devices:"
 & adb devices -l
 if ($LASTEXITCODE -ne 0) {
     throw "adb devices -l failed exit=$LASTEXITCODE"
@@ -122,7 +122,7 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
 }
 elseif ($onlineSerials -notcontains $Serial) {
     if ($onlineSerials.Count -eq 1) {
-        Write-Host "[sideload_launch] WARN: serial '$Serial' not online; using $($onlineSerials[0])"
+        Write-Host "`[sideload_launch] WARN: serial '$Serial' not online; using $($onlineSerials[0])"
         $Serial = $onlineSerials[0]
     }
     elseif ($onlineSerials.Count -eq 0) {
@@ -153,7 +153,7 @@ if ($doBuild) {
     if (-not (Test-Path -LiteralPath $gradlew)) {
         throw "gradlew.bat not found at $gradlew"
     }
-    Write-Host "[sideload_launch] gradlew :app:assembleDebug --no-daemon"
+    Write-Host "`[sideload_launch] gradlew :app:assembleDebug --no-daemon"
     Push-Location $projRoot
     try {
         & $gradlew ":app:assembleDebug" --no-daemon
@@ -168,7 +168,7 @@ if (-not (Test-Path -LiteralPath $apk)) {
     throw "Missing APK: $apk; run assembleDebug or omit -SkipBuild after building once."
 }
 
-Write-Host "[sideload_launch] adb install -r -t $apk"
+Write-Host "`[sideload_launch] adb install -r -t $apk"
 try {
     adb wait-for-device | Out-Null
 }
@@ -185,7 +185,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "adb install failed exit=$LASTEXITCODE"
 }
 
-Write-Host "[sideload_launch] pm grant CAMERA (best-effort)"
+Write-Host "`[sideload_launch] pm grant CAMERA (best-effort)"
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA")
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.RECORD_AUDIO")
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_IMAGES")
@@ -203,7 +203,7 @@ if ($ExtraArgs -and $ExtraArgs.Count -gt 0) {
     $startArgs += $ExtraArgs
 }
 
-Write-Host "[sideload_launch] $($startArgs -join ' ')"
+Write-Host "`[sideload_launch] $($startArgs -join ' ')"
 if ($Serial) {
     & adb -s $Serial @startArgs
 }
@@ -214,4 +214,4 @@ if ($LASTEXITCODE -ne 0) {
     throw "am start failed exit=$LASTEXITCODE"
 }
 
-Write-Host "[sideload_launch] OK"
+Write-Host "`[sideload_launch] OK"

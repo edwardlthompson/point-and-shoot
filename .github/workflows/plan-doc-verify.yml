@@ -5,9 +5,17 @@ on:
     branches: [main, master]
     paths:
       - 'PROBE_BUILD_PLAN.md'
+      - 'BUILD_PLAN.md'
+      - 'CAPTURE_ARCHITECTURE.md'
+      - 'PERFORMANCE_BUDGETS.md'
+      - 'STORAGE_STRATEGY.md'
   pull_request:
     paths:
       - 'PROBE_BUILD_PLAN.md'
+      - 'BUILD_PLAN.md'
+      - 'CAPTURE_ARCHITECTURE.md'
+      - 'PERFORMANCE_BUDGETS.md'
+      - 'STORAGE_STRATEGY.md'
 
 concurrency:
   group: plan-doc-${{ github.workflow }}-${{ github.ref }}

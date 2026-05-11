@@ -7,6 +7,8 @@
   launches via intent extras (see EXTRA_PNS_PREVIEW_* in CameraCapabilitiesProbe.kt),
   captures logcat, and writes artifacts under -OutDir (including
   logcat_*_app_pid.txt lines filtered by pidof when a PID was resolved).
+  When not using -ChromeUxPack, waits briefly after scenarios then writes DCIM ls,
+  a bounded MediaStore content query tail, and mediastore_probe.json (Sprint 7.3).
 
   Prerequisites: USB debugging, authorized device, optional adb root for grants.
 
@@ -31,7 +33,7 @@
 
 .PARAMETER Milestone6Pack
   Run only BUILD_PLAN Milestone 6 scenarios (DNG 50708 stamp, LUT FPS probe, Calibrate +
-  GLES preview smoke). Implies short run — skips Sprint 5.2/5.3/4 highlight/BKT suite.
+  GLES preview smoke). Implies short run  -  skips Sprint 5.2/5.3/4 highlight/BKT suite.
 
 .PARAMETER ChromeUxPack
   Run only BUILD_PLAN Milestone 9 ChromeUx intent scenarios (`pns_preview_self_timer_sec`, …).
@@ -117,26 +119,26 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "[adb_preview_validate] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "`[adb_preview_validate] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
 if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "[adb_preview_validate] adb connect $Serial (TCP/IP)"
+    Write-Host "`[adb_preview_validate] adb connect $Serial (TCP/IP)"
     Invoke-AdbIgnore @("connect", $Serial)
 }
 
-Write-Host "[adb_preview_validate] devices:"
+Write-Host "`[adb_preview_validate] devices:"
 Invoke-Adb @("devices", "-l")
 
 $pkg = "dev.pointandshoot"
 
 if (-not $SkipInstall) {
-    Write-Host "[adb_preview_validate] install $apk"
+    Write-Host "`[adb_preview_validate] install $apk"
     Invoke-Adb @("install", "-r", $apk)
 }
 
-Write-Host "[adb_preview_validate] pm grant CAMERA"
+Write-Host "`[adb_preview_validate] pm grant CAMERA"
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA")
 
 # Best-effort storage (Android 13+ / legacy)
@@ -145,7 +147,7 @@ Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.POST_NOTIFICATIONS")
 
 # Best-effort: enlarge device log ring so PNS lines survive HAL spam (may be ignored without privileges).
-Write-Host "[adb_preview_validate] best-effort: logcat ring size"
+Write-Host "`[adb_preview_validate] best-effort: logcat ring size"
 Invoke-AdbIgnore @("shell", "logcat", "-G", "32M")
 
 function Write-ScenarioLogcat([string]$OutPath) {
@@ -153,7 +155,7 @@ function Write-ScenarioLogcat([string]$OutPath) {
     # Prefer our package PID so PNS.AdbValidation / capture lines survive long waits.
     # Always append a ring-buffer tail (`-t N`) after the pid dump: pid-only buffers can be thin or miss tags
     # that landed in the mixed ring (BUILD_PLAN §4 / Phase 1 V&V grep discipline).
-    # USB flakes can make adb exit non-zero during pidof/logcat — do not abort the whole script ($ErrorActionPreference = Stop).
+    # USB flakes can make adb exit non-zero during pidof/logcat  -  do not abort the whole script ($ErrorActionPreference = Stop).
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
     # Noisy camera HALs can exhaust 100k lines in <3 min; tag-filtered supplement below is the reliable hook.
@@ -166,13 +168,13 @@ function Write-ScenarioLogcat([string]$OutPath) {
             (& adb shell pidof $pkg 2>&1 | Out-String)
         }
         $pidTokens = @( ($pidLine.Trim() -split '\s+') | Where-Object { $_ -match '^\d+$' } )
-        # Some builds return multiple PIDs (main + helpers); keep the numerically largest — usually the active cold-start PID.
+        # Some builds return multiple PIDs (main + helpers); keep the numerically largest  -  usually the active cold-start PID.
         foreach ($t in $pidTokens) {
             if ($null -eq $chosenPid -or [int64]$t -gt [int64]$chosenPid) { $chosenPid = $t }
         }
         $pidBlock = New-Object System.Collections.Generic.List[string]
         if ($chosenPid -match '^\d+$') {
-            Write-Host "[adb_preview_validate] logcat -d --pid=$chosenPid (app process)"
+            Write-Host "`[adb_preview_validate] logcat -d --pid=$chosenPid (app process)"
             $pidLines = if ($Serial) {
                 @(& adb -s $Serial logcat -d --pid=$chosenPid 2>&1)
             } else {
@@ -181,13 +183,13 @@ function Write-ScenarioLogcat([string]$OutPath) {
             foreach ($ln in $pidLines) { [void]$pidBlock.Add($ln) }
             $lc = $pidBlock.Count
             if ($lc -lt 20) {
-                Write-Host "[adb_preview_validate] WARN: pid-scoped dump thin ($lc lines); still appending ring tail"
+                Write-Host "`[adb_preview_validate] WARN: pid-scoped dump thin ($lc lines); still appending ring tail"
             }
         }
         else {
-            Write-Host "[adb_preview_validate] WARN: pidof returned empty; ring tail only"
+            Write-Host "`[adb_preview_validate] WARN: pidof returned empty; ring tail only"
         }
-        Write-Host "[adb_preview_validate] logcat -d -t $fallbackTail (ring supplement)"
+        Write-Host "`[adb_preview_validate] logcat -d -t $fallbackTail (ring supplement)"
         $tailLines = if ($Serial) {
             @(& adb -s $Serial logcat -d -t $fallbackTail 2>&1)
         } else {
@@ -219,8 +221,89 @@ function Write-ScenarioLogcat([string]$OutPath) {
         Get-Content -LiteralPath $OutPath -ErrorAction SilentlyContinue |
             Where-Object { $_ -match " $chosenPid " } |
             Set-Content -LiteralPath $fragPath -Encoding utf8
-        Write-Host "[adb_preview_validate] pid-filtered fragment $fragPath"
+        Write-Host "`[adb_preview_validate] pid-filtered fragment $fragPath"
     }
+}
+
+function Write-MediaStorePnsProbe([string]$OutDir) {
+    # BUILD_PLAN Sprint 7.3 / STORAGE_STRATEGY.md  -  DCIM listing + bounded MediaProvider tail (grep Point & Shoot).
+    # IMPORTANT: paths contain `&` ("Point & Shoot"). Do **not** pass `ls`, `-la`, and the path as separate `adb shell`
+    # argv tokens  -  toybox/sh treats `&` as background unless the path is inside **single quotes** for one shell string.
+    $dcimLsPath = Join-Path $OutDir "ls_dcim_point_and_shoot.txt"
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+
+    function Invoke-AdbShellOneLiner([string]$Cmd) {
+        if ($Serial) {
+            @(& adb -s $Serial shell $Cmd 2>&1)
+        }
+        else {
+            @(adb shell $Cmd 2>&1)
+        }
+    }
+
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.AppendLine("=== ls '/sdcard/DCIM/Point & Shoot/' ===")
+    [void]$sb.AppendLine((Invoke-AdbShellOneLiner "ls -la '/sdcard/DCIM/Point & Shoot/'") -join "`n")
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("=== ls '/sdcard/DCIM/Point & Shoot/Ultra-Max/' ===")
+    [void]$sb.AppendLine((Invoke-AdbShellOneLiner "ls -la '/sdcard/DCIM/Point & Shoot/Ultra-Max/'") -join "`n")
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("=== find /sdcard/DCIM pns_*.(dng|jxl|avif) maxdepth 4 (first 40) ===")
+    # toybox find on device: keep pattern simple (three runs) for OEM compatibility.
+    foreach ($pat in @("pns_*.dng", "pns_*.jxl", "pns_*.avif")) {
+        $fcmd = "find /sdcard/DCIM -maxdepth 4 -type f -name '$pat' 2>/dev/null | head -n 40"
+        [void]$sb.AppendLine("-- pattern: $pat --")
+        [void]$sb.AppendLine((Invoke-AdbShellOneLiner $fcmd) -join "`n")
+    }
+
+    try {
+        Set-Content -LiteralPath $dcimLsPath -Value $sb.ToString() -Encoding utf8
+    }
+    catch {
+        "ls/find aggregate failed: $($_.Exception.Message)" | Set-Content -LiteralPath $dcimLsPath -Encoding utf8
+    }
+
+    $tailPath = Join-Path $OutDir "mediastore_images_tail.txt"
+    $ErrorActionPreference = "SilentlyContinue"
+    try {
+        # Tail keeps payload small on busy devices; filter PNS rows in PowerShell below.
+        $sh = "content query --uri content://media/external/images/media --projection _id,relative_path,display_name,is_pending 2>/dev/null | tail -n 500"
+        $raw = Invoke-AdbShellOneLiner $sh
+        $raw | Set-Content -LiteralPath $tailPath -Encoding utf8
+    }
+    catch {
+        "content query failed: $($_.Exception.Message)" | Set-Content -LiteralPath $tailPath -Encoding utf8
+    }
+    $ErrorActionPreference = $prevEap
+
+    $dcimText = ""
+    if (Test-Path -LiteralPath $dcimLsPath) {
+        $dcimText = [System.IO.File]::ReadAllText($dcimLsPath)
+    }
+    # Any deterministic capture filename under DCIM counts (see CaptureStorage.filename).
+    $dcimOk = $dcimText -match '(?im)pns_.+\.(dng|jxl|avif)'
+    $tailText = ""
+    if (Test-Path -LiteralPath $tailPath) {
+        $tailText = [System.IO.File]::ReadAllText($tailPath)
+    }
+    $pnsMediaRows = [regex]::Matches($tailText, "DCIM/Point.{0,3}Shoot", [System.Text.RegularExpressions.RegexOptions]::IgnoreCase).Count
+    $pnsDisplayHits = [regex]::Matches($tailText, "(?i)pns_\d{8}T\d{6}Z_", [System.Text.RegularExpressions.RegexOptions]::None).Count
+
+    $probeObj = [ordered]@{
+        schema            = "pns.mediastore_probe.v1"
+        generatedAtUtc    = [DateTime]::UtcNow.ToString("o")
+        outDir            = $OutDir
+        dcimLsArtifact    = "ls_dcim_point_and_shoot.txt"
+        dcimHasPnsCapture = [bool]$dcimOk
+        mediaTailArtifact = "mediastore_images_tail.txt"
+        mediaTailPnsRows   = [int]$pnsMediaRows
+        mediaTailPnsDisplayNameHits = [int]$pnsDisplayHits
+        contentQueryNote  = "ls uses single-quoted paths (ampersand-safe). Tail grep counts rows mentioning DCIM/Point & Shoot; mediaTailPnsDisplayNameHits counts `pns_<UTC>_` display_name prefixes in the tail."
+    }
+    $probeJson = Join-Path $OutDir "mediastore_probe.json"
+    $probeObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $probeJson -Encoding utf8
+    Write-Host "`[adb_preview_validate] mediastore_probe dcimHasPnsCapture=$dcimOk mediaTailPnsRows=$pnsMediaRows displayNameHits=$pnsDisplayHits -> $probeJson"
 }
 
 function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmArgs) {
@@ -238,14 +321,14 @@ function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmArgs) {
 }
 
 if ($ChromeUxPack) {
-    Write-Host "[adb_preview_validate] ChromeUxPack: BUILD_PLAN Milestone 9 ChromeUx intent scenarios only"
+    Write-Host "`[adb_preview_validate] ChromeUxPack: BUILD_PLAN Milestone 9 ChromeUx intent scenarios only"
     Run-Scenario "m9_self_timer_adb_seed" 22 @(
         "--es", "pns_screen", "preview",
         "--ei", "pns_preview_self_timer_sec", "3"
     )
 }
 elseif ($Milestone6Pack) {
-    Write-Host "[adb_preview_validate] Milestone6Pack: BUILD_PLAN M6 automation only"
+    Write-Host "`[adb_preview_validate] Milestone6Pack: BUILD_PLAN M6 automation only"
     # 1) DNG UniqueCameraModel 50708 IFD append + Software LUT line (Ultra-Max RAW12 single still).
     Run-Scenario "m6_raw12_ultra_50708" 75 @(
         "--es", "pns_screen", "preview",
@@ -272,10 +355,10 @@ elseif ($Milestone6Pack) {
     )
 }
 elseif ($SuperMacroOnly) {
-    Write-Host "[adb_preview_validate] SuperMacroOnly: scenario sprint53_super_macro_vv only (UW camera id=$UltraWideCameraId)"
+    Write-Host "`[adb_preview_validate] SuperMacroOnly: scenario sprint53_super_macro_vv only (UW camera id=$UltraWideCameraId)"
 }
 else {
-    # 0) Sprint 5.2 V&V — structured mode logs + preview restart lines (short settle window).
+    # 0) Sprint 5.2 V&V  -  structured mode logs + preview restart lines (short settle window).
     Run-Scenario "sprint52_mode_vv" 28 @(
         "--es", "pns_screen", "preview",
         "--es", "pns_preview_imaging_profile", "ultra_max",
@@ -284,7 +367,7 @@ else {
 }
 
 if (-not $Milestone6Pack -and -not $ChromeUxPack) {
-    # Sprint 5.3 — ultra-wide + OPLUS macro close-up vendor key on repeating preview (BUILD_PLAN MIXED gate).
+    # Sprint 5.3  -  ultra-wide + OPLUS macro close-up vendor key on repeating preview (BUILD_PLAN MIXED gate).
     Run-Scenario "sprint53_super_macro_vv" 35 @(
         "--es", "pns_screen", "preview",
         "--es", "pns_preview_camera_id", $UltraWideCameraId,
@@ -293,20 +376,20 @@ if (-not $Milestone6Pack -and -not $ChromeUxPack) {
 }
 
 if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
-    # 1) Highlight metering (dial H, ~119 fps default 60) — allow time for YUV histogram + AE comp iterations.
+    # 1) Highlight metering (dial H, ~119 fps default 60)  -  allow time for YUV histogram + AE comp iterations.
     Run-Scenario "highlight_dial_H" 45 @(
         "--es", "pns_screen", "preview",
         "--es", "pns_preview_dial", "H"
     )
 
     # 2) Ten sequential RAW stills (ADB validation tag PNS.AdbValidation)
-    # Wall budget: camera settle + 10×(capture + IO + inter-shot gap) — keep comfortably above ~120s on slow storage.
+    # Wall budget: camera settle + 10×(capture + IO + inter-shot gap)  -  keep comfortably above ~120s on slow storage.
     Run-Scenario "raw_still_x10" 180 @(
         "--es", "pns_screen", "preview",
         "--ei", "pns_preview_raw_count", "10"
     )
 
-    # 2b) Ultra-Max (RAW12 DNG) single still — BUILD_PLAN Milestone 4 Sprint 4.3
+    # 2b) Ultra-Max (RAW12 DNG) single still  -  BUILD_PLAN Milestone 4 Sprint 4.3
     Run-Scenario "raw12_ultra_max_x1" 75 @(
         "--es", "pns_screen", "preview",
         "--es", "pns_preview_imaging_profile", "ultra_max",
@@ -321,7 +404,13 @@ if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
     )
 }
 
-# Merge grep summary
+# DCIM/MediaStore probe (Sprint 7.3) then merge grep summary
+if (-not $ChromeUxPack) {
+    Write-Host "`[adb_preview_validate] settle before DCIM/MediaStore probe (7s)..."
+    Start-Sleep -Seconds 7
+    Write-MediaStorePnsProbe $OutDir
+}
+
 $summaryPath = Join-Path $OutDir "summary_grep.txt"
 $patterns = @(
     "PNS.AdbValidation",
@@ -346,7 +435,8 @@ $patterns = @(
     "preview seeded stillsLut",
     "PNS.ChromeUx",
     "selfTimerSec=",
-    "preview adb seed selfTimerDelaySec="
+    "preview adb seed selfTimerDelaySec=",
+    "encode_lane_busy"
 )
 $sb = New-Object System.Text.StringBuilder
 foreach ($p in $patterns) {
@@ -361,7 +451,7 @@ foreach ($p in $patterns) {
 [System.IO.File]::WriteAllText($summaryPath, $sb.ToString(), [System.Text.UTF8Encoding]::new($false))
 Write-Host "Wrote $summaryPath"
 
-# Sprint 5.3 MIXED — machine-readable gate (vendor close-up key accepted on repeating preview).
+# Sprint 5.3 MIXED  -  machine-readable gate (vendor close-up key accepted on repeating preview).
 $macroLog = Join-Path $OutDir "logcat_sprint53_super_macro_vv.txt"
 $macroPass = $false
 $macroLine = $null
@@ -401,7 +491,7 @@ else {
 }
 [void]$gateTxtLines.Add("see logcat_sprint53_super_macro_vv.txt and super_macro_gate.json")
 ($gateTxtLines -join "`n") | Set-Content -LiteralPath $gateTxt -Encoding utf8
-Write-Host "[adb_preview_validate] super_macro_gate pass=$macroPass -> $gateJson"
+Write-Host "`[adb_preview_validate] super_macro_gate pass=$macroPass -> $gateJson"
 
 if ($RequireSuperMacroPass -and -not $Milestone6Pack -and -not $ChromeUxPack -and -not $macroPass) {
     throw "Super Macro gate failed: expected PNS.AdbValidation line containing 'superMacroCloseup probe' and 'vendorKeyApplied=true' in $macroLog"
@@ -409,7 +499,7 @@ if ($RequireSuperMacroPass -and -not $Milestone6Pack -and -not $ChromeUxPack -an
 
 if ($Milestone6Pack) {
     function Test-M6LogPattern([string]$pattern) {
-        # foreach — `return` inside ForEach-Object only exits the scriptblock and can yield boolean arrays.
+        # foreach  -  `return` inside ForEach-Object only exits the scriptblock and can yield boolean arrays.
         $files = @( Get-ChildItem -LiteralPath $OutDir -Filter "logcat_m6_*.txt" -ErrorAction SilentlyContinue )
         foreach ($f in $files) {
             if (Select-String -LiteralPath $f.FullName -Pattern $pattern -SimpleMatch -Quiet -ErrorAction SilentlyContinue) {
@@ -434,7 +524,7 @@ if ($Milestone6Pack) {
     )
     $m6Json = Join-Path $OutDir "milestone6_gate.json"
     $m6Obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $m6Json -Encoding utf8
-    Write-Host "[adb_preview_validate] milestone6_gate pass=$($m6Obj.pass) -> $m6Json"
+    Write-Host "`[adb_preview_validate] milestone6_gate pass=$($m6Obj.pass) -> $m6Json"
     if (-not $m6Obj.pass) {
         throw "Milestone 6 gate failed (see logcat_m6_*.txt and $m6Json under $OutDir)"
     }
@@ -460,7 +550,7 @@ if ($ChromeUxPack) {
     }
     $cxJson = Join-Path $OutDir "chrome_ux_smoke.json"
     $cxObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $cxJson -Encoding utf8
-    Write-Host "[adb_preview_validate] chrome_ux_smoke pass=$($cxObj.pass) -> $cxJson"
+    Write-Host "`[adb_preview_validate] chrome_ux_smoke pass=$($cxObj.pass) -> $cxJson"
     if (-not $cxObj.pass) {
         throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3 and AdbValidation preview adb seed selfTimerDelaySec=3 in $m9Log"
     }
@@ -471,4 +561,4 @@ Invoke-AdbIgnore @("shell", "ls", "-la", "/sdcard/Pictures/") |
     Set-Content -LiteralPath (Join-Path $OutDir "ls_pictures_parent.txt") -Encoding utf8
 
 Write-Host ""
-Write-Host "[adb_preview_validate] DONE OutDir=$OutDir"
+Write-Host "`[adb_preview_validate] DONE OutDir=$OutDir"

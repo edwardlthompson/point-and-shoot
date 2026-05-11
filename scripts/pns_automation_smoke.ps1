@@ -7,7 +7,15 @@
 # - When at least one authorized device is connected: runs `pns_adb_preview_validate.ps1 -ChromeUxPack` unless `-SkipChromeUxPack`.
 #
 # Optional `-TryAdbRoot`: after TCP `adb connect` (when serial is ip:port), runs `adb root` best-effort
-# (userdebug / rooted fleet); may restart adbd — waits briefly before device scripts.
+# (userdebug / rooted fleet); may restart adbd  -  waits briefly before device scripts.
+#
+# Optional full `pns_adb_preview_validate.ps1` (capture-heavy; not ChromeUxPack) when device present.
+# Optional `-RequireMediaStoreDcim` (requires `-RunFullAdbPreviewValidate`): fail if mediastore_probe.json dcimHasPnsCapture is false.
+#
+# Optional `-AppendSection5` (+ `-ProbePlan`): after a fully passing smoke (no prior step failure), runs `pns_probe_append_section5.ps1`
+# for gate JSON under this run's `outDir` when artifacts exist: `failure_matrix_smoke.json`, full-validate `super_macro_gate.json` / `mediastore_probe.json`,
+# and `chrome_ux_gate.json` only when an authorized adb device was present (host-only chrome pass does not append PROBE_BUILD_PLAN section 5).
+# `mediastore_probe.json`: uses `-PassOnly` only when `dcimHasPnsCapture` is true so empty-DCIM runs still append an audit row.
 #
 # Serial: use `-Serial` or `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL`). Wi‑Fi form connects automatically.
 #
@@ -20,10 +28,18 @@ param(
     [switch]$SkipGradle,
     [switch]$TryAdbRoot,
     [switch]$SkipFailureMatrix,
-    [switch]$SkipChromeUxPack
+    [switch]$SkipChromeUxPack,
+    [switch]$RunFullAdbPreviewValidate,
+    [switch]$RequireMediaStoreDcim,
+    [switch]$AppendSection5,
+    [string]$ProbePlan = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($RequireMediaStoreDcim.IsPresent -and -not $RunFullAdbPreviewValidate.IsPresent) {
+    throw "-RequireMediaStoreDcim requires -RunFullAdbPreviewValidate (full adb preview run writes mediastore_probe.json)."
+}
 
 $projRoot = Split-Path -Parent $PSScriptRoot
 $utc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
@@ -72,17 +88,17 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "[automation_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "`[automation_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
 if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "[automation_smoke] adb connect $Serial (TCP/IP)"
+    Write-Host "`[automation_smoke] adb connect $Serial (TCP/IP)"
     Invoke-AdbIgnore @("connect", $Serial)
 }
 
 if ($TryAdbRoot.IsPresent) {
-    Write-Host "[automation_smoke] TryAdbRoot: adb root (best-effort)"
+    Write-Host "`[automation_smoke] TryAdbRoot: adb root (best-effort)"
     if ($Serial) {
         adb -s $Serial root 2>$null | Out-Null
     }
@@ -115,7 +131,7 @@ if (-not $SkipVerifyToolchain.IsPresent) {
     Step-Set "verifyToolchain" ($LASTEXITCODE -eq 0)
 }
 else {
-    Write-Host "[automation_smoke] -SkipVerifyToolchain"
+    Write-Host "`[automation_smoke] -SkipVerifyToolchain"
     Step-Set "verifyToolchain" $true
 }
 
@@ -143,7 +159,7 @@ if (-not $SkipFailureMatrix.IsPresent) {
     Step-Set "failureMatrixSmoke" ($LASTEXITCODE -eq 0)
 }
 else {
-    Write-Host "[automation_smoke] -SkipFailureMatrix"
+    Write-Host "`[automation_smoke] -SkipFailureMatrix"
     Step-Set "failureMatrixSmoke" $true
 }
 
@@ -165,19 +181,135 @@ if ($adbOk -and -not $SkipChromeUxPack.IsPresent) {
 }
 else {
     if (-not $adbOk) {
-        Write-Host "[automation_smoke] No authorized adb device — skipping pns_adb_preview_validate -ChromeUxPack"
+        Write-Host "`[automation_smoke] No authorized adb device  -  skipping pns_adb_preview_validate -ChromeUxPack"
     }
     else {
-        Write-Host "[automation_smoke] -SkipChromeUxPack"
+        Write-Host "`[automation_smoke] -SkipChromeUxPack"
     }
     Step-Set "adbPreviewChromeUxPack" $true
+}
+
+if ($adbOk -and $RunFullAdbPreviewValidate.IsPresent) {
+    Write-Host ""
+    Write-Host "========== [automation_smoke] pns_adb_preview_validate.ps1 (full capture suite) =========="
+    $advFull = Join-Path $PSScriptRoot "pns_adb_preview_validate.ps1"
+    $advFullDir = Join-Path $outDir "adb_preview_full_validate"
+    $advFullArgs = @{ OutDir = $advFullDir }
+    if ($Serial) { $advFullArgs["Serial"] = $Serial }
+    if ($SkipInstall.IsPresent) { $advFullArgs["SkipInstall"] = $true }
+    & $advFull @advFullArgs
+    $advOk = ($LASTEXITCODE -eq 0)
+    Step-Set "adbPreviewFullValidate" $advOk
+
+    if ($RequireMediaStoreDcim.IsPresent) {
+        $probePath = Join-Path $advFullDir "mediastore_probe.json"
+        $msOk = $false
+        if (Test-Path -LiteralPath $probePath) {
+            try {
+                $pj = ([System.IO.File]::ReadAllText($probePath) | ConvertFrom-Json)
+                $msOk = [bool]$pj.dcimHasPnsCapture
+            }
+            catch {
+                $msOk = $false
+            }
+        }
+        Step-Set "mediaStoreDcimProbe" $msOk
+        if (-not $msOk) {
+            Write-Host "`[automation_smoke] FAIL: mediastore_probe.dcimHasPnsCapture is not true (see $probePath)"
+        }
+    }
+    else {
+        Step-Set "mediaStoreDcimProbe" $true
+    }
+}
+else {
+    if ($RunFullAdbPreviewValidate.IsPresent -and -not $adbOk) {
+        Write-Host "`[automation_smoke] No authorized adb device  -  skipping -RunFullAdbPreviewValidate"
+    }
+    Step-Set "adbPreviewFullValidate" $true
+    Step-Set "mediaStoreDcimProbe" $true
+}
+
+if ($AppendSection5.IsPresent) {
+    if ($failed) {
+        Write-Host "`[automation_smoke] -AppendSection5 skipped (smoke already has failures)"
+        $summary["appendSection5"] = [ordered]@{ ran = $false; reason = "smoke_failed" }
+    }
+    else {
+        Write-Host ""
+        Write-Host "========== [automation_smoke] pns_probe_append_section5.ps1 (PassOnly except mediastore when dcim empty) =========="
+        $append = Join-Path $PSScriptRoot "pns_probe_append_section5.ps1"
+        $appendInvokes = New-Object System.Collections.Generic.List[hashtable]
+
+        function Invoke-AutomationAppend([string]$Label, [string]$StepKey, [string]$RelJsonPath, [bool]$AppendPassOnly = $true) {
+            if (-not ($script:summary.steps.Contains($StepKey))) {
+                return
+            }
+            $stepOk = [bool]$script:summary.steps[$StepKey].ok
+            if (-not $stepOk) {
+                return
+            }
+            if ($Label -eq "chrome_ux_gate" -and -not $adbOk) {
+                Write-Host "`[automation_smoke] AppendSection5 skip chrome_ux_gate  -  no authorized adb device (host-only pass does not append PROBE_BUILD_PLAN section 5)"
+                return
+            }
+            $jp = Join-Path $script:outDir $RelJsonPath
+            if (-not (Test-Path -LiteralPath $jp)) {
+                Write-Host "`[automation_smoke] AppendSection5 skip $Label  -  missing $jp"
+                return
+            }
+            Write-Host "`[automation_smoke] AppendSection5 $Label <- $jp"
+            $invokeArgs = @{ GateJson = $jp }
+            if ($AppendPassOnly) {
+                $invokeArgs["PassOnly"] = $true
+            }
+            if ($ProbePlan) {
+                $invokeArgs["ProbePlan"] = $ProbePlan
+            }
+            & $append @invokeArgs
+            $ex = $LASTEXITCODE
+            [void]$appendInvokes.Add(@{ label = $Label; json = $RelJsonPath; exitCode = $ex })
+            if ($ex -ne 0) {
+                $script:failed = $true
+                Write-Host "`[automation_smoke] FAIL: probe_append_section5 exit=$ex for $jp"
+            }
+        }
+
+        Invoke-AutomationAppend "chrome_ux_gate" "chromeUxGate" "chrome_ux_gate\chrome_ux_gate.json"
+        Invoke-AutomationAppend "failure_matrix_smoke" "failureMatrixSmoke" "failure_matrix_smoke\failure_matrix_smoke.json"
+        Invoke-AutomationAppend "super_macro_gate" "adbPreviewFullValidate" "adb_preview_full_validate\super_macro_gate.json"
+        # mediastore: `pns_probe_append_section5 -PassOnly` skips append when dcimHasPnsCapture=false; still record empty DCIM in §5.
+        $msRel = "adb_preview_full_validate\mediastore_probe.json"
+        $msJp = Join-Path $outDir $msRel
+        $msPassOnly = $true
+        if (Test-Path -LiteralPath $msJp) {
+            try {
+                $msj = [System.IO.File]::ReadAllText($msJp) | ConvertFrom-Json
+                if ($null -ne $msj.dcimHasPnsCapture) {
+                    $msPassOnly = [bool]$msj.dcimHasPnsCapture
+                }
+            }
+            catch {
+                $msPassOnly = $true
+            }
+        }
+        Invoke-AutomationAppend "mediastore_probe" "adbPreviewFullValidate" $msRel $msPassOnly
+
+        $summary["appendSection5"] = [ordered]@{
+            ran     = $true
+            invokes = @($appendInvokes.ToArray())
+        }
+    }
+}
+else {
+    $summary["appendSection5"] = [ordered]@{ ran = $false; reason = "not_requested" }
 }
 
 $summary["pass"] = -not $failed
 $jsonPath = Join-Path $outDir "automation_smoke.json"
 $summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $jsonPath -Encoding utf8
 Write-Host ""
-Write-Host "[automation_smoke] Wrote $jsonPath pass=$($summary.pass)"
+Write-Host "`[automation_smoke] Wrote $jsonPath pass=$($summary.pass)"
 
 if ($failed) {
     exit 1

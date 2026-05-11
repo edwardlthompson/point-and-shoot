@@ -57,12 +57,12 @@ Rationale and the constraints behind each row are below.
 * [ ] [ADB] Outputs are written reliably with predictable naming.
   * Implementation gate (Phase 1): unit test on the filename builder; on-device smoke after first capture.
 * [ ] [ADB] Files appear in gallery apps (when MediaStore) / export works (when app-private).
-  * Validation gate: scroll the LineageOS Gallery + run `cmd content query --uri content://media/external/images/media` after a capture.
+  * Validation gate: scroll the LineageOS Gallery + run `cmd content query --uri content://media/external/images/media` after a capture; **`pns_adb_preview_validate.ps1`** writes **`mediastore_probe.json`** (`dcimHasPnsCapture`, `mediaTailPnsRows`, optional `mediaTailPnsDisplayNameHits`) plus **`ls_dcim_point_and_shoot.txt`** (ampersand-safe **`ls`** + **`Ultra-Max/`** + **`find`**) and **`mediastore_images_tail.txt`** under the run folder (BUILD_PLAN Sprint 7.3). **`dcimHasPnsCapture`** reflects **`pns_*.{dng,jxl,avif}`** on disk; **`mediaTailPnsRows`** may stay **0** on OEMs where the tail does not include **`relative_path`**. Prior false **`dcimHasPnsCapture=false`** was caused by **`adb shell`** splitting **`Point & Shoot`** on **`&`** when **`ls`** arguments were not one quoted shell command.
 * [ ] [HOST] Pull + verify files open in desktop tooling.
-  * Validation gate: `adb pull <DCIM/Point & Shoot/...> ./pulls/`, then open in `darktable` (DNG), `imv`/`gthumb` (AVIF), and `djxl` (JXL).
+  * Validation gate: **`scripts/pns_pull_dcim_captures.ps1`** (or manual **`adb pull '/sdcard/DCIM/Point & Shoot'`** …), then open in `darktable` (DNG), `imv`/`gthumb` (AVIF), and `djxl` (JXL).
 
 ## Open questions (to resolve in Phase 1)
 
 * **JXL MediaProvider support on LineageOS 23:** if the MIME type is rejected by the insert call, fall back to a `.jxl` file in the Documents collection or app-private storage and surface a one-time UI hint.
 * **HEIF / HEIC compatibility:** out of scope (proprietary HEVC encoder dependency). We deliberately ship AVIF (FOSS AV1) and JXL instead.
-* **DCIM vs Pictures collection:** Pictures keeps the gallery clean; DCIM is the convention for "camera output". We pick Pictures for now and reconsider once the capture engine has live testing.
+* **DCIM vs `Pictures/`:** The app inserts under **`DCIM/Point & Shoot/`** via **`MediaStore` `RELATIVE_PATH`** (see **`CaptureStorage.kt`**) so outputs sit in the conventional camera-roll tree; we are not using a `Pictures/…`-only layout for indexed stills.

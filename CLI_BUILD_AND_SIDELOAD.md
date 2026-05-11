@@ -73,6 +73,10 @@ Install a fresh **`app-debug.apk`**, grant **`CAMERA`**, run three scripted **`M
 ```
 .\scripts\pns_adb_preview_validate.ps1
 .\scripts\pns_adb_preview_validate.ps1 -Serial <adb_serial> -SkipInstall -OutDir .\hfr-runs\my_adb_run
+
+# Pull indexed stills (DCIM/Point & Shoot) to the host for desktop RAW / AVIF / JXL checks (see STORAGE_STRATEGY.md)
+.\scripts\pns_pull_dcim_captures.ps1
+.\scripts\pns_pull_dcim_captures.ps1 -Serial <adb_serial> -OutDir .\pulls\pns_dcim
 ```
 
 Artifacts include **`logcat_*.txt`**, companion **`logcat_*_app_pid.txt`** (PID-filtered lines when the script used the tail fallback), and **`summary_grep.txt`**.

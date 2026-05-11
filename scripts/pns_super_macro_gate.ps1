@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Automated Sprint 5.3 Super Macro vendor gate (BUILD_PLAN MIXED) — thin wrapper.
+  Automated Sprint 5.3 Super Macro vendor gate (BUILD_PLAN MIXED)  -  thin wrapper.
 
 .DESCRIPTION
   Runs scripts/pns_adb_preview_validate.ps1 with -SuperMacroOnly: installs APK (unless -SkipInstall),

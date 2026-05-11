@@ -1,4 +1,4 @@
-﻿# Streams adb logcat while Point & Shoot probes run; highlights crashes, ANRs, fatals,
+# Streams adb logcat while Point & Shoot probes run; highlights crashes, ANRs, fatals,
 # camera HAL errors, and stalls (no PNS.SWEEP_SIGNAL for HangTimeoutSeconds while app is alive).
 # Usage (second terminal, while probe runs):
 #   .\scripts\pns_probe_watch.ps1
@@ -115,7 +115,7 @@ try {
       $lastPidCheckUtc = $now
       $pidNow = Get-AppPid
       if ($lastPid -and -not $pidNow) {
-        Write-Evt "CRASH" "Process $Package exited (was pid=$lastPid) — check tombstone/ANR above"
+        Write-Evt "CRASH" "Process $Package exited (was pid=$lastPid)  -  check tombstone/ANR above"
         $fatalSeen = $true
         if ($ExitOnFatal) { break }
       }

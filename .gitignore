@@ -15,6 +15,7 @@ _enc_test.txt
 # Probe exports (keep canonical PROBE_RESULTS.md)
 PROBE_RESULTS_*.md
 hfr-runs/
+perf-runs/
 pns-live-logcat.txt
 
 # Local adb addressing (Wi‑Fi serial / USB); copy from scripts/pns_adb_device.env.example

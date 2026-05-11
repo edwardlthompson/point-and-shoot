@@ -26,6 +26,20 @@ object PerfBudget {
         const val POST_READOUT_TICK_TOLERANCE_MS: Long = 5L
 
         /**
+         * Max wall time to wait for the still encode executor (`PNS.Reader` / `ioExecutor`)
+         * to finish in-flight work before starting a sequential RAW bracket. Mirrors
+         * `CAPTURE_ARCHITECTURE.md` and `PreviewEngineScreen` BKT preflight; on timeout the
+         * engine logs **`encode_lane_busy`** and surfaces **"Engine busy - retry"**.
+         */
+        const val ENCODE_LANE_DRAIN_WAIT_MS: Long = 200L
+
+        /**
+         * `ImageReader.newInstance` **maxImages** for still / metering readers (`PNS.Reader` lane).
+         * See **`CAPTURE_ARCHITECTURE.md`** — bounded queue; supersede / HAL lag logs **`drop oldest`**.
+         */
+        const val STILL_IMAGE_READER_MAX_IMAGES: Int = 4
+
+        /**
          * GLES preview / video LUT shader cost per 1080p frame. Pinned at 2 ms
          * so a 33^3 LUT applied via `sampler3D` at 60 fps consumes < 12 % of
          * the per-frame budget. BUILD_PLAN §7 V&V gate: "enabling/disabling a

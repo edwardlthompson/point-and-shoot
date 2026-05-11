@@ -92,7 +92,7 @@ jobs:
         shell: pwsh
         run: |
           Set-Location "${{ github.workspace }}"
-          ./scripts/pns_verify_toolchain.ps1
+          ./scripts/pns_verify_toolchain.ps1 -RunTests
 
       - name: Assemble signed release APK
         env:

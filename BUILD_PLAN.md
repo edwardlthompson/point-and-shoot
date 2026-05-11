@@ -21,7 +21,7 @@
    Pure refactors with **no** visual or behavioral UI change (rename-only, dead-code removal) may skip the device step with a one-line justification. **Agents:** treat this gate as **non-optional** for normal UI work; do not declare UI changes “complete” from IDE previews or chat screenshots alone.
 7. **JAVA_HOME (Windows):** use `C:\Program Files\Android\Android Studio\jbr` when Gradle fails with “no java”.
 8. **ADB:** prefer `%LOCALAPPDATA%\Android\Sdk\platform-tools` first on `PATH` (pair/connect vs legacy adb).
-9. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** for **`pns_sideload_and_launch.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_milestone6_gate.ps1`**, **`pns_device_screencap.ps1`** when `-Serial` is omitted; Wi‑Fi **`host:port`** values trigger **`adb connect`** where scripts support it.
+9. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** for **`pns_sideload_and_launch.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_milestone6_gate.ps1`**, **`pns_device_screencap.ps1`** when `-Serial` is omitted; Wi‑Fi **`host:port`** values trigger **`adb connect`** where scripts support it. Use **`-Serial`** on **`pns_milestone6_gate.ps1`** / **`pns_adb_preview_validate.ps1`** to override env when that endpoint is offline.
 
 **Human work:** Only **Milestone H — Human & publication** contains tasks that require a person (accounts, subjective judgment, physical charts, desktop apps). Agents prepare artifacts; humans close **[HUMAN]** items.
 
@@ -32,13 +32,15 @@
 | Tool | Role |
 |------|------|
 | `scripts/pns_verify_toolchain.ps1 -RunTests` | Host gate: assembleDebug, unit tests, FOSS dep-audit, license/SBOM, script UTF-8 |
-| `scripts/pns_hfr_autorun.ps1` | Device probe automation (`-RunProbeSmoke`, `-RunFullSuite`, …) |
-| `scripts/pns_adb_preview_validate.ps1` | Scripted preview / RAW / BKT scenarios + log capture; **`-ChromeUxPack`** → **`chrome_ux_smoke.json`** (self-timer ADB seed) |
-| `scripts/pns_milestone6_gate.ps1` | Milestone 6 pack: `assembleDebug` + `-Milestone6Pack` (DNG 50708, LUT FPS probe, Calibrate + GLES smoke) → **`milestone6_gate.json`** |
-| `scripts/pns_failure_matrix_smoke.ps1` | Milestone 7 smoke: preview cold start + CAMERA revoked preview → **`failure_matrix_smoke.json`** (no AndroidRuntime fatal for `dev.pointandshoot`) |
+| `scripts/pns_hfr_autorun.ps1` | Device probe automation (`-RunProbeSmoke`, `-RunFullSuite`, …); **`-PerfReport`** → `perf-runs/perf_*.md` (cold start `am start -W`, `dumpsys meminfo`, `PNS.Reader` drop tail; optional **`-Serial`** / `pns_adb_device.env`); Perfetto / `gfxinfo` protocol → **`PERFORMANCE_BUDGETS.md`** § *Perfetto & frame jank* |
+| `scripts/pns_adb_preview_validate.ps1` | Scripted preview / RAW / BKT + log capture; **`-ChromeUxPack`** → **`chrome_ux_smoke.json`**; else **7 s** settle → **`mediastore_probe.json`** + DCIM **`ls`** + MediaStore tail |
+| `scripts/pns_milestone6_gate.ps1` | Milestone 6 pack: `assembleDebug` + `-Milestone6Pack` (DNG 50708, LUT FPS probe, Calibrate + GLES smoke) → **`milestone6_gate.json`**; optional **`-Serial`** overrides **`pns_adb_device.env`** when Wi‑Fi adb is offline |
+| `scripts/pns_failure_matrix_smoke.ps1` | Milestone 7 smoke: preview cold start + CAMERA revoked preview → **`failure_matrix_smoke.json`** (no AndroidRuntime fatal for `dev.pointandshoot`); optional **`-AppendSection5`** / **`-ProbePlan`** after **`pass: true`** |
+| `scripts/pns_root_capability_adb.ps1` | **ADB transport root** probe: optional **`adb root`**, **`adb shell id`** / best-effort **`su -c id`**, **`root_capability_adb.json`** (**`pns.root_capability_adb.v1`**) for **`pns_probe_append_section5.ps1`** |
 | `scripts/pns_chrome_ux_gate.ps1` | Milestone 9 pack: toolchain + optional device **`PNS.ChromeUx`** checks (**`seedOk`** … **`grid7=`**, **`modeDialPopout=`**, **`readoutCapture=`**, **`selfTimerSec=`**) → **`chrome_ux_gate.json`** |
-| `scripts/pns_automation_smoke.ps1` | Fleet orchestration: **`pns_verify_toolchain -RunTests`** → **`pns_chrome_ux_gate -SkipHost`** → **`pns_failure_matrix_smoke`** → **`pns_adb_preview_validate -ChromeUxPack`** (device present); optional **`-TryAdbRoot`** → **`automation_smoke.json`** |
+| `scripts/pns_automation_smoke.ps1` | Fleet: verify toolchain → chrome UX gate → failure-matrix smoke → optional **`-ChromeUxPack`**; optional **`-RunFullAdbPreviewValidate`** + **`-RequireMediaStoreDcim`**; **`-AppendSection5`** (+ **`-ProbePlan`**) appends **§5** when the smoke passes (**`chrome_ux_gate`** only if adb was authorized); **`mediastore_probe`** §5 uses **`-PassOnly`** only when **`dcimHasPnsCapture`** is true so empty DCIM still logs; **`-TryAdbRoot`** → **`automation_smoke.json`** |
 | `scripts/pns_device_screencap.ps1` | **`adb exec-out screencap -p`** to PNG via **`Process` stdout stream** (avoids broken PS pipelines); use for **`BUILD_PLAN`** UI verification artifacts |
+| `scripts/pns_pull_dcim_captures.ps1` | **`adb pull`** **`/sdcard/DCIM/Point & Shoot`** to **`hfr-runs/pull_dcim_*`** (or **`-OutDir`**); supports **`pns_adb_device.env`** / **`-Serial`** / Wi‑Fi **`adb connect`** — desktop half of Sprint **7.3** / **Milestone H.1** |
 | `scripts/pns_sideload_and_launch.ps1` | **`assembleDebug`** + **`adb install -r -t`** + runtime grants + **`am start`** preview (`--es pns_screen preview`); primary fast path for **UI work gate** (“How agents must execute”, item 6) |
 | `scripts/pns_adb_device.env` (gitignored; copy `.example`) | Default **`PNS_ADB_SERIAL`** for scripts when `-Serial` omitted (Wi‑Fi **`ip:port`** OK) |
 | `.github/workflows/toolchain-verify.yml` | CI mirror of toolchain |
@@ -261,17 +263,22 @@ Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, sh
 
 ### Sprint 7.1 — Performance & profiling
 
-- [ ] [MIXED] Perfetto / jank baselines per `PERFORMANCE_BUDGETS.md` + `PerfBudget.kt`.
-- [x] [HOST] `pns_hfr_autorun.ps1 -PerfReport` stub (extend when budgets are populated from device).
+- [x] [MIXED] **Perfetto** trace baseline (light) per **`PERFORMANCE_BUDGETS.md`** § *Perfetto & frame jank* — **`scripts/pns_capture_perfetto_light.ps1`** pulls **`perf-runs/perfetto_*_serial-<adb>.perfetto-trace`** (device **`/system/bin/perfetto`** light mode: **gfx** / **view** / **sched** + **`-a dev.pointandshoot`**; on **CPH2655** the write path required **`adb root`**). **§5** evidence **2026-05-11**; paired **`-PerfReport`** markdown in the same slice. Deeper **SurfaceFlinger** / **GPU** pbtxt configs remain optional backlog if light traces are insufficient for a given regression.
+- [x] [ADB] **`dumpsys gfxinfo … framestats`** — **`python scripts/pns_capture_gfxinfo_baseline.py`** (**`--serial`** or **`scripts/pns_adb_device.env`**); **`perf-runs/gfxinfo_*_serial-<adb>.txt`**. First fleet file: **`perf-runs/gfxinfo_20260510_232327_serial-8bf09993.txt`** (OnePlus **CPH2655**); headline numbers in **`PROBE_BUILD_PLAN.md` §5** (2026-05-11).
+- [x] [HOST] `pns_hfr_autorun.ps1 -PerfReport` — **`perf-runs/perf_*.md`**: `am start -W` vs 800 ms, `dumpsys meminfo` PSS vs 180 MB, `PNS.Reader` drop tail; **`-Serial`** / **`pns_adb_device.env`**. Full protocol: **`PERFORMANCE_BUDGETS.md`** (**Android Studio**, desktop **`perfetto`**, **`pns_capture_perfetto_light.ps1`**, **`pns_capture_gfxinfo_baseline.py`**).
 
 ### Sprint 7.2 — Failure matrix (ADB)
 
-- [x] [HOST] **`scripts/pns_failure_matrix_smoke.ps1`** — automated smoke: **`fm_preview_granted`** + **`fm_preview_revoked`** (CAMERA revoked then cold-start preview); **`failure_matrix_smoke.json`** asserts no **`FATAL EXCEPTION` / `Process: dev.pointandshoot`** block in captured logcat. **`ERROR_CAMERA_IN_USE`**, orientation torture, thermal long-run — **manual / stretch** (documented in **`FAILURE_MATRIX.md`**); append §5 when a device run records JSON **`pass: true`**.
+- [x] [HOST] **`scripts/pns_failure_matrix_smoke.ps1`** — automated smoke: **`fm_preview_granted`** + **`fm_preview_revoked`** (CAMERA revoked then cold-start preview); **`failure_matrix_smoke.json`** (**`schema`**: **`pns.failure_matrix_smoke.v1`**) asserts no **`FATAL EXCEPTION` / `Process: dev.pointandshoot`** block in captured logcat. **`ERROR_CAMERA_IN_USE`**, orientation torture, thermal long-run — **manual / stretch** (documented in **`FAILURE_MATRIX.md`**); append **§5** with **`scripts/pns_probe_append_section5.ps1 -GateJson …/failure_matrix_smoke.json`** when a device run records **`pass: true`**.
 
 ### Sprint 7.3 — Pipeline & storage
 
-- [ ] [MIXED] Backpressure / queue bounds under burst + RAW (`CAPTURE_ARCHITECTURE.md`).
-- [ ] [MIXED] MediaStore/gallery validation; **[HOST][HUMAN]** desktop opens → Milestone H.
+- [x] [HOST] BKT encode-lane preflight — wait up to **`PerfBudget.Defaults.ENCODE_LANE_DRAIN_WAIT_MS`** for `PNS.Reader` / `ioExecutor` to drain + best-effort RAW/JPEG **`ImageReader`** discard before sequential bracket; timeout → **`PNS.AdbValidation`** **`encode_lane_busy`** + Toast **"Engine busy - retry"** (`PreviewEngineScreen`, **`CAPTURE_ARCHITECTURE.md`**, **`PERFORMANCE_BUDGETS.md`** bracket table).
+- [x] [HOST] **`scripts/pns_analyze_reader_backpressure.ps1`** — classifies **`PNS.Reader`** **`drop oldest`** lines (**`queue=`** / **`channel=`**) and tallies **`encode_lane_busy`** / encode-lane drain timeouts from plain logcat text. **`-LogDir`** walks **`logcat_*.txt`** recursively and skips sibling **`*_app_pid.txt`** (avoids double-counting the same lines vs full ring captures). **`-OutFile`** emits Markdown (e.g. sample **`perf-runs/reader_backpressure_smoke_20260511_030304.md`** over **`hfr-runs/automation_smoke_20260511_030304/adb_preview_full_validate`**).
+- [x] [MIXED] Backpressure / queue bounds — **`CAPTURE_ARCHITECTURE.md`** Sprint **7.3 acceptance gates** (`raw_still_x10` + `bracket_bkt3` logs) vs **`PERFORMANCE_BUDGETS.md`** bracket table; evidence **`perf-runs/reader_backpressure_validate_raw_and_bkt3.md`** (**`pns_analyze_reader_backpressure.ps1`** on **`hfr-runs/automation_smoke_20260511_030304/adb_preview_full_validate`**) + **`PROBE_BUILD_PLAN.md` §5** **2026-05-11** (all gate counts **0**). Longer / adversarial bursts remain optional follow-up.
+- [x] [ADB] **`encode_lane_busy`** not observed on **BKT3** full **`pns_adb_preview_validate`** run (**`hfr-runs/adb_preview_validate_20260511_005819/`**): **`summary_grep.txt`** `encode_lane_busy` section has **no log hits**; **`logcat_bracket_bkt3.txt`** includes **`PNS.AdbValidation`** **`captureBracketBurst pattern=Three ok=true`** (device **8bf09993** / **CPH2655**).
+- [x] [ADB] **DCIM / mediastore_probe.json** — **`pns_adb_preview_validate.ps1`** `Write-MediaStorePnsProbe`: **ampersand-safe** `adb shell` (`ls -la '/sdcard/DCIM/Point & Shoot/'` + **`Ultra-Max/`** + **`find`** `pns_*.{dng,jxl,avif}`); **`dcimHasPnsCapture`** now reflects real **`pns_*.dng`** on disk (fix validated **CPH2655** / **`8bf09993`**: **`hfr-runs/mediastore_probe_retest_20260511/mediastore_probe.json`** **`dcimHasPnsCapture=true`**). **`mediaTailPnsRows`** may stay **0** on some OEMs (tail schema); JSON adds **`mediaTailPnsDisplayNameHits`** for **`pns_<UTC>_`** in the tail when present.
+- [ ] [MIXED] **Gallery / desktop open** — still **[HOST][HUMAN]** (Milestone H): open indexed DNG/JPEG in OEM gallery + desktop tooling per **`STORAGE_STRATEGY.md`**; host staging: **`scripts/pns_pull_dcim_captures.ps1`** (**`adb pull`** **`/sdcard/DCIM/Point & Shoot`**). Close together with **Milestone H.1** desktop row when sign-off is recorded in §5.
 
 ### Sprint 7.4 — Feature gating UX
 
@@ -279,9 +286,10 @@ Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, sh
 
 ### Sprint 7.5 — Root-only enhancements (optional fleet)
 
-- [ ] [ROOT] Items in `RootSettingsScreen` — vendor `setprop`, cameraserver restart, governor pin, thermal sysfs, logcat pull, vendor-key probe, resolution override, backlight read — each **[x]** only with §5 + device notes (Magisk/KernelSU as available).
+- [x] [ADB] **`scripts/pns_root_capability_adb.ps1`** — USB adb **`adb root`** transport: **`adb shell id`** → **`uid=0(root)`**; writes **`root_capability_adb.json`** (**`schema`**: **`pns.root_capability_adb.v1`**). **Note:** **`adb shell su -c id`** may still fail on builds where only **adbd** is rooted (no Magisk **`/system/bin/su`** on PATH). §5 append via **`pns_probe_append_section5.ps1`**.
+- [ ] [ROOT] Items in `RootSettingsScreen` — vendor `setprop`, cameraserver restart, governor pin, thermal sysfs, logcat pull, vendor-key probe, resolution override, backlight read — each **[x]** only with §5 + device notes when the **in-app privileged actions** exist beyond the catalog + **`su`** grant probe (**catalog ships today; destructive fleet ops not individually implemented**).
 
-**Milestone 7 gate:** Toolchain PASSED; failure-matrix rows closed or explicitly waived with issue links; storage ADB checks recorded.
+**Milestone 7 gate:** Toolchain PASSED; failure-matrix rows closed or explicitly waived with issue links; **storage** ADB checks (**`encode_lane_busy`**, reader backpressure gates, **DCIM `mediastore_probe`**) recorded; **ADB root transport** probe (**`pns_root_capability_adb.ps1`**) §5 when fleet uses **`adb root`**; gallery/desktop opens remain **Milestone H** where applicable.
 
 ---
 
@@ -319,7 +327,7 @@ Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, sh
 
 ### Sprint 9.3 — Chrome UX gate script
 
-- [x] [HOST] **`scripts/pns_chrome_ux_gate.ps1`** — runs **`pns_verify_toolchain.ps1 -RunTests`** (unless **`-SkipHost`** / **`-SkipHostTests`**), optional **`assembleDebug`**, installs APK when a device is connected, cold-starts **`MainActivity`** with **`pns_screen=preview`**, captures logcat, asserts **`PNS.ChromeUx`** **`seedOk slot=M23`** **and** **`safeInsetsTopPx=`** (merged bars + cutout log); writes **`chrome_ux_gate.json`** (**`safeInsetsOk`**). Without an authorized device: **`pass`** follows **host-only** success (device checks skipped). Parameters: **`-SkipInstall`**, **`-SkipGradle`**. §5 append for this JSON is **manual** until **`pns_probe_append_section5.ps1`** accepts **`chrome_ux_gate.json`** shape.
+- [x] [HOST] **`scripts/pns_chrome_ux_gate.ps1`** — runs **`pns_verify_toolchain.ps1 -RunTests`** (unless **`-SkipHost`** / **`-SkipHostTests`**), optional **`assembleDebug`**, installs APK when a device is connected, cold-starts **`MainActivity`** with **`pns_screen=preview`**, captures logcat, asserts **`PNS.ChromeUx`** **`seedOk slot=M23`** **and** **`safeInsetsTopPx=`** (merged bars + cutout log); writes **`chrome_ux_gate.json`** (**`safeInsetsOk`**, schema **`pns.chrome_ux_gate.v1`**). Without an authorized device: **`pass`** follows **host-only** success (device checks skipped). Parameters: **`-SkipInstall`**, **`-SkipGradle`**. §5 append: **`scripts/pns_probe_append_section5.ps1 -GateJson …/chrome_ux_gate.json`** (same script as Milestone 6 / MediaStore / Super Macro / **7.2** **`failure_matrix_smoke.json`** gates).
 
 ### Sprint 9.4 — Safe area / cutout (host + ADB)
 
@@ -381,7 +389,7 @@ Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, sh
 
 ### Sprint H.1 — Desktop & studio verification
 
-- [ ] [HOST][HUMAN] Pull DNG/AVIF/JXL from `DCIM/Point & Shoot/…` and open in desktop RAW / color tools (Standard Pro + Ultra-Max samples).
+- [ ] [HOST][HUMAN] Pull DNG/AVIF/JXL from `DCIM/Point & Shoot/…` and open in desktop RAW / color tools (Standard Pro + Ultra-Max samples). **Staging:** **`scripts/pns_pull_dcim_captures.ps1`** → then **`darktable` / `RawTherapee` / `djxl`** / AVIF viewer per **`STORAGE_STRATEGY.md`**.
 - [ ] [HOST][HUMAN] Passport **Creative Enhancement** reference values transcribed from X-Rite datasheets (IP-sensitive).
 - [ ] [MIXED] Bracket set **desktop regroup** sanity.
 

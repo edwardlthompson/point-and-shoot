@@ -49,7 +49,8 @@ These budgets are *targets* for the OnePlus 13 (`dodge`) on LineageOS 23 (Androi
 | Bracket submit | <= 50 ms | `captureBurst(plan)` enqueue time |
 | Inter-frame interval | sensor + AE bound | Logged via `BracketPlan.indexInBurst` timing |
 | Full 7-shot bracket complete | <= 4 s | End-to-end (UI tap to last DNG persisted) |
-| In-flight queue overflow | 0 | `ImageReader` queue must never exceed `maxImages = 4` while burst runs |
+| In-flight queue overflow | 0 | `ImageReader` queue must never exceed **`maxImages = PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES`** while burst runs |
+| BKT pre-bracket encode drain wait | <= 200 ms | Pinned in `PerfBudget.Defaults.ENCODE_LANE_DRAIN_WAIT_MS`; `awaitReaderExecutorDrain` before sequential bracket; timeout → `encode_lane_busy` + user retry (see `CAPTURE_ARCHITECTURE.md`) |
 
 ## Video recording
 
@@ -82,9 +83,56 @@ These budgets are *targets* for the OnePlus 13 (`dodge`) on LineageOS 23 (Androi
 
 ## Validation gates (BUILD_PLAN §9)
 
-* [ ] [HOST] `pns_hfr_autorun.ps1` adds a `--PerfReport` switch that pulls `am start -W` + `dumpsys meminfo` + `logcat | rg "PNS.Reader drop"` and emits `perf-runs/<utc>.md` summarizing budget adherence.
+* [x] [HOST] `pns_hfr_autorun.ps1` **`-PerfReport`** pulls `am start -W` + `dumpsys meminfo dev.pointandshoot` + a log tail grep for `PNS.Reader` `drop oldest` and emits `perf-runs/perf_<utc>.md` with budget rows (cold start / PSS vs `PerfBudget.Defaults`). Optional **`-Serial`** / `pns_adb_device.env`. Pair **`perf-runs/perf_*.md`** with **`perf-runs/perfetto_*.perfetto-trace`** when Sprint **7.1** traces are captured (**`scripts/pns_capture_perfetto_light.ps1`** or Android Studio / desktop **perfetto** CLI per **`PERFORMANCE_BUDGETS.md`**; see **§5**).
+* [x] [HOST] **`scripts/pns_analyze_reader_backpressure.ps1`** on **`pns_adb_preview_validate`** **`logcat_raw_still_x10.txt`** + **`logcat_bracket_bkt3.txt`** vs **`CAPTURE_ARCHITECTURE.md`** Sprint **7.3 acceptance gates** (paired with **`PERFORMANCE_BUDGETS.md`** bracket / overflow rows); **§5** + **`perf-runs/reader_backpressure_validate_raw_and_bkt3.md`**.
 * [ ] [ADB] Each capture mode is exercised once per release-prep run; failures are surfaced in the Verification block of `RELEASE_NOTES_TEMPLATE.md`.
 * [ ] [HOST] CI publishes a perf trend chart (deferred until at least 3 release-prep runs exist).
+
+## Perfetto & frame jank (manual baseline protocol)
+
+**Purpose:** Close the gap between **`-PerfReport`** (cold start + PSS + `PNS.Reader` drops) and **BUILD_PLAN** Sprint **7.1** (**Perfetto** trace + optional **`gfxinfo`** overlay, `PerfBudget.kt` + live-preview dropped-frame rows above). This section is the **host-side protocol**; a first **light** **Perfetto** artifact is captured with **`scripts/pns_capture_perfetto_light.ps1`** (see **§5**). Heavier **SurfaceFlinger** / **GPU** pbtxt configs remain optional when a regression needs more depth than **gfx**/**view**/**sched** atrace slices.
+
+### When to capture
+
+- Release prep, after large preview / capture / Compose chrome changes, or when chasing UI stutter.
+- Prefer the same device class as budgets (**OnePlus 13 / `dodge`**, LineageOS 23 / API **36**) when possible.
+
+### Artifact naming
+
+- Store traces under **`perf-runs/`** with a UTC stamp, e.g. `perf-runs/perfetto_<yyyyMMdd_HHmmss>.pftrace` (Android Studio) or `.perfetto-trace` / `.pb` depending on exporter.
+- Pair each trace with **`pns_hfr_autorun.ps1 -PerfReport`** output from the same session (`perf-runs/perf_<stamp>.md`) so cold start / PSS live next to jank evidence.
+
+### Option A — Android Studio (typical on Windows)
+
+1. **Run > Profile ‘app’** (or **View > Tool Windows > Profiler**), pick **System Trace** / **CPU** with trace events as needed.
+2. **Force-stop** the app: `adb shell am force-stop dev.pointandshoot` (optional **`-s <serial>`**).
+3. **Start recording**, cold-launch preview, exercise the repro (e.g. LUT toggle, mode dial, 60 fps path for **<= 3** drops/min per table).
+4. **Stop** recording, **Export** trace into **`perf-runs/`** using the naming above.
+
+### Option B — `perfetto` CLI (Linux / macOS / WSL; `adb` on PATH)
+
+1. Install the official [Perfetto](https://perfetto.dev/docs/getting-started) binaries (`perfetto`, `traceconv`) and use a **lightweight** trace config (start with `sched`, `gpu`, `android.surfaceflinger`, `track_event`; expand only if the device keeps up).
+2. Push config or use `-c -` stdin per the upstream **Android recording** docs (search `perfetto.dev` for *Android* + *recording*).
+3. Pull the trace to **`perf-runs/`** and keep the matching **`-PerfReport`** markdown from the same run.
+
+### Option C — Windows host, no desktop `perfetto` binary (device light mode)
+
+1. Use **`scripts/pns_capture_perfetto_light.ps1`** (**`-Serial`** / **`pns_adb_device.env`**). The script invokes **`/system/bin/perfetto`** in **light** mode (`-t`, `-a dev.pointandshoot`, default categories **gfx view sched**), writes under **`/data/misc/perfetto-traces/profiling/`**, then **`adb pull`** into **`perf-runs/perfetto_<utc>_serial-<adb>.perfetto-trace`**.
+2. On some OEM builds (validated on **OnePlus CPH2655**), opening the output file fails unless **`adb root`** has succeeded (the script runs **`adb root`** by default; pass **`-SkipAdbRoot`** only when you know writes work as non-root shell).
+3. Pair with **`pns_hfr_autorun.ps1 -PerfReport`** from the same release-prep slice (or **`-AlsoPerfReport`** on the capture script).
+
+### Quick overlay — `gfxinfo` (no full trace)
+
+- After a scripted cold start or `pns_adb_preview_validate` scenario:  
+  `adb shell dumpsys gfxinfo dev.pointandshoot framestats`  
+  Save the text next to the trace (or alone) under **`perf-runs/gfxinfo_<yyyyMMdd_HHmmss>_serial-<adb>.txt`** (or run **`python scripts/pns_capture_gfxinfo_baseline.py --serial <adb>`**, which force-stops, resets stats, cold-starts preview, settles **12 s**, then writes the same folder with a UTC stamp in the filename).
+- Treat **`gfxinfo` "Janky frames %"** as a different signal from the **Live preview** **drops/min** rows above; use both only with an explicit mapping or waiver.
+
+### Evidence checklist (future trace baselines or regressions)
+
+- **Perfetto** trace path under **`perf-runs/`** (or checked-in equivalent), **adb serial**, **commit SHA** or **`versionName`**. Optional supplemental **`gfxinfo`** text and/or screen recording in the same session.
+- Short summary: janky frames / **p90 / p99** frame time vs the **Live preview** table budgets, or explicit waiver if tooling cannot slice GPU composition on that build.
+- **§5** row in **`PROBE_BUILD_PLAN.md`** pointing at the artifacts.
 
 ## Open questions
 

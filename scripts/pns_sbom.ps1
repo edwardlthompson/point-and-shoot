@@ -236,7 +236,7 @@ if ($Verify.IsPresent) {
     }
     Write-Host ("[sbom] OK: {0} components emitted, structure valid CycloneDX 1.5" -f $parsed.components.Count)
   } catch {
-    Write-Host "[sbom] FAIL: $_"
+    Write-Host "`[sbom] FAIL: $_"
     exit 1
   }
 }
@@ -249,7 +249,7 @@ if ([string]::IsNullOrWhiteSpace($OutFile)) {
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
   }
   [System.IO.File]::WriteAllText($OutFile, $json, [System.Text.UTF8Encoding]::new($false))
-  Write-Host "[sbom] wrote $OutFile"
+  Write-Host "`[sbom] wrote $OutFile"
 }
 
 exit 0

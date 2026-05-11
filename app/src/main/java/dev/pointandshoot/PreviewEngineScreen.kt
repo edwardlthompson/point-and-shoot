@@ -38,6 +38,7 @@ import android.graphics.Rect
 import android.graphics.SurfaceTexture
 import android.location.Location
 import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
 import android.net.Uri
 import android.provider.Settings
 import android.view.KeyEvent as AndroidKeyEvent
@@ -148,7 +149,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -157,6 +157,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -2220,7 +2222,8 @@ private fun PreviewChromeGrid7x7(
     LaunchedEffect(Unit) {
         Log.i(
             "PNS.ChromeUx",
-            "quickGrid=focalRow7_iconTiles_matchFpsChip_scrolledSlots targetFpsOnReadout=true",
+            "grid7=layout settingsAt=r6c6=true quickActions=lut,flash,timer,histogram,horizon,eyeAf,tally,bright,dnd,tap,volKeys,saveLoc,spin " +
+                "quickGrid=focalRow7_iconTiles_matchFpsChip_scrolledSlots targetFpsOnReadout=true",
         )
     }
 
@@ -2964,7 +2967,7 @@ private class PreviewController(
     /** Hardware JPEG still target for RAW+JPEG dual capture (tonal companion). */
     private var jpegImageReader: ImageReader? = null
     /** Encode / DNG save lane — CAPTURE_ARCHITECTURE.md (`PNS.Reader`). */
-    private val ioExecutor =
+    private val ioExecutor: ExecutorService =
         Executors.newSingleThreadExecutor { r ->
             Thread(r, "PNS.Reader").apply { isDaemon = true }
         }
@@ -3617,25 +3620,39 @@ private class PreviewController(
 
         reader.setOnImageAvailableListener({ r ->
             if (processed.get()) {
-                runCatching { r.acquireLatestImage()?.close() }
+                val dropped = runCatching { r.acquireLatestImage() }.getOrNull()
+                if (dropped != null) {
+                    runCatching { dropped.close() }
+                    Log.w("PNS.Reader", "drop oldest queue=post-process channel=raw-still")
+                }
                 return@setOnImageAvailableListener
             }
             val img = runCatching { r.acquireNextImage() }.getOrNull()
-            if (img == null) return@setOnImageAvailableListener
+                ?: return@setOnImageAvailableListener
             val prev = pendingRaw.getAndSet(img)
-            runCatching { prev?.close() }
+            if (prev != null) {
+                runCatching { prev.close() }
+                Log.w("PNS.Reader", "drop oldest queue=superseded channel=raw-still")
+            }
             maybeProcess()
         }, bgHandler)
 
         jReader?.setOnImageAvailableListener({ r ->
             if (processed.get()) {
-                runCatching { r.acquireLatestImage()?.close() }
+                val dropped = runCatching { r.acquireLatestImage() }.getOrNull()
+                if (dropped != null) {
+                    runCatching { dropped.close() }
+                    Log.w("PNS.Reader", "drop oldest queue=post-process channel=jpeg-still")
+                }
                 return@setOnImageAvailableListener
             }
             val img = runCatching { r.acquireNextImage() }.getOrNull()
-            if (img == null) return@setOnImageAvailableListener
+                ?: return@setOnImageAvailableListener
             val prev = pendingJpeg.getAndSet(img)
-            runCatching { prev?.close() }
+            if (prev != null) {
+                runCatching { prev.close() }
+                Log.w("PNS.Reader", "drop oldest queue=superseded channel=jpeg-still")
+            }
             maybeProcess()
         }, bgHandler)
 
@@ -3675,6 +3692,55 @@ private class PreviewController(
             )
         } catch (t: Throwable) {
             fail(t)
+        }
+    }
+
+    /**
+     * Waits until all work already queued on [ioExecutor] completes (noop runs after it).
+     * [CAPTURE_ARCHITECTURE.md] bracket rule — bounded wait before BKT sequential captures.
+     */
+    private fun awaitReaderExecutorDrain(timeoutMs: Long): Boolean {
+        val future: Future<*> = ioExecutor.submit { }
+        return try {
+            future.get(timeoutMs, TimeUnit.MILLISECONDS)
+            true
+        } catch (_: TimeoutException) {
+            future.cancel(true)
+            Log.w("PNS.Reader", "encode lane drain timed out after ${timeoutMs}ms")
+            false
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+            future.cancel(true)
+            false
+        } catch (t: Throwable) {
+            future.cancel(true)
+            Log.w("PNS.Reader", "encode lane drain failed: ${t.message}")
+            false
+        }
+    }
+
+    /**
+     * Best-effort discard of orphaned still images in readers (listeners typically null between shots).
+     * Pairs with [awaitReaderExecutorDrain] before a bracket.
+     */
+    private fun discardQueuedStillImagesBeforeBracket() {
+        runCatching {
+            rawImageReader?.let { r ->
+                while (true) {
+                    val img = r.acquireLatestImage() ?: break
+                    img.close()
+                    Log.w("PNS.Reader", "drop oldest queue=pre-bracket-drain channel=raw")
+                }
+            }
+        }
+        runCatching {
+            jpegImageReader?.let { r ->
+                while (true) {
+                    val img = r.acquireLatestImage() ?: break
+                    img.close()
+                    Log.w("PNS.Reader", "drop oldest queue=pre-bracket-drain channel=jpeg")
+                }
+            }
         }
     }
 
@@ -3741,6 +3807,16 @@ private class PreviewController(
             finishFailure(IllegalStateException("AE compensation step/range unavailable"))
             return
         }
+
+        if (!awaitReaderExecutorDrain(PerfBudget.Defaults.ENCODE_LANE_DRAIN_WAIT_MS)) {
+            Log.i(
+                "PNS.AdbValidation",
+                "captureBracketBurst pattern=$pattern ok=false err=encode_lane_busy",
+            )
+            finishFailure(IllegalStateException("Engine busy - retry"))
+            return
+        }
+        discardQueuedStillImagesBeforeBracket()
 
         val needJpeg = jReader != null
         val plan = BracketPlan.build(pattern)
@@ -3855,25 +3931,39 @@ private class PreviewController(
 
             reader.setOnImageAvailableListener({ r ->
                 if (processed.get()) {
-                    runCatching { r.acquireLatestImage()?.close() }
+                    val dropped = runCatching { r.acquireLatestImage() }.getOrNull()
+                    if (dropped != null) {
+                        runCatching { dropped.close() }
+                        Log.w("PNS.Reader", "drop oldest queue=post-process channel=raw-bracket")
+                    }
                     return@setOnImageAvailableListener
                 }
                 val img = runCatching { r.acquireNextImage() }.getOrNull()
                     ?: return@setOnImageAvailableListener
                 val prev = pendingRaw.getAndSet(img)
-                runCatching { prev?.close() }
+                if (prev != null) {
+                    runCatching { prev.close() }
+                    Log.w("PNS.Reader", "drop oldest queue=superseded channel=raw-bracket")
+                }
                 shotMaybeProcess()
             }, bgHandler)
 
             jReader?.setOnImageAvailableListener({ r ->
                 if (processed.get()) {
-                    runCatching { r.acquireLatestImage()?.close() }
+                    val dropped = runCatching { r.acquireLatestImage() }.getOrNull()
+                    if (dropped != null) {
+                        runCatching { dropped.close() }
+                        Log.w("PNS.Reader", "drop oldest queue=post-process channel=jpeg-bracket")
+                    }
                     return@setOnImageAvailableListener
                 }
                 val img = runCatching { r.acquireNextImage() }.getOrNull()
                     ?: return@setOnImageAvailableListener
                 val prev = pendingJpeg.getAndSet(img)
-                runCatching { prev?.close() }
+                if (prev != null) {
+                    runCatching { prev.close() }
+                    Log.w("PNS.Reader", "drop oldest queue=superseded channel=jpeg-bracket")
+                }
                 shotMaybeProcess()
             }, bgHandler)
 
@@ -4330,22 +4420,26 @@ private class PreviewController(
             val rawPick = chars?.let { RawCaptureSupport.pickRawOutput(it) }
             if (rawPick != null) {
                 val (fmt, size) = rawPick
-                // No OnImageAvailableListener here on purpose. The RAW reader is targeted
-                // ONLY by the explicit still-capture request (the preview repeating request
-                // does not target it), so the queue can never grow unbounded. The previous
                 // auto-drain listener was racing the still-capture path: when a RAW image
                 // arrived for a real capture the listener would acquire+close it before
                 // [captureRawStill]'s onCaptureCompleted got a chance, and the user saw
                 // "No RAW buffer". Leaving the queue undrained lets onCaptureCompleted
-                // acquire the image deterministically.
-                rawImageReader = ImageReader.newInstance(size.width, size.height, fmt, 2)
+                // acquire the image deterministically. Queue depth stays bounded via
+                // [`PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES`] + [PNS.Reader] supersede logging.
+                rawImageReader =
+                    ImageReader.newInstance(size.width, size.height, fmt, PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES)
                 surfaces.add(rawImageReader!!.surface)
                 Log.d(tag, "RAW ImageReader ${size.width}x${size.height} format=$fmt")
 
                 val jpegSize = mapForStreams?.let { RawCaptureSupport.pickLargestJpegSize(it) }
                 if (preferredJpegCompanion && jpegSize != null) {
                     jpegImageReader =
-                        ImageReader.newInstance(jpegSize.width, jpegSize.height, ImageFormat.JPEG, 2)
+                        ImageReader.newInstance(
+                            jpegSize.width,
+                            jpegSize.height,
+                            ImageFormat.JPEG,
+                            PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES,
+                        )
                     surfaces.add(jpegImageReader!!.surface)
                     Log.d(tag, "JPEG ImageReader ${jpegSize.width}x${jpegSize.height}")
                 } else {
@@ -4364,7 +4458,12 @@ private class PreviewController(
                 val yuvSize = HighlightMeterSupport.pickYuv420AnalysisSize(map)
                 if (yuvSize != null) {
                     yuvImageReader =
-                        ImageReader.newInstance(yuvSize.width, yuvSize.height, ImageFormat.YUV_420_888, 2).also { ir ->
+                        ImageReader.newInstance(
+                            yuvSize.width,
+                            yuvSize.height,
+                            ImageFormat.YUV_420_888,
+                            PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES,
+                        ).also { ir ->
                             ir.setOnImageAvailableListener({ reader -> processYuvForHighlight(reader) }, h)
                         }
                     surfaces.add(yuvImageReader!!.surface)

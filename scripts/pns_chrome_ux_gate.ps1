@@ -53,7 +53,7 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "[chrome_ux_gate] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "`[chrome_ux_gate] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
@@ -79,7 +79,7 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
 }
 
 if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "[chrome_ux_gate] adb connect $Serial (TCP/IP)"
+    Write-Host "`[chrome_ux_gate] adb connect $Serial (TCP/IP)"
     Invoke-AdbIgnore @("connect", $Serial)
 }
 
@@ -94,7 +94,7 @@ function Test-AdbAuthorizedDevice {
 }
 
 function Save-LogcatTail([string]$OutPath) {
-    # Noisy OEM HALs can fill >12k lines in seconds — ring-tail-only drops early PNS.ChromeUx (seedOk, grid7, …).
+    # Noisy OEM HALs can fill >12k lines in seconds  -  ring-tail-only drops early PNS.ChromeUx (seedOk, grid7, …).
     # Large mixed tail + tag-filtered ChromeUx supplement matches scripts/pns_adb_preview_validate.ps1 discipline.
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
@@ -129,11 +129,11 @@ $hostPass = $true
 if (-not $SkipHost.IsPresent) {
     $verify = Join-Path $PSScriptRoot "pns_verify_toolchain.ps1"
     if (-not $SkipHostTests.IsPresent) {
-        Write-Host "[chrome_ux_gate] $verify -RunTests"
+        Write-Host "`[chrome_ux_gate] $verify -RunTests"
         & $verify -ProjectRoot $projRoot -RunTests
     }
     else {
-        Write-Host "[chrome_ux_gate] $verify (no -RunTests)"
+        Write-Host "`[chrome_ux_gate] $verify (no -RunTests)"
         & $verify -ProjectRoot $projRoot
     }
     if (-not $?) {
@@ -141,7 +141,7 @@ if (-not $SkipHost.IsPresent) {
     }
 }
 else {
-    Write-Host "[chrome_ux_gate] -SkipHost (no toolchain verify this run)"
+    Write-Host "`[chrome_ux_gate] -SkipHost (no toolchain verify this run)"
 }
 
 $adbConnected = Test-AdbAuthorizedDevice
@@ -163,7 +163,7 @@ if (-not $adbConnected) {
 
 if ($adbConnected -and -not (Test-Path -LiteralPath $apk)) {
     if (-not $SkipGradle.IsPresent) {
-        Write-Host "[chrome_ux_gate] gradlew :app:assembleDebug"
+        Write-Host "`[chrome_ux_gate] gradlew :app:assembleDebug"
         $gradlew = Join-Path $projRoot "gradlew.bat"
         Push-Location $projRoot
         try {
@@ -181,10 +181,10 @@ if ($adbConnected -and -not (Test-Path -LiteralPath $apk)) {
 }
 
 if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne "missing_apk") {
-    Write-Host "[chrome_ux_gate] devices:"
+    Write-Host "`[chrome_ux_gate] devices:"
     Invoke-Adb @("devices", "-l")
     if (-not $SkipInstall.IsPresent) {
-        Write-Host "[chrome_ux_gate] install -r $apk"
+        Write-Host "`[chrome_ux_gate] install -r $apk"
         Invoke-Adb @("install", "-r", $apk)
     }
     Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA")
@@ -202,7 +202,7 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
 
     $logPath = Join-Path $OutDir "logcat_chrome_seed.txt"
     Save-LogcatTail $logPath
-    Write-Host "[chrome_ux_gate] Wrote $logPath"
+    Write-Host "`[chrome_ux_gate] Wrote $logPath"
 
     $logText = [System.IO.File]::ReadAllText($logPath)
     # Kotlin: Log.i("PNS.ChromeUx", "seedOk slot=M23 cameraId=...")
@@ -275,6 +275,7 @@ elseif ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason 
 }
 
 $obj = @{
+    schema             = "pns.chrome_ux_gate.v1"
     pass               = $gatePass
     hostTestsPass      = $hostPass
     adbConnected       = $adbConnected
@@ -294,8 +295,8 @@ $obj = @{
 }
 $jsonPath = Join-Path $OutDir "chrome_ux_gate.json"
 $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding utf8
-Write-Host "[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk"
-# §5 append uses milestone6_gate.json shape today — append ChromeUx rows manually or extend pns_probe_append_section5.ps1.
+Write-Host "`[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk"
+# §5 append: .\scripts\pns_probe_append_section5.ps1 -GateJson <path\to\chrome_ux_gate.json> [-PassOnly]
 
 if (-not $gatePass) {
     exit 1

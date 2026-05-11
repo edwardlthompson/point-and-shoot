@@ -36,7 +36,7 @@ function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
 }
 
 function Resolve-AdbExe {
-    # Join-Path throws if the base path is null — ANDROID_HOME / ANDROID_SDK_ROOT are often unset on Windows.
+    # Join-Path throws if the base path is null  -  ANDROID_HOME / ANDROID_SDK_ROOT are often unset on Windows.
     $candidates = @()
     if ($env:LOCALAPPDATA) {
         $candidates += (Join-Path $env:LOCALAPPDATA "Android\Sdk\platform-tools\adb.exe")
@@ -59,7 +59,7 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "[pns_device_screencap] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "`[pns_device_screencap] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
@@ -73,7 +73,7 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
 }
 
 if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "[pns_device_screencap] adb connect $Serial (TCP/IP)"
+    Write-Host "`[pns_device_screencap] adb connect $Serial (TCP/IP)"
     Invoke-AdbIgnore @("connect", $Serial)
 }
 
@@ -91,7 +91,7 @@ if ($parent -and -not (Test-Path -LiteralPath $parent)) {
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
 }
 
-# Stream raw bytes from adb — avoids cmd.exe quoting bugs and broken PS pipelines for PNG output.
+# Stream raw bytes from adb  -  avoids cmd.exe quoting bugs and broken PS pipelines for PNG output.
 $argList = New-Object System.Collections.Generic.List[string]
 if (-not [string]::IsNullOrWhiteSpace($Serial)) {
     [void]$argList.Add("-s")
@@ -137,7 +137,7 @@ if ($len -lt 512) {
     Write-Error "PNG too small ($len bytes); capture likely failed."
 }
 
-Write-Host "[pns_device_screencap] Wrote $resolvedOut ($len bytes)"
+Write-Host "`[pns_device_screencap] Wrote $resolvedOut ($len bytes)"
 if ($ShowSize.IsPresent) {
     Get-Item -LiteralPath $resolvedOut | Select-Object FullName, Length
 }

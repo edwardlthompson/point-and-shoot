@@ -48,8 +48,10 @@ param(
   [switch]$VerifyToolchain,
   # adb pull getExternalFilesDir(null)/calibration/* -> <OutDir>/calibration/ (JSON + optional .cube sidecars). No Gradle.
   [switch]$PullCalibration,
-  # HOST: write perf-runs/<stamp>.md shell (cold start / meminfo placeholders); extend as capture engine lands (PERFORMANCE_BUDGETS.md).
-  [switch]$PerfReport
+  # Write perf-runs/perf_<stamp>.md: host budgets + optional device `am start -W`, `dumpsys meminfo`, `PNS.Reader` grep (PERFORMANCE_BUDGETS.md).
+  [switch]$PerfReport,
+  # Device serial for `-PerfReport` adb steps. Omit to use scripts/pns_adb_device.env (`PNS_ADB_SERIAL`) or a single online device.
+  [string]$Serial = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -68,28 +70,161 @@ if ($VerifyToolchain.IsPresent) {
 }
 
 if ($PerfReport.IsPresent) {
+  function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
+    $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
+    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
+    foreach ($line in Get-Content -LiteralPath $envFile) {
+      $t = $line.Trim()
+      if ($t.StartsWith("#") -or $t.Length -eq 0) { continue }
+      $eq = $t.IndexOf("=")
+      if ($eq -lt 1) { continue }
+      $k = $t.Substring(0, $eq).Trim()
+      $v = $t.Substring($eq + 1).Trim()
+      if ($k -eq "PNS_ADB_SERIAL") { return $v }
+    }
+    return $null
+  }
+
+  function Get-AdbOnlineSerials {
+    $ids = @()
+    foreach ($line in (& adb devices 2>$null)) {
+      if ($line -match '^(\S+)\s+device\s*$') { $ids += $Matches[1] }
+    }
+    return @($ids)
+  }
+
+  function Invoke-AdbPerf([string]$Ser, [string[]]$CmdArgs) {
+    if ($Ser) { & adb -s $Ser @CmdArgs }
+    else { & adb @CmdArgs }
+  }
+
   New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
   $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
   $perfDir = Join-Path $ProjectRoot "perf-runs"
   New-Item -ItemType Directory -Force -Path $perfDir | Out-Null
   $outFile = Join-Path $perfDir "perf_$stamp.md"
-  $lines = @(
-    "# Point & Shoot perf report (host stub)",
-    "",
-    "- Generated: $(Get-Date -Format 'o')",
-    "- OutDir: $OutDir",
-    "",
-    "## Planned captures (when wired)",
-    "- `am start -W` cold-start latency",
-    "- `dumpsys meminfo dev.pointandshoot` snapshot",
-    "- Logcat filter for `PNS.Reader` / drop counters vs PerfBudget.kt",
-    "",
-    "## Next steps",
-    "- Hook device runs after major camera pipeline changes; compare against PERFORMANCE_BUDGETS.md.",
-    ""
-  )
-  Set-Content -LiteralPath $outFile -Value ($lines -join [Environment]::NewLine) -Encoding utf8
-  Write-Host "[perf] Wrote $outFile"
+  # Pinned to PerfBudget.Defaults / PERFORMANCE_BUDGETS.md (cold start + PSS after launch).
+  $coldStartBudgetMs = 800
+  $pssBudgetMb = 180
+
+  $sb = New-Object System.Text.StringBuilder
+  [void]$sb.AppendLine("# Point & Shoot perf report")
+  [void]$sb.AppendLine("")
+  [void]$sb.AppendLine("- Generated: $(Get-Date -Format 'o')")
+  [void]$sb.AppendLine("- OutDir: $OutDir")
+  [void]$sb.AppendLine("- Budgets (see ``PerfBudget.Defaults`` / PERFORMANCE_BUDGETS.md): cold start <= **$coldStartBudgetMs** ms; post-launch PSS <= **$pssBudgetMb** MB")
+  [void]$sb.AppendLine("")
+  [void]$sb.AppendLine("## Host")
+  [void]$sb.AppendLine("")
+  [void]$sb.AppendLine("| Metric | Budget | This run |")
+  [void]$sb.AppendLine("|--------|--------|----------|")
+
+  $adbCmd = Get-Command adb -ErrorAction SilentlyContinue
+  if (-not $adbCmd) {
+    [void]$sb.AppendLine("| adb | (on PATH) | **not found**  -  device section skipped |")
+    [void]$sb.AppendLine("")
+    [void]$sb.AppendLine("Install Android platform-tools or add ``adb`` to PATH to record device rows.")
+  }
+  else {
+    $wantSerial = $Serial
+    if ([string]::IsNullOrWhiteSpace($wantSerial)) {
+      $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
+      if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
+        $wantSerial = $fromEnv
+        Write-Host "`[perf] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $wantSerial"
+      }
+    }
+    if ($wantSerial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
+      Write-Host "`[perf] adb connect $wantSerial (TCP/IP)"
+      & adb connect $wantSerial 2>&1 | Out-Null
+    }
+
+    $online = @(Get-AdbOnlineSerials)
+    $resolvedSerial = $null
+    if (-not [string]::IsNullOrWhiteSpace($wantSerial)) {
+      if ($online -contains $wantSerial) {
+        $resolvedSerial = $wantSerial
+      }
+      elseif ($online.Count -eq 1 -and -not [string]::IsNullOrWhiteSpace($online[0])) {
+        Write-Host "`[perf] WARN: serial '$wantSerial' not in device list; using $($online[0])"
+        $resolvedSerial = $online[0]
+      }
+      else {
+        $list = if ($online.Count -gt 0) { $online -join ', ' } else { "(none)" }
+        [void]$sb.AppendLine("| device | serial online | **skipped**  -  '$wantSerial' not among: $list |")
+      }
+    }
+    else {
+      if ($online.Count -gt 1) {
+        [void]$sb.AppendLine("| device | single resolve | **skipped**  -  $($online.Count) devices ($($online -join ', ')); set PNS_ADB_SERIAL or -Serial |")
+      }
+      elseif ($online.Count -eq 1 -and -not [string]::IsNullOrWhiteSpace($online[0])) {
+        $resolvedSerial = $online[0]
+      }
+      else {
+        [void]$sb.AppendLine("| device | authorized | **skipped**  -  no device in state ``device`` |")
+      }
+    }
+
+    if ($null -ne $resolvedSerial -and -not [string]::IsNullOrWhiteSpace($resolvedSerial)) {
+      $pkg = "dev.pointandshoot"
+      $startCmp = "$pkg/.MainActivity"
+      try {
+        Invoke-AdbPerf $resolvedSerial @("shell", "am", "force-stop", $pkg) 2>&1 | Out-Null
+        $wOut = Invoke-AdbPerf $resolvedSerial @("shell", "am", "start", "-W", "-n", $startCmp, "--es", "pns_screen", "preview") 2>&1 | Out-String
+        $totalMs = $null
+        $mTot = [regex]::Match($wOut, '(?m)^TotalTime:\s*(\d+)')
+        if ($mTot.Success) { $totalMs = [int]$mTot.Groups[1].Value }
+        $coldCell = if ($null -ne $totalMs) { "$totalMs ms" } else { "(unparsed)" }
+        $coldGrade = ""
+        if ($null -ne $totalMs) {
+          if ($totalMs -le $coldStartBudgetMs) { $coldGrade = " OK" }
+          elseif ($totalMs -le [int]($coldStartBudgetMs * 1.25)) { $coldGrade = " WARN" }
+          else { $coldGrade = " FAIL" }
+        }
+        [void]$sb.AppendLine("| Cold start ``am start -W`` | ${coldStartBudgetMs} ms | $coldCell$coldGrade |")
+
+        $memOut = Invoke-AdbPerf $resolvedSerial @("shell", "dumpsys", "meminfo", $pkg) 2>&1 | Out-String
+        $pssKb = $null
+        foreach ($pat in @('TOTAL PSS:\s*(\d+)', '(?m)^\s*TOTAL\s+(\d+)\s')) {
+          $mm = [regex]::Match($memOut, $pat)
+          if ($mm.Success) { $pssKb = [long]$mm.Groups[1].Value; break }
+        }
+        $pssCell = if ($null -ne $pssKb) {
+          $mb = [math]::Round($pssKb / 1024.0, 1)
+          $g = if ($mb -le $pssBudgetMb) { " OK" } elseif ($mb -le ($pssBudgetMb * 1.15)) { " WARN" } else { " FAIL" }
+          "$mb MB ($pssKb KB)$g"
+        }
+        else { "(unparsed TOTAL PSS)" }
+        [void]$sb.AppendLine("| Process PSS (post-launch) | <= $pssBudgetMb MB | $pssCell |")
+
+        $logTail = Invoke-AdbPerf $resolvedSerial @("shell", "logcat", "-d", "-t", "12000") 2>&1 | Out-String
+        $dropMatches = [regex]::Matches($logTail, 'PNS\.Reader.*drop oldest')
+        $nDrop = $dropMatches.Count
+        [void]$sb.AppendLine("| ``PNS.Reader`` ``drop oldest`` lines (log tail) | informational | count=$nDrop |")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("### Device detail")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("- serial: ``$resolvedSerial``")
+        [void]$sb.AppendLine("")
+        [void]$sb.AppendLine("``````")
+        [void]$sb.AppendLine(($wOut.TrimEnd() -split "`n" | Select-Object -First 25) -join "`n")
+        [void]$sb.AppendLine("``````")
+      }
+      catch {
+        [void]$sb.AppendLine("| device capture | | **error:** $($_.Exception.Message) |")
+      }
+    }
+  }
+
+  [void]$sb.AppendLine("")
+  [void]$sb.AppendLine("## Perfetto / frame-jank baselines")
+  [void]$sb.AppendLine("")
+  [void]$sb.AppendLine("Optional: run ``scripts/pns_capture_perfetto_light.ps1`` (device ``/system/bin/perfetto`` light mode; many OEMs need ``adb root`` for the profiling output path) and keep the pulled ``perf-runs/perfetto_*.perfetto-trace`` next to this file. Alternatively use Android Studio Profiler or the desktop ``perfetto`` CLI with a checked-in pbtxt config (PERFORMANCE_BUDGETS.md).")
+  [void]$sb.AppendLine("")
+
+  Set-Content -LiteralPath $outFile -Value $sb.ToString() -Encoding utf8
+  Write-Host "`[perf] Wrote $outFile"
   exit 0
 }
 
@@ -100,14 +235,14 @@ if ($PullCalibration.IsPresent) {
   $localCal = Join-Path $OutDir "calibration"
   New-Item -ItemType Directory -Force -Path $localCal | Out-Null
   $remote = "/sdcard/Android/data/dev.pointandshoot/files/calibration"
-  Write-Host "[pull-cal] adb: pulling $remote -> $localCal"
+  Write-Host "`[pull-cal] adb: pulling $remote -> $localCal"
   try { adb wait-for-device | Out-Null } catch {}
   & adb pull $remote $localCal
   if ($LASTEXITCODE -ne 0) {
-    Write-Host "[pull-cal] WARN: adb pull exited $LASTEXITCODE (remote empty/missing, device offline, or permission). Remote=$remote"
+    Write-Host "`[pull-cal] WARN: adb pull exited $LASTEXITCODE (remote empty/missing, device offline, or permission). Remote=$remote"
     exit 1
   }
-  Write-Host "[pull-cal] OK"
+  Write-Host "`[pull-cal] OK"
   exit 0
 }
 
@@ -132,13 +267,13 @@ function Install-PnsDebugApk {
     [Parameter(Mandatory = $true)][string]$Root,
     [switch]$SkipBuild
   )
-  Write-Host "[sideload] Project root: $Root"
+  Write-Host "`[sideload] Project root: $Root"
   $gradlew = Join-Path $Root "gradlew.bat"
   if (-not (Test-Path -LiteralPath $gradlew)) {
     throw "gradlew.bat not found at $gradlew (set -ProjectRoot to the point-and-shoot repo root)"
   }
   if (-not $SkipBuild.IsPresent) {
-    Write-Host "[sideload] Running assembleDebug..."
+    Write-Host "`[sideload] Running assembleDebug..."
     Push-Location $Root
     try {
       & $gradlew assembleDebug --no-daemon
@@ -155,14 +290,14 @@ function Install-PnsDebugApk {
   if (-not $apk) {
     throw "No .apk under $apkDir"
   }
-  Write-Host "[sideload] Installing $($apk.Name) ($([int]($apk.Length / 1024)) KB)..."
+  Write-Host "`[sideload] Installing $($apk.Name) ($([int]($apk.Length / 1024)) KB)..."
   try { adb wait-for-device | Out-Null } catch {}
   $installOut = & adb install -r -t $apk.FullName 2>&1
   $installOut | ForEach-Object { Write-Host $_ }
   if ($LASTEXITCODE -ne 0) {
     throw "adb install failed (exit $LASTEXITCODE). Try: adb devices"
   }
-  Write-Host "[sideload] Install OK."
+  Write-Host "`[sideload] Install OK."
   Grant-CameraPermission
 }
 
@@ -211,11 +346,11 @@ function Wait-SignalLogFile {
         $take = [Math]::Min(140, $raw.Length)
         $last = $raw.Substring(0, $take)
       }
-      Write-Host "[$PhaseTag] progress: signal_lines=$n last=$last"
+      Write-Host "`[$PhaseTag] progress: signal_lines=$n last=$last"
       if ($lastLineCount -ge 0 -and $n -eq $lastLineCount) {
         $stallCycles++
         $stallSec = $stallCycles * $ProgressIntervalSeconds
-        Write-Host "[$PhaseTag] WARN: no new lines for ~${stallSec}s (possible hang or very slow HAL)"
+        Write-Host "`[$PhaseTag] WARN: no new lines for ~${stallSec}s (possible hang or very slow HAL)"
       } else {
         $stallCycles = 0
       }
@@ -223,7 +358,7 @@ function Wait-SignalLogFile {
       $nextProg = (Get-Date).AddSeconds($ProgressIntervalSeconds)
     }
   }
-  Write-Host "[$PhaseTag] TIMEOUT: no '$DoneSubstring' within ${TimeoutMinutes}m"
+  Write-Host "`[$PhaseTag] TIMEOUT: no '$DoneSubstring' within ${TimeoutMinutes}m"
   return $false
 }
 
@@ -352,7 +487,7 @@ function Write-Phase9ThermalArtifacts {
   $ts = Get-Date -Format "yyyyMMdd_HHmmss"
   $prefix = Join-Path $OutDir "phase9_thermal_${SuiteLabel}_$ts"
   $utf8 = New-Object System.Text.UTF8Encoding $false
-  Write-Host "[phase9] Thermal / battery snapshots (Phase 9, label=$SuiteLabel)..."
+  Write-Host "`[phase9] Thermal / battery snapshots (Phase 9, label=$SuiteLabel)..."
   try {
     $lines = adb shell dumpsys thermalservice 2>$null
     if ($lines) {
@@ -439,7 +574,7 @@ function Write-Phase9ThermalArtifacts {
       [System.IO.File]::WriteAllText("${prefix}_sysfs_cooling_device_max_state.txt", $txt, $utf8)
     }
   } catch {}
-  Write-Host "[phase9] Wrote phase9_thermal_${SuiteLabel}_$ts*.txt"
+  Write-Host "`[phase9] Wrote phase9_thermal_${SuiteLabel}_$ts*.txt"
 }
 
 function Write-SuiteRunSummary {
@@ -483,7 +618,7 @@ function Write-SuiteRunSummary {
     if ($abi) { [void]$lines.Add(("cpuAbi={0}" -f ([string]$abi).Trim())) }
   } catch {}
   [System.IO.File]::WriteAllText($path, ($lines.ToArray() -join "`n"), $utf8)
-  Write-Host "[summary] Wrote $path"
+  Write-Host "`[summary] Wrote $path"
 }
 
 function Restart-CameraServer() {
@@ -514,10 +649,10 @@ function Run-Once([string]$runTag) {
   $camDumpBefore = Join-Path $OutDir "${base}_dumpsys_media_camera_before.txt"
   $camDumpAfter  = Join-Path $OutDir "${base}_dumpsys_media_camera_after.txt"
 
-  Write-Host "[$runTag] Clearing logcat..."
+  Write-Host "`[$runTag] Clearing logcat..."
   adb logcat -c | Out-Null
 
-  Write-Host "[$runTag] Force-stopping app (clean run)..."
+  Write-Host "`[$runTag] Force-stopping app (clean run)..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
@@ -525,10 +660,10 @@ function Run-Once([string]$runTag) {
 
   try { Adb-ShellRoot "dumpsys media.camera" > $camDumpBefore } catch {}
 
-  Write-Host "[$runTag] Launching encoder probe..."
+  Write-Host "`[$runTag] Launching encoder probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen enc --ez pns_autoenc true | Out-Null
 
-  Write-Host "[$runTag] Capturing until ENC_PROBE_DONE..."
+  Write-Host "`[$runTag] Capturing until ENC_PROBE_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
 
   try {
@@ -546,18 +681,18 @@ function Run-Once([string]$runTag) {
 
   try { Adb-ShellRoot "dumpsys media.camera" > $camDumpAfter } catch {}
 
-  Write-Host "[$runTag] Saved signals: $outFile"
-  Write-Host "[$runTag] Summary:"
+  Write-Host "`[$runTag] Saved signals: $outFile"
+  Write-Host "`[$runTag] Summary:"
   Select-String -Path $outFile -Pattern "ENC_SAMPLE" -SimpleMatch | ForEach-Object { $_.Line }
 
-  Write-Host "[$runTag] Dumping full logcat (threadtime)..."
+  Write-Host "`[$runTag] Dumping full logcat (threadtime)..."
   adb logcat -d -v threadtime > $dumpFile
-  Write-Host "[$runTag] Saved logcat: $dumpFile"
+  Write-Host "`[$runTag] Saved logcat: $dumpFile"
 
   $encJson = Join-Path $OutDir "${base}_enc_probe.json"
   Pull-LatestEncProbe $encJson
   if (Test-Path $encJson) {
-    Write-Host "[$runTag] Saved encoder JSON: $encJson"
+    Write-Host "`[$runTag] Saved encoder JSON: $encJson"
   }
 }
 
@@ -569,11 +704,11 @@ function Pull-LatestHdrDcgSession([string]$destPath) {
   } catch {}
 
   if (-not $remote) {
-    Write-Host "[hdrdcg] No hdr_dcg_session json found in $remoteDir"
+    Write-Host "`[hdrdcg] No hdr_dcg_session json found in $remoteDir"
     return
   }
 
-  Write-Host "[hdrdcg] Pulling: $remote"
+  Write-Host "`[hdrdcg] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -585,11 +720,11 @@ function Pull-LatestSessionMatrix([string]$destPath) {
   } catch {}
 
   if (-not $remote) {
-    Write-Host "[sessionmatrix] No session_matrix json found in $remoteDir"
+    Write-Host "`[sessionmatrix] No session_matrix json found in $remoteDir"
     return
   }
 
-  Write-Host "[sessionmatrix] Pulling: $remote"
+  Write-Host "`[sessionmatrix] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -601,11 +736,11 @@ function Pull-LatestDeepCaps([string]$destPath) {
   } catch {}
 
   if (-not $remote) {
-    Write-Host "[deepcaps] No deep caps json found in $remoteDir"
+    Write-Host "`[deepcaps] No deep caps json found in $remoteDir"
     return
   }
 
-  Write-Host "[deepcaps] Pulling: $remote"
+  Write-Host "`[deepcaps] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -617,11 +752,11 @@ function Pull-LatestExhaustiveProbe([string]$destPath) {
   } catch {}
 
   if (-not $remote) {
-    Write-Host "[exhaustive] No exhaustive_probe json found in $remoteDir"
+    Write-Host "`[exhaustive] No exhaustive_probe json found in $remoteDir"
     return
   }
 
-  Write-Host "[exhaustive] Pulling: $remote"
+  Write-Host "`[exhaustive] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -633,11 +768,11 @@ function Pull-LatestLegacyCamera1([string]$destPath) {
   } catch {}
 
   if (-not $remote) {
-    Write-Host "[legacy1] No legacy_camera1 json found in $remoteDir"
+    Write-Host "`[legacy1] No legacy_camera1 json found in $remoteDir"
     return
   }
 
-  Write-Host "[legacy1] Pulling: $remote"
+  Write-Host "`[legacy1] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -649,11 +784,11 @@ function Pull-LatestEncProbe([string]$destPath) {
   } catch {}
 
   if (-not $remote) {
-    Write-Host "[encjson] No enc probe json found in $remoteDir"
+    Write-Host "`[encjson] No enc probe json found in $remoteDir"
     return
   }
 
-  Write-Host "[encjson] Pulling: $remote"
+  Write-Host "`[encjson] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -664,19 +799,19 @@ function Run-DeepCapsOnce() {
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
 
-  Write-Host "[deepcaps] Clearing logcat..."
+  Write-Host "`[deepcaps] Clearing logcat..."
   adb logcat -c | Out-Null
 
-  Write-Host "[deepcaps] Force-stopping app (clean run)..."
+  Write-Host "`[deepcaps] Force-stopping app (clean run)..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
   Clear-RemoteDeepCapsJson
 
-  Write-Host "[deepcaps] Launching deep caps..."
+  Write-Host "`[deepcaps] Launching deep caps..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen deepcaps --ez pns_autodeepcaps true | Out-Null
 
-  Write-Host "[deepcaps] Capturing until DEEP_CAPS_DONE..."
+  Write-Host "`[deepcaps] Capturing until DEEP_CAPS_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
 
   try {
@@ -692,13 +827,13 @@ function Run-DeepCapsOnce() {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
 
-  Write-Host "[deepcaps] Saved signals: $outFile"
+  Write-Host "`[deepcaps] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
-  Write-Host "[deepcaps] Saved logcat: $dumpFile"
+  Write-Host "`[deepcaps] Saved logcat: $dumpFile"
 
   Pull-LatestDeepCaps $pulledJson
   if (Test-Path $pulledJson) {
-    Write-Host "[deepcaps] Saved JSON: $pulledJson"
+    Write-Host "`[deepcaps] Saved JSON: $pulledJson"
   }
 }
 
@@ -709,19 +844,19 @@ function Run-SessionMatrixOnce() {
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
 
-  Write-Host "[sessionmatrix] Clearing logcat..."
+  Write-Host "`[sessionmatrix] Clearing logcat..."
   adb logcat -c | Out-Null
 
-  Write-Host "[sessionmatrix] Force-stopping app (clean run)..."
+  Write-Host "`[sessionmatrix] Force-stopping app (clean run)..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
   Clear-RemoteSessionMatrixJson
 
-  Write-Host "[sessionmatrix] Launching session configuration matrix..."
+  Write-Host "`[sessionmatrix] Launching session configuration matrix..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen sessionmatrix --ez pns_autosessionmatrix true | Out-Null
 
-  Write-Host "[sessionmatrix] Capturing until SESSION_MATRIX_DONE..."
+  Write-Host "`[sessionmatrix] Capturing until SESSION_MATRIX_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
 
   try {
@@ -737,13 +872,13 @@ function Run-SessionMatrixOnce() {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
 
-  Write-Host "[sessionmatrix] Saved signals: $outFile"
+  Write-Host "`[sessionmatrix] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
-  Write-Host "[sessionmatrix] Saved logcat: $dumpFile"
+  Write-Host "`[sessionmatrix] Saved logcat: $dumpFile"
 
   Pull-LatestSessionMatrix $pulledJson
   if (Test-Path $pulledJson) {
-    Write-Host "[sessionmatrix] Saved JSON: $pulledJson"
+    Write-Host "`[sessionmatrix] Saved JSON: $pulledJson"
   }
 }
 
@@ -754,19 +889,19 @@ function Run-HdrDcgRuntimeOnce() {
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
 
-  Write-Host "[hdrdcg] Clearing logcat..."
+  Write-Host "`[hdrdcg] Clearing logcat..."
   adb logcat -c | Out-Null
 
-  Write-Host "[hdrdcg] Force-stopping app (clean run)..."
+  Write-Host "`[hdrdcg] Force-stopping app (clean run)..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
   Clear-RemoteHdrDcgSessionJson
 
-  Write-Host "[hdrdcg] Launching HDR / dynamic-range session probe..."
+  Write-Host "`[hdrdcg] Launching HDR / dynamic-range session probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen hdrdcg --ez pns_autohdrdcg true | Out-Null
 
-  Write-Host "[hdrdcg] Capturing until HDR_DCG_SESSION_DONE..."
+  Write-Host "`[hdrdcg] Capturing until HDR_DCG_SESSION_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
 
   try {
@@ -782,13 +917,13 @@ function Run-HdrDcgRuntimeOnce() {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
 
-  Write-Host "[hdrdcg] Saved signals: $outFile"
+  Write-Host "`[hdrdcg] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
-  Write-Host "[hdrdcg] Saved logcat: $dumpFile"
+  Write-Host "`[hdrdcg] Saved logcat: $dumpFile"
 
   Pull-LatestHdrDcgSession $pulledJson
   if (Test-Path $pulledJson) {
-    Write-Host "[hdrdcg] Saved JSON: $pulledJson"
+    Write-Host "`[hdrdcg] Saved JSON: $pulledJson"
   }
 }
 
@@ -799,10 +934,10 @@ function Pull-LatestCaptureLatency([string]$destPath) {
     $remote = (adb shell "sh -c 'ls -t $remoteDir/capture_latency_*.json 2>/dev/null | head -n 1'").Trim()
   } catch {}
   if (-not $remote) {
-    Write-Host "[caplat] No capture_latency json found in $remoteDir"
+    Write-Host "`[caplat] No capture_latency json found in $remoteDir"
     return
   }
-  Write-Host "[caplat] Pulling: $remote"
+  Write-Host "`[caplat] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -813,10 +948,10 @@ function Pull-LatestRawHdrExcl([string]$destPath) {
     $remote = (adb shell "sh -c 'ls -t $remoteDir/raw_hdr_exclusivity_*.json 2>/dev/null | head -n 1'").Trim()
   } catch {}
   if (-not $remote) {
-    Write-Host "[rawhdr] No raw_hdr_exclusivity json found in $remoteDir"
+    Write-Host "`[rawhdr] No raw_hdr_exclusivity json found in $remoteDir"
     return
   }
-  Write-Host "[rawhdr] Pulling: $remote"
+  Write-Host "`[rawhdr] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -827,10 +962,10 @@ function Pull-LatestBurstProbe([string]$destPath) {
     $remote = (adb shell "sh -c 'ls -t $remoteDir/burst_probe_*.json 2>/dev/null | head -n 1'").Trim()
   } catch {}
   if (-not $remote) {
-    Write-Host "[burst] No burst_probe json found in $remoteDir"
+    Write-Host "`[burst] No burst_probe json found in $remoteDir"
     return
   }
-  Write-Host "[burst] Pulling: $remote"
+  Write-Host "`[burst] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -841,10 +976,10 @@ function Pull-LatestLogicalPhysical([string]$destPath) {
     $remote = (adb shell "sh -c 'ls -t $remoteDir/logical_physical_*.json 2>/dev/null | head -n 1'").Trim()
   } catch {}
   if (-not $remote) {
-    Write-Host "[logphy] No logical_physical json found in $remoteDir"
+    Write-Host "`[logphy] No logical_physical json found in $remoteDir"
     return
   }
-  Write-Host "[logphy] Pulling: $remote"
+  Write-Host "`[logphy] Pulling: $remote"
   adb pull $remote $destPath | Out-Null
 }
 
@@ -854,17 +989,17 @@ function Run-LogicalPhysicalOnce() {
   $outFile = Join-Path $OutDir "${base}_signals.log"
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
-  Write-Host "[logphy] Clearing logcat..."
+  Write-Host "`[logphy] Clearing logcat..."
   adb logcat -c | Out-Null
-  Write-Host "[logphy] Force-stopping app..."
+  Write-Host "`[logphy] Force-stopping app..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
   Clear-RemoteLogicalPhysicalJson
 
-  Write-Host "[logphy] Launching logical / physical probe..."
+  Write-Host "`[logphy] Launching logical / physical probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen logicalphysical --ez pns_autologicalphysical true | Out-Null
-  Write-Host "[logphy] Capturing until LOGICAL_PHYSICAL_DONE..."
+  Write-Host "`[logphy] Capturing until LOGICAL_PHYSICAL_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
   try {
     $deadline = (Get-Date).AddMinutes(25)
@@ -877,10 +1012,10 @@ function Run-LogicalPhysicalOnce() {
   } finally {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
-  Write-Host "[logphy] Saved signals: $outFile"
+  Write-Host "`[logphy] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
   Pull-LatestLogicalPhysical $pulledJson
-  if (Test-Path $pulledJson) { Write-Host "[logphy] Saved JSON: $pulledJson" }
+  if (Test-Path $pulledJson) { Write-Host "`[logphy] Saved JSON: $pulledJson" }
 }
 
 function Run-CaptureLatencyOnce() {
@@ -889,15 +1024,15 @@ function Run-CaptureLatencyOnce() {
   $outFile = Join-Path $OutDir "${base}_signals.log"
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
-  Write-Host "[caplat] Clearing logcat..."
+  Write-Host "`[caplat] Clearing logcat..."
   adb logcat -c | Out-Null
-  Write-Host "[caplat] Force-stopping app..."
+  Write-Host "`[caplat] Force-stopping app..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
   Clear-RemoteCaptureLatencyJson
-  Write-Host "[caplat] Launching capture latency probe..."
+  Write-Host "`[caplat] Launching capture latency probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen capturelatency --ez pns_autocapturelatency true | Out-Null
-  Write-Host "[caplat] Capturing until CAPTURE_LATENCY_DONE..."
+  Write-Host "`[caplat] Capturing until CAPTURE_LATENCY_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
   try {
     $deadline = (Get-Date).AddMinutes(18)
@@ -910,10 +1045,10 @@ function Run-CaptureLatencyOnce() {
   } finally {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
-  Write-Host "[caplat] Saved signals: $outFile"
+  Write-Host "`[caplat] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
   Pull-LatestCaptureLatency $pulledJson
-  if (Test-Path $pulledJson) { Write-Host "[caplat] Saved JSON: $pulledJson" }
+  if (Test-Path $pulledJson) { Write-Host "`[caplat] Saved JSON: $pulledJson" }
 }
 
 function Run-RawHdrExclOnce() {
@@ -922,15 +1057,15 @@ function Run-RawHdrExclOnce() {
   $outFile = Join-Path $OutDir "${base}_signals.log"
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
-  Write-Host "[rawhdr] Clearing logcat..."
+  Write-Host "`[rawhdr] Clearing logcat..."
   adb logcat -c | Out-Null
-  Write-Host "[rawhdr] Force-stopping app..."
+  Write-Host "`[rawhdr] Force-stopping app..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
   Clear-RemoteRawHdrExclJson
-  Write-Host "[rawhdr] Launching RAW/HDR exclusivity probe..."
+  Write-Host "`[rawhdr] Launching RAW/HDR exclusivity probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen rawhdrexcl --ez pns_autorawhdrexcl true | Out-Null
-  Write-Host "[rawhdr] Capturing until RAW_HDR_EXCL_DONE..."
+  Write-Host "`[rawhdr] Capturing until RAW_HDR_EXCL_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
   try {
     $deadline = (Get-Date).AddMinutes(25)
@@ -943,10 +1078,10 @@ function Run-RawHdrExclOnce() {
   } finally {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
-  Write-Host "[rawhdr] Saved signals: $outFile"
+  Write-Host "`[rawhdr] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
   Pull-LatestRawHdrExcl $pulledJson
-  if (Test-Path $pulledJson) { Write-Host "[rawhdr] Saved JSON: $pulledJson" }
+  if (Test-Path $pulledJson) { Write-Host "`[rawhdr] Saved JSON: $pulledJson" }
 }
 
 function Run-BurstProbeOnce() {
@@ -955,15 +1090,15 @@ function Run-BurstProbeOnce() {
   $outFile = Join-Path $OutDir "${base}_signals.log"
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
-  Write-Host "[burst] Clearing logcat..."
+  Write-Host "`[burst] Clearing logcat..."
   adb logcat -c | Out-Null
-  Write-Host "[burst] Force-stopping app..."
+  Write-Host "`[burst] Force-stopping app..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
   Clear-RemoteBurstProbeJson
-  Write-Host "[burst] Launching burst probe..."
+  Write-Host "`[burst] Launching burst probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen burst --ez pns_autoburst true | Out-Null
-  Write-Host "[burst] Capturing until BURST_PROBE_DONE..."
+  Write-Host "`[burst] Capturing until BURST_PROBE_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
   try {
     $deadline = (Get-Date).AddMinutes(20)
@@ -976,10 +1111,10 @@ function Run-BurstProbeOnce() {
   } finally {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
-  Write-Host "[burst] Saved signals: $outFile"
+  Write-Host "`[burst] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
   Pull-LatestBurstProbe $pulledJson
-  if (Test-Path $pulledJson) { Write-Host "[burst] Saved JSON: $pulledJson" }
+  if (Test-Path $pulledJson) { Write-Host "`[burst] Saved JSON: $pulledJson" }
 }
 
 function Run-ExhaustiveOnce() {
@@ -989,10 +1124,10 @@ function Run-ExhaustiveOnce() {
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
 
-  Write-Host "[exhaustive] Clearing logcat..."
+  Write-Host "`[exhaustive] Clearing logcat..."
   adb logcat -c | Out-Null
 
-  Write-Host "[exhaustive] Force-stopping app (clean run)..."
+  Write-Host "`[exhaustive] Force-stopping app (clean run)..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
@@ -1003,9 +1138,9 @@ function Run-ExhaustiveOnce() {
     $useHfrOnly = $false
   }
 
-  Write-Host "[exhaustive] Launching exhaustive media probe..."
+  Write-Host "`[exhaustive] Launching exhaustive media probe..."
   if ($useHfrOnly) {
-    Write-Host "[exhaustive] Mode: HFR-only (regular video matrix skipped)."
+    Write-Host "`[exhaustive] Mode: HFR-only (regular video matrix skipped)."
   }
   if ($ExhaustiveIncludeLogical.IsPresent -and $useHfrOnly) {
     adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen exhaustive --ez pns_autoexhaustive true --ez pns_include_logical true --ez pns_exhaustive_hfr_only true | Out-Null
@@ -1017,31 +1152,31 @@ function Run-ExhaustiveOnce() {
     adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen exhaustive --ez pns_autoexhaustive true | Out-Null
   }
 
-  Write-Host "[exhaustive] Capturing until EXHAUSTIVE_PROBE_DONE (timeout ${ExhaustiveTimeoutMinutes}m, progress every ${ProgressIntervalSeconds}s)..."
+  Write-Host "`[exhaustive] Capturing until EXHAUSTIVE_PROBE_DONE (timeout ${ExhaustiveTimeoutMinutes}m, progress every ${ProgressIntervalSeconds}s)..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
 
   try {
     $ok = Wait-SignalLogFile -OutFile $outFile -DoneSubstring "EXHAUSTIVE_PROBE_DONE runId=" -TimeoutMinutes $ExhaustiveTimeoutMinutes -PhaseTag "exhaustive"
     if (-not $ok) {
-      Write-Host "[exhaustive] ERROR: probe did not finish in time; check device ANR/camera HAL."
+      Write-Host "`[exhaustive] ERROR: probe did not finish in time; check device ANR/camera HAL."
     }
     if (Test-Path -LiteralPath $outFile) {
       $starts = @(Select-String -LiteralPath $outFile -Pattern "EXHAUSTIVE_PROBE_START" -SimpleMatch -ErrorAction SilentlyContinue)
       if ($starts.Count -gt 1) {
-        Write-Host "[exhaustive] WARN: $($starts.Count) x EXHAUSTIVE_PROBE_START in log (expected 1). Update app if you still see this after reinstall."
+        Write-Host "`[exhaustive] WARN: $($starts.Count) x EXHAUSTIVE_PROBE_START in log (expected 1). Update app if you still see this after reinstall."
       }
     }
   } finally {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
 
-  Write-Host "[exhaustive] Saved signals: $outFile"
+  Write-Host "`[exhaustive] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
-  Write-Host "[exhaustive] Saved logcat: $dumpFile"
+  Write-Host "`[exhaustive] Saved logcat: $dumpFile"
 
   Pull-LatestExhaustiveProbe $pulledJson
   if (Test-Path $pulledJson) {
-    Write-Host "[exhaustive] Saved JSON: $pulledJson"
+    Write-Host "`[exhaustive] Saved JSON: $pulledJson"
   }
 }
 
@@ -1052,19 +1187,19 @@ function Run-LegacyCamera1Once() {
   $dumpFile = Join-Path $OutDir "${base}_logcat_threadtime.log"
   $pulledJson = Join-Path $OutDir "${base}.json"
 
-  Write-Host "[legacy1] Clearing logcat..."
+  Write-Host "`[legacy1] Clearing logcat..."
   adb logcat -c | Out-Null
 
-  Write-Host "[legacy1] Force-stopping app (clean run)..."
+  Write-Host "`[legacy1] Force-stopping app (clean run)..."
   adb shell am force-stop dev.pointandshoot | Out-Null
   Grant-CameraPermission
 
   Clear-RemoteLegacyCamera1Json
 
-  Write-Host "[legacy1] Launching Camera1 probe..."
+  Write-Host "`[legacy1] Launching Camera1 probe..."
   adb shell am start -S -n dev.pointandshoot/.MainActivity --es pns_screen camera1 --ez pns_autolegacy true | Out-Null
 
-  Write-Host "[legacy1] Capturing until LEGACY_CAM1_DONE..."
+  Write-Host "`[legacy1] Capturing until LEGACY_CAM1_DONE..."
   $proc = Start-Process -FilePath adb -ArgumentList @("logcat", "-v", "brief", "-s", "PNS.SWEEP_SIGNAL:I") -NoNewWindow -PassThru -RedirectStandardOutput $outFile
 
   try {
@@ -1080,13 +1215,13 @@ function Run-LegacyCamera1Once() {
     if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
   }
 
-  Write-Host "[legacy1] Saved signals: $outFile"
+  Write-Host "`[legacy1] Saved signals: $outFile"
   adb logcat -d -v threadtime > $dumpFile
-  Write-Host "[legacy1] Saved logcat: $dumpFile"
+  Write-Host "`[legacy1] Saved logcat: $dumpFile"
 
   Pull-LatestLegacyCamera1 $pulledJson
   if (Test-Path $pulledJson) {
-    Write-Host "[legacy1] Saved JSON: $pulledJson"
+    Write-Host "`[legacy1] Saved JSON: $pulledJson"
   }
 }
 
@@ -1163,7 +1298,7 @@ if ($RunCoreProbePlan.IsPresent -or $RunCoreProbePlanFullMatrix.IsPresent) {
     }
     Run-Once ("run$i")
     if ($i -lt $MaxRuns -and $EncoderPauseSeconds -gt 0) {
-      Write-Host "[encoder] Pausing ${EncoderPauseSeconds}s before next run (thermal / sustained load spacing)..."
+      Write-Host "`[encoder] Pausing ${EncoderPauseSeconds}s before next run (thermal / sustained load spacing)..."
       Start-Sleep -Seconds $EncoderPauseSeconds
     }
   }
@@ -1206,7 +1341,7 @@ if ($RunCoreProbePlan.IsPresent -or $RunCoreProbePlanFullMatrix.IsPresent) {
     }
     Run-Once ("run$i")
     if ($i -lt $MaxRuns -and $EncoderPauseSeconds -gt 0) {
-      Write-Host "[encoder] Pausing ${EncoderPauseSeconds}s before next run (thermal / sustained load spacing)..."
+      Write-Host "`[encoder] Pausing ${EncoderPauseSeconds}s before next run (thermal / sustained load spacing)..."
       Start-Sleep -Seconds $EncoderPauseSeconds
     }
   }
@@ -1256,7 +1391,7 @@ if ($RunCoreProbePlan.IsPresent -or $RunCoreProbePlanFullMatrix.IsPresent) {
     }
     Run-Once ("run$i")
     if ($i -lt $MaxRuns -and $EncoderPauseSeconds -gt 0) {
-      Write-Host "[encoder] Pausing ${EncoderPauseSeconds}s before next run (thermal / sustained load spacing)..."
+      Write-Host "`[encoder] Pausing ${EncoderPauseSeconds}s before next run (thermal / sustained load spacing)..."
       Start-Sleep -Seconds $EncoderPauseSeconds
     }
   }

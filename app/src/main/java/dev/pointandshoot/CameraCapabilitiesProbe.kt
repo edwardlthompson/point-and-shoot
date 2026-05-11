@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.provider.MediaStore
 import android.provider.Settings
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
@@ -89,16 +90,17 @@ const val EXTRA_PNS_PREVIEW_STILLS_LUT = "pns_preview_stills_lut"
 /** BUILD_PLAN Milestone 6.3 — logs baseline vs LUT preview FPS (`PNS.AdbValidation` `m6 lutFps*`). */
 const val EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE = "pns_preview_m6_fps_lut_probe"
 
-/** When true with [SCREEN_PREVIEW]: after the stream is up, grab one `TextureView` frame for calibration smoke (logs `calibrate preview frame grab ok`). */
+/** When true with [PNS_SCREEN_PREVIEW]: after the stream is up, grab one `TextureView` frame for calibration smoke (logs `calibrate preview frame grab ok`). */
 const val EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE = "pns_preview_calibrate_grab_smoke"
 
 /**
- * Optional `--ei pns_preview_self_timer_sec N` with [SCREEN_PREVIEW]: seeds [PreviewChromePreferences.selfTimerDelaySec]
+ * Optional `--ei pns_preview_self_timer_sec N` with [PNS_SCREEN_PREVIEW]: seeds [PreviewChromePreferences.selfTimerDelaySec]
  * (**0 / 3 / 5 / 10**; invalid values normalize to **0**). Logged as **`PNS.ChromeUx`** **`selfTimerSec=`** after apply.
  */
 const val EXTRA_PNS_PREVIEW_SELF_TIMER_SEC = "pns_preview_self_timer_sec"
 
-private const val SCREEN_PREVIEW = "preview"
+/** Value for [EXTRA_PNS_SCREEN] and system camera intents — opens [PreviewEngineScreen]. */
+const val PNS_SCREEN_PREVIEW = "preview"
 private const val SCREEN_ENC = "enc"
 private const val SCREEN_DEEPCAPS = "deepcaps"
 private const val SCREEN_SESSION_MATRIX = "sessionmatrix"
@@ -123,6 +125,7 @@ const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 @Composable
 fun CameraCapabilitiesProbe(
     launchScreen: String? = null,
+    imageCaptureReturn: ImageCaptureReturnContract? = null,
     autoSweep: Boolean = false,
     autoEncProbe: Boolean = false,
     autoDeepCaps: Boolean = false,
@@ -250,7 +253,7 @@ fun CameraCapabilitiesProbe(
 
     LaunchedEffect(hasCameraPermission, launchScreen) {
         if (!hasCameraPermission) return@LaunchedEffect
-        if (launchScreen == SCREEN_PREVIEW) {
+        if (launchScreen == PNS_SCREEN_PREVIEW) {
             showPreviewEngine = true
         } else if (launchScreen == SCREEN_ENC) {
             showEncoderProbe = true
@@ -309,7 +312,7 @@ fun CameraCapabilitiesProbe(
         val inz = (context as? ComponentActivity)?.intent
         val suppressHugeMarkdownDump =
             inz != null &&
-                inz.getStringExtra(EXTRA_PNS_SCREEN) == SCREEN_PREVIEW &&
+                inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_PREVIEW &&
                 (
                     (inz.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0) > 0 ||
                         inz.previewBracketExtra() != null ||
@@ -318,7 +321,8 @@ fun CameraCapabilitiesProbe(
                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
-                        inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC)
+                        inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC) ||
+                        inz.action == MediaStore.ACTION_IMAGE_CAPTURE
                     )
         if (!suppressHugeMarkdownDump) {
             Log.i(TAG, "\n$report")
@@ -345,11 +349,17 @@ fun CameraCapabilitiesProbe(
         val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
         PreviewEngineScreen(
             onBack = {
-                showPreviewEngine = false
-                if (previewLaunchedFromDebug) {
-                    showDebugMenu = true
+                val ic = imageCaptureReturn
+                if (ic != null) {
+                    ic.host.setResult(android.app.Activity.RESULT_CANCELED)
+                    ic.host.finish()
+                } else {
+                    showPreviewEngine = false
+                    if (previewLaunchedFromDebug) {
+                        showDebugMenu = true
+                    }
+                    previewLaunchedFromDebug = false
                 }
-                previewLaunchedFromDebug = false
             },
             onOpenDeveloperMenu = {
                 showPreviewEngine = false
@@ -371,6 +381,7 @@ fun CameraCapabilitiesProbe(
             adbM6FpsLutProbe = adbM6FpsLutProbe,
             adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
             adbInitialSelfTimerSec = adbSelfTimerSec,
+            imageCaptureReturn = imageCaptureReturn,
         )
         return
     }

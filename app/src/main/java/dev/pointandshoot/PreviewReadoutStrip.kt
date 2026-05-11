@@ -224,9 +224,10 @@ fun PreviewReadoutStrip(
             Box {
                 ReadoutLutChip(
                     label = "Still",
+                    scope = LutCatalog.Scope.Stills,
                     current = stillLut,
                     onClick = { stillLutMenu = true },
-                    accessibilityLabel = "Still capture LUT. Current ${stillLut.displayName}.",
+                    accessibilityLabel = "Still capture LUT. Index ${stillLut.indexInScope(LutCatalog.Scope.Stills)} (${stillLut.displayName}).",
                 )
                 DropdownMenu(expanded = stillLutMenu, onDismissRequest = { stillLutMenu = false }) {
                     for (entry in stillLutChoices) {
@@ -243,9 +244,10 @@ fun PreviewReadoutStrip(
             Box {
                 ReadoutLutChip(
                     label = "Video",
+                    scope = LutCatalog.Scope.Video,
                     current = videoLut,
                     onClick = { videoLutMenu = true },
-                    accessibilityLabel = "Video LUT. Current ${videoLut.displayName}.",
+                    accessibilityLabel = "Video LUT. Index ${videoLut.indexInScope(LutCatalog.Scope.Video)} (${videoLut.displayName}).",
                 )
                 DropdownMenu(expanded = videoLutMenu, onDismissRequest = { videoLutMenu = false }) {
                     for (entry in videoLutChoices) {
@@ -290,6 +292,7 @@ val PreviewReadoutStripHeight = 40.dp
 @Composable
 private fun ReadoutLutChip(
     label: String,
+    scope: LutCatalog.Scope,
     current: LutCatalog,
     onClick: () -> Unit,
     accessibilityLabel: String,
@@ -316,8 +319,9 @@ private fun ReadoutLutChip(
             color = Color.White.copy(alpha = 0.55f),
         )
         Text(
-            text = current.displayName,
+            text = current.indexInScope(scope).toString(),
             style = MaterialTheme.typography.labelSmall,
+            fontFamily = FontFamily.Monospace,
             color = PnsColors.PhotoOrange.copy(alpha = 0.98f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

@@ -1,7 +1,11 @@
 package dev.pointandshoot
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.MediaStore
 import androidx.activity.ComponentActivity
+import androidx.core.content.IntentCompat
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.Surface
@@ -26,7 +30,8 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBarsForImmersive()
 
-        val launchScreen = intent?.getStringExtra(EXTRA_PNS_SCREEN)
+        val launchScreen = resolveLaunchScreenForMain(intent)
+        val imageCaptureReturn = resolveImageCaptureReturn()
         val autoSweep = intent?.getBooleanExtra(EXTRA_PNS_AUTOSWEEP, false) ?: false
         val autoEnc = intent?.getBooleanExtra(EXTRA_PNS_AUTOENC, false) ?: false
         val autoDeepCaps = intent?.getBooleanExtra(EXTRA_PNS_AUTODEEPCAPS, false) ?: false
@@ -46,6 +51,7 @@ class MainActivity : ComponentActivity() {
                 Surface {
                     CameraCapabilitiesProbe(
                         launchScreen = launchScreen,
+                        imageCaptureReturn = imageCaptureReturn,
                         autoSweep = autoSweep,
                         autoEncProbe = autoEnc,
                         autoDeepCaps = autoDeepCaps,
@@ -72,6 +78,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * [EXTRA_PNS_SCREEN] wins when set (ADB / in-app navigation).
+     * System camera intents ([MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA], etc.) map to the preview finder
+     * so the app appears in quick-launch / default-camera style pickers.
+     */
+    private fun resolveLaunchScreenForMain(intent: Intent?): String? {
+        val fromExtra = intent?.getStringExtra(EXTRA_PNS_SCREEN)
+        if (!fromExtra.isNullOrEmpty()) return fromExtra
+        return when (intent?.action) {
+            MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA,
+            MediaStore.INTENT_ACTION_VIDEO_CAMERA,
+            MediaStore.ACTION_IMAGE_CAPTURE_SECURE,
+            MediaStore.ACTION_IMAGE_CAPTURE,
+            -> PNS_SCREEN_PREVIEW
+            else -> null
+        }
+    }
+
+    private fun resolveImageCaptureReturn(): ImageCaptureReturnContract? {
+        val inz = intent ?: return null
+        if (inz.action != MediaStore.ACTION_IMAGE_CAPTURE) return null
+        return ImageCaptureReturnContract(
+            host = this,
+            callerOutputUri =
+                IntentCompat.getParcelableExtra(inz, MediaStore.EXTRA_OUTPUT, Uri::class.java),
+        )
+    }
+
     private fun hideSystemBarsForImmersive() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.systemBars())
@@ -79,3 +113,13 @@ class MainActivity : ComponentActivity() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }
+
+/**
+ * Activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; after a still capture, deliver a JPEG
+ * to the caller ([MediaStore.EXTRA_OUTPUT] or thumbnail extra `data`) and [android.app.Activity.finish].
+ */
+class ImageCaptureReturnContract(
+    val host: ComponentActivity,
+    /** When non-null, caller expects the JPEG bytes written to this URI; otherwise a small bitmap is returned in `data`. */
+    val callerOutputUri: Uri?,
+)

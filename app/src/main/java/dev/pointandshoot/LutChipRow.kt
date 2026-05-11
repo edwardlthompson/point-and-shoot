@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -60,11 +61,13 @@ fun LutChipRow(
     ) {
         LutChip(
             scopeLabel = "STILL LUT",
+            lutScope = LutCatalog.Scope.Stills,
             current = settings.stillsLut(),
             onClick = { picking = LutCatalog.Scope.Stills },
         )
         LutChip(
             scopeLabel = "VIDEO LUT",
+            lutScope = LutCatalog.Scope.Video,
             current = settings.videoLut(),
             onClick = { picking = LutCatalog.Scope.Video },
         )
@@ -100,6 +103,7 @@ fun LutChipRow(
 @Composable
 private fun LutChip(
     scopeLabel: String,
+    lutScope: LutCatalog.Scope,
     current: LutCatalog,
     onClick: () -> Unit,
 ) {
@@ -119,8 +123,9 @@ private fun LutChip(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = current.displayName,
+                text = current.indexInScope(lutScope).toString(),
                 style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
                 color = Color.White,
             )
         }

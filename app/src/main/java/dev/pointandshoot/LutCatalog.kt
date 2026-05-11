@@ -57,6 +57,8 @@ enum class LutCatalog(
     ),
     ;
 
+    enum class Scope { Stills, Video, Both }
+
     /** Materialize this LUT at the requested grid size (default 33). */
     fun load(size: Int = BuiltInLuts.DEFAULT_SIZE): Lut3D = generator(size)
 
@@ -76,7 +78,12 @@ enum class LutCatalog(
         return DngLutMetadata.LutIdentity.Bundled(name, sha256Hex(gridSize))
     }
 
-    enum class Scope { Stills, Video, Both }
+    /** 0-based index in [LutCatalog.forScope] order for compact readout chips ([None] is **0**). */
+    fun indexInScope(scope: Scope): Int {
+        val list = LutCatalog.forScope(scope)
+        val i = list.indexOf(this)
+        return if (i >= 0) i else 0
+    }
 
     companion object {
         /**

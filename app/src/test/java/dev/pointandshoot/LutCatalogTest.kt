@@ -76,6 +76,14 @@ class LutCatalogTest {
     }
 
     @Test
+    fun `indexInScope matches forScope list order`() {
+        val stills = LutCatalog.forScope(LutCatalog.Scope.Stills)
+        for (i in stills.indices) {
+            assertEquals(i, stills[i].indexInScope(LutCatalog.Scope.Stills))
+        }
+    }
+
+    @Test
     fun `defaultFor any scope is None (safe fallback)`() {
         for (scope in LutCatalog.Scope.entries) {
             assertEquals(LutCatalog.None, LutCatalog.defaultFor(scope))

@@ -1,5 +1,6 @@
 ﻿package dev.pointandshoot
 
+import android.app.Activity
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -28,7 +29,6 @@ import android.util.Size
 import android.util.Log
 import android.app.NotificationManager
 import android.content.Intent
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -40,6 +40,7 @@ import android.location.Location
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import android.net.Uri
+import android.provider.MediaStore
 import android.provider.Settings
 import android.view.KeyEvent as AndroidKeyEvent
 import android.view.Surface
@@ -92,12 +93,9 @@ import androidx.compose.material.icons.outlined.DoNotDisturb
 import androidx.compose.material.icons.outlined.Face
 import androidx.compose.material.icons.outlined.Landscape
 import androidx.compose.material.icons.outlined.CameraEnhance
-import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Straighten
@@ -140,7 +138,6 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -155,6 +152,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -177,8 +175,6 @@ private fun Modifier.chromeGlyphRotation(degrees: Float): Modifier =
     }
 
 private enum class ChromeGridQuickAction {
-    CycleStillsLut,
-    FlashStub,
     TimerStub,
     ToggleHistogram,
     ToggleHorizonLevel,
@@ -190,8 +186,6 @@ private enum class ChromeGridQuickAction {
     ToggleVolumeKeysCapture,
     /** Icon-only: embed GPS in DNG/JPEG when permission allows. */
     ToggleSaveLocation,
-    /** Icon-only: cycle static preview rotation. */
-    CyclePreviewSpin,
 }
 
 private sealed class ChromeGridSlotSpec {
@@ -218,34 +212,24 @@ private sealed class ChromeGridSlotSpec {
 /** Scroll-area shortcuts (packed into rows of 7); focal-length row is separate. Target FPS lives on the readout strip. */
 private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
     listOf(
-        ChromeGridSlotSpec.ExpandShortcut(1, 1, "Guides", Icons.Outlined.GridOn, "Guides"),
-        ChromeGridSlotSpec.ExpandShortcut(1, 2, "Looks / LUT", Icons.Outlined.Palette, "Looks and LUT"),
-        ChromeGridSlotSpec.ExpandShortcut(1, 3, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
-        ChromeGridSlotSpec.ExpandShortcut(1, 4, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
-        ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Palette, "Cycle stills LUT", ChromeGridQuickAction.CycleStillsLut),
-        ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.FlashOn, "Flash", ChromeGridQuickAction.FlashStub),
-        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.Timer, "Self timer", ChromeGridQuickAction.TimerStub),
-        ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.BarChart, "Histogram", ChromeGridQuickAction.ToggleHistogram),
-        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.Landscape, "Horizon level", ChromeGridQuickAction.ToggleHorizonLevel),
-        ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
-        ChromeGridSlotSpec.QuickAction(2, 6, Icons.Outlined.Videocam, "Video tally", ChromeGridQuickAction.ToggleVideoTally),
-        ChromeGridSlotSpec.QuickAction(3, 0, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview),
-        ChromeGridSlotSpec.QuickAction(3, 1, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
-        ChromeGridSlotSpec.QuickAction(3, 2, Icons.Outlined.TouchApp, "Tap preview to capture", ChromeGridQuickAction.ToggleTapPreviewCapture),
-        ChromeGridSlotSpec.QuickAction(3, 3, Icons.AutoMirrored.Outlined.VolumeUp, "Volume keys capture", ChromeGridQuickAction.ToggleVolumeKeysCapture),
-        ChromeGridSlotSpec.QuickAction(3, 4, Icons.Outlined.LocationOn, "Save location in files", ChromeGridQuickAction.ToggleSaveLocation),
-        ChromeGridSlotSpec.QuickAction(3, 5, Icons.Outlined.RotateRight, "Spin preview", ChromeGridQuickAction.CyclePreviewSpin),
-        ChromeGridSlotSpec.ExpandShortcut(3, 6, "Settings", Icons.Outlined.Settings, "Settings"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 0, "Guides", Icons.Outlined.GridOn, "Guides"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 1, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 2, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
+        ChromeGridSlotSpec.QuickAction(1, 3, Icons.Outlined.Timer, "Self timer", ChromeGridQuickAction.TimerStub),
+        ChromeGridSlotSpec.QuickAction(1, 4, Icons.Outlined.BarChart, "Histogram", ChromeGridQuickAction.ToggleHistogram),
+        ChromeGridSlotSpec.QuickAction(1, 5, Icons.Outlined.Landscape, "Horizon level", ChromeGridQuickAction.ToggleHorizonLevel),
+        ChromeGridSlotSpec.QuickAction(1, 6, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
+        ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Videocam, "Video tally", ChromeGridQuickAction.ToggleVideoTally),
+        ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview),
+        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
+        ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.TouchApp, "Tap preview to capture", ChromeGridQuickAction.ToggleTapPreviewCapture),
+        ChromeGridSlotSpec.QuickAction(2, 4, Icons.AutoMirrored.Outlined.VolumeUp, "Volume keys capture", ChromeGridQuickAction.ToggleVolumeKeysCapture),
+        ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.LocationOn, "Save location in files", ChromeGridQuickAction.ToggleSaveLocation),
+        ChromeGridSlotSpec.ExpandShortcut(2, 6, "Settings", Icons.Outlined.Settings, "Settings"),
     )
 
-private fun cycleStillsLutQuick(hudState: HudSettingsState) {
-    val options = LutCatalog.forScope(LutCatalog.Scope.Stills)
-    if (options.isEmpty()) return
-    val curName = hudState.current.selectedLutForStills
-    val idx = options.indexOfFirst { it.name == curName }.let { i -> if (i >= 0) i else 0 }
-    val next = options[(idx + 1) % options.size]
-    hudState.update(hudState.current.copy(selectedLutForStills = next.name))
-}
+/** Immutable placeholder until the first YUV histogram sample arrives (overlay stays visible when enabled). */
+private val PreviewHistogramPendingBins = IntArray(PreviewLumaHistogram.BIN_COUNT)
 
 private val PreviewBottomTrayHeight = 92.dp
 private val PreviewGalleryThumbSize = 56.dp
@@ -263,6 +247,85 @@ private fun formatDngUniqueCameraModelLine(cameraId: String, lut: LutCatalog): S
         activeLut = lut.identityForDngMetadata(),
         includeLutMarkerInUniqueCameraModel = false,
     )
+
+/** Successful [PreviewController.captureRawStill]; [companionJpegUri] is null when the session has no JPEG companion. */
+data class RawStillSaveSuccess(
+    val dngUriString: String,
+    val companionJpegUri: Uri?,
+)
+
+private fun scaleBitmapToMaxSide(src: Bitmap, maxSide: Int): Bitmap {
+    val w = src.width
+    val h = src.height
+    if (w <= 0 || h <= 0) return src
+    val longest = maxOf(w, h)
+    if (longest <= maxSide) return src
+    val scale = maxSide.toFloat() / longest.toFloat()
+    val nw = (w * scale).toInt().coerceAtLeast(1)
+    val nh = (h * scale).toInt().coerceAtLeast(1)
+    val out = Bitmap.createScaledBitmap(src, nw, nh, true)
+    if (out !== src) src.recycle()
+    return out
+}
+
+private suspend fun deliverImageCaptureToCaller(
+    contract: ImageCaptureReturnContract,
+    companionJpegUri: Uri?,
+) {
+    val host = contract.host
+    val app = host.applicationContext
+    if (companionJpegUri == null) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(
+                app,
+                "Still capture needs RAW+ JPEG (companion). It was enabled for this flow.",
+                Toast.LENGTH_LONG,
+            ).show()
+            host.setResult(Activity.RESULT_CANCELED)
+            host.finish()
+        }
+        return
+    }
+    val target = contract.callerOutputUri
+    try {
+        if (target != null) {
+            withContext(Dispatchers.IO) {
+                app.contentResolver.openOutputStream(target)?.use { out ->
+                    app.contentResolver.openInputStream(companionJpegUri)?.use { input ->
+                        input.copyTo(out)
+                    }
+                } ?: error("Cannot open caller output URI for write")
+            }
+            withContext(Dispatchers.Main) {
+                host.setResult(Activity.RESULT_OK, null)
+                host.finish()
+            }
+        } else {
+            val scaled =
+                withContext(Dispatchers.IO) {
+                    app.contentResolver.openInputStream(companionJpegUri)?.use { stream ->
+                        val decoded =
+                            BitmapFactory.decodeStream(stream)
+                                ?: error("JPEG decode failed")
+                        scaleBitmapToMaxSide(decoded, maxSide = 1024)
+                    } ?: error("Cannot read companion JPEG")
+                }
+            withContext(Dispatchers.Main) {
+                host.setResult(
+                    Activity.RESULT_OK,
+                    Intent().apply { putExtra("data", scaled) },
+                )
+                host.finish()
+            }
+        }
+    } catch (e: Throwable) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(app, "Could not return image: ${e.message}", Toast.LENGTH_LONG).show()
+            host.setResult(Activity.RESULT_CANCELED)
+            host.finish()
+        }
+    }
+}
 
 @Composable
 fun PreviewEngineScreen(
@@ -285,8 +348,11 @@ fun PreviewEngineScreen(
     adbCalibrateGrabSmoke: Boolean = false,
     /** `--ei pns_preview_self_timer_sec N` — seeds [PreviewChromePreferences.selfTimerDelaySec] (normalized). */
     adbInitialSelfTimerSec: Int? = null,
+    /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */
+    imageCaptureReturn: ImageCaptureReturnContract? = null,
 ) {
     val context = LocalContext.current
+    val captureScope = rememberCoroutineScope()
     val controller = remember { PreviewController(context.applicationContext) }
     val cameraIdsList = controller.cameraIds()
     val cameraRoles =
@@ -534,6 +600,14 @@ fun PreviewEngineScreen(
         }
     }
     val chromePrefs = rememberPreviewChromePreferences()
+    LaunchedEffect(imageCaptureReturn) {
+        if (imageCaptureReturn != null) {
+            val c = chromePrefs.current
+            if (!c.stillCaptureJpegCompanion) {
+                chromePrefs.update(c.copy(stillCaptureJpegCompanion = true))
+            }
+        }
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     var previewNeedsResumeKick by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner, controller) {
@@ -877,12 +951,22 @@ fun PreviewEngineScreen(
                 stillsLut = hudState.current.stillsLut(),
             ) { result ->
                 result.fold(
-                    onSuccess = { uri ->
+                    onSuccess = { out ->
                         lastGalleryUri =
-                            runCatching { Uri.parse(uri) }.getOrElse { lastGalleryUri }
+                            runCatching { Uri.parse(out.dngUriString) }.getOrElse { lastGalleryUri }
+                        val ic = imageCaptureReturn
+                        if (ic != null) {
+                            captureScope.launch {
+                                deliverImageCaptureToCaller(ic, out.companionJpegUri)
+                            }
+                        }
                     },
                     onFailure = { e ->
                         Toast.makeText(context, e.message ?: "DNG failed", Toast.LENGTH_LONG).show()
+                        imageCaptureReturn?.let { ic ->
+                            ic.host.setResult(Activity.RESULT_CANCELED)
+                            ic.host.finish()
+                        }
                     },
                 )
             }
@@ -999,8 +1083,6 @@ private fun PreviewEngineContent(
         }
     }
 
-    val layoutPortrait =
-        LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val liveChartTarget = remember { BundledReferenceTargets.Generic24 }
     var chartCorners by remember { mutableStateOf<List<Offset>>(emptyList()) }
     LaunchedEffect(chrome.liveChartCornerOverlay) {
@@ -1064,9 +1146,21 @@ private fun PreviewEngineContent(
         }
     }
 
+    var previewHistogramBins by remember { mutableStateOf<IntArray?>(null) }
+    DisposableEffect(controller) {
+        controller.setPreviewHistogramListener { previewHistogramBins = it }
+        onDispose {
+            controller.setPreviewHistogramListener(null)
+        }
+    }
+
+    LaunchedEffect(settings.showHistogram, controller) {
+        controller.setPreviewHistogramEnabled(settings.showHistogram)
+    }
+
     // Sony-Photography-Pro chrome rotation: each rail icon / settings cube counter-rotates
-    // about its own centre while the preview texture stays visually fixed (static spin offset
-    // only via `staticPreviewRotationDeg`; device rotation does not re-layout the preview).
+    // about its own centre while the preview texture stays visually fixed (buffer aspect + fit
+    // transform only; device rotation does not re-layout the preview).
     // Per-element rotation keeps the rails fixed in screen position while only the glyphs
     // spin to read upright.
     val deviceUiRotationState = rememberDeviceUiRotationState()
@@ -1225,9 +1319,8 @@ private fun PreviewEngineContent(
                             onChartCornersChange = { chartCorners = it },
                             liveChartRows = liveChartTarget.rows,
                             liveChartCols = liveChartTarget.cols,
-                            staticPreviewRotationDeg = chrome.staticPreviewRotationDeg,
-                            layoutPortrait = layoutPortrait,
                             sensorOrientationDeg = sensorOrientationDeg,
+                            previewHistogramBins = previewHistogramBins,
                             onCaptureDng = { triggerStillCapture() },
                         )
                         if (selfTimerRemaining > 0) {
@@ -1311,7 +1404,6 @@ private fun PreviewEngineContent(
                 fineLocationGranted = fineLocationGranted,
                 onPendingEnableGeotagChange = onPendingEnableGeotagChange,
                 onRequestLocationForGeotag = onRequestLocationForGeotag,
-                layoutPortrait = layoutPortrait,
             )
             val showBottomTray =
                 chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial
@@ -1469,10 +1561,9 @@ private fun PreviewMainViewport(
     onChartCornersChange: (List<Offset>) -> Unit,
     liveChartRows: Int,
     liveChartCols: Int,
-    staticPreviewRotationDeg: Int,
-    /** Reserved — rotation follows [effectivePreviewStaticRotationDeg] only (no orientation coupling). */
-    layoutPortrait: Boolean,
     sensorOrientationDeg: Int?,
+    /** Latest luma histogram for overlay (null when disabled or not yet sampled). */
+    previewHistogramBins: IntArray?,
     onCaptureDng: () -> Unit,
 ) {
     // The OUTER box is the full-width finder above the chrome grid (no side rails).
@@ -1492,8 +1583,8 @@ private fun PreviewMainViewport(
     //     TextureView fills that box — center-fit transform stays uniform scale (no stretch).
     //     While `previewBufferSize` is unknown, the TextureView fills the parent.
     //
-    //   * Static rotation ([effectivePreviewStaticRotationDeg] from prefs only)
-    //     is applied via `graphicsLayer` on the content box. Footprint flips W↔H for 90°/270°.
+    //   * Fixed default buffer orientation: [effectivePreviewStaticRotationDeg] with stored
+    //     nominal **90°** maps to **0°** effective rotation (see [PreviewLayoutOrientation]).
     //
     // Layout tree:
     //
@@ -1521,7 +1612,7 @@ private fun PreviewMainViewport(
         val bufW = buf?.width ?: 0
         val bufH = buf?.height ?: 0
         val knownBuf = bufW > 0 && bufH > 0 && parentW > 0 && parentH > 0
-        val rotationAppliedDeg = effectivePreviewStaticRotationDeg(staticPreviewRotationDeg, layoutPortrait)
+        val rotationAppliedDeg = effectivePreviewStaticRotationDeg(90, false)
         val isQuarterTurn = rotationAppliedDeg == 90 || rotationAppliedDeg == 270
 
         // Axis-aligned footprint in parent coords after static rotation (matches reality).
@@ -1716,6 +1807,7 @@ private fun PreviewMainViewport(
                     onRequestVolumeKeyFocus = { focusRequester.requestFocus() },
                     showHorizonLevel = false, // drawn outside the rotated box (gravity-locked)
                     showVideoTallyPip = false, // tally pip is chrome; drawn outside the rotated box
+                    previewHistogramBins = previewHistogramBins,
                 )
                 if (liveChartCornerOverlay) {
                     LiveChartCornerGuide(
@@ -2041,7 +2133,6 @@ private fun PreviewChromeScrollSlot(
     fineLocationGranted: Boolean,
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
-    layoutPortrait: Boolean,
 ) {
     val context = LocalContext.current
     val hud = hudState.current
@@ -2060,14 +2151,10 @@ private fun PreviewChromeScrollSlot(
         is ChromeGridSlotSpec.QuickAction -> {
             val selectedQuick =
                 when (spec.kind) {
-                    ChromeGridQuickAction.CycleStillsLut ->
-                        hud.stillsLut() != LutCatalog.None
                     ChromeGridQuickAction.ToggleHistogram ->
                         hud.showHistogram
                     ChromeGridQuickAction.TimerStub ->
                         chromePrefs.current.selfTimerDelaySec > 0
-                    ChromeGridQuickAction.FlashStub ->
-                        false
                     ChromeGridQuickAction.ToggleHorizonLevel ->
                         hud.showHorizonLevel
                     ChromeGridQuickAction.ToggleEyeAfOverlay ->
@@ -2084,29 +2171,16 @@ private fun PreviewChromeScrollSlot(
                         chromePrefs.current.volumeKeysCapture
                     ChromeGridQuickAction.ToggleSaveLocation ->
                         chromePrefs.current.saveLocationWithMedia && fineLocationGranted
-                    ChromeGridQuickAction.CyclePreviewSpin ->
-                        effectivePreviewStaticRotationDeg(
-                            chromePrefs.current.staticPreviewRotationDeg,
-                            layoutPortrait,
-                        ) != 0
                 }
             IconCubeVectorButton(
                 onClick = {
                     when (spec.kind) {
-                        ChromeGridQuickAction.CycleStillsLut ->
-                            cycleStillsLutQuick(hudState)
                         ChromeGridQuickAction.ToggleHistogram -> {
                             val cur = hudState.current
                             hudState.update(
                                 cur.copy(showHistogram = !cur.showHistogram),
                             )
                         }
-                        ChromeGridQuickAction.FlashStub ->
-                            Toast.makeText(
-                                context,
-                                "Flash — not wired to AE/flash units yet.",
-                                Toast.LENGTH_SHORT,
-                            ).show()
                         ChromeGridQuickAction.TimerStub -> {
                             val next =
                                 PreviewChromePreferences.cycleSelfTimerDelaySec(
@@ -2178,14 +2252,6 @@ private fun PreviewChromeScrollSlot(
                                 onRequestLocationForGeotag()
                             }
                         }
-                        ChromeGridQuickAction.CyclePreviewSpin -> {
-                            val c = chromePrefs.current
-                            val nextDeg =
-                                PreviewChromePreferences.normalizeStaticRotation(
-                                    c.staticPreviewRotationDeg + 90,
-                                )
-                            chromePrefs.update(c.copy(staticPreviewRotationDeg = nextDeg))
-                        }
                     }
                 },
                 contentDescription = spec.contentDescription,
@@ -2214,7 +2280,6 @@ private fun PreviewChromeGrid7x7(
     fineLocationGranted: Boolean,
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
-    layoutPortrait: Boolean,
 ) {
     val context = LocalContext.current
     val focalSlots = FocalMmSlot.entries
@@ -2222,7 +2287,7 @@ private fun PreviewChromeGrid7x7(
     LaunchedEffect(Unit) {
         Log.i(
             "PNS.ChromeUx",
-            "grid7=layout settingsAt=r6c6=true quickActions=lut,flash,timer,histogram,horizon,eyeAf,tally,bright,dnd,tap,volKeys,saveLoc,spin " +
+            "grid7=layout settingsAt=r2c6=true quickActions=timer,histogram,horizon,eyeAf,tally,bright,dnd,tap,volKeys,saveLoc " +
                 "quickGrid=focalRow7_iconTiles_matchFpsChip_scrolledSlots targetFpsOnReadout=true",
         )
     }
@@ -2297,7 +2362,6 @@ private fun PreviewChromeGrid7x7(
                                         fineLocationGranted = fineLocationGranted,
                                         onPendingEnableGeotagChange = onPendingEnableGeotagChange,
                                         onRequestLocationForGeotag = onRequestLocationForGeotag,
-                                        layoutPortrait = layoutPortrait,
                                     )
                                 }
                             }
@@ -2345,7 +2409,6 @@ private fun PreviewRightRail(
     fineLocationGranted: Boolean,
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
-    layoutPortrait: Boolean,
 ) {
     val context = LocalContext.current
     val chrome = chromePrefs.current
@@ -2376,7 +2439,6 @@ private fun PreviewRightRail(
             fineLocationGranted = fineLocationGranted,
             onPendingEnableGeotagChange = onPendingEnableGeotagChange,
             onRequestLocationForGeotag = onRequestLocationForGeotag,
-            layoutPortrait = layoutPortrait,
         )
         expandedKey?.let { key ->
             Dialog(onDismissRequest = { expandedKey = null }) {
@@ -2799,6 +2861,7 @@ private fun PreviewCenterOverlay(
     onRequestVolumeKeyFocus: () -> Unit,
     showHorizonLevel: Boolean = true,
     showVideoTallyPip: Boolean = true,
+    previewHistogramBins: IntArray? = null,
 ) {
     val settings = hudState.current
     val guides = compositionGuide.current
@@ -2848,7 +2911,29 @@ private fun PreviewCenterOverlay(
             // Phase 1+ shader — placeholder frame only
         }
         if (settings.showHistogram) {
-            // Experimental — off by default
+            val bins = previewHistogramBins ?: PreviewHistogramPendingBins
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                contentAlignment = Alignment.BottomEnd,
+            ) {
+                Box(
+                    modifier =
+                        Modifier
+                            .width(132.dp)
+                            .height(56.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 4.dp, vertical = 3.dp),
+                ) {
+                    PreviewHistogramOverlay(
+                        bins = bins,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
     }
 }
@@ -3031,6 +3116,27 @@ private class PreviewController(
     private var hudFaceOverlayEnabled: Boolean = false
 
     private var eyeMarksListener: ((List<EyeMark>) -> Unit)? = null
+
+    private val histogramUiMinIntervalMs: Long = 150L
+
+    @Volatile
+    private var previewHistogramEnabled: Boolean = false
+
+    private var previewHistogramListener: ((IntArray?) -> Unit)? = null
+
+    fun setPreviewHistogramListener(listener: ((IntArray?) -> Unit)?) {
+        previewHistogramListener = listener
+    }
+
+    /** When toggled, may rebuild the capture session to add/remove the YUV analysis surface. */
+    fun setPreviewHistogramEnabled(enabled: Boolean) {
+        if (previewHistogramEnabled == enabled) return
+        previewHistogramEnabled = enabled
+        if (!enabled) {
+            handler?.post { previewHistogramListener?.invoke(null) }
+        }
+        maybeRestart()
+    }
 
     fun cameraIds(): List<String> =
         runCatching { cm.cameraIdList.toList() }.getOrDefault(emptyList())
@@ -3347,13 +3453,13 @@ private class PreviewController(
         stillsLut: LutCatalog,
         characteristics: CameraCharacteristics,
         captureResult: TotalCaptureResult,
-    ) {
+    ): Uri? {
         val jpegBytes = jpegImageToByteArray(jpegImage)
         val decoded =
             BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
                 ?: run {
                     Log.w(tag, "companion JPEG decode failed")
-                    return
+                    return null
                 }
         val oriented = rotateBitmapClockwise90(decoded)
         if (oriented !== decoded) {
@@ -3363,7 +3469,7 @@ private class PreviewController(
         val h = oriented.height
         if (w <= 0 || h <= 0) {
             oriented.recycle()
-            return
+            return null
         }
         val px = IntArray(w * h)
         oriented.getPixels(px, 0, w, 0, 0, w, h)
@@ -3389,7 +3495,7 @@ private class PreviewController(
         val outBmp = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
         val loc = locationForStillMetadata()
         var handle: CaptureStorage.Handle? = null
-        try {
+        return try {
             handle =
                 CaptureStorage.openOutput(
                     appContext.applicationContext,
@@ -3419,9 +3525,11 @@ private class PreviewController(
                 LutSidecar.CaptureKind.Still,
             )
             Log.d(tag, "companion JPEG ok displayName=$displayName lut=$stillsLut")
+            jpegUri
         } catch (t: Throwable) {
             Log.w(tag, "companion JPEG save failed", t)
             runCatching { handle?.discard() }
+            null
         } finally {
             outBmp.recycle()
         }
@@ -3443,7 +3551,7 @@ private class PreviewController(
         stillsLut: LutCatalog = LutCatalog.None,
         /** When set (e.g. `3/10`), logs `PNS.AdbValidation` lines for scripted runs. */
         adbValidationShotLabel: String? = null,
-        onResult: (Result<String>) -> Unit,
+        onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
         val shotTag = adbValidationShotLabel
         if (!captureBusy.compareAndSet(false, true)) {
@@ -3578,18 +3686,21 @@ private class PreviewController(
                         location = loc,
                     )
                     writeCalibrationSidecarIfNeeded(appContext, profile, dngDisplayName)
+                    var companionJpegUri: Uri? = null
                     if (jpegImg != null) {
                         try {
-                            runCatching {
-                                saveHardwareJpegCompanion(
-                                    appContext,
-                                    profile,
-                                    jpegImg,
-                                    stillsLut,
-                                    chars,
-                                    result,
-                                )
-                            }.onFailure { Log.w(tag, "companion JPEG pipeline failed", it) }
+                            companionJpegUri =
+                                runCatching {
+                                    saveHardwareJpegCompanion(
+                                        appContext,
+                                        profile,
+                                        jpegImg,
+                                        stillsLut,
+                                        chars,
+                                        result,
+                                    )
+                                }.onFailure { Log.w(tag, "companion JPEG pipeline failed", it) }
+                                    .getOrNull()
                         } finally {
                             jpegImg.close()
                         }
@@ -3600,7 +3711,9 @@ private class PreviewController(
                             "captureRawStill $shotTag ok=true saved=$dngDisplayName",
                         )
                     }
-                    mainHandler.post { onResult(Result.success(uri)) }
+                    mainHandler.post {
+                        onResult(Result.success(RawStillSaveSuccess(dngUriString = uri, companionJpegUri = companionJpegUri)))
+                    }
                 } catch (t: Throwable) {
                     if (shotTag != null) {
                         Log.i(
@@ -4451,10 +4564,10 @@ private class PreviewController(
                 }
             }
 
-            val wantHighlight =
-                commandDialMode == CommandDialMode.H &&
-                    desiredFps < 120
-            if (wantHighlight) {
+            val wantYuv =
+                (commandDialMode == CommandDialMode.H && desiredFps < 120) ||
+                    previewHistogramEnabled
+            if (wantYuv) {
                 val yuvSize = HighlightMeterSupport.pickYuv420AnalysisSize(map)
                 if (yuvSize != null) {
                     yuvImageReader =
@@ -4976,12 +5089,19 @@ private class PreviewController(
     }
 
     private fun processYuvForHighlight(reader: ImageReader) {
-        if (!wantsHighlightMetering() || yuvImageReader == null) {
+        if (yuvImageReader == null) {
+            reader.acquireLatestImage()?.close()
+            return
+        }
+        val wantHighlight = wantsHighlightMetering()
+        val wantHist = previewHistogramEnabled
+        if (!wantHighlight && !wantHist) {
             reader.acquireLatestImage()?.close()
             return
         }
         val now = SystemClock.elapsedRealtime()
-        if (now - lastHighlightProcessWallMs < highlightMeterMinIntervalMs) {
+        val minGap = if (wantHighlight) highlightMeterMinIntervalMs else histogramUiMinIntervalMs
+        if (now - lastHighlightProcessWallMs < minGap) {
             reader.acquireLatestImage()?.close()
             return
         }
@@ -4994,6 +5114,14 @@ private class PreviewController(
         try {
             val plane = image.planes[0]
             val buf = plane.buffer
+            // Plane buffers are often direct slices; position may not be zero, which produced
+            // empty copies and skipped histogram updates.
+            buf.rewind()
+            val ps = plane.pixelStride
+            if (ps != 1) {
+                Log.w(tag, "YUV Y plane pixelStride=$ps (expected 1); skipping histogram sample")
+                return
+            }
             bytes = ByteArray(buf.remaining())
             buf.get(bytes)
             w = image.width
@@ -5003,27 +5131,43 @@ private class PreviewController(
             image.close()
         }
         meterExecutor.execute {
-            val hist = PreviewLumaHistogram.reduceYuv420Y(bytes, w, h, rowStride)
-            val ev = HighlightMeter.suggestEvCorrection(hist)
-            val camId = selectedCameraId ?: return@execute
-            val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
-                ?: return@execute
-            val comp = HighlightMeterSupport.evToCompensationIndex(ev, chars) ?: return@execute
-            val camHandler = handler ?: return@execute
-            camHandler.post {
-                if (!wantsHighlightMetering() || yuvImageReader == null) return@post
-                if (comp == lastAppliedHighlightComp) return@post
-                lastAppliedHighlightComp = comp
-                Log.d(tag, "HighlightMeter ev=${"%.2f".format(ev)} aeComp=$comp")
-                val adbWall = SystemClock.elapsedRealtime()
-                if (adbWall - lastHighlightMeterAdbLogMs >= 3500L) {
-                    lastHighlightMeterAdbLogMs = adbWall
-                    Log.i(
-                        "PNS.AdbValidation",
-                        "highlightMeter ev=${"%.2f".format(ev)} aeComp=$comp dial=H",
-                    )
+            val hist =
+                runCatching { PreviewLumaHistogram.reduceYuv420Y(bytes, w, h, rowStride) }
+                    .onFailure { e ->
+                        Log.w(tag, "histogram reduce failed: ${e.message}")
+                    }
+                    .getOrNull()
+                    ?: return@execute
+            if (wantHighlight) {
+                val ev = HighlightMeter.suggestEvCorrection(hist)
+                val camId = selectedCameraId ?: return@execute
+                val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+                    ?: return@execute
+                val comp = HighlightMeterSupport.evToCompensationIndex(ev, chars) ?: return@execute
+                val camHandler = handler ?: return@execute
+                camHandler.post {
+                    if (!wantsHighlightMetering() || yuvImageReader == null) return@post
+                    if (comp == lastAppliedHighlightComp) return@post
+                    lastAppliedHighlightComp = comp
+                    Log.d(tag, "HighlightMeter ev=${"%.2f".format(ev)} aeComp=$comp")
+                    val adbWall = SystemClock.elapsedRealtime()
+                    if (adbWall - lastHighlightMeterAdbLogMs >= 3500L) {
+                        lastHighlightMeterAdbLogMs = adbWall
+                        Log.i(
+                            "PNS.AdbValidation",
+                            "highlightMeter ev=${"%.2f".format(ev)} aeComp=$comp dial=H",
+                        )
+                    }
+                    refreshRepeatingPreviewOnly()
                 }
-                refreshRepeatingPreviewOnly()
+            }
+            if (wantHist) {
+                val snap = hist.copyOf()
+                val camHandler = handler ?: return@execute
+                camHandler.post {
+                    if (!previewHistogramEnabled) return@post
+                    previewHistogramListener?.invoke(snap)
+                }
             }
         }
     }

@@ -1,0 +1,26 @@
+# Monthly CycloneDX SBOM structural verify (host-only; no secrets).
+# Complements push-triggered `toolchain-verify.yml` which runs `pns_sbom.ps1 -Verify` on every change.
+
+name: SBOM monthly verify
+
+on:
+  schedule:
+    - cron: '0 12 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sbom-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run pns_sbom.ps1 -Verify
+        shell: pwsh
+        run: |
+          Set-Location "${{ github.workspace }}"
+          ./scripts/pns_sbom.ps1 -ProjectRoot "${{ github.workspace }}" -Verify

@@ -11,6 +11,11 @@ import androidx.compose.ui.platform.LocalContext
 
 /**
  * Capture / preview chrome that is not part of the HUD overlay (brightness, keys, DND).
+ *
+ * **Persistence:** [load]/[save] use [PREFS_NAME]. With manifest **allowBackup** and
+ * `res/xml/pns_backup_rules.xml`, these prefs participate in **Android Auto Backup** / device
+ * transfer when the OEM/Google account restores the app after reinstall (not guaranteed on all
+ * devices or sideload-only flows).
  */
 data class PreviewChromePreferences(
     val maxBrightnessInPreview: Boolean = true,
@@ -59,6 +64,11 @@ data class PreviewChromePreferences(
      * JPEG [ImageReader] is omitted (**RAW** only, lower bandwidth).
      */
     val stillCaptureJpegCompanion: Boolean = true,
+    /**
+     * Rear flash / torch intent for preview + still [android.hardware.camera2.CaptureRequest].
+     * Default **Auto** (not forced flash); user choice persists in [PREFS_NAME].
+     */
+    val previewFlashMode: PreviewFlashMode = PreviewFlashMode.Auto,
 ) {
     companion object {
         const val PREFS_NAME = "pns_preview_chrome"
@@ -75,6 +85,7 @@ data class PreviewChromePreferences(
         private const val KEY_STATIC_PREVIEW_ROT = "static_preview_rotation_deg"
         private const val KEY_SELF_TIMER_DELAY_SEC = "self_timer_delay_sec"
         private const val KEY_STILL_JPEG_COMPANION = "still_capture_jpeg_companion"
+        private const val KEY_PREVIEW_FLASH_MODE = "preview_flash_mode_ordinal"
 
         fun load(context: Context): PreviewChromePreferences {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -96,6 +107,10 @@ data class PreviewChromePreferences(
                     prefs.getInt(KEY_SELF_TIMER_DELAY_SEC, defaults.selfTimerDelaySec),
                 ),
                 stillCaptureJpegCompanion = prefs.getBoolean(KEY_STILL_JPEG_COMPANION, defaults.stillCaptureJpegCompanion),
+                previewFlashMode =
+                    PreviewFlashMode.fromStorageOrdinal(
+                        prefs.getInt(KEY_PREVIEW_FLASH_MODE, defaults.previewFlashMode.ordinal),
+                    ),
             )
         }
 
@@ -113,6 +128,7 @@ data class PreviewChromePreferences(
                 .putInt(KEY_STATIC_PREVIEW_ROT, normalizeStaticRotation(value.staticPreviewRotationDeg))
                 .putInt(KEY_SELF_TIMER_DELAY_SEC, normalizeSelfTimerDelaySec(value.selfTimerDelaySec))
                 .putBoolean(KEY_STILL_JPEG_COMPANION, value.stillCaptureJpegCompanion)
+                .putInt(KEY_PREVIEW_FLASH_MODE, value.previewFlashMode.ordinal)
                 .apply()
         }
 
@@ -160,6 +176,10 @@ fun rememberPreviewChromePreferences(): PreviewChromePreferencesState {
                 PreviewChromePreferences.save(context, next)
                 current = next
             },
+            /** ADB / automation seeds (e.g. self-timer) must not overwrite disk prefs — see [PreviewEngineScreen]. */
+            applySessionOnly = { next ->
+                current = next
+            },
         )
     }
 }
@@ -167,4 +187,5 @@ fun rememberPreviewChromePreferences(): PreviewChromePreferencesState {
 class PreviewChromePreferencesState(
     val current: PreviewChromePreferences,
     val update: (PreviewChromePreferences) -> Unit,
+    val applySessionOnly: (PreviewChromePreferences) -> Unit,
 )

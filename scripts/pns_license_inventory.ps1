@@ -41,15 +41,19 @@ $LicenseMap = @{
   # Runtime (shipped in the APK)
   'androidx.core:core-ktx'                       = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.lifecycle:lifecycle-runtime-ktx'     = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
+  'androidx.lifecycle:lifecycle-runtime-compose' = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.activity:activity-compose'           = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.compose:compose-bom'                 = @{ Spdx = 'Apache-2.0'; Scope = 'runtime'; Notes = 'BOM' }
   'androidx.compose.ui:ui'                       = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.compose.ui:ui-graphics'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.compose.ui:ui-tooling-preview'       = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.compose.material3:material3'         = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
+  'androidx.compose.material:material-icons-extended' = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.camera:camera-camera2'               = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.graphics:graphics-core'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.exifinterface:exifinterface'         = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
+  'com.google.mlkit:face-detection'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime'; Notes = 'ML Kit on-device; see https://developers.google.com/ml-kit/terms' }
+  'androidx.profileinstaller:profileinstaller'   = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
 
   # Debug-only
   'androidx.compose.ui:ui-tooling'               = @{ Spdx = 'Apache-2.0'; Scope = 'debug' }
@@ -58,10 +62,19 @@ $LicenseMap = @{
   'junit:junit'                                  = @{ Spdx = 'EPL-1.0';   Scope = 'test'; Notes = 'EPL-1.0 acceptable for testImplementation' }
   'org.json:json'                                = @{ Spdx = 'JSON-LICENSE'; Scope = 'test'; Notes = 'real org.json for testing EncoderAttemptJsonAdapter.decode; MIT-equivalent for redistribution' }
 
+  # Baseline profile / macrobenchmark module (`:baselineprofile` test APK only)
+  'androidx.test.ext:junit'                    = @{ Spdx = 'Apache-2.0'; Scope = 'test'; Notes = 'Macrobenchmark / UI test harness' }
+  'androidx.test.espresso:espresso-core'         = @{ Spdx = 'Apache-2.0'; Scope = 'test' }
+  'androidx.test.uiautomator:uiautomator'        = @{ Spdx = 'Apache-2.0'; Scope = 'test' }
+  'androidx.benchmark:benchmark-macro-junit4'  = @{ Spdx = 'Apache-2.0'; Scope = 'test' }
+
   # Build-time plugins (host toolchain only)
   'com.android.application'                      = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
+  'com.android.test'                             = @{ Spdx = 'Apache-2.0'; Scope = 'plugin'; Notes = 'Instrumented test module plugin' }
   'org.jetbrains.kotlin.android'                 = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
   'org.jetbrains.kotlin.plugin.compose'          = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
+  'androidx.baselineprofile'                     = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
+  'io.gitlab.arturbosch.detekt'                  = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
 }
 
 $catalog = Join-Path $ProjectRoot "gradle/libs.versions.toml"

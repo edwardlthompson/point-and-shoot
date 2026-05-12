@@ -51,7 +51,12 @@ param(
   # Write perf-runs/perf_<stamp>.md: host budgets + optional device `am start -W`, `dumpsys meminfo`, `PNS.Reader` grep (PERFORMANCE_BUDGETS.md).
   [switch]$PerfReport,
   # Device serial for `-PerfReport` adb steps. Omit to use scripts/pns_adb_device.env (`PNS_ADB_SERIAL`) or a single online device.
-  [string]$Serial = ""
+  [string]$Serial = "",
+  # With `-PerfReport`: which APK to install before cold-start (`am start -W`). Release runs `assembleRelease` (unless `-SkipGradleBuild`) then `adb install -r -t` newest non-debug APK under app/build/outputs/apk/.
+  [ValidateSet("Debug", "Release")]
+  [string]$PerfReportApkVariant = "Debug",
+  # Skip prepending SDK platform-tools to PATH (see scripts/pns_resolve_adb.ps1).
+  [switch]$SkipCanonicalAdbPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -60,6 +65,11 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
   $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 } else {
   $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
+}
+
+$pnsResolveAdb = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if ((Test-Path -LiteralPath $pnsResolveAdb) -and -not $SkipCanonicalAdbPath.IsPresent) {
+  . $pnsResolveAdb -PrependToPath -Quiet
 }
 
 if ($VerifyToolchain.IsPresent) {
@@ -102,16 +112,19 @@ if ($PerfReport.IsPresent) {
   $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
   $perfDir = Join-Path $ProjectRoot "perf-runs"
   New-Item -ItemType Directory -Force -Path $perfDir | Out-Null
-  $outFile = Join-Path $perfDir "perf_$stamp.md"
+  $outName = if ($PerfReportApkVariant -eq "Release") { "perf_release_$stamp.md" } else { "perf_$stamp.md" }
+  $outFile = Join-Path $perfDir $outName
   # Pinned to PerfBudget.Defaults / PERFORMANCE_BUDGETS.md (cold start + PSS after launch).
   $coldStartBudgetMs = 800
   $pssBudgetMb = 180
 
   $sb = New-Object System.Text.StringBuilder
-  [void]$sb.AppendLine("# Point & Shoot perf report")
+  $title = if ($PerfReportApkVariant -eq "Release") { "# Point & Shoot perf report (Release APK)" } else { "# Point & Shoot perf report" }
+  [void]$sb.AppendLine($title)
   [void]$sb.AppendLine("")
   [void]$sb.AppendLine("- Generated: $(Get-Date -Format 'o')")
   [void]$sb.AppendLine("- OutDir: $OutDir")
+  [void]$sb.AppendLine("- PerfReport APK variant: **$PerfReportApkVariant**")
   [void]$sb.AppendLine("- Budgets (see ``PerfBudget.Defaults`` / PERFORMANCE_BUDGETS.md): cold start <= **$coldStartBudgetMs** ms; post-launch PSS <= **$pssBudgetMb** MB")
   [void]$sb.AppendLine("")
   [void]$sb.AppendLine("## Host")
@@ -134,11 +147,6 @@ if ($PerfReport.IsPresent) {
         Write-Host "`[perf] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $wantSerial"
       }
     }
-    if ($wantSerial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-      Write-Host "`[perf] adb connect $wantSerial (TCP/IP)"
-      & adb connect $wantSerial 2>&1 | Out-Null
-    }
-
     $online = @(Get-AdbOnlineSerials)
     $resolvedSerial = $null
     if (-not [string]::IsNullOrWhiteSpace($wantSerial)) {
@@ -170,6 +178,32 @@ if ($PerfReport.IsPresent) {
       $pkg = "dev.pointandshoot"
       $startCmp = "$pkg/.MainActivity"
       try {
+        if ($PerfReportApkVariant -eq "Release") {
+          $relGradlew = Join-Path $PSScriptRoot "pns_gradlew.ps1"
+          if (-not (Test-Path -LiteralPath $relGradlew)) { throw "Missing $relGradlew" }
+          if (-not $SkipGradleBuild.IsPresent) {
+            Write-Host "`[perf] PerfReport Release: running :app:assembleRelease..."
+            Push-Location $ProjectRoot
+            try {
+              & $relGradlew ":app:assembleRelease"
+              if ($LASTEXITCODE -ne 0) { throw "Gradle assembleRelease failed (exit $LASTEXITCODE)" }
+            }
+            finally {
+              Pop-Location
+            }
+          }
+          $apkBase = Join-Path $ProjectRoot "app\build\outputs\apk"
+          if (-not (Test-Path -LiteralPath $apkBase)) { throw "Missing APK tree: $apkBase (build Release first or omit -SkipGradleBuild)" }
+          $apkPick = @(Get-ChildItem -LiteralPath $apkBase -Recurse -Filter *.apk -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -notmatch '(\\|/)debug(\\|/)' } |
+              Sort-Object LastWriteTime -Descending)[0]
+          if (-not $apkPick) { throw "No non-debug .apk under $apkBase" }
+          Write-Host "`[perf] adb install -r -t $($apkPick.Name) ($($apkPick.DirectoryName))"
+          Invoke-AdbPerf $resolvedSerial @("install", "-r", "-t", $apkPick.FullName) 2>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "adb install failed (exit $LASTEXITCODE)" }
+          try { Invoke-AdbPerf $resolvedSerial @("shell", "pm", "grant", $pkg, "android.permission.CAMERA") 2>&1 | Out-Null } catch {}
+        }
+
         Invoke-AdbPerf $resolvedSerial @("shell", "am", "force-stop", $pkg) 2>&1 | Out-Null
         $wOut = Invoke-AdbPerf $resolvedSerial @("shell", "am", "start", "-W", "-n", $startCmp, "--es", "pns_screen", "preview") 2>&1 | Out-String
         $totalMs = $null
@@ -202,6 +236,20 @@ if ($PerfReport.IsPresent) {
         $dropMatches = [regex]::Matches($logTail, 'PNS\.Reader.*drop oldest')
         $nDrop = $dropMatches.Count
         [void]$sb.AppendLine("| ``PNS.Reader`` ``drop oldest`` lines (log tail) | informational | count=$nDrop |")
+
+        $readyBudgetMs = 1200
+        $readyMatches = [regex]::Matches($logTail, 'pns\.firstFrameReady elapsedSinceAppOnCreateMs=(\d+)')
+        $readyCell = "(not seen in tail - need preview running; try larger ``-t`` or relaunch)"
+        $readyGrade = ""
+        if ($readyMatches.Count -gt 0) {
+          $lastMs = [int]$readyMatches[$readyMatches.Count - 1].Groups[1].Value
+          $readyCell = "$lastMs ms"
+          if ($lastMs -le $readyBudgetMs) { $readyGrade = " OK" }
+          elseif ($lastMs -le [int]($readyBudgetMs * 1.25)) { $readyGrade = " WARN" }
+          else { $readyGrade = " FAIL" }
+          $readyCell = "$readyCell$readyGrade"
+        }
+        [void]$sb.AppendLine("| ``pns.firstFrameReady`` (``PNS.PerfStartup`` log tail) | <= $readyBudgetMs ms | $readyCell |")
         [void]$sb.AppendLine("")
         [void]$sb.AppendLine("### Device detail")
         [void]$sb.AppendLine("")
@@ -220,7 +268,7 @@ if ($PerfReport.IsPresent) {
   [void]$sb.AppendLine("")
   [void]$sb.AppendLine("## Perfetto / frame-jank baselines")
   [void]$sb.AppendLine("")
-  [void]$sb.AppendLine("Optional: run ``scripts/pns_capture_perfetto_light.ps1`` (device ``/system/bin/perfetto`` light mode; many OEMs need ``adb root`` for the profiling output path) and keep the pulled ``perf-runs/perfetto_*.perfetto-trace`` next to this file. Alternatively use Android Studio Profiler or the desktop ``perfetto`` CLI with a checked-in pbtxt config (PERFORMANCE_BUDGETS.md).")
+  [void]$sb.AppendLine("Optional: run ``scripts/pns_capture_perfetto_light.ps1`` (device ``/system/bin/perfetto`` light mode; many OEMs need ``adb root`` for the profiling output path) or ``scripts/pns_compose_layout_trace_capture.ps1`` (preview warm-launch + heavier ``gfx view sched wm input`` categories) and keep the pulled ``perf-runs/perfetto_*.perfetto-trace`` next to this file. Alternatively use Android Studio Profiler or the desktop ``perfetto`` CLI with a checked-in pbtxt config (PERFORMANCE_BUDGETS.md).")
   [void]$sb.AppendLine("")
 
   Set-Content -LiteralPath $outFile -Value $sb.ToString() -Encoding utf8

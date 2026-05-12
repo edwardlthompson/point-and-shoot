@@ -11,7 +11,7 @@
   Exit non-zero when vendorKeyApplied=true does not appear in PNS.AdbValidation log lines.
 
 .EXAMPLE
-  .\scripts\pns_super_macro_gate.ps1 -Serial 192.168.1.2:34365
+  .\scripts\pns_super_macro_gate.ps1 -Serial 8bf09993
   .\scripts\pns_super_macro_gate.ps1 -UltraWideCameraId 3 -RequireSuperMacroPass
 #>
 param(

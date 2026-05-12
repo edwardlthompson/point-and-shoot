@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,6 +31,84 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+
+/**
+ * HUD toggles + extras for the in-preview **Settings** popup (same data as [HudSettingsScreen], chrome styling).
+ */
+@Composable
+fun HudRailSheetContent(hudState: HudSettingsState) {
+    val settings = hudState.current
+    val onUpdate: (HudSettings) -> Unit = { hudState.update(it) }
+    val ctx = LocalContext.current
+    val cameraGranted =
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+    var gateLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(cameraGranted, ctx) {
+        gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
+    }
+    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, onUpdate) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            text = "Granular toggles for HUD elements. Persists across launches.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.65f),
+        )
+
+        Text(
+            text = "Capability gate (rear camera)",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+        )
+        if (!cameraGranted) {
+            Text(
+                text = "Grant camera permission to see which HUD-related features are supported on this device.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.65f),
+            )
+        } else if (gateLines.isEmpty()) {
+            Text(
+                text = "No capability summary available (no cameras or probe failed).",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.65f),
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                gateLines.forEach { line ->
+                    Text(
+                        text = line,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White.copy(alpha = 0.85f),
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = "HUD elements",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            rows.forEach { row -> HudToggle(row) }
+        }
+        WhiteBalanceReadoutInfoCard()
+        CompositionGuideQuickControls()
+        TextButton(
+            onClick = { onUpdate(HudSettings()) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Reset HUD to defaults", color = Color.White.copy(alpha = 0.88f))
+        }
+    }
+}
 
 /**
  * `Settings > HUD` screen per BUILD_PLAN §5 (Phase 2).
@@ -73,70 +152,7 @@ private fun HudSettingsScreenContent(
         gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
     }
 
-    val rows: List<HudToggleRow> = remember(settings) {
-        listOf(
-            HudToggleRow(
-                title = "Command dial (A / M / H / S / BKT)",
-                description = "Rotary mode selector overlay (Hasselblad-orange selected segment).",
-                enabled = settings.showCommandDial,
-                onChange = { onUpdate(settings.copy(showCommandDial = it)) },
-            ),
-            HudToggleRow(
-                title = "Video tally border",
-                description = "Solid record-red border while video is recording.",
-                enabled = settings.showVideoTally,
-                onChange = { onUpdate(settings.copy(showVideoTally = it)) },
-            ),
-            HudToggleRow(
-                title = "Timecode (HH:MM:SS:FF)",
-                description = "Sony-style monospaced counter with rec / standby dot.",
-                enabled = settings.showTimecode,
-                onChange = { onUpdate(settings.copy(showTimecode = it)) },
-            ),
-            HudToggleRow(
-                title = "FPS readout",
-                description = "Live capture / preview frame rate, useful for HFR debugging.",
-                enabled = settings.showFpsReadout,
-                onChange = { onUpdate(settings.copy(showFpsReadout = it)) },
-            ),
-            HudToggleRow(
-                title = "ISO + shutter readout",
-                description = "Exposure values for the in-flight CaptureRequest.",
-                enabled = settings.showIsoShutterReadout,
-                onChange = { onUpdate(settings.copy(showIsoShutterReadout = it)) },
-            ),
-            HudToggleRow(
-                title = "Highlight-weighted meter",
-                description = "Ricoh GR-style 95th-percentile-luma protection indicator.",
-                enabled = settings.showHighlightWeightedMeter,
-                onChange = { onUpdate(settings.copy(showHighlightWeightedMeter = it)) },
-            ),
-            HudToggleRow(
-                title = "Eye-AF overlay",
-                description = "Sony-style green pupil rectangles when face detect is FULL.",
-                enabled = settings.showEyeAfOverlay,
-                onChange = { onUpdate(settings.copy(showEyeAfOverlay = it)) },
-            ),
-            HudToggleRow(
-                title = "Horizon level",
-                description = "Accelerometer line on the preview only (Sony Photography Pro style).",
-                enabled = settings.showHorizonLevel,
-                onChange = { onUpdate(settings.copy(showHorizonLevel = it)) },
-            ),
-            HudToggleRow(
-                title = "Histogram (experimental)",
-                description = "RGB histogram overlay; off by default until perf is profiled.",
-                enabled = settings.showHistogram,
-                onChange = { onUpdate(settings.copy(showHistogram = it)) },
-            ),
-            HudToggleRow(
-                title = "Focus peaking (Phase 1+)",
-                description = "NDK shader; disabled until the native pipeline lands.",
-                enabled = settings.showFocusPeaking,
-                onChange = { onUpdate(settings.copy(showFocusPeaking = it)) },
-            ),
-        )
-    }
+    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, onUpdate) }
 
     Column(
         modifier = Modifier
@@ -291,6 +307,99 @@ private fun CompositionGuideQuickControls() {
     }
 }
 
+private fun hudToggleRows(
+    settings: HudSettings,
+    onUpdate: (HudSettings) -> Unit,
+): List<HudToggleRow> =
+    listOf(
+        HudToggleRow(
+            title = "Command dial (A / M / H / S / BKT)",
+            description = "Rotary mode selector overlay (Hasselblad-orange selected segment).",
+            enabled = settings.showCommandDial,
+            onChange = { onUpdate(settings.copy(showCommandDial = it)) },
+        ),
+        HudToggleRow(
+            title = "Video tally border",
+            description = "Solid record-red border while video is recording.",
+            enabled = settings.showVideoTally,
+            onChange = { onUpdate(settings.copy(showVideoTally = it)) },
+        ),
+        HudToggleRow(
+            title = "Timecode (HH:MM:SS:FF)",
+            description = "Sony-style monospaced counter with rec / standby dot.",
+            enabled = settings.showTimecode,
+            onChange = { onUpdate(settings.copy(showTimecode = it)) },
+        ),
+        HudToggleRow(
+            title = "FPS readout",
+            description = "Live capture / preview frame rate, useful for HFR debugging.",
+            enabled = settings.showFpsReadout,
+            onChange = { onUpdate(settings.copy(showFpsReadout = it)) },
+        ),
+        HudToggleRow(
+            title = "ISO + shutter readout",
+            description = "Exposure values for the in-flight CaptureRequest.",
+            enabled = settings.showIsoShutterReadout,
+            onChange = { onUpdate(settings.copy(showIsoShutterReadout = it)) },
+        ),
+        HudToggleRow(
+            title = "Highlight-weighted meter",
+            description = "Ricoh GR-style 95th-percentile-luma protection indicator.",
+            enabled = settings.showHighlightWeightedMeter,
+            onChange = { onUpdate(settings.copy(showHighlightWeightedMeter = it)) },
+        ),
+        HudToggleRow(
+            title = "Eye-AF overlay",
+            description = "Sony-style green pupil rectangles when face detect is FULL.",
+            enabled = settings.showEyeAfOverlay,
+            onChange = { onUpdate(settings.copy(showEyeAfOverlay = it)) },
+        ),
+        HudToggleRow(
+            title = "Horizon level",
+            description = "Accelerometer line on the preview only (Sony Photography Pro style).",
+            enabled = settings.showHorizonLevel,
+            onChange = { onUpdate(settings.copy(showHorizonLevel = it)) },
+        ),
+        HudToggleRow(
+            title = "Histogram (experimental)",
+            description = "RGB histogram overlay; off by default until perf is profiled.",
+            enabled = settings.showHistogram,
+            onChange = { onUpdate(settings.copy(showHistogram = it)) },
+        ),
+        HudToggleRow(
+            title = "Highlight clip zebra (YUV)",
+            description =
+                "Diagonal hatch where preview Y ≥ ~0.95 (near clip). Uses analysis stream; off by default.",
+            enabled = settings.showHighlightClipZebra,
+            onChange = { onUpdate(settings.copy(showHighlightClipZebra = it)) },
+        ),
+        HudToggleRow(
+                title = "Focus peaking (preview)",
+            description =
+                "Preview false-color edges when the native shader lands. " +
+                    "Color and sensitivity: chrome grid → Preview & keys → " +
+                    "Preview framing & overlays → Focus peaking. " +
+                    "This switch is a quick on/off (on picks red if you had Off).",
+            enabled = settings.focusPeakingEnabled(),
+            onChange = { on ->
+                onUpdate(
+                    settings.copy(
+                        focusPeakingColor =
+                            if (on) {
+                                if (settings.focusPeakingColor == FocusPeakingColor.Off) {
+                                    FocusPeakingColor.Red
+                                } else {
+                                    settings.focusPeakingColor
+                                }
+                            } else {
+                                FocusPeakingColor.Off
+                            },
+                    ),
+                )
+            },
+        ),
+    )
+
 private data class HudToggleRow(
     val title: String,
     val description: String,
@@ -306,7 +415,11 @@ private fun HudToggle(row: HudToggleRow) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.padding(end = 12.dp).fillMaxWidth(0.78f)) {
-            Text(row.title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                row.title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White,
+            )
             Text(
                 row.description,
                 style = MaterialTheme.typography.bodySmall,

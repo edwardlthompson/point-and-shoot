@@ -8,6 +8,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.androidx.baselineprofile)
 }
 
 // Resolve a real release-signing key from (in order):
@@ -99,7 +101,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = if (releaseSigning != null) {
                 logger.lifecycle("[pns] release signing source = ${releaseSigning.source}")
                 signingConfigs.getByName("release")
@@ -140,22 +143,33 @@ android {
     }
 
     lint {
-        // `:app:lintDebug` is currently not runnable on this AGP 8.7.3 + Compose BOM
-        // 2026.04.01 combo: multiple compose-lint detectors (`ComposableFlowOperator`,
-        // `RememberInComposition`, `FrequentlyChangingValue`, ...) crash with
-        // `IncompatibleClassChangeError` against the bundled Kotlin Analysis API. This
-        // is a tooling/version-mismatch bug, not project code - tracked in
-        // BUILD_PLAN.md \u00a70 "Known limitations". The toolchain gate
-        // (`pns_verify_toolchain.ps1`) deliberately does NOT invoke lint today;
-        // revisit after the next AGP / Compose-BOM bump.
-        checkReleaseBuilds = false
+        checkReleaseBuilds = true
+        warningsAsErrors = false
+        baseline = file("lint-baseline.xml")
+    }
+
+    baselineProfile {
+        // Generated `baseline-prof.txt` lives in src/main/ (see :baselineprofile:generateBaselineProfile).
+        saveInSrc = true
     }
 }
 
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    parallel = true
+    config.from(files("$rootDir/config/detekt/detekt.yml"))
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+}
+
 dependencies {
+    baselineProfile(project(":baselineprofile"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.profileinstaller)
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
@@ -163,11 +177,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     // Apache-2.0 Material Symbols–compatible glyphs (BOM controls version).
-    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.material.icons.extended)
 
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.graphics.core)
     implementation(libs.androidx.exifinterface)
+    // Face HUD fallback when Camera2 STATISTICS_FACES is empty (common on some OEM preview streams).
+    implementation(libs.google.mlkit.face.detection)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

@@ -238,6 +238,7 @@ object StillCaptureMetadata {
                 append(", ")
                 append(focalMm?.let { "%.2f".format(Locale.US, it) } ?: "?")
                 append("mm")
+                append(captureDebugSuffixForUserComment(result))
             }
         exif.setAttribute(ExifInterface.TAG_USER_COMMENT, summary)
 
@@ -250,6 +251,38 @@ object StillCaptureMetadata {
             exif.setAttribute(ExifInterface.TAG_ORIENTATION, ORIENTATION_NORMAL)
         }
     }
+
+    private fun captureDebugSuffixForUserComment(result: TotalCaptureResult): String {
+        val parts = mutableListOf<String>()
+        result.get(CaptureResult.LENS_FOCUS_DISTANCE)?.takeIf { it.isFinite() && it > 0f }?.let { m ->
+            parts += "FD=%.2fm".format(Locale.US, m)
+        }
+        result.get(CaptureResult.LENS_STATE)?.let { parts += "LS=${lensStateShort(it)}" }
+        result.get(CaptureResult.CONTROL_AF_STATE)?.let { parts += "AF=${afStateShort(it)}" }
+        result.get(CaptureResult.SENSOR_ROLLING_SHUTTER_SKEW)?.let { skew ->
+            parts += "RSS=${skew}ns"
+        }
+        return if (parts.isEmpty()) "" else ", " + parts.joinToString(", ")
+    }
+
+    private fun lensStateShort(v: Int): String =
+        when (v) {
+            CaptureResult.LENS_STATE_STATIONARY -> "STATIONARY"
+            CaptureResult.LENS_STATE_MOVING -> "MOVING"
+            else -> "v$v"
+        }
+
+    private fun afStateShort(v: Int): String =
+        when (v) {
+            CaptureResult.CONTROL_AF_STATE_INACTIVE -> "INACTIVE"
+            CaptureResult.CONTROL_AF_STATE_PASSIVE_SCAN -> "PASSIVE_SCAN"
+            CaptureResult.CONTROL_AF_STATE_PASSIVE_FOCUSED -> "PASSIVE_FOCUSED"
+            CaptureResult.CONTROL_AF_STATE_ACTIVE_SCAN -> "ACTIVE_SCAN"
+            CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED -> "FOCUSED_LOCKED"
+            CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED -> "NOT_FOCUSED_LOCKED"
+            CaptureResult.CONTROL_AF_STATE_PASSIVE_UNFOCUSED -> "PASSIVE_UNFOCUSED"
+            else -> "v$v"
+        }
 
     internal fun fallbackFocalMm(chars: CameraCharacteristics): Float? {
         val logical = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS) ?: return null

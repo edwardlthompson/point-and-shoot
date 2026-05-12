@@ -16,6 +16,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -53,13 +55,29 @@ fun RootSettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val appCtx = LocalContext.current.applicationContext
     var state by remember { mutableStateOf(RootCapability.RootState.Unknown) }
     var pending by remember { mutableStateOf(false) }
+    var tryVendorHighlightAe by remember(appCtx) {
+        mutableStateOf(VendorHighlightAePrefs.isTryExtraModesEnabled(appCtx))
+    }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        val initial = withContext(Dispatchers.IO) { RootCapabilityProbe.probeStatic() }
-        state = initial
+        val disk = RootCapabilityStore.loadOrUnknown(appCtx)
+        val static = withContext(Dispatchers.IO) { RootCapabilityProbe.probeStatic() }
+        state = when (disk) {
+            RootCapability.RootState.Granted,
+            RootCapability.RootState.Denied,
+            -> disk
+            else -> static
+        }
+    }
+
+    LaunchedEffect(state) {
+        if (state != RootCapability.RootState.Unknown) {
+            RootCapabilityStore.save(appCtx, state)
+        }
     }
 
     val results = RootGate.evaluate(state)
@@ -168,6 +186,56 @@ fun RootSettingsScreen(
 
         for (result in results) {
             RootFeatureCard(result)
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "Experimental",
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White,
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.07f)),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = "Vendor highlight AE modes",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (state.grantsPrivileged) Color.White else Color.White.copy(alpha = 0.55f),
+                    )
+                    Text(
+                        text = "If the SDK omits CONTROL_AE_MODE_ON_HIGHLIGHT_WEIGHTED, try non-standard integers " +
+                            "from CONTROL_AE_AVAILABLE_MODES on the H dial (multiple modes: pick highest). " +
+                            if (state.grantsPrivileged) {
+                                "Requires this drawer’s SU grant so we never fork su silently from preview."
+                            } else {
+                                "Requires Grant Su below."
+                            },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.55f),
+                    )
+                }
+                Switch(
+                    checked = tryVendorHighlightAe,
+                    enabled = state.grantsPrivileged,
+                    onCheckedChange = { v ->
+                        VendorHighlightAePrefs.setTryExtraModesEnabled(appCtx, v)
+                        tryVendorHighlightAe = v
+                    },
+                )
+            }
         }
 
         Spacer(Modifier.height(8.dp))

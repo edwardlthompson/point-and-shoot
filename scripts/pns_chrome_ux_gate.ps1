@@ -1,7 +1,7 @@
 # Milestone 9 - host + device chrome UX gate (ADB; optional root not required).
 # - Runs scripts/pns_verify_toolchain.ps1 -RunTests (unless -SkipHost or -SkipHostTests)
 # - When an authorized device is connected: install APK, grant CAMERA, cold-start preview,
-#   capture logcat; assert PNS.ChromeUx seedOk..grid7, modeDialPopout=, readoutCapture=, selfTimerSec=
+#   capture logcat; assert PNS.ChromeUx seedOk..grid7 (incl. flash QS), flashPreviewHardware=, modeDialPopout=, readoutCapture=, selfTimerSec=
 #   (device start uses --ei pns_preview_self_timer_sec 3 to exercise ADB seed + selfTimerSec=3)
 # - Writes hfr-runs/.../chrome_ux_gate.json
 #
@@ -19,6 +19,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
 
 $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
@@ -76,11 +81,6 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
     else {
         & adb @CmdArgs 2>$null
     }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[chrome_ux_gate] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 function Test-AdbAuthorizedDevice {
@@ -154,6 +154,8 @@ $grid7Ok = $false
 $modeDialPopoutOk = $false
 $readoutCaptureOk = $false
 $selfTimerOk = $false
+$flashQsGrid7Ok = $false
+$flashPreviewHardwareOk = $false
 $deviceSkipReason = ""
 
 if (-not $adbConnected) {
@@ -263,6 +265,18 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx selfTimerSec= in logcat."
     }
+    if ($logText -match 'PNS\.ChromeUx.*quickActions=.*flash') {
+        $flashQsGrid7Ok = $true
+    }
+    else {
+        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx quickActions=...flash... (Sprint 9.12 flash QS) in logcat."
+    }
+    if ($logText -match 'PNS\.ChromeUx.*flashPreviewHardware=(true|false)') {
+        $flashPreviewHardwareOk = $true
+    }
+    else {
+        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx flashPreviewHardware=true|false in logcat."
+    }
 }
 
 # Pass: host always required. Device / seed required only when we actually ran the device scenario.
@@ -271,7 +285,7 @@ if ($deviceSkipReason -eq "missing_apk") {
     $gatePass = $false
 }
 elseif ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne "missing_apk") {
-    $gatePass = $hostPass -and $seedOk -and $safeInsetsOk -and $dndPreviewOk -and $readoutOk -and $dualShutterOk -and $grid7Ok -and $modeDialPopoutOk -and $readoutCaptureOk -and $selfTimerOk
+    $gatePass = $hostPass -and $seedOk -and $safeInsetsOk -and $dndPreviewOk -and $readoutOk -and $dualShutterOk -and $grid7Ok -and $modeDialPopoutOk -and $readoutCaptureOk -and $selfTimerOk -and $flashQsGrid7Ok -and $flashPreviewHardwareOk
 }
 
 $obj = @{
@@ -288,6 +302,8 @@ $obj = @{
     modeDialPopoutOk   = $modeDialPopoutOk
     readoutCaptureOk   = $readoutCaptureOk
     selfTimerOk        = $selfTimerOk
+    flashQsGrid7Ok     = $flashQsGrid7Ok
+    flashPreviewHardwareOk = $flashPreviewHardwareOk
     deviceSkipReason   = $deviceSkipReason
     timestampUtc       = [DateTime]::UtcNow.ToString("o")
     outDir             = $OutDir
@@ -295,7 +311,7 @@ $obj = @{
 }
 $jsonPath = Join-Path $OutDir "chrome_ux_gate.json"
 $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding utf8
-Write-Host "`[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk"
+Write-Host "`[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk flashQsGrid7Ok=$flashQsGrid7Ok flashPreviewHardwareOk=$flashPreviewHardwareOk"
 # §5 append: .\scripts\pns_probe_append_section5.ps1 -GateJson <path\to\chrome_ux_gate.json> [-PassOnly]
 
 if (-not $gatePass) {

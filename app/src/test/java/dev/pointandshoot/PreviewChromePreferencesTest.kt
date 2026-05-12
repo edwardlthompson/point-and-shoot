@@ -5,6 +5,11 @@ import org.junit.Test
 
 class PreviewChromePreferencesTest {
     @Test
+    fun previewFlashMode_defaultOrdinal_isAuto() {
+        assertEquals(PreviewFlashMode.Auto, PreviewFlashMode.fromStorageOrdinal(PreviewFlashMode.Auto.ordinal))
+    }
+
+    @Test
     fun normalizeSelfTimerDelaySec_snapsUnknownToZero() {
         assertEquals(0, PreviewChromePreferences.normalizeSelfTimerDelaySec(-1))
         assertEquals(0, PreviewChromePreferences.normalizeSelfTimerDelaySec(7))

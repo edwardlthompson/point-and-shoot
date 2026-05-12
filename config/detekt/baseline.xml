@@ -1,0 +1,1249 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ComplexCondition:LutImportValidator.kt$LutImportValidator$upper.startsWith("LUT_3D_SIZE") || upper.startsWith("TITLE") || upper.startsWith("DOMAIN_") || upper.startsWith("LUT_1D_SIZE")</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$buf == null || buf.width &lt;= 0 || buf.height &lt;= 0 || camId == null</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$cam == null || sess == null || reader == null || previewSurf == null || camId.isNullOrBlank()</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$faceChars != null &amp;&amp; faceBuf != null &amp;&amp; faceBuf.width &gt; 0 &amp;&amp; faceBuf.height &gt; 0</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$tap == null &amp;&amp; facePriorityMeteringRect != null &amp;&amp; hudFaceOverlayEnabled &amp;&amp; !automationSuppressFacePipeline &amp;&amp; allowsFacePriorityMetering()</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$viewW &lt;= 0 || viewH &lt;= 0 || buf.width &lt;= 0 || buf.height &lt;= 0</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$w &lt; 1 || h &lt; 1 || l + w &gt; active.right || t + h &gt; active.bottom</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$PreviewController$w &lt; 1 || h &lt; 1 || left + w &gt; active.right || top + h &gt; active.bottom</ID>
+    <ID>ComplexCondition:PreviewEngineScreen.kt$adbSequentialRawStills &gt; 0 || adbBracketPattern != null || adbInitialDial != null || adbInitialImagingProfile != null || !adbSeedCameraId.isNullOrBlank() || adbSuperMacroProbe || adbM6FpsLutProbe || adbCalibrateGrabSmoke || !adbPreviewStillsLutName.isNullOrBlank() || adbInitialSelfTimerSec != null</ID>
+    <ID>ComplexCondition:TexturePreviewFit.kt$TexturePreviewFit$viewWidthPx &lt;= 0 || viewHeightPx &lt;= 0 || bufferWidthPx &lt;= 0 || bufferHeightPx &lt;= 0</ID>
+    <ID>ComplexCondition:TexturePreviewFit.kt$TexturePreviewFit$yuvWidth &lt;= 0 || yuvHeight &lt;= 0 || bufferWidth &lt;= 0 || bufferHeight &lt;= 0</ID>
+    <ID>CyclomaticComplexMethod:AvifStillMuxer.kt$AvifStillMuxer$fun encode(input: Input): ByteArray</ID>
+    <ID>CyclomaticComplexMethod:BurstProbeScreen.kt$private suspend fun runBurstProbe( appContext: Context, outFileName: String, onProgress: suspend (String) -&gt; Unit, ): String</ID>
+    <ID>CyclomaticComplexMethod:CameraCapabilitiesProbe.kt$@Composable fun CameraCapabilitiesProbe( launchScreen: String? = null, imageCaptureReturn: ImageCaptureReturnContract? = null, autoSweep: Boolean = false, autoEncProbe: Boolean = false, autoDeepCaps: Boolean = false, autoSessionMatrix: Boolean = false, autoHdrDcgRuntime: Boolean = false, autoCaptureLatency: Boolean = false, autoRawHdrExclusivity: Boolean = false, autoBurstProbe: Boolean = false, autoLogicalPhysical: Boolean = false, autoExhaustive: Boolean = false, exhaustiveIncludeLogical: Boolean = false, exhaustiveHfrOnly: Boolean = false, autoLegacyCamera1: Boolean = false, )</ID>
+    <ID>CyclomaticComplexMethod:CaptureLatencyProbeScreen.kt$private suspend fun runCaptureLatencyProbe( appContext: Context, outFileName: String, onProgress: suspend (String) -&gt; Unit, ): String</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$@Composable fun PreviewEngineScreen( onBack: () -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit = {}, startAutoSweep: Boolean = false, /** From `am start` extras — see `EXTRA_PNS_PREVIEW_*` in [CameraCapabilitiesProbe]. */ adbInitialDial: CommandDialMode? = null, adbSequentialRawStills: Int = 0, adbBracketPattern: BracketPattern? = null, adbInitialImagingProfile: ImagingProfile? = null, adbSeedCameraId: String? = null, adbSuperMacroProbe: Boolean = false, /** [LutCatalog] enum name — optional `am start` seed for scripted LUT capture / M6 V&amp;V. */ adbPreviewStillsLutName: String? = null, /** Milestone 6.3 — logs `m6 lutFps*` lines after baseline vs [LutCatalog.PnsCinematic] preview. */ adbM6FpsLutProbe: Boolean = false, /** Milestone 6.2 — ADB grab of one preview frame; logs `calibrate preview frame grab ok`. */ adbCalibrateGrabSmoke: Boolean = false, /** `--ei pns_preview_self_timer_sec N` — seeds [PreviewChromePreferences.selfTimerDelaySec] (normalized). */ adbInitialSelfTimerSec: Int? = null, /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */ imageCaptureReturn: ImageCaptureReturnContract? = null, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$@Composable private fun PreviewEngineContent( padding: PaddingValues, lastGalleryUri: Uri?, cameraIds: List&lt;String&gt;, selectedCameraId: String?, selectedFps: Int, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, status: String, measuredFps: Double, previewReadoutIso: Int?, previewReadoutExposureNs: Long?, previewReadoutAwbMode: Int?, previewJpegCompanion: Boolean, surfaceInfo: String, previewBufferSize: Size?, sensorOrientationDeg: Int?, isSweeping: Boolean, hudState: HudSettingsState, deviceUiRotationState: DeviceUiRotationState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, isRecording: Boolean, onRecordingChange: (Boolean) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, onPickFirstCamera: () -&gt; Unit, onSetFps: (Int) -&gt; Unit, onStartSweep: () -&gt; Unit, onStopSweep: () -&gt; Unit, focalCrop: FocalMode?, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, adbInitialDial: CommandDialMode? = null, adbCalibrateGrabSmoke: Boolean = false, controller: PreviewController, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$@Composable private fun PreviewMainViewport( modifier: Modifier, centerViewSize: IntSize, onCenterViewSize: (IntSize) -&gt; Unit, onPreviewTilePx: (IntSize) -&gt; Unit, previewHostSlot: PreviewHostSlot, controller: PreviewController, uiRotationDeg: Float, uiRotationDegSmooth: Float, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, previewBufferSize: Size?, isRecording: Boolean, eyeMarks: List&lt;EyeMark&gt;, faceTrackBoxes: List&lt;FaceTrackBoxView&gt;, focusRequester: FocusRequester, /** When true, preview uses center-crop (fill); when false, center-contain (matches still JPEG framing). */ previewTextureCoverCrop: Boolean, tapPreviewToCapture: Boolean, liveChartCornerOverlay: Boolean, chartCorners: List&lt;Offset&gt;, onChartCornersChange: (List&lt;Offset&gt;) -&gt; Unit, liveChartRows: Int, liveChartCols: Int, sensorOrientationDeg: Int?, /** Latest luma histogram for overlay (null when disabled or not yet sampled). */ previewHistogramBins: IntArray?, onCaptureDng: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$@Composable private fun PreviewRightRail( modifier: Modifier = Modifier, uiRotationDeg: Float, cameraIds: List&lt;String&gt;, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, selectedFps: Int, onSetFps: (Int) -&gt; Unit, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, onPickFirstCamera: () -&gt; Unit, selectedCameraId: String?, focalCrop: FocalMode?, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, canCaptureRawStill: Boolean, canCaptureBracketBurst: Boolean, commandDialMode: CommandDialMode, onCalibrateFromPreviewFrame: () -&gt; Unit, previewJpegCompanion: Boolean, rawStillNotReadyReason: String?, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$PreviewController$fun captureBracketBurst( appContext: Context, profile: ImagingProfile, haptics: CaptureHaptics, surfaceRotation: Int, pattern: BracketPattern, dngSoftwareDescription: String? = null, stillsLut: LutCatalog = LutCatalog.None, onResult: (Result&lt;String&gt;) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$PreviewController$fun captureRawStill( appContext: Context, profile: ImagingProfile, haptics: CaptureHaptics, surfaceRotation: Int, dngSoftwareDescription: String? = null, stillsLut: LutCatalog = LutCatalog.None, /** When set (e.g. `3/10`), logs `PNS.AdbValidation` lines for scripted runs. */ adbValidationShotLabel: String? = null, /** * Invoked on the main thread when the hardware JPEG companion is ready (or `null` on failure / * no JPEG surface). Runs **after** DNG save; use for `ACTION_IMAGE_CAPTURE` delivery so the * shutter callback can return as soon as the RAW file exists. */ onCompanionJpegReady: ((Uri?) -&gt; Unit)? = null, onResult: (Result&lt;RawStillSaveSuccess&gt;) -&gt; Unit, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$PreviewController$private fun applyScalerCropAndMetering( req: CaptureRequest.Builder, chars: CameraCharacteristics, camId: String, aeHighlightComp: Int? = null, )</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$PreviewController$private fun processFaceStatistics(result: CaptureResult, isFinal: Boolean)</ID>
+    <ID>CyclomaticComplexMethod:PreviewEngineScreen.kt$PreviewController$private fun processYuvForHighlight(reader: ImageReader)</ID>
+    <ID>CyclomaticComplexMethod:RawHdrExclusivityProbeScreen.kt$@SuppressLint("NewApi") private suspend fun runRawHdrExclusivityProbe( appContext: Context, outFileName: String, onProgress: suspend (String) -&gt; Unit, ): String</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:FaceDetectAdapter.kt$FaceDetectAdapter$val (rotatedX, rotatedY, rotatedW, rotatedH) = rotateSensorPoint( eyeSensor = eyeSensor, activeArrayWidth = activeArrayWidth, activeArrayHeight = activeArrayHeight, rotationDeg = rot, )</ID>
+    <ID>EmptyFunctionBlock:DeviceUiRotation.kt$&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:HorizonLevelOverlay.kt$&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:OrientationProbeOverlay.kt$&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:PreviewEngineScreen.kt$&lt;no name provided&gt;${}</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable fun AboutScreen( onBack: () -&gt; Unit, liveSummary: EncoderSummary? = null, )</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun AboutScreenContent( padding: PaddingValues, onBack: () -&gt; Unit, liveSummary: EncoderSummary? = null, )</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun LiveErrorCard(row: EncoderRecipeBuilder.ErrorRow)</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun LiveRecipeCard(row: EncoderRecipeBuilder.Row)</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun LutCreditCard(row: LutCreditsBuilder.LutCreditRow)</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun MonospaceBlock(text: String)</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun RecipeCard(recipe: KnownGoodRecipe)</ID>
+    <ID>FunctionNaming:AboutScreen.kt$@Composable private fun SectionTitle(text: String)</ID>
+    <ID>FunctionNaming:BurstProbeScreen.kt$@Composable fun BurstProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:CalibrateScreen.kt$@Composable fun CalibrateScreen( onBack: () -&gt; Unit, /** Optional chart supplied by the caller (e.g. live preview grab); adopted into local state once. */ initialChartBitmap: Bitmap? = null, onInitialChartBitmapConsumed: () -&gt; Unit = {}, )</ID>
+    <ID>FunctionNaming:CalibrateScreen.kt$@Composable private fun TargetPickerRow( current: ReferenceTarget, onChange: (ReferenceTarget) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:CameraCapabilitiesProbe.kt$@Composable fun CameraCapabilitiesProbe( launchScreen: String? = null, imageCaptureReturn: ImageCaptureReturnContract? = null, autoSweep: Boolean = false, autoEncProbe: Boolean = false, autoDeepCaps: Boolean = false, autoSessionMatrix: Boolean = false, autoHdrDcgRuntime: Boolean = false, autoCaptureLatency: Boolean = false, autoRawHdrExclusivity: Boolean = false, autoBurstProbe: Boolean = false, autoLogicalPhysical: Boolean = false, autoExhaustive: Boolean = false, exhaustiveIncludeLogical: Boolean = false, exhaustiveHfrOnly: Boolean = false, autoLegacyCamera1: Boolean = false, )</ID>
+    <ID>FunctionNaming:CaptureLatencyProbeScreen.kt$@Composable fun CaptureLatencyProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:CommandDial.kt$@Composable fun CommandDial( selected: CommandDialMode, onSelect: (CommandDialMode) -&gt; Unit, modifier: Modifier = Modifier, enabled: Boolean = true, )</ID>
+    <ID>FunctionNaming:CommandDial.kt$@Composable private fun DialSegment( mode: CommandDialMode, isSelected: Boolean, onSelect: (CommandDialMode) -&gt; Unit, enabled: Boolean, )</ID>
+    <ID>FunctionNaming:CompositionGuideOverlay.kt$@Composable fun CompositionGuideOverlay( crop: CropGuideAspect, grid: GridOverlayMode, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable fun DebugMenuScreen( padding: PaddingValues, hasCameraPermission: Boolean, reportMdReady: Boolean, cameraSummaries: List&lt;String&gt;, capabilityGateLines: List&lt;String&gt; = emptyList(), onBackToCamera: (() -&gt; Unit)?, onShowMapping: () -&gt; Unit, onShowPreviewEngine: () -&gt; Unit, onShowEncoderProbe: () -&gt; Unit, onShowLegacyCamera1: () -&gt; Unit, onShowDeepCaps: () -&gt; Unit, onShowSessionMatrix: () -&gt; Unit, onShowHdrDcgRuntime: () -&gt; Unit, onShowCaptureLatency: () -&gt; Unit, onShowRawHdrExcl: () -&gt; Unit, onShowBurstProbe: () -&gt; Unit, onShowLogicalPhysical: () -&gt; Unit, onShowExhaustive: () -&gt; Unit, onShowAbout: () -&gt; Unit, onShowProHud: () -&gt; Unit, onShowHudSettings: () -&gt; Unit, onShowCalibrate: () -&gt; Unit, onShowLutImport: () -&gt; Unit, onShowGlPreview: () -&gt; Unit, onShowNativeDiagnostics: () -&gt; Unit, onShowRootSettings: () -&gt; Unit, onDumpDiagnostics: () -&gt; Unit, onRequestPermission: () -&gt; Unit, onResetPermissionWelcome: () -&gt; Unit, onExport: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable private fun DebugAuxiliaryCard( title: String, modifier: Modifier = Modifier, content: @Composable () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable private fun DebugEntryRow( entry: DebugEntry, enabled: Boolean, )</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable private fun EngineeringHubHeader(onBackToCamera: (() -&gt; Unit)?)</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable private fun HubPermissionBanner( hasCameraPermission: Boolean, onRequestPermission: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable private fun OutputsCard( reportMdReady: Boolean, onExport: () -&gt; Unit, onDumpDiagnostics: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:DebugMenuScreen.kt$@Composable private fun SectionBlock( section: DebugSection, hasCameraPermission: Boolean, )</ID>
+    <ID>FunctionNaming:DeepCapsProbeScreen.kt$@Composable fun DeepCapsProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:DodgeMappingScreen.kt$@Composable fun DodgeMappingScreen( onBackToProbe: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:DodgeMappingScreen.kt$@Composable private fun DodgeMappingContent( padding: PaddingValues, rows: List&lt;String&gt;, onBackToProbe: () -&gt; Unit, onRefresh: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:ExhaustiveMediaProbeScreen.kt$@Composable fun ExhaustiveMediaProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, includeLogicalCamera: Boolean = false, /** Skip regular (non-HFR) video matrix attempts; only constrained high-speed combos per camera. */ hfrOnly: Boolean = false, durationMs: Long = 1800L, )</ID>
+    <ID>FunctionNaming:EyeAfOverlay.kt$@Composable fun EyeAfOverlay( eyes: List&lt;EyeMark&gt;, modifier: Modifier = Modifier, color: Color = Color(0xFF00FF66), strokeWidth: Dp = 1.5.dp, sizeDp: Dp = 18.dp, )</ID>
+    <ID>FunctionNaming:FaceTrackOverlay.kt$@Composable fun FaceTrackOverlay( faceBoxes: List&lt;FaceTrackBoxView&gt;, modifier: Modifier = Modifier, color: Color = Color(0xFF00FF66), strokeWidth: Dp = 2.5.dp, )</ID>
+    <ID>FunctionNaming:GLPreviewScreen.kt$@Composable fun GLPreviewScreen( onBack: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:HdrDcgRuntimeProbeScreen.kt$@Composable fun HdrDcgRuntimeProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:HfrEncoderProbeScreen.kt$@Composable fun HfrEncoderProbeScreen( onBack: () -&gt; Unit, startAutoProbe: Boolean = false, )</ID>
+    <ID>FunctionNaming:HorizonLevelOverlay.kt$@Composable fun HorizonLevelOverlay( modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:HudSettingsScreen.kt$@Composable fun HudRailSheetContent(hudState: HudSettingsState)</ID>
+    <ID>FunctionNaming:HudSettingsScreen.kt$@Composable fun HudSettingsScreen( onBack: () -&gt; Unit, initialFocus: HudSettingsFocus = HudSettingsFocus.None, )</ID>
+    <ID>FunctionNaming:HudSettingsScreen.kt$@Composable private fun CompositionGuideQuickControls()</ID>
+    <ID>FunctionNaming:HudSettingsScreen.kt$@Composable private fun HudSettingsScreenContent( padding: PaddingValues, settings: HudSettings, onUpdate: (HudSettings) -&gt; Unit, onBack: () -&gt; Unit, initialFocus: HudSettingsFocus, )</ID>
+    <ID>FunctionNaming:HudSettingsScreen.kt$@Composable private fun HudToggle(row: HudToggleRow)</ID>
+    <ID>FunctionNaming:HudSettingsScreen.kt$@Composable private fun WhiteBalanceReadoutInfoCard()</ID>
+    <ID>FunctionNaming:LegacyCamera1ProbeScreen.kt$@Composable fun LegacyCamera1ProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:LiveChartCornerGuide.kt$@Composable fun LiveChartCornerGuide( modifier: Modifier = Modifier, enabled: Boolean, corners: List&lt;Offset&gt;, onCornersChange: (List&lt;Offset&gt;) -&gt; Unit, rows: Int, cols: Int, )</ID>
+    <ID>FunctionNaming:LogicalPhysicalProbeScreen.kt$@Composable fun LogicalPhysicalProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:LutChipRow.kt$@Composable fun LutChipRow( state: HudSettingsState, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:LutChipRow.kt$@Composable private fun LutChip( scopeLabel: String, lutScope: LutCatalog.Scope, current: LutCatalog, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:LutChipRow.kt$@Composable private fun LutPickerDialog( scope: LutCatalog.Scope, currentSelectionName: String, onSelect: (LutCatalog) -&gt; Unit, onDismiss: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:LutImporterScreen.kt$@Composable fun LutImporterScreen(onBack: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:LutImporterScreen.kt$@Composable private fun ImportedLutRow(file: File)</ID>
+    <ID>FunctionNaming:LutImporterScreen.kt$@Composable private fun ImportedLutsList(files: List&lt;File&gt;)</ID>
+    <ID>FunctionNaming:ModeTransitionLog.kt$@Composable fun TrackModeTransition(kind: String, value: String, reason: String = "state")</ID>
+    <ID>FunctionNaming:NativeDiagnosticsScreen.kt$@Composable fun NativeDiagnosticsScreen( onBack: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:NativeDiagnosticsScreen.kt$@Composable private fun ProfileRouteRow(decision: EncoderRoute.Decision)</ID>
+    <ID>FunctionNaming:OrientationProbeOverlay.kt$@Composable fun OrientationProbeOverlay( bufferSize: android.util.Size?, centerViewSize: androidx.compose.ui.unit.IntSize, sensorOrientationDeg: Int?, chromeRotationDegSnapped: Float, chromeRotationDegSmooth: Float, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:OrientationProbeOverlay.kt$@Composable private fun DebugLine(text: String)</ID>
+    <ID>FunctionNaming:PnsChromeMenus.kt$@Composable fun PnsChromeDropdownMenu( expanded: Boolean, onDismissRequest: () -&gt; Unit, modifier: Modifier = Modifier, title: String? = null, content: @Composable ColumnScope.() -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PnsChromeMenus.kt$@Composable fun PnsChromeMenuItem( label: String, selected: Boolean, onClick: () -&gt; Unit, enabled: Boolean = true, )</ID>
+    <ID>FunctionNaming:PnsChromeMenus.kt$@Composable fun PnsChromePlainMenuItem( label: String, onClick: () -&gt; Unit, enabled: Boolean = true, )</ID>
+    <ID>FunctionNaming:PnsIcons.kt$@Composable fun IconCubeButton( onClick: () -&gt; Unit, contentDescription: String, modifier: Modifier = Modifier, size: Dp = 44.dp, selected: Boolean = false, enabled: Boolean = true, icon: (DrawScope) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PnsIcons.kt$@Composable fun IconCubeVectorButton( onClick: () -&gt; Unit, contentDescription: String, imageVector: ImageVector, modifier: Modifier = Modifier, size: Dp = 44.dp, selected: Boolean = false, enabled: Boolean = true, /** * Match [FpsQuickChip] border/fill/tints so focal-length and icon tiles read as one family * (distinct rounded blocks in the preview chrome grid). */ chromeChipStyle: Boolean = false, /** Expand to the caller's max constraints; glyph scales with the shorter tile edge (~2× in the 7-column grid). */ fillMaxTile: Boolean = false, /** When non-null, long-press invokes this (short tap still uses [onClick]). */ onLongClick: (() -&gt; Unit)? = null, )</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Camera(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Close(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Eye(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Grid(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Hud(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Lens(scope: DrawScope, filled: Boolean = false)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun MoreDots(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Speed(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsIcons.kt$PnsIcons$fun Spin(scope: DrawScope)</ID>
+    <ID>FunctionNaming:PnsTheme.kt$@Composable fun PnsTheme( darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable fun PreviewEngineScreen( onBack: () -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit = {}, startAutoSweep: Boolean = false, /** From `am start` extras — see `EXTRA_PNS_PREVIEW_*` in [CameraCapabilitiesProbe]. */ adbInitialDial: CommandDialMode? = null, adbSequentialRawStills: Int = 0, adbBracketPattern: BracketPattern? = null, adbInitialImagingProfile: ImagingProfile? = null, adbSeedCameraId: String? = null, adbSuperMacroProbe: Boolean = false, /** [LutCatalog] enum name — optional `am start` seed for scripted LUT capture / M6 V&amp;V. */ adbPreviewStillsLutName: String? = null, /** Milestone 6.3 — logs `m6 lutFps*` lines after baseline vs [LutCatalog.PnsCinematic] preview. */ adbM6FpsLutProbe: Boolean = false, /** Milestone 6.2 — ADB grab of one preview frame; logs `calibrate preview frame grab ok`. */ adbCalibrateGrabSmoke: Boolean = false, /** `--ei pns_preview_self_timer_sec N` — seeds [PreviewChromePreferences.selfTimerDelaySec] (normalized). */ adbInitialSelfTimerSec: Int? = null, /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */ imageCaptureReturn: ImageCaptureReturnContract? = null, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun CaptureToolsRailSheetContent( chrome: PreviewChromePreferences, chromePrefs: PreviewChromePreferencesState, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, canCaptureRawStill: Boolean, previewJpegCompanion: Boolean, rawStillNotReadyReason: String?, commandDialMode: CommandDialMode, onBracketBurst: (BracketPattern) -&gt; Unit, canCaptureBracketBurst: Boolean, onPickFirstCamera: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun ChromeGridQuickActionPopup( expanded: Boolean, onDismissRequest: () -&gt; Unit, kind: ChromeGridQuickAction, menuTitle: String, hudState: HudSettingsState, chromePrefs: PreviewChromePreferencesState, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun ChromeSettingsIntroText(text: String)</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun FocusPeakingOptionRow( label: String, selected: Boolean, swatchColor: Color?, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun FocusPeakingSettingsDialog( onDismiss: () -&gt; Unit, hudState: HudSettingsState, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun FpsQuickChip( label: String, selected: Boolean, requiresRoot: Boolean, onClick: () -&gt; Unit, modifier: Modifier = Modifier, enabled: Boolean = true, /** Fill square chrome tiles (same footprint as [IconCubeVectorButton] with [fillMaxTile]). */ fillMaxTile: Boolean = false, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun GuidesFramingMenuContent( compositionGuide: CompositionGuideSettingsState, pane: String?, onPaneChange: (String?) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewBottomCaptureTray( lastGalleryUri: Uri?, showOnScreenShutter: Boolean, canCaptureRawStill: Boolean, onCaptureDng: () -&gt; Unit, isRecording: Boolean, onRecordingChange: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, /** Mode dial / Tune FAB — anchored to the bottom-right as the right neighbour of the shutters. */ shootingModesSlot: (@Composable () -&gt; Unit)? = null, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewCenterOverlay( modifier: Modifier = Modifier, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, isRecording: Boolean, eyeMarks: List&lt;EyeMark&gt;, faceTrackBoxes: List&lt;FaceTrackBoxView&gt;, uiRotationDeg: Float, tapToShootEnabled: Boolean, tapShootCallbacks: TapToShootCallbacks, onRequestVolumeKeyFocus: () -&gt; Unit, showHorizonLevel: Boolean = true, showVideoTallyPip: Boolean = true, previewHistogramBins: IntArray? = null, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewChromeGrid7x7( modifier: Modifier = Modifier, cameraIds: List&lt;String&gt;, selectedCameraId: String?, focalCrop: FocalMode?, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, expandedKey: String?, onToggleShortcutTitle: (String) -&gt; Unit, hudState: HudSettingsState, chromePrefs: PreviewChromePreferencesState, uiRotationDeg: Float, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, onOpenDeveloperMenuFromSettingsLongPress: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewChromeScrollSlot( spec: ChromeGridSlotSpec, expandedKey: String?, onToggleShortcutTitle: (String) -&gt; Unit, onOpenDeveloperMenuFromSettingsLongPress: () -&gt; Unit, hudState: HudSettingsState, chromePrefs: PreviewChromePreferencesState, uiRotationDeg: Float, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewChromeSectionDivider()</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewEngineContent( padding: PaddingValues, lastGalleryUri: Uri?, cameraIds: List&lt;String&gt;, selectedCameraId: String?, selectedFps: Int, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, status: String, measuredFps: Double, previewReadoutIso: Int?, previewReadoutExposureNs: Long?, previewReadoutAwbMode: Int?, previewJpegCompanion: Boolean, surfaceInfo: String, previewBufferSize: Size?, sensorOrientationDeg: Int?, isSweeping: Boolean, hudState: HudSettingsState, deviceUiRotationState: DeviceUiRotationState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, isRecording: Boolean, onRecordingChange: (Boolean) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, onPickFirstCamera: () -&gt; Unit, onSetFps: (Int) -&gt; Unit, onStartSweep: () -&gt; Unit, onStopSweep: () -&gt; Unit, focalCrop: FocalMode?, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, adbInitialDial: CommandDialMode? = null, adbCalibrateGrabSmoke: Boolean = false, controller: PreviewController, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewKeysRailSheetContent( chrome: PreviewChromePreferences, chromePrefs: PreviewChromePreferencesState, onCalibrateFromPreviewFrame: () -&gt; Unit, hudState: HudSettingsState, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewMainViewport( modifier: Modifier, centerViewSize: IntSize, onCenterViewSize: (IntSize) -&gt; Unit, onPreviewTilePx: (IntSize) -&gt; Unit, previewHostSlot: PreviewHostSlot, controller: PreviewController, uiRotationDeg: Float, uiRotationDegSmooth: Float, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, previewBufferSize: Size?, isRecording: Boolean, eyeMarks: List&lt;EyeMark&gt;, faceTrackBoxes: List&lt;FaceTrackBoxView&gt;, focusRequester: FocusRequester, /** When true, preview uses center-crop (fill); when false, center-contain (matches still JPEG framing). */ previewTextureCoverCrop: Boolean, tapPreviewToCapture: Boolean, liveChartCornerOverlay: Boolean, chartCorners: List&lt;Offset&gt;, onChartCornersChange: (List&lt;Offset&gt;) -&gt; Unit, liveChartRows: Int, liveChartCols: Int, sensorOrientationDeg: Int?, /** Latest luma histogram for overlay (null when disabled or not yet sampled). */ previewHistogramBins: IntArray?, onCaptureDng: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewRailSectionTitle(text: String)</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewRailSettingToggle( title: String, subtitle: String?, checked: Boolean, onCheckedChange: (Boolean) -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun PreviewRightRail( modifier: Modifier = Modifier, uiRotationDeg: Float, cameraIds: List&lt;String&gt;, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, selectedFps: Int, onSetFps: (Int) -&gt; Unit, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, onPickFirstCamera: () -&gt; Unit, selectedCameraId: String?, focalCrop: FocalMode?, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, canCaptureRawStill: Boolean, canCaptureBracketBurst: Boolean, commandDialMode: CommandDialMode, onCalibrateFromPreviewFrame: () -&gt; Unit, previewJpegCompanion: Boolean, rawStillNotReadyReason: String?, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun RailSettingsHomeContent( onGuides: () -&gt; Unit, onHud: () -&gt; Unit, onPreview: () -&gt; Unit, onCapture: () -&gt; Unit, onTargetFps: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun RailSettingsMenuEntryCard( title: String, subtitle: String, onClick: () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun ShortcutBlock( title: String, icon: ImageVector, expanded: Boolean, onExpandedChange: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, showIconHeader: Boolean = true, content: @Composable () -&gt; Unit, )</ID>
+    <ID>FunctionNaming:PreviewEngineScreen.kt$@Composable private fun TargetFpsRailSheetContent( fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, selectedFps: Int, onSetFps: (Int) -&gt; Unit, focalCrop: FocalMode?, )</ID>
+    <ID>FunctionNaming:PreviewHistogramOverlay.kt$@Composable fun PreviewHistogramOverlay( bins: IntArray?, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:PreviewReadoutStrip.kt$@Composable fun PreviewReadoutStrip( iso: Int?, exposureNs: Long?, awbMode: Int?, measuredFps: Double, stillCaptureJpegCompanion: Boolean, menu: ReadoutMenuSnapshot, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, onPickIso: (Int?) -&gt; Unit, onPickShutter: (Long?) -&gt; Unit, onPickAwb: (Int?) -&gt; Unit, onPickFps: (Int) -&gt; Unit, stillLut: LutCatalog, videoLut: LutCatalog, onPickStillLut: (LutCatalog) -&gt; Unit, onPickVideoLut: (LutCatalog) -&gt; Unit, onPickStillPipeline: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:PreviewReadoutStrip.kt$@Composable private fun ReadoutLutChip( label: String, scope: LutCatalog.Scope, current: LutCatalog, labelStyle: TextStyle, valueStyle: TextStyle, valueMinWidth: Dp, onClick: () -&gt; Unit, accessibilityLabel: String, )</ID>
+    <ID>FunctionNaming:PreviewReadoutStrip.kt$@Composable private fun ReadoutMetricChip( label: String, value: String, valueMinWidth: Dp, labelStyle: TextStyle, valueStyle: TextStyle, onClick: () -&gt; Unit, accessibilityLabel: String, )</ID>
+    <ID>FunctionNaming:PreviewWindowEffects.kt$@Composable fun PreviewForegroundDndEffect(optionEnabled: Boolean)</ID>
+    <ID>FunctionNaming:PreviewWindowEffects.kt$@Composable fun PreviewMaxBrightnessEffect(enabled: Boolean)</ID>
+    <ID>FunctionNaming:PreviewWindowEffects.kt$@Composable fun RecordingDndEffect( optionEnabled: Boolean, isRecording: Boolean, )</ID>
+    <ID>FunctionNaming:ProHudScreen.kt$@Composable fun ProHudScreen(onBack: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ProHudScreen.kt$@Composable private fun ReadoutChip(text: String)</ID>
+    <ID>FunctionNaming:ProHudScreen.kt$@Composable private fun RecordButton(isRecording: Boolean, onToggle: () -&gt; Unit)</ID>
+    <ID>FunctionNaming:ProHudScreen.kt$@Composable private fun Spacer16()</ID>
+    <ID>FunctionNaming:ProbeLiveLog.kt$@Composable fun ProbeLiveLogPanel( title: String, lines: List&lt;String&gt;, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:RawHdrExclusivityProbeScreen.kt$@Composable fun RawHdrExclusivityProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:RootSettingsScreen.kt$@Composable fun RootSettingsScreen( onBack: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:RootSettingsScreen.kt$@Composable private fun RootFeatureCard(result: RootGate.GateResult)</ID>
+    <ID>FunctionNaming:SessionMatrixProbeScreen.kt$@Composable fun SessionMatrixProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
+    <ID>FunctionNaming:TimecodeOverlay.kt$@Composable fun TimecodeOverlay( isRecording: Boolean, fps: Int, modifier: Modifier = Modifier, startedElapsedMs: Long? = null, )</ID>
+    <ID>FunctionNaming:TimecodeOverlay.kt$@Composable private fun RecDot(active: Boolean)</ID>
+    <ID>FunctionNaming:VideoTallyOverlay.kt$@Composable fun VideoTallyOverlay( modifier: Modifier = Modifier, visible: Boolean = true, strokeWidth: Dp = 4.dp, pulse: Boolean = false, )</ID>
+    <ID>FunctionNaming:WelcomePermissionsScreen.kt$@Composable fun WelcomePermissionsScreen( runtimeSteps: List&lt;WelcomeRuntimePermissionStep&gt; = WelcomeFlowConfig.runtimePermissionSteps, hasRuntimePermission: (String) -&gt; Boolean, onRequestRuntimePermission: (String) -&gt; Unit, onOpenNotificationPolicySettings: () -&gt; Unit, onFinished: () -&gt; Unit, )</ID>
+    <ID>FunctionParameterNaming:HighlightLowNoiseExposure.kt$HighlightLowNoiseExposure$Bp: Double</ID>
+    <ID>ImplicitDefaultLocale:CameraCapabilitiesProbe.kt$String.format("%.1f", fps)</ID>
+    <ID>LongMethod:AvifStillMuxer.kt$AvifStillMuxer$fun encode(input: Input): ByteArray</ID>
+    <ID>LongMethod:CameraCapabilitiesProbe.kt$@Composable fun CameraCapabilitiesProbe( launchScreen: String? = null, imageCaptureReturn: ImageCaptureReturnContract? = null, autoSweep: Boolean = false, autoEncProbe: Boolean = false, autoDeepCaps: Boolean = false, autoSessionMatrix: Boolean = false, autoHdrDcgRuntime: Boolean = false, autoCaptureLatency: Boolean = false, autoRawHdrExclusivity: Boolean = false, autoBurstProbe: Boolean = false, autoLogicalPhysical: Boolean = false, autoExhaustive: Boolean = false, exhaustiveIncludeLogical: Boolean = false, exhaustiveHfrOnly: Boolean = false, autoLegacyCamera1: Boolean = false, )</ID>
+    <ID>LongMethod:PreviewEngineScreen.kt$@Composable fun PreviewEngineScreen( onBack: () -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit = {}, startAutoSweep: Boolean = false, /** From `am start` extras — see `EXTRA_PNS_PREVIEW_*` in [CameraCapabilitiesProbe]. */ adbInitialDial: CommandDialMode? = null, adbSequentialRawStills: Int = 0, adbBracketPattern: BracketPattern? = null, adbInitialImagingProfile: ImagingProfile? = null, adbSeedCameraId: String? = null, adbSuperMacroProbe: Boolean = false, /** [LutCatalog] enum name — optional `am start` seed for scripted LUT capture / M6 V&amp;V. */ adbPreviewStillsLutName: String? = null, /** Milestone 6.3 — logs `m6 lutFps*` lines after baseline vs [LutCatalog.PnsCinematic] preview. */ adbM6FpsLutProbe: Boolean = false, /** Milestone 6.2 — ADB grab of one preview frame; logs `calibrate preview frame grab ok`. */ adbCalibrateGrabSmoke: Boolean = false, /** `--ei pns_preview_self_timer_sec N` — seeds [PreviewChromePreferences.selfTimerDelaySec] (normalized). */ adbInitialSelfTimerSec: Int? = null, /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */ imageCaptureReturn: ImageCaptureReturnContract? = null, )</ID>
+    <ID>LongMethod:PreviewEngineScreen.kt$@Composable private fun PreviewEngineContent( padding: PaddingValues, lastGalleryUri: Uri?, cameraIds: List&lt;String&gt;, selectedCameraId: String?, selectedFps: Int, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, status: String, measuredFps: Double, previewReadoutIso: Int?, previewReadoutExposureNs: Long?, previewReadoutAwbMode: Int?, previewJpegCompanion: Boolean, surfaceInfo: String, previewBufferSize: Size?, sensorOrientationDeg: Int?, isSweeping: Boolean, hudState: HudSettingsState, deviceUiRotationState: DeviceUiRotationState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, isRecording: Boolean, onRecordingChange: (Boolean) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, onPickFirstCamera: () -&gt; Unit, onSetFps: (Int) -&gt; Unit, onStartSweep: () -&gt; Unit, onStopSweep: () -&gt; Unit, focalCrop: FocalMode?, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, adbInitialDial: CommandDialMode? = null, adbCalibrateGrabSmoke: Boolean = false, controller: PreviewController, )</ID>
+    <ID>LongParameterList:DebugMenuScreen.kt$( padding: PaddingValues, hasCameraPermission: Boolean, reportMdReady: Boolean, cameraSummaries: List&lt;String&gt;, capabilityGateLines: List&lt;String&gt; = emptyList(), onBackToCamera: (() -&gt; Unit)?, onShowMapping: () -&gt; Unit, onShowPreviewEngine: () -&gt; Unit, onShowEncoderProbe: () -&gt; Unit, onShowLegacyCamera1: () -&gt; Unit, onShowDeepCaps: () -&gt; Unit, onShowSessionMatrix: () -&gt; Unit, onShowHdrDcgRuntime: () -&gt; Unit, onShowCaptureLatency: () -&gt; Unit, onShowRawHdrExcl: () -&gt; Unit, onShowBurstProbe: () -&gt; Unit, onShowLogicalPhysical: () -&gt; Unit, onShowExhaustive: () -&gt; Unit, onShowAbout: () -&gt; Unit, onShowProHud: () -&gt; Unit, onShowHudSettings: () -&gt; Unit, onShowCalibrate: () -&gt; Unit, onShowLutImport: () -&gt; Unit, onShowGlPreview: () -&gt; Unit, onShowNativeDiagnostics: () -&gt; Unit, onShowRootSettings: () -&gt; Unit, onDumpDiagnostics: () -&gt; Unit, onRequestPermission: () -&gt; Unit, onResetPermissionWelcome: () -&gt; Unit, onExport: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:LutExternalOesShaderProgram.kt$LutExternalOesShaderProgram$( val programId: Int, val attribPosition: Int, val attribTexCoord: Int, val uniformStMatrix: Int, val uniformViewW: Int, val uniformViewH: Int, val uniformBufW: Int, val uniformBufH: Int, val uniformCoverCrop: Int, val uniformBufKnown: Int, val uniformSourceTex: Int, val uniformLutTex: Int, val uniformLutSize: Int, val uniformLutEnabled: Int, val uniformReadoutWbRgb: Int, val uniformPeakingEnabled: Int, val uniformPeakingRgb: Int, val uniformPeakingSensitivity: Int, )</ID>
+    <ID>LongParameterList:PreviewEngineScreen.kt$( modifier: Modifier = Modifier, uiRotationDeg: Float, cameraIds: List&lt;String&gt;, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, selectedFps: Int, onSetFps: (Int) -&gt; Unit, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, onPickFirstCamera: () -&gt; Unit, selectedCameraId: String?, focalCrop: FocalMode?, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, canCaptureRawStill: Boolean, canCaptureBracketBurst: Boolean, commandDialMode: CommandDialMode, onCalibrateFromPreviewFrame: () -&gt; Unit, previewJpegCompanion: Boolean, rawStillNotReadyReason: String?, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:PreviewEngineScreen.kt$( modifier: Modifier, centerViewSize: IntSize, onCenterViewSize: (IntSize) -&gt; Unit, onPreviewTilePx: (IntSize) -&gt; Unit, previewHostSlot: PreviewHostSlot, controller: PreviewController, uiRotationDeg: Float, uiRotationDegSmooth: Float, hudState: HudSettingsState, compositionGuide: CompositionGuideSettingsState, previewBufferSize: Size?, isRecording: Boolean, eyeMarks: List&lt;EyeMark&gt;, faceTrackBoxes: List&lt;FaceTrackBoxView&gt;, focusRequester: FocusRequester, /** When true, preview uses center-crop (fill); when false, center-contain (matches still JPEG framing). */ previewTextureCoverCrop: Boolean, tapPreviewToCapture: Boolean, liveChartCornerOverlay: Boolean, chartCorners: List&lt;Offset&gt;, onChartCornersChange: (List&lt;Offset&gt;) -&gt; Unit, liveChartRows: Int, liveChartCols: Int, sensorOrientationDeg: Int?, /** Latest luma histogram for overlay (null when disabled or not yet sampled). */ previewHistogramBins: IntArray?, onCaptureDng: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:PreviewEngineScreen.kt$( padding: PaddingValues, lastGalleryUri: Uri?, cameraIds: List&lt;String&gt;, selectedCameraId: String?, selectedFps: Int, fpsOptions: List&lt;PreviewFpsSupport.QuickFpsOption&gt;, status: String, measuredFps: Double, previewReadoutIso: Int?, previewReadoutExposureNs: Long?, previewReadoutAwbMode: Int?, previewJpegCompanion: Boolean, surfaceInfo: String, previewBufferSize: Size?, sensorOrientationDeg: Int?, isSweeping: Boolean, hudState: HudSettingsState, deviceUiRotationState: DeviceUiRotationState, compositionGuide: CompositionGuideSettingsState, chromePrefs: PreviewChromePreferencesState, fineLocationGranted: Boolean, onPendingEnableGeotagChange: (Boolean) -&gt; Unit, onRequestLocationForGeotag: () -&gt; Unit, isRecording: Boolean, onRecordingChange: (Boolean) -&gt; Unit, onOpenDeveloperMenu: () -&gt; Unit, onPickFirstCamera: () -&gt; Unit, onSetFps: (Int) -&gt; Unit, onStartSweep: () -&gt; Unit, onStopSweep: () -&gt; Unit, focalCrop: FocalMode?, onApplyFocalMmSlot: (FocalMmSlot) -&gt; Unit, imagingProfile: ImagingProfile, onCycleImagingProfile: () -&gt; Unit, onCaptureDng: () -&gt; Unit, onBracketBurst: (BracketPattern) -&gt; Unit, adbInitialDial: CommandDialMode? = null, adbCalibrateGrabSmoke: Boolean = false, controller: PreviewController, )</ID>
+    <ID>LoopWithTooManyJumpStatements:BurstProbeScreen.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:CaptureLatencyProbeScreen.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:EncoderAttemptJsonAdapter.kt$EncoderAttemptJsonAdapter$for</ID>
+    <ID>LoopWithTooManyJumpStatements:EncoderProbeCore.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:HdrDcgRuntimeProbeScreen.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:HfrEncoderProbeScreen.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:LogicalPhysicalProbeScreen.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:LutSidecar.kt$LutSidecar$for</ID>
+    <ID>LoopWithTooManyJumpStatements:RawHdrExclusivityProbeScreen.kt$for</ID>
+    <ID>LoopWithTooManyJumpStatements:SessionMatrixProbeScreen.kt$for</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x04</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x08</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x10</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x20</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x3</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x40</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x7</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x7F</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0x80</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$0xFF</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$3</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$5</ID>
+    <ID>MagicNumber:Av1CodecConfiguration.kt$Av1CodecConfiguration$7</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes$0x03</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes$0xFF</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.PixiPayload$255</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Companion$180</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Companion$270</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Companion$3</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Companion$360</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Companion$90</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Rot180$180</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Rot270$270</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Rot270$3</ID>
+    <ID>MagicNumber:AvifAuxiliaryBoxes.kt$AvifAuxiliaryBoxes.Rotation.Rot90$90</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$0x80</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$0xFF</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$10</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$4</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$5</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$6</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$7</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$8</ID>
+    <ID>MagicNumber:AvifColrPayload.kt$AvifColrPayload$9</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$0xFF</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$16</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$24</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$3</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$4</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$6</ID>
+    <ID>MagicNumber:AvifImageGrid.kt$AvifImageGrid$8</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$0x8000</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$0xFF</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$0xFFFF</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$10</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$16</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$24</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$3</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$32</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$4</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$6</ID>
+    <ID>MagicNumber:AvifImageOverlay.kt$AvifImageOverlay$8</ID>
+    <ID>MagicNumber:AvifStillMuxer.kt$AvifStillMuxer$10</ID>
+    <ID>MagicNumber:AvifStillMuxer.kt$AvifStillMuxer$12</ID>
+    <ID>MagicNumber:AvifStillMuxer.kt$AvifStillMuxer$8</ID>
+    <ID>MagicNumber:AvifStillMuxer.kt$AvifStillMuxer.Input$255</ID>
+    <ID>MagicNumber:BackCameraRoleResolver.kt$BackCameraRoleResolver$3</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$0.0031308f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$0.04045</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$0.055</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$0.055f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$0.5f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$0xFF</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$1.055</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$1.055f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$12.92</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$12.92f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$16</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$2.4</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$2.4f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$255</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$255.0</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$255f</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$3</ID>
+    <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$8</ID>
+    <ID>MagicNumber:BracketPlan.kt$BracketPattern.Five$5</ID>
+    <ID>MagicNumber:BracketPlan.kt$BracketPattern.Seven$7</ID>
+    <ID>MagicNumber:BracketPlan.kt$BracketPattern.Three$3</ID>
+    <ID>MagicNumber:BracketPlan.kt$BracketPlan.Companion$12</ID>
+    <ID>MagicNumber:BuiltInLuts.kt$BuiltInLuts$0.5f</ID>
+    <ID>MagicNumber:BuiltInLuts.kt$BuiltInLuts$3</ID>
+    <ID>MagicNumber:BuiltInLuts.kt$BuiltInLuts$3f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.06f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.075f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.137f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.157f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.165f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.180f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.220f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.231f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.247f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.24f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.255f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.265f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.282f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.290f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.298f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.30f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.317f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.341f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.345f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.353f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.357f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.366f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.376f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.391f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.396f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.420f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.422f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.42f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.453f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.474f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.475f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.500f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.502f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.50f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.510f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.564f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.580f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.589f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.60f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.611f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.624f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.643f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.667f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.690f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.70f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.722f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.741f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.764f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.769f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.776f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.78f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.847f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.910f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.929f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.949f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$0.95f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$100</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$3</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$360f</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$4</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$5</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$6</ID>
+    <ID>MagicNumber:BundledReferenceTargets.kt$BundledReferenceTargets$60f</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$10</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$1000.0</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$128</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$1_000_000L</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$20</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$28</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$3</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$480</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$6</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$64</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$640</ID>
+    <ID>MagicNumber:BurstProbeScreen.kt$7</ID>
+    <ID>MagicNumber:CalibrateScreen.kt$3</ID>
+    <ID>MagicNumber:CalibrateScreen.kt$3f</ID>
+    <ID>MagicNumber:CalibrateScreen.kt$4</ID>
+    <ID>MagicNumber:CalibrateScreen.kt$4f</ID>
+    <ID>MagicNumber:CalibrateScreen.kt$6</ID>
+    <ID>MagicNumber:CalibrationMath.kt$CalibrationMath$3</ID>
+    <ID>MagicNumber:CalibrationProfile.kt$CalibrationProfile$3</ID>
+    <ID>MagicNumber:CalibrationProfileJsonAdapter.kt$CalibrationProfileJsonAdapter$3</ID>
+    <ID>MagicNumber:CalibrationSampler.kt$CalibrationSampler$0.5f</ID>
+    <ID>MagicNumber:CalibrationSampler.kt$CalibrationSampler$3</ID>
+    <ID>MagicNumber:CalibrationSampler.kt$PatchSample$3</ID>
+    <ID>MagicNumber:CalibrationSampler.kt$RgbPlane$3</ID>
+    <ID>MagicNumber:CalibrationSampler.kt$RgbPlane.Companion$3</ID>
+    <ID>MagicNumber:CalibrationToLut.kt$CalibrationToLut$3</ID>
+    <ID>MagicNumber:CameraCapabilitiesProbe.kt$120.0</ID>
+    <ID>MagicNumber:CameraCapabilitiesProbe.kt$1_000_000_000.0</ID>
+    <ID>MagicNumber:CapabilityGateBridge.kt$CapabilityGateBridge$96</ID>
+    <ID>MagicNumber:CaptureHaptics.kt$CaptureHaptics$12L</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$12</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$1_000_000L</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$31</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$480</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$5</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$6</ID>
+    <ID>MagicNumber:CaptureLatencyProbeScreen.kt$640</ID>
+    <ID>MagicNumber:CaptureStorage.kt$CaptureStorage$120</ID>
+    <ID>MagicNumber:CaptureStorage.kt$CaptureStorage$4</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.015</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.0193339</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.045</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.0721750</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.1191920</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.17</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.1804375</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.20</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.2126729</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.24</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.32</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.3575761</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.4124564</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.5</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.7151522</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.82521</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.9503041</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.95047</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$0.96422</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$1.08883</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$116.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$16.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$180.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$20.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$200.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$25.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$275.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$3</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$3.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$30.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$360.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$4.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$50.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$500.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$6.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$63.0</ID>
+    <ID>MagicNumber:ColorMath.kt$ColorMath$7.0</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.0367000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.0389000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.044f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.0460f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.0600f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.0685000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.128f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.1310f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.1500f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.1614000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.165f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.1700f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.2650f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.2664000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.2920f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.293f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.3000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.3127f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.3200f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.32168f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.3290f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.3300f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.33767f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.6000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.6400f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.6800f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.6900f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.7080f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.713f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.7502000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.7970f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.830f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$0.8951000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$1.0296000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$1.7135000f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$1e-9f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix$3</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Chromaticity$0.5f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Chromaticity$1.5f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.29902f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.31270f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.31485f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.32900f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.33242f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.34567f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.34743f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.35850f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.37207f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.37512f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.40745f</ID>
+    <ID>MagicNumber:ColorSpaceMatrix.kt$ColorSpaceMatrix.Illuminants$0.44757f</ID>
+    <ID>MagicNumber:CompositionGuideOverlay.kt$0.003f</ID>
+    <ID>MagicNumber:CompositionGuideOverlay.kt$0.12f</ID>
+    <ID>MagicNumber:CompositionGuideOverlay.kt$0.18f</ID>
+    <ID>MagicNumber:CompositionGuideOverlay.kt$1.5f</ID>
+    <ID>MagicNumber:CompositionGuideOverlay.kt$3f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R16_9$16f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R16_9$9f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R235_1$2.39f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R3_2$3f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R4_3$3f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R4_3$4f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R9_16$16f</ID>
+    <ID>MagicNumber:CompositionGuideSettings.kt$CropGuideAspect.R9_16$9f</ID>
+    <ID>MagicNumber:DebugMenuScreen.kt$0xFF121212</ID>
+    <ID>MagicNumber:DebugMenuScreen.kt$0xFF1E3A2F</ID>
+    <ID>MagicNumber:DebugMenuScreen.kt$0xFFAAEECC</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$135f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$15f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$180.0</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$180f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$225f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$270f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$315f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$360f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$45f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$90f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$9f</ID>
+    <ID>MagicNumber:DeviceUiRotation.kt$&lt;no name provided&gt;$0.5f</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$180</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$270</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$3</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$360</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$6</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$8</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.Companion$90</ID>
+    <ID>MagicNumber:Dng12Saver.kt$Dng12Saver.SaveStats$1_000_000.0</ID>
+    <ID>MagicNumber:DngCalibrationSidecar.kt$DngCalibrationSidecar$4</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0092345f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0150436f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0170491f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0193339f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0228866f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0295424f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0501270f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.0721750f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.1191920f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.1804375f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.2126729f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.3575761f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.4124564f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.7151522f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.7521316f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.9503041f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$0.9904844f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$1.0478112f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$14</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$17</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$1e-12f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$20</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$21</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$23</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$3</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$4</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$5</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$6</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$7</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$8</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags$9</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags.DngColor$1e-5f</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags.DngColor$3</ID>
+    <ID>MagicNumber:DngColorTags.kt$DngColorTags.DngColor$9</ID>
+    <ID>MagicNumber:DngLutMetadata.kt$DngLutMetadata$64</ID>
+    <ID>MagicNumber:DodgeMappingScreen.kt$120</ID>
+    <ID>MagicNumber:DodgeMappingScreen.kt$240</ID>
+    <ID>MagicNumber:DodgeMappingScreen.kt$480</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1.02</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1000.0</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1080</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$10_000</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$10_000_000</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1280</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$15_000L</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1920</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1_000_000L</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$1_000_000_000.0</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$240</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$240.0</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$4</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$45_000L</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$480</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$640</ID>
+    <ID>MagicNumber:EncoderProbeCore.kt$720</ID>
+    <ID>MagicNumber:EncoderRecipeBuilder.kt$EncoderRecipeBuilder.HeadlineCounts$100</ID>
+    <ID>MagicNumber:EncoderResultAggregator.kt$EncoderResultAggregator$120</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$100</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$120</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$150</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$200</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$350</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$400</ID>
+    <ID>MagicNumber:ExhaustiveMediaProbeScreen.kt$80</ID>
+    <ID>MagicNumber:EyeAfOverlay.kt$0xFF00FF66</ID>
+    <ID>MagicNumber:EyeAfOverlay.kt$0xFF66FFCC</ID>
+    <ID>MagicNumber:EyeAfOverlay.kt$0xFFFFFFFF</ID>
+    <ID>MagicNumber:EyeAfOverlay.kt$1.35f</ID>
+    <ID>MagicNumber:FaceDetectAdapter.kt$FaceDetectAdapter$180</ID>
+    <ID>MagicNumber:FaceDetectAdapter.kt$FaceDetectAdapter$270</ID>
+    <ID>MagicNumber:FaceDetectAdapter.kt$FaceDetectAdapter$3</ID>
+    <ID>MagicNumber:FaceDetectAdapter.kt$FaceDetectAdapter$360</ID>
+    <ID>MagicNumber:FaceDetectAdapter.kt$FaceDetectAdapter$90</ID>
+    <ID>MagicNumber:FaceTrackOverlay.kt$0xFF00FF66</ID>
+    <ID>MagicNumber:FaceTrackOverlay.kt$0xFFFFFFFF</ID>
+    <ID>MagicNumber:FaceTrackOverlay.kt$1.25f</ID>
+    <ID>MagicNumber:FaceTrackingSupport.kt$FaceTrackingSupport$0x7FFF_FFFF</ID>
+    <ID>MagicNumber:FaceTrackingSupport.kt$FaceTrackingSupport$10007L</ID>
+    <ID>MagicNumber:FaceTrackingSupport.kt$FaceTrackingSupport$20</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$0x20</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$0x7E</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$0xFF</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$0xFFFFFFFFL</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$16</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$24</ID>
+    <ID>MagicNumber:FileTypeBox.kt$FileTypeBox$8</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFF007AFF</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFF32ADE6</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFF34C759</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFFF2F2F7</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFFFF2D92</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFFFF3B30</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingColor$0xFFFFCC00</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingStrength$0.28f</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingStrength$0.55f</ID>
+    <ID>MagicNumber:FocusPeaking.kt$FocusPeakingStrength$0.85f</ID>
+    <ID>MagicNumber:GLPreviewScreen.kt$3</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$0x20</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$0x7E</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$0xFF</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$16</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$24</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$4</ID>
+    <ID>MagicNumber:HandlerReferenceBox.kt$HandlerReferenceBox$8</ID>
+    <ID>MagicNumber:HardwareCapsSnapshot.kt$HardwareCapsSnapshot$120</ID>
+    <ID>MagicNumber:HardwareCapsSnapshot.kt$HardwareCapsSnapshot$33</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.0031308f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.018f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.04045f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.055</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.055f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.099</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.099f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.45</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$0.5f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$1.055f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$1.099f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$12.92f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$12f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$2.4</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$3f</ID>
+    <ID>MagicNumber:HdrCurves.kt$HdrCurves$4.5f</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$1280</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$3</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$33</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$480</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$6</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$640</ID>
+    <ID>MagicNumber:HdrDcgRuntimeProbeScreen.kt$720</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$ContentLightLevel$0xFFFF</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$0.5</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$0.5f</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$0xFF</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$0xFFFF</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$0xFFFFFFFFL</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$16</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$24</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$3</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$4</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$HdrStaticMetadata$8</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$MasteringDisplayMetadata$0.5f</ID>
+    <ID>MagicNumber:HdrStaticMetadata.kt$MasteringDisplayMetadata$1.5f</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0x03</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0x07</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0x0FFF</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0x3F</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0xF0</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0xF8</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0xFC</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$0xFF</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$12</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$13</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$14</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$15</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$16</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$17</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$18</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$19</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$21</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$22</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$24</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$3</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$32</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$4</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$40</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$5</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$6</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$7</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration$8</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration.Config$0xFFFF</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration.Config$0xFFFFFFFFFFFFL</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration.Config$0xFFFFFFFFL</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration.Config$255</ID>
+    <ID>MagicNumber:HevcCodecConfiguration.kt$HevcCodecConfiguration.NalUnitArray$0xFFFF</ID>
+    <ID>MagicNumber:HfrEncoderProbeScreen.kt$0.92</ID>
+    <ID>MagicNumber:HfrEncoderProbeScreen.kt$120</ID>
+    <ID>MagicNumber:HfrEncoderProbeScreen.kt$240</ID>
+    <ID>MagicNumber:HfrEncoderProbeScreen.kt$2500</ID>
+    <ID>MagicNumber:HfrEncoderProbeScreen.kt$450</ID>
+    <ID>MagicNumber:HfrEncoderProbeScreen.kt$480</ID>
+    <ID>MagicNumber:HighlightLowNoiseExposure.kt$HighlightLowNoiseExposure$0.005</ID>
+    <ID>MagicNumber:HighlightLowNoiseExposure.kt$HighlightLowNoiseExposure$1e-10</ID>
+    <ID>MagicNumber:HighlightLowNoiseExposure.kt$HighlightLowNoiseExposure$1e-9</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$1.92</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$2.05</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$2.25</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$2.45</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$2.75</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$200</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$218</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$224</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$232</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$238</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$244</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$248</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$252</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$254</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$255</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$256</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$3.15</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$3.75</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$4.35</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$4.95</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$5.35</ID>
+    <ID>MagicNumber:HighlightMeter.kt$HighlightMeter$600_000.0</ID>
+    <ID>MagicNumber:HighlightMeterSupport.kt$HighlightMeterSupport$1e-12</ID>
+    <ID>MagicNumber:HighlightMeterSupport.kt$HighlightMeterSupport$240</ID>
+    <ID>MagicNumber:HighlightMeterSupport.kt$HighlightMeterSupport$320</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$0.5f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$180.0</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$180f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$270f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$360f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$45f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$90f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$9f</ID>
+    <ID>MagicNumber:HorizonLevelOverlay.kt$&lt;no name provided&gt;$0.25f</ID>
+    <ID>MagicNumber:HudSettingsScreen.kt$0.78f</ID>
+    <ID>MagicNumber:HudSettingsScreen.kt$80</ID>
+    <ID>MagicNumber:ImageSpatialExtents.kt$ImageSpatialExtents$0xFF</ID>
+    <ID>MagicNumber:ImageSpatialExtents.kt$ImageSpatialExtents$16</ID>
+    <ID>MagicNumber:ImageSpatialExtents.kt$ImageSpatialExtents$24</ID>
+    <ID>MagicNumber:ImageSpatialExtents.kt$ImageSpatialExtents$3</ID>
+    <ID>MagicNumber:ImageSpatialExtents.kt$ImageSpatialExtents$4</ID>
+    <ID>MagicNumber:ImageSpatialExtents.kt$ImageSpatialExtents$8</ID>
+    <ID>MagicNumber:ImagingProfile.kt$TonalContainer.Avif10BitHdr$10</ID>
+    <ID>MagicNumber:ImagingProfile.kt$TonalContainer.JpegXl12Bit$12</ID>
+    <ID>MagicNumber:ImportedLutStore.kt$ImportedLutStore$8</ID>
+    <ID>MagicNumber:ImportedLutStore.kt$ImportedLutStore$96</ID>
+    <ID>MagicNumber:ImportedLutStore.kt$ImportedLutStore$9999</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$0x20</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$0x7E</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$0xFF</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$0xFFFFFF</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$0xFFL</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$16</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$24</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$255</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$3</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$32</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$4</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$40</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$48</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$56</ID>
+    <ID>MagicNumber:IsobmffBox.kt$IsobmffBox$8</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$0xFF</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$0xFFFFFFFFL</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$12</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$16</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$20</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$24</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$28</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$3</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$4</ID>
+    <ID>MagicNumber:IsobmffSampleAspect.kt$IsobmffSampleAspect$8</ID>
+    <ID>MagicNumber:ItemInfoBox.kt$ItemInfoBox$0xFF</ID>
+    <ID>MagicNumber:ItemInfoBox.kt$ItemInfoBox$16</ID>
+    <ID>MagicNumber:ItemInfoBox.kt$ItemInfoBox$24</ID>
+    <ID>MagicNumber:ItemInfoBox.kt$ItemInfoBox$8</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry$0xFF</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry$16</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry$24</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry$3</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry$8</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry.Entry$0x20</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry.Entry$0x7E</ID>
+    <ID>MagicNumber:ItemInfoEntry.kt$ItemInfoEntry.Entry$4</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$0xFF</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$0xFFFFFFFFL</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$12</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$16</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$24</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$32</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$4</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$40</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$48</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$56</ID>
+    <ID>MagicNumber:ItemLocationBox.kt$ItemLocationBox$8</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0x7F</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0x7FFF</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0x80</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0x8000</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0xFF</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0xFFFFFF</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$0xFFFFFFFFL</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$15</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$16</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$24</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$3</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$4</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$7</ID>
+    <ID>MagicNumber:ItemPropertyAssociation.kt$ItemPropertyAssociation$8</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox$0xFF</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox$16</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox$24</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox$4</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox$8</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox.Reference$0x20</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox.Reference$0x7E</ID>
+    <ID>MagicNumber:ItemReferenceBox.kt$ItemReferenceBox.Reference$4</ID>
+    <ID>MagicNumber:LegacyCamera1ProbeScreen.kt$24</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$0.002f</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$0.012f</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$0.42f</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$1.5f</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$3</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$4</ID>
+    <ID>MagicNumber:LiveChartCornerGuide.kt$6f</ID>
+    <ID>MagicNumber:LogicalPhysicalProbeScreen.kt$1280</ID>
+    <ID>MagicNumber:LogicalPhysicalProbeScreen.kt$6</ID>
+    <ID>MagicNumber:LogicalPhysicalProbeScreen.kt$720</ID>
+    <ID>MagicNumber:LogicalPhysicalProbeScreen.kt$8</ID>
+    <ID>MagicNumber:Lut3D.kt$Lut3D$3</ID>
+    <ID>MagicNumber:Lut3D.kt$Lut3D.Companion$3</ID>
+    <ID>MagicNumber:LutCameraPreviewRenderer.kt$LutCameraPreviewRenderer$16</ID>
+    <ID>MagicNumber:LutCameraPreviewRenderer.kt$LutCameraPreviewRenderer$4</ID>
+    <ID>MagicNumber:LutExternalOesShaderProgram.kt$LutExternalOesShaderProgram$16</ID>
+    <ID>MagicNumber:LutExternalOesShaderProgram.kt$LutExternalOesShaderProgram$33</ID>
+    <ID>MagicNumber:LutImporterScreen.kt$12</ID>
+    <ID>MagicNumber:LutPipeline.kt$LutPipeline$1e-4f</ID>
+    <ID>MagicNumber:LutPipeline.kt$LutPipeline$1e-6</ID>
+    <ID>MagicNumber:LutPipeline.kt$LutPipeline$3</ID>
+    <ID>MagicNumber:LutPipeline.kt$LutPipeline$4</ID>
+    <ID>MagicNumber:LutPipeline.kt$LutPipeline$5</ID>
+    <ID>MagicNumber:LutPipeline.kt$LutPipeline$6</ID>
+    <ID>MagicNumber:LutPreviewRenderer.kt$LutPreviewRenderer$16</ID>
+    <ID>MagicNumber:LutPreviewRenderer.kt$LutPreviewRenderer$4</ID>
+    <ID>MagicNumber:LutShaderProgram.kt$LutShaderProgram$33</ID>
+    <ID>MagicNumber:LutShaderProgram.kt$LutShaderProgram.Companion$4</ID>
+    <ID>MagicNumber:LutSidecarWriter.kt$LutSidecarWriter$0xFF</ID>
+    <ID>MagicNumber:LutSidecarWriter.kt$LutSidecarWriter$4</ID>
+    <ID>MagicNumber:MetaBox.kt$MetaBox$0xFF</ID>
+    <ID>MagicNumber:MetaBox.kt$MetaBox$4</ID>
+    <ID>MagicNumber:MlFaceBoxSmoother.kt$MlFaceBoxSmoother$3.25f</ID>
+    <ID>MagicNumber:MlFaceBoxSmoother.kt$MlFaceBoxSmoother$6f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$0.30f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$0.45f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$0xFFFF7A00</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$180.0</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$180f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$270f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$360f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$3f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$8f</ID>
+    <ID>MagicNumber:OrientationProbeOverlay.kt$90f</ID>
+    <ID>MagicNumber:PipelineAccessProbe.kt$34</ID>
+    <ID>MagicNumber:PnsAppInfo.kt$PnsAppInfo$33</ID>
+    <ID>MagicNumber:PnsIcons.kt$0.52f</ID>
+    <ID>MagicNumber:PnsIcons.kt$0.56f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.02f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.04f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.06f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.08f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.10f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.12f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.18f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.20f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.22f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.28f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.30f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.32f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.34f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.45f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.55f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.5f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.6f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.78f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$0.7f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$1.6f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$3f</ID>
+    <ID>MagicNumber:PnsIcons.kt$PnsIcons$6</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xCC000000</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xFF181A1B</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xFF4CAF50</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xFF4DA3FF</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xFFE00000</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xFFE6A23C</ID>
+    <ID>MagicNumber:PnsTheme.kt$PnsColors$0xFFFF5C00</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$10</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$135</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$180</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$225</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$270</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$3</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$315</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$360</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$45</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$5</ID>
+    <ID>MagicNumber:PreviewChromePreferences.kt$PreviewChromePreferences.Companion$90</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$0.22f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$0.38f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$0.45f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$0.5f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$0.92f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$0xFF1A1A1A</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$100</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$100.0</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$1000</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$12</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$12.0</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$120</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$150</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$240</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$2500</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$2500L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$270</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$280</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$3</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$300</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$3000</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$3200</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$350</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$3500</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$3f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$4</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$400</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$480</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$4f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$5</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$5.0</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$50</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$6</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$60</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$7</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$700</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$80</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$90</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.015f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.062</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.085</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.08f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.10</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.12f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.14</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.15</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.155</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.18f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.38</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.45</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.62</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.85</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0.90</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$0xFF</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$10</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$100</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$100f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$1080</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$10_000L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$120</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$1280</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$1440L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$150L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$16</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$17</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$180</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$1920</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$1920L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$1e9</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$200L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$24</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$270</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$28f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$3</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$31</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$32</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$33_333_333L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$3500L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$360</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$3f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$4</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$48</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$4f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$512</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$5L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$6</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$60</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$6f</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$720</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$8</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$8L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$90</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController$92</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$0.10</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$0.90</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$100_000_000L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$1e6</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$1e9</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$25_000_000L</ID>
+    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$750L</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$1000</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$1080</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$120</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$1280</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$144</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$15</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$1920</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$24</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$240</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$25</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$30</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$48</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$480</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$50</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$60</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$720</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$90</ID>
+    <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$960</ID>
+    <ID>MagicNumber:PreviewHistogramOverlay.kt$0.88f</ID>
+    <ID>MagicNumber:PreviewLayoutOrientation.kt$90</ID>
+    <ID>MagicNumber:PreviewLumaHistogram.kt$PreviewLumaHistogram$0xFF</ID>
+    <ID>MagicNumber:PreviewReadoutStrip.kt$0.05</ID>
+    <ID>MagicNumber:PreviewReadoutStrip.kt$14</ID>
+    <ID>MagicNumber:PreviewReadoutStrip.kt$6</ID>
+    <ID>MagicNumber:PreviewReadoutStrip.kt$PreviewReadoutFormat$1_000_000_000.0</ID>
+    <ID>MagicNumber:PrimaryItemBox.kt$PrimaryItemBox$0xFF</ID>
+    <ID>MagicNumber:PrimaryItemBox.kt$PrimaryItemBox$16</ID>
+    <ID>MagicNumber:PrimaryItemBox.kt$PrimaryItemBox$24</ID>
+    <ID>MagicNumber:PrimaryItemBox.kt$PrimaryItemBox$3</ID>
+    <ID>MagicNumber:PrimaryItemBox.kt$PrimaryItemBox$8</ID>
+    <ID>MagicNumber:ProHudScreen.kt$0xFF000000</ID>
+    <ID>MagicNumber:ProHudScreen.kt$0xFF101112</ID>
+    <ID>MagicNumber:RawCaptureSupport.kt$RawCaptureSupport$180</ID>
+    <ID>MagicNumber:RawCaptureSupport.kt$RawCaptureSupport$270</ID>
+    <ID>MagicNumber:RawCaptureSupport.kt$RawCaptureSupport$360</ID>
+    <ID>MagicNumber:RawCaptureSupport.kt$RawCaptureSupport$90</ID>
+    <ID>MagicNumber:RawHdrExclusivityProbeScreen.kt$1280</ID>
+    <ID>MagicNumber:RawHdrExclusivityProbeScreen.kt$28</ID>
+    <ID>MagicNumber:RawHdrExclusivityProbeScreen.kt$33</ID>
+    <ID>MagicNumber:RawHdrExclusivityProbeScreen.kt$6</ID>
+    <ID>MagicNumber:RawHdrExclusivityProbeScreen.kt$720</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$0.86f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$0.90f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$0.92f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$0.94f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$0.97f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$0.98f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.04f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.05f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.08f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.10f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.14f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.16f</ID>
+    <ID>MagicNumber:ReadoutAwbPreviewShaderGains.kt$ReadoutAwbPreviewShaderGains$1.22f</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$10</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$100</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$1000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$10000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$1000L</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$102400</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$125</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$1250</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$12800</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$13</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$15</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$160</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$1600</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$16000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$1_000_000_000L</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$20</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$200</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$2000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$20000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$25</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$250</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$2500</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$25600</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$3</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$30</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$320</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$3200</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$32000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$4</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$40</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$400</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$4000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$40000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$5</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$50</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$500</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$5000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$51200</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$6</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$60</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$6000</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$64</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$640</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$6400</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$8</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$80</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$800</ID>
+    <ID>MagicNumber:ReadoutExposureCatalog.kt$ReadoutExposureCatalog$8000</ID>
+    <ID>MagicNumber:ReferenceTarget.kt$ReferenceTarget$0.4f</ID>
+    <ID>MagicNumber:ReferenceTarget.kt$ReferenceTarget$0.5f</ID>
+    <ID>MagicNumber:ReferenceTarget.kt$ReferenceTarget.Patch$3</ID>
+    <ID>MagicNumber:SessionConfigurationCompat.kt$31</ID>
+    <ID>MagicNumber:SessionConfigurationCompat.kt$33</ID>
+    <ID>MagicNumber:SessionConfigurationCompat.kt$35</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$1080</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$1280</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$1920</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$480</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$6</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$640</ID>
+    <ID>MagicNumber:SessionMatrixProbeScreen.kt$720</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$0.46</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$0.54</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$0.5f</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$16</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$1e-9</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$1e-9f</ID>
+    <ID>MagicNumber:SlantedEdgeMtf.kt$SlantedEdgeMtf$4</ID>
+    <ID>MagicNumber:StillCaptureMetadata.kt$StillCaptureMetadata$1000f</ID>
+    <ID>MagicNumber:StillCaptureMetadata.kt$StillCaptureMetadata$100f</ID>
+    <ID>MagicNumber:StillCaptureMetadata.kt$StillCaptureMetadata$1_000_000_000.0</ID>
+    <ID>MagicNumber:StillRgbLut.kt$StillRgbLut$0xFF</ID>
+    <ID>MagicNumber:StillRgbLut.kt$StillRgbLut$3</ID>
+    <ID>MagicNumber:SystemInsets.kt$28</ID>
+    <ID>MagicNumber:SystemInsets.kt$3</ID>
+    <ID>MagicNumber:SystemInsets.kt$30</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$0.0031308f</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$0.055f</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$0.5f</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$0xFF</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$1.055f</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$12.92f</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$16</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$2.4</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$24</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$255</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$255f</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$3</ID>
+    <ID>MagicNumber:TestPattern.kt$TestPattern$8</ID>
+    <ID>MagicNumber:TexturePreviewFit.kt$TexturePreviewFit$6f</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$0xff</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$0xffff</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$0xffff_ffffL</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$100L</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$100f</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$10_000</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$10_000L</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$1_000_000_000.0</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$4</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$65535</ID>
+    <ID>MagicNumber:TiffExifSubIfdCapturePatch.kt$TiffExifSubIfdCapturePatch$8</ID>
+    <ID>MagicNumber:TiffIfd0Software305.kt$TiffIfd0Software305$0xffff</ID>
+    <ID>MagicNumber:TiffIfd0Software305.kt$TiffIfd0Software305$0xffff_ffffL</ID>
+    <ID>MagicNumber:TiffIfd0Software305.kt$TiffIfd0Software305$4</ID>
+    <ID>MagicNumber:TiffIfd0Software305.kt$TiffIfd0Software305$8</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$0x20</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$0x7e</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$0xffff</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$0xffff_ffffL</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$12</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$4</ID>
+    <ID>MagicNumber:TiffUniqueCameraModel50708.kt$TiffUniqueCameraModel50708$8</ID>
+    <ID>MagicNumber:TimecodeOverlay.kt$1000L</ID>
+    <ID>MagicNumber:TimecodeOverlay.kt$16L</ID>
+    <ID>MagicNumber:TimecodeOverlay.kt$3600L</ID>
+    <ID>MagicNumber:TimecodeOverlay.kt$60L</ID>
+    <ID>MagicNumber:VendorKeyGuard.kt$VendorKeyGuard$3</ID>
+    <ID>MagicNumber:VideoTallyOverlay.kt$0.55f</ID>
+    <ID>MagicNumber:VideoTallyOverlay.kt$700</ID>
+    <ID>MagicNumber:WelcomePermissionsScreen.kt$3</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$11</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$12</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$13</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$16</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$18</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$255</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$8</ID>
+    <ID>MagicNumber:WorkingSpace.kt$Cicp$9</ID>
+    <ID>MagicNumber:WorkingSpace.kt$WorkingSpace$3</ID>
+    <ID>MatchingDeclarationName:CommandDial.kt$CommandDialMode</ID>
+    <ID>MatchingDeclarationName:EncoderProbeCore.kt$EncoderProbeResult</ID>
+    <ID>MatchingDeclarationName:PreviewWindowEffects.kt$InterruptionFilterHold</ID>
+    <ID>MatchingDeclarationName:SystemInsets.kt$SystemInsetsDp</ID>
+    <ID>MatchingDeclarationName:TapToShootHandler.kt$TapToShootCallbacks</ID>
+    <ID>MaxLineLength:AboutScreen.kt$requestNotes = "API 35+ uses SessionConfiguration(sessionType, outputs) + setInputConfiguration; Builder reflection not available on Android 16/CPH2655"</ID>
+    <ID>MaxLineLength:AboutScreen.kt$workaround = "Use an application/work CoroutineScope (SupervisorJob + Dispatchers.IO) for long probes; cancel via DisposableEffect on dispose."</ID>
+    <ID>MaxLineLength:CalibrateScreen.kt$status = "Profile computed: WB=(${"%.3f".format(p.wbGains.r)}, ${"%.3f".format(p.wbGains.g)}, ${"%.3f".format(p.wbGains.b)}) illum=${p.illuminant}"</ID>
+    <ID>MaxLineLength:CameraCapabilitiesProbe.kt$.</ID>
+    <ID>MaxLineLength:CameraCapabilitiesProbe.kt$/** When true with [PNS_SCREEN_PREVIEW]: after the stream is up, grab one `TextureView` frame for calibration smoke (logs `calibrate preview frame grab ok`). */</ID>
+    <ID>MaxLineLength:DeepCapsProbeScreen.kt$camObj.put("requestKeys", JSONArray(runCatching { cc.availableCaptureRequestKeys?.map { it.name } }.getOrNull().orEmpty().sorted()))</ID>
+    <ID>MaxLineLength:DeepCapsProbeScreen.kt$camObj.put("resultKeys", JSONArray(runCatching { cc.availableCaptureResultKeys?.map { it.name } }.getOrNull().orEmpty().sorted()))</ID>
+    <ID>MaxLineLength:EncoderAttemptJsonAdapter.kt$EncoderAttemptJsonAdapter$*</ID>
+    <ID>MaxLineLength:EncoderAttemptJsonAdapterTest.kt$EncoderAttemptJsonAdapterTest$.</ID>
+    <ID>MaxLineLength:EncoderProbeCore.kt$"mime=$mime size=${size.width}x${size.height} range=${fpsRange.lower}-${fpsRange.upper} ${t::class.java.simpleName}:${t.message}"</ID>
+    <ID>MaxLineLength:EncoderResultAggregatorTest.kt$EncoderResultAggregatorTest$assertEquals("encoder configure failed: invalid format", EncoderResultAggregator.canonicalize("encoder configure failed: invalid format\nadditional details"))</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$"EXH_HFR cam=$camId ${size.width}x${size.height} ${fpsRange.lower}-${fpsRange.upper} mime=$mime ok=${r.ok} fps=${"%.1f".format(r.measuredFps)}"</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$"EXH_REG cam=$camId ${size.width}x${size.height} ${fpsRange.lower}-${fpsRange.upper} mime=$mime ok=${r.ok} fps=${"%.1f".format(r.measuredFps)}"</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$"HFR $hfrIdx/$hfrTotal · $camId · ${size.width}x${size.height} · ${fpsRange.lower}-${fpsRange.upper} · ${mime.substringAfterLast('/')} · $st ${"%.0f".format(r.measuredFps)}fps"</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$"OK saved=${out.absolutePath} cameras=${sweepCameras.size} hfrTotal=${countAttempts(root, "hfrAttempts")} regTotal=${countAttempts(root, "regularAttempts")}"</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$"REG $regIdx/$regTotal · $camId · ${size.width}x${size.height} · ${fpsRange.lower}-${fpsRange.upper} · ${mime.substringAfterLast('/')} · $st ${"%.0f".format(r.measuredFps)}fps"</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$ExhaustiveProbeWorkScope$/** Not tied to composition — avoids [androidx.compose.runtime.LeftCompositionCancellationException] when the main thread or insets churn during a long probe. */</ID>
+    <ID>MaxLineLength:ExhaustiveMediaProbeScreen.kt$onProgress("HFR $hfrIdx/$hfrTotal · $camId · ${size.width}x${size.height} · ${fpsRange.lower}-${fpsRange.upper} · ${mime.substringAfterLast('/')} · SKIP (no encoder)")</ID>
+    <ID>MaxLineLength:HdrDcgRuntimeProbeScreen.kt$"HDR_DCG_ROW cam=$cameraId profile=$recTenBit REGULAR spot=ten_bit_recommended supported=$supportedTen ${previewSize.width}x${previewSize.height}"</ID>
+    <ID>MaxLineLength:HdrDcgRuntimeProbeScreen.kt$"HDR_DCG_ROW cam=$cameraId profile=$recTenBit YUV420 REGULAR spot=phase4_yuv_ten_bit supported=$yuvTenOk ${yuvSize.width}x${yuvSize.height}"</ID>
+    <ID>MaxLineLength:HfrEncoderProbeScreen.kt$"ENC_ATTEMPT runId=$runId cameraId=$camId fps=$fps ok=${a.ok} measuredFps=${"%.1f".format(a.measuredFps)} note=${a.note}"</ID>
+    <ID>MaxLineLength:HfrEncoderProbeScreen.kt$"ENC_SAMPLE runId=$runId cameraId=$camId fps=$fps ok=${summary.ok} measuredFps=${"%.1f".format(summary.measuredFps)} note=${summary.note}"</ID>
+    <ID>MaxLineLength:ItemPropertyAssociation.kt$ItemPropertyAssociation$"propertyIndex ${association.propertyIndex} exceeds the chosen flags' max ($maxPropIndex); use flags |= FLAG_LARGE_PROPERTY_INDEX to enable 15-bit property indices"</ID>
+    <ID>MaxLineLength:LutCatalog.kt$LutCatalog.None$description = "Identity LUT - no color transform applied. Routes through the same shader path so toggling does not stall the GLES pipeline."</ID>
+    <ID>MaxLineLength:LutCatalog.kt$LutCatalog.PnsCinematic$description = "Original teal-orange grade: shadows pulled toward teal, highlights toward warm orange, smoothstep-blended at 30% strength."</ID>
+    <ID>MaxLineLength:LutSidecarTest.kt$LutSidecarTest$val text = "# pns-lut-sidecar v99\ncaptureFilename = x\ncaptureKind = Still\ncapturedAtUtc = z\nkind = bundled\ncataloguedAs = X\nlutSize = 33\nspdx = MIT\nsource = z\nsha256 = ${SHA64_A}\n"</ID>
+    <ID>MaxLineLength:OrientationProbeOverlay.kt$DebugLine("buffer: ${bufferSize?.let { "${it.width}×${it.height} aspect=${"%.3f".format(it.width.toFloat() / it.height.coerceAtLeast(1).toFloat())}" } ?: "(none)"}")</ID>
+    <ID>MaxLineLength:OrientationProbeOverlay.kt$DebugLine("view: ${centerViewSize.width}×${centerViewSize.height} aspect=${"%.3f".format(centerViewSize.width.toFloat() / centerViewSize.height.coerceAtLeast(1).toFloat())}")</ID>
+    <ID>MaxLineLength:PipelineAccessProbe.kt$"cameraId=$cameraId yuvReproc=${zsl?.optBoolean("YUV_REPROCESSING")} drProfiles=$nDr vendorHdrKeys=$nHdrKeys vendorZslKeys=$nZslKeys"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"Quick-setting icons on the grid mirror these groups (histogram, DND, location, …). This menu lists every non-debug control in one place."</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"Root-only on this camera: ${opt.targetFps} fps is not advertised without root or vendor unlock. You can still try; the app falls back if the HAL rejects it."</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"SWEEP sample cameraId=$cam fps=$fps status=${controller.status()} fpsMeasured=${"%.1f".format(controller.measuredFps())} ${controller.surfaceDebug()}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"Same targets as the FPS chip on the readout strip. Root-only entries use a blue tint there and may still be rejected by the HAL."</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"Shooting mode ${commandDialMode.label}. Opens menu: Auto, Manual, Highlight, Snap, Bracket."</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"automation extras raw=$adbSequentialRawStills bracket=$adbBracketPattern dial=$adbInitialDial profile=${adbInitialImagingProfile?.id} seedCam=$adbSeedCameraId superMacroProbe=$adbSuperMacroProbe stillsLutSeed=$adbPreviewStillsLutName m6FpsLutProbe=$adbM6FpsLutProbe calibrateGrabSmoke=$adbCalibrateGrabSmoke selfTimerSecSeed=$adbInitialSelfTimerSec suppressFps=${controller.suppressPeriodicFpsLogs} suppressFacePipeline=${controller.automationSuppressFacePipeline}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"captureBracketBurst pattern=$bracket ok=${result.isSuccess} detail=${result.exceptionOrNull()?.message ?: result.getOrNull()?.take(120)}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"m6 lutFpsBudget ok=$ok baseline=${"%.2f".format(baseline)} withLut=${"%.2f".format(withLut)} dropPercent=${"%.1f".format(drop)}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"sequential RAW aborted: timeout waiting for RAW session ${controller.rawStillNotReadyReason()} status=${controller.status()}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$"waiting canCaptureRawStill tries=$waitCap ${controller.rawStillNotReadyReason() ?: "ready"} status=${controller.status()}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview)</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.TouchApp, "Tap preview to capture", ChromeGridQuickAction.ToggleTapPreviewCapture)</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$ChromeGridSlotSpec.QuickAction(2, 4, Icons.AutoMirrored.Outlined.VolumeUp, "Volume keys capture", ChromeGridQuickAction.ToggleVolumeKeysCapture)</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$Log.i(SWEEP_SIGNAL_TAG, "SWEEP_START runId=$runId cameras=${sweepCameras.joinToString(",")} sequence=${sequence.joinToString(",")}")</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$"SCALER_CROP_REGION=${cropRect.left},${cropRect.top}-${cropRect.right},${cropRect.bottom} mode=${modeForCrop?.name ?: "full"}"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$"superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=$macroKind path=sessionParametersCreateThrows"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$Log.d(tag, "createSession camId=$camId desiredFps=$desiredFps useHighSpeed=$useHighSpeed target=${target?.first?.width}x${target?.first?.height} ${target?.second}")</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$return "surface cur=${cur?.width}x${cur?.height} want=${want?.width}x${want?.height} hs=${hs?.width}x${hs?.height} ts=${framesWithTimestamp}/${framesWithTimestamp + framesMissingTimestamp} tex=${framesFromTexture} texWin=${textureWindowFrames} fpsMode=$mode"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$"superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=$macroKind path=sessionParametersConfigureFailed"</ID>
+    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$"superMacroCloseup probe cameraId=$camId vendorKeyApplied=true type=$macroKind path=sessionParameters"</ID>
+    <ID>MaxLineLength:PreviewReadoutStrip.kt$accessibilityLabel = "Still capture LUT. Index ${stillLut.indexInScope(LutCatalog.Scope.Stills)} (${stillLut.displayName})."</ID>
+    <ID>MaxLineLength:RootCapability.kt$RootCapability$fallback = "Use Android PowerManager.boostMode and accept that the kernel will downclock under thermal pressure; the HUD already surfaces phase9_thermal warnings."</ID>
+    <ID>MaxLineLength:RootCapability.kt$RootCapability$purpose = "Write persist.vendor.camera.preview.size=&lt;W&gt;x&lt;H&gt; for resolutions the standard StreamConfigurationMap does not include."</ID>
+    <ID>MayBeConst:PreviewEngineScreen.kt$/** Seam between major preview chrome vertical bands; see docs/preview-chrome-layout-style-guide.md */ private val PreviewChromeSectionDividerAlpha = 0.22f</ID>
+    <ID>NestedBlockDepth:Lut3D.kt$Lut3D$fun isIdentity(tolerance: Float = DEFAULT_IDENTITY_TOLERANCE): Boolean</ID>
+    <ID>NestedBlockDepth:PreviewEngineScreen.kt$PreviewController$private fun applyReadoutManualExposureAndWb( req: CaptureRequest.Builder, chars: CameraCharacteristics, camId: String, )</ID>
+    <ID>NestedBlockDepth:PreviewEngineScreen.kt$PreviewController$private fun createSession(camera: CameraDevice, camId: String)</ID>
+    <ID>NestedBlockDepth:PreviewEngineScreen.kt$PreviewController$private fun refreshRepeatingPreviewOnlyBody()</ID>
+    <ID>ReturnCount:CameraCapabilitiesProbe.kt$@Composable fun CameraCapabilitiesProbe( launchScreen: String? = null, imageCaptureReturn: ImageCaptureReturnContract? = null, autoSweep: Boolean = false, autoEncProbe: Boolean = false, autoDeepCaps: Boolean = false, autoSessionMatrix: Boolean = false, autoHdrDcgRuntime: Boolean = false, autoCaptureLatency: Boolean = false, autoRawHdrExclusivity: Boolean = false, autoBurstProbe: Boolean = false, autoLogicalPhysical: Boolean = false, autoExhaustive: Boolean = false, exhaustiveIncludeLogical: Boolean = false, exhaustiveHfrOnly: Boolean = false, autoLegacyCamera1: Boolean = false, )</ID>
+    <ID>ReturnCount:PreviewEngineScreen.kt$PreviewController$private fun processFaceStatistics(result: CaptureResult, isFinal: Boolean)</ID>
+    <ID>SwallowedException:CalibrateScreen.kt$ex: SecurityException</ID>
+    <ID>SwallowedException:CalibrateScreen.kt$ex: java.io.IOException</ID>
+    <ID>SwallowedException:LutImporterScreen.kt$ex: SecurityException</ID>
+    <ID>SwallowedException:LutImporterScreen.kt$ex: java.io.IOException</ID>
+    <ID>SwallowedException:NativeEncoders.kt$NativeEncoders$t: Throwable</ID>
+    <ID>SwallowedException:PreviewEngineScreen.kt$PreviewController$e: SecurityException</ID>
+    <ID>SwallowedException:TestPatternTest.kt$TestPatternTest$e: IllegalArgumentException</ID>
+    <ID>ThrowsCount:CalibrationProfileJsonAdapter.kt$CalibrationProfileJsonAdapter$fun decode(text: String): CalibrationProfile</ID>
+    <ID>ThrowsCount:CalibrationProfileStorage.kt$CalibrationProfileStorage$@Throws(java.io.IOException::class) fun save( context: Context, profile: CalibrationProfile, utcTimestamp: String? = null, ): File?</ID>
+    <ID>ThrowsCount:LutSidecarWriter.kt$LutSidecarWriter$private fun atomicWrite(target: File, contents: String)</ID>
+    <ID>TopLevelPropertyNaming:PreviewEngineScreen.kt$/** * Portrait preview column: finder vs [PreviewRightRail] weighted height share. Larger finder * weight yields a taller finder slot so a **3:4** (width:height) tile can use full width without * side letterboxing on typical tall phones; paired with in-slot sizing below. */ private const val PreviewChromeFinderFlexWeight = 2.9f</ID>
+    <ID>TopLevelPropertyNaming:PreviewEngineScreen.kt$private const val PreviewChromeRailFlexWeight = 1f</ID>
+    <ID>TopLevelPropertyNaming:PreviewReadoutStrip.kt$private const val ReadoutMinFontScale = 0.56f</ID>
+    <ID>UnusedParameter:CaptureLatencyProbeScreen.kt$cc: CameraCharacteristics</ID>
+    <ID>UnusedParameter:PnsIcons.kt$contentDescription: String</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$centerViewSize: IntSize</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$isSweeping: Boolean</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$onBack: () -&gt; Unit</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$onStartSweep: () -&gt; Unit</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$onStopSweep: () -&gt; Unit</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$status: String</ID>
+    <ID>UnusedParameter:PreviewEngineScreen.kt$surfaceInfo: String</ID>
+    <ID>UnusedPrivateMember:PreviewEngineScreen.kt$@Composable private fun ShortcutBlock( title: String, icon: ImageVector, expanded: Boolean, onExpandedChange: (Boolean) -&gt; Unit, modifier: Modifier = Modifier, showIconHeader: Boolean = true, content: @Composable () -&gt; Unit, )</ID>
+    <ID>UnusedPrivateProperty:CalibrateScreen.kt$val labels = listOf("TL", "TR", "BR", "BL")</ID>
+    <ID>UnusedPrivateProperty:Dl3ParserTest.kt$Dl3ParserTest$i</ID>
+    <ID>UnusedPrivateProperty:LutImportValidatorTest.kt$LutImportValidatorTest$i</ID>
+    <ID>UnusedPrivateProperty:PreviewEngineScreen.kt$val automationIntentActive = adbSequentialRawStills &gt; 0 || adbBracketPattern != null || adbInitialDial != null || !adbSeedCameraId.isNullOrBlank() || adbSuperMacroProbe || adbM6FpsLutProbe || adbCalibrateGrabSmoke || !adbPreviewStillsLutName.isNullOrBlank() || adbInitialSelfTimerSec != null</ID>
+    <ID>UnusedPrivateProperty:Spi3dParserTest.kt$Spi3dParserTest$i</ID>
+    <ID>UseCheckOrError:PreviewEngineScreen.kt$PreviewController$throw IllegalStateException("JPEG compress failed")</ID>
+    <ID>UseRequire:CalibrationProfileJsonAdapter.kt$CalibrationProfileJsonAdapter$throw IllegalArgumentException("$field must be a number")</ID>
+    <ID>UseRequire:CalibrationProfileJsonAdapter.kt$CalibrationProfileJsonAdapter$throw IllegalArgumentException("missing $field")</ID>
+    <ID>VariableNaming:DngColorTagsTest.kt$DngColorTagsTest$private val BRADFORD_D65_TO_D50: FloatArray = floatArrayOf( 1.0478112f, 0.0228866f, -0.0501270f, 0.0295424f, 0.9904844f, -0.0170491f, -0.0092345f, 0.0150436f, 0.7521316f, )</ID>
+    <ID>VariableNaming:DngColorTagsTest.kt$DngColorTagsTest$private val IDENTITY_3X3 = floatArrayOf(1f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 1f)</ID>
+    <ID>VariableNaming:DngColorTagsTest.kt$DngColorTagsTest$private val SRGB_TO_XYZ_D65: FloatArray = floatArrayOf( 0.4124564f, 0.3575761f, 0.1804375f, 0.2126729f, 0.7151522f, 0.0721750f, 0.0193339f, 0.1191920f, 0.9503041f, )</ID>
+    <ID>VariableNaming:LutSidecarTest.kt$LutSidecarTest$private val SHA64_A = "0".repeat(64)</ID>
+    <ID>VariableNaming:LutSidecarTest.kt$LutSidecarTest$private val SHA64_B = "abcdef0123456789".repeat(4)</ID>
+  </CurrentIssues>
+</SmellBaseline>

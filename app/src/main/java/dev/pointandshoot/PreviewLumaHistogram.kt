@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
@@ -122,6 +123,64 @@ object PreviewLumaHistogram {
             }
         }
         return baseHist
+    }
+
+    /**
+     * Coarse near-clip mask on Y (same plane contract as [reduceYuv420Y]): each cell is true if any
+     * pixel in that cell has luma ≥ [thresholdUnsigned] (~0.95×255 for highlight zebra).
+     */
+    fun buildClipZebraGridYuv420Y(
+        plane: ByteArray,
+        width: Int,
+        height: Int,
+        rowStride: Int,
+        cellSizePx: Int = 12,
+        thresholdUnsigned: Int = 242,
+    ): HighlightClipZebraFrame {
+        require(width > 0 && height > 0) {
+            "preview dimensions must be positive (was ${width}x$height)"
+        }
+        require(rowStride >= width) {
+            "rowStride ($rowStride) must be >= width ($width)"
+        }
+        require(cellSizePx >= 4) { "cellSizePx must be >= 4 (was $cellSizePx)" }
+        require(thresholdUnsigned in 0..255) { "thresholdUnsigned out of range: $thresholdUnsigned" }
+        val minBytes = rowStride.toLong() * (height - 1).toLong() + width.toLong()
+        require(plane.size.toLong() >= minBytes) {
+            "Y plane too short: have ${plane.size}, need >= $minBytes for ${width}x$height (stride=$rowStride)"
+        }
+
+        val cols = ceil(width / cellSizePx.toDouble()).toInt().coerceAtLeast(1)
+        val rows = ceil(height / cellSizePx.toDouble()).toInt().coerceAtLeast(1)
+        val cells = BooleanArray(cols * rows)
+        for (row in 0 until rows) {
+            val y0 = row * cellSizePx
+            val y1 = min(y0 + cellSizePx, height)
+            for (col in 0 until cols) {
+                val x0 = col * cellSizePx
+                val x1 = min(x0 + cellSizePx, width)
+                var hit = false
+                cy@ for (cy in y0 until y1) {
+                    val base = cy * rowStride
+                    for (cx in x0 until x1) {
+                        val v = plane[base + cx].toInt() and 0xFF
+                        if (v >= thresholdUnsigned) {
+                            hit = true
+                            break@cy
+                        }
+                    }
+                }
+                cells[row * cols + col] = hit
+            }
+        }
+        return HighlightClipZebraFrame(
+            sourceWidth = width,
+            sourceHeight = height,
+            cellSizePx = cellSizePx,
+            cols = cols,
+            rows = rows,
+            nearClip = cells,
+        )
     }
 
     /**

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -95,6 +96,8 @@ fun IconCubeVectorButton(
     chromeChipStyle: Boolean = false,
     /** Expand to the caller's max constraints; glyph scales with the shorter tile edge (~2× in the 7-column grid). */
     fillMaxTile: Boolean = false,
+    /** When non-null, long-press invokes this (short tap still uses [onClick]). */
+    onLongClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(10.dp)
     val borderColor =
@@ -126,7 +129,17 @@ fun IconCubeVectorButton(
             .clip(shape)
             .border(1.dp, borderColor, shape)
             .background(bg)
-            .clickable(enabled = enabled, onClick = onClick)
+            .then(
+                if (onLongClick != null) {
+                    Modifier.combinedClickable(
+                        enabled = enabled,
+                        onClick = onClick,
+                        onLongClick = onLongClick,
+                    )
+                } else {
+                    Modifier.clickable(enabled = enabled, onClick = onClick)
+                },
+            )
     if (fillMaxTile) {
         BoxWithConstraints(modifier = layered, contentAlignment = Alignment.Center) {
             val edge = minOf(maxWidth, maxHeight)

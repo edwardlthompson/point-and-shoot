@@ -108,7 +108,11 @@ fun SystemInsetsDp.asPaddingValues(extra: Dp = 0.dp): PaddingValues =
         bottom = bottom + extra,
     )
 
-/** Adds another full **top** inset (matches status-bar band) so preview clears punch-hole cameras. */
+/**
+ * Adds a second full **top** inset (doubles the merged top). Preview chrome uses
+ * [asPaddingValues] instead; see `docs/preview-chrome-layout-style-guide.md`. Retained for any
+ * legacy or special routes that still want extra top clearance.
+ */
 fun SystemInsetsDp.asPaddingValuesWithExtraTopBarBand(): PaddingValues =
     PaddingValues(
         start = left,

@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.DngCreator
 import android.hardware.camera2.TotalCaptureResult
@@ -82,6 +83,8 @@ class Dng12Saver(
          * [TiffUniqueCameraModel50708] (requires buffering the full DNG in memory).
          */
         uniqueCameraModel: String? = null,
+        /** When non-null, gates [PnsAdbValidation] success lines to debuggable / diagnostics builds. */
+        adbValidationContext: Context? = null,
     ): SaveStats {
         val started = SystemClock.elapsedRealtimeNanos()
 
@@ -125,7 +128,9 @@ class Dng12Saver(
                 }
             destination.write(outBytes)
             if (patchResult.isSuccess) {
-                Log.i("PNS.AdbValidation", "dng UniqueCameraModel 50708 IFD append ok")
+                adbValidationContext?.let {
+                    PnsAdbLog.i(it, "dng UniqueCameraModel 50708 IFD append ok")
+                }
             }
         }
         destination.flush()
@@ -143,6 +148,7 @@ class Dng12Saver(
         location: Location? = null,
         softwareDescription: String? = null,
         uniqueCameraModel: String? = null,
+        adbValidationContext: Context? = null,
     ): SaveStats {
         file.parentFile?.mkdirs()
         return FileOutputStream(file).use { os ->
@@ -154,6 +160,7 @@ class Dng12Saver(
                 location,
                 softwareDescription,
                 uniqueCameraModel,
+                adbValidationContext,
             )
         }
     }

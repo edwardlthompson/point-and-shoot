@@ -32,6 +32,35 @@ fun CompositionGuideOverlay(
 
         if (crop != CropGuideAspect.OFF && crop.widthOverHeight > 0f) {
             val r = aspectRect(w, h, crop.widthOverHeight)
+            val dim = Color.Black.copy(alpha = 0.34f)
+            if (r.top > 0f) {
+                drawRect(
+                    color = dim,
+                    topLeft = Offset(0f, 0f),
+                    size = Size(w, r.top),
+                )
+            }
+            if (r.bottom < h) {
+                drawRect(
+                    color = dim,
+                    topLeft = Offset(0f, r.bottom),
+                    size = Size(w, h - r.bottom),
+                )
+            }
+            if (r.left > 0f) {
+                drawRect(
+                    color = dim,
+                    topLeft = Offset(0f, r.top),
+                    size = Size(r.left, r.height),
+                )
+            }
+            if (r.right < w) {
+                drawRect(
+                    color = dim,
+                    topLeft = Offset(r.right, r.top),
+                    size = Size(w - r.right, r.height),
+                )
+            }
             drawRect(
                 color = GuideColor,
                 topLeft = Offset(r.left, r.top),

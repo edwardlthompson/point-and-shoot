@@ -1,11 +1,11 @@
-# BUILD_PLAN Milestone 6 - one-shot host + device gate (Wi-Fi/USB adb).
+# BUILD_PLAN Milestone 6 - one-shot host + device gate (USB adb).
 # - Builds debug APK unless -SkipGradle
 # - Runs scripts/pns_adb_preview_validate.ps1 -Milestone6Pack (reads scripts/pns_adb_device.env)
 # - On success: runs scripts/pns_probe_append_section5.ps1 (-PassOnly) to append PROBE_BUILD_PLAN.md §5 row
 #   unless -SkipAppendSection5. Output defaults to hfr-runs\adb_preview_validate_milestone6_latest\.
 #
-# Prerequisites: adb on PATH; optional scripts/pns_adb_device.env with PNS_ADB_SERIAL (Wi-Fi IP:port OK).
-# Pass -Serial <usbSerial> to force a device when env points at an offline Wi-Fi adb endpoint.
+# Prerequisites: adb on PATH; optional scripts/pns_adb_device.env with PNS_ADB_SERIAL (USB serial from adb devices).
+# Pass -Serial <serial> to pick a device when more than one is connected or to override the env file.
 # Root on device is not required for this gate (optional pulls may use su in future scripts).
 
 param(

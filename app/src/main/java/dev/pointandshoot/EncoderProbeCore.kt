@@ -190,8 +190,9 @@ internal fun runSingleHfrEncoderProbe(
             return EncoderProbeResult(false, 0.0, "mime=$mime open_failed", size, fpsRange, "hfr")
         }
         val sessLatch = CountDownLatch(1)
-        camera!!.createConstrainedHighSpeedCaptureSession(
+        camera!!.createCaptureSessionHighSpeedOutputs(
             listOf(inputSurface!!),
+            h,
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(sess: CameraCaptureSession) {
                     session = sess
@@ -201,7 +202,6 @@ internal fun runSingleHfrEncoderProbe(
                     sessLatch.countDown()
                 }
             },
-            h,
         )
         if (!sessLatch.await(4, TimeUnit.SECONDS) || session == null) {
             return EncoderProbeResult(false, 0.0, "mime=$mime session_failed", size, fpsRange, "hfr")
@@ -321,8 +321,9 @@ internal fun runSingleRegularEncoderProbe(
             return EncoderProbeResult(false, 0.0, "mime=$mime open_failed", size, fpsRange, "regular")
         }
         val sessLatch = CountDownLatch(1)
-        camera!!.createCaptureSession(
+        camera!!.createCaptureSessionRegularOutputs(
             listOf(inputSurface!!),
+            h,
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(sess: CameraCaptureSession) {
                     session = sess
@@ -332,7 +333,6 @@ internal fun runSingleRegularEncoderProbe(
                     sessLatch.countDown()
                 }
             },
-            h,
         )
         if (!sessLatch.await(4, TimeUnit.SECONDS) || session == null) {
             return EncoderProbeResult(false, 0.0, "mime=$mime session_failed", size, fpsRange, "regular")

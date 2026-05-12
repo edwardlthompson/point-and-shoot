@@ -1,0 +1,979 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 8.8.2" type="baseline" client="gradle" dependencies="false" name="AGP (8.8.2)" variant="all" version="8.8.2">
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/BurstProbeScreen.kt"
+            line="269"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/CaptureLatencyProbeScreen.kt"
+            line="240"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="        cm.openCamera("
+        errorLine2="        ^">
+        <location
+            file="src/main/java/dev/pointandshoot/EncoderProbeCore.kt"
+            line="171"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="        cm.openCamera("
+        errorLine2="        ^">
+        <location
+            file="src/main/java/dev/pointandshoot/EncoderProbeCore.kt"
+            line="302"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/HdrDcgRuntimeProbeScreen.kt"
+            line="266"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="    cm.openCamera("
+        errorLine2="    ^">
+        <location
+            file="src/main/java/dev/pointandshoot/LogicalPhysicalProbeScreen.kt"
+            line="196"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/RawHdrExclusivityProbeScreen.kt"
+            line="271"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/SessionMatrixProbeScreen.kt"
+            line="248"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="                .commit()"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/HudSettings.kt"
+            line="149"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="            val fpsStr = if (fps == null) &quot;unknown&quot; else String.format(&quot;%.1f&quot;, fps)"
+        errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
+            line="818"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaFormat#KEY_MAX_B_FRAMES`"
+        errorLine1="            runCatching { setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0) }"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/EncoderProbeCore.kt"
+            line="165"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaFormat#KEY_MAX_B_FRAMES`"
+        errorLine1="            runCatching { setInteger(MediaFormat.KEY_MAX_B_FRAMES, 0) }"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/EncoderProbeCore.kt"
+            line="296"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 33 (current min is 28): `android.hardware.camera2.CameraCharacteristics#REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES`"
+        errorLine1="        val dynRangeProfiles = cc.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES)"
+        errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
+            line="749"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 28): `android.hardware.camera2.params.DynamicRangeProfiles#getSupportedProfiles`"
+        errorLine1="            ?.supportedProfiles"
+        errorLine2="              ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
+            line="750"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 33 (current min is 28): `android.hardware.camera2.CameraCharacteristics#REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE`"
+        errorLine1="        val recommendedTenBit = cc.get(CameraCharacteristics.REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE)"
+        errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
+            line="755"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 28): `java.io.ByteArrayOutputStream#writeBytes`"
+        errorLine1="            out.writeBytes(name.toByteArray(Charsets.UTF_8))"
+        errorLine2="                ~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/HandlerReferenceBox.kt"
+            line="111"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 28): `java.io.ByteArrayOutputStream#writeBytes`"
+        errorLine1="            out.writeBytes(infe)"
+        errorLine2="                ~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ItemInfoBox.kt"
+            line="100"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 28): `java.io.ByteArrayOutputStream#writeBytes`"
+        errorLine1="            out.writeBytes(s.toByteArray(Charsets.UTF_8))"
+        errorLine2="                ~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ItemInfoEntry.kt"
+            line="296"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 35 (current min is 29): `android.hardware.camera2.CameraCharacteristics#INFO_SESSION_CONFIGURATION_QUERY_VERSION`"
+        errorLine1="                cc.get(CameraCharacteristics.INFO_SESSION_CONFIGURATION_QUERY_VERSION)?.toString() ?: JSONObject.NULL"
+        errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PipelineAccessProbe.kt"
+            line="132"
+            column="24"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 36 (current min is 28): `android.hardware.camera2.CameraCharacteristics#COLOR_CORRECTION_AVAILABLE_MODES`"
+        errorLine1="                        chars.get(CameraCharacteristics.COLOR_CORRECTION_AVAILABLE_MODES) ?: intArrayOf()"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="5783"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.hardware.camera2.CameraDevice#isSessionConfigurationSupported`"
+        errorLine1="        device.isSessionConfigurationSupported(config)"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/SessionConfigurationCompat.kt"
+            line="100"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.hardware.camera2.CameraDevice#isSessionConfigurationSupported`"
+        errorLine1="        device.isSessionConfigurationSupported(config)"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/SessionMatrixProbeScreen.kt"
+            line="343"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="RedundantLabel"
+        message="Redundant label can be removed"
+        errorLine1="            android:label=&quot;Point &amp;amp; Shoot&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="35"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.8.2 is available: 9.2.1"
+        errorLine1="agp = &quot;8.8.2&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.8.2 is available: 9.2.1"
+        errorLine1="agp = &quot;8.8.2&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 8.8.2 is available: 9.2.1"
+        errorLine1="agp = &quot;8.8.2&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.test than 8.8.2 is available: 9.2.1"
+        errorLine1="agp = &quot;8.8.2&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.test than 8.8.2 is available: 9.2.1"
+        errorLine1="agp = &quot;8.8.2&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.test than 8.8.2 is available: 9.2.1"
+        errorLine1="agp = &quot;8.8.2&quot;"
+        errorLine2="      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="2"
+            column="7"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.00"
+        errorLine1="composeBom = &quot;2026.04.01&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="4"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.00"
+        errorLine1="composeBom = &quot;2026.04.01&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="4"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.00"
+        errorLine1="composeBom = &quot;2026.04.01&quot;"
+        errorLine2="             ~~~~~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="4"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.18.0"
+        errorLine1="coreKtx = &quot;1.16.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="5"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.18.0"
+        errorLine1="coreKtx = &quot;1.16.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="5"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.core:core-ktx than 1.16.0 is available: 1.18.0"
+        errorLine1="coreKtx = &quot;1.16.0&quot;"
+        errorLine2="          ~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="5"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="6"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="6"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.activity:activity-compose than 1.10.1 is available: 1.13.0"
+        errorLine1="activityCompose = &quot;1.10.1&quot;"
+        errorLine2="                  ~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="6"
+            column="19"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.10.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.10.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-compose than 2.9.0 is available: 2.10.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.9.0 is available: 2.10.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.9.0 is available: 2.10.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.lifecycle:lifecycle-runtime-ktx than 2.9.0 is available: 2.10.0"
+        errorLine1="lifecycleRuntimeKtx = &quot;2.9.0&quot;"
+        errorLine2="                      ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="7"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraX = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraX = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraX = &quot;1.4.1&quot;"
+        errorLine2="          ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="11"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.graphics:graphics-core than 1.0.0-alpha05 is available: 1.0.4"
+        errorLine1="graphicsCore = &quot;1.0.0-alpha05&quot;"
+        errorLine2="               ~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="9"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.graphics:graphics-core than 1.0.0-alpha05 is available: 1.0.4"
+        errorLine1="graphicsCore = &quot;1.0.0-alpha05&quot;"
+        errorLine2="               ~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="9"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.graphics:graphics-core than 1.0.0-alpha05 is available: 1.0.4"
+        errorLine1="graphicsCore = &quot;1.0.0-alpha05&quot;"
+        errorLine2="               ~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="9"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
+        errorLine1="junitExt = &quot;1.2.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="11"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
+        errorLine1="junitExt = &quot;1.2.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="11"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.ext:junit than 1.2.1 is available: 1.3.0"
+        errorLine1="junitExt = &quot;1.2.1&quot;"
+        errorLine2="           ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="11"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espressoCore = &quot;3.6.1&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="12"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espressoCore = &quot;3.6.1&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="12"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.6.1 is available: 3.7.0"
+        errorLine1="espressoCore = &quot;3.6.1&quot;"
+        errorLine2="               ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="12"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.3.3 is available: 1.4.1"
+        errorLine1="benchmarkMacro = &quot;1.3.3&quot;"
+        errorLine2="                 ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="14"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.3.3 is available: 1.4.1"
+        errorLine1="benchmarkMacro = &quot;1.3.3&quot;"
+        errorLine2="                 ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="14"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.3.3 is available: 1.4.1"
+        errorLine1="benchmarkMacro = &quot;1.3.3&quot;"
+        errorLine2="                 ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="14"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.baselineprofile than 1.3.3 is available: 1.4.1"
+        errorLine1="baselineProfilePlugin = &quot;1.3.3&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="16"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.baselineprofile than 1.3.3 is available: 1.4.1"
+        errorLine1="baselineProfilePlugin = &quot;1.3.3&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="16"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.baselineprofile than 1.3.3 is available: 1.4.1"
+        errorLine1="baselineProfilePlugin = &quot;1.3.3&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="16"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.exifinterface:exifinterface than 1.4.0 is available: 1.4.2"
+        errorLine1="exifInterface = &quot;1.4.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="19"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.exifinterface:exifinterface than 1.4.0 is available: 1.4.2"
+        errorLine1="exifInterface = &quot;1.4.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="19"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.exifinterface:exifinterface than 1.4.0 is available: 1.4.2"
+        errorLine1="exifInterface = &quot;1.4.0&quot;"
+        errorLine2="                ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="19"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="LockedOrientationActivity"
+        message="Expecting `android:screenOrientation=&quot;unspecified&quot;` or `&quot;fullSensor&quot;` for this activity so the user can use the application in any orientation and provide a great experience on Chrome OS devices"
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenHeightDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val displayDeg = remember(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) {"
+        errorLine2="                                                                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DeviceUiRotation.kt"
+            line="81"
+            column="87"/>
+    </issue>
+
+    <issue
+        id="ConfigurationScreenWidthHeight"
+        message="Using Configuration.screenWidthDp instead of LocalWindowInfo.current.containerSize"
+        errorLine1="    val displayDeg = remember(configuration.orientation, configuration.screenWidthDp, configuration.screenHeightDp) {"
+        errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DeviceUiRotation.kt"
+            line="81"
+            column="58"/>
+    </issue>
+
+    <issue
+        id="DiscouragedApi"
+        message="Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed."
+        errorLine1="            android:screenOrientation=&quot;portrait&quot;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="DataExtractionRules"
+        message="The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
+        errorLine1="        android:allowBackup=&quot;false&quot;"
+        errorLine2="                             ~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="25"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= 28) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BurstProbeScreen.kt"
+            line="243"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/LogicalPhysicalProbeScreen.kt"
+            line="175"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="    if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.O) return"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaRecorderGeotag.kt"
+            line="15"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PipelineAccessProbe.kt"
+            line="193"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return@LaunchedEffect"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="785"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="3263"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return false"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
+            line="21"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
+            line="31"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (!optionEnabled || !isRecording || Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
+        errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
+            line="74"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
+            line="93"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; 28) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/RawHdrExclusivityProbeScreen.kt"
+            line="176"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.P) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/SessionMatrixProbeScreen.kt"
+            line="187"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/StillCaptureMetadata.kt"
+            line="157"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `Build.VERSION.SDK_INT >= 28` is never true here (`SDK_INT` ≥ 28 and &lt; 30)"
+        errorLine1="            Build.VERSION.SDK_INT >= 28 -> {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/SystemInsets.kt"
+            line="43"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 28. Merge all the resources in this folder into `mipmap-anydpi`.">
+        <location
+            file="src/main/res/mipmap-anydpi-v26"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="    var selectedFps by remember { mutableStateOf(60) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="436"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableDoubleStateOf` instead of `mutableStateOf`"
+        errorLine1="    var measuredFps by remember { mutableStateOf(0.0) }"
+        errorLine2="                                  ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="438"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="    var nowMs by remember { mutableStateOf(SystemClock.elapsedRealtime()) }"
+        errorLine2="                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/TimecodeOverlay.kt"
+            line="49"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="        var a by remember { mutableStateOf(1f) }"
+        errorLine2="                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoTallyOverlay.kt"
+            line="52"
+            column="29"/>
+    </issue>
+
+</issues>

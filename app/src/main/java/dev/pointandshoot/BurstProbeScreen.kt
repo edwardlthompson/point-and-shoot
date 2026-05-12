@@ -294,8 +294,9 @@ private suspend fun runBurstProbe(
                 reader!!.setOnImageAvailableListener({ r -> runCatching { r.acquireLatestImage()?.close() } }, h)
                 val surf = reader!!.surface
                 val sessLatch = CountDownLatch(1)
-                d.createCaptureSession(
+                d.createCaptureSessionRegularOutputs(
                     listOf(surf),
+                    h,
                     object : CameraCaptureSession.StateCallback() {
                         override fun onConfigured(s: CameraCaptureSession) {
                             session = s
@@ -305,7 +306,6 @@ private suspend fun runBurstProbe(
                             sessLatch.countDown()
                         }
                     },
-                    h,
                 )
                 if (!sessLatch.await(6, TimeUnit.SECONDS) || session == null) {
                     camJson.put("sessionError", "timeout")

@@ -16,22 +16,9 @@ import android.util.Log
 import android.util.Size
 import android.view.SurfaceHolder
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -39,16 +26,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import org.json.JSONArray
+import org.json.JSONObject
+import android.hardware.camera2.CameraMetadata
 
 private const val TAG = "PNS.Probe"
 
@@ -67,6 +55,8 @@ const val EXTRA_PNS_INCLUDE_LOGICAL = "pns_include_logical"
 /** When true with exhaustive screen: run constrained high-speed (HFR) encoder matrix only; skip regular (≤120fps) attempts. */
 const val EXTRA_PNS_EXHAUSTIVE_HFR_ONLY = "pns_exhaustive_hfr_only"
 const val EXTRA_PNS_AUTOLEGACY = "pns_autolegacy"
+/** With [PNS_SCREEN_FACE_METER]: write `face_meter_probe_*.{md,json}` then finish (headless automation). */
+const val EXTRA_PNS_AUTOFACEMETER = "pns_autofacemeter"
 /**
  * Optional extras when `--es pns_screen preview` — drive dial / burst validation from ADB
  * (see `scripts/pns_adb_preview_validate.ps1`).
@@ -99,8 +89,27 @@ const val EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE = "pns_preview_calibrate_grab_s
  */
 const val EXTRA_PNS_PREVIEW_SELF_TIMER_SEC = "pns_preview_self_timer_sec"
 
+/**
+ * When true, after the full markdown probe is built (requires `CAMERA` grant), writes
+ * [PROBE_EXPORT_LATEST_FILE] under the app's **files** dir. Host pull (debuggable):
+ * `adb exec-out run-as dev.pointandshoot cat files/PROBE_EXPORT_LATEST.md`.
+ * Logged as **`PNS.ProbeExport`** with the absolute path.
+ *
+ * Typical ADB: `--es pns_screen probehub --ez pns_auto_export_probe true` (see `scripts/pns_ae_highlight_probe_adb.ps1`).
+ */
+const val EXTRA_PNS_AUTO_EXPORT_PROBE = "pns_auto_export_probe"
+
+/** Stable filename written when [EXTRA_PNS_AUTO_EXPORT_PROBE] is true. */
+const val PROBE_EXPORT_LATEST_FILE = "PROBE_EXPORT_LATEST.md"
+
 /** Value for [EXTRA_PNS_SCREEN] and system camera intents — opens [PreviewEngineScreen]. */
 const val PNS_SCREEN_PREVIEW = "preview"
+/** Value for [EXTRA_PNS_SCREEN] — opens [FaceMeterProbeScreen] (face / eye / AE-AF static probe). */
+const val PNS_SCREEN_FACE_METER = "facemeter"
+
+/** Value for [EXTRA_PNS_SCREEN] — opens the engineering hub ([DebugMenuScreen]) without a sub-probe route. */
+const val PNS_SCREEN_PROBE_HUB = "probehub"
+
 private const val SCREEN_ENC = "enc"
 private const val SCREEN_DEEPCAPS = "deepcaps"
 private const val SCREEN_SESSION_MATRIX = "sessionmatrix"
@@ -139,6 +148,7 @@ fun CameraCapabilitiesProbe(
     exhaustiveIncludeLogical: Boolean = false,
     exhaustiveHfrOnly: Boolean = false,
     autoLegacyCamera1: Boolean = false,
+    autoFaceMeterProbe: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -172,6 +182,7 @@ fun CameraCapabilitiesProbe(
     var showGlPreview by remember { mutableStateOf(false) }
     var showNativeDiagnostics by remember { mutableStateOf(false) }
     var showRootSettings by remember { mutableStateOf(false) }
+    var showFaceMeterProbe by remember { mutableStateOf(false) }
     var showDebugMenu by remember { mutableStateOf(false) }
     var previewLaunchedFromDebug by remember { mutableStateOf(false) }
 
@@ -195,11 +206,17 @@ fun CameraCapabilitiesProbe(
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         runCatching {
-            context.contentResolver.openOutputStream(uri, "wt")?.use { os ->
-                os.write(reportMd.toByteArray(Charsets.UTF_8))
-            }
+            val os =
+                context.contentResolver.openOutputStream(uri, "wt")
+                    ?: error("Could not open export destination")
+            os.use { it.write(reportMd.toByteArray(Charsets.UTF_8)) }
         }.onFailure { e ->
             Log.e(TAG, "Export failed", e)
+            Toast.makeText(
+                context,
+                "Could not save probe export — try another folder or free space.",
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
@@ -252,6 +269,10 @@ fun CameraCapabilitiesProbe(
     }
 
     LaunchedEffect(hasCameraPermission, launchScreen) {
+        if (launchScreen == PNS_SCREEN_FACE_METER) {
+            showFaceMeterProbe = true
+            return@LaunchedEffect
+        }
         if (!hasCameraPermission) return@LaunchedEffect
         if (launchScreen == PNS_SCREEN_PREVIEW) {
             showPreviewEngine = true
@@ -294,7 +315,10 @@ fun CameraCapabilitiesProbe(
         }
     }
 
-    LaunchedEffect(hasCameraPermission) {
+    LaunchedEffect(hasCameraPermission, launchScreen) {
+        if (launchScreen == PNS_SCREEN_FACE_METER) {
+            return@LaunchedEffect
+        }
         if (!hasCameraPermission) {
             capabilityGateLines = emptyList()
             return@LaunchedEffect
@@ -310,19 +334,33 @@ fun CameraCapabilitiesProbe(
         capabilityGateLines = CapabilityGateBridge.uiLines(context)
 
         val inz = (context as? ComponentActivity)?.intent
+        if (inz?.getBooleanExtra(EXTRA_PNS_AUTO_EXPORT_PROBE, false) == true) {
+            runCatching {
+                val f = File(context.filesDir, PROBE_EXPORT_LATEST_FILE)
+                f.writeText(report)
+                Log.i("PNS.ProbeExport", "path=${f.absolutePath} bytes=${f.length()}")
+            }.onFailure { e ->
+                Log.e(TAG, "auto export probe failed", e)
+            }
+        }
         val suppressHugeMarkdownDump =
             inz != null &&
-                inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_PREVIEW &&
                 (
-                    (inz.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0) > 0 ||
-                        inz.previewBracketExtra() != null ||
-                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank() ||
-                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE).isNullOrBlank() ||
-                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
-                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
-                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
-                        inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC) ||
-                        inz.action == MediaStore.ACTION_IMAGE_CAPTURE
+                    inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_FACE_METER ||
+                        (
+                            inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_PREVIEW &&
+                                (
+                                    (inz.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0) > 0 ||
+                                        inz.previewBracketExtra() != null ||
+                                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank() ||
+                                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE).isNullOrBlank() ||
+                                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
+                                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
+                                        (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
+                                        inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC) ||
+                                        inz.action == MediaStore.ACTION_IMAGE_CAPTURE
+                                )
+                            )
                     )
         if (!suppressHugeMarkdownDump) {
             Log.i(TAG, "\n$report")
@@ -364,11 +402,6 @@ fun CameraCapabilitiesProbe(
             onOpenDeveloperMenu = {
                 showPreviewEngine = false
                 showDebugMenu = true
-            },
-            onOpenHudSettings = { focus ->
-                hudSettingsFocus = focus
-                showHudSettings = true
-                showPreviewEngine = false
             },
             startAutoSweep = autoSweep,
             adbInitialDial = adbDial,
@@ -518,6 +551,19 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showFaceMeterProbe) {
+        FaceMeterProbeScreen(
+            onBack = {
+                showFaceMeterProbe = false
+                if (launchScreen == PNS_SCREEN_FACE_METER) {
+                    activity?.finish()
+                }
+            },
+            startAuto = autoFaceMeterProbe,
+        )
+        return
+    }
+
     if (launchScreen == null && showDebugMenu) {
         val insets = rememberSystemInsetsDp()
         DebugMenuScreen(
@@ -526,7 +572,12 @@ fun CameraCapabilitiesProbe(
             reportMdReady = reportMd.isNotBlank(),
             cameraSummaries = cameraSummaries,
             capabilityGateLines = capabilityGateLines,
-            onBackToCamera = { showDebugMenu = false },
+            onBackToCamera = {
+                showDebugMenu = false
+                // Restore live preview; opening the dev menu clears this flag — without setting it
+                // again we fall through to the engineering hub when launchScreen is non-null (e.g. ADB preview).
+                showPreviewEngine = true
+            },
             onShowMapping = {
                 showDebugMenu = false
                 showMapping = true
@@ -547,6 +598,10 @@ fun CameraCapabilitiesProbe(
             onShowDeepCaps = {
                 showDebugMenu = false
                 showDeepCaps = true
+            },
+            onShowFaceMeterProbe = {
+                showDebugMenu = false
+                showFaceMeterProbe = true
             },
             onShowSessionMatrix = {
                 showDebugMenu = false
@@ -635,26 +690,28 @@ fun CameraCapabilitiesProbe(
         PreviewEngineScreen(
             onBack = { activity?.finish() },
             onOpenDeveloperMenu = { showDebugMenu = true },
-            onOpenHudSettings = { focus ->
-                hudSettingsFocus = focus
-                showHudSettings = true
-            },
             startAutoSweep = autoSweep,
         )
         return
     }
 
     val insets = rememberSystemInsetsDp()
-    ProbeHomeContent(
+    BackHandler {
+        showPreviewEngine = true
+    }
+    DebugMenuScreen(
         padding = insets.asPaddingValues(extra = 16.dp),
         hasCameraPermission = hasCameraPermission,
         reportMdReady = reportMd.isNotBlank(),
         cameraSummaries = cameraSummaries,
+        capabilityGateLines = capabilityGateLines,
+        onBackToCamera = null,
         onShowMapping = { showMapping = true },
         onShowPreviewEngine = { showPreviewEngine = true },
         onShowEncoderProbe = { showEncoderProbe = true },
         onShowLegacyCamera1 = { showLegacyCamera1 = true },
         onShowDeepCaps = { showDeepCaps = true },
+        onShowFaceMeterProbe = { showFaceMeterProbe = true },
         onShowSessionMatrix = { showSessionMatrix = true },
         onShowHdrDcgRuntime = { showHdrDcgRuntime = true },
         onShowCaptureLatency = { showCaptureLatency = true },
@@ -680,6 +737,10 @@ fun CameraCapabilitiesProbe(
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
         },
         onRequestPermission = { requestPermission.launch(Manifest.permission.CAMERA) },
+        onResetPermissionWelcome = {
+            WelcomePrefs.resetPermissionOnboardingForDebug(context.applicationContext)
+            showPermissionWelcome = true
+        },
         onExport = {
             val ts = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
                 .withZone(ZoneId.systemDefault())
@@ -689,146 +750,7 @@ fun CameraCapabilitiesProbe(
     )
 }
 
-@Composable
-private fun ProbeHomeContent(
-    padding: PaddingValues,
-    hasCameraPermission: Boolean,
-    reportMdReady: Boolean,
-    cameraSummaries: List<String>,
-    onShowMapping: () -> Unit,
-    onShowPreviewEngine: () -> Unit,
-    onShowEncoderProbe: () -> Unit,
-    onShowLegacyCamera1: () -> Unit,
-    onShowDeepCaps: () -> Unit,
-    onShowSessionMatrix: () -> Unit,
-    onShowHdrDcgRuntime: () -> Unit,
-    onShowCaptureLatency: () -> Unit,
-    onShowRawHdrExcl: () -> Unit,
-    onShowBurstProbe: () -> Unit,
-    onShowLogicalPhysical: () -> Unit,
-    onShowExhaustive: () -> Unit,
-    onShowAbout: () -> Unit,
-    onShowProHud: () -> Unit,
-    onShowHudSettings: () -> Unit,
-    onShowCalibrate: () -> Unit,
-    onShowLutImport: () -> Unit,
-    onShowGlPreview: () -> Unit,
-    onShowNativeDiagnostics: () -> Unit,
-    onShowRootSettings: () -> Unit,
-    onDumpDiagnostics: () -> Unit,
-    onRequestPermission: () -> Unit,
-    onExport: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text("Point & Shoot — Probe")
-        Text("Phase 0: CameraCapabilitiesProbe")
-        Text(if (hasCameraPermission) "Camera permission granted." else "Camera permission required to probe.")
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onShowMapping, enabled = hasCameraPermission) { Text("Dodge mapping") }
-            OutlinedButton(onClick = onShowPreviewEngine, enabled = hasCameraPermission) { Text("Preview engine") }
-            OutlinedButton(onClick = onShowEncoderProbe, enabled = hasCameraPermission) { Text("HFR encoder probe") }
-            OutlinedButton(onClick = onShowLegacyCamera1, enabled = hasCameraPermission) { Text("Camera1 probe") }
-            OutlinedButton(onClick = onShowDeepCaps, enabled = hasCameraPermission) { Text("Deep caps (JSON)") }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onShowSessionMatrix, enabled = hasCameraPermission) {
-                Text("Session matrix (JSON)")
-            }
-            OutlinedButton(onClick = onShowHdrDcgRuntime, enabled = hasCameraPermission) {
-                Text("HDR / DR session (JSON)")
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onShowCaptureLatency, enabled = hasCameraPermission) {
-                Text("Capture latency")
-            }
-            OutlinedButton(onClick = onShowRawHdrExcl, enabled = hasCameraPermission) {
-                Text("RAW / HDR exclusivity")
-            }
-            OutlinedButton(onClick = onShowBurstProbe, enabled = hasCameraPermission) {
-                Text("Burst probe")
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onShowLogicalPhysical, enabled = hasCameraPermission) {
-                Text("Logical / physical (JSON)")
-            }
-            OutlinedButton(onClick = onShowExhaustive, enabled = hasCameraPermission) {
-                Text("Exhaustive matrix (JSON)")
-            }
-            OutlinedButton(onClick = onShowAbout) { Text("About / Heritage") }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onShowProHud) { Text("Pro HUD (preview)") }
-            OutlinedButton(onClick = onShowHudSettings) { Text("Settings > HUD") }
-            OutlinedButton(onClick = onDumpDiagnostics) { Text("Diagnostics dump") }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onShowCalibrate) { Text("Calibrate") }
-            OutlinedButton(onClick = onShowLutImport) { Text("Import LUT") }
-            OutlinedButton(onClick = onShowGlPreview) { Text("Live preview LUT") }
-            OutlinedButton(onClick = onShowNativeDiagnostics) { Text("Native diagnostics") }
-            OutlinedButton(onClick = onShowRootSettings) { Text("Root Only") }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            OutlinedButton(onClick = onRequestPermission) { Text("Request permission") }
-            Button(onClick = onExport, enabled = reportMdReady) { Text("Export Markdown") }
-        }
-
-        Spacer(Modifier.height(4.dp))
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(cameraSummaries) { s ->
-                Text(text = s, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
-private fun buildProbeReport(context: Context): String {
+internal fun buildProbeReport(context: Context): String {
     val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     val cameraIds = runCatching { cameraManager.cameraIdList.toList() }.getOrDefault(emptyList())
 
@@ -841,6 +763,7 @@ private fun buildProbeReport(context: Context): String {
     sb.appendLine("- Device: ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE})")
     sb.appendLine("- Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
     sb.appendLine()
+    AeHighlightProbe.appendDeviceWideSection(sb, context.applicationContext)
     sb.appendLine("## Cameras (${cameraIds.size})")
     sb.appendLine()
 
@@ -915,6 +838,7 @@ private fun buildProbeReport(context: Context): String {
         sb.appendLine("- physicalCameraIds: ${physicalIds.joinToString(prefix = "[", postfix = "]")}")
 
         sb.appendLine()
+        AeHighlightProbe.appendPerCameraSections(sb, id, cc, reqKeys, sessionKeys, resKeys)
 
         sb.appendLine("### StreamConfigurationMap (derived FPS candidates)")
         sb.appendLine()
@@ -932,6 +856,9 @@ private fun buildProbeReport(context: Context): String {
         appendVendorHighlights(sb, vendorPool)
         sb.appendLine()
 
+        val charKeyNames = cc.keys.map { it.name }
+        appendNamedVendorFaceEyeTrackingKeysSection(sb, charKeyNames, reqKeys, resKeys, sessionKeys)
+
         val faceModes = cc.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES)
             ?.joinToString(prefix = "[", postfix = "]") { it.toString() }
             ?: "null"
@@ -939,6 +866,9 @@ private fun buildProbeReport(context: Context): String {
         sb.appendLine()
         sb.appendLine("- STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES: $faceModes")
         sb.appendLine()
+
+        appendFaceEyeMeteringProbe(sb, cc)
+        appendFaceEyeRequestResultKeyLists(sb, reqKeys, resKeys)
 
         sb.appendLine("### High-speed video configurations")
         sb.appendLine()
@@ -948,6 +878,8 @@ private fun buildProbeReport(context: Context): String {
 
     return sb.toString()
 }
+
+internal fun buildProbeReportMarkdown(context: Context): String = buildProbeReport(context)
 
 private fun appendStreamConfigSummary(sb: StringBuilder, map: StreamConfigurationMap) {
     fun maxFpsNs(minFrameDurationNs: Long?): Double? {
@@ -1018,6 +950,27 @@ private fun appendStreamConfigSummary(sb: StringBuilder, map: StreamConfiguratio
     }
 }
 
+private fun filterFaceAeAfMetadataKeyNames(keys: List<String>): List<String> {
+    val needles =
+        listOf(
+            "face",
+            "Face",
+            "eye",
+            "Eye",
+            "statistics.",
+            "control.aeRegion",
+            "control.afRegion",
+            "control.awbRegion",
+            "AeRegion",
+            "AfRegion",
+            "AwbRegion",
+            "focusDistance",
+            "focusRange",
+            "Metering",
+        )
+    return keys.filter { k -> needles.any { n -> k.contains(n) } }.distinct().sorted()
+}
+
 private fun appendVendorHighlights(sb: StringBuilder, keys: List<String>) {
     fun hits(vararg terms: String): List<String> =
         keys.filter { k -> terms.any { t -> k.contains(t, ignoreCase = true) } }.distinct().sorted()
@@ -1025,12 +978,183 @@ private fun appendVendorHighlights(sb: StringBuilder, keys: List<String>) {
     val lbmf = hits("lbmf", "mfhdr", "EnableMFHDR", "EnableIdealRAW")
     val dcgHdr = hits("dcg", "EnableHDRDCGMode", "hdr")
     val hybridAe = hits("hybrid", "ae", "dynamicFPSConfig", "HDRMode", "SnapshotHDRMode")
+    val highlightWeighted =
+        hits(
+            "highlight",
+            "Highlight",
+            "HIGHLIGHT",
+            "weighted",
+            "Weighted",
+            "spot",
+            "Spot",
+            "metering",
+            "Metering",
+        )
     val bkt = hits("bracket", "EnableAFBracketing", "BKT", "Grouping")
+    val faceEyeVendor = VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(keys)
 
     sb.appendLine("- LBMF / MFHDR candidates: ${if (lbmf.isEmpty()) "(none found by name)" else lbmf.joinToString()}")
     sb.appendLine("- DCG-HDR / HDR candidates: ${if (dcgHdr.isEmpty()) "(none found by name)" else dcgHdr.joinToString()}")
     sb.appendLine("- Hybrid AE candidates: ${if (hybridAe.isEmpty()) "(none found by name)" else hybridAe.joinToString()}")
+    sb.appendLine(
+        "- Highlight / weighted / metering-ish candidates: " +
+            "${if (highlightWeighted.isEmpty()) "(none found by name)" else highlightWeighted.joinToString()}",
+    )
     sb.appendLine("- Bracketing candidates: ${if (bkt.isEmpty()) "(none found by name)" else bkt.joinToString()}")
+    sb.appendLine(
+        "- Vendor-named face / eye / tracking keys (`com.` / `org.` / `vendor` substring + face/eye/tracking name match): " +
+            "${if (faceEyeVendor.isEmpty()) "(none found by name)" else faceEyeVendor.joinToString()}",
+    )
+}
+
+private fun appendNamedVendorFaceEyeTrackingKeysSection(
+    sb: StringBuilder,
+    characteristicKeyNames: List<String>,
+    reqKeys: List<String>,
+    resKeys: List<String>,
+    sessionKeys: List<String>,
+) {
+    sb.appendLine("### Named vendor keys — face / eye / tracking (by scope)")
+    sb.appendLine()
+    fun bullets(title: String, list: List<String>) {
+        sb.appendLine("#### $title")
+        sb.appendLine()
+        if (list.isEmpty()) {
+            sb.appendLine("- (none)")
+        } else {
+            list.forEach { sb.appendLine("- `$it`") }
+        }
+        sb.appendLine()
+    }
+    bullets(
+        "Characteristics",
+        VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(characteristicKeyNames),
+    )
+    bullets("CaptureRequest", VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(reqKeys))
+    bullets("CaptureResult", VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(resKeys))
+    bullets("SessionConfiguration", VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(sessionKeys))
+}
+
+private fun formatMaxRegions(v: Any?): String =
+    when (v) {
+        null -> "null"
+        is IntArray -> v.contentToString()
+        is Array<*> -> v.contentToString()
+        else -> v.toString()
+    }
+
+/** Typed characteristics useful for face ROI, AE/AF regions, and Eye-AF expectations. */
+private fun appendFaceEyeMeteringProbe(sb: StringBuilder, cc: CameraCharacteristics) {
+    sb.appendLine("### Face / eye / metering (Camera2 typed)")
+    sb.appendLine()
+    sb.appendLine("- CONTROL_MAX_REGIONS_AE: ${formatMaxRegions(cc.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE))}")
+    sb.appendLine("- CONTROL_MAX_REGIONS_AF: ${formatMaxRegions(cc.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF))}")
+    sb.appendLine("- CONTROL_MAX_REGIONS_AWB: ${formatMaxRegions(cc.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB))}")
+    val syncLat = cc.get(CameraCharacteristics.SYNC_MAX_LATENCY)
+    sb.appendLine("- SYNC_MAX_LATENCY: ${syncLat?.toString() ?: "null"}")
+    sb.appendLine()
+}
+
+private fun appendFaceEyeRequestResultKeyLists(
+    sb: StringBuilder,
+    reqKeys: List<String>,
+    resKeys: List<String>,
+) {
+    val fr = filterFaceAeAfMetadataKeyNames(reqKeys)
+    val fs = filterFaceAeAfMetadataKeyNames(resKeys)
+    sb.appendLine("### Face / AE-AF related keys (name filter on Request / Result)")
+    sb.appendLine()
+    sb.appendLine("- CaptureRequest keys (${fr.size}): ${if (fr.isEmpty()) "(none)" else fr.joinToString()}")
+    sb.appendLine("- CaptureResult keys (${fs.size}): ${if (fs.isEmpty()) "(none)" else fs.joinToString()}")
+    sb.appendLine()
+}
+
+/**
+ * Machine-readable face / eye / metering summary for adb pulls (`face_meter_probe_*.json`).
+ * Markdown with full detail: [buildProbeReportMarkdown].
+ */
+internal fun buildFaceMeterProbeSummaryJson(context: Context): String {
+    val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    val cameraIds = runCatching { cm.cameraIdList.toList() }.getOrDefault(emptyList())
+    val root = JSONObject()
+    root.put("kind", "face_meter_probe")
+    root.put("schemaVersion", 2)
+    root.put("generatedAt", DateTimeFormatter.ISO_INSTANT.format(Instant.now()))
+    root.put(
+        "device",
+        JSONObject().apply {
+            put("manufacturer", Build.MANUFACTURER)
+            put("model", Build.MODEL)
+            put("device", Build.DEVICE)
+            put("sdkInt", Build.VERSION.SDK_INT)
+            put("release", Build.VERSION.RELEASE)
+        },
+    )
+    val cams = JSONArray()
+    for (id in cameraIds) {
+        val o = JSONObject()
+        o.put("cameraId", id)
+        val cc = runCatching { cm.getCameraCharacteristics(id) }.getOrNull()
+        if (cc == null) {
+            o.put("error", "getCameraCharacteristics_failed")
+            cams.put(o)
+            continue
+        }
+        val facing =
+            when (cc.get(CameraCharacteristics.LENS_FACING)) {
+                CameraCharacteristics.LENS_FACING_BACK -> "BACK"
+                CameraCharacteristics.LENS_FACING_FRONT -> "FRONT"
+                CameraCharacteristics.LENS_FACING_EXTERNAL -> "EXTERNAL"
+                else -> "UNKNOWN"
+            }
+        o.put("lensFacing", facing)
+        val modes = cc.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES) ?: intArrayOf()
+        val modeJa = JSONArray()
+        for (m in modes) modeJa.put(m)
+        o.put("statisticsInfoAvailableFaceDetectModes", modeJa)
+        o.put("hasFaceDetectFull", modes.contains(CameraMetadata.STATISTICS_FACE_DETECT_MODE_FULL))
+        o.put("maxRegionsAe", formatMaxRegions(cc.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE)))
+        o.put("maxRegionsAf", formatMaxRegions(cc.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF)))
+        o.put("maxRegionsAwb", formatMaxRegions(cc.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB)))
+        val syncLat = cc.get(CameraCharacteristics.SYNC_MAX_LATENCY)
+        if (syncLat == null) {
+            o.put("syncMaxLatency", JSONObject.NULL)
+        } else {
+            o.put("syncMaxLatency", syncLat)
+        }
+        val reqKeys = runCatching { cc.availableCaptureRequestKeys }.getOrNull()?.map { it.name } ?: emptyList()
+        val resKeys = runCatching { cc.availableCaptureResultKeys }.getOrNull()?.map { it.name } ?: emptyList()
+        val sessionKeys = runCatching { cc.availableSessionKeys }.getOrNull()?.map { it.name } ?: emptyList()
+        val charNames = cc.keys.map { it.name }
+        fun putNamedScope(jsonName: String, keyList: List<String>) {
+            val ja = JSONArray()
+            for (s in VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(keyList)) ja.put(s)
+            o.put(jsonName, ja)
+        }
+        putNamedScope("vendorNamedFaceEyeTracking_characteristics", charNames)
+        putNamedScope("vendorNamedFaceEyeTracking_request", reqKeys)
+        putNamedScope("vendorNamedFaceEyeTracking_result", resKeys)
+        putNamedScope("vendorNamedFaceEyeTracking_session", sessionKeys)
+        val jaAll = JSONArray()
+        for (s in VendorFaceEyeKeyNames.namedFaceEyeTrackingVendorKeys(charNames + reqKeys + resKeys + sessionKeys)) {
+            jaAll.put(s)
+        }
+        o.put("vendorNamedFaceEyeTracking_all", jaAll)
+        val jaReq = JSONArray()
+        for (s in filterFaceAeAfMetadataKeyNames(reqKeys)) jaReq.put(s)
+        o.put("captureRequestKeysFaceAeAfFilter", jaReq)
+        val jaRes = JSONArray()
+        for (s in filterFaceAeAfMetadataKeyNames(resKeys)) jaRes.put(s)
+        o.put("captureResultKeysFaceAeAfFilter", jaRes)
+        o.put(
+            "oplusMacroCloseupRequestAdvertised",
+            VendorKeyGuard.isRequestKeyAvailable(cc, HardwareCapsSnapshot.VENDOR_MACRO_CLOSEUP_REQUEST) ||
+                VendorKeyGuard.isSessionKeyAvailable(cc, HardwareCapsSnapshot.VENDOR_MACRO_CLOSEUP_REQUEST),
+        )
+        cams.put(o)
+    }
+    root.put("cameras", cams)
+    return root.toString(2)
 }
 
 private fun appendKeysSection(sb: StringBuilder, title: String, keys: List<String>) {

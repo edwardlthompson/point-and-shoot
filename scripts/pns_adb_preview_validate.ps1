@@ -37,7 +37,8 @@
 
 .PARAMETER ChromeUxPack
   Run only BUILD_PLAN Milestone 9 ChromeUx intent scenarios (`pns_preview_self_timer_sec`, …).
-  Writes chrome_ux_smoke.json (device-only). Mutually exclusive with -Milestone6Pack and -SuperMacroOnly.
+  Writes chrome_ux_smoke.json (device-only): self-timer ADB seed, grid7 quickActions includes flash QS,
+  and one-shot PNS.ChromeUx flashPreviewHardware=true|false. Mutually exclusive with -Milestone6Pack and -SuperMacroOnly.
 
 .EXAMPLE
   .\scripts\pns_adb_preview_validate.ps1
@@ -58,6 +59,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
 
 if (($ChromeUxPack -and $Milestone6Pack) -or ($ChromeUxPack -and $SuperMacroOnly)) {
     throw "ChromeUxPack is mutually exclusive with Milestone6Pack and SuperMacroOnly."
@@ -121,11 +127,6 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
         $Serial = $fromEnv
         Write-Host "`[adb_preview_validate] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[adb_preview_validate] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 Write-Host "`[adb_preview_validate] devices:"
@@ -538,12 +539,17 @@ if ($ChromeUxPack) {
     }
     $selfTimerUxOk = $m9Text -match 'PNS\.ChromeUx.*selfTimerSec=3'
     $adbSeedOk = $m9Text -match 'preview adb seed selfTimerDelaySec=3'
+    # Sprint 9.12 — flash quick-setting appears in shipped 7×7 quickActions list; hardware line is once per session.
+    $flashQsGrid7Ok = $m9Text -match 'PNS\.ChromeUx.*quickActions=.*flash'
+    $flashPreviewHardwareOk = $m9Text -match 'PNS\.ChromeUx.*flashPreviewHardware=(true|false)'
     $cxObj = [ordered]@{
         schema             = "pns.chrome_ux_smoke.v1"
         scenario           = "m9_self_timer_adb_seed"
-        pass               = ($selfTimerUxOk -and $adbSeedOk)
+        pass               = ($selfTimerUxOk -and $adbSeedOk -and $flashQsGrid7Ok -and $flashPreviewHardwareOk)
         selfTimerChromeUxOk = $selfTimerUxOk
         adbSelfTimerSeedOk = $adbSeedOk
+        flashQsGrid7Ok     = $flashQsGrid7Ok
+        flashPreviewHardwareOk = $flashPreviewHardwareOk
         logArtifact        = "logcat_m9_self_timer_adb_seed.txt"
         outDir             = $OutDir
         generatedAtUtc     = [DateTime]::UtcNow.ToString("o")
@@ -552,7 +558,7 @@ if ($ChromeUxPack) {
     $cxObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $cxJson -Encoding utf8
     Write-Host "`[adb_preview_validate] chrome_ux_smoke pass=$($cxObj.pass) -> $cxJson"
     if (-not $cxObj.pass) {
-        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3 and AdbValidation preview adb seed selfTimerDelaySec=3 in $m9Log"
+        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3, AdbValidation preview adb seed selfTimerDelaySec=3, grid7 quickActions including flash, and flashPreviewHardware=true|false in $m9Log"
     }
 }
 

@@ -6,9 +6,25 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ### Added
 
-- **`scripts/pns_pull_dcim_captures.ps1`** — **`adb pull`** of **`/sdcard/DCIM/Point & Shoot`** (ampersand-safe path) to **`hfr-runs/pull_dcim_*`** or **`-OutDir`**; **`pns_adb_device.env`** / **`-Serial`** / Wi‑Fi **`adb connect`**. Supports **Sprint 7.3 / Milestone H.1** desktop validation (**`STORAGE_STRATEGY.md`**). Documented in **`BUILD_PLAN.md`** (global toolkit + Sprint **7.3** / **H.1**), **`CLI_BUILD_AND_SIDELOAD.md`**, **`PROBE_BUILD_PLAN.md` §2**, **`pns_adb_device.env.example`**, **`.cursor/rules/adb-device-env.mdc`**. **`STORAGE_STRATEGY.md`** open question **DCIM vs Pictures** corrected to match **`CaptureStorage`**.
+- **Android Auto Backup** — `AndroidManifest` **`allowBackup=true`** with **`pns_backup_rules.xml`** / **`pns_data_extraction_rules.xml`** allow-listing app **SharedPreferences** (preview chrome, HUD, welcome flow, diagnostics, vendor highlight AE, root capability snapshot, composition guides) so settings can restore after reinstall when the platform backup path runs.
+
+- **Preview flash modes** — `PreviewFlashMode` (`Off` / `Auto` / `On` / `Torch`) persisted in **`PreviewChromePreferences`**; **`PreviewFlashPolicy`** wires **`CONTROL_AE_MODE`** (via existing auto AE program) plus **`FLASH_MODE`** on preview repeating requests and **`FLASH_MODE_SINGLE`** on single RAW stills; AE bracket bursts force flash **off**. **7×7** grid: merged **Extra shutters** quick tile (tap + volume) + **Flash** tile (short-press cycle, long-press menu); **`PNS.ChromeUx`** `quickActions=` includes **`extraShutter`**, **`flash`**. **`PreviewFlashPolicyTest`** covers AE mapping + cycle.
 
 ### Changed
+
+- **`PreviewChromePreferences` / preview engine** — ADB **`pns_preview_self_timer_sec`** seeds the in-session timer via **`applySessionOnly`** (no **`SharedPreferences` write**), so automation and **`pns_chrome_ux_gate.ps1`** no longer leave a **3 s** timer persisted; disk default stays **0** (off). Default **`previewFlashMode`** remains **Auto** in the data class and **`load()`** defaults.
+
+- **`CameraCapabilitiesProbe`** — probe hub **Markdown** export (**`CreateDocument`**) shows a **Toast** when the destination cannot be opened or the write fails (still logs **`Export failed`** for diagnostics).
+
+- **Sprint 4.4 (partial)** — **`PreviewAeAntibanding`** on preview + RAW still + bracket when advertised. Tap-to-focus: one-shot **`sess.capture`** with **`CONTROL_AF_TRIGGER_START`** + **`CONTROL_AE_PRECAPTURE_TRIGGER_START`** (skipped on high-speed constrained preview). **`PreviewStillCaptureHints`**: **`CONTROL_ENABLE_ZSL`** when JPEG still + key advertised + no manual sensor overrides; **`JPEG_ORIENTATION`** + optional **`JPEG_GPS_LOCATION`** on still **`CaptureRequest`** (single + bracket). **`StillCaptureMetadata`**: **`TAG_USER_COMMENT`** gains focus distance / lens state / AF state / rolling-shutter skew when **`CaptureResult`** provides them. **`PreviewStillCaptureHintsTest`** (orientation normalization).
+
+- **`scripts/pns_pull_dcim_captures.ps1`** — **`adb pull`** of **`/sdcard/DCIM/Point & Shoot`** (ampersand-safe path) to **`hfr-runs/pull_dcim_*`** or **`-OutDir`**; **`pns_adb_device.env`** / **`-Serial`**. Supports **Sprint 7.3 / Milestone H.1** desktop validation (**`STORAGE_STRATEGY.md`**). Documented in **`BUILD_PLAN.md`** (global toolkit + Sprint **7.3** / **H.1**), **`CLI_BUILD_AND_SIDELOAD.md`**, **`PROBE_BUILD_PLAN.md` §2**, **`pns_adb_device.env.example`**, **`.cursor/rules/adb-device-env.mdc`**. **`STORAGE_STRATEGY.md`** open question **DCIM vs Pictures** corrected to match **`CaptureStorage`**.
+
+- **`scripts/pns_adb_preview_validate.ps1` (`-ChromeUxPack`)** — **`chrome_ux_smoke.json`** now asserts **`flashQsGrid7Ok`** ( **`quickActions=`** includes **`flash`**) and **`flashPreviewHardwareOk`** (**`PNS.ChromeUx`** **`flashPreviewHardware=true|false`** once per preview session). **`scripts/pns_chrome_ux_gate.ps1`** and **`pns_probe_append_section5.ps1`** include the same fields in **`chrome_ux_gate.json`** / §5 rows.
+
+- **`PreviewEngineScreen`** — ADB self-timer seed logs **`PNS.ChromeUx`** **`selfTimerSec=`** with the **normalized** intent value (avoids stale **`chromePrefs.current`** same-frame read). **`PreviewController`**: one-shot **`flashPreviewHardware`** ChromeUx line after first preview request assembly.
+
+- **`scripts/pns_gradlew.ps1`** — **Windows PowerShell 5.1:** Gradle tasks like **`:app:assembleDebug`** were bound to a trailing **`[string]$JdkHome`** parameter instead of reaching **`gradlew.bat`**. The script now parses only an explicit **`-JdkHome <path>`** pair from **`$args`** and forwards the rest to Gradle (no **`[CmdletBinding]`** so extra args are not rejected).
 
 - **`scripts/pns_adb_preview_validate.ps1` (`Write-MediaStorePnsProbe`)** — **Ampersand-safe** `adb shell` for **`DCIM/Point & Shoot`** (single-quoted paths); lists **`Ultra-Max/`**; **`find`** fallback for **`pns_*.{dng,jxl,avif}`**; **`mediastore_probe.json`** adds **`mediaTailPnsDisplayNameHits`**. Fixes false **`dcimHasPnsCapture=false`** when **`&`** was parsed as shell background.
 
@@ -34,9 +50,9 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **`PROBE_BUILD_PLAN.md` §5** — Row for **Sprint 7.1** **Perfetto** light trace + paired **`perf_*.md`**; host-doc row **2026-05-11** no longer claims trace **TBD**.
 
-- **`scripts/pns_adb_device.env.example`** + **`.cursor/rules/adb-device-env.mdc`** — Document **`PNS_ADB_SERIAL`** when Wi‑Fi **`host:port`** is offline but USB adb is online (set USB serial in env or use **`-Serial`** on **`pns_milestone6_gate.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_hfr_autorun.ps1 -PerfReport`**, **`pns_capture_perfetto_light.ps1`**, …). Expanded the list of scripts that read the env file when **`-Serial`** is omitted.
+- **`scripts/pns_adb_device.env.example`** + **`.cursor/rules/adb-device-env.mdc`** — Document **`PNS_ADB_SERIAL`** (USB serial from **`adb devices`**) and **`-Serial`** overrides on **`pns_milestone6_gate.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_hfr_autorun.ps1 -PerfReport`**, **`pns_capture_perfetto_light.ps1`**, …). Expanded the list of scripts that read the env file when **`-Serial`** is omitted.
 
-- **`scripts/pns_milestone6_gate.ps1`** — Optional **`-Serial`** forwarded to **`pns_adb_preview_validate.ps1`** so USB adb can be selected when **`pns_adb_device.env`** still lists an offline Wi‑Fi **`host:port`**.
+- **`scripts/pns_milestone6_gate.ps1`** — Optional **`-Serial`** forwarded to **`pns_adb_preview_validate.ps1`** so a specific device can be selected when **`pns_adb_device.env`** is unset or you need to override **`PNS_ADB_SERIAL`**.
 
 - **`scripts/pns_automation_smoke.ps1`** — **`-AppendSection5`**: **`mediastore_probe.json`** uses **`pns_probe_append_section5 -PassOnly`** only when **`dcimHasPnsCapture`** is true so **§5** still gets a row when the probe reports empty DCIM (OEM indexing path).
 
@@ -72,7 +88,7 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **`scripts/pns_root_capability_adb.ps1`** — USB ADB **transport root** probe: optional **`adb root`**, captures **`adb shell id`** (expect **`uid=0(root)`** when adbd is root), best-effort **`adb shell su -c id`**, writes **`root_capability_adb.json`** (**`schema`**: **`pns.root_capability_adb.v1`**). **`pns_probe_append_section5.ps1`** fingerprints **`pns.root_capability_adb.v1`** for **§5** rows.
 
-- **`scripts/pns_hfr_autorun.ps1 -PerfReport`** — Writes **`perf-runs/perf_<stamp>.md`**: compares **`am start -W`** cold start to **800 ms** and **`dumpsys meminfo`** PSS to **180 MB** (see **`PerfBudget.Defaults`** / **`PERFORMANCE_BUDGETS.md`**); counts **`PNS.Reader`** **`drop oldest`** lines in a log tail. Optional **`-Serial`** and **`scripts/pns_adb_device.env`** (`PNS_ADB_SERIAL`); Wi‑Fi **`host:port`** runs **`adb connect`**. Pair with **`scripts/pns_capture_perfetto_light.ps1`** (or Studio / desktop **perfetto**) for Sprint **7.1** traces (**`PERFORMANCE_BUDGETS.md`**).
+- **`scripts/pns_hfr_autorun.ps1 -PerfReport`** — Writes **`perf-runs/perf_<stamp>.md`**: compares **`am start -W`** cold start to **800 ms** and **`dumpsys meminfo`** PSS to **180 MB** (see **`PerfBudget.Defaults`** / **`PERFORMANCE_BUDGETS.md`**); counts **`PNS.Reader`** **`drop oldest`** lines in a log tail. Optional **`-Serial`** and **`scripts/pns_adb_device.env`** (`PNS_ADB_SERIAL`, USB serial). Pair with **`scripts/pns_capture_perfetto_light.ps1`** (or Studio / desktop **perfetto**) for Sprint **7.1** traces (**`PERFORMANCE_BUDGETS.md`**).
 
 - **`scripts/pns_device_screencap.ps1`** — Writes **`adb exec-out screencap -p`** PNGs by streaming **`Process.StandardOutput`** to disk (PowerShell **`Set-Content`** / naive pipelines corrupt binary captures on Windows PS 5.x).
 

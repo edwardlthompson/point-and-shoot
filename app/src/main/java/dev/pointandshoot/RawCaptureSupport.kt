@@ -78,6 +78,26 @@ object RawCaptureSupport {
             }
         return degrees
     }
+
+    /**
+     * Maps [snapPhysicalCardinal] / [DeviceUiRotationState.physicalCardinalSnapDegrees] (0 =
+     * natural portrait up, 90 = …, 270 = …) to [Surface.ROTATION_0]…[Surface.ROTATION_270] in
+     * the same numeric space as [android.view.Display.getRotation], so it can be passed where
+     * [orientationClockwiseDegForDng] expects a display rotation constant.
+     *
+     * See [DeviceUiRotationTest]: e.g. physical 270 (natural-RIGHT up, `ax ≈ +g`) matches
+     * `Surface.ROTATION_90` on a portrait-natural phone.
+     */
+    fun surfaceRotationFromPhysicalCardinalSnap(physicalCardinalDeg: Int): Int {
+        val d = ((physicalCardinalDeg % 360) + 360) % 360
+        return when (d) {
+            0 -> Surface.ROTATION_0
+            90 -> Surface.ROTATION_270
+            180 -> Surface.ROTATION_180
+            270 -> Surface.ROTATION_90
+            else -> Surface.ROTATION_0
+        }
+    }
 }
 
 fun Context.displayRotationCompat(): Int =

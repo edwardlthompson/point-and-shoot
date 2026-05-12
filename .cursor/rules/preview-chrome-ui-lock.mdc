@@ -1,11 +1,21 @@
 ---
-description: Preview chrome UI is frozen — no drive-by visual changes.
+description: Preview chrome UI is frozen — approved portrait preview layout; no drive-by visual changes.
 alwaysApply: true
 ---
 
 # Preview chrome UI (frozen)
 
-The **preview screen chrome** (readout strip, focal-length row, `PreviewChromeGrid7x7`, `PreviewRightRail` padding, bottom tray adjacency, `IconCubeVectorButton` grid tiles with `chromeChipStyle` / `fillMaxTile`, and in-grid `FpsQuickChip`) is **locked** as of the user-approved layout.
+Portrait **preview engine** chrome is **locked** to the user-approved baseline documented in **`docs/preview-chrome-layout-style-guide.md`** (stack order, inset policy, finder sizing, dividers, and 7×7 grid).
 
-- **Do not** change spacing, tile sizing (`BoxWithConstraints` cell math, `gap`), slot positions in `previewChromeGridSlots`, rail padding, colors, icon scale, or chip styling **unless the user explicitly asks** to change this UI.
-- Treat fixes here as **behavioral bugs only** (crashes, wrong wiring); prefer the smallest diff that preserves the current look.
+## Do not change without an explicit user request
+
+- **Top inset band** — Height equals **one** merged **status bar + display cutout** inset (`rememberSystemInsetsDp` → `asPaddingValues()` → `padding.calculateTopPadding()` on the first column child). Do not reintroduce doubled top padding for this route.
+- **Finder vs rail flex** — Constants **`PreviewChromeFinderFlexWeight`** and **`PreviewChromeRailFlexWeight`** in `PreviewEngineScreen.kt` (baseline **2.9f** / **1f**). These control how column height is split so the **3:4** finder can use full width on typical phones.
+- **Finder tile geometry** — **3:4** (width:height) target; **full width** with exact height when the band is tall enough; **`BottomCenter`** alignment when there is vertical slack (slack toward the status bar, preview anchored above the readout). Do not revert to `fillMaxWidth().aspectRatio(3/4)` without slot-aware sizing (that reintroduces clip or side letterboxing regressions).
+- **Section dividers** — Thin **`PreviewChromeSectionDivider`** lines between major bands stay.
+- **7×7 + readout + tray** — Readout strip, focal-length row, `PreviewChromeGrid7x7`, `PreviewRightRail` padding, bottom tray adjacency, `IconCubeVectorButton` grid tiles with `chromeChipStyle` / `fillMaxTile`, and in-grid `FpsQuickChip`: **spacing, tile sizing** (`BoxWithConstraints` cell math, `gap`), **slot positions** in `previewChromeGridSlots`, **colors, icon scale, chip styling** as already locked.
+
+## Allowed changes
+
+- **Behavioral fixes only** (crashes, wrong wiring, tap mapping, camera pipeline) with the **smallest diff** that preserves the approved look.
+- **Docs** may be updated to match code when the user explicitly asks to “lock in” or refresh the guide.

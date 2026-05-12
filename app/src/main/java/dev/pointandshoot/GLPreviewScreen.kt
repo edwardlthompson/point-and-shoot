@@ -2,7 +2,6 @@ package dev.pointandshoot
 
 import android.graphics.Bitmap
 import android.opengl.GLSurfaceView
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -68,8 +67,8 @@ fun GLPreviewScreen(
     val activeLut = state.current.stillsLut()
 
     LaunchedEffect(Unit) {
-        Log.i(
-            "PNS.AdbValidation",
+        PnsAdbLog.i(
+            context,
             "glpreview screen compose active lut=${state.current.stillsLut().name}",
         )
     }

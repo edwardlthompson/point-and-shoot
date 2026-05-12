@@ -5,7 +5,7 @@
 # - Best-effort `adb shell su -c id` (Magisk/KernelSU style; often fails when only `adb root` is used).
 # - Writes root_capability_adb.json under -OutDir for §5 append (pns_probe_append_section5.ps1).
 #
-# Serial: -Serial or scripts/pns_adb_device.env (PNS_ADB_SERIAL). Wi‑Fi host:port runs adb connect.
+# Serial: -Serial or scripts/pns_adb_device.env (PNS_ADB_SERIAL, USB serial from adb devices).
 
 param(
     [string]$Serial = "",
@@ -14,6 +14,11 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
 
 $projRoot = Split-Path -Parent $PSScriptRoot
 if (-not $OutDir) {
@@ -52,11 +57,6 @@ function Invoke-Adb([string[]]$CmdArgs) {
 
 function Invoke-AdbIgnore([string[]]$CmdArgs) {
     if ($Serial) { & adb -s $Serial @CmdArgs 2>$null } else { & adb @CmdArgs 2>$null }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[root_capability_adb] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 function Test-AdbAuthorizedDevice {

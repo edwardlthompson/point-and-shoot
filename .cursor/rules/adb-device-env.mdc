@@ -6,8 +6,7 @@ alwaysApply: true
 
 # ADB device configuration
 
-- Prefer **`scripts/pns_adb_device.env`** (gitignored) with **`PNS_ADB_SERIAL`**. Copy from **`scripts/pns_adb_device.env.example`**.
-- Wi‑Fi adb uses **`host:port`** (e.g. `192.168.1.2:34365`); **`pns_adb_preview_validate.ps1`** / **`pns_sideload_and_launch.ps1`** / **`pns_pull_dcim_captures.ps1`** run **`adb connect`** automatically for that form when `-Serial` is omitted. If **`adb connect`** fails but USB shows in **`adb devices`**, set **`PNS_ADB_SERIAL`** to the USB serial or pass **`-Serial`** (supported on **`pns_milestone6_gate.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_hfr_autorun.ps1 -PerfReport`**, **`pns_capture_perfetto_light.ps1`**, etc.).
+- Prefer **`scripts/pns_adb_device.env`** (gitignored) with **`PNS_ADB_SERIAL`** set to the **USB serial** from **`adb devices`**. Copy from **`scripts/pns_adb_device.env.example`**.
 - Quick sideload + launch: **`scripts/pns_sideload_and_launch.ps1`** (optional **`assembleDebug`**, **`adb install -r -t`**, **`am start`** `"preview"` by default).
 - Milestone 6 automation: **`scripts/pns_milestone6_gate.ps1`** (optional **`-Serial`**, **`assembleDebug`**, **`pns_adb_preview_validate.ps1 -Milestone6Pack`**). Artifacts: **`hfr-runs/adb_preview_validate_*`** + **`milestone6_gate.json`**.
 - Device root is optional; note **`PNS_ADB_ROOT_AVAILABLE=1`** in the env file when `adb shell su` works for this fleet.

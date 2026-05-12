@@ -18,7 +18,7 @@ hfr-runs/
 perf-runs/
 pns-live-logcat.txt
 
-# Local adb addressing (Wi‑Fi serial / USB); copy from scripts/pns_adb_device.env.example
+# Local adb addressing (USB serial); copy from scripts/pns_adb_device.env.example
 scripts/pns_adb_device.env
 
 # macOS / Windows

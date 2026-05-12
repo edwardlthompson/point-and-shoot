@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -133,18 +134,37 @@ class PreviewLumaHistogramTest {
     }
 
     @Test
+    fun `clip zebra grid marks cells above luminance threshold`() {
+        val cell = 8
+        val plane = ByteArray(64 * 64)
+        // Last row of top-left cell → bin 250 (≥242): flag (0,0)
+        plane[(cell - 1) * 64 + (cell - 1)] = 250.toByte()
+        val grid =
+            PreviewLumaHistogram.buildClipZebraGridYuv420Y(
+                plane,
+                width = 64,
+                height = 64,
+                rowStride = 64,
+                cellSizePx = cell,
+                thresholdUnsigned = 242,
+            )
+        assertTrue(grid.nearClip[0])
+        assertEquals(8, grid.cols)
+        assertEquals(8, grid.rows)
+        // Bottom-right cell stays dark
+        val last = grid.cols * grid.rows - 1
+        assertTrue(grid.cols > 1 && grid.rows > 1)
+        assertFalse(grid.nearClip[last])
+    }
+
+    @Test
     fun `histogram feeds HighlightMeter end-to-end`() {
-        // Synthetic scene with 200 mid-luma + 56 highlight pixels.
+        // Uniform luma at default highlight ceiling: brightest occupied bin == target ⇒ 0 EV.
         val plane = ByteArray(256)
-        for (i in 0 until 200) plane[i] = 120.toByte() // mid
-        for (i in 200 until 256) plane[i] = 240.toByte() // highlight
+        val ceiling = HighlightMeter.DEFAULT_HIGHLIGHT_CEILING.toByte()
+        for (i in plane.indices) plane[i] = ceiling
         val hist = PreviewLumaHistogram.reduceY8(plane, 16, 16)
-        // The histogram should report 200 in bin 120 and 56 in bin 240.
-        assertEquals(200, hist[120])
-        assertEquals(56, hist[240])
-        // 95th percentile lands at 240 == default ceiling; HighlightMeter
-        // returns 0 EV (no correction needed because highlights are exactly
-        // at the protected ceiling).
+        assertEquals(256, hist[HighlightMeter.DEFAULT_HIGHLIGHT_CEILING])
         val ev = HighlightMeter.suggestEvCorrection(hist)
         assertEquals(0.0, ev, 1e-6)
     }

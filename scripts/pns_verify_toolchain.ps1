@@ -1,7 +1,7 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
 # Proves: Gradle assembleDebug, UTF-8 for every scripts/*.ps1 + Kotlin sources (main + unit-test),
-#         PowerShell parse OK, FOSS dep-audit (no Play Services / proprietary SDK references),
-#         and (with -RunTests) JVM unit tests (:app:testDebugUnitTest).
+#         PowerShell parse OK, FOSS dep-audit (Play / Firebase / broad ML Kit guarded; face-detection allowed),
+#         and (with -RunTests) :app:detekt, :app:lintDebug, and :app:testDebugUnitTest.
 # CI (`.github/workflows/toolchain-verify.yml`) invokes `-RunTests` so Gradle runs once for assemble + tests.
 # Usage:
 #   .\scripts\pns_verify_toolchain.ps1                              # full
@@ -168,10 +168,10 @@ if ($docBad.Count -eq 0) {
 # FOSS dependency audit: reject proprietary / Play Services groups in any Gradle build script
 # or version catalog. Scope: any .gradle, .gradle.kts, libs.versions.toml under the project root,
 # excluding build/ and .gradle/ caches.
+# Note: `com.google.mlkit:face-detection` is allowed (on-device Face HUD fallback); keep other ML Kit / Play stacks out.
 $forbiddenGroups = @(
   'com.google.android.gms',     # Play Services
   'com.google.firebase',        # Firebase
-  'com.google.mlkit',           # ML Kit (proprietary)
   'com.google.android.play',    # Play Core / In-App Updates / Asset Delivery
   'com.google.android.libraries.places',
   'com.android.billingclient',  # Play Billing
@@ -204,6 +204,11 @@ foreach ($f in $auditPaths) {
       [void]$report.Add(("FAIL: dep-audit {0} references forbidden group '{1}'" -f $f.FullName, $g))
       $failed = $true
     }
+  }
+  # Block other ML Kit artifacts while allowing face-detection only.
+  if ($text -match 'com\.google\.mlkit' -and $text -notmatch 'com\.google\.mlkit:face-detection') {
+    [void]$report.Add(("FAIL: dep-audit {0} references com.google.mlkit other than face-detection" -f $f.FullName))
+    $failed = $true
   }
 }
 [void]$report.Add(("OK: dep-audit (no Play Services / proprietary SDK references in {0} Gradle file(s))" -f $audited))
@@ -278,6 +283,45 @@ if ((Test-Path -LiteralPath $apkDir) -and -not $SkipGradle.IsPresent) {
 # Optional JVM unit tests. Useful in CI and any time Kotlin in app/src/test changes.
 # Requires gradlew to be available (skipped if not). Failures bubble up to the report.
 if ($RunTests.IsPresent) {
+  Write-Verify "Gradle :app:detekt (no-daemon) in $ProjectRoot"
+  $gradlewBat = Join-Path $ProjectRoot "gradlew.bat"
+  $gradlewSh = Join-Path $ProjectRoot "gradlew"
+  $gradlew = $null
+  if ((Test-Path -LiteralPath $gradlewBat) -and ($null -ne $env:OS -and $env:OS -match '(?i)Windows')) {
+    $gradlew = $gradlewBat
+  } elseif (Test-Path -LiteralPath $gradlewSh) {
+    $gradlew = $gradlewSh
+  } elseif (Test-Path -LiteralPath $gradlewBat) {
+    $gradlew = $gradlewBat
+  }
+  if (-not $gradlew) {
+    [void]$report.Add("FAIL: -RunTests requested but gradlew not found (detekt)")
+    $failed = $true
+  } else {
+    Push-Location $ProjectRoot
+    try {
+      & $gradlew :app:detekt --no-daemon
+      if ($LASTEXITCODE -ne 0) {
+        [void]$report.Add("FAIL: :app:detekt exit code $LASTEXITCODE")
+        $failed = $true
+      } else {
+        [void]$report.Add("OK: :app:detekt BUILD SUCCESSFUL")
+      }
+      if (-not $failed) {
+        Write-Verify "Gradle :app:lintDebug (no-daemon) in $ProjectRoot"
+        & $gradlew :app:lintDebug --no-daemon
+        if ($LASTEXITCODE -ne 0) {
+          [void]$report.Add("FAIL: :app:lintDebug exit code $LASTEXITCODE")
+          $failed = $true
+        } else {
+          [void]$report.Add("OK: :app:lintDebug BUILD SUCCESSFUL")
+        }
+      }
+    } finally {
+      Pop-Location
+    }
+  }
+
   Write-Verify "Gradle :app:testDebugUnitTest (no-daemon) in $ProjectRoot"
   $gradlewBat = Join-Path $ProjectRoot "gradlew.bat"
   $gradlewSh = Join-Path $ProjectRoot "gradlew"

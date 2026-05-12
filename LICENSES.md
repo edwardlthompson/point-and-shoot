@@ -12,10 +12,10 @@ reports drift (new dep, removed dep, version mismatch), update **both**
 this file and re-run the gate.
 
 > Transitive dependencies are not enumerated here - the FOSS dep-audit in
-> `pns_verify_toolchain.ps1` rejects any Play Services / Firebase / ML Kit /
-> Play Billing / Ads references in any Gradle file or version catalog, which
-> covers the proprietary-blob risk for transitive pulls. A full
-> CycloneDX-style SBOM with transitive resolution is a Phase-1 follow-up.
+> `pns_verify_toolchain.ps1` rejects Play Services / Firebase / broad ML Kit
+> pulls except the pinned **`com.google.mlkit:face-detection`** coordinate
+> (on-device Face HUD), plus Play Billing / Ads. A full CycloneDX-style SBOM
+> with transitive resolution remains a Phase-1 follow-up.
 
 ## Apache-2.0 statement
 
@@ -28,15 +28,19 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 |---|---|---|---|
 | androidx.core:core-ktx | 1.16.0 | Apache-2.0 | Jetpack |
 | androidx.lifecycle:lifecycle-runtime-ktx | 2.9.0 | Apache-2.0 | Jetpack |
+| androidx.lifecycle:lifecycle-runtime-compose | 2.9.0 | Apache-2.0 | Jetpack |
 | androidx.activity:activity-compose | 1.10.1 | Apache-2.0 | Jetpack |
 | androidx.compose:compose-bom | 2026.04.01 | Apache-2.0 | Jetpack (BOM) |
 | androidx.compose.ui:ui | (BOM) | Apache-2.0 | Jetpack |
 | androidx.compose.ui:ui-graphics | (BOM) | Apache-2.0 | Jetpack |
 | androidx.compose.ui:ui-tooling-preview | (BOM) | Apache-2.0 | Jetpack |
 | androidx.compose.material3:material3 | (BOM) | Apache-2.0 | Jetpack |
+| androidx.compose.material:material-icons-extended | (BOM) | Apache-2.0 | Jetpack |
 | androidx.camera:camera-camera2 | 1.4.1 | Apache-2.0 | Jetpack (CameraX) |
 | androidx.graphics:graphics-core | 1.0.0-alpha05 | Apache-2.0 | Jetpack |
 | androidx.exifinterface:exifinterface | 1.4.0 | Apache-2.0 | Jetpack |
+| com.google.mlkit:face-detection | 16.1.7 | Apache-2.0 | Google ML Kit (on-device) |
+| androidx.profileinstaller:profileinstaller | 1.4.1 | Apache-2.0 | Jetpack (startup profiles) |
 
 ## Debug-only dependencies (debug APK only, not in release)
 
@@ -51,13 +55,25 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 | junit:junit | 4.13.2 | EPL-1.0 | https://junit.org/junit4/ | EPL-1.0 is FOSS-compatible. Used only as `testImplementation`; never linked into the APK. |
 | org.json:json | 20240303 | JSON-LICENSE (\u2248MIT, "good not evil") | https://github.com/stleary/JSON-java | Real `org.json.JSONObject` for unit-testing `EncoderAttemptJsonAdapter.decode` (the Android stub on the unit-test classpath throws "Stub!"). Used only as `testImplementation`; the runtime APK uses Android's bundled `org.json` instead. The "good not evil" clause is widely treated as functionally MIT for redistribution; we never modify or redistribute the library. |
 
+## Baseline profile module (`:baselineprofile` test APK only)
+
+| Coordinate | Version | SPDX | Origin |
+|---|---|---|---|
+| androidx.test.ext:junit | 1.2.1 | Apache-2.0 | AndroidX Test |
+| androidx.test.espresso:espresso-core | 3.6.1 | Apache-2.0 | AndroidX Test |
+| androidx.test.uiautomator:uiautomator | 2.3.0 | Apache-2.0 | AndroidX Test |
+| androidx.benchmark:benchmark-macro-junit4 | 1.3.3 | Apache-2.0 | AndroidX Benchmark |
+
 ## Build-time plugins (host toolchain only)
 
 | Plugin id | Version | SPDX | Origin |
 |---|---|---|---|
-| com.android.application | 8.7.3 | Apache-2.0 | Android Gradle Plugin |
+| com.android.application | 8.8.2 | Apache-2.0 | Android Gradle Plugin |
+| com.android.test | 8.8.2 | Apache-2.0 | Android Gradle Plugin |
 | org.jetbrains.kotlin.android | 2.1.21 | Apache-2.0 | Kotlin |
 | org.jetbrains.kotlin.plugin.compose | 2.1.21 | Apache-2.0 | Kotlin |
+| androidx.baselineprofile | 1.3.3 | Apache-2.0 | AndroidX |
+| io.gitlab.arturbosch.detekt | 1.23.7 | Apache-2.0 | Detekt |
 
 ## Bundled font assets (shipped in the APK)
 
@@ -76,7 +92,7 @@ Font Name" to a modified version (we ship the unmodified upstream binary).
 
 | Tool | Version pin | SPDX | Origin |
 |---|---|---|---|
-| Gradle | 8.9 (`gradle/wrapper/gradle-wrapper.properties`) | Apache-2.0 | https://gradle.org |
+| Gradle | 8.10.2 (`gradle/wrapper/gradle-wrapper.properties`) | Apache-2.0 | https://gradle.org |
 | OpenJDK / JBR | 17 (Android Studio bundled `jbr`) | GPL-2.0-with-Classpath-Exception | https://openjdk.org |
 | PowerShell | pwsh 7+ | MIT | https://github.com/PowerShell/PowerShell |
 | Android SDK / build-tools | (per CI / local install) | Various Android SDK License | https://developer.android.com |

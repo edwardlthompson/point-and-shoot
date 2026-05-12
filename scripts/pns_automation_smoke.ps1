@@ -5,8 +5,9 @@
 # - Runs `pns_chrome_ux_gate.ps1 -SkipHost` (device-only chrome UX checks; assumes verify already ran).
 # - Runs `pns_failure_matrix_smoke.ps1` unless `-SkipFailureMatrix`.
 # - When at least one authorized device is connected: runs `pns_adb_preview_validate.ps1 -ChromeUxPack` unless `-SkipChromeUxPack`.
+# - Optional `-RunAeHighlightProbe`: runs `pns_ae_highlight_probe_adb.ps1` (debuggable APK; probe markdown + optional root JSON).
 #
-# Optional `-TryAdbRoot`: after TCP `adb connect` (when serial is ip:port), runs `adb root` best-effort
+# Optional `-TryAdbRoot`: runs `adb root` best-effort
 # (userdebug / rooted fleet); may restart adbd  -  waits briefly before device scripts.
 #
 # Optional full `pns_adb_preview_validate.ps1` (capture-heavy; not ChromeUxPack) when device present.
@@ -17,7 +18,7 @@
 # and `chrome_ux_gate.json` only when an authorized adb device was present (host-only chrome pass does not append PROBE_BUILD_PLAN section 5).
 # `mediastore_probe.json`: uses `-PassOnly` only when `dcimHasPnsCapture` is true so empty-DCIM runs still append an audit row.
 #
-# Serial: use `-Serial` or `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL`). Wi‑Fi form connects automatically.
+# Serial: use `-Serial` or `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL`, USB serial from adb devices).
 #
 # Exit code: non-zero if any invoked script fails.
 
@@ -31,6 +32,7 @@ param(
     [switch]$SkipChromeUxPack,
     [switch]$RunFullAdbPreviewValidate,
     [switch]$RequireMediaStoreDcim,
+    [switch]$RunAeHighlightProbe,
     [switch]$AppendSection5,
     [string]$ProbePlan = ""
 )
@@ -45,6 +47,11 @@ $projRoot = Split-Path -Parent $PSScriptRoot
 $utc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 $outDir = Join-Path $projRoot "hfr-runs\automation_smoke_$utc"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
 
 function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
     $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
@@ -90,11 +97,6 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
         $Serial = $fromEnv
         Write-Host "`[automation_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[automation_smoke] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 if ($TryAdbRoot.IsPresent) {
@@ -187,6 +189,26 @@ else {
         Write-Host "`[automation_smoke] -SkipChromeUxPack"
     }
     Step-Set "adbPreviewChromeUxPack" $true
+}
+
+if ($adbOk -and $RunAeHighlightProbe.IsPresent) {
+    Write-Host ""
+    Write-Host "========== [automation_smoke] pns_ae_highlight_probe_adb.ps1 =========="
+    $ae = Join-Path $PSScriptRoot "pns_ae_highlight_probe_adb.ps1"
+    $aeDir = Join-Path $outDir "ae_highlight_probe"
+    New-Item -ItemType Directory -Force -Path $aeDir | Out-Null
+    $aeArgs = @{ OutDir = $aeDir; WaitSec = 10; PullAttempts = 8 }
+    if ($Serial) { $aeArgs["Serial"] = $Serial }
+    if ($SkipInstall.IsPresent) { $aeArgs["SkipInstall"] = $true }
+    & $ae @aeArgs
+    Step-Set "aeHighlightProbe" ($LASTEXITCODE -eq 0)
+}
+elseif ($RunAeHighlightProbe.IsPresent -and -not $adbOk) {
+    Write-Host "`[automation_smoke] No authorized adb device  -  skipping -RunAeHighlightProbe"
+    Step-Set "aeHighlightProbe" $true
+}
+else {
+    Step-Set "aeHighlightProbe" $true
 }
 
 if ($adbOk -and $RunFullAdbPreviewValidate.IsPresent) {

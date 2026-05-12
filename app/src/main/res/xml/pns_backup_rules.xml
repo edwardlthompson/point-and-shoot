@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto backup / device transfer: only app SharedPreferences (no cache, no external files). -->
+<full-backup-content>
+    <include domain="sharedpref" path="pns_preview_chrome.xml" />
+    <include domain="sharedpref" path="pns_hud_settings.xml" />
+    <include domain="sharedpref" path="pns_welcome_flow.xml" />
+    <include domain="sharedpref" path="pns_diagnostics.xml" />
+    <include domain="sharedpref" path="pns_vendor_highlight_ae.xml" />
+    <include domain="sharedpref" path="pns_root_capability.xml" />
+    <include domain="sharedpref" path="pns_composition_guides.xml" />
+</full-backup-content>

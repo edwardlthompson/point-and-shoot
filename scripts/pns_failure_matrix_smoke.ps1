@@ -20,6 +20,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
+
 $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
 $pkg = "dev.pointandshoot"
@@ -78,11 +83,6 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
     }
 }
 
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[failure_matrix_smoke] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
-}
-
 function Test-AdbAuthorizedDevice {
     $lines = @(adb devices 2>&1)
     foreach ($line in $lines) {
@@ -97,7 +97,7 @@ function Save-LogcatTail([string]$OutPath) {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
     try {
-        # Keep this modest: huge `-t` transfers over TCP/IP adb can stall for many minutes.
+        # Keep this modest: huge `-t` transfers can stall for many minutes.
         $tail = if ($Serial) {
             @(& adb -s $Serial shell "logcat -d -t 25000" 2>&1)
         }
@@ -134,7 +134,7 @@ function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmExtraArgs) {
     $null = Invoke-AdbIgnore @("logcat", "-c")
     $null = Invoke-Adb @("shell", "am", "force-stop", $pkg)
     Start-Sleep -Milliseconds 600
-    # Avoid `am start -W` on Wi-Fi adb (can block). Use one shell string  -  on Windows, splitting
+    # Avoid `am start -W` here (can block on some transports). Use one shell string  -  on Windows, splitting
     # `adb shell am …` into many argv tokens sometimes wedges the transport until timeout.
     $extraFlat = ($AmExtraArgs | ForEach-Object { "$_" }) -join " "
     $shellCmd = "am start -n ${pkg}/.MainActivity $extraFlat"

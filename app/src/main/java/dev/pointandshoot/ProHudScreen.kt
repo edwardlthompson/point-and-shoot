@@ -52,7 +52,9 @@ fun ProHudScreen(onBack: () -> Unit) {
     }
     var isRecording by remember { mutableStateOf(false) }
     var recordStartMs by remember { mutableStateOf<Long?>(null) }
-    var imagingProfile by remember { mutableStateOf<ImagingProfile>(ImagingProfile.StandardPro) }
+    var imagingProfile by remember {
+        mutableStateOf(HudSettings.loadImagingProfile(context))
+    }
 
     val insets = rememberSystemInsetsDp()
     val padding: PaddingValues = insets.asPaddingValues(extra = 12.dp)
@@ -147,11 +149,14 @@ fun ProHudScreen(onBack: () -> Unit) {
                     )
                     OutlinedButton(
                         onClick = {
-                            imagingProfile = if (imagingProfile == ImagingProfile.StandardPro) {
-                                ImagingProfile.UltraMax
-                            } else {
-                                ImagingProfile.StandardPro
-                            }
+                            val next =
+                                if (imagingProfile == ImagingProfile.StandardPro) {
+                                    ImagingProfile.UltraMax
+                                } else {
+                                    ImagingProfile.StandardPro
+                                }
+                            imagingProfile = next
+                            HudSettings.saveImagingProfile(context, next)
                         },
                     ) {
                         Text(

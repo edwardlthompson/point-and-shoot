@@ -1,0 +1,31 @@
+# Point & Shoot — Detekt (buildUponDefaultConfig = true in Gradle).
+# Large camera/Compose surfaces: relax size/complexity thresholds; tighten over time.
+
+complexity:
+  LongMethod:
+    threshold: 320
+  LargeClass:
+    threshold: 14000
+  LongParameterList:
+    functionThreshold: 18
+    constructorThreshold: 18
+  CyclomaticComplexMethod:
+    threshold: 36
+  TooManyFunctions:
+    active: false
+
+style:
+  MaxLineLength:
+    maxLineLength: 140
+  WildcardImport:
+    active: false
+  ReturnCount:
+    max: 8
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+
+empty-blocks:
+  EmptyCatchBlock:
+    active: false

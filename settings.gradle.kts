@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "point-and-shoot"
 include(":app")
+include(":baselineprofile")

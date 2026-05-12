@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.graphics.Matrix
+import android.graphics.Rect
 import android.view.TextureView
 import kotlin.math.cos
 import kotlin.math.max
@@ -212,6 +213,124 @@ object TexturePreviewFit {
         val dx = (vw - bw * scale) / 2f
         val dy = (vh - bh * scale) / 2f
         return (bufferX * scale + dx) to (bufferY * scale + dy)
+    }
+
+    /**
+     * Maps a point from the **YUV analysis** frame (same optical pipeline as preview, possibly
+     * different resolution) into **preview buffer pixel** space using the same uniform scale +
+     * centered offset as [lut_preview_external.vert.glsl] `viewToBufferUv` / [mapBufferToView].
+     */
+    fun mapYuvPixelToBufferPixel(
+        yuvX: Float,
+        yuvY: Float,
+        yuvWidth: Int,
+        yuvHeight: Int,
+        bufferWidth: Int,
+        bufferHeight: Int,
+        coverCrop: Boolean,
+    ): Pair<Float, Float> {
+        if (yuvWidth <= 0 || yuvHeight <= 0 || bufferWidth <= 0 || bufferHeight <= 0) {
+            return yuvX to yuvY
+        }
+        val yuvWf = yuvWidth.toFloat()
+        val yuvHf = yuvHeight.toFloat()
+        val bw = bufferWidth.toFloat()
+        val bh = bufferHeight.toFloat()
+        val sw = bw / yuvWf
+        val sh = bh / yuvHf
+        val scale =
+            if (coverCrop) {
+                max(sw, sh)
+            } else {
+                min(sw, sh)
+            }
+        val outW = yuvWf * scale
+        val outH = yuvHf * scale
+        val offX = (bw - outW) / 2f
+        val offY = (bh - outH) / 2f
+        val bx = (yuvX * scale + offX).coerceIn(0f, bw)
+        val by = (yuvY * scale + offY).coerceIn(0f, bh)
+        return bx to by
+    }
+
+    /**
+     * Maps an axis-aligned rect from YUV pixel space into [FaceTrackBoxBuffer] buffer coordinates,
+     * optionally mirroring X for front-camera preview UX (matches [FaceDetectAdapter] convention).
+     */
+    fun mapYuvRectToFaceTrackBoxBuffer(
+        rect: Rect,
+        yuvWidth: Int,
+        yuvHeight: Int,
+        bufferWidth: Int,
+        bufferHeight: Int,
+        coverCrop: Boolean,
+        mirrorHorizontally: Boolean,
+    ): FaceTrackBoxBuffer? {
+        if (rect.width() <= 0 || rect.height() <= 0) return null
+        val (l0, t0) =
+            mapYuvPixelToBufferPixel(
+                rect.left.toFloat(),
+                rect.top.toFloat(),
+                yuvWidth,
+                yuvHeight,
+                bufferWidth,
+                bufferHeight,
+                coverCrop,
+            )
+        val (r0, b0) =
+            mapYuvPixelToBufferPixel(
+                rect.right.toFloat(),
+                rect.bottom.toFloat(),
+                yuvWidth,
+                yuvHeight,
+                bufferWidth,
+                bufferHeight,
+                coverCrop,
+            )
+        var left = min(l0, r0)
+        var right = max(l0, r0)
+        val top = min(t0, b0)
+        val bottom = max(t0, b0)
+        if (mirrorHorizontally) {
+            val bw = bufferWidth.toFloat()
+            val nl = bw - right
+            val nr = bw - left
+            left = nl
+            right = nr
+        }
+        if (right - left < 6f || bottom - top < 6f) return null
+        return FaceTrackBoxBuffer(left, top, right, bottom, trackingLocked = false)
+    }
+
+    /**
+     * Maps a single YUV pixel through the same center-crop scale + offset as [mapYuvRectToFaceTrackBoxBuffer],
+     * then applies optional front-camera horizontal mirror in buffer space.
+     */
+    fun mapYuvPointToFaceTrackBuffer(
+        yuvX: Float,
+        yuvY: Float,
+        yuvWidth: Int,
+        yuvHeight: Int,
+        bufferWidth: Int,
+        bufferHeight: Int,
+        coverCrop: Boolean,
+        mirrorHorizontally: Boolean,
+    ): Pair<Float, Float> {
+        val (x, y) =
+            mapYuvPixelToBufferPixel(
+                yuvX,
+                yuvY,
+                yuvWidth,
+                yuvHeight,
+                bufferWidth,
+                bufferHeight,
+                coverCrop,
+            )
+        return if (mirrorHorizontally) {
+            bufferWidth.toFloat() - x to y
+        } else {
+            x to y
+        }
     }
 
     /** [mapBufferToView] followed by the same center rotation as [applyCenterFitWithUiTwist]. */

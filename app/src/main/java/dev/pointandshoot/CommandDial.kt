@@ -33,7 +33,7 @@ import androidx.compose.ui.unit.sp
 enum class CommandDialMode(val label: String, val description: String) {
     Auto("A", "Auto: continuous AE/AF — standard point-and-shoot behavior"),
     M("M", "Manual: full ISO / shutter / focus control"),
-    H("H", "Highlight: 95th-percentile-luma metering (Ricoh GR style)"),
+    H("H", "Highlight: underexpose for bright peaks (sky / sun disk) — save-the-highlights"),
     S("S", "Snap: street preset — AF at infinity (tap preview to refocus)"),
     BKT("BKT", "Bracket: 3 / 5 / 7 RAW12 sequence with GroupingID"),
 }

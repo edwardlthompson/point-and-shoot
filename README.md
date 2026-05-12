@@ -104,6 +104,25 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 - **Changelog** — [`CHANGELOG.md`](CHANGELOG.md)
 - **Release-notes template** — [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)
 - **Local release-signing config** — [`keystore.properties.example`](keystore.properties.example)
+- **CLI signed builds** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
+
+#### Updates without Google Play (users)
+
+**Package ID:** `dev.pointandshoot`
+
+| Channel | What to use |
+|--------|----------------|
+| **GitHub Releases** | [Releases](https://github.com/edwardlthompson/point-and-shoot/releases) — install the signed APK attached to each release (sideload / `adb install -r`). |
+| **[Obtainium](https://github.com/ImranR98/Obtainium)** | Add the repository URL **`https://github.com/edwardlthompson/point-and-shoot`** so updates track **GitHub Releases** assets. If maintainers mark drops as **Pre-release** only, turn on **Include prereleases** for this entry in Obtainium. Quick add on device: `obtainium://add/github.com/edwardlthompson/point-and-shoot`. For bulk paste import (one URL per line), see [`scripts/obtainium-sources.txt`](scripts/obtainium-sources.txt). |
+| **F-Droid** | Inclusion is **planned** (FOSS-only stack aligns with project rules). Metadata placeholders live under [`metadata/`](metadata/README.md); submission follows the [official inclusion process](https://f-droid.org/docs/Including_an_App/) (typically a merge request to [fdroiddata](https://gitlab.com/fdroid/fdroiddata)). Until it is listed, use GitHub Releases or Obtainium. |
+
+#### Publishing checklist (maintainers — GitHub ↔ Obtainium ↔ F-Droid prep)
+
+1. Bump **`versionCode`** / **`versionName`** in [`app/build.gradle.kts`](app/build.gradle.kts).
+2. Summarize user-visible changes in [`CHANGELOG.md`](CHANGELOG.md) (and optional [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)).
+3. **Signed APK:** push a Git tag matching **`v*`** to run [`.github/workflows/build-signed.yml`](.github/workflows/build-signed.yml) (requires repo **Actions secrets** for the release keystore — see workflow header). The workflow uploads a **`pns-release-apk-*`** artifact. Alternatively build locally with real signing via `keystore.properties` (see [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)).
+4. **GitHub Release:** create a release for that tag and **attach the signed `app-release.apk`** (or a clearly named renamed APK) so Obtainium and sideload users download the same binary. Keep signing keys stable across releases so in-place upgrades work.
+5. **F-Droid (when ready):** tagged source, reproducible/recipe-friendly builds, and metadata in [`metadata/`](metadata/README.md) — coordinate with F-Droid’s [build server docs](https://f-droid.org/docs/Build_Server_Setup/) and reviewer feedback.
 
 ## Repo layout
 

@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Supports the **Sprint 7.3 / Milestone H.1** gate: copy indexed captures off the device, then open samples in desktop tools per **STORAGE_STRATEGY.md**.
-  Reads **PNS_ADB_SERIAL** from **scripts/pns_adb_device.env** when **-Serial** is omitted. Runs **adb connect** for **host:port** values (same pattern as **pns_sideload_and_launch.ps1**).
+  Reads **PNS_ADB_SERIAL** from **scripts/pns_adb_device.env** when **-Serial** is omitted (USB serial from **adb devices**).
 
 .PARAMETER Serial
   Device serial for **adb -s**. Omit to use **pns_adb_device.env** or a single default **device** row.
@@ -25,6 +25,11 @@ $ErrorActionPreference = "Stop"
 
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
+
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
 
 function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
     $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
@@ -70,11 +75,6 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
         $Serial = $fromEnv
         Write-Host "`[pull_dcim] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[pull_dcim] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 Write-Host "`[pull_dcim] adb devices:"

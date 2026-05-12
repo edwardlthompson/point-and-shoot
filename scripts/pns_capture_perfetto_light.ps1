@@ -6,7 +6,7 @@
 # On many OEM builds the trace file cannot be written to /data/local/tmp as the adb shell user;
 # this script writes to /data/misc/perfetto-traces/profiling/ which typically requires `adb root`.
 #
-# Serial: -Serial or scripts/pns_adb_device.env (PNS_ADB_SERIAL). Wi-Fi host:port runs adb connect.
+# Serial: -Serial or scripts/pns_adb_device.env (PNS_ADB_SERIAL, USB serial from adb devices).
 #
 # Pair with `pns_hfr_autorun.ps1 -PerfReport` in the same release-prep slice (see PERFORMANCE_BUDGETS.md).
 
@@ -29,6 +29,11 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
 }
 else {
     $ProjectRoot = (Resolve-Path -LiteralPath $ProjectRoot).Path
+}
+
+$resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolve) {
+    . $resolve -PrependToPath -Quiet
 }
 
 function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
@@ -61,11 +66,6 @@ function Invoke-Adb([string[]]$CmdArgs) {
 
 function Invoke-AdbIgnore([string[]]$CmdArgs) {
     if ($Serial) { & adb -s $Serial @CmdArgs 2>$null } else { & adb @CmdArgs 2>$null }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[perfetto_light] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 $adbCmd = Get-Command adb -ErrorAction SilentlyContinue

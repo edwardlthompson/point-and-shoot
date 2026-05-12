@@ -17,6 +17,15 @@ import android.util.Rational
  * MUST go through this helper so the gate is enforced exactly once and the
  * absence path is observable in logcat.
  *
+ * **Where do the string names come from?** At runtime the HAL exposes only keys
+ * the device supports: iterate [CameraCharacteristics.getKeys],
+ * [CameraCharacteristics.getAvailableCaptureRequestKeys],
+ * [CameraCharacteristics.getAvailableCaptureResultKeys], and
+ * [CameraCharacteristics.getAvailableSessionKeys] — each [android.hardware.camera2.CaptureRequest.Key]
+ * (or result/session analogue) has a [android.hardware.camera2.CameraMetadata.Key.getName] string
+ * (e.g. `com.oplus.*`, `org.codeaurora.qcamera3.*`). There is no separate registry in the public SDK;
+ * OEM docs, dumpsys, or this app's exported probe markdown list those names per device.
+ *
  * Example:
  * ```
  * VendorKeyGuard.useIfAvailable(

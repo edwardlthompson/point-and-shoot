@@ -22,12 +22,18 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <application
-        android:allowBackup="false"
+        android:name=".PnsApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/pns_data_extraction_rules"
+        android:fullBackupContent="@xml/pns_backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Point &amp; Shoot"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
         android:supportsRtl="true">
+
+        <!-- Lets Macrobenchmark / BaselineProfile read GPU framestats on release-class builds (API 31+). -->
+        <profileable android:shell="true" />
 
         <activity
             android:name=".MainActivity"

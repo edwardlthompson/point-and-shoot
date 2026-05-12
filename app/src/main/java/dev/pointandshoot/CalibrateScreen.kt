@@ -3,7 +3,6 @@ package dev.pointandshoot
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,7 +71,7 @@ fun CalibrateScreen(
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        Log.i("PNS.AdbValidation", "calibrate screen compose active")
+        PnsAdbLog.i(context, "calibrate screen compose active")
     }
 
     var target by remember { mutableStateOf<ReferenceTarget>(BundledReferenceTargets.Generic24) }

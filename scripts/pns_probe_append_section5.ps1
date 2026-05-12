@@ -19,6 +19,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
+
 if (-not (Test-Path -LiteralPath $GateJson)) {
     throw "Gate JSON not found: $GateJson"
 }
@@ -173,7 +178,8 @@ switch -Wildcard ($schema) {
             "``chrome_ux_gate.json`` pass=$($j.pass); hostTestsPass=$($j.hostTestsPass); adbConnected=$($j.adbConnected); " +
             "seedOk=$($j.seedOk); safeInsetsOk=$($j.safeInsetsOk); dndPreviewOk=$($j.dndPreviewOk); readoutOk=$($j.readoutOk); " +
             "dualShutterOk=$($j.dualShutterOk); grid7Ok=$($j.grid7Ok); modeDialPopoutOk=$($j.modeDialPopoutOk); " +
-            "readoutCaptureOk=$($j.readoutCaptureOk); selfTimerOk=$($j.selfTimerOk); deviceSkipReason=$($j.deviceSkipReason); " +
+            "readoutCaptureOk=$($j.readoutCaptureOk); selfTimerOk=$($j.selfTimerOk); flashQsGrid7Ok=$($j.flashQsGrid7Ok); " +
+            "flashPreviewHardwareOk=$($j.flashPreviewHardwareOk); deviceSkipReason=$($j.deviceSkipReason); " +
             "adb serial=$adbSerial; artifact=$relArtifact"
         $newRow = '| ' + $dateUtc + ' | ' + $Item + ' | ' + $evidence + ' |'
     }

@@ -40,6 +40,12 @@ object PerfBudget {
         const val STILL_IMAGE_READER_MAX_IMAGES: Int = 4
 
         /**
+         * YUV analysis [android.media.ImageReader] for histogram + ML face HUD — slightly deeper
+         * queue so `acquireLatestImage` keeps up when ML Kit runs at high cadence.
+         */
+        const val YUV_ANALYSIS_READER_MAX_IMAGES: Int = 6
+
+        /**
          * GLES preview / video LUT shader cost per 1080p frame. Pinned at 2 ms
          * so a 33^3 LUT applied via `sampler3D` at 60 fps consumes < 12 % of
          * the per-frame budget. BUILD_PLAN §7 V&V gate: "enabling/disabling a

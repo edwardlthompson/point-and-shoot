@@ -56,6 +56,13 @@ data class DeviceUiRotationState(
     val snappedDegrees: Float,
     val smoothDegrees: Float,
     val physicalDegrees: Float?,
+    /**
+     * Snapped device roll in the same 0/90/180/270 convention as [snapPhysicalCardinal]
+     * (0 = natural portrait top-up). Matches what [android.view.Display.getRotation] would
+     * report on a portrait-natural device if the activity followed sensor orientation; use for
+     * still capture when the activity is orientation-locked.
+     */
+    val physicalCardinalSnapDegrees: Float,
 )
 
 /**
@@ -139,6 +146,7 @@ fun rememberDeviceUiRotationState(): DeviceUiRotationState {
         snappedDegrees = snappedRotation,
         smoothDegrees = smoothRotation,
         physicalDegrees = smoothPhysical,
+        physicalCardinalSnapDegrees = lastSnapped,
     )
 }
 

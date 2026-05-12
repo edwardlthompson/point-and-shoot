@@ -1,0 +1,14 @@
+https://github.com/edwardlthompson/point-and-shoot
+https://github.com/Akylas/OSS-DocumentScanner
+https://github.com/imranr98/obtainium
+https://github.com/d4rken-org/sdmaid-se
+https://github.com/M66B/FairEmail
+https://github.com/laurent22/joplin-android
+https://github.com/asksven/bbs_reloaded-releases
+https://github.com/edwardlthompson/MultiAppShare-
+https://github.com/termux/termux-app
+https://github.com/f-droid/fdroidclient
+https://github.com/Iamlooker/Droid-ify
+https://github.com/beemdevelopment/Aegis
+https://github.com/MuntashirAkon/AppManager
+https://github.com/LinkSheet/LinkSheet

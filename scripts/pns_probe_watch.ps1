@@ -16,6 +16,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
+
 function Require-Cmd([string]$name) {
   $cmd = Get-Command $name -ErrorAction SilentlyContinue
   if (-not $cmd) { throw "Required command not found: $name" }

@@ -1,0 +1,9 @@
+---
+description: Single hub for agent automation (scripts, ADB, MCP, credentials)
+globs:
+alwaysApply: true
+---
+
+# Agent automation hub
+
+Before asking the user to paste commands into PowerShell, read **`AGENTS.md`** at the repository root. It lists Gradle/JDK wrappers, all **`scripts/`** automation entry points, **`scripts/pns_adb_device.env`** expectations, optional root probes, MCP (Composio / Render) usage, and what is **not** stored in-repo (API keys).

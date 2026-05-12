@@ -133,6 +133,13 @@ object RootCapability {
         VendorKeyProbe,
 
         /**
+         * Opt-in use of non-standard `CONTROL_AE_AVAILABLE_MODES` integers for
+         * highlight-weighted AE when the public `CONTROL_AE_MODE_ON_HIGHLIGHT_WEIGHTED`
+         * constant is missing from SDK stubs (vendor HAL still advertises the mode).
+         */
+        VendorHighlightAe,
+
+        /**
          * `persist.vendor.camera.preview.size=<W>x<H>` for unusual
          * configurations the standard `StreamConfigurationMap` does not
          * include.
@@ -208,6 +215,12 @@ object RootCapability {
             displayName = "Selective vendor-key probing",
             purpose = "Read OEM vendor request keys that require system_app or root signature (e.g. com.oplus.* private namespace).",
             fallback = "Infer capabilities from documented standard keys; missing data is logged in DODGE_PROFILE.md vendor-key gaps.",
+        ),
+        Feature.VendorHighlightAe to FeatureDescriptor(
+            feature = Feature.VendorHighlightAe,
+            displayName = "Vendor highlight AE mode integers",
+            purpose = "When SDK stubs omit CONTROL_AE_MODE_ON_HIGHLIGHT_WEIGHTED, opt in to extra AE mode ints from CONTROL_AE_AVAILABLE_MODES (root-gated toggle in this drawer).",
+            fallback = "Use reflection when the runtime exposes the named field; otherwise Highlight dial keeps AE ON plus software HighlightMeter compensation.",
         ),
         Feature.ResolutionOverride to FeatureDescriptor(
             feature = Feature.ResolutionOverride,

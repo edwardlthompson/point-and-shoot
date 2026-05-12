@@ -5,6 +5,8 @@ on:
     branches: [main, master]
     paths:
       - 'app/**'
+      - 'baselineprofile/**'
+      - 'config/**'
       - 'scripts/**'
       - 'gradle/**'
       - 'native/**'
@@ -18,11 +20,14 @@ on:
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
+      - 'LICENSES.md'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   pull_request:
     paths:
       - 'app/**'
+      - 'baselineprofile/**'
+      - 'config/**'
       - 'scripts/**'
       - 'gradle/**'
       - 'native/**'
@@ -36,6 +41,7 @@ on:
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
+      - 'LICENSES.md'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
   workflow_dispatch:

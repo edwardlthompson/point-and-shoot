@@ -1,8 +1,8 @@
 """Capture `dumpsys gfxinfo … framestats` after a cold-start preview window.
 
 Reads **PNS_ADB_SERIAL** from **scripts/pns_adb_device.env** when **--serial** is
-omitted (same key as PowerShell fleet scripts). Prefer **--serial** when Wi‑Fi
-adb in the env file is offline but USB adb is online.
+omitted (same key as PowerShell fleet scripts). Prefer **--serial** when more than
+one device is connected or to override the env file.
 
 Example:
   python scripts/pns_capture_gfxinfo_baseline.py --serial 8bf09993

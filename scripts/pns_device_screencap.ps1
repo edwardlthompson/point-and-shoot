@@ -16,6 +16,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolveAdbForSession) {
+    . $resolveAdbForSession -PrependToPath -Quiet
+}
+
 function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
     $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
     if (-not (Test-Path -LiteralPath $envFile)) {
@@ -36,6 +41,10 @@ function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
 }
 
 function Resolve-AdbExe {
+    $cmd = Get-Command adb -ErrorAction SilentlyContinue
+    if ($cmd) {
+        return $cmd.Source
+    }
     # Join-Path throws if the base path is null  -  ANDROID_HOME / ANDROID_SDK_ROOT are often unset on Windows.
     $candidates = @()
     if ($env:LOCALAPPDATA) {
@@ -70,11 +79,6 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
     else {
         & adb @CmdArgs 2>$null
     }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[pns_device_screencap] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 $adbExe = Resolve-AdbExe

@@ -13,6 +13,19 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
+/**
+ * Single-activity host for probe hub + preview engine.
+ *
+ * **Launch / navigation model (automation vs in-app):**
+ * - [EXTRA_PNS_SCREEN] and other `EXTRA_PNS_*` flags are read once in [onCreate]; changing them on
+ *   an existing task does not re-run this block unless the process is restarted.
+ * - ADB cold-start flows (`am start … --es pns_screen preview`, `pns_screen=calibrate`, auto-probe
+ *   extras that run headless work then `finish()` from child contracts) should be treated as
+ *   **fresh task** launches for deterministic logs; in-app navigation uses Compose state inside
+ *   [CameraCapabilitiesProbe] and system Back without necessarily finishing the activity.
+ * - [MediaStore.ACTION_IMAGE_CAPTURE] with [ImageCaptureReturnContract] may [finish] after delivering
+ *   the result to the caller.
+ */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +58,7 @@ class MainActivity : ComponentActivity() {
         val includeLogical = intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
         val exhaustiveHfrOnly = intent?.getBooleanExtra(EXTRA_PNS_EXHAUSTIVE_HFR_ONLY, false) ?: false
         val autoLegacy = intent?.getBooleanExtra(EXTRA_PNS_AUTOLEGACY, false) ?: false
+        val autoFaceMeter = intent?.getBooleanExtra(EXTRA_PNS_AUTOFACEMETER, false) ?: false
 
         setContent {
             PnsTheme {
@@ -65,6 +79,7 @@ class MainActivity : ComponentActivity() {
                         exhaustiveIncludeLogical = includeLogical,
                         exhaustiveHfrOnly = exhaustiveHfrOnly,
                         autoLegacyCamera1 = autoLegacy,
+                        autoFaceMeterProbe = autoFaceMeter,
                     )
                 }
             }

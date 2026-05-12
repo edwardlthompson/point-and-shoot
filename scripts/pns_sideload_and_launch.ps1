@@ -3,8 +3,7 @@
   Optionally build debug APK, adb install -r, grant CAMERA, launch Point & Shoot.
 
 .DESCRIPTION
-  Reads **PNS_ADB_SERIAL** from **scripts/pns_adb_device.env** when **-Serial** is omitted.
-  For Wi‑Fi debugging (**host:port**), runs **adb connect** automatically (same as **pns_adb_preview_validate.ps1**).
+  Reads **PNS_ADB_SERIAL** from **scripts/pns_adb_device.env** when **-Serial** is omitted (USB serial from **adb devices**).
 
 .PARAMETER Serial
   Device serial for **adb -s**. Omit to use **pns_adb_device.env** or a single default device.
@@ -42,6 +41,11 @@ $ErrorActionPreference = "Stop"
 
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
+
+$resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolve) {
+    . $resolve -PrependToPath -Quiet
+}
 
 function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
     $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
@@ -84,15 +88,13 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
 }
 
 function Get-AdbOnlineSerials {
-    $ids = @()
+    # Emit each serial as a pipeline object so `@(Get-AdbOnlineSerials)` is always a flat [string[]].
+    # (`return , $ids` nested single-device arrays and broke `-notcontains` vs `$Serial`.)
     & adb devices | ForEach-Object {
         if ($_ -match '^(\S+)\s+device\s*$') {
-            $ids += $Matches[1]
+            [string]$Matches[1]
         }
     }
-    # Unary comma: PowerShell unwraps single-element arrays from `return $ids`, which makes
-    # `$onlineSerials[0]` index the first *character* of the serial string  -  breaking adb -s.
-    return , $ids
 }
 
 if ([string]::IsNullOrWhiteSpace($Serial)) {
@@ -101,11 +103,6 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
         $Serial = $fromEnv
         Write-Host "`[sideload_launch] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
-}
-
-if ($Serial -match '^\d+\.\d+\.\d+\.\d+:\d+$') {
-    Write-Host "`[sideload_launch] adb connect $Serial (TCP/IP)"
-    Invoke-AdbIgnore @("connect", $Serial)
 }
 
 Write-Host "`[sideload_launch] adb devices:"
@@ -153,6 +150,10 @@ if ($doBuild) {
     if (-not (Test-Path -LiteralPath $gradlew)) {
         throw "gradlew.bat not found at $gradlew"
     }
+    $javaHomeScript = Join-Path $PSScriptRoot "pns_java_home.ps1"
+    if (Test-Path -LiteralPath $javaHomeScript) {
+        & $javaHomeScript -Session
+    }
     Write-Host "`[sideload_launch] gradlew :app:assembleDebug --no-daemon"
     Push-Location $projRoot
     try {
@@ -174,11 +175,19 @@ try {
 }
 catch {}
 
-if ($Serial) {
-    $installOut = & adb -s $Serial install -r -t $apk 2>&1
+# adb may write "Success" to stderr; avoid Stop treating that as a terminating error.
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+try {
+    if ($Serial) {
+        $installOut = & adb -s $Serial install -r -t $apk 2>&1
+    }
+    else {
+        $installOut = & adb install -r -t $apk 2>&1
+    }
 }
-else {
-    $installOut = & adb install -r -t $apk 2>&1
+finally {
+    $ErrorActionPreference = $prevEap
 }
 $installOut | ForEach-Object { Write-Host $_ }
 if ($LASTEXITCODE -ne 0) {
@@ -192,7 +201,9 @@ Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_VIDEO")
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.POST_NOTIFICATIONS")
 
-$startArgs = @("shell", "am", "start", "-W", "-n", $activity)
+# --activity-clear-task: after install, otherwise some devices leave another app (e.g. Gallery)
+# on top and `am start` only "delivers" to a background task.
+$startArgs = @("shell", "am", "start", "-W", "-n", $activity, "--activity-clear-task")
 if ($ColdStart) {
     $startArgs += "-S"
 }

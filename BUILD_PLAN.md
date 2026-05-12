@@ -260,8 +260,8 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 - [x] [MIXED] **`CONTROL_ENABLE_ZSL`** — **`PreviewStillCaptureHints.applyZslIfCompatible`**: `CONTROL_ENABLE_ZSL=true` on single + bracket still when JPEG surface is attached, key is in **`availableCaptureRequestKeys`**, and manual ISO/exposure overrides are off (same guard pattern as `CaptureLatencyProbeScreen.kt`). §5 fleet matrix optional.
 - [ ] [MIXED] **Stabilization** — `CONTROL_VIDEO_STABILIZATION_MODE` and/or `LENS_OPTICAL_STABILIZATION_MODE` where characteristics allow; policy tied to focal / FPS / user pref without breaking frozen preview chrome layout.
 - [x] [HOST] **JPEG request metadata** — **`PreviewStillCaptureHints`**: `JPEG_ORIENTATION` (degrees via **`RawCaptureSupport.orientationClockwiseDegForDng`**) + optional **`JPEG_GPS_LOCATION`** when embed-location pref is on and keys are advertised; single RAW still + bracket still.
-- [ ] [MIXED] **Logical multi-camera readout** — surface `LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID` (and optional `getPhysicalCameraResults`) in readout or diagnostics when the logical camera is in use.
-- [ ] [HOST] **Session defaults** — extend `SessionConfiguration.setSessionParameters` usage beyond OEM macro for stable session-wide defaults (e.g. antibanding) where OEM-safe.
+- [x] [MIXED] **Logical multi-camera readout** — `PreviewController` tracks `LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID` (API 29+) from repeating results; **Phy** chip on `PreviewReadoutStrip` when non-blank (`PreviewEngineScreen.kt`).
+- [x] [HOST] **Session defaults (macro `setSessionParameters` path)** — `PreviewAeAntibanding` on the session-parameters preview `CaptureRequest.Builder` before `build()`; `outputConfigurationsWithOptionalStreamUseCases` on the macro `SessionConfiguration` output list (API 33+). Broader session-wide defaults for non-macro sessions remain backlog.
 - [x] [HOST] **Richer capture metadata (JPEG USER_COMMENT)** — **`StillCaptureMetadata.fillExifFields`**: appends **`LENS_FOCUS_DISTANCE`** (FD), **`LENS_STATE`**, **`CONTROL_AF_STATE`**, **`SENSOR_ROLLING_SHUTTER_SKEW`** to **`TAG_USER_COMMENT`** when present on **`TotalCaptureResult`** (DNG **`ExifInterface`** pass + JPEG companion). TIFF IFD rational patches / full DNG sidecar dump remain backlog.
 - [ ] [MIXED] **`CONTROL_POST_RAW_SENSITIVITY_BOOST`** — optional policy when advertised and compatible with highlight / manual readout modes.
 
@@ -271,7 +271,7 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 - [ ] [MIXED] **HDR / 10-bit / color space on live preview** — promote probed `REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES` (and color space profiles) to **`OutputConfiguration.setDynamicRangeProfile`** on the main preview session when validated (`SessionConfigurationCompat`, `HdrDcgRuntimeProbeScreen` evidence patterns).
 - [ ] [MIXED] **`CONTROL_AUTOFRAMING`** — when `CONTROL_AUTOFRAMING_AVAILABLE`; distinct from ML Kit face track.
 - [ ] [MIXED] **Reprocessing / input surface** — `createReprocessCaptureRequest`, ZSL-style templates, `REPROCESS_EFFECTIVE_EXPOSURE_FACTOR` where pipeline supports it.
-- [ ] [HOST] **Stream use cases** — `SCALER_AVAILABLE_STREAM_USE_CASES` + `OutputConfiguration.setStreamUseCase` for preview vs still optimizer hints.
+- [x] [HOST] **Stream use cases** — `OutputConfiguration.setStreamUseCase` with `CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW` / `…STILL_CAPTURE` (first surface vs rest) in `outputConfigurationsWithOptionalStreamUseCases` (`Camera2SessionCompat.kt`); preview engine normal session enables hints on API 33+ with synchronous **retry without hints** on throw; macro session uses the same helper. Query/advertise `SCALER_AVAILABLE_STREAM_USE_CASES` per device remains optional polish.
 - [ ] [MIXED] **Torch / flash strength** — `CameraManager.turnOnTorchWithStrengthLevel` / `FLASH_STRENGTH_LEVEL` / `FLASH_INFO_*_STRENGTH_*` characteristics when hardware supports variable levels.
 
 **Milestone 4 gate**
@@ -525,7 +525,7 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 - [ ] [ADB] Reverse-landscape / Eye-AF alignment **photo sign-off** (if not closed earlier).
 - [ ] [HUMAN] Aesthetic review of HUD/LUT defaults.
-- [ ] [MIXED] Work through **§ UX backlog (preview chrome locked)** above (messaging, snackbars, export errors, onboarding tweaks, geotag hint, progress, probe-hub IA, a11y labels, immersive tip, gallery open fallback) without changing locked preview chrome geometry or styling. **Host-automation slice (2026-05-12):** most rows in that backlog table are now **[x]** with “partial” notes where applicable; **long-running capture progress** and **Details/Copy** on errors remain open.
+- [ ] [MIXED] Work through **§ UX backlog (preview chrome locked)** above (messaging, snackbars, export errors, onboarding tweaks, geotag hint, progress, probe-hub IA, a11y labels, immersive tip, gallery open fallback) without changing locked preview chrome geometry or styling. **Host-automation slice (2026-05-12):** most rows in that backlog table are now **[x]** with “partial” notes where applicable; **long-running capture progress** is partially addressed via **`lastStatus`** strings during RAW still capture + save (`PreviewEngineScreen`); **Details/Copy** on errors remain open.
 
 **Milestone H gate:** Owner-approved checklist recorded (§5 or project wiki); no remaining **[HUMAN]** checkbox unjustified.
 

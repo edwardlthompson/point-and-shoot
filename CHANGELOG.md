@@ -16,6 +16,8 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **`PnsUserFacingErrors`** — classifies common still/bracket failure **`Throwable`** messages into short user-facing lines; covered by **`PnsUserFacingErrorsTest`**.
 
+- **Sprint 4.4 (Camera2 session / readout)** — Stream use-case hints on preview + macro **`SessionConfiguration`** (`Camera2SessionCompat` + `PreviewEngineScreen`); logical-camera **Phy** readout from **`LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID`**; **`PreviewAeAntibanding`** on OEM macro session-parameter template; RAW still **`lastStatus`** progress strings.
+
 ### Changed
 
 - **`WelcomePermissionsScreen`** — when a **required** runtime permission is still off, shows **Open app settings** (`ACTION_APPLICATION_DETAILS_SETTINGS`); camera step adds explicit **Don\u2019t allow** recovery copy. **Optional** mic/location steps gain **Skip (optional)** (advance without granting).

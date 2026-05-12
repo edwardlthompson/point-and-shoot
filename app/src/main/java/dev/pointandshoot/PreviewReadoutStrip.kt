@@ -119,6 +119,20 @@ private fun wbCandidateStrings(menu: ReadoutMenuSnapshot): Set<String> =
         }
     }
 
+private fun phyCandidateStrings(activePhysicalId: String?): Set<String> =
+    buildSet {
+        if (activePhysicalId == null) return@buildSet
+        add("—")
+        val compact =
+            if (activePhysicalId.length <= 14) {
+                activePhysicalId
+            } else {
+                activePhysicalId.take(14) + "…"
+            }
+        add(compact)
+        add("99999999999999…")
+    }
+
 private fun computeReadoutFontScale(
     maxWidthPx: Int,
     density: androidx.compose.ui.unit.Density,
@@ -128,6 +142,7 @@ private fun computeReadoutFontScale(
     stillLutIndex: String,
     videoLutIndex: String,
     jpegCompanion: Boolean,
+    logicalPhysicalId: String?,
 ): Float {
     if (maxWidthPx <= 0) return 1f
 
@@ -146,14 +161,27 @@ private fun computeReadoutFontScale(
         val rawMin = maxReadoutValueWidthDp(textMeasurer, vs, rawStrings, density)
 
         val gapPx = with(density) { ReadoutChipGap.roundToPx() }
-        return chipOuterWidthPx(textMeasurer, density, "ISO", ls, isoMin) +
-            chipOuterWidthPx(textMeasurer, density, "Ss", ls, ssMin) +
-            chipOuterWidthPx(textMeasurer, density, "WB", ls, wbMin) +
-            chipOuterWidthPx(textMeasurer, density, "FPS", ls, fpsMin) +
-            chipOuterWidthPx(textMeasurer, density, "Still", ls, lutStillMin) +
-            chipOuterWidthPx(textMeasurer, density, "Video", ls, lutVideoMin) +
-            chipOuterWidthPx(textMeasurer, density, "RAW", ls, rawMin) +
-            gapPx * 6
+        var rowPx =
+            chipOuterWidthPx(textMeasurer, density, "ISO", ls, isoMin) +
+                chipOuterWidthPx(textMeasurer, density, "Ss", ls, ssMin) +
+                chipOuterWidthPx(textMeasurer, density, "WB", ls, wbMin) +
+                chipOuterWidthPx(textMeasurer, density, "FPS", ls, fpsMin) +
+                chipOuterWidthPx(textMeasurer, density, "Still", ls, lutStillMin) +
+                chipOuterWidthPx(textMeasurer, density, "Video", ls, lutVideoMin) +
+                chipOuterWidthPx(textMeasurer, density, "RAW", ls, rawMin)
+        if (logicalPhysicalId != null) {
+            val phyMin =
+                maxReadoutValueWidthDp(
+                    textMeasurer,
+                    vs,
+                    phyCandidateStrings(logicalPhysicalId),
+                    density,
+                )
+            rowPx += chipOuterWidthPx(textMeasurer, density, "Phy", ls, phyMin)
+        }
+        val chipCount = 7 + (if (logicalPhysicalId != null) 1 else 0)
+        rowPx += gapPx * (chipCount - 1)
+        return rowPx
     }
 
     if (rowWidthPx(1f) <= maxWidthPx) return 1f
@@ -211,6 +239,8 @@ fun PreviewReadoutStrip(
     awbMode: Int?,
     measuredFps: Double,
     stillCaptureJpegCompanion: Boolean,
+    /** [CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID] when non-null (API 29+ HAL). */
+    logicalPhysicalId: String? = null,
     menu: ReadoutMenuSnapshot,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     onPickIso: (Int?) -> Unit,
@@ -227,6 +257,10 @@ fun PreviewReadoutStrip(
     val isoText = iso?.toString() ?: "—"
     val ss = PreviewReadoutFormat.formatShutter(exposureNs)
     val awb = PreviewReadoutFormat.awbModeLabel(awbMode)
+    val phyDisplay =
+        logicalPhysicalId?.let { id ->
+            if (id.length <= 14) id else id.take(14) + "…"
+        }
     val fpsDisplay =
         if (measuredFps > 0.05) {
             "${ceil(measuredFps).toInt()}fps"
@@ -267,6 +301,7 @@ fun PreviewReadoutStrip(
                     stillLutIndex,
                     videoLutIndex,
                     stillCaptureJpegCompanion,
+                    logicalPhysicalId,
                     baseLabelTypography,
                 ) {
                     computeReadoutFontScale(
@@ -278,6 +313,7 @@ fun PreviewReadoutStrip(
                         stillLutIndex,
                         videoLutIndex,
                         stillCaptureJpegCompanion,
+                        logicalPhysicalId,
                     )
                 }
             val labelStyle = remember(scale, baseLabelTypography) { baseLabelTypography.scaledFont(scale) }
@@ -325,6 +361,19 @@ fun PreviewReadoutStrip(
             val rawValueMinWidth =
                 remember(scale, stillCaptureJpegCompanion, textMeasurer, valueStyle, density) {
                     maxReadoutValueWidthDp(textMeasurer, valueStyle, rawValueStrings, density)
+                }
+            val phyValueMinWidth =
+                remember(scale, logicalPhysicalId, textMeasurer, valueStyle, density) {
+                    if (logicalPhysicalId == null) {
+                        0.dp
+                    } else {
+                        maxReadoutValueWidthDp(
+                            textMeasurer,
+                            valueStyle,
+                            phyCandidateStrings(logicalPhysicalId),
+                            density,
+                        )
+                    }
                 }
 
             Row(
@@ -440,6 +489,18 @@ fun PreviewReadoutStrip(
                         )
                     }
                 }
+            }
+            if (phyDisplay != null) {
+                ReadoutMetricChip(
+                    label = "Phy",
+                    value = phyDisplay,
+                    valueMinWidth = phyValueMinWidth,
+                    labelStyle = labelStyle,
+                    valueStyle = valueStyle,
+                    onClick = { },
+                    accessibilityLabel =
+                        "Logical multi-camera active physical camera. Current $phyDisplay. Read-only.",
+                )
             }
             Box {
                 ReadoutLutChip(

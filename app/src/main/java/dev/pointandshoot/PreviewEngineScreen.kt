@@ -439,6 +439,7 @@ fun PreviewEngineScreen(
     var previewReadoutIso by remember { mutableStateOf<Int?>(null) }
     var previewReadoutExposureNs by remember { mutableStateOf<Long?>(null) }
     var previewReadoutAwbMode by remember { mutableStateOf<Int?>(null) }
+    var previewReadoutLogicalPhysicalId by remember { mutableStateOf<String?>(null) }
     var previewJpegCompanion by remember { mutableStateOf(false) }
     var surfaceInfo by remember { mutableStateOf("surface=?") }
     var previewBufferSize by remember { mutableStateOf<Size?>(null) }
@@ -484,6 +485,7 @@ fun PreviewEngineScreen(
             previewReadoutIso = controller.previewMeterIso()
             previewReadoutExposureNs = controller.previewMeterExposureNs()
             previewReadoutAwbMode = controller.previewMeterAwbMode()
+            previewReadoutLogicalPhysicalId = controller.previewMeterLogicalPhysicalId()
             previewJpegCompanion = controller.previewUsesJpegCompanion()
             surfaceInfo = controller.surfaceDebug()
             previewBufferSize = controller.previewBufferSize()
@@ -927,6 +929,7 @@ fun PreviewEngineScreen(
         previewReadoutIso = previewReadoutIso,
         previewReadoutExposureNs = previewReadoutExposureNs,
         previewReadoutAwbMode = previewReadoutAwbMode,
+        previewReadoutLogicalPhysicalId = previewReadoutLogicalPhysicalId,
         previewJpegCompanion = previewJpegCompanion,
         surfaceInfo = surfaceInfo,
         previewBufferSize = previewBufferSize,
@@ -1107,6 +1110,7 @@ private fun PreviewEngineContent(
     previewReadoutIso: Int?,
     previewReadoutExposureNs: Long?,
     previewReadoutAwbMode: Int?,
+    previewReadoutLogicalPhysicalId: String?,
     previewJpegCompanion: Boolean,
     surfaceInfo: String,
     previewBufferSize: Size?,
@@ -1547,6 +1551,7 @@ private fun PreviewEngineContent(
                 iso = previewReadoutIso,
                 exposureNs = previewReadoutExposureNs,
                 awbMode = previewReadoutAwbMode,
+                logicalPhysicalId = previewReadoutLogicalPhysicalId,
                 measuredFps = measuredFps,
                 stillCaptureJpegCompanion = chrome.stillCaptureJpegCompanion,
                 menu = readoutMenuSnapshot,
@@ -4013,6 +4018,8 @@ private class PreviewController(
     @Volatile private var lastPreviewIso: Int? = null
     @Volatile private var lastPreviewExposureNs: Long? = null
     @Volatile private var lastPreviewAwbMode: Int? = null
+    /** [CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID] when the HAL reports a logical switch. */
+    @Volatile private var lastLogicalMultiCameraPhysicalId: String? = null
 
     /** Null = automatic AE for sensitivity / exposure time; non-null forces manual sensor row (AE off). */
     @Volatile private var manualIsoOverride: Int? = null
@@ -4801,6 +4808,13 @@ private class PreviewController(
                 PreviewStillCaptureHints.applyZslIfCompatible(this, chars, needJpeg, manualSensorStill)
             }.build()
 
+        lastStatus =
+            buildString {
+                append(if (needJpeg) "Still capture RAW+JPEG" else "Still capture RAW")
+                shotTag?.let { append(" ").append(it) }
+                append("…")
+            }
+
         val pendingRaw = java.util.concurrent.atomic.AtomicReference<Image?>(null)
         val pendingJpeg = java.util.concurrent.atomic.AtomicReference<Image?>(null)
         val pendingResult = java.util.concurrent.atomic.AtomicReference<TotalCaptureResult?>(null)
@@ -4813,6 +4827,7 @@ private class PreviewController(
             runCatching { pendingRaw.getAndSet(null)?.close() }
             runCatching { pendingJpeg.getAndSet(null)?.close() }
             pendingResult.set(null)
+            lastStatus = "Still capture failed: ${t.message?.take(48) ?: t::class.java.simpleName}"
             captureBusy.set(false)
             if (shotTag != null) {
                 PnsAdbLog.i(
@@ -4834,6 +4849,7 @@ private class PreviewController(
             val jpegImg = if (needJpeg) pendingJpeg.getAndSet(null)!! else null
             val result = pendingResult.getAndSet(null)!!
             ioExecutor.execute {
+                mainHandler.post { lastStatus = "Saving still (DNG)…" }
                 var handle: CaptureStorage.Handle? = null
                 var jpegHold: Image? = jpegImg
                 try {
@@ -4878,6 +4894,7 @@ private class PreviewController(
                         )
                     }
                     mainHandler.post {
+                        lastStatus = "Preview running (normal)"
                         onResult(
                             Result.success(
                                 RawStillSaveSuccess(dngUriString = uri, companionJpegUri = null),
@@ -4925,7 +4942,11 @@ private class PreviewController(
                     runCatching { rawImg.close() }
                     runCatching { jpegHold?.close() }
                     runCatching { handle?.discard() }
-                    mainHandler.post { onResult(Result.failure(t)) }
+                    mainHandler.post {
+                        lastStatus =
+                            "Still capture failed: ${t.message?.take(48) ?: t::class.java.simpleName}"
+                        onResult(Result.failure(t))
+                    }
                     captureBusy.set(false)
                 }
             }
@@ -5382,6 +5403,8 @@ private class PreviewController(
 
     fun previewMeterAwbMode(): Int? = lastPreviewAwbMode
 
+    fun previewMeterLogicalPhysicalId(): String? = lastLogicalMultiCameraPhysicalId
+
     /** True when preview session includes a JPEG companion surface (RAW+ pipeline). */
     fun previewUsesJpegCompanion(): Boolean = jpegImageReader != null
 
@@ -5489,6 +5512,7 @@ private class PreviewController(
         lastPreviewIso = null
         lastPreviewExposureNs = null
         lastPreviewAwbMode = null
+        lastLogicalMultiCameraPhysicalId = null
         loggedChromeUxReadout = false
         loggedChromeUxFlashHardware = false
         readoutFallbackRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -5806,8 +5830,10 @@ private class PreviewController(
                     if (sessionApplied != null) {
                         superMacroSessionConfigured = true
                         val macroKind = sessionApplied
+                        PreviewAeAntibanding.applyToRequest(sessionReqBuilder, sessionChars)
                         val sessionParams = sessionReqBuilder.build()
-                        val outputConfigs = surfaces.map { OutputConfiguration(it) }
+                        val outputConfigs =
+                            outputConfigurationsWithOptionalStreamUseCases(surfaces, enableHints = true)
                         val executor: Executor = Executor { cmd -> h.post(cmd) }
                         val sessionConfig =
                             SessionConfiguration(
@@ -5862,29 +5888,49 @@ private class PreviewController(
             // torn down between the check and OutputConfiguration's internal getSurfaceSize()
             // call (TOCTOU on rotation). Wrapping in runCatching keeps that race recoverable
             // — maybeRestart() will be re-driven once the new TextureView surface is ready.
-            val createResult = runCatching {
-                camera.createCaptureSessionRegularOutputs(
-                    surfaces,
-                    h,
-                    object : CameraCaptureSession.StateCallback() {
-                        override fun onConfigured(sess: CameraCaptureSession) {
-                            if (gen != generation || device == null) {
-                                Log.w(tag, "onConfigured ignored (stale gen=$gen current=$generation)")
-                                runCatching { sess.close() }
-                                return
-                            }
-                            session = sess
-                            val fpsRange = pickNormalFpsRange(camId, desiredFps)
-                            startRepeating(sess, camera, surf, fpsRange = fpsRange, camId = camId)
+            val sessionCallback =
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(sess: CameraCaptureSession) {
+                        if (gen != generation || device == null) {
+                            Log.w(tag, "onConfigured ignored (stale gen=$gen current=$generation)")
+                            runCatching { sess.close() }
+                            return
                         }
+                        session = sess
+                        val fpsRange = pickNormalFpsRange(camId, desiredFps)
+                        startRepeating(sess, camera, surf, fpsRange = fpsRange, camId = camId)
+                    }
 
-                        override fun onConfigureFailed(sess: CameraCaptureSession) {
-                            lastStatus = "Session configure failed (normal)"
-                        }
-                    },
+                    override fun onConfigureFailed(sess: CameraCaptureSession) {
+                        lastStatus = "Session configure failed (normal)"
+                    }
+                }
+            val streamHints = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+            var createErr: Throwable? =
+                runCatching {
+                    camera.createCaptureSessionRegularOutputs(
+                        surfaces,
+                        h,
+                        sessionCallback,
+                        streamUseCaseHints = streamHints,
+                    )
+                }.exceptionOrNull()
+            if (createErr != null && streamHints) {
+                Log.w(
+                    tag,
+                    "createCaptureSession (stream hints) threw ${createErr::class.java.simpleName}: ${createErr.message}; retry without hints",
                 )
+                createErr =
+                    runCatching {
+                        camera.createCaptureSessionRegularOutputs(
+                            surfaces,
+                            h,
+                            sessionCallback,
+                            streamUseCaseHints = false,
+                        )
+                    }.exceptionOrNull()
             }
-            createResult.exceptionOrNull()?.let { e ->
+            createErr?.let { e ->
                 Log.w(tag, "createCaptureSession threw ${e::class.java.simpleName}: ${e.message}")
                 lastStatus = "Session create aborted: ${e::class.java.simpleName}"
                 runCatching { camera.close() }
@@ -7353,6 +7399,13 @@ private class PreviewController(
         result.get(CaptureResult.SENSOR_SENSITIVITY)?.let { lastPreviewIso = it }
         result.get(CaptureResult.SENSOR_EXPOSURE_TIME)?.let { lastPreviewExposureNs = it }
         result.get(CaptureResult.CONTROL_AWB_MODE)?.let { lastPreviewAwbMode = it }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            result.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)?.let { id ->
+                if (id.isNotBlank()) {
+                    lastLogicalMultiCameraPhysicalId = id
+                }
+            }
+        }
         maybeLogChromeUxReadout()
         PnsStartupTrace.maybeMarkFirstFrameReadyFromPreview(result, smoothedFps)
     }

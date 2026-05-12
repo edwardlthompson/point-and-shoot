@@ -163,15 +163,27 @@ function Write-ScenarioLogcat([string]$OutPath) {
     $fallbackTail = 250000
     $chosenPid = $null
     try {
-        $pidLine = if ($Serial) {
-            (& adb -s $Serial shell pidof $pkg 2>&1 | Out-String)
-        } else {
-            (& adb shell pidof $pkg 2>&1 | Out-String)
-        }
-        $pidTokens = @( ($pidLine.Trim() -split '\s+') | Where-Object { $_ -match '^\d+$' } )
-        # Some builds return multiple PIDs (main + helpers); keep the numerically largest  -  usually the active cold-start PID.
-        foreach ($t in $pidTokens) {
-            if ($null -eq $chosenPid -or [int64]$t -gt [int64]$chosenPid) { $chosenPid = $t }
+        # pidof can be briefly empty right after `am start -W` (cold start / adb root races); retry before
+        # giving up on `--pid=` dumps (Sprint 5.3 super-macro gate depends on `PNS.AdbValidation` surviving HAL spam).
+        for ($try = 0; $try -lt 25; $try++) {
+            if ($try -gt 0) { Start-Sleep -Milliseconds 200 }
+            $pidOfOut = if ($Serial) {
+                (& adb -s $Serial shell pidof $pkg 2>&1 | Out-String)
+            } else {
+                (& adb shell pidof $pkg 2>&1 | Out-String)
+            }
+            $pidTokens = @( ($pidOfOut.Trim() -split '\s+') | Where-Object { $_ -match '^\d+$' } )
+            $tryPid = $null
+            foreach ($t in $pidTokens) {
+                if ($null -eq $tryPid -or [int64]$t -gt [int64]$tryPid) { $tryPid = $t }
+            }
+            if ($tryPid -match '^\d+$') {
+                $chosenPid = $tryPid
+                if ($try -gt 0) {
+                    Write-Host "[adb_preview_validate] pidof ok after retries try=$try pid=$chosenPid"
+                }
+                break
+            }
         }
         $pidBlock = New-Object System.Collections.Generic.List[string]
         if ($chosenPid -match '^\d+$') {
@@ -204,13 +216,23 @@ function Write-ScenarioLogcat([string]$OutPath) {
         foreach ($ln in $tailLines) { [void]$sb.AppendLine($ln) }
         # Tag-filtered dump survives even when the mixed ring drops app lines (filters apply before line cap).
         [void]$sb.AppendLine("--- supplement: tag-filtered PNS.* (bounded tail) ---")
-        $tagCmd = "logcat -d -t 80000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.GLES:I PNS.ModeTransition:I PNS.ChromeUx:I"
+        $tagCmd = "logcat -d -t 120000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.GLES:I PNS.ModeTransition:I PNS.ChromeUx:I"
         $tagLines = if ($Serial) {
             @(& adb -s $Serial shell $tagCmd 2>&1)
         } else {
             @(adb shell $tagCmd 2>&1)
         }
         foreach ($ln in $tagLines) { [void]$sb.AppendLine($ln) }
+        # Multi-tag filter can still starve `PNS.AdbValidation` when Preview/Cam are chatty; keep a dedicated tail
+        # so Sprint 5.3 `superMacroCloseup probe` lines remain greppable for `super_macro_gate.json`.
+        [void]$sb.AppendLine("--- supplement: PNS.AdbValidation only (bounded tail) ---")
+        $advOnlyCmd = "logcat -d -t 50000 *:S PNS.AdbValidation:I"
+        $advLines = if ($Serial) {
+            @(& adb -s $Serial shell $advOnlyCmd 2>&1)
+        } else {
+            @(adb shell $advOnlyCmd 2>&1)
+        }
+        foreach ($ln in $advLines) { [void]$sb.AppendLine($ln) }
         [System.IO.File]::WriteAllText($OutPath, $sb.ToString(), [System.Text.UTF8Encoding]::new($false))
     }
     finally {

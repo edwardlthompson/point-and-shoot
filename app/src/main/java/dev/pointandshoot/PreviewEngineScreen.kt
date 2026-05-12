@@ -4273,7 +4273,13 @@ private class PreviewController(
         if (desiredSurfaceSize == null && width > 0 && height > 0) {
             runCatching { st.setDefaultBufferSize(width, height) }
         }
-        rebuildSurfaceIfPossible()
+        // While [device] is non-null, [createSession] may be using [previewSurface] on [handler].
+        // A duplicate TextureView `onSurfaceTextureAvailable` on the main thread must not call
+        // [rebuildSurfaceIfPossible] (it releases the old [Surface]) or the camera thread hits
+        // IllegalArgumentException: Surface was abandoned in OutputConfiguration (Sprint 5.3).
+        if (device == null) {
+            rebuildSurfaceIfPossible()
+        }
         maybeRestart()
     }
 
@@ -5828,12 +5834,24 @@ private class PreviewController(
                         )
                     }
                     if (sessionApplied != null) {
-                        superMacroSessionConfigured = true
                         val macroKind = sessionApplied
                         PreviewAeAntibanding.applyToRequest(sessionReqBuilder, sessionChars)
                         val sessionParams = sessionReqBuilder.build()
+                        // Vendor session-parameter probing runs on [h] while the main thread may still be
+                        // resizing the TextureView; OutputConfiguration queries BufferQueue dimensions and
+                        // can throw IllegalArgumentException: Surface was abandoned. Recover by closing and
+                        // scheduling [maybeRestartBody] after a short delay so layout can settle.
                         val outputConfigs =
-                            outputConfigurationsWithOptionalStreamUseCases(surfaces, enableHints = true)
+                            runCatching { surfaces.map { OutputConfiguration(it) } }.getOrElse { e ->
+                                Log.w(
+                                    tag,
+                                    "macro session create: OutputConfiguration failed (${e.javaClass.simpleName}: ${e.message}); scheduling restart",
+                                )
+                                superMacroSessionConfigured = false
+                                closeCamera()
+                                h.postDelayed({ maybeRestartBody() }, 48L)
+                                return
+                            }
                         val executor: Executor = Executor { cmd -> h.post(cmd) }
                         val sessionConfig =
                             SessionConfiguration(
@@ -5847,6 +5865,7 @@ private class PreviewController(
                                             runCatching { sess.close() }
                                             return
                                         }
+                                        superMacroSessionConfigured = true
                                         PnsAdbLog.i(
                                             appContext,
                                             "superMacroCloseup probe cameraId=$camId vendorKeyApplied=true type=$macroKind path=sessionParameters",

@@ -97,7 +97,7 @@ Implementation backlog (tick in PRs / §5; order is suggested, not strict):
 - [ ] **[MIXED]** **TalkBack / accessibility**: audit **`contentDescription`** (and state labels) on **7×7 quick actions** and icon rails so toggles announce **meaning + on/off** (histogram, flash mode, DND, etc.) — **no** geometry changes.
 - [ ] **[MIXED]** **Immersive system bars**: **one-time first-run tip** (“Swipe from screen edge for Back / Home”) after **`MainActivity`** immersive setup — store “seen” in prefs; do not alter window flags contract without device re-validation.
 - [ ] **[HOST]** **Calibrate screen** and **LUT importer**: avoid **duplicate Toast + inline status** for the same event; pick a **single primary** channel for success and reserve Toast/snackbar for **hard failures** only.
-- [ ] **[HOST]** **Gallery / “open file”**: when **no app** can open the asset, offer **Share** or **“Open with…”** (`ACTION_SEND` / resolver) instead of a dead-end Toast only.
+- [x] **[HOST]** **Gallery / “open file”**: when **no app** can open the asset, offer **Share** or **“Open with…”** (`ACTION_SEND` / resolver) instead of a dead-end Toast only. **Shipped:** **`openMediaWithSystemResolver`** retries **`ACTION_VIEW`** with **`*/*`**, then **`ACTION_SEND`** **`createChooser`**; Toast only if all paths fail.
 
 ---
 

@@ -49,18 +49,48 @@ private fun decodeScaledBitmap(cr: android.content.ContentResolver, uri: Uri, ma
 /**
  * Opens media with an implicit [Intent.ACTION_VIEW] so the system resolver runs and the user can
  * pick a viewer with **Just once** / **Always** (standard Android default-app flow). Avoid
- * [Intent.createChooser], which forces a chooser every time and hides **Always**.
+ * [Intent.createChooser] for the first hop, which forces a chooser every time and hides **Always**.
+ *
+ * If no handler exists for the resolved MIME type, retries [Intent.ACTION_VIEW] with a generic
+ * wildcard MIME (any type), then offers [Intent.ACTION_SEND] via [Intent.createChooser] so
+ * **Share** / **Open with** paths still work (`BUILD_PLAN` UX backlog — gallery thumb).
  */
 fun openMediaWithSystemResolver(context: Context, uri: Uri) {
-    val mime = context.contentResolver.getType(uri) ?: "*/*"
-    val intent =
+    val cr = context.contentResolver
+    val mime = cr.getType(uri) ?: "*/*"
+
+    fun viewIntent(resolvedMime: String): Intent =
         Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mime)
+            setDataAndType(uri, resolvedMime)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    try {
-        context.startActivity(intent)
-    } catch (_: ActivityNotFoundException) {
-        Toast.makeText(context, "No app can open this file", Toast.LENGTH_SHORT).show()
-    }
+
+    fun tryStart(intent: Intent): Boolean =
+        try {
+            context.startActivity(intent)
+            true
+        } catch (_: ActivityNotFoundException) {
+            false
+        }
+
+    if (tryStart(viewIntent(mime))) return
+    if (mime != "*/*" && tryStart(viewIntent("*/*"))) return
+
+    val sendIntent =
+        Intent(Intent.ACTION_SEND).apply {
+            type = mime
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    val chooser =
+        Intent.createChooser(sendIntent, "Share or open capture").apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    if (tryStart(chooser)) return
+
+    Toast.makeText(
+        context,
+        "No app can open this file — try Share from another app or install a viewer.",
+        Toast.LENGTH_LONG,
+    ).show()
 }

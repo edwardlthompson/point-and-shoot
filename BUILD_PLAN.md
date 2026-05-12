@@ -101,6 +101,65 @@ Implementation backlog (tick in PRs / §5; order is suggested, not strict):
 
 ---
 
+### Capture & preview — next wave backlog (post Milestone 9)
+
+**Purpose:** Roadmap for capture UX, video, face HUD, QR, and chrome geometry **after** the shipped Milestone 9 chrome stack. Tick in PRs; record device evidence in **`PROBE_BUILD_PLAN.md`** §5 (serial, build, artifact paths).
+
+**Chrome policy:** Portrait preview chrome is **locked** by **`docs/preview-chrome-layout-style-guide.md`** and **`.cursor/rules/preview-chrome-ui-lock.mdc`**. Items that add controls to the **bottom tray**, **re-slot the quick grid**, or change **finder vs rail** geometry require **explicit maintainer unlock** + **Preview finder acceptance** screenshots + gate updates (**`pns_chrome_ux_gate.ps1`**, **`PNS.ChromeUx`** tokens) before merge.
+
+**Suggested implementation order** (dependencies): inventory + policy fixes → **Photo | Video** tray + filtered menus → **video encode** + gallery strip → face HUD tweaks → **QR scan** UI → optional **7×3** grid (unlock) → nice-to-haves as capacity allows.
+
+#### Documentation & inventory (host + device)
+
+- [ ] **[MIXED]** **QR / barcode — API & vendor inventory (prerequisite for QR UI):** Public Camera2 has **no** standard “QR” **Key**; decoding is app-side. On device: extend **`AeHighlightProbe`** / reuse **`PROBE_EXPORT_LATEST.md`** from **`pns_ae_highlight_probe_adb.ps1`** to list **available** metadata key **names** matching substrings such as `qr`, `barcode`, `code`, `scene`, `document`, `data_matrix` (expand as OEM strings appear); optional **`adb shell dumpsys media.camera`** (userdebug/eng/root) for vendor sections — **redact** before commit. On host: search **LineageOS** and **AOSP** trees (**`frameworks/av`**, **`hardware/interfaces/camera`**, relevant **`vendor/*` / `device/*`**) for camera buffer / **YUV `rowStride`** hazards (barcode pipelines often fail when stride ≠ width). Write **`docs/camera2_reference_qr_barcode_appendix.md`** and add one **“How to use”** bullet in **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** linking it (same pattern as **`docs/camera2_reference_face_eye_appendix.md`**).
+
+#### Flash & highlight program
+
+- [ ] **[MIXED]** **Highlight (H) — disable flash / torch:** In **`PreviewFlashPolicy`**, preview repeating + still capture: **`CommandDialMode.H`** forces flash hardware **off** (no torch exception); extend **`PreviewFlashPolicyTest`**; device check LED off in H.
+
+#### Bottom tray — Photo | Video family + shooting modes + shutter (**supersedes Sprint 9.7 when implemented**)
+
+**Product:** A **Photo | Video** control (**FAB or equivalent**) **immediately left** of the existing **Shooting modes** FAB — same visual family (size, border, label row) so they read as siblings; **persist** selection; **`contentDescription`** announces family and that it filters the adjacent menu. **Shooting modes** **`DropdownMenu`** (or sheet) content **depends on family:** **Photo** — `CommandDialMode` programs plus **photo-only** future entries (**focus bracketing**, **exposure bracketing**); **Video** — **video-only** entries (**standard video**, **slo-motion** / high-speed preview path, time-lapse later). Model with **`CaptureMediaFamily`** + **`ShootingModeOption`** (or sealed **Photo** vs **Video** hierarchies) so exclusivity is type-safe. **Invalidation:** switching family clears an incompatible selection to a **safe default** (e.g. Photo → `Auto`, Video → standard video) + optional **Snackbar**. **Sections** inside each menu (sticky headers / titled blocks): e.g. Photo — “Exposure program”, “Bracketing”, “Tools”; Video — “Recording”, “High frame rate”, “Tools”. **Single center shutter** replaces **Sprint 9.7** dual FABs: one primary control; **record red** in video family and/or while recording; still orange in photo. **`PreviewController`** / session: family + sub-mode drive **`desiredFps`**, HFR template vs still-only surfaces. Update **`PNS.ChromeUx`** / **`pns_chrome_ux_gate.ps1`** when **`dualShutter`** / tray assertions change.
+
+#### Video encode & HFR quality
+
+- [ ] **[MIXED]** **Video recording:** Today **`isRecording`** only drives tally / DND / LUT branch — **no** encoder path to a file. Implement **`MediaRecorder`** or Jetpack **`Recorder`** + **`MediaStore`** output + **audio** policy; second surface or session reconfigure; wire **`PreviewBottomCaptureTray`** **`onRecordingChange`**; DCIM file playable; extend **`pns_adb_preview_validate.ps1`** or add scenario tail.
+- [ ] **[MIXED]** **HFR preview discoloration:** Compare HFR vs normal preview **`CaptureRequest`** (e.g. **`COLOR_CORRECTION_MODE`**, tonemap, noise, edge); probe or log matrix on reference devices; mitigate where HAL allows; align notes with **`COLOR_PIPELINE.md`**.
+
+#### Face / eye HUD
+
+- [ ] **[MIXED]** **Face rectangle hides when eyes detected:** When **`STATISTICS_FACES`** (or ML path) provides both eye positions, **omit** face **HUD** rect for that subject; keep **metering** rect internally if needed (**`publishFaceHud`** / **`dispatchFaceHudOverlay`** in **`PreviewEngineScreen.kt`**).
+- [ ] **[MIXED]** **Face & eye overlay alignment:** Unify sensor→buffer→view mapping with **`applyTapFocusFromView`** / **`TexturePreviewFit`**; device proof with chart + digital crop vs **HFR** full sensor.
+
+#### Gallery strip
+
+- [ ] **[MIXED]** **Gallery thumb always on:** When **`lastGalleryUri`** is null, still show **slot** + **placeholder** or **MediaStore** “latest item” (product choice: **Point & Shoot** folder only vs **global** roll); tappable **`ACTION_VIEW`** / resolver; document **READ_MEDIA_** / partial access on API 34+.
+
+#### QR scan mode (after inventory doc)
+
+- [ ] **[MIXED]** **QR scan mode:** Add **ML Kit Barcode** (or **CameraX** `ImageAnalysis`); optional **`pns_screen=qrscan`** + hub entry; **throttled** decode on YUV lane; respect **`rowStride` / `pixelStride`** per **`docs/camera2_reference_qr_barcode_appendix.md`**.
+
+#### Quick settings grid — 7 columns × 3 shortcut rows (**chrome unlock required**)
+
+- [ ] **[MIXED]** **Quick grid 7×3:** Reslot **`previewChromeGridSlots`**; rename **`PreviewChromeGrid7x7`** / **`PNS.ChromeUx`** **`grid7=`** token as agreed; update **`pns_chrome_ux_gate.ps1`**, **`docs/preview-chrome-layout-style-guide.md`**, **`.cursor/rules/preview-chrome-ui-lock.mdc`**, **`AGENTS.md`**, **`PROBE_BUILD_PLAN.md`**, **`CHANGELOG.md`**. **Prerequisite:** maintainer unlock + full **Preview finder acceptance** evidence.
+
+#### OpenCamera-inspired nice-to-haves (optional — fit existing architecture)
+
+Pick by value; avoid duplicating generic JPEG scene stacks unless they map to **`CommandDialMode`**-style deterministic programs.
+
+- [ ] **[MIXED]** **Focus bracketing / stack** (photo; separate from exposure **BKT**) — burst at AF distances + export / merge story.
+- [ ] **[MIXED]** **AE / AF lock** — latch from readout or long-press; reuse repeating-request assembly.
+- [ ] **[MIXED]** **Audio trigger** — threshold / clap unmanned stills (mic permission already in welcome flow).
+- [ ] **[MIXED]** **Remote shutter** — intent, Tile, or quick-settings entry (automation-friendly).
+- [ ] **[MIXED]** **Shortcut profiles** — named bundles of HUD + chrome prefs (“Sport”, “Street”, …).
+- [ ] **[MIXED]** **Pause / resume video** — after video encode lands.
+- [ ] **[MIXED]** **Distortion / shading toggle** — when HAL advertises modes; small quick action.
+- [ ] **[MIXED]** **Focus peaking** (GLES) — manual **M** dial assist.
+- [ ] **[MIXED]** **Intervalometer / time-lapse** — composes with video + timer.
+- [ ] **[MIXED]** **Anti-shock / pure-shot delay** — short delay after shutter for stability.
+
+---
+
 ### Preview finder acceptance (device proof — do not guess)
 
 These behaviors are **easy to break with layout math mistakes**. Any change to `PreviewMainViewport`, `TexturePreviewFit`, `effectivePreviewStaticRotationDeg`, `BackCameraRoleResolver`, or the 7×7 focal row **must** close the checklist below with evidence in `PROBE_BUILD_PLAN.md` §5 (timestamp + device serial + what was verified).

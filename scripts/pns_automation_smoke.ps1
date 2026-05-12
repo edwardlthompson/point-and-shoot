@@ -95,12 +95,12 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
         $Serial = $fromEnv
-        Write-Host "`[automation_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
+        Write-Host "[automation_smoke] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
     }
 }
 
 if ($TryAdbRoot.IsPresent) {
-    Write-Host "`[automation_smoke] TryAdbRoot: adb root (best-effort)"
+    Write-Host "[automation_smoke] TryAdbRoot: adb root (best-effort)"
     if ($Serial) {
         adb -s $Serial root 2>$null | Out-Null
     }
@@ -133,7 +133,7 @@ if (-not $SkipVerifyToolchain.IsPresent) {
     Step-Set "verifyToolchain" ($LASTEXITCODE -eq 0)
 }
 else {
-    Write-Host "`[automation_smoke] -SkipVerifyToolchain"
+    Write-Host "[automation_smoke] -SkipVerifyToolchain"
     Step-Set "verifyToolchain" $true
 }
 
@@ -161,7 +161,7 @@ if (-not $SkipFailureMatrix.IsPresent) {
     Step-Set "failureMatrixSmoke" ($LASTEXITCODE -eq 0)
 }
 else {
-    Write-Host "`[automation_smoke] -SkipFailureMatrix"
+    Write-Host "[automation_smoke] -SkipFailureMatrix"
     Step-Set "failureMatrixSmoke" $true
 }
 
@@ -183,10 +183,10 @@ if ($adbOk -and -not $SkipChromeUxPack.IsPresent) {
 }
 else {
     if (-not $adbOk) {
-        Write-Host "`[automation_smoke] No authorized adb device  -  skipping pns_adb_preview_validate -ChromeUxPack"
+        Write-Host "[automation_smoke] No authorized adb device  -  skipping pns_adb_preview_validate -ChromeUxPack"
     }
     else {
-        Write-Host "`[automation_smoke] -SkipChromeUxPack"
+        Write-Host "[automation_smoke] -SkipChromeUxPack"
     }
     Step-Set "adbPreviewChromeUxPack" $true
 }
@@ -204,7 +204,7 @@ if ($adbOk -and $RunAeHighlightProbe.IsPresent) {
     Step-Set "aeHighlightProbe" ($LASTEXITCODE -eq 0)
 }
 elseif ($RunAeHighlightProbe.IsPresent -and -not $adbOk) {
-    Write-Host "`[automation_smoke] No authorized adb device  -  skipping -RunAeHighlightProbe"
+    Write-Host "[automation_smoke] No authorized adb device  -  skipping -RunAeHighlightProbe"
     Step-Set "aeHighlightProbe" $true
 }
 else {
@@ -237,7 +237,7 @@ if ($adbOk -and $RunFullAdbPreviewValidate.IsPresent) {
         }
         Step-Set "mediaStoreDcimProbe" $msOk
         if (-not $msOk) {
-            Write-Host "`[automation_smoke] FAIL: mediastore_probe.dcimHasPnsCapture is not true (see $probePath)"
+            Write-Host "[automation_smoke] FAIL: mediastore_probe.dcimHasPnsCapture is not true (see $probePath)"
         }
     }
     else {
@@ -246,7 +246,7 @@ if ($adbOk -and $RunFullAdbPreviewValidate.IsPresent) {
 }
 else {
     if ($RunFullAdbPreviewValidate.IsPresent -and -not $adbOk) {
-        Write-Host "`[automation_smoke] No authorized adb device  -  skipping -RunFullAdbPreviewValidate"
+        Write-Host "[automation_smoke] No authorized adb device  -  skipping -RunFullAdbPreviewValidate"
     }
     Step-Set "adbPreviewFullValidate" $true
     Step-Set "mediaStoreDcimProbe" $true
@@ -254,7 +254,7 @@ else {
 
 if ($AppendSection5.IsPresent) {
     if ($failed) {
-        Write-Host "`[automation_smoke] -AppendSection5 skipped (smoke already has failures)"
+        Write-Host "[automation_smoke] -AppendSection5 skipped (smoke already has failures)"
         $summary["appendSection5"] = [ordered]@{ ran = $false; reason = "smoke_failed" }
     }
     else {
@@ -272,15 +272,15 @@ if ($AppendSection5.IsPresent) {
                 return
             }
             if ($Label -eq "chrome_ux_gate" -and -not $adbOk) {
-                Write-Host "`[automation_smoke] AppendSection5 skip chrome_ux_gate  -  no authorized adb device (host-only pass does not append PROBE_BUILD_PLAN section 5)"
+                Write-Host "[automation_smoke] AppendSection5 skip chrome_ux_gate  -  no authorized adb device (host-only pass does not append PROBE_BUILD_PLAN section 5)"
                 return
             }
             $jp = Join-Path $script:outDir $RelJsonPath
             if (-not (Test-Path -LiteralPath $jp)) {
-                Write-Host "`[automation_smoke] AppendSection5 skip $Label  -  missing $jp"
+                Write-Host "[automation_smoke] AppendSection5 skip $Label  -  missing $jp"
                 return
             }
-            Write-Host "`[automation_smoke] AppendSection5 $Label <- $jp"
+            Write-Host "[automation_smoke] AppendSection5 $Label <- $jp"
             $invokeArgs = @{ GateJson = $jp }
             if ($AppendPassOnly) {
                 $invokeArgs["PassOnly"] = $true
@@ -293,7 +293,7 @@ if ($AppendSection5.IsPresent) {
             [void]$appendInvokes.Add(@{ label = $Label; json = $RelJsonPath; exitCode = $ex })
             if ($ex -ne 0) {
                 $script:failed = $true
-                Write-Host "`[automation_smoke] FAIL: probe_append_section5 exit=$ex for $jp"
+                Write-Host "[automation_smoke] FAIL: probe_append_section5 exit=$ex for $jp"
             }
         }
 
@@ -331,7 +331,7 @@ $summary["pass"] = -not $failed
 $jsonPath = Join-Path $outDir "automation_smoke.json"
 $summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $jsonPath -Encoding utf8
 Write-Host ""
-Write-Host "`[automation_smoke] Wrote $jsonPath pass=$($summary.pass)"
+Write-Host "[automation_smoke] Wrote $jsonPath pass=$($summary.pass)"
 
 if ($failed) {
     exit 1

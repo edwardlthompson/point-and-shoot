@@ -3975,6 +3975,11 @@ private fun FpsQuickChip(
 private class PreviewController(
     private val appContext: Context,
 ) {
+    companion object {
+        /** [Handler.postDelayed] before [maybeRestartBody] after macro OutputConfiguration abandon recovery. */
+        private const val MACRO_OUTPUT_CONFIG_RETRY_DELAY_MS = 48L
+    }
+
     private val cm = appContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private val tag = "PNS.Cam"
 
@@ -5845,11 +5850,15 @@ private class PreviewController(
                             runCatching { surfaces.map { OutputConfiguration(it) } }.getOrElse { e ->
                                 Log.w(
                                     tag,
-                                    "macro session create: OutputConfiguration failed (${e.javaClass.simpleName}: ${e.message}); scheduling restart",
+                                    "macro session create: OutputConfiguration failed " +
+                                        "(${e.javaClass.simpleName}: ${e.message}); scheduling restart",
                                 )
                                 superMacroSessionConfigured = false
                                 closeCamera()
-                                h.postDelayed({ maybeRestartBody() }, 48L)
+                                h.postDelayed(
+                                    { maybeRestartBody() },
+                                    MACRO_OUTPUT_CONFIG_RETRY_DELAY_MS,
+                                )
                                 return
                             }
                         val executor: Executor = Executor { cmd -> h.post(cmd) }

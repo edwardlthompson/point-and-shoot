@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
+import android.os.Build
 import android.util.Log
 
 /**
@@ -10,6 +11,12 @@ import android.util.Log
  *
  * See `BUILD_PLAN.md` Sprint 9.12 / 4.4; HAL truth is always [CameraCharacteristics.FLASH_INFO_AVAILABLE]
  * and [CameraCharacteristics.getAvailableCaptureRequestKeys].
+ *
+ * **Variable strength (API 33+):** when [CaptureRequest.FLASH_STRENGTH_LEVEL] is advertised, torch and
+ * still flash requests set it from [CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL] clamped to
+ * [CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL]. Torch stays on the active [android.hardware.camera2.CameraDevice]
+ * session ([CaptureRequest.FLASH_MODE_TORCH]); [android.hardware.camera2.CameraManager.turnOnTorchWithStrengthLevel]
+ * is not used here to avoid double-driving the LED while a preview session holds the camera.
  */
 enum class PreviewFlashMode {
     Off,
@@ -42,6 +49,28 @@ object PreviewFlashPolicy {
         if (!hasFlashModeKey(chars)) return
         runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF) }
             .onFailure { Log.w(TAG, "FLASH_MODE off: ${it.message}") }
+    }
+
+    /**
+     * Picks a request [CaptureRequest.FLASH_STRENGTH_LEVEL] from HAL default/max (API 33+ metadata).
+     * Exposed for JVM unit tests.
+     */
+    internal fun flashStrengthLevelForHardware(defaultLevel: Int?, maxLevel: Int): Int? {
+        if (maxLevel < 1) return null
+        val base = (defaultLevel ?: maxLevel).coerceIn(1, maxLevel)
+        return base.coerceIn(1, maxLevel)
+    }
+
+    private fun tryApplyFlashStrengthLevel(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (!flashHardwareAvailable(chars) || !isBackCamera(chars)) return
+        if (chars.availableCaptureRequestKeys?.contains(CaptureRequest.FLASH_STRENGTH_LEVEL) != true) return
+        val maxLevel = chars.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) ?: return
+        val defaultLevel = chars.get(CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL)
+        val level = flashStrengthLevelForHardware(defaultLevel, maxLevel) ?: return
+        runCatching {
+            req.set(CaptureRequest.FLASH_STRENGTH_LEVEL, level)
+        }.onFailure { Log.w(TAG, "FLASH_STRENGTH_LEVEL: ${it.message}") }
     }
 
     /**
@@ -100,17 +129,21 @@ object PreviewFlashPolicy {
                 aeMode != CaptureRequest.CONTROL_AE_MODE_OFF
         if (highlightStyleH) {
             when (flashMode) {
-                PreviewFlashMode.Torch ->
+                PreviewFlashMode.Torch -> {
                     runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH) }
                         .onFailure { Log.w(TAG, "torch (H highlight): ${it.message}") }
+                    tryApplyFlashStrengthLevel(req, chars)
+                }
                 else -> safeFlashOff(req, chars)
             }
             return
         }
         when (flashMode) {
-            PreviewFlashMode.Torch ->
+            PreviewFlashMode.Torch -> {
                 runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH) }
                     .onFailure { Log.w(TAG, "torch: ${it.message}") }
+                tryApplyFlashStrengthLevel(req, chars)
+            }
             PreviewFlashMode.On -> {
                 val aeModes = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES) ?: intArrayOf()
                 if (aeModes.contains(CaptureRequest.CONTROL_AE_MODE_ON_ALWAYS_FLASH)) {
@@ -118,6 +151,7 @@ object PreviewFlashPolicy {
                 } else {
                     runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH) }
                         .onFailure { Log.w(TAG, "torch (On fallback): ${it.message}") }
+                    tryApplyFlashStrengthLevel(req, chars)
                 }
             }
             PreviewFlashMode.Off, PreviewFlashMode.Auto -> safeFlashOff(req, chars)
@@ -147,6 +181,7 @@ object PreviewFlashPolicy {
             PreviewFlashMode.Auto, PreviewFlashMode.On, PreviewFlashMode.Torch -> {
                 runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE) }
                     .onFailure { Log.w(TAG, "still SINGLE: ${it.message}") }
+                tryApplyFlashStrengthLevel(req, chars)
             }
         }
     }

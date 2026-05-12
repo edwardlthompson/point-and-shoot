@@ -49,6 +49,7 @@
     <ID>FunctionNaming:CalibrateScreen.kt$@Composable fun CalibrateScreen( onBack: () -&gt; Unit, /** Optional chart supplied by the caller (e.g. live preview grab); adopted into local state once. */ initialChartBitmap: Bitmap? = null, onInitialChartBitmapConsumed: () -&gt; Unit = {}, )</ID>
     <ID>FunctionNaming:CalibrateScreen.kt$@Composable private fun TargetPickerRow( current: ReferenceTarget, onChange: (ReferenceTarget) -&gt; Unit, )</ID>
     <ID>FunctionNaming:CameraCapabilitiesProbe.kt$@Composable fun CameraCapabilitiesProbe( launchScreen: String? = null, imageCaptureReturn: ImageCaptureReturnContract? = null, autoSweep: Boolean = false, autoEncProbe: Boolean = false, autoDeepCaps: Boolean = false, autoSessionMatrix: Boolean = false, autoHdrDcgRuntime: Boolean = false, autoCaptureLatency: Boolean = false, autoRawHdrExclusivity: Boolean = false, autoBurstProbe: Boolean = false, autoLogicalPhysical: Boolean = false, autoExhaustive: Boolean = false, exhaustiveIncludeLogical: Boolean = false, exhaustiveHfrOnly: Boolean = false, autoLegacyCamera1: Boolean = false, autoFaceMeterProbe: Boolean = false, )</ID>
+    <ID>FunctionNaming:CameraExtensionSmokeScreen.kt$@Composable fun CameraExtensionSmokeScreen( onBack: () -&gt; Unit, preferredCameraId: String?, finishActivityWhenDone: Boolean, )</ID>
     <ID>FunctionNaming:CaptureLatencyProbeScreen.kt$@Composable fun CaptureLatencyProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
     <ID>FunctionNaming:CommandDial.kt$@Composable fun CommandDial( selected: CommandDialMode, onSelect: (CommandDialMode) -&gt; Unit, modifier: Modifier = Modifier, enabled: Boolean = true, )</ID>
     <ID>FunctionNaming:CommandDial.kt$@Composable private fun DialSegment( mode: CommandDialMode, isSelected: Boolean, onSelect: (CommandDialMode) -&gt; Unit, enabled: Boolean, )</ID>
@@ -143,7 +144,7 @@
     <ID>FunctionNaming:ProHudScreen.kt$@Composable private fun Spacer16()</ID>
     <ID>FunctionNaming:ProbeLiveLog.kt$@Composable fun ProbeLiveLogPanel( title: String, lines: List&lt;String&gt;, modifier: Modifier = Modifier, )</ID>
     <ID>FunctionNaming:RawHdrExclusivityProbeScreen.kt$@Composable fun RawHdrExclusivityProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
-    <ID>FunctionNaming:RootSettingsScreen.kt$@Composable fun RootSettingsScreen( onBack: () -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>FunctionNaming:RootSettingsScreen.kt$@Composable fun RootSettingsScreen( onBack: () -&gt; Unit, modifier: Modifier = Modifier, /** * Cold-start: **`--ez pns_auto_root_diagnostics true`** with **`pns_screen=rootsettings`**. * After root state is known (not [RootCapability.RootState.Unknown]), runs [RootPrivilegedDiagnostics.runScan] * once (logs **`skipped`** when not [RootCapability.RootState.Granted], else read-only SU probes). */ autoRunDiagnostics: Boolean = false, )</ID>
     <ID>FunctionNaming:RootSettingsScreen.kt$@Composable private fun RootFeatureCard(result: RootGate.GateResult)</ID>
     <ID>FunctionNaming:SessionMatrixProbeScreen.kt$@Composable fun SessionMatrixProbeScreen( onBack: () -&gt; Unit, startAuto: Boolean = false, )</ID>
     <ID>FunctionNaming:TimecodeOverlay.kt$@Composable fun TimecodeOverlay( isRecording: Boolean, fps: Int, modifier: Modifier = Modifier, startedElapsedMs: Long? = null, )</ID>
@@ -990,7 +991,6 @@
     <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$1e6</ID>
     <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$1e9</ID>
     <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$25_000_000L</ID>
-    <ID>MagicNumber:PreviewEngineScreen.kt$PreviewController.&lt;no name provided&gt;$750L</ID>
     <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$1000</ID>
     <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$1080</ID>
     <ID>MagicNumber:PreviewFpsSupport.kt$PreviewFpsSupport$120</ID>
@@ -1227,7 +1227,6 @@
     <ID>MaxLineLength:PreviewEngineScreen.kt$ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash)</ID>
     <ID>MaxLineLength:PreviewEngineScreen.kt$Log.i(SWEEP_SIGNAL_TAG, "SWEEP_START runId=$runId cameras=${sweepCameras.joinToString(",")} sequence=${sequence.joinToString(",")}")</ID>
     <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$"SCALER_CROP_REGION=${cropRect.left},${cropRect.top}-${cropRect.right},${cropRect.bottom} mode=${modeForCrop?.name ?: "full"}"</ID>
-    <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$"createCaptureSession (stream hints) threw ${createErr::class.java.simpleName}: ${createErr.message}; retry without hints"</ID>
     <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$"superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=$macroKind path=sessionParametersCreateThrows"</ID>
     <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$Log.d(tag, "createSession camId=$camId desiredFps=$desiredFps useHighSpeed=$useHighSpeed target=${target?.first?.width}x${target?.first?.height} ${target?.second}")</ID>
     <ID>MaxLineLength:PreviewEngineScreen.kt$PreviewController$return "surface cur=${cur?.width}x${cur?.height} want=${want?.width}x${want?.height} hs=${hs?.width}x${hs?.height} ts=${framesWithTimestamp}/${framesWithTimestamp + framesMissingTimestamp} tex=${framesFromTexture} texWin=${textureWindowFrames} fpsMode=$mode"</ID>

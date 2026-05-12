@@ -32,6 +32,11 @@ object HardwareCapsSnapshot {
                 hasMacroMode = false,
                 has10BitHdrPipeline = false,
                 hasOpticalStabilization = false,
+                supportedCameraExtensionLabels = "",
+                supportsYuvReprocessing = false,
+                supportsPrivateReprocessing = false,
+                reprocessMaxCaptureStall = null,
+                reprocessEffectiveExposureRequestKey = false,
             )
         }
         val cc =
@@ -46,6 +51,11 @@ object HardwareCapsSnapshot {
                     hasMacroMode = false,
                     has10BitHdrPipeline = false,
                     hasOpticalStabilization = false,
+                    supportedCameraExtensionLabels = "",
+                    supportsYuvReprocessing = false,
+                    supportsPrivateReprocessing = false,
+                    reprocessMaxCaptureStall = null,
+                    reprocessEffectiveExposureRequestKey = false,
                 )
 
         val roles = BackCameraRoleResolver.resolve(cm, allCameraIds)
@@ -106,6 +116,14 @@ object HardwareCapsSnapshot {
 
         val lens = LensInfoExtractor.extract(activeCameraId, cc)
 
+        val extIds = CameraExtensionSupport.supportedExtensionInts(cm, activeCameraId)
+        val extensionLabels =
+            if (extIds.isEmpty()) {
+                ""
+            } else {
+                extIds.joinToString { CameraExtensionSupport.extensionLabel(it) }
+            }
+
         return HardwareCaps(
             hasRawCapability = hasRaw,
             has12BitDepth = has12,
@@ -116,6 +134,11 @@ object HardwareCapsSnapshot {
             hasMacroMode = hasMacro,
             has10BitHdrPipeline = has10Hdr,
             hasOpticalStabilization = lens.hasOpticalStabilization,
+            supportedCameraExtensionLabels = extensionLabels,
+            supportsYuvReprocessing = PreviewReprocessStillHints.supportsYuvReprocessing(cc),
+            supportsPrivateReprocessing = PreviewReprocessStillHints.supportsPrivateReprocessing(cc),
+            reprocessMaxCaptureStall = PreviewReprocessStillHints.reprocessMaxCaptureStall(cc),
+            reprocessEffectiveExposureRequestKey = PreviewReprocessStillHints.reprocessEffectiveExposureKeyAdvertised(cc),
         )
     }
 

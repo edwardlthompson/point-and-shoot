@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Root Only settings drawer per BUILD_PLAN section 9 "Root-only enhancements".
+ * Root Only settings drawer per **BUILD_PLAN** Milestone 7 Sprint 7.5 (root-only enhancements).
  *
  * Renders every shipped [RootCapability.Feature] with its purpose +
  * fallback. Rows are visibly disabled (greyed) until the active state
@@ -54,6 +54,12 @@ import kotlinx.coroutines.withContext
 fun RootSettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Cold-start: **`--ez pns_auto_root_diagnostics true`** with **`pns_screen=rootsettings`**.
+     * After root state is known (not [RootCapability.RootState.Unknown]), runs [RootPrivilegedDiagnostics.runScan]
+     * once (logs **`skipped`** when not [RootCapability.RootState.Granted], else read-only SU probes).
+     */
+    autoRunDiagnostics: Boolean = false,
 ) {
     val appCtx = LocalContext.current.applicationContext
     var state by remember { mutableStateOf(RootCapability.RootState.Unknown) }
@@ -77,6 +83,16 @@ fun RootSettingsScreen(
     LaunchedEffect(state) {
         if (state != RootCapability.RootState.Unknown) {
             RootCapabilityStore.save(appCtx, state)
+        }
+    }
+
+    var autoDiagDone by remember { mutableStateOf(false) }
+    LaunchedEffect(autoRunDiagnostics, state, autoDiagDone) {
+        if (!autoRunDiagnostics || autoDiagDone) return@LaunchedEffect
+        if (state == RootCapability.RootState.Unknown) return@LaunchedEffect
+        autoDiagDone = true
+        withContext(Dispatchers.IO) {
+            RootPrivilegedDiagnostics.runScan(appCtx, state)
         }
     }
 
@@ -159,6 +175,20 @@ fun RootSettingsScreen(
                 },
             ) {
                 Text("Re-probe")
+            }
+            OutlinedButton(
+                enabled = !pending && state.grantsPrivileged,
+                onClick = {
+                    pending = true
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            RootPrivilegedDiagnostics.runScan(appCtx, state)
+                        }
+                        pending = false
+                    }
+                },
+            ) {
+                Text("Read-only SU checks")
             }
         }
 

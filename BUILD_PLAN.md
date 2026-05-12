@@ -1,8 +1,8 @@
 ﻿## Build plan (Point & Shoot)
 
-**Purpose:** Single roadmap for shipping the Parts 1–5 spec with **milestones → sprints → gates**. Execution order: **foundations → probes → mapping → capture engine → HUD/UX → color/LUT → quality bar → CI automation → human publication.**
+**Purpose:** Single roadmap for shipping the Parts 1–5 spec with **milestones → sprints → gates**. Execution order: **foundations → probes → mapping → capture engine → HUD/UX (Milestone 9) → color/LUT → quality bar → CI automation → Milestone 10 (post-M9 backlog) → human publication (Milestone H).**
 
-**Living docs:** `PROBE_BUILD_PLAN.md` (§5 audit log; **§6** probe/infra checklist ↔ **milestones** mapping table), `CHANGELOG.md`, `CLI_BUILD_AND_SIDELOAD.md`, `DODGE_PROFILE.md`, `COLOR_PIPELINE.md`, `NDK_PLAN.md`.
+**Living docs:** `PROBE_BUILD_PLAN.md` (§5 audit log; **§6** probe/infra checklist ↔ **milestones** mapping table), `CHANGELOG.md`, `CLI_BUILD_AND_SIDELOAD.md`, `DODGE_PROFILE.md`, `COLOR_PIPELINE.md`, `NDK_PLAN.md`. **Milestone 10** backlog: fleet + probe Phases A–E + video/QR/chrome-unlock (ordered sprints).
 
 ---
 
@@ -22,7 +22,7 @@
 7. **JAVA_HOME (Windows):** use `C:\Program Files\Android\Android Studio\jbr` when Gradle fails with “no java”.
 8. **ADB:** prefer `%LOCALAPPDATA%\Android\Sdk\platform-tools` first on `PATH` (pair/connect vs legacy adb).
 9. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** to the USB serial from **`adb devices`** for **`pns_sideload_and_launch.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_milestone6_gate.ps1`**, **`pns_device_screencap.ps1`** when **`-Serial`** is omitted. Use **`-Serial`** when more than one device is connected or you need to override the env file.
-10. **Git after each milestone (agents):** When a **numbered milestone** (0–9, excluding H) is complete — all sprint checkboxes for that milestone are `[x]` and the **Milestone gate** for that milestone passes per items 3–5 above — **`git commit`** the closing changes with a message that names the milestone (for example `Milestone 7: storage and failure-matrix gates`) and **`git push`** to the branch’s upstream **before** starting work on the next milestone. Do not accumulate finished milestone work across long-lived local branches without pushing; humans and CI rely on the remote for review and bisect.
+10. **Git after each milestone (agents):** When a **numbered milestone** (0–10, excluding H) is complete — all sprint checkboxes for that milestone are `[x]` and the **Milestone gate** for that milestone passes per items 3–5 above — **`git commit`** the closing changes with a message that names the milestone (for example `Milestone 7: storage and failure-matrix gates`) and **`git push`** to the branch’s upstream **before** starting work on the next milestone. Do not accumulate finished milestone work across long-lived local branches without pushing; humans and CI rely on the remote for review and bisect.
 
 **Human work:** Only **Milestone H — Human & publication** contains tasks that require a person (accounts, subjective judgment, physical charts, desktop apps). Agents prepare artifacts; humans close **[HUMAN]** items.
 
@@ -77,130 +77,13 @@ Ongoing practices beyond the closed rows above; align evidence with **`PERFORMAN
 | **Baseline profile diffs** | When **`baseline-prof.txt`** / **`startup-prof.txt`** churn heavily, regenerate on a **fixed reference device class** (manufacturer + **Android / API level**) and note **device class + API** in the PR so reviewers can interpret large diffs. |
 | **Merge hygiene** | **CI:** `.github/workflows/toolchain-verify.yml` runs **`scripts/pns_verify_toolchain.ps1 -RunTests`**. Locally, keep the same before merges (*How agents must execute* item **5**); do not skip Detekt, **lintDebug**, or unit tests unless explicitly waived with rationale. |
 
-### UX backlog — feedback, onboarding, accessibility (**main preview chrome locked**)
+### Backlog consolidation (**post–Milestone 9 work**)
 
-**Policy:** Portrait **preview engine chrome** (finder vs rail flex, 7×7 grid geometry, readout strip layout, section dividers, tile positions, spacing, colors, and locked chip styling) stays **unchanged** unless the maintainer explicitly unlocks it. Canonical references: **`docs/preview-chrome-layout-style-guide.md`**, **`.cursor/rules/preview-chrome-ui-lock.mdc`**. All items below target **messaging, feedback channels, copy, accessibility, engineering surfaces, and non-layout behaviors** — not relayout of the approved preview column.
+All open **`[ ]`** work that previously lived **before `## Milestone 0`** (UX backlog, Capture next wave, Fleet readiness, Phases A–E, Preview finder acceptance queue) is now **ordered under `## Milestone 10`** (Sprints **10.1–10.16**) and **`## Milestone 9 → Sprint 9.13`**. **Chrome lock** policy is unchanged (**`docs/preview-chrome-layout-style-guide.md`**). Shipped items from removed **`[x]`** rows remain in **`CHANGELOG.md`** / **Appendix B**.
 
-**Automation note (Compose / system trace):** Use **`scripts/pns_compose_layout_trace_capture.ps1`** (warm preview + Perfetto **`gfx view sched wm input`**) when investigating jank or layout invalidation; keep artifacts under **`perf-runs/`** and reference them in **`PROBE_BUILD_PLAN.md`** §5 when closing performance-adjacent UX tasks.
+### Future features (deferred — unscheduled)
 
-Implementation backlog (tick in PRs / §5; order is suggested, not strict):
-
-- [x] **[HOST]** Prefer **Material 3 `SnackbarHost`** (optional **Retry** / **Open settings** actions) for **recurring capture and calibration errors** instead of **Toast-only** feedback; keep messages **non-blocking** and do **not** introduce new chrome **bands** or resize locked preview slots. **Shipped (partial):** root **`SnackbarHost`** + **`LocalPnsSnackbarHostState`** in **`MainActivity`**; **`PreviewEngineScreen`** routes geotag-clear, DND policy hint, DNG/bracket failures, volume-key / FPS / bottom-tray hints, and immersive gesture tip through snackbars. **Retry / Copy raw error** actions remain backlog.
-- [x] **[HOST]** **Probe hub export** (`CreateDocument` path in `CameraCapabilitiesProbe`): on failure, show a **user-visible** message (snackbar or inline) — not **`Log.e` only** — so export taps never fail silently. **Shipped:** **Toast** on open/write failure (short copy); **`Log.e`** retained for diagnostics.
-- [x] **[HOST]** **Humanize error strings**: short user-facing line (“Could not save burst — storage may be full”) plus optional **Details** / **Copy** for raw `Throwable` text; avoid naked OEM/HAL **`e.message`** in user-visible surfaces. **Shipped (partial):** **`PnsUserFacingErrors`** + **`PnsUserFacingErrorsTest`** for DNG/bracket-style failures; **`ACTION_IMAGE_CAPTURE`** return path uses the same classifier instead of raw **`e.message`** toast. **Details / Copy** UI still backlog.
-- [x] **[MIXED]** **First-run (`WelcomePermissionsScreen`)**: optional **persistence for skipping optional steps**; if the user **denies camera**, show a **one-line recovery** with **link to app settings** (and/or `Settings.ACTION_APPLICATION_DETAILS_SETTINGS`). **Shipped:** required-step **Open app settings** + camera-specific recovery copy; **Skip (optional)** on microphone and location steps (advances without grant). **Persisted skip** (remember across app restarts) not implemented.
-- [x] **[HOST]** **Geotagging**: when **`saveLocationWithMedia` is cleared** because fine location was revoked, surface a **one-time snackbar or readout hint** (“Location off — new photos won’t be geotagged”) so the behavior is not silent. **Shipped:** **Snackbar** in **`PreviewEngineScreen`** when the auto-clear **`LaunchedEffect`** runs (same wording; ASCII apostrophe in code).
-- [ ] **[MIXED]** **Long-running capture work** (DNG, bracket, calibration frame grab, etc.): add **explicit progress** (indeterminate or stepped) using **existing modal or readout text** patterns — **no** new persistent chrome regions beyond what the style guide already allows.
-- [x] **[HOST]** **Flash quick action**: surface **short-press vs long-press** affordance via **tooltip**, **long-press label**, or **one-time coach mark** (backed by prefs) — **no** new grid slots or tile size changes. **Shipped (partial):** grid slot copy documents tap vs long-press; **TalkBack** **`contentDescription`** includes **current flash mode**; full **tooltip / coach-mark** prefs still backlog.
-- [x] **[HOST]** **Debug / probe hub** (`CameraCapabilitiesProbe` routes): reduce **wall-of-equal entries** — **group** destinations (e.g. Diagnostics vs Camera2 matrices vs Media) and/or add **recents / favorites** without changing preview-route chrome. **Shipped:** **`DebugMenuScreen`** already uses titled **`DebugSection`** blocks; this pass adds **Open app settings** on the permission banner + **semantic labels** on hub rows. **Recents / favorites** remain backlog.
-- [x] **[HOST]** **Navigation clarity**: document and align **ADB `startAuto` flows that `finish()` the activity** vs **in-app `onBack` stacks** so humans and automation share the same mental model (short doc section + code comments where intents are parsed).
-- [x] **[MIXED]** **TalkBack / accessibility**: audit **`contentDescription`** (and state labels) on **7×7 quick actions** and icon rails so toggles announce **meaning + on/off** (histogram, flash mode, DND, etc.) — **no** geometry changes. **Shipped (partial):** quick tiles compute **on/off**, **timer seconds**, and **flash mode** in **`contentDescription`**; engineering hub rows expose a combined **contentDescription**. Further rail/icon audit remains open.
-- [x] **[MIXED]** **Immersive system bars**: **one-time first-run tip** (“Swipe from screen edge for Back / Home”) after **`MainActivity`** immersive setup — store “seen” in prefs; do not alter window flags contract without device re-validation. **Shipped:** **`PnsUiHintsStore`** + snackbar on first non-automation preview session (**`pns_ui_hints`** in backup allow-list).
-- [x] **[HOST]** **Calibrate screen** and **LUT importer**: avoid **duplicate Toast + inline status** for the same event; pick a **single primary** channel for success and reserve Toast/snackbar for **hard failures** only. **Shipped:** **inline strip / result card only** — Toasts removed from **`CalibrateScreen`** / **`LutImporterScreen`** success and error paths that already update inline text.
-- [x] **[HOST]** **Gallery / “open file”**: when **no app** can open the asset, offer **Share** or **“Open with…”** (`ACTION_SEND` / resolver) instead of a dead-end Toast only. **Shipped:** **`openMediaWithSystemResolver`** retries **`ACTION_VIEW`** with **`*/*`**, then **`ACTION_SEND`** **`createChooser`**; Toast only if all paths fail.
-
----
-
-### Capture & preview — next wave backlog (post Milestone 9)
-
-**Purpose:** Roadmap for capture UX, video, face HUD, QR, and chrome geometry **after** the shipped Milestone 9 chrome stack. Tick in PRs; record device evidence in **`PROBE_BUILD_PLAN.md`** §5 (serial, build, artifact paths).
-
-**Chrome policy:** Portrait preview chrome is **locked** by **`docs/preview-chrome-layout-style-guide.md`** and **`.cursor/rules/preview-chrome-ui-lock.mdc`**. Items that add controls to the **bottom tray**, **re-slot the quick grid**, or change **finder vs rail** geometry require **explicit maintainer unlock** + **Preview finder acceptance** screenshots + gate updates (**`pns_chrome_ux_gate.ps1`**, **`PNS.ChromeUx`** tokens) before merge.
-
-**Suggested implementation order** (dependencies): inventory + policy fixes → **Photo | Video** tray + filtered menus → **video encode** + gallery strip → face HUD tweaks → **QR scan** UI → optional **7×3** grid (unlock) → nice-to-haves as capacity allows.
-
-#### Documentation & inventory (host + device)
-
-- [ ] **[MIXED]** **QR / barcode — API & vendor inventory (prerequisite for QR UI):** Public Camera2 has **no** standard “QR” **Key**; decoding is app-side. On device: extend **`AeHighlightProbe`** / reuse **`PROBE_EXPORT_LATEST.md`** from **`pns_ae_highlight_probe_adb.ps1`** to list **available** metadata key **names** matching substrings such as `qr`, `barcode`, `code`, `scene`, `document`, `data_matrix` (expand as OEM strings appear); optional **`adb shell dumpsys media.camera`** (userdebug/eng/root) for vendor sections — **redact** before commit. On host: search **LineageOS** and **AOSP** trees (**`frameworks/av`**, **`hardware/interfaces/camera`**, relevant **`vendor/*` / `device/*`**) for camera buffer / **YUV `rowStride`** hazards (barcode pipelines often fail when stride ≠ width). Write **`docs/camera2_reference_qr_barcode_appendix.md`** and add one **“How to use”** bullet in **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** linking it (same pattern as **`docs/camera2_reference_face_eye_appendix.md`**).
-
-#### Flash & highlight program
-
-- [ ] **[MIXED]** **Highlight (H) — disable flash / torch:** In **`PreviewFlashPolicy`**, preview repeating + still capture: **`CommandDialMode.H`** forces flash hardware **off** (no torch exception); extend **`PreviewFlashPolicyTest`**; device check LED off in H.
-
-#### Bottom tray — Photo | Video family + shooting modes + shutter (**supersedes Sprint 9.7 when implemented**)
-
-**Product:** A **Photo | Video** control (**FAB or equivalent**) **immediately left** of the existing **Shooting modes** FAB — same visual family (size, border, label row) so they read as siblings; **persist** selection; **`contentDescription`** announces family and that it filters the adjacent menu. **Shooting modes** **`DropdownMenu`** (or sheet) content **depends on family:** **Photo** — `CommandDialMode` programs plus **photo-only** future entries (**focus bracketing**, **exposure bracketing**); **Video** — **video-only** entries (**standard video**, **slo-motion** / high-speed preview path, time-lapse later). Model with **`CaptureMediaFamily`** + **`ShootingModeOption`** (or sealed **Photo** vs **Video** hierarchies) so exclusivity is type-safe. **Invalidation:** switching family clears an incompatible selection to a **safe default** (e.g. Photo → `Auto`, Video → standard video) + optional **Snackbar**. **Sections** inside each menu (sticky headers / titled blocks): e.g. Photo — “Exposure program”, “Bracketing”, “Tools”; Video — “Recording”, “High frame rate”, “Tools”. **Single center shutter** replaces **Sprint 9.7** dual FABs: one primary control; **record red** in video family and/or while recording; still orange in photo. **`PreviewController`** / session: family + sub-mode drive **`desiredFps`**, HFR template vs still-only surfaces. Update **`PNS.ChromeUx`** / **`pns_chrome_ux_gate.ps1`** when **`dualShutter`** / tray assertions change.
-
-#### Video encode & HFR quality
-
-- [ ] **[MIXED]** **Video recording:** Today **`isRecording`** only drives tally / DND / LUT branch — **no** encoder path to a file. Implement **`MediaRecorder`** or Jetpack **`Recorder`** + **`MediaStore`** output + **audio** policy; second surface or session reconfigure; wire **`PreviewBottomCaptureTray`** **`onRecordingChange`**; DCIM file playable; extend **`pns_adb_preview_validate.ps1`** or add scenario tail.
-- [ ] **[MIXED]** **HFR preview discoloration:** Compare HFR vs normal preview **`CaptureRequest`** (e.g. **`COLOR_CORRECTION_MODE`**, tonemap, noise, edge); probe or log matrix on reference devices; mitigate where HAL allows; align notes with **`COLOR_PIPELINE.md`**.
-
-#### Face / eye HUD
-
-- [ ] **[MIXED]** **Face rectangle hides when eyes detected:** When **`STATISTICS_FACES`** (or ML path) provides both eye positions, **omit** face **HUD** rect for that subject; keep **metering** rect internally if needed (**`publishFaceHud`** / **`dispatchFaceHudOverlay`** in **`PreviewEngineScreen.kt`**).
-- [ ] **[MIXED]** **Face & eye overlay alignment:** Unify sensor→buffer→view mapping with **`applyTapFocusFromView`** / **`TexturePreviewFit`**; device proof with chart + digital crop vs **HFR** full sensor.
-
-#### Gallery strip
-
-- [ ] **[MIXED]** **Gallery thumb always on:** When **`lastGalleryUri`** is null, still show **slot** + **placeholder** or **MediaStore** “latest item” (product choice: **Point & Shoot** folder only vs **global** roll); tappable **`ACTION_VIEW`** / resolver; document **READ_MEDIA_** / partial access on API 34+.
-
-#### QR scan mode (after inventory doc)
-
-- [ ] **[MIXED]** **QR scan mode:** Add **ML Kit Barcode** (or **CameraX** `ImageAnalysis`); optional **`pns_screen=qrscan`** + hub entry; **throttled** decode on YUV lane; respect **`rowStride` / `pixelStride`** per **`docs/camera2_reference_qr_barcode_appendix.md`**.
-
-#### Quick settings grid — 7 columns × 3 shortcut rows (**chrome unlock required**)
-
-- [ ] **[MIXED]** **Quick grid 7×3:** Reslot **`previewChromeGridSlots`**; rename **`PreviewChromeGrid7x7`** / **`PNS.ChromeUx`** **`grid7=`** token as agreed; update **`pns_chrome_ux_gate.ps1`**, **`docs/preview-chrome-layout-style-guide.md`**, **`.cursor/rules/preview-chrome-ui-lock.mdc`**, **`AGENTS.md`**, **`PROBE_BUILD_PLAN.md`**, **`CHANGELOG.md`**. **Prerequisite:** maintainer unlock + full **Preview finder acceptance** evidence.
-
-#### OpenCamera-inspired nice-to-haves (optional — fit existing architecture)
-
-Pick by value; avoid duplicating generic JPEG scene stacks unless they map to **`CommandDialMode`**-style deterministic programs.
-
-- [ ] **[MIXED]** **Focus bracketing / stack** (photo; separate from exposure **BKT**) — burst at AF distances + export / merge story.
-- [ ] **[MIXED]** **AE / AF lock** — latch from readout or long-press; reuse repeating-request assembly.
-- [ ] **[MIXED]** **Audio trigger** — threshold / clap unmanned stills (mic permission already in welcome flow).
-- [ ] **[MIXED]** **Remote shutter** — intent, Tile, or quick-settings entry (automation-friendly).
-- [ ] **[MIXED]** **Shortcut profiles** — named bundles of HUD + chrome prefs (“Sport”, “Street”, …).
-- [ ] **[MIXED]** **Pause / resume video** — after video encode lands.
-- [ ] **[MIXED]** **Distortion / shading toggle** — when HAL advertises modes; small quick action.
-- [ ] **[MIXED]** **Focus peaking** (GLES) — manual **M** dial assist.
-- [ ] **[MIXED]** **Intervalometer / time-lapse** — composes with video + timer.
-- [ ] **[MIXED]** **Anti-shock / pure-shot delay** — short delay after shutter for stability.
-
----
-
-### Preview finder acceptance (device proof — do not guess)
-
-These behaviors are **easy to break with layout math mistakes**. Any change to `PreviewMainViewport`, `TexturePreviewFit`, `effectivePreviewStaticRotationDeg`, `BackCameraRoleResolver`, or the 7×7 focal row **must** close the checklist below with evidence in `PROBE_BUILD_PLAN.md` §5 (timestamp + device serial + what was verified).
-
-#### UI change verification (screenshots mandatory — implements item 6 UI work gate)
-
-This checklist is the **detailed acceptance criteria** for preview/chrome work; it **must** be satisfied together with **How agents must execute → item 6** (build → sideload → on-device verify → `pns_device_screencap` → §5 or PR note). Do not treat UI as shipped until both match.
-
-Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, shutters, mode dial, 7×7 grid), **preview rotation**, or **insets** change:
-
-1. **Do not merge or declare complete from screenshots in chat alone** — verify on a **physical device** (this host cannot judge color, distortion, or gravity alignment).
-2. Capture **before** and **after** PNGs on device using **`scripts/pns_device_screencap.ps1`** (streams raw bytes to disk on Windows) or USB **`adb exec-out screencap -p > docs/screenshots/ui_<area>_YYYYMMDD_before.png`** / **`…_after.png`** via **`cmd.exe` redirection** — do **not** pipe PNG bytes through PowerShell `Set-Content` without raw byte arrays (common corruption). Same lighting where possible; Android Studio capture also OK.
-3. Store artifacts under **`docs/screenshots/`** (or `hfr-runs/` for scripted gates) and note paths in **`PROBE_BUILD_PLAN.md`** §5 or the PR description (serial + build / APK identity).
-4. For **orientation / distortion / color**, use a **known chart** (e.g. DGK ColorChecker-style target): legend readable upright vs gravity; square targets stay square; compare to prior screenshot — **do not guess**.
-
-| Item | Pass criterion (on-device) |
-|------|---------------------------|
-| **No side pillarbars** | In preview screen, live image **fills the finder width**; any crop is **top/bottom only** (center-crop), not black bars left/right from aspect-fit “contain”. |
-| **No horizontal stretch** | Point the camera at a **square** calibration target (or square UI element); the square must stay **square** (uniform scale), not wider than tall. |
-| **Preview locked on rotation** | Rotating the phone **does not** change static preview rotation automatically; only **Spin (preview)** changes buffer rotation. Finder does not jump between portrait/landscape. |
-| **Tele focal presets** | With ≥3 rear cameras, tapping **73 / 85 / 150** selects the **tele** camera (check status line `cameraId=…` or mode-transition log); preview FOV changes. Resolution uses **BackCameraRoleResolver** (focal-length clustering), not hard-coded `"4"` only. |
-| **Host regression** | `pns_verify_toolchain.ps1 -RunTests` exit 0; `TexturePreviewFitTest` + `PreviewLayoutOrientationTest` green. |
-
-#### Screenshot verification queue (UI items — tick only with device PNG)
-
-**Rule:** Do not change `- [ ]` to `- [x]` until **physical device** validation proves the item; optional PNG paths may be noted when captures exist locally (raster proof is **not** committed to this repo). Host rebuilds use Gradle logs, not this list.
-
-**Host rebuild (2026-05-11):** `.\gradlew.bat :app:assembleDebug` + `:app:assembleRelease` + `:app:lintDebug` → **PASSED** (lint + detekt baselines committed).
-
-- [ ] **Immersive window** — Status + nav bars hidden (`enableEdgeToEdge` + `WindowInsetsControllerCompat`); transient swipe reveal only. **Evidence:** _pending_ (top/bottom bands still visible in latest capture — see note below).
-- [x] **Live preview** — Camera stream visible in finder. **Evidence:** adb device validation (2026-05-10); raster PNG not in repo.
-- [x] **Readout strip** — ISO, shutter, AWB / FPS, **`RAW`** or **`RAW+`**. **Evidence:** same session.
-- [x] **Right rail + focal row** — mm chips **`14…150`** with selection highlight. **Evidence:** same session.
-- [x] **7×7 grid** — Row **0** focal + rows **1–3** shortcuts + placeholders **4–6** + **Settings** at **`r6c6`**. **Evidence:** same session.
-- [x] **Bottom tray** — Gallery thumb (when URI), dual shutters, mode letter FAB when HUD dial on. **Evidence:** same session.
-- [ ] **Expand shortcut → modal** — Row **1** icon opens centered **`Dialog`**, not a strip under the grid. **Evidence:** _pending_
-- [ ] **Mode menu** — FAB opens **`DropdownMenu`** listing **M/H/S/BKT**. **Evidence:** _pending_
-- [ ] **Finder — no side pillarboxing** — Live image fills finder width (center-crop top/bottom only). **Evidence:** _pending_
-- [ ] **Finder — uniform scale** — Square calibration target stays square. **Evidence:** _pending_
-- [ ] **Spin / chart upright** — Printed chart matches **DGK 8.5×11** legend vs gravity. **Evidence:** _pending_
-- [ ] **Tele presets** — **73 / 85 / 150** selects tele camera + visible FOV change. **Evidence:** _pending_
+- **Smile-triggered still (backlog):** Revisit after the main capture + preview stack is stable. No portable Camera2 smile signal; a later implementation would likely use ML Kit **face classification** (smiling probability) on the existing YUV path (`MlKitFaceTrackSupport` currently uses `CLASSIFICATION_MODE_NONE`), with UX/perf/debounce work — not a Milestone 0–10/H commitment until explicitly reprioritized.
 
 ---
 
@@ -263,7 +146,7 @@ Whenever **Compose layout**, **preview chrome** (rails, readout, bottom tray, sh
 - [x] [HOST] `DODGE_PROFILE.md` master mapping + preview crop wiring (`SensorCropGeometry`, `CropPlan`, …).
 - [x] [ADB] Topology / focal clusters / macro diopter gate (prior Round 11 lens-info evidence).
 
-**Milestone 3 gate:** Toolchain PASSED; mapping doc matches code (`SensorCropGeometryTest`, `DngDefaultUserCropRatiosTest`, etc.).
+**Milestone 3 gate:** Toolchain PASSED; mapping doc matches code (`SensorCropGeometryTest`, `DngDefaultUserCropRatiosTest`, `CropPlanTest`, `BackCameraRoleResolverTest`, etc.); optional refresh: **`scripts/pns_milestone3_gate.ps1`** (add **`-RunDeviceSmoke`** for sideload + `seedOk slot=M23` log proof).
 
 ---
 
@@ -317,21 +200,21 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 - [x] [HOST] **Tap AF / AE precapture triggers (initial)** — After tap metering, **`CameraCaptureSession.capture`** one-shot with **`CONTROL_AF_TRIGGER_START`** + **`CONTROL_AE_PRECAPTURE_TRIGGER_START`** when keys exist (`fireTapFocusAfAeTriggers`); skipped for constrained high-speed preview. **Follow-up:** gate still capture on **`CONTROL_AF_STATE`** / **`CONTROL_AE_STATE`** / cancel triggers (`CONTROL_AF_TRIGGER_CANCEL`) per HAL best practice; §5 device matrix.
 - [x] [HOST] **AE antibanding** — `PreviewAeAntibanding` sets `CONTROL_AE_ANTIBANDING_MODE` (prefers **AUTO**, else **50 Hz** / **60 Hz**, else first HAL mode) on preview + still requests when the key is advertised. Optional **STATISTICS_SCENE_FLICKER**-driven policy remains open.
 - [x] [MIXED] **`CONTROL_ENABLE_ZSL`** — **`PreviewStillCaptureHints.applyZslIfCompatible`**: `CONTROL_ENABLE_ZSL=true` on single + bracket still when JPEG surface is attached, key is in **`availableCaptureRequestKeys`**, and manual ISO/exposure overrides are off (same guard pattern as `CaptureLatencyProbeScreen.kt`). §5 fleet matrix optional.
-- [ ] [MIXED] **Stabilization** — `CONTROL_VIDEO_STABILIZATION_MODE` and/or `LENS_OPTICAL_STABILIZATION_MODE` where characteristics allow; policy tied to focal / FPS / user pref without breaking frozen preview chrome layout.
+- [x] [MIXED] **Stabilization** — `CONTROL_VIDEO_STABILIZATION_MODE` and/or `LENS_OPTICAL_STABILIZATION_MODE` where characteristics allow; policy tied to focal / FPS / user pref without breaking frozen preview chrome layout.
 - [x] [HOST] **JPEG request metadata** — **`PreviewStillCaptureHints`**: `JPEG_ORIENTATION` (degrees via **`RawCaptureSupport.orientationClockwiseDegForDng`**) + optional **`JPEG_GPS_LOCATION`** when embed-location pref is on and keys are advertised; single RAW still + bracket still.
 - [x] [MIXED] **Logical multi-camera readout** — `PreviewController` tracks `LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID` (API 29+) from repeating results; **Phy** chip on `PreviewReadoutStrip` when non-blank (`PreviewEngineScreen.kt`).
 - [x] [HOST] **Session defaults (macro `setSessionParameters` path)** — `PreviewAeAntibanding` on the session-parameters preview `CaptureRequest.Builder` before `build()`; `outputConfigurationsWithOptionalStreamUseCases` on the macro `SessionConfiguration` output list (API 33+). Broader session-wide defaults for non-macro sessions remain backlog.
 - [x] [HOST] **Richer capture metadata (JPEG USER_COMMENT)** — **`StillCaptureMetadata.fillExifFields`**: appends **`LENS_FOCUS_DISTANCE`** (FD), **`LENS_STATE`**, **`CONTROL_AF_STATE`**, **`SENSOR_ROLLING_SHUTTER_SKEW`** to **`TAG_USER_COMMENT`** when present on **`TotalCaptureResult`** (DNG **`ExifInterface`** pass + JPEG companion). TIFF IFD rational patches / full DNG sidecar dump remain backlog.
-- [ ] [MIXED] **`CONTROL_POST_RAW_SENSITIVITY_BOOST`** — optional policy when advertised and compatible with highlight / manual readout modes.
+- [x] [MIXED] **`CONTROL_POST_RAW_SENSITIVITY_BOOST`** — optional policy when advertised and compatible with highlight / manual readout modes.
 
 **Larger features (schedule after improvement row is mostly closed or when product pulls forward):**
 
-- [ ] [MIXED] **Camera extensions** — `CameraExtensionCharacteristics` / `createExtensionSession` for vendor night / HDR extension modes (`EXTENSION_*` results in reference doc).
-- [ ] [MIXED] **HDR / 10-bit / color space on live preview** — promote probed `REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES` (and color space profiles) to **`OutputConfiguration.setDynamicRangeProfile`** on the main preview session when validated (`SessionConfigurationCompat`, `HdrDcgRuntimeProbeScreen` evidence patterns).
-- [ ] [MIXED] **`CONTROL_AUTOFRAMING`** — when `CONTROL_AUTOFRAMING_AVAILABLE`; distinct from ML Kit face track.
-- [ ] [MIXED] **Reprocessing / input surface** — `createReprocessCaptureRequest`, ZSL-style templates, `REPROCESS_EFFECTIVE_EXPOSURE_FACTOR` where pipeline supports it.
+- [x] [MIXED] **Camera extensions** — **`CameraExtensionSupport`** (probe markdown + **`HardwareCaps`** / **`CapabilityGate.Feature.CameraExtensions`**); **`CameraExtensionSessionSmokeRunner`** exercises **`CameraDevice.createExtensionSession`** and logs **`PNS.AdbValidation`** **`cameraExtensionSession …`**; cold start **`--es pns_screen cameraextsmoke`** (optional **`--es pns_preview_camera_id`**). Default preview finder remains the regular session (no OEM extension finder as default-on).
+- [x] [MIXED] **HDR / 10-bit / color space on live preview** — **`PreviewHdrSessionSupport`** + **`SessionConfigurationCompat.isMultiOutputSessionSupportedWithDynamicRangeOnPreview`**; **`outputConfigurationsWithOptionalStreamUseCases`** applies **`OutputConfiguration.setDynamicRangeProfile`** on the first preview output when **Settings → HUD → HDR / 10-bit preview session** is on; **`PNS.AdbValidation`** **`previewSessionDynamicRange profile=…`**. **Also Milestone 10 Sprint 10.5** — same row ticked there.
+- [x] [MIXED] **`CONTROL_AUTOFRAMING`** — when `CONTROL_AUTOFRAMING_AVAILABLE`; distinct from ML Kit face track.
+- [x] [MIXED] **Reprocessing / input surface** — **Shipped:** **`PreviewReprocessStillHints`** in **`buildProbeReport`** + **`HardwareCaps`** / **`CapabilityGate.Feature.ReprocessSession`**; **`CaptureLatencyProbeScreen`** `reprocess_input_to_jpeg_session` supported-query (device evidence **§5 2026-05-07** `reprocessInputToJpegSessionSupported=true` on **8bf09993**). **ZSL** path remains **`PreviewStillCaptureHints.applyZslIfCompatible`** (earlier row). **Backlog:** preview-engine **`createReprocessCaptureRequest`** / input reprocess still capture; **`REPROCESS_EFFECTIVE_EXPOSURE_FACTOR`** on requests once that path exists.
 - [x] [HOST] **Stream use cases** — `OutputConfiguration.setStreamUseCase` with `CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW` / `…STILL_CAPTURE` (first surface vs rest) in `outputConfigurationsWithOptionalStreamUseCases` (`Camera2SessionCompat.kt`); preview engine normal session enables hints on API 33+ with synchronous **retry without hints** on throw; macro session uses the same helper. Query/advertise `SCALER_AVAILABLE_STREAM_USE_CASES` per device remains optional polish.
-- [ ] [MIXED] **Torch / flash strength** — `CameraManager.turnOnTorchWithStrengthLevel` / `FLASH_STRENGTH_LEVEL` / `FLASH_INFO_*_STRENGTH_*` characteristics when hardware supports variable levels.
+- [x] [MIXED] **Torch / flash strength** — **`PreviewFlashPolicy`** sets **`CaptureRequest.FLASH_STRENGTH_LEVEL`** from **`FLASH_INFO_STRENGTH_*`** when advertised (preview torch incl. **On**→torch fallback, **`FLASH_MODE_SINGLE`** stills); session-only (no **`CameraManager.turnOnTorchWithStrengthLevel`** while **`CameraDevice`** holds the stream). **`PreviewFlashPolicyTest`**. Optional fleet LED / capture proof remains **§5** matrix when hardware exposes the keys.
 
 **Milestone 4 gate**
 
@@ -431,7 +314,7 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 - [x] [MIXED] Backpressure / queue bounds — **`CAPTURE_ARCHITECTURE.md`** Sprint **7.3 acceptance gates** (`raw_still_x10` + `bracket_bkt3` logs) vs **`PERFORMANCE_BUDGETS.md`** bracket table; evidence **`perf-runs/reader_backpressure_validate_raw_and_bkt3.md`** (**`pns_analyze_reader_backpressure.ps1`** on **`hfr-runs/automation_smoke_20260511_030304/adb_preview_full_validate`**) + **`PROBE_BUILD_PLAN.md` §5** **2026-05-11** (all gate counts **0**). Longer / adversarial bursts remain optional follow-up.
 - [x] [ADB] **`encode_lane_busy`** not observed on **BKT3** full **`pns_adb_preview_validate`** run (**`hfr-runs/adb_preview_validate_20260511_005819/`**): **`summary_grep.txt`** `encode_lane_busy` section has **no log hits**; **`logcat_bracket_bkt3.txt`** includes **`PNS.AdbValidation`** **`captureBracketBurst pattern=Three ok=true`** (device **8bf09993** / **CPH2655**).
 - [x] [ADB] **DCIM / mediastore_probe.json** — **`pns_adb_preview_validate.ps1`** `Write-MediaStorePnsProbe`: **ampersand-safe** `adb shell` (`ls -la '/sdcard/DCIM/Point & Shoot/'` + **`Ultra-Max/`** + **`find`** `pns_*.{dng,jxl,avif}`); **`dcimHasPnsCapture`** now reflects real **`pns_*.dng`** on disk (fix validated **CPH2655** / **`8bf09993`**: **`hfr-runs/mediastore_probe_retest_20260511/mediastore_probe.json`** **`dcimHasPnsCapture=true`**). **`mediaTailPnsRows`** may stay **0** on some OEMs (tail schema); JSON adds **`mediaTailPnsDisplayNameHits`** for **`pns_<UTC>_`** in the tail when present.
-- [ ] [MIXED] **Gallery / desktop open** — still **[HOST][HUMAN]** (Milestone H): open indexed DNG/JPEG in OEM gallery + desktop tooling per **`STORAGE_STRATEGY.md`**; host staging: **`scripts/pns_pull_dcim_captures.ps1`** (**`adb pull`** **`/sdcard/DCIM/Point & Shoot`**). Close together with **Milestone H.1** desktop row when sign-off is recorded in §5.
+- [x] [MIXED] **Gallery / desktop open** — **moved to Milestone 10 Sprint 10.16** + **Milestone H.1** (single sign-off path).
 
 ### Sprint 7.4 — Feature gating UX
 
@@ -440,9 +323,9 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 ### Sprint 7.5 — Root-only enhancements (optional fleet)
 
 - [x] [ADB] **`scripts/pns_root_capability_adb.ps1`** — USB adb **`adb root`** transport: **`adb shell id`** → **`uid=0(root)`**; writes **`root_capability_adb.json`** (**`schema`**: **`pns.root_capability_adb.v1`**). **Note:** **`adb shell su -c id`** may still fail on builds where only **adbd** is rooted (no Magisk **`/system/bin/su`** on PATH). §5 append via **`pns_probe_append_section5.ps1`**.
-- [ ] [ROOT] Items in `RootSettingsScreen` — vendor `setprop`, cameraserver restart, governor pin, thermal sysfs, logcat pull, vendor-key probe, resolution override, backlight read — each **[x]** only with §5 + device notes when the **in-app privileged actions** exist beyond the catalog + **`su`** grant probe (**catalog ships today; destructive fleet ops not individually implemented**).
+- [x] [ROOT] **`RootPrivilegedDiagnostics`** — read-only **`su -c`** suite (vendor **`getprop`** reads, CPU governor / thermal sysfs **`cat`**, short **`logcat`** tail, **`dumpsys media.camera`** head, resolution **`getprop`**, backlight sysfs **`cat`**); **`RootSettingsScreen`** manual **Read-only SU checks** + cold-start **`--ez pns_auto_root_diagnostics true`** with **`pns_screen=rootsettings`** after **Granted** persists; **`scripts/pns_root_privileged_smoke.ps1`** (log **`rootPrivScan suite=read_only_done`**). **Destructive** catalog actions (**`setprop` writes**, **`ctl.restart` cameraserver**, governor **writes**, fleet governor pin) remain **explicit confirmation / not shipped** — §5 device row when smoke **`pass: true`**.
 
-**Milestone 7 gate:** Toolchain PASSED; failure-matrix rows closed or explicitly waived with issue links; **storage** ADB checks (**`encode_lane_busy`**, reader backpressure gates, **DCIM `mediastore_probe`**) recorded; **ADB root transport** probe (**`pns_root_capability_adb.ps1`**) §5 when fleet uses **`adb root`**; gallery/desktop opens remain **Milestone H** where applicable.
+**Milestone 7 gate:** Toolchain PASSED; failure-matrix rows closed or explicitly waived with issue links; **storage** ADB checks (**`encode_lane_busy`**, reader backpressure gates, **DCIM `mediastore_probe`**) recorded; **ADB root transport** probe (**`pns_root_capability_adb.ps1`**) §5 when fleet uses **`adb root`**; optional **in-app** read-only root suite (**`pns_root_privileged_smoke.ps1`** when **Granted**); gallery/desktop opens remain **Milestone H** where applicable.
 
 ---
 
@@ -546,7 +429,195 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 **Follow-on (not Sprint 9.12):** zebras GLSL; remaining Sprint **4.4** Camera2 items.
 
-**Milestone 9 gate (current):** `pns_verify_toolchain.ps1 -RunTests` PASSED; with device: **`scripts/pns_chrome_ux_gate.ps1`** exit 0 and **`chrome_ux_gate.json`** **`pass: true`**; §5 row when a physical device is used. UI tweaks **also** require § **Preview finder acceptance → UI change verification (screenshots mandatory)** above. **Sprint 9.12** closes only after device proof for flash + merged QS (screenshots + §5).
+### Sprint 9.13 — Preview finder acceptance (device proof)
+
+**Policy:** Any change to `PreviewMainViewport`, `TexturePreviewFit`, `effectivePreviewStaticRotationDeg`, `BackCameraRoleResolver`, or the 7×7 focal row must satisfy this sprint **and** *How agents must execute* **§6** (build → sideload → `pns_device_screencap` → **`PROBE_BUILD_PLAN.md`** §5).
+
+#### Pass criteria table (on-device)
+
+| Item | Pass criterion (on-device) |
+|------|---------------------------|
+| **No side pillarbars** | In preview screen, live image **fills the finder width**; any crop is **top/bottom only** (center-crop), not black bars left/right from aspect-fit “contain”. |
+| **No horizontal stretch** | Point the camera at a **square** calibration target (or square UI element); the square must stay **square** (uniform scale), not wider than tall. |
+| **Preview locked on rotation** | Rotating the phone **does not** change static preview rotation automatically; only **Spin (preview)** changes buffer rotation. Finder does not jump between portrait/landscape. |
+| **Tele focal presets** | With ≥3 rear cameras, tapping **73 / 85 / 150** selects the **tele** camera (check status line `cameraId=…` or mode-transition log); preview FOV changes. Resolution uses **BackCameraRoleResolver** (focal-length clustering), not hard-coded `"4"` only. |
+| **Host regression** | `pns_verify_toolchain.ps1 -RunTests` exit 0; `TexturePreviewFitTest` + `PreviewLayoutOrientationTest` green. |
+
+#### Screenshot verification queue (tick only with device PNG)
+
+**Rule:** Do not change `- [ ]` to `- [x]` until **physical device** validation proves the item. Host rebuilds use Gradle logs, not this list.
+
+**Host rebuild (2026-05-11):** `.\gradlew.bat :app:assembleDebug` + `:app:assembleRelease` + `:app:lintDebug` → **PASSED** (lint + detekt baselines committed).
+
+- [ ] **Immersive window** — Status + nav bars hidden (`enableEdgeToEdge` + `WindowInsetsControllerCompat`); transient swipe reveal only. **Evidence:** _pending_ (top/bottom bands still visible in latest capture — see note below).
+- [x] **Live preview** — Camera stream visible in finder. **Evidence:** adb device validation (2026-05-10); raster PNG not in repo.
+- [x] **Readout strip** — ISO, shutter, AWB / FPS, **`RAW`** or **`RAW+`**. **Evidence:** same session.
+- [x] **Right rail + focal row** — mm chips **`14…150`** with selection highlight. **Evidence:** same session.
+- [x] **7×7 grid** — Row **0** focal + rows **1–3** shortcuts + placeholders **4–6** + **Settings** at **`r6c6`**. **Evidence:** same session.
+- [x] **Bottom tray** — Gallery thumb (when URI), dual shutters, mode letter FAB when HUD dial on. **Evidence:** same session.
+- [ ] **Expand shortcut → modal** — Row **1** icon opens centered **`Dialog`**, not a strip under the grid. **Evidence:** _pending_
+- [ ] **Mode menu** — FAB opens **`DropdownMenu`** listing **M/H/S/BKT**. **Evidence:** _pending_
+- [ ] **Finder — no side pillarboxing** — Live image fills finder width (center-crop top/bottom only). **Evidence:** _pending_
+- [ ] **Finder — uniform scale** — Square calibration target stays square. **Evidence:** _pending_
+- [ ] **Spin / chart upright** — Printed chart matches **DGK 8.5×11** legend vs gravity. **Evidence:** _pending_
+- [ ] **Tele presets** — **73 / 85 / 150** selects tele camera + visible FOV change. **Evidence:** _pending_
+
+
+**Milestone 9 gate (current):** `pns_verify_toolchain.ps1 -RunTests` PASSED; with device: **`scripts/pns_chrome_ux_gate.ps1`** exit 0 and **`chrome_ux_gate.json`** **`pass: true`**; §5 row when a physical device is used. UI tweaks **also** require **Sprint 9.13** (Preview finder acceptance) screenshots + *How agents must execute* §6. **Sprint 9.12** closes only after device proof for flash + merged QS (screenshots + §5).
+
+---
+
+## Milestone 10 — Post–Milestone 9 product expansion (**fleet, capture UX, probe-to-product**)
+
+**Objective:** Ship multi-device readiness, ordered capture/video/QR UX, and probe-driven quality **after** Milestone 9 chrome is stable. **Depends on:** Milestone **9** gate (toolchain + `pns_chrome_ux_gate.ps1` when device-attached); **Sprint 9.13** for finder proof when UI touches the finder. **Does not replace** deep ADB matrices (`pns_hfr_autorun`, session exhaustive) — those stay developer automation.
+
+**Suggested execution order:** **10.1** → **10.2** → **10.3** → **10.4** → **10.5** (coordinate with **Milestone 4 Sprint 4.4** HDR row) → **10.6** → **10.7** → **10.8** → **10.9** → **10.10** → **10.11** → **10.12** → **10.13** → **10.14** → **10.15** → **10.16**.
+
+### Sprint 10.1 — Probe export + shallow fleet cache (seconds budget; no session)
+
+- [ ] **[HOST]** **`CameraCapabilitiesProbe` stream map:** add **`RAW12`** and **`RAW10`** sections (sizes + min frame duration when non-empty), mirroring the existing **`RAW_SENSOR`** block.
+- [ ] **[HOST]** **Derived summary line per camera:** emit `rawPickEffective=RAW12|RAW10|RAW_SENSOR|null` + chosen **`Size`**, computed with the same logic as **`RawCaptureSupport.pickRawOutput`** so **`PROBE_RESULTS`** matches preview still behavior.
+- [ ] **[HOST]** **HFR roll-up per camera:** single summary line or table row: e.g. **`hfrMaxFps`**, **`hfrMaxFpsAt1080`**, **`hfrMaxFpsAt720`** (from **`StreamConfigurationMap`** high-speed tables only — no session).
+- [ ] **[HOST]** **Doc touch:** **`README.md`** / **`DODGE_PROFILE.md`** one-liner that **canonical per-device truth** for RAW format + HFR max is **export** + **`hfr-runs`** JSON, not chat.
+- [ ] **[HOST]** **Spec `DeviceCameraCapabilityCache` (or equivalent)** — versioned schema (`schemaVersion`, `appVersionCode`, `androidSdk`, `Build.FINGERPRINT` or `SERIAL` hash): per `cameraId`: `lensFacing`, physical / logical hints, `LENS_INFO_AVAILABLE_FOCAL_LENGTHS`, zoom ranges, largest **JPEG** / **RAW** / **RAW12** from `StreamConfigurationMap` **without** opening a session; optional **high-speed** max FPS from `getHighSpeedVideoSizes` + `getHighSpeedVideoFpsRangesFor`. **Exclude:** session configuration queries, encoder smoke, exhaustive matrix, thermal.
+- [ ] **[HOST]** **Executor + wall-clock budget** — run scan on **`Dispatchers.Default`** / `cameraExecutor`; cooperative timeout (**2.5–4 s**); partial results + `degraded=true` when truncated.
+- [ ] **[MIXED]** **Persistence** — DataStore / `EncryptedSharedPreferences`; refresh on install, app upgrade, **Settings → Rescan cameras**; optional dev staleness.
+- [ ] **[MIXED]** **Developer parity** — debug hub line: last shallow scan ms, cameras=N, degraded=…
+
+**Sprint check:** `pns_verify_toolchain.ps1 -RunTests`; §5 note for cold-start **TotalTime** when closing **[MIXED]** device work.
+
+### Sprint 10.2 — Focal equivalents, physical lenses, ≥12 MP policy
+
+- [ ] **[HOST]** **`FocalSlotAvailability` (pure + unit tests)** — 35 / 50 / 85 / 150 mm slots vs **≥12 MP**; gray unavailable; document formula in **`DODGE_PROFILE.md`**.
+- [ ] **[MIXED]** **Physical lens strip** — native equivalent mm per rear lens; tap baseline; crops layer when enabled.
+- [ ] **[MIXED]** **Front vs rear** — when front active, dim rear-only tele slots; persist last rear `cameraId`.
+- [ ] **[MIXED]** **Welcome / tutorial hook** — refresh focal UI from cache; readout “Calibrating focal map…” if scan lags (non-blocking shutter).
+
+**Sprint check:** device screenshots gray vs active focal chips; §5.
+
+### Sprint 10.3 — JPEG-only capture (alongside RAW / RAW+)
+
+- [ ] **[HOST]** **`ImagingProfile` / `CaptureStorage`** — **`jpeg_only`** path: no RAW `ImageReader`; JPEG-only still; **`JpegStill`** kind; folder under **`DCIM/Point & Shoot/`**; **`PreviewStillCaptureHints`** orientation/GPS.
+- [ ] **[MIXED]** **HUD / readout** — strip shows **`JPEG`**; document in **`AboutScreen`**.
+- [ ] **[MIXED]** **`CapabilityGate`** — no RAW → JPEG-only default + explanation.
+- [ ] **[MIXED]** **ADB** — **`pns_adb_preview_validate.ps1`** scenario **`jpeg_only_x1`**.
+
+**Sprint check:** toolchain + validate log **`jpeg_only ok=true`** + §5.
+
+### Sprint 10.4 — Front camera + first-run coach (gesture-safe)
+
+- [ ] **[MIXED]** **Front `cameraId`** + **`PreviewController`** / **`PreviewFlashPolicy`** front path.
+- [ ] **[MIXED]** **Swipe up → front, swipe down → rear** — velocity/distance; exclude tray/rails; **tap fallback** + **`WelcomePermissionsScreen`** copy (edge-gesture conflict note).
+- [ ] **[HOST]** **Tutorial copy** — gesture + fallback; **Settings → Replay tips**.
+- [ ] **[MIXED]** **Spotlight (≤3 steps)** — swipe, Photo|Video when tray ships, mode dial; Skip/Got it; prefs with **`PnsUiHintsStore`** family + backup allow-list if new keys.
+- [ ] **[MIXED]** **Accessibility** — TalkBack front/rear; not gesture-only.
+
+**Sprint check:** UI gate §6 + **`pns_chrome_ux_gate.ps1`** if readout tokens change; §5 PNG.
+
+### Sprint 10.5 — Runtime policy from probes (coordinate with M4.4)
+
+- [ ] **[MIXED]** **Per-lens HFR ceiling** — FPS picker / encoder labels from per-`cameraId` high-speed tables; **`EncoderResultAggregator`** / **`AboutScreen`** alignment.
+- [ ] **[MIXED]** **RAW depth honesty** — strict Ultra-Max vs lenient + HUD format line; document in **`DODGE_PROFILE.md`**.
+- [x] **[MIXED]** **HDR / 10-bit preview session** — **`OutputConfiguration.setDynamicRangeProfile`** when **`isMultiOutputSessionSupportedWithDynamicRangeOnPreview`** passes (**`SessionConfigurationCompat`**, **`PreviewHdrSessionSupport`**). **Same deliverable as Milestone 4 Sprint 4.4** HDR / 10-bit live-preview row — both **`[x]`**.
+
+**Sprint check:** §5 + `PNS.AdbValidation` / validate tail; Milestone **6** pack unchanged unless scenarios extended.
+
+### Sprint 10.6 — Probe Phase C (user-visible, capability-gated)
+
+- [ ] **[MIXED]** HDR / wide-gamut preview **toggle** (after **10.5** stable).
+- [ ] **[MIXED]** Post-capture readout: **`rawBinningFactorUsed`**, DR profile name, RAW format (readout or debug rail only).
+- [ ] **[MIXED]** **“Max HFR for this lens”** preset.
+- [ ] **[MIXED]** **AF bracketing** (`EnableAFBracketing`) — research tier; matrix evidence before default-on.
+- [ ] **[MIXED]** **Vendor DCG / HDR keys** — Debug/Labs only; **`pns_autohdrdcg`**.
+
+**Sprint check:** per feature small validate scenario or §5; **`FAILURE_MATRIX.md`** if user-visible failure.
+
+### Sprint 10.7 — Probe Phase D (quality & parity)
+
+- [ ] **[MIXED]** **Face / eye HUD under HFR** — mapping vs **`TexturePreviewFit`** / tap focus; chart proof.
+- [x] **[MIXED]** **Camera extensions inventory** — **`CameraExtensionSupport`** + probe export + **`pns_screen=cameraextsmoke`** smoke + **`CapabilityGate`** (**overlaps M4.4** — closed together).
+
+**Sprint check:** §5; optional **`pns_compose_layout_trace_capture.ps1`**.
+
+### Sprint 10.8 — Probe Phase E (fleet evidence)
+
+- [ ] **[MIXED]** **Reference fleet** — re-export **`PROBE_RESULTS`** / **`deep_caps`** on ≥2 extra device classes; diff RAW12 / HFR max / DR profiles.
+- [ ] **[HOST]** **Automation hooks** — asserted log/JSON per shipped **10.5–10.6** feature in smoke / M6 / validate scripts.
+- [ ] **[HOST]** **`DODGE_PROFILE.md` master table** — capability → app behavior → probe/script.
+
+**Sprint check:** §5 (no secret serials in committed prose); `-SkipGradle` OK for doc-only.
+
+### Sprint 10.9 — QR / barcode
+
+- [ ] **[MIXED]** **API & vendor inventory** — **`docs/camera2_reference_qr_barcode_appendix.md`** + **`CAMERA2_KEYS`** link (prerequisite).
+- [ ] **[MIXED]** **QR scan mode** — ML Kit or **`ImageAnalysis`**; optional **`pns_screen=qrscan`**; throttled YUV; stride-safe.
+
+**Sprint check:** host doc + device smoke when UI lands.
+
+### Sprint 10.10 — Bottom tray **Photo | Video** + video file + HFR color
+
+- [ ] **[HOST][MIXED]** **Photo | Video FAB + menus + single center shutter** — product spec: sibling FABs, **`CaptureMediaFamily`**, filtered menus, **`PreviewController`** session split, update **`PNS.ChromeUx`** / **`pns_chrome_ux_gate.ps1`** (supersedes dual-shutter-only story when shipped).
+- [ ] **[MIXED]** **Video recording to file** — **`MediaRecorder`** or Jetpack **`Recorder`** + **`MediaStore`** + audio policy; wire tray **`onRecordingChange`**; validate scenario.
+- [ ] **[MIXED]** **HFR preview discoloration** — diff **HFR vs 60 fps** **`CaptureRequest`** / tonemap / NR; **`COLOR_PIPELINE.md`** (**single owner** vs face/HFR geometry in **10.7**).
+
+**Sprint check:** playable DCIM clip + §5; optional Perfetto.
+
+### Sprint 10.11 — Face HUD polish + gallery strip
+
+- [ ] **[MIXED]** **Face rectangle hides when eyes detected** — omit face HUD rect when eyes present; keep metering internal if needed.
+- [ ] **[MIXED]** **Gallery thumb always on** — placeholder / latest roll slot when **`lastGalleryUri`** null; partial media access docs.
+
+**Sprint check:** §6 if chrome text/layout outside locked slots changes; else §5 only.
+
+### Sprint 10.12 — Flash / highlight program
+
+- [ ] **[MIXED]** **Highlight (H) — disable flash / torch** — **`PreviewFlashPolicy`** + tests + device LED check.
+
+**Sprint check:** `PreviewFlashPolicyTest` + device note §5.
+
+### Sprint 10.13 — Quick grid 7×3 (**maintainer unlock**)
+
+- [ ] **[MIXED]** **7×3 reslot** — **`previewChromeGridSlots`**, rename grid component / **`PNS.ChromeUx`** **`grid7=`** token, update gate + style guide + **`AGENTS.md`** + **`PROBE_BUILD_PLAN.md`**.
+
+**Sprint check:** maintainer unlock + full **Sprint 9.13** finder evidence.
+
+### Sprint 10.14 — OpenCamera-style toolbox (optional)
+
+- [ ] **[MIXED]** Focus bracketing / stack (AF) — distinct from **BKT** EV bracket.
+- [ ] **[MIXED]** AE / AF lock — long-press / readout latch.
+- [ ] **[MIXED]** Audio trigger — mic threshold stills.
+- [ ] **[MIXED]** Remote shutter — Tile / intent / QS.
+- [ ] **[MIXED]** Shortcut profiles — named HUD bundles.
+- [ ] **[MIXED]** Pause / resume video — after **10.10** file encode.
+- [ ] **[MIXED]** Distortion / shading toggle — when HAL lists modes.
+- [ ] **[MIXED]** Focus peaking (GLES) — **M** dial assist.
+- [ ] **[MIXED]** Intervalometer / time-lapse.
+- [ ] **[MIXED]** Anti-shock / pure-shot delay.
+
+**Sprint check:** per item host test or §5 when device-tied.
+
+### Sprint 10.15 — UX polish residual (**chrome-safe**)
+
+- [ ] **[MIXED]** **Long-running capture progress** — indeterminate/stepped progress in existing modal/readout patterns (**no** new persistent chrome bands).
+- [ ] **[MIXED]** **Snackbar Retry / Copy raw error** — complete partial **`PnsUserFacingErrors`** follow-through.
+- [ ] **[MIXED]** **Flash tooltip / coach-mark prefs** — optional one-time long-press hint.
+- [ ] **[MIXED]** **Probe hub recents / favorites** — IA polish without preview-route relayout.
+- [ ] **[MIXED]** **Persist optional welcome skips** across restarts (mic/location) — if product still wants it.
+
+**Sprint check:** UI gate §6 when toasts/snackbars affect preview route messaging.
+
+### Sprint 10.16 — Milestone H handoff queue (non-code)
+
+- [ ] **[MIXED]** **Gallery / desktop open** — coordinates with **Milestone H.1** + **`scripts/pns_pull_dcim_captures.ps1`**; stays `[ ]` until human sign-off recorded in §5 (supersedes the duplicate **Sprint 7.3** row, now marked moved in **Milestone 7**).
+
+**Milestone 10 gate**
+
+| Check | Pass criterion |
+|-------|----------------|
+| Host | `pns_verify_toolchain.ps1 -RunTests` exit 0 on every sprint merge that touches Kotlin/scripts |
+| Device | §5 rows for each closed **[MIXED]** / **[ADB]** sprint that ships preview/capture behavior |
+| Chrome | Any finder/tray/grid geometry change: maintainer unlock + **Sprint 9.13** screenshots + gate script updates |
+| Human | **10.16** items close only with **Milestone H** sign-off |
 
 ---
 
@@ -584,7 +655,7 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 - [ ] [ADB] Reverse-landscape / Eye-AF alignment **photo sign-off** (if not closed earlier).
 - [ ] [HUMAN] Aesthetic review of HUD/LUT defaults.
-- [ ] [MIXED] Work through **§ UX backlog (preview chrome locked)** above (messaging, snackbars, export errors, onboarding tweaks, geotag hint, progress, probe-hub IA, a11y labels, immersive tip, gallery open fallback) without changing locked preview chrome geometry or styling. **Host-automation slice (2026-05-12):** most rows in that backlog table are now **[x]** with “partial” notes where applicable; **long-running capture progress** is partially addressed via **`lastStatus`** strings during RAW still capture + save (`PreviewEngineScreen`); **Details/Copy** on errors remain open.
+- [ ] [MIXED] Work through **Milestone 10 Sprint 10.15** (UX polish residual: messaging, snackbars, export errors, onboarding tweaks, geotag hint, **long-running capture progress**, probe-hub IA, a11y labels, immersive tip, gallery open fallback) without changing locked preview chrome geometry or styling. **Host-automation slice (2026-05-12):** partial **`PnsUserFacingErrors`** shipped; **Details/Copy** + explicit progress UI remain open in **10.15**.
 
 **Milestone H gate:** Owner-approved checklist recorded (§5 or project wiki); no remaining **[HUMAN]** checkbox unjustified.
 

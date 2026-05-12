@@ -398,6 +398,37 @@ private fun hudToggleRows(
                 )
             },
         ),
+        HudToggleRow(
+            title = "Lens optical stabilization (OIS)",
+            description =
+                "When the HAL exposes OIS, request ON for preview + stills (Camera2).",
+            enabled = settings.enableLensOpticalStabilization,
+            onChange = { onUpdate(settings.copy(enableLensOpticalStabilization = it)) },
+        ),
+        HudToggleRow(
+            title = "Preview video stabilization (EIS)",
+            description =
+                "Electronic stabilization on the preview stream only; off by default. " +
+                    "Skipped for HFR (≥120 fps target) and for still captures.",
+            enabled = settings.enableVideoStabilizationPreview,
+            onChange = { onUpdate(settings.copy(enableVideoStabilizationPreview = it)) },
+        ),
+        HudToggleRow(
+            title = "Camera2 auto-framing (preview)",
+            description =
+                "HAL auto-framing when supported (Android 15+ / API 35). Off by default; distinct from in-app face overlays.",
+            enabled = settings.enableAutoFraming,
+            onChange = { onUpdate(settings.copy(enableAutoFraming = it)) },
+        ),
+        HudToggleRow(
+            title = "HDR / 10-bit preview session",
+            description =
+                "When supported (API 33+), applies a validated dynamic-range profile on the preview " +
+                    "OutputConfiguration only if the full preview+RAW+analysis surface list passes " +
+                    "isSessionConfigurationSupported. Off by default.",
+            enabled = settings.enableHdr10LivePreview,
+            onChange = { onUpdate(settings.copy(enableHdr10LivePreview = it)) },
+        ),
     )
 
 private data class HudToggleRow(

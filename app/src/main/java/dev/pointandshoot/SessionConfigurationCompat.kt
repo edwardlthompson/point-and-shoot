@@ -135,3 +135,34 @@ internal fun isSessionSupportedWithDynamicRangeImageReader(
         runCatching { reader.close() }
     }
 }
+
+/**
+ * Full [outputSurfaces] list (preview first) with [dynamicRangeProfile] on index **0** only —
+ * matches [RawHdrExclusivityProbeScreen] preview+RAW probe shape for product preview sessions.
+ */
+@SuppressLint("NewApi")
+internal fun isMultiOutputSessionSupportedWithDynamicRangeOnPreview(
+    device: CameraDevice,
+    outputSurfaces: List<Surface>,
+    dynamicRangeProfile: Long,
+): Boolean {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || outputSurfaces.isEmpty()) return false
+    return try {
+        val configs =
+            outputSurfaces.mapIndexed { index, surface ->
+                OutputConfiguration(surface).apply {
+                    if (index == 0) {
+                        runCatching { setDynamicRangeProfile(dynamicRangeProfile) }
+                            .onFailure { e ->
+                                Log.w(HDR_SESS_LOG, "setDynamicRangeProfile idx=0: ${e.message}")
+                            }
+                    }
+                }
+            }
+        val sessionConfig = buildSessionConfigurationCompat(SessionConfiguration.SESSION_REGULAR, configs)
+        device.isSessionConfigurationSupported(sessionConfig)
+    } catch (e: Throwable) {
+        Log.w(HDR_SESS_LOG, "multiOutputDynamicRangeOnPreview: ${e.message}")
+        false
+    }
+}

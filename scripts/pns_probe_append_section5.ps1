@@ -80,7 +80,8 @@ if ($fullGate.StartsWith($projRoot, [StringComparison]::OrdinalIgnoreCase)) {
     $relArtifact = $fullGate.Substring($projRoot.Length).TrimStart([char[]]@('\', '/'))
 }
 
-$dateUtc = [DateTime]::UtcNow.ToString("yyyy-MM-dd")
+# Section 5 first column: ISO-8601 completion time in UTC (matches PROBE_BUILD_PLAN.md §5).
+$dateUtc = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
 $newRow = $null
 
 switch -Wildcard ($schema) {

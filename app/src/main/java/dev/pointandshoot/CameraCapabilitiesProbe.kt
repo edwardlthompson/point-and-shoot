@@ -107,6 +107,16 @@ const val PNS_SCREEN_PREVIEW = "preview"
 /** Value for [EXTRA_PNS_SCREEN] — opens [FaceMeterProbeScreen] (face / eye / AE-AF static probe). */
 const val PNS_SCREEN_FACE_METER = "facemeter"
 
+/** Value for [EXTRA_PNS_SCREEN] — headless **`CameraDevice.createExtensionSession`** smoke (Milestone 4). */
+const val PNS_SCREEN_CAMERA_EXT_SMOKE = "cameraextsmoke"
+
+/**
+ * With **`pns_screen=rootsettings`**: after persisted **Grant Su** ([`RootCapability.RootState.Granted`]),
+ * run read-only [`RootPrivilegedDiagnostics.runScan`] once and log **`PNS.AdbValidation`** **`rootPrivScan …`**
+ * (Milestone **7.5** automation).
+ */
+const val EXTRA_PNS_AUTO_ROOT_DIAGNOSTICS = "pns_auto_root_diagnostics"
+
 /** Value for [EXTRA_PNS_SCREEN] — opens the engineering hub ([DebugMenuScreen]) without a sub-probe route. */
 const val PNS_SCREEN_PROBE_HUB = "probehub"
 
@@ -170,6 +180,7 @@ fun CameraCapabilitiesProbe(
     var showCaptureLatency by remember { mutableStateOf(false) }
     var showRawHdrExcl by remember { mutableStateOf(false) }
     var showBurstProbe by remember { mutableStateOf(false) }
+    var showCameraExtSmoke by remember { mutableStateOf(false) }
     var showLogicalPhysical by remember { mutableStateOf(false) }
     var showExhaustive by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
@@ -290,6 +301,8 @@ fun CameraCapabilitiesProbe(
             showRawHdrExcl = true
         } else if (launchScreen == SCREEN_BURST) {
             showBurstProbe = true
+        } else if (launchScreen == PNS_SCREEN_CAMERA_EXT_SMOKE) {
+            showCameraExtSmoke = true
         } else if (launchScreen == SCREEN_LOGICAL_PHYSICAL) {
             showLogicalPhysical = true
         } else if (launchScreen == SCREEN_EXHAUSTIVE) {
@@ -347,6 +360,7 @@ fun CameraCapabilitiesProbe(
             inz != null &&
                 (
                     inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_FACE_METER ||
+                        inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_CAMERA_EXT_SMOKE ||
                         (
                             inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_PREVIEW &&
                                 (
@@ -483,6 +497,17 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showCameraExtSmoke) {
+        val adbCameraId =
+            activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
+        CameraExtensionSmokeScreen(
+            onBack = { showCameraExtSmoke = false },
+            preferredCameraId = adbCameraId,
+            finishActivityWhenDone = launchScreen == PNS_SCREEN_CAMERA_EXT_SMOKE,
+        )
+        return
+    }
+
     if (showLogicalPhysical) {
         LogicalPhysicalProbeScreen(
             onBack = { showLogicalPhysical = false },
@@ -547,7 +572,11 @@ fun CameraCapabilitiesProbe(
     }
 
     if (showRootSettings) {
-        RootSettingsScreen(onBack = { showRootSettings = false })
+        val autoRootDiag = activity?.intent?.getBooleanExtra(EXTRA_PNS_AUTO_ROOT_DIAGNOSTICS, false) == true
+        RootSettingsScreen(
+            onBack = { showRootSettings = false },
+            autoRunDiagnostics = autoRootDiag,
+        )
         return
     }
 
@@ -836,6 +865,15 @@ internal fun buildProbeReport(context: Context): String {
 
         val physicalIds = runCatching { cc.physicalCameraIds.toList() }.getOrDefault(emptyList())
         sb.appendLine("- physicalCameraIds: ${physicalIds.joinToString(prefix = "[", postfix = "]")}")
+
+        sb.appendLine()
+        sb.appendLine("### Camera extensions (API 31+)")
+        sb.appendLine()
+        sb.append(CameraExtensionSupport.markdownLinesForCamera(cameraManager, id))
+        sb.appendLine("### Reprocess / ZSL-related (characteristics)")
+        sb.appendLine()
+        sb.append(PreviewReprocessStillHints.markdownLines(cc))
+        sb.appendLine()
 
         sb.appendLine()
         AeHighlightProbe.appendPerCameraSections(sb, id, cc, reqKeys, sessionKeys, resKeys)

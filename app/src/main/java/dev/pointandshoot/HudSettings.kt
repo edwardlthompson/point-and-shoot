@@ -52,6 +52,32 @@ data class HudSettings(
      */
     val selectedLutForStills: String = LutCatalog.None.name,
     val selectedLutForVideo: String = LutCatalog.None.name,
+    /**
+     * When true and the HAL lists a non-OFF optical mode, preview + still requests set
+     * [android.hardware.camera2.CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE] to ON.
+     */
+    val enableLensOpticalStabilization: Boolean = true,
+    /**
+     * Preview-only electronic stabilization ([android.hardware.camera2.CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE]).
+     * Off by default (latency / crop); skipped for HFR (AE target range upper ≥ 120) and still captures.
+     */
+    val enableVideoStabilizationPreview: Boolean = false,
+    /**
+     * When true, RAW still requests may set [android.hardware.camera2.CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST]
+     * to the midpoint of the advertised range. Off by default; never applied when manual ISO or exposure overrides are active.
+     */
+    val enablePostRawSensitivityBoost: Boolean = false,
+    /**
+     * When true and the device supports Camera2 auto-framing (API 35+), preview requests may set
+     * [android.hardware.camera2.CaptureRequest.CONTROL_AUTOFRAMING] to ON. Off by default.
+     */
+    val enableAutoFraming: Boolean = false,
+    /**
+     * When true, REGULAR preview session creation probes [android.hardware.camera2.params.OutputConfiguration.setDynamicRangeProfile]
+     * on the preview output (recommended 10-bit first when advertised) only if [android.hardware.camera2.CameraDevice.isSessionConfigurationSupported]
+     * accepts the full surface list. Off by default (Milestone 4 HDR preview).
+     */
+    val enableHdr10LivePreview: Boolean = false,
 ) {
     /** Resolve the currently-active stills LUT, falling back to None on rename / removal. */
     fun stillsLut(): LutCatalog = resolveLut(selectedLutForStills)
@@ -80,6 +106,11 @@ data class HudSettings(
         private const val KEY_FOCUS_PEAKING_STRENGTH = "focus_peaking_strength"
         private const val KEY_LUT_STILLS = "selected_lut_stills"
         private const val KEY_LUT_VIDEO = "selected_lut_video"
+        private const val KEY_LENS_OIS = "enable_lens_optical_stabilization"
+        private const val KEY_VIDEO_STAB_PREVIEW = "enable_video_stabilization_preview"
+        private const val KEY_POST_RAW_BOOST = "enable_post_raw_sensitivity_boost"
+        private const val KEY_AUTO_FRAMING = "enable_auto_framing"
+        private const val KEY_HDR_10_PREVIEW = "enable_hdr10_live_preview"
         private const val KEY_COMMAND_DIAL_MODE = "command_dial_mode"
         private const val KEY_IMAGING_PROFILE = "imaging_profile"
 
@@ -129,6 +160,11 @@ data class HudSettings(
                 focusPeakingStrength = loadFocusPeakingStrength(prefs, defaults),
                 selectedLutForStills = prefs.getString(KEY_LUT_STILLS, defaults.selectedLutForStills) ?: defaults.selectedLutForStills,
                 selectedLutForVideo = prefs.getString(KEY_LUT_VIDEO, defaults.selectedLutForVideo) ?: defaults.selectedLutForVideo,
+                enableLensOpticalStabilization = prefs.getBoolean(KEY_LENS_OIS, defaults.enableLensOpticalStabilization),
+                enableVideoStabilizationPreview = prefs.getBoolean(KEY_VIDEO_STAB_PREVIEW, defaults.enableVideoStabilizationPreview),
+                enablePostRawSensitivityBoost = prefs.getBoolean(KEY_POST_RAW_BOOST, defaults.enablePostRawSensitivityBoost),
+                enableAutoFraming = prefs.getBoolean(KEY_AUTO_FRAMING, defaults.enableAutoFraming),
+                enableHdr10LivePreview = prefs.getBoolean(KEY_HDR_10_PREVIEW, defaults.enableHdr10LivePreview),
             )
         }
 
@@ -151,6 +187,11 @@ data class HudSettings(
                 .putString(KEY_FOCUS_PEAKING_STRENGTH, settings.focusPeakingStrength.name)
                 .putString(KEY_LUT_STILLS, settings.selectedLutForStills)
                 .putString(KEY_LUT_VIDEO, settings.selectedLutForVideo)
+                .putBoolean(KEY_LENS_OIS, settings.enableLensOpticalStabilization)
+                .putBoolean(KEY_VIDEO_STAB_PREVIEW, settings.enableVideoStabilizationPreview)
+                .putBoolean(KEY_POST_RAW_BOOST, settings.enablePostRawSensitivityBoost)
+                .putBoolean(KEY_AUTO_FRAMING, settings.enableAutoFraming)
+                .putBoolean(KEY_HDR_10_PREVIEW, settings.enableHdr10LivePreview)
                 .commit()
         }
 

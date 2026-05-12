@@ -10,13 +10,23 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **Preview flash modes** — `PreviewFlashMode` (`Off` / `Auto` / `On` / `Torch`) persisted in **`PreviewChromePreferences`**; **`PreviewFlashPolicy`** wires **`CONTROL_AE_MODE`** (via existing auto AE program) plus **`FLASH_MODE`** on preview repeating requests and **`FLASH_MODE_SINGLE`** on single RAW stills; AE bracket bursts force flash **off**. **7×7** grid: merged **Extra shutters** quick tile (tap + volume) + **Flash** tile (short-press cycle, long-press menu); **`PNS.ChromeUx`** `quickActions=` includes **`extraShutter`**, **`flash`**. **`PreviewFlashPolicyTest`** covers AE mapping + cycle.
 
+- **Variable flash / torch strength (API 33+)** — when the HAL advertises **`FLASH_STRENGTH_LEVEL`** plus **`FLASH_INFO_STRENGTH_DEFAULT_LEVEL`** / **`FLASH_INFO_STRENGTH_MAXIMUM_LEVEL`**, **`PreviewFlashPolicy`** sets **`FLASH_STRENGTH_LEVEL`** on preview torch (including **On**→torch fallback) and on still **`FLASH_MODE_SINGLE`**. Uses the active **`CameraDevice`** session only (no parallel **`CameraManager.turnOnTorchWithStrengthLevel`** while the camera is open).
+
 - **Material 3 snackbar host** — **`MainActivity`** hosts **`SnackbarHost`** and provides **`LocalPnsSnackbarHostState`** so **`PreviewEngineScreen`** can show non-blocking errors and hints without adding preview chrome bands.
 
 - **Immersive gesture hint** — **`PnsUiHintsStore`** (**`pns_ui_hints`**, included in Auto Backup rules) records a one-time snackbar after the first normal preview session (skipped when preview ADB automation extras are active).
 
 - **`PnsUserFacingErrors`** — classifies common still/bracket failure **`Throwable`** messages into short user-facing lines; covered by **`PnsUserFacingErrorsTest`**.
 
+- **Sprint 4.4 (`CONTROL_AUTOFRAMING`)** — `PreviewAutoFraming` sets **`CONTROL_AUTOFRAMING`** ON for preview repeating when **API ≥ 35**, characteristics report **`CONTROL_AUTOFRAMING_AVAILABLE`**, and **Settings → HUD → Camera2 auto-framing** is enabled (default off).
+
+- **Sprint 4.4 (stabilization + post-RAW boost)** — `PreviewStabilization` applies **OIS** / optional preview **EIS** from `HudSettings` (Settings → HUD: lens OIS default on, preview EIS default off; EIS skipped for HFR targets ≥120 fps and for still captures). `PreviewPostRawSensitivity` applies **`CONTROL_POST_RAW_SENSITIVITY_BOOST`** at the midpoint of the advertised range when the HUD toggle is on (default off) and manual ISO/shutter are not active. Wired into preview repeating, RAW/bracket stills, and OEM macro session-parameter template (`PreviewEngineScreen`).
+
+- **Sprint 4.4 (HDR / 10-bit preview session, host)** — **`PreviewHdrSessionSupport`** picks a **`DynamicRangeProfiles`** ID (recommended 10-bit first on API 34+, then sorted fallbacks) only when **`CameraDevice.isSessionConfigurationSupported`** accepts the real multi-output list (**`SessionConfigurationCompat.isMultiOutputSessionSupportedWithDynamicRangeOnPreview`**). **`outputConfigurationsWithOptionalStreamUseCases`** applies **`OutputConfiguration.setDynamicRangeProfile`** on the preview surface; **`PreviewController`** retries session create without HDR and/or without stream hints on failure. **Settings → HUD → HDR / 10-bit preview session** (default off). Log: **`PNS.AdbValidation`** **`previewSessionDynamicRange profile=…`**. JVM: **`PreviewHdrSessionSupportTest`**.
+
 - **Sprint 4.4 (Camera2 session / readout)** — Stream use-case hints on preview + macro **`SessionConfiguration`** (`Camera2SessionCompat` + `PreviewEngineScreen`); logical-camera **Phy** readout from **`LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID`**; **`PreviewAeAntibanding`** on OEM macro session-parameter template; RAW still **`lastStatus`** progress strings.
+
+- **Sprint 4.4 (Camera2 extensions + reprocess probe export)** — **`CameraExtensionSupport`** (markdown in **`buildProbeReport`**); **`CameraExtensionSessionSmokeRunner`** + **`CameraExtensionSmokeScreen`**; **`pns_screen=cameraextsmoke`** (**`PNS_SCREEN_CAMERA_EXT_SMOKE`**, optional **`pns_preview_camera_id`**); **`PreviewReprocessStillHints`** section in probe export; **`CapabilityGate`** **`Feature.CameraExtensions`** / **`Feature.ReprocessSession`**. JVM: **`CameraExtensionSupportTest`**.
 
 ### Changed
 

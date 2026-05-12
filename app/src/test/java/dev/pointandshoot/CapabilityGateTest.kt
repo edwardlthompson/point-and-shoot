@@ -19,6 +19,11 @@ class CapabilityGateTest {
         hasMacroMode = true,
         has10BitHdrPipeline = true,
         hasOpticalStabilization = true,
+        supportedCameraExtensionLabels = "HDR,NIGHT",
+        supportsYuvReprocessing = true,
+        supportsPrivateReprocessing = false,
+        reprocessMaxCaptureStall = 4,
+        reprocessEffectiveExposureRequestKey = true,
     )
 
     private val barebones = HardwareCaps(
@@ -31,6 +36,11 @@ class CapabilityGateTest {
         hasMacroMode = false,
         has10BitHdrPipeline = false,
         hasOpticalStabilization = false,
+        supportedCameraExtensionLabels = "",
+        supportsYuvReprocessing = false,
+        supportsPrivateReprocessing = false,
+        reprocessMaxCaptureStall = null,
+        reprocessEffectiveExposureRequestKey = false,
     )
 
     @Test

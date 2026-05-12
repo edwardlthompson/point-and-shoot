@@ -65,6 +65,16 @@ object CapabilityGate {
             enabled = caps.hasOpticalStabilization,
             disabledReason = "Optical image stabilization is not advertised by this lens.",
         ),
+        gate(
+            feature = Feature.CameraExtensions,
+            enabled = caps.supportedCameraExtensionLabels.isNotBlank(),
+            disabledReason = "No Camera2 vendor extensions are advertised for this camera (API 31+ inventory).",
+        ),
+        gate(
+            feature = Feature.ReprocessSession,
+            enabled = caps.supportsYuvReprocessing || caps.supportsPrivateReprocessing,
+            disabledReason = "YUV/private input reprocessing is not advertised in availableCapabilities.",
+        ),
     )
 
     /**
@@ -103,6 +113,12 @@ data class HardwareCaps(
      * [LensInfoSummary.hasOpticalStabilization] at the engine boundary.
      */
     val hasOpticalStabilization: Boolean = false,
+    /** Comma-separated extension labels from [CameraExtensionSupport] (empty when none / API < 31). */
+    val supportedCameraExtensionLabels: String = "",
+    val supportsYuvReprocessing: Boolean = false,
+    val supportsPrivateReprocessing: Boolean = false,
+    val reprocessMaxCaptureStall: Int? = null,
+    val reprocessEffectiveExposureRequestKey: Boolean = false,
 )
 
 enum class Feature(val displayName: String) {
@@ -115,6 +131,8 @@ enum class Feature(val displayName: String) {
     SuperMacroLock("Super Macro lock"),
     TenBitHdrAvif("10-bit AVIF (HDR)"),
     OpticalStabilization("Optical image stabilization"),
+    CameraExtensions("Camera2 extensions (HDR / night vendor modes)"),
+    ReprocessSession("Input reprocess session (YUV / private)"),
 }
 
 /**

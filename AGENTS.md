@@ -110,6 +110,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_ae_highlight_probe_adb.ps1` | Cold-start **`pns_screen=probehub`** + **`pns_auto_export_probe`**, pull **`PROBE_EXPORT_LATEST.md`**, write **`ae_highlight_probe_summary.txt`** + **`ae_highlight_probe.json`** (`summary` path); optional **`-AlsoRootCapabilityAdb`**. **Debuggable APK** required for `run-as`. |
 | `pns_face_meter_probe.ps1` | Cold-start **`pns_screen=facemeter`** + **`pns_autofacemeter`**, wait for **`FACE_METER_PROBE_DONE`** in **`PNS.SWEEP_SIGNAL`**, pull **`face_meter_probe_*.{md,json}`** (face / eye / metering inventory). Artifacts under **`hfr-runs\face_meter_probe_*`**. |
 | `pns_milestone6_gate.ps1` | One-shot: assembleDebug → validate pack → optional `PROBE_BUILD_PLAN.md` §5 append. Artifacts under `hfr-runs\`. |
+| `pns_milestone3_gate.ps1` | **Milestone 3** mapping gate: JVM tests (`SensorCropGeometryTest`, `CropPlanTest`, `DngDefaultUserCropRatiosTest`, `BackCameraRoleResolverTest`) + optional **`-RunDeviceSmoke`** (sideload preview + `PNS.ChromeUx` **`seedOk slot=M23`** log grep). |
 | `pns_automation_smoke.ps1` | Automation smoke; optional **`-RunAeHighlightProbe`** chains **`pns_ae_highlight_probe_adb.ps1`** (debug APK + `run-as` pull). |
 | `pns_chrome_ux_gate.ps1` | Chrome UX gate. |
 | `pns_failure_matrix_smoke.ps1` | Failure-matrix smoke. |
@@ -120,6 +121,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_pull_dcim_captures.ps1` | Pull captures from DCIM. |
 | `pns_device_screencap.ps1` | Device screenshot helper. |
 | `pns_root_capability_adb.ps1` | Probes `adb root` / `adb shell id` / `su`; writes `root_capability_adb.json` under `-OutDir`. |
+| `pns_root_privileged_smoke.ps1` | Cold-start **`pns_screen=rootsettings`** + **`pns_auto_root_diagnostics`**; greps log for **`rootPrivScan`** (**`suite=read_only_done`** = full read-only SU suite, or **`skipped`** = wiring-only **`pass`**). **`-RequireGrantedSuite`** → **`pass`** only when suite completes. Artifacts under **`hfr-runs\root_privileged_smoke_*`**. |
 | `pns_probe_append_section5.ps1` | Append probe/milestone rows (see script header). |
 | `pns_probe_watch.ps1` | Probe watch loop. |
 | `pns_super_macro_gate.ps1` | Super-macro gate. |

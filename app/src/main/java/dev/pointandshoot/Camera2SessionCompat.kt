@@ -23,22 +23,28 @@ private fun handlerExecutor(handler: Handler): Executor = Executor { cmd -> hand
 internal fun outputConfigurationsWithOptionalStreamUseCases(
     surfaces: List<Surface>,
     enableHints: Boolean,
+    previewDynamicRangeProfile: Long? = null,
 ): List<OutputConfiguration> {
-    if (!enableHints || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-        return surfaces.map { OutputConfiguration(it) }
-    }
     return surfaces.mapIndexed { index, surface ->
         OutputConfiguration(surface).apply {
-            runCatching {
-                val useCase: Long =
-                    if (index == 0) {
-                        CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW.toLong()
-                    } else {
-                        CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE.toLong()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && index == 0 && previewDynamicRangeProfile != null) {
+                runCatching { setDynamicRangeProfile(previewDynamicRangeProfile) }
+                    .onFailure { e ->
+                        Log.w(TAG, "setDynamicRangeProfile idx=0: ${e.message}")
                     }
-                setStreamUseCase(useCase)
-            }.onFailure { e ->
-                Log.w(TAG, "setStreamUseCase idx=$index: ${e.message}")
+            }
+            if (enableHints && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                runCatching {
+                    val useCase: Long =
+                        if (index == 0) {
+                            CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW.toLong()
+                        } else {
+                            CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_STILL_CAPTURE.toLong()
+                        }
+                    setStreamUseCase(useCase)
+                }.onFailure { e ->
+                    Log.w(TAG, "setStreamUseCase idx=$index: ${e.message}")
+                }
             }
         }
     }
@@ -50,14 +56,22 @@ internal fun outputConfigurationsWithOptionalStreamUseCases(
  *
  * @param streamUseCaseHints When true (API 33+), applies [OutputConfiguration.setStreamUseCase]
  *   hints; callers should retry with **false** if [createCaptureSession] fails on picky HALs.
+ * @param previewDynamicRangeProfile When non-null (API 33+), applies [OutputConfiguration.setDynamicRangeProfile]
+ *   on the first output (preview surface). Callers should retry with **null** if session create fails.
  */
 internal fun CameraDevice.createCaptureSessionRegularOutputs(
     surfaces: List<Surface>,
     handler: Handler,
     callback: CameraCaptureSession.StateCallback,
     streamUseCaseHints: Boolean = false,
+    previewDynamicRangeProfile: Long? = null,
 ) {
-    val outputConfigs = outputConfigurationsWithOptionalStreamUseCases(surfaces, streamUseCaseHints)
+    val outputConfigs =
+        outputConfigurationsWithOptionalStreamUseCases(
+            surfaces,
+            enableHints = streamUseCaseHints,
+            previewDynamicRangeProfile = previewDynamicRangeProfile,
+        )
     val sessionConfig =
         SessionConfiguration(
             SessionConfiguration.SESSION_REGULAR,

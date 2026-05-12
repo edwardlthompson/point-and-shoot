@@ -26,6 +26,27 @@ object BackCameraRoleResolver {
 
     fun resolve(cm: CameraManager, ids: List<String>): Roles {
         val infos = enumerateBackPhysical(cm, ids)
+        if (infos.isNotEmpty()) {
+            return rolesFromEnumeratedPhysicals(infos)
+        }
+        return Roles(
+            wide = wideCameraLegacy(ids),
+            ultraWide = ultraWideLegacy(cm, ids),
+            tele = teleLegacy(cm, ids),
+        )
+    }
+
+    /**
+     * JVM unit-test hook: same clustering as [resolve] after [enumerateBackPhysical], without a
+     * [CameraManager]. Order of [idsAndFocals] does not matter.
+     */
+    internal fun rolesFromEnumeratedPhysicalsForTests(idsAndFocals: List<Pair<String, Float?>>): Roles =
+        rolesFromEnumeratedPhysicals(
+            idsAndFocals.map { BackPhys(id = it.first, focalMm = it.second) },
+        )
+
+    private fun rolesFromEnumeratedPhysicals(infos: List<BackPhys>): Roles {
+        require(infos.isNotEmpty()) { "use legacy path for empty enumeration" }
         if (infos.size >= 3) {
             val sortedFocal = infos.mapNotNull { it.focalMm }.sorted()
             val uw =
@@ -50,14 +71,7 @@ object BackCameraRoleResolver {
                 tele = null,
             )
         }
-        if (infos.size == 1) {
-            return Roles(wide = infos[0].id, ultraWide = null, tele = null)
-        }
-        return Roles(
-            wide = wideCameraLegacy(ids),
-            ultraWide = ultraWideLegacy(cm, ids),
-            tele = teleLegacy(cm, ids),
-        )
+        return Roles(wide = infos[0].id, ultraWide = null, tele = null)
     }
 
     private data class BackPhys(val id: String, val focalMm: Float?)

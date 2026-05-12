@@ -525,7 +525,7 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 - [ ] [ADB] Reverse-landscape / Eye-AF alignment **photo sign-off** (if not closed earlier).
 - [ ] [HUMAN] Aesthetic review of HUD/LUT defaults.
-- [ ] [MIXED] Work through **§ UX backlog (preview chrome locked)** above (messaging, snackbars, export errors, onboarding tweaks, geotag hint, progress, probe-hub IA, a11y labels, immersive tip, gallery open fallback) without changing locked preview chrome geometry or styling.
+- [ ] [MIXED] Work through **§ UX backlog (preview chrome locked)** above (messaging, snackbars, export errors, onboarding tweaks, geotag hint, progress, probe-hub IA, a11y labels, immersive tip, gallery open fallback) without changing locked preview chrome geometry or styling. **Host-automation slice (2026-05-12):** most rows in that backlog table are now **[x]** with “partial” notes where applicable; **long-running capture progress** and **Details/Copy** on errors remain open.
 
 **Milestone H gate:** Owner-approved checklist recorded (§5 or project wiki); no remaining **[HUMAN]** checkbox unjustified.
 

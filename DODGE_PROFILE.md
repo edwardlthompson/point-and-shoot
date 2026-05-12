@@ -2,7 +2,9 @@
 
 This document maps the **Point & Shoot** shooting modes (15/23/35/50/73/85/150/21mm eq.) to **Camera2 cameraId(s)** on the OnePlus 13 (`dodge`). It satisfies **BUILD_PLAN.md §3** (“hardware-to-software mapping”): each focal-equivalent mode lists **cameraId(s)**, **physicalCameraId(s)** where logical, **sensor role + constraints** (RAW / HDR·DCG / OIS / macro), and **digital-crop metadata strategy** for 35 / 50 / 85 / 150mm.
 
-Primary probe artifacts: exported **`PROBE_RESULTS.md`** (Markdown dump), **`hfr-runs/deep_caps_round11.json`** (lensInfo + keys; adb **8bf09993**), plus newer **`deep_caps_*.json`** / **`logical_physical_*.json`** runs under `hfr-runs/` when present.
+Primary probe artifacts: exported **`PROBE_EXPORT_LATEST.md`** (Markdown dump), **`hfr-runs/deep_caps_round11.json`** (lensInfo + keys; adb **8bf09993**), plus newer **`deep_caps_*.json`** / **`logical_physical_*.json`** runs under `hfr-runs/` when present.
+
+**Focal slot availability (Milestone 10.2, pure policy):** digital equivalents **35 / 50 / 85 / 150** mm are only meaningful when the active rear **active-array** budget is **≥ 12 effective MP** (`width × height / 1e6`); see **`FocalSlotAvailability`** in code (UI graying / lens strip remains **[MIXED]**).
 
 ## Spec ↔ Camera2 mapping (master table)
 

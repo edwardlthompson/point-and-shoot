@@ -28,6 +28,8 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **Sprint 4.4 (Camera2 extensions + reprocess probe export)** — **`CameraExtensionSupport`** (markdown in **`buildProbeReport`**); **`CameraExtensionSessionSmokeRunner`** + **`CameraExtensionSmokeScreen`**; **`pns_screen=cameraextsmoke`** (**`PNS_SCREEN_CAMERA_EXT_SMOKE`**, optional **`pns_preview_camera_id`**); **`PreviewReprocessStillHints`** section in probe export; **`CapabilityGate`** **`Feature.CameraExtensions`** / **`Feature.ReprocessSession`**. JVM: **`CameraExtensionSupportTest`**.
 
+- **Milestone 10.1–10.2 (host)** — Probe Markdown export: **RAW12 / RAW10 / RAW_SENSOR** stream tables + per-camera **`rawPickEffective=`**; **HFR rollup** line; **4s** cooperative scan budget with **`degraded=true`** truncation; embedded **`DeviceCameraCapabilityCache`** JSON (`schemaVersion`, `fingerprintSha256Prefix`, per-id JPEG/RAW sizes, HFR maxima). **`RawCaptureSupport.pickRawOutput`** now prefers **RAW12 → RAW10 → RAW_SENSOR**. Pure **`FocalSlotAvailability`** (**≥12 MP** gate for digital eq. slots) + **`FocalSlotAvailabilityTest`**. **`RawCaptureSupportTest`** covers **`rawPickEffectiveLabel`** + empty pick maps (JVM stubs cannot construct **`android.util.Size`** for full ordering tests).
+
 ### Changed
 
 - **`WelcomePermissionsScreen`** — when a **required** runtime permission is still off, shows **Open app settings** (`ACTION_APPLICATION_DETAILS_SETTINGS`); camera step adds explicit **Don\u2019t allow** recovery copy. **Optional** mic/location steps gain **Skip (optional)** (advance without granting).

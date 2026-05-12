@@ -15,30 +15,45 @@ import android.view.WindowManager
 object RawCaptureSupport {
 
     /**
-     * Prefer [ImageFormat.RAW12] when advertised; else [ImageFormat.RAW_SENSOR].
+     * Prefer [ImageFormat.RAW12], then [ImageFormat.RAW10], then [ImageFormat.RAW_SENSOR]
+     * (matches [BUILD_PLAN.md] Milestone **10.1** `rawPickEffective` ordering).
      * Returns `(format, largestSizeByArea)` or `null` if no RAW output exists.
      */
     fun pickRawOutput(characteristics: CameraCharacteristics): Pair<Int, Size>? {
         val map =
             characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 ?: return null
-        val raw12Sizes = runCatching { map.getOutputSizes(ImageFormat.RAW12)?.toList() }
-            .getOrNull()
-            .orEmpty()
-        if (raw12Sizes.isNotEmpty()) {
-            val sz = raw12Sizes.maxByOrNull { it.width.toLong() * it.height } ?: return null
-            return ImageFormat.RAW12 to sz
-        }
-        val rawSensorSizes = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }
-            .getOrNull()
-            .orEmpty()
-        if (rawSensorSizes.isNotEmpty()) {
-            val sz =
-                rawSensorSizes.maxByOrNull { it.width.toLong() * it.height } ?: return null
-            return ImageFormat.RAW_SENSOR to sz
-        }
+        return pickRawOutputFromMaps(
+            raw12 = runCatching { map.getOutputSizes(ImageFormat.RAW12)?.toList() }.getOrNull(),
+            raw10 = runCatching { map.getOutputSizes(ImageFormat.RAW10)?.toList() }.getOrNull(),
+            rawSensor = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }.getOrNull(),
+        )
+    }
+
+    /**
+     * Pure RAW pick used by [pickRawOutput] and unit tests (no [CameraCharacteristics] required).
+     */
+    internal fun pickRawOutputFromMaps(
+        raw12: List<Size>?,
+        raw10: List<Size>?,
+        rawSensor: List<Size>?,
+    ): Pair<Int, Size>? {
+        fun largest(sizes: List<Size>?): Size? =
+            sizes?.takeIf { it.isNotEmpty() }?.maxByOrNull { it.width.toLong() * it.height }
+        largest(raw12)?.let { return ImageFormat.RAW12 to it }
+        largest(raw10)?.let { return ImageFormat.RAW10 to it }
+        largest(rawSensor)?.let { return ImageFormat.RAW_SENSOR to it }
         return null
     }
+
+    /** Label for probe `rawPickEffective=` lines (Milestone **10.1**). */
+    fun rawPickEffectiveLabel(format: Int?): String =
+        when (format) {
+            ImageFormat.RAW12 -> "RAW12"
+            ImageFormat.RAW10 -> "RAW10"
+            ImageFormat.RAW_SENSOR -> "RAW_SENSOR"
+            else -> "null"
+        }
 
     /**
      * Largest JPEG still size from [StreamConfigurationMap], or `null` if the device

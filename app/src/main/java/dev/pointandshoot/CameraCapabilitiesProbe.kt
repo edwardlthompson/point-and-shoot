@@ -11,6 +11,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Build
+import android.os.SystemClock
 import android.content.pm.PackageManager
 import android.util.Log
 import android.util.Size
@@ -343,7 +344,7 @@ fun CameraCapabilitiesProbe(
             capabilityGateLines = emptyList()
             return@LaunchedEffect
         }
-        val report = buildProbeReport(context)
+        val report = buildProbeReport(context, scanBudgetMs = 4000L)
         reportMd = report
         Log.i(TAG, "Probe built (${report.length} chars), ready to export.")
         cameraSummaries = report
@@ -408,6 +409,7 @@ fun CameraCapabilitiesProbe(
             activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false) ?: false
         val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
         val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
+        val previewSeedPrimaryPhoto = activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA
         PreviewEngineScreen(
             onBack = {
                 val ic = imageCaptureReturn
@@ -439,6 +441,7 @@ fun CameraCapabilitiesProbe(
             adbInitialSelfTimerSec = adbSelfTimerSec,
             adbFocalMmSlotProbe = adbFocalMmSlotProbe,
             imageCaptureReturn = imageCaptureReturn,
+            initialPrimaryPhoto = previewSeedPrimaryPhoto,
         )
         return
     }
@@ -726,10 +729,12 @@ fun CameraCapabilitiesProbe(
     }
 
     if (launchScreen == null) {
+        val previewSeedPrimaryPhoto = activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA
         PreviewEngineScreen(
             onBack = { activity?.finish() },
             onOpenDeveloperMenu = { showDebugMenu = true },
             startAutoSweep = autoSweep,
+            initialPrimaryPhoto = previewSeedPrimaryPhoto,
         )
         return
     }
@@ -789,12 +794,15 @@ fun CameraCapabilitiesProbe(
     )
 }
 
-internal fun buildProbeReport(context: Context): String {
+internal fun buildProbeReport(context: Context, scanBudgetMs: Long = 4000L): String {
     val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     val cameraIds = runCatching { cameraManager.cameraIdList.toList() }.getOrDefault(emptyList())
 
     val now = DateTimeFormatter.ISO_INSTANT.format(Instant.now())
     val sb = StringBuilder()
+    val scanStart = SystemClock.elapsedRealtime()
+    val camerasJson = JSONArray()
+    var scanDegraded = false
 
     sb.appendLine("# Point & Shoot — PROBE RESULTS")
     sb.appendLine()
@@ -807,12 +815,16 @@ internal fun buildProbeReport(context: Context): String {
     sb.appendLine()
 
     for (id in cameraIds) {
+        if (SystemClock.elapsedRealtime() - scanStart > scanBudgetMs) {
+            scanDegraded = true
+            sb.appendLine("## Scan truncated (Sprint 10.1)")
+            sb.appendLine("- degraded=true reason=wall_clock_budget_ms budgetMs=$scanBudgetMs")
+            break
+        }
         val cc = runCatching { cameraManager.getCameraCharacteristics(id) }.getOrNull()
         if (cc == null) {
             sb.appendLine("- Camera $id: FAILED to read characteristics")
-            continue
-        }
-
+        } else {
         val facing = when (cc.get(CameraCharacteristics.LENS_FACING)) {
             CameraCharacteristics.LENS_FACING_BACK -> "BACK"
             CameraCharacteristics.LENS_FACING_FRONT -> "FRONT"
@@ -897,6 +909,17 @@ internal fun buildProbeReport(context: Context): String {
             appendStreamConfigSummary(sb, map)
         }
         sb.appendLine()
+        val rawPick = RawCaptureSupport.pickRawOutput(cc)
+        sb.appendLine(
+            "- rawPickEffective=${RawCaptureSupport.rawPickEffectiveLabel(rawPick?.first)} " +
+                "size=${rawPick?.second?.let { sz -> "${sz.width}x${sz.height}" } ?: "null"}",
+        )
+        sb.appendLine()
+        runCatching {
+            camerasJson.put(DeviceCameraCapabilityCache.cameraJson(id, cc, map))
+        }.onFailure { e ->
+            Log.w(TAG, "shallow cache json cameraId=$id failed: ${e.message}")
+        }
 
         sb.appendLine("### Vendor-key highlights (name-based)")
         sb.appendLine()
@@ -917,12 +940,13 @@ internal fun buildProbeReport(context: Context): String {
 
         appendFaceEyeMeteringProbe(sb, cc)
         appendFaceEyeRequestResultKeyLists(sb, reqKeys, resKeys)
-
-        sb.appendLine("### High-speed video configurations")
-        sb.appendLine()
-        sb.appendLine("- (see StreamConfigurationMap-derived FPS candidates above)")
-        sb.appendLine()
+        }
     }
+
+    DeviceCameraCapabilityCache.appendMarkdownJsonBlock(
+        sb,
+        DeviceCameraCapabilityCache.buildRoot(context.applicationContext, camerasJson, scanDegraded),
+    )
 
     return sb.toString()
 }
@@ -967,6 +991,20 @@ private fun appendStreamConfigSummary(sb: StringBuilder, map: StreamConfiguratio
     }
 
     appendOutputSection(
+        label = "RAW12 (ImageFormat.RAW12)",
+        sizes = runCatching { map.getOutputSizes(ImageFormat.RAW12) }.getOrNull(),
+    ) { s ->
+        runCatching { map.getOutputMinFrameDuration(ImageFormat.RAW12, s) }.getOrNull()
+    }
+
+    appendOutputSection(
+        label = "RAW10 (ImageFormat.RAW10)",
+        sizes = runCatching { map.getOutputSizes(ImageFormat.RAW10) }.getOrNull(),
+    ) { s ->
+        runCatching { map.getOutputMinFrameDuration(ImageFormat.RAW10, s) }.getOrNull()
+    }
+
+    appendOutputSection(
         label = "RAW_SENSOR (ImageFormat.RAW_SENSOR)",
         sizes = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR) }.getOrNull(),
     ) { s ->
@@ -979,6 +1017,10 @@ private fun appendStreamConfigSummary(sb: StringBuilder, map: StreamConfiguratio
     ) { s ->
         runCatching { map.getOutputMinFrameDuration(ImageFormat.YUV_420_888, s) }.getOrNull()
     }
+
+    sb.appendLine("#### High-speed FPS rollup (constrained high speed)")
+    sb.appendLine(DeviceCameraCapabilityCache.hfrRollupMarkdownLine(map))
+    sb.appendLine()
 
     sb.appendLine("#### High-speed video (Camera2 constrained high speed)")
     val hsSizes = runCatching { map.highSpeedVideoSizes?.toList() }.getOrNull().orEmpty()

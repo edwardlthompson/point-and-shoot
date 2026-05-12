@@ -475,12 +475,12 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 ### Sprint 10.1 — Probe export + shallow fleet cache (seconds budget; no session)
 
-- [ ] **[HOST]** **`CameraCapabilitiesProbe` stream map:** add **`RAW12`** and **`RAW10`** sections (sizes + min frame duration when non-empty), mirroring the existing **`RAW_SENSOR`** block.
-- [ ] **[HOST]** **Derived summary line per camera:** emit `rawPickEffective=RAW12|RAW10|RAW_SENSOR|null` + chosen **`Size`**, computed with the same logic as **`RawCaptureSupport.pickRawOutput`** so **`PROBE_RESULTS`** matches preview still behavior.
-- [ ] **[HOST]** **HFR roll-up per camera:** single summary line or table row: e.g. **`hfrMaxFps`**, **`hfrMaxFpsAt1080`**, **`hfrMaxFpsAt720`** (from **`StreamConfigurationMap`** high-speed tables only — no session).
-- [ ] **[HOST]** **Doc touch:** **`README.md`** / **`DODGE_PROFILE.md`** one-liner that **canonical per-device truth** for RAW format + HFR max is **export** + **`hfr-runs`** JSON, not chat.
-- [ ] **[HOST]** **Spec `DeviceCameraCapabilityCache` (or equivalent)** — versioned schema (`schemaVersion`, `appVersionCode`, `androidSdk`, `Build.FINGERPRINT` or `SERIAL` hash): per `cameraId`: `lensFacing`, physical / logical hints, `LENS_INFO_AVAILABLE_FOCAL_LENGTHS`, zoom ranges, largest **JPEG** / **RAW** / **RAW12** from `StreamConfigurationMap` **without** opening a session; optional **high-speed** max FPS from `getHighSpeedVideoSizes` + `getHighSpeedVideoFpsRangesFor`. **Exclude:** session configuration queries, encoder smoke, exhaustive matrix, thermal.
-- [ ] **[HOST]** **Executor + wall-clock budget** — run scan on **`Dispatchers.Default`** / `cameraExecutor`; cooperative timeout (**2.5–4 s**); partial results + `degraded=true` when truncated.
+- [x] **[HOST]** **`CameraCapabilitiesProbe` stream map:** add **`RAW12`** and **`RAW10`** sections (sizes + min frame duration when non-empty), mirroring the existing **`RAW_SENSOR`** block.
+- [x] **[HOST]** **Derived summary line per camera:** emit `rawPickEffective=RAW12|RAW10|RAW_SENSOR|null` + chosen **`Size`**, computed with the same logic as **`RawCaptureSupport.pickRawOutput`** so **`PROBE_RESULTS`** matches preview still behavior.
+- [x] **[HOST]** **HFR roll-up per camera:** single summary line or table row: e.g. **`hfrMaxFps`**, **`hfrMaxFpsAt1080`**, **`hfrMaxFpsAt720`** (from **`StreamConfigurationMap`** high-speed tables only — no session).
+- [x] **[HOST]** **Doc touch:** **`README.md`** / **`DODGE_PROFILE.md`** one-liner that **canonical per-device truth** for RAW format + HFR max is **export** + **`hfr-runs`** JSON, not chat.
+- [x] **[HOST]** **Spec `DeviceCameraCapabilityCache` (or equivalent)** — versioned schema (`schemaVersion`, `appVersionCode`, `androidSdk`, `Build.FINGERPRINT` or `SERIAL` hash): per `cameraId`: `lensFacing`, physical / logical hints, `LENS_INFO_AVAILABLE_FOCAL_LENGTHS`, zoom ranges, largest **JPEG** / **RAW** / **RAW12** from `StreamConfigurationMap` **without** opening a session; optional **high-speed** max FPS from `getHighSpeedVideoSizes` + `getHighSpeedVideoFpsRangesFor`. **Exclude:** session configuration queries, encoder smoke, exhaustive matrix, thermal.
+- [x] **[HOST]** **Executor + wall-clock budget** — run scan on **`Dispatchers.Default`** / `cameraExecutor`; cooperative timeout (**2.5–4 s**); partial results + `degraded=true` when truncated.
 - [ ] **[MIXED]** **Persistence** — DataStore / `EncryptedSharedPreferences`; refresh on install, app upgrade, **Settings → Rescan cameras**; optional dev staleness.
 - [ ] **[MIXED]** **Developer parity** — debug hub line: last shallow scan ms, cameras=N, degraded=…
 
@@ -488,7 +488,7 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 ### Sprint 10.2 — Focal equivalents, physical lenses, ≥12 MP policy
 
-- [ ] **[HOST]** **`FocalSlotAvailability` (pure + unit tests)** — 35 / 50 / 85 / 150 mm slots vs **≥12 MP**; gray unavailable; document formula in **`DODGE_PROFILE.md`**.
+- [x] **[HOST]** **`FocalSlotAvailability` (pure + unit tests)** — 35 / 50 / 85 / 150 mm slots vs **≥12 MP**; gray unavailable; document formula in **`DODGE_PROFILE.md`**.
 - [ ] **[MIXED]** **Physical lens strip** — native equivalent mm per rear lens; tap baseline; crops layer when enabled.
 - [ ] **[MIXED]** **Front vs rear** — when front active, dim rear-only tele slots; persist last rear `cameraId`.
 - [ ] **[MIXED]** **Welcome / tutorial hook** — refresh focal UI from cache; readout “Calibrating focal map…” if scan lags (non-blocking shutter).

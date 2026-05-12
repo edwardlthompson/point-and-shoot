@@ -25,6 +25,7 @@ A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (A
 - **Comprehensive Camera2 capability probe**
   - Deep characteristics, session-configuration matrix, HDR/DCG runtime, capture latency, RAW + dynamic-range exclusivity, burst / AE bracket, logical-vs-physical, exhaustive HFR + encoder matrix, legacy Camera1 sanity.
   - JSON artifacts that survive on-device runs and a Markdown export for review.
+  - **Milestone 10.1:** the Markdown export also lists **RAW12 / RAW10 / RAW_SENSOR** stream sizes (with min frame duration), **`rawPickEffective=`** (aligned with `RawCaptureSupport.pickRawOutput`), **HFR rollup** lines, and a versioned **shallow fleet JSON** block — treat those exports plus **`hfr-runs/`** pulls as canonical per-device numbers, not chat-only summaries.
 - **Host orchestration** (`scripts/pns_hfr_autorun.ps1`)
   - Build → install → grant camera → run any subset of probes → pull JSON → write a suite-summary file → optional Phase 9 thermal snapshot.
 - **Toolchain gate** (`scripts/pns_verify_toolchain.ps1`)

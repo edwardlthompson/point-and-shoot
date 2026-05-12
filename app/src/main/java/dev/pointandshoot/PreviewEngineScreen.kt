@@ -748,6 +748,11 @@ fun PreviewEngineScreen(
         if (c.saveLocationWithMedia && !fineLocationGranted) {
             chromePrefs.update(c.copy(saveLocationWithMedia = false))
             CaptureLocationBridge.update(null)
+            Toast.makeText(
+                context.applicationContext,
+                "Location off — new photos won't be geotagged.",
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 

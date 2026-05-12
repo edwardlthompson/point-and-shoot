@@ -14,6 +14,8 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **`PreviewChromePreferences` / preview engine** — ADB **`pns_preview_self_timer_sec`** seeds the in-session timer via **`applySessionOnly`** (no **`SharedPreferences` write**), so automation and **`pns_chrome_ux_gate.ps1`** no longer leave a **3 s** timer persisted; disk default stays **0** (off). Default **`previewFlashMode`** remains **Auto** in the data class and **`load()`** defaults.
 
+- **`PreviewEngineScreen`** — when **fine location** is revoked while **Save location in files** was on, clearing the pref now shows a **Toast**: “Location off — new photos won't be geotagged.”
+
 - **`CameraCapabilitiesProbe`** — probe hub **Markdown** export (**`CreateDocument`**) shows a **Toast** when the destination cannot be opened or the write fails (still logs **`Export failed`** for diagnostics).
 
 - **Sprint 4.4 (partial)** — **`PreviewAeAntibanding`** on preview + RAW still + bracket when advertised. Tap-to-focus: one-shot **`sess.capture`** with **`CONTROL_AF_TRIGGER_START`** + **`CONTROL_AE_PRECAPTURE_TRIGGER_START`** (skipped on high-speed constrained preview). **`PreviewStillCaptureHints`**: **`CONTROL_ENABLE_ZSL`** when JPEG still + key advertised + no manual sensor overrides; **`JPEG_ORIENTATION`** + optional **`JPEG_GPS_LOCATION`** on still **`CaptureRequest`** (single + bracket). **`StillCaptureMetadata`**: **`TAG_USER_COMMENT`** gains focus distance / lens state / AF state / rolling-shutter skew when **`CaptureResult`** provides them. **`PreviewStillCaptureHintsTest`** (orientation normalization).

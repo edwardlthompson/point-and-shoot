@@ -2,7 +2,6 @@ package dev.pointandshoot
 
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -75,12 +74,12 @@ fun LutImporterScreen(onBack: () -> Unit) {
             return@rememberLauncherForActivityResult
         }
         val (displayName, bytes) = readUri(context, uri) ?: run {
-            Toast.makeText(context, "Could not read picked file.", Toast.LENGTH_LONG).show()
+            lastResult = "Could not read picked file."
+            lastResultIsError = true
             return@rememberLauncherForActivityResult
         }
         when (val outcome = LutImportValidator.validate(bytes)) {
             is LutImportValidator.Result.Failure -> {
-                Toast.makeText(context, outcome.toastMessage(), Toast.LENGTH_LONG).show()
                 lastResult = outcome.toastMessage()
                 lastResultIsError = true
             }
@@ -88,20 +87,17 @@ fun LutImporterScreen(onBack: () -> Unit) {
                 val saved = try {
                     ImportedLutStore.save(context, displayName, bytes)
                 } catch (ex: java.io.IOException) {
-                    Toast.makeText(context, "Save failed: ${ex.message}", Toast.LENGTH_LONG).show()
                     lastResult = "Save failed: ${ex.message}"
                     lastResultIsError = true
                     return@rememberLauncherForActivityResult
                 }
                 if (saved == null) {
-                    Toast.makeText(context, "External storage unavailable.", Toast.LENGTH_LONG).show()
                     lastResult = "External storage unavailable."
                     lastResultIsError = true
                     return@rememberLauncherForActivityResult
                 }
                 importedFiles = ImportedLutStore.list(context)
                 val msg = "Imported ${saved.file.name} (size=${outcome.lut.size}\u00b3, sha256=${saved.sha256.take(12)}\u2026)"
-                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 lastResult = msg
                 lastResultIsError = false
             }

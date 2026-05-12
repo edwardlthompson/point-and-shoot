@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -18,6 +19,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -135,11 +137,48 @@ fun WelcomePermissionsScreen(
                                 color = PnsColors.OkGreen,
                             )
                         } else {
+                            if (spec.requiredToEnterApp) {
+                                Text(
+                                    text =
+                                        when (spec.permission) {
+                                            Manifest.permission.CAMERA ->
+                                                "Without camera access, Point & Shoot cannot show the finder. " +
+                                                    "If you tapped Don\u2019t allow, use Settings below or try Grant again."
+                                            else ->
+                                                "This permission is required to continue. " +
+                                                    "You can open the app\u2019s system page to change it."
+                                        },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.72f),
+                                )
+                            }
                             Button(
                                 onClick = { onRequestRuntimePermission(spec.permission) },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text("Grant permission")
+                            }
+                            if (spec.requiredToEnterApp) {
+                                OutlinedButton(
+                                    onClick = {
+                                        context.startActivity(
+                                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = Uri.fromParts("package", context.packageName, null)
+                                            },
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Open app settings")
+                                }
+                            }
+                            if (!spec.requiredToEnterApp) {
+                                TextButton(
+                                    onClick = { step++ },
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text("Skip (optional)")
+                                }
                             }
                         }
                     }

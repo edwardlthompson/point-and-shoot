@@ -3,7 +3,6 @@ package dev.pointandshoot
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -101,7 +100,6 @@ fun CalibrateScreen(
         if (uri == null) return@rememberLauncherForActivityResult
         val newBitmap = decodeBitmap(context, uri)
         if (newBitmap == null) {
-            Toast.makeText(context, "Could not decode image.", Toast.LENGTH_LONG).show()
             statusIsError = true
             status = "Could not decode image."
             return@rememberLauncherForActivityResult
@@ -329,7 +327,6 @@ fun CalibrateScreen(
                             profile = null
                             statusIsError = true
                             status = "Compute failed: ${ex.message}"
-                            Toast.makeText(context, "Compute failed: ${ex.message}", Toast.LENGTH_LONG).show()
                         },
                     )
                 },
@@ -343,12 +340,10 @@ fun CalibrateScreen(
                     if (saved == null) {
                         statusIsError = true
                         status = "Save failed: external storage unavailable."
-                        Toast.makeText(context, status, Toast.LENGTH_LONG).show()
                     } else {
                         savedPath = saved.absolutePath
                         statusIsError = false
                         status = "Saved profile to ${saved.name}"
-                        Toast.makeText(context, "Saved ${saved.name}", Toast.LENGTH_LONG).show()
                     }
                 },
             ) { Text("Save profile") }

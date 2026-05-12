@@ -52,6 +52,8 @@ import android.view.PixelCopy
 import android.view.Surface
 import android.view.WindowManager
 import android.widget.Toast
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -249,7 +251,7 @@ private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
         ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview),
         ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
         ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.PhotoCamera, "Extra shutters", ChromeGridQuickAction.ExtraShutterMenu),
-        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.FlashOn, "Flash mode", ChromeGridQuickAction.CycleFlash),
+        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash),
         ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.LocationOn, "Save location in files", ChromeGridQuickAction.ToggleSaveLocation),
         ChromeGridSlotSpec.ExpandShortcut(2, 6, "Settings", Icons.Outlined.Settings, "Settings"),
     )
@@ -364,7 +366,7 @@ private suspend fun deliverImageCaptureToCaller(
         }
     } catch (e: Throwable) {
         withContext(Dispatchers.Main) {
-            Toast.makeText(app, "Could not return image: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(app, PnsUserFacingErrors.stillCaptureFailure(e), Toast.LENGTH_LONG).show()
             host.setResult(Activity.RESULT_CANCELED)
             host.finish()
         }
@@ -399,6 +401,7 @@ fun PreviewEngineScreen(
 ) {
     val context = LocalContext.current
     val captureScope = rememberCoroutineScope()
+    val snackbarHostState = LocalPnsSnackbarHostState.current
     val controller = remember { PreviewController(context.applicationContext) }
     // Stable list instance when the id roster is unchanged — avoids extra child work from a fresh
     // [List] allocation on every 350 ms controller poll recomposition.
@@ -687,6 +690,29 @@ fun PreviewEngineScreen(
         }
     }
 
+    val previewAutomationExtras =
+        adbSequentialRawStills > 0 ||
+            adbBracketPattern != null ||
+            adbInitialDial != null ||
+            !adbSeedCameraId.isNullOrBlank() ||
+            adbSuperMacroProbe ||
+            adbM6FpsLutProbe ||
+            adbCalibrateGrabSmoke ||
+            adbInitialSelfTimerSec != null ||
+            !adbPreviewStillsLutName.isNullOrBlank() ||
+            adbInitialImagingProfile != null
+
+    LaunchedEffect(previewAutomationExtras, snackbarHostState) {
+        if (previewAutomationExtras || snackbarHostState == null) return@LaunchedEffect
+        if (PnsUiHintsStore.hasSeenImmersiveGestureTip(context.applicationContext)) return@LaunchedEffect
+        delay(1400)
+        snackbarHostState.showSnackbar(
+            message = "Swipe from the screen edge when you need Back or Home.",
+            duration = SnackbarDuration.Long,
+        )
+        PnsUiHintsStore.markImmersiveGestureTipSeen(context.applicationContext)
+    }
+
     var isRecording by remember { mutableStateOf(false) }
     /** Latest indexed capture for gallery thumb + open-in-viewer (typically DNG URI). */
     var lastGalleryUri by remember { mutableStateOf<Uri?>(null) }
@@ -748,11 +774,10 @@ fun PreviewEngineScreen(
         if (c.saveLocationWithMedia && !fineLocationGranted) {
             chromePrefs.update(c.copy(saveLocationWithMedia = false))
             CaptureLocationBridge.update(null)
-            Toast.makeText(
-                context.applicationContext,
+            captureScope.pnsShowSnackbar(
+                snackbarHostState,
                 "Location off — new photos won't be geotagged.",
-                Toast.LENGTH_LONG,
-            ).show()
+            )
         }
     }
 
@@ -795,11 +820,10 @@ fun PreviewEngineScreen(
             chrome.dndWhileInPreview ||
             (isRecording && chrome.dndWhileRecording)
         if (needsPolicy) {
-            Toast.makeText(
-                context,
-                "Do Not Disturb in camera needs notification-policy access — tap “Policy access” in preview options.",
-                Toast.LENGTH_LONG,
-            ).show()
+            captureScope.pnsShowSnackbar(
+                snackbarHostState,
+                "Do Not Disturb in camera needs notification-policy access — tap Policy access in preview options.",
+            )
         }
     }
 
@@ -1014,7 +1038,10 @@ fun PreviewEngineScreen(
                             runCatching { Uri.parse(out.dngUriString) }.getOrElse { lastGalleryUri }
                     },
                     onFailure = { e ->
-                        Toast.makeText(context, e.message ?: "DNG failed", Toast.LENGTH_LONG).show()
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            PnsUserFacingErrors.stillCaptureFailure(e),
+                        )
                         imageCaptureReturn?.let { ic ->
                             ic.host.setResult(Activity.RESULT_CANCELED)
                             ic.host.finish()
@@ -1043,7 +1070,10 @@ fun PreviewEngineScreen(
                         }
                     },
                     onFailure = { e ->
-                        Toast.makeText(context, e.message ?: "Bracket failed", Toast.LENGTH_LONG).show()
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            PnsUserFacingErrors.bracketCaptureFailure(e),
+                        )
                     },
                 )
             }
@@ -1107,6 +1137,7 @@ private fun PreviewEngineContent(
     controller: PreviewController,
 ) {
     val context = LocalContext.current
+    val snackbarHostState = LocalPnsSnackbarHostState.current
     val settings = hudState.current
     val chrome = chromePrefs.current
     val captureScope = rememberCoroutineScope()
@@ -1248,14 +1279,14 @@ private fun PreviewEngineContent(
     fun openCalibrateFromPreviewFrame() {
         val gl = previewHostSlot.view
         if (gl == null) {
-            Toast.makeText(context, "Preview not ready.", Toast.LENGTH_SHORT).show()
+            captureScope.pnsShowSnackbar(snackbarHostState, "Preview not ready.")
             return
         }
         captureScope.launch(Dispatchers.IO) {
             val bmp = controller.grabPreviewFrameBitmap(gl)
             if (bmp == null) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Could not grab preview frame.", Toast.LENGTH_SHORT).show()
+                    captureScope.pnsShowSnackbar(snackbarHostState, "Could not grab preview frame.")
                 }
                 return@launch
             }
@@ -1386,22 +1417,22 @@ private fun PreviewEngineContent(
                                 onBracketBurst(BracketPattern.Five)
                             controller.canCaptureRawStill() -> triggerStillCapture()
                             else ->
-                                Toast.makeText(
-                                    context,
-                                    "DNG/BKT: switch preview to ≤119 fps (RAW session); BKT needs dial on BKT",
-                                    Toast.LENGTH_LONG,
-                                ).show()
+                                captureScope.pnsShowSnackbar(
+                                    snackbarHostState,
+                                    "DNG/BKT: switch preview to 119 fps or below (RAW session); BKT needs dial on BKT",
+                                    longDuration = true,
+                                )
                         }
                         true
                     }
                     AndroidKeyEvent.KEYCODE_VOLUME_DOWN -> {
                         val next = !isRecording
                         onRecordingChange(next)
-                        Toast.makeText(
-                            context,
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
                             if (next) "Recording started (volume down)" else "Recording stopped (volume down)",
-                            Toast.LENGTH_SHORT,
-                        ).show()
+                            longDuration = false,
+                        )
                         true
                     }
                     else -> false
@@ -2092,6 +2123,8 @@ private fun PreviewBottomCaptureTray(
     shootingModesSlot: (@Composable () -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val snackbarHostState = LocalPnsSnackbarHostState.current
+    val traySnackbarScope = rememberCoroutineScope()
     var thumbBitmap by remember { mutableStateOf<Bitmap?>(null) }
     /** When true, photo shutter is primary (center); when false, video record is primary. */
     var primaryPhoto by rememberSaveable { mutableStateOf(true) }
@@ -2201,11 +2234,11 @@ private fun PreviewBottomCaptureTray(
                                         if (canCaptureRawStill) {
                                             onCaptureDng()
                                         } else {
-                                            Toast.makeText(
-                                                context,
-                                                "DNG: ≤119 fps preview (RAW session)",
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
+                                            traySnackbarScope.pnsShowSnackbar(
+                                                snackbarHostState,
+                                                "DNG: 119 fps preview or below (RAW session)",
+                                                longDuration = false,
+                                            )
                                         }
                                     },
                                     modifier =
@@ -2722,6 +2755,18 @@ private fun PreviewChromeScrollSlot(
                 } else {
                     spec.icon
                 }
+            val qsA11yLabel =
+                when (spec.kind) {
+                    ChromeGridQuickAction.TimerStub -> {
+                        val sec = chromePrefs.current.selfTimerDelaySec
+                        "${spec.contentDescription}, " +
+                            if (sec > 0) "on, $sec second timer" else "off"
+                    }
+                    ChromeGridQuickAction.CycleFlash ->
+                        "${spec.contentDescription}, current mode ${chromePrefs.current.previewFlashMode}"
+                    else ->
+                        "${spec.contentDescription}, ${if (selectedQuick) "on" else "off"}"
+                }
             Box(modifier = rot.then(Modifier.fillMaxSize())) {
                 IconCubeVectorButton(
                     onClick = {
@@ -2748,7 +2793,7 @@ private fun PreviewChromeScrollSlot(
                             }
                         }
                     },
-                    contentDescription = spec.contentDescription,
+                    contentDescription = qsA11yLabel,
                     imageVector = flashIcon,
                     selected = selectedQuick,
                     modifier = Modifier.fillMaxSize(),
@@ -3035,7 +3080,8 @@ private fun TargetFpsRailSheetContent(
     onSetFps: (Int) -> Unit,
     focalCrop: FocalMode?,
 ) {
-    val context = LocalContext.current
+    val snackbarHostState = LocalPnsSnackbarHostState.current
+    val sheetScope = rememberCoroutineScope()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         ChromeSettingsIntroText(
             "Same targets as the FPS chip on the readout strip. Root-only entries use a blue tint there and may still be rejected by the HAL.",
@@ -3047,11 +3093,10 @@ private fun TargetFpsRailSheetContent(
                 requiresRoot = opt.requiresRoot,
                 onClick = {
                     if (opt.requiresRoot && opt.targetFps != selectedFps) {
-                        Toast.makeText(
-                            context,
+                        sheetScope.pnsShowSnackbar(
+                            snackbarHostState,
                             "Root-only on this camera: ${opt.targetFps} fps is not advertised without root or vendor unlock. You can still try; the app falls back if the HAL rejects it.",
-                            Toast.LENGTH_LONG,
-                        ).show()
+                        )
                     }
                     onSetFps(opt.targetFps)
                 },

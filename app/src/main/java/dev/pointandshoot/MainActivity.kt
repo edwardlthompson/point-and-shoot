@@ -8,7 +8,15 @@ import androidx.activity.ComponentActivity
 import androidx.core.content.IntentCompat
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -62,24 +70,35 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PnsTheme {
-                Surface {
-                    CameraCapabilitiesProbe(
-                        launchScreen = launchScreen,
-                        imageCaptureReturn = imageCaptureReturn,
-                        autoSweep = autoSweep,
-                        autoEncProbe = autoEnc,
-                        autoDeepCaps = autoDeepCaps,
-                        autoSessionMatrix = autoSessionMatrix,
-                        autoHdrDcgRuntime = autoHdrDcgRuntime,
-                        autoCaptureLatency = autoCaptureLatency,
-                        autoRawHdrExclusivity = autoRawHdrExcl,
-                        autoBurstProbe = autoBurst,
-                        autoLogicalPhysical = autoLogicalPhysical,
-                        autoExhaustive = autoExhaustive,
-                        exhaustiveIncludeLogical = includeLogical,
-                        exhaustiveHfrOnly = exhaustiveHfrOnly,
-                        autoLegacyCamera1 = autoLegacy,
-                        autoFaceMeterProbe = autoFaceMeter,
+                val snackbarHostState = remember { SnackbarHostState() }
+                Box(Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(
+                        LocalPnsSnackbarHostState provides snackbarHostState,
+                    ) {
+                        Surface(modifier = Modifier.fillMaxSize()) {
+                            CameraCapabilitiesProbe(
+                                launchScreen = launchScreen,
+                                imageCaptureReturn = imageCaptureReturn,
+                                autoSweep = autoSweep,
+                                autoEncProbe = autoEnc,
+                                autoDeepCaps = autoDeepCaps,
+                                autoSessionMatrix = autoSessionMatrix,
+                                autoHdrDcgRuntime = autoHdrDcgRuntime,
+                                autoCaptureLatency = autoCaptureLatency,
+                                autoRawHdrExclusivity = autoRawHdrExcl,
+                                autoBurstProbe = autoBurst,
+                                autoLogicalPhysical = autoLogicalPhysical,
+                                autoExhaustive = autoExhaustive,
+                                exhaustiveIncludeLogical = includeLogical,
+                                exhaustiveHfrOnly = exhaustiveHfrOnly,
+                                autoLegacyCamera1 = autoLegacy,
+                                autoFaceMeterProbe = autoFaceMeter,
+                            )
+                        }
+                    }
+                    SnackbarHost(
+                        hostState = snackbarHostState,
+                        modifier = Modifier.align(Alignment.BottomCenter),
                     )
                 }
             }

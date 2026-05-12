@@ -9,6 +9,7 @@
         <include domain="sharedpref" path="pns_vendor_highlight_ae.xml" />
         <include domain="sharedpref" path="pns_root_capability.xml" />
         <include domain="sharedpref" path="pns_composition_guides.xml" />
+        <include domain="sharedpref" path="pns_ui_hints.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="pns_preview_chrome.xml" />
@@ -18,5 +19,6 @@
         <include domain="sharedpref" path="pns_vendor_highlight_ae.xml" />
         <include domain="sharedpref" path="pns_root_capability.xml" />
         <include domain="sharedpref" path="pns_composition_guides.xml" />
+        <include domain="sharedpref" path="pns_ui_hints.xml" />
     </device-transfer>
 </data-extraction-rules>

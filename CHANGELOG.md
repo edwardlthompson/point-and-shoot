@@ -6,17 +6,31 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ### Added
 
-- **Android Auto Backup** — `AndroidManifest` **`allowBackup=true`** with **`pns_backup_rules.xml`** / **`pns_data_extraction_rules.xml`** allow-listing app **SharedPreferences** (preview chrome, HUD, welcome flow, diagnostics, vendor highlight AE, root capability snapshot, composition guides) so settings can restore after reinstall when the platform backup path runs.
+- **Android Auto Backup** — `AndroidManifest` **`allowBackup=true`** with **`pns_backup_rules.xml`** / **`pns_data_extraction_rules.xml`** allow-listing app **SharedPreferences** (preview chrome, HUD, welcome flow, diagnostics, vendor highlight AE, root capability snapshot, composition guides, **UI hints**) so settings can restore after reinstall when the platform backup path runs.
 
 - **Preview flash modes** — `PreviewFlashMode` (`Off` / `Auto` / `On` / `Torch`) persisted in **`PreviewChromePreferences`**; **`PreviewFlashPolicy`** wires **`CONTROL_AE_MODE`** (via existing auto AE program) plus **`FLASH_MODE`** on preview repeating requests and **`FLASH_MODE_SINGLE`** on single RAW stills; AE bracket bursts force flash **off**. **7×7** grid: merged **Extra shutters** quick tile (tap + volume) + **Flash** tile (short-press cycle, long-press menu); **`PNS.ChromeUx`** `quickActions=` includes **`extraShutter`**, **`flash`**. **`PreviewFlashPolicyTest`** covers AE mapping + cycle.
 
+- **Material 3 snackbar host** — **`MainActivity`** hosts **`SnackbarHost`** and provides **`LocalPnsSnackbarHostState`** so **`PreviewEngineScreen`** can show non-blocking errors and hints without adding preview chrome bands.
+
+- **Immersive gesture hint** — **`PnsUiHintsStore`** (**`pns_ui_hints`**, included in Auto Backup rules) records a one-time snackbar after the first normal preview session (skipped when preview ADB automation extras are active).
+
+- **`PnsUserFacingErrors`** — classifies common still/bracket failure **`Throwable`** messages into short user-facing lines; covered by **`PnsUserFacingErrorsTest`**.
+
 ### Changed
+
+- **`WelcomePermissionsScreen`** — when a **required** runtime permission is still off, shows **Open app settings** (`ACTION_APPLICATION_DETAILS_SETTINGS`); camera step adds explicit **Don\u2019t allow** recovery copy. **Optional** mic/location steps gain **Skip (optional)** (advance without granting).
+
+- **`DebugMenuScreen`** (engineering hub) — camera-permission banner adds **Open app settings**; probe destination rows set a combined **`contentDescription`** for screen readers.
+
+- **`CalibrateScreen`** / **`LutImporterScreen`** — removed **Toast** duplicates where inline status / result text already conveys the same outcome (**`BUILD_PLAN`** single-channel UX).
+
+- **7×7 quick settings** — **`contentDescription`** now includes **on/off**, self-timer seconds, or **current flash mode** for TalkBack.
+
+- **`PreviewEngineScreen`** — **Geotag:** when **fine location** is revoked while **Save location in files** was on, clearing the pref shows a **snackbar** (“Location off — new photos won't be geotagged.”). **Other:** DND policy reminder, DNG + bracket capture failures, volume-key capture hints, bottom-tray DNG FPS guard, and FPS sheet root-only targets use **snackbars** (via **`pnsShowSnackbar`**) instead of toasts where applicable; still uses **Toast** for **`ACTION_IMAGE_CAPTURE`** early companion-JPEG failure before **`finish`**.
 
 - **`PreviewChromePreferences` / preview engine** — ADB **`pns_preview_self_timer_sec`** seeds the in-session timer via **`applySessionOnly`** (no **`SharedPreferences` write**), so automation and **`pns_chrome_ux_gate.ps1`** no longer leave a **3 s** timer persisted; disk default stays **0** (off). Default **`previewFlashMode`** remains **Auto** in the data class and **`load()`** defaults.
 
 - **`GalleryThumbnail`** — **`openMediaWithSystemResolver`**: if **`ACTION_VIEW`** fails for the resolved MIME type, retry **`VIEW`** with **`*/*`**, then **`ACTION_SEND`** via **`createChooser`** so users can still share or open the capture; clearer Toast only when nothing matches.
-
-- **`PreviewEngineScreen`** — when **fine location** is revoked while **Save location in files** was on, clearing the pref now shows a **Toast**: “Location off — new photos won't be geotagged.”
 
 - **`CameraCapabilitiesProbe`** — probe hub **Markdown** export (**`CreateDocument`**) shows a **Toast** when the destination cannot be opened or the write fails (still logs **`Export failed`** for diagnostics).
 

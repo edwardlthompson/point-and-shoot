@@ -8,4 +8,5 @@
     <include domain="sharedpref" path="pns_vendor_highlight_ae.xml" />
     <include domain="sharedpref" path="pns_root_capability.xml" />
     <include domain="sharedpref" path="pns_composition_guides.xml" />
+    <include domain="sharedpref" path="pns_ui_hints.xml" />
 </full-backup-content>

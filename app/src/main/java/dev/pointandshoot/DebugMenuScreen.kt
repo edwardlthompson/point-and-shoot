@@ -1,5 +1,8 @@
 package dev.pointandshoot
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,6 +32,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
@@ -471,6 +477,7 @@ private fun HubPermissionBanner(
     hasCameraPermission: Boolean,
     onRequestPermission: () -> Unit,
 ) {
+    val context = LocalContext.current
     if (hasCameraPermission) {
         Card(
             shape = RoundedCornerShape(12.dp),
@@ -509,6 +516,18 @@ private fun HubPermissionBanner(
             )
             Button(onClick = onRequestPermission, modifier = Modifier.fillMaxWidth()) {
                 Text("Grant camera permission")
+            }
+            OutlinedButton(
+                onClick = {
+                    context.startActivity(
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = Uri.fromParts("package", context.packageName, null)
+                        },
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Open app settings")
             }
         }
     }
@@ -579,6 +598,17 @@ private fun DebugEntryRow(
     entry: DebugEntry,
     enabled: Boolean,
 ) {
+    val rowSemantics =
+        buildString {
+            append(entry.title)
+            append(". ")
+            append(entry.subtitle)
+            if (enabled) {
+                append(". Opens this tool.")
+            } else {
+                append(". Disabled, needs camera permission.")
+            }
+        }
     Card(
         onClick = entry.onClick,
         enabled = enabled,
@@ -588,7 +618,10 @@ private fun DebugEntryRow(
                 containerColor = Color.White.copy(alpha = 0.08f),
                 disabledContainerColor = Color.White.copy(alpha = 0.04f),
             ),
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = rowSemantics },
     ) {
         Row(
             modifier =

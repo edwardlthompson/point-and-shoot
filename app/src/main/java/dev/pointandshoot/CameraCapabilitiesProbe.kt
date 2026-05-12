@@ -90,6 +90,13 @@ const val EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE = "pns_preview_calibrate_grab_s
 const val EXTRA_PNS_PREVIEW_SELF_TIMER_SEC = "pns_preview_self_timer_sec"
 
 /**
+ * Optional **`--es pns_preview_focal_mm_slot N`** with [PNS_SCREEN_PREVIEW]: after default **M23** seed,
+ * applies the focal-length chip matching [FocalMmSlot.labelMm] (`14`…`150`) once and logs
+ * **`PNS.ChromeUx`** **`focalSlotTap=…`** (Milestone **9.13** tele-preset ADB proof).
+ */
+const val EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT = "pns_preview_focal_mm_slot"
+
+/**
  * When true, after the full markdown probe is built (requires `CAMERA` grant), writes
  * [PROBE_EXPORT_LATEST_FILE] under the app's **files** dir. Host pull (debuggable):
  * `adb exec-out run-as dev.pointandshoot cat files/PROBE_EXPORT_LATEST.md`.
@@ -372,6 +379,7 @@ fun CameraCapabilitiesProbe(
                                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
                                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
                                         inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC) ||
+                                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT).isNullOrBlank() ||
                                         inz.action == MediaStore.ACTION_IMAGE_CAPTURE
                                 )
                             )
@@ -399,6 +407,7 @@ fun CameraCapabilitiesProbe(
         val adbCalibrateGrabSmoke =
             activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false) ?: false
         val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
+        val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
         PreviewEngineScreen(
             onBack = {
                 val ic = imageCaptureReturn
@@ -428,6 +437,7 @@ fun CameraCapabilitiesProbe(
             adbM6FpsLutProbe = adbM6FpsLutProbe,
             adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
             adbInitialSelfTimerSec = adbSelfTimerSec,
+            adbFocalMmSlotProbe = adbFocalMmSlotProbe,
             imageCaptureReturn = imageCaptureReturn,
         )
         return
@@ -1262,4 +1272,9 @@ private fun Intent?.previewSelfTimerSecExtra(): Int? =
     } else {
         null
     }
+
+internal fun Intent?.previewFocalMmSlotExtra(): FocalMmSlot? {
+    val raw = this?.getStringExtra(EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT)?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    return FocalMmSlot.entries.find { it.labelMm == raw }
+}
 

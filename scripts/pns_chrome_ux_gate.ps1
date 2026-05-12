@@ -12,6 +12,7 @@ param(
     [string]$OutDir = "",
     [ValidateSet(0, 3, 5, 10)]
     [int]$SelfTimerSec = 3,
+    [string]$FocalMmSlot = "85",
     [switch]$SkipInstall,
     [switch]$SkipGradle,
     [switch]$SkipHost,
@@ -156,6 +157,8 @@ $readoutCaptureOk = $false
 $selfTimerOk = $false
 $flashQsGrid7Ok = $false
 $flashPreviewHardwareOk = $false
+$expandModalHostOk = $false
+$teleFocalSlotOk = $false
 $deviceSkipReason = ""
 
 if (-not $adbConnected) {
@@ -196,11 +199,15 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     $null = Invoke-AdbIgnore @("logcat", "-c")
     $null = Invoke-Adb @("shell", "am", "force-stop", $pkg)
     Start-Sleep -Milliseconds 600
-    # Seed self-timer via intent so logcat shows selfTimerSec= (ADB automation path).
+    # Seed self-timer + optional focal mm slot (Milestone 9.13 tele preset ADB proof).
     $shellCmd = "am start -n ${pkg}/.MainActivity --es pns_screen preview --ei pns_preview_self_timer_sec $SelfTimerSec"
+    if (-not [string]::IsNullOrWhiteSpace($FocalMmSlot)) {
+        $slot = $FocalMmSlot.Trim()
+        $shellCmd += " --es pns_preview_focal_mm_slot $slot"
+    }
     $null = Invoke-Adb @("shell", $shellCmd)
     # Allow preview session start + readout=fallback (10s after repeating begins on slow devices).
-    Start-Sleep -Seconds 18
+    Start-Sleep -Seconds 22
 
     $logPath = Join-Path $OutDir "logcat_chrome_seed.txt"
     Save-LogcatTail $logPath
@@ -277,6 +284,21 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx flashPreviewHardware=true|false in logcat."
     }
+    if ($logText -match 'PNS\.ChromeUx.*expandShortcuts=surface=modalDialog') {
+        $expandModalHostOk = $true
+    }
+    else {
+        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx expandShortcuts=surface=modalDialog in logcat."
+    }
+    if ([string]::IsNullOrWhiteSpace($FocalMmSlot)) {
+        $teleFocalSlotOk = $true
+    }
+    elseif ($logText -match 'PNS\.ChromeUx.*focalSlotTap=') {
+        $teleFocalSlotOk = $true
+    }
+    else {
+        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx focalSlotTap= (set -FocalMmSlot '' to skip)."
+    }
 }
 
 # Pass: host always required. Device / seed required only when we actually ran the device scenario.
@@ -285,7 +307,7 @@ if ($deviceSkipReason -eq "missing_apk") {
     $gatePass = $false
 }
 elseif ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne "missing_apk") {
-    $gatePass = $hostPass -and $seedOk -and $safeInsetsOk -and $dndPreviewOk -and $readoutOk -and $dualShutterOk -and $grid7Ok -and $modeDialPopoutOk -and $readoutCaptureOk -and $selfTimerOk -and $flashQsGrid7Ok -and $flashPreviewHardwareOk
+    $gatePass = $hostPass -and $seedOk -and $safeInsetsOk -and $dndPreviewOk -and $readoutOk -and $dualShutterOk -and $grid7Ok -and $modeDialPopoutOk -and $readoutCaptureOk -and $selfTimerOk -and $flashQsGrid7Ok -and $flashPreviewHardwareOk -and $expandModalHostOk -and $teleFocalSlotOk
 }
 
 $obj = @{
@@ -304,6 +326,9 @@ $obj = @{
     selfTimerOk        = $selfTimerOk
     flashQsGrid7Ok     = $flashQsGrid7Ok
     flashPreviewHardwareOk = $flashPreviewHardwareOk
+    expandModalHostOk  = $expandModalHostOk
+    teleFocalSlotOk    = $teleFocalSlotOk
+    focalMmSlotParam   = $(if ([string]::IsNullOrWhiteSpace($FocalMmSlot)) { "" } else { $FocalMmSlot.Trim() })
     deviceSkipReason   = $deviceSkipReason
     timestampUtc       = [DateTime]::UtcNow.ToString("o")
     outDir             = $OutDir
@@ -311,7 +336,7 @@ $obj = @{
 }
 $jsonPath = Join-Path $OutDir "chrome_ux_gate.json"
 $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding utf8
-Write-Host "`[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk flashQsGrid7Ok=$flashQsGrid7Ok flashPreviewHardwareOk=$flashPreviewHardwareOk"
+Write-Host "`[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk flashQsGrid7Ok=$flashQsGrid7Ok flashPreviewHardwareOk=$flashPreviewHardwareOk expandModalHostOk=$expandModalHostOk teleFocalSlotOk=$teleFocalSlotOk"
 # §5 append: .\scripts\pns_probe_append_section5.ps1 -GateJson <path\to\chrome_ux_gate.json> [-PassOnly]
 
 if (-not $gatePass) {

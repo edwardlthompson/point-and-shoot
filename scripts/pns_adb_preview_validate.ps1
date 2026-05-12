@@ -345,9 +345,10 @@ function Run-Scenario([string]$Name, [int]$WaitSec, [string[]]$AmArgs) {
 
 if ($ChromeUxPack) {
     Write-Host "[adb_preview_validate] ChromeUxPack: BUILD_PLAN Milestone 9 ChromeUx intent scenarios only"
-    Run-Scenario "m9_self_timer_adb_seed" 22 @(
+    Run-Scenario "m9_self_timer_adb_seed" 28 @(
         "--es", "pns_screen", "preview",
-        "--ei", "pns_preview_self_timer_sec", "3"
+        "--ei", "pns_preview_self_timer_sec", "3",
+        "--es", "pns_preview_focal_mm_slot", "85"
     )
 }
 elseif ($Milestone6Pack) {
@@ -564,14 +565,18 @@ if ($ChromeUxPack) {
     # Sprint 9.12 — flash quick-setting appears in shipped 7×7 quickActions list; hardware line is once per session.
     $flashQsGrid7Ok = $m9Text -match 'PNS\.ChromeUx.*quickActions=.*flash'
     $flashPreviewHardwareOk = $m9Text -match 'PNS\.ChromeUx.*flashPreviewHardware=(true|false)'
+    $expandModalHostOk = $m9Text -match 'PNS\.ChromeUx.*expandShortcuts=surface=modalDialog'
+    $teleFocalSlotOk = $m9Text -match 'PNS\.ChromeUx.*focalSlotTap='
     $cxObj = [ordered]@{
         schema             = "pns.chrome_ux_smoke.v1"
         scenario           = "m9_self_timer_adb_seed"
-        pass               = ($selfTimerUxOk -and $adbSeedOk -and $flashQsGrid7Ok -and $flashPreviewHardwareOk)
+        pass               = ($selfTimerUxOk -and $adbSeedOk -and $flashQsGrid7Ok -and $flashPreviewHardwareOk -and $expandModalHostOk -and $teleFocalSlotOk)
         selfTimerChromeUxOk = $selfTimerUxOk
         adbSelfTimerSeedOk = $adbSeedOk
         flashQsGrid7Ok     = $flashQsGrid7Ok
         flashPreviewHardwareOk = $flashPreviewHardwareOk
+        expandModalHostOk  = $expandModalHostOk
+        teleFocalSlotOk    = $teleFocalSlotOk
         logArtifact        = "logcat_m9_self_timer_adb_seed.txt"
         outDir             = $OutDir
         generatedAtUtc     = [DateTime]::UtcNow.ToString("o")
@@ -580,7 +585,7 @@ if ($ChromeUxPack) {
     $cxObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $cxJson -Encoding utf8
     Write-Host "[adb_preview_validate] chrome_ux_smoke pass=$($cxObj.pass) -> $cxJson"
     if (-not $cxObj.pass) {
-        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3, AdbValidation preview adb seed selfTimerDelaySec=3, grid7 quickActions including flash, and flashPreviewHardware=true|false in $m9Log"
+        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3, AdbValidation preview adb seed selfTimerDelaySec=3, grid7 quickActions including flash, flashPreviewHardware=true|false, expandShortcuts=modalDialog, and focalSlotTap= in $m9Log"
     }
 }
 

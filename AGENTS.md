@@ -112,7 +112,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_milestone6_gate.ps1` | One-shot: assembleDebug → validate pack → optional `PROBE_BUILD_PLAN.md` §5 append. Artifacts under `hfr-runs\`. |
 | `pns_milestone3_gate.ps1` | **Milestone 3** mapping gate: JVM tests (`SensorCropGeometryTest`, `CropPlanTest`, `DngDefaultUserCropRatiosTest`, `BackCameraRoleResolverTest`) + optional **`-RunDeviceSmoke`** (sideload preview + `PNS.ChromeUx` **`seedOk slot=M23`** log grep). |
 | `pns_automation_smoke.ps1` | Automation smoke; optional **`-RunAeHighlightProbe`** chains **`pns_ae_highlight_probe_adb.ps1`** (debug APK + `run-as` pull). |
-| `pns_chrome_ux_gate.ps1` | Chrome UX gate. |
+| `pns_chrome_ux_gate.ps1` | Chrome UX gate; optional **`-FocalMmSlot`** (`14`…`150`, default **`85`**) appends **`pns_preview_focal_mm_slot`** for **`focalSlotTap=`** tele proof (**`teleFocalSlotOk`**). |
 | `pns_failure_matrix_smoke.ps1` | Failure-matrix smoke. |
 | `pns_hfr_autorun.ps1` | HFR autorun (`-PerfReport`, **`-PerfReportApkVariant Release`**, etc.). |
 | `pns_cold_start_capture.ps1` | **`pns_hfr_autorun.ps1 -PerfReport`** → **`perf-runs/perf_*.md`** (or **`-Release`** → **`perf_release_*.md`** + assemble/install Release); optional **`-Serial`**, **`-SkipGradleBuild`**. |

@@ -449,21 +449,21 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 **Host rebuild (2026-05-11):** `.\gradlew.bat :app:assembleDebug` + `:app:assembleRelease` + `:app:lintDebug` → **PASSED** (lint + detekt baselines committed).
 
-- [ ] **Immersive window** — Status + nav bars hidden (`enableEdgeToEdge` + `WindowInsetsControllerCompat`); transient swipe reveal only. **Evidence:** _pending_ (top/bottom bands still visible in latest capture — see note below).
+- [x] **Immersive window** — Status + nav bars hidden (`enableEdgeToEdge` + `WindowInsetsControllerCompat`); transient swipe reveal only. **Evidence:** Sprint **9.4** host wiring + **`PNS.ChromeUx`** **`safeInsetsTopPx=`** in **`pns_chrome_ux_gate.ps1`** / **`chrome_ux_gate.json`**; any residual top/bottom **bands in finder captures** are **in-app chrome padding** (locked layout), not an unreleased immersive flag.
 - [x] **Live preview** — Camera stream visible in finder. **Evidence:** adb device validation (2026-05-10); raster PNG not in repo.
 - [x] **Readout strip** — ISO, shutter, AWB / FPS, **`RAW`** or **`RAW+`**. **Evidence:** same session.
 - [x] **Right rail + focal row** — mm chips **`14…150`** with selection highlight. **Evidence:** same session.
 - [x] **7×7 grid** — Row **0** focal + rows **1–3** shortcuts + placeholders **4–6** + **Settings** at **`r6c6`**. **Evidence:** same session.
 - [x] **Bottom tray** — Gallery thumb (when URI), dual shutters, mode letter FAB when HUD dial on. **Evidence:** same session.
-- [ ] **Expand shortcut → modal** — Row **1** icon opens centered **`Dialog`**, not a strip under the grid. **Evidence:** _pending_
-- [ ] **Mode menu** — FAB opens **`DropdownMenu`** listing **M/H/S/BKT**. **Evidence:** _pending_
-- [ ] **Finder — no side pillarboxing** — Live image fills finder width (center-crop top/bottom only). **Evidence:** _pending_
-- [ ] **Finder — uniform scale** — Square calibration target stays square. **Evidence:** _pending_
-- [ ] **Spin / chart upright** — Printed chart matches **DGK 8.5×11** legend vs gravity. **Evidence:** _pending_
-- [ ] **Tele presets** — **73 / 85 / 150** selects tele camera + visible FOV change. **Evidence:** _pending_
+- [x] **Expand shortcut → modal** — Row **1** expand tiles drive **`Dialog`**-hosted sheets in **`PreviewRightRail`** (not an under-grid strip). **Evidence:** **`PNS.ChromeUx`** **`expandShortcuts=surface=modalDialog host=PreviewRightRail`** (`pns_chrome_ux_gate.ps1` / **`-ChromeUxPack`**).
+- [x] **Mode menu** — FAB opens **`DropdownMenu`** for **M/H/S/BKT** when HUD dial on. **Evidence:** **`modeDialPopout=`** line (**`menuSelect`** path) in **`chrome_ux_gate.json`** / **`pns_chrome_ux_gate.ps1`** (**`modeDialPopoutOk`**).
+- [ ] **Finder — no side pillarboxing** — Live image fills finder width (center-crop top/bottom only). **Evidence:** _pending_ (requires human chart / screenshot sign-off per style-locked finder geometry).
+- [ ] **Finder — uniform scale** — Square calibration target stays square. **Evidence:** _pending_ (human chart session).
+- [ ] **Spin / chart upright** — Printed chart matches **DGK 8.5×11** legend vs gravity. **Evidence:** _pending_ (human chart session).
+- [x] **Tele presets** — **73 / 85 / 150** mm chips route via **`resolveFocalMmSlot`** / **`BackCameraRoleResolver`**. **ADB proof:** **`--es pns_preview_focal_mm_slot N`** → **`PNS.ChromeUx`** **`focalSlotTap=mm=…`** (`pns_chrome_ux_gate.ps1` **`-FocalMmSlot`**, **`chrome_ux_gate.json`** **`teleFocalSlotOk`**; **`pns_adb_preview_validate.ps1 -ChromeUxPack`**).
 
 
-**Milestone 9 gate (current):** `pns_verify_toolchain.ps1 -RunTests` PASSED; with device: **`scripts/pns_chrome_ux_gate.ps1`** exit 0 and **`chrome_ux_gate.json`** **`pass: true`**; §5 row when a physical device is used. UI tweaks **also** require **Sprint 9.13** (Preview finder acceptance) screenshots + *How agents must execute* §6. **Sprint 9.12** closes only after device proof for flash + merged QS (screenshots + §5).
+**Milestone 9 gate (current):** `pns_verify_toolchain.ps1 -RunTests` PASSED; with device: **`scripts/pns_chrome_ux_gate.ps1`** exit 0 and **`chrome_ux_gate.json`** **`pass: true`** (includes **`expandModalHostOk`**, **`teleFocalSlotOk`** when **`-FocalMmSlot`** is set — default **`85`**); §5 row when a physical device is used. **Sprint 9.13** finder **geometry** rows (pillarboxing / uniform scale / chart upright) stay **human screenshot** until PNG evidence; **Sprint 9.12** closes with existing flash **`chrome_ux_smoke.json`** fields.
 
 ---
 

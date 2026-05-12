@@ -383,6 +383,10 @@ private suspend fun deliverImageCaptureToCaller(
     }
 }
 
+private const val FOCAL_SLOT_PROBE_EMPTY_IDS_WAIT_LOOPS = 80
+private const val FOCAL_SLOT_PROBE_NULL_CAMERA_WAIT_LOOPS = 80
+private const val FOCAL_SLOT_PROBE_POST_SEED_MS = 600L
+
 private fun stillCaptureSurfaceRotationFromPhysicalCardinal(physicalCardinalSnapDegrees: Float): Int =
     RawCaptureSupport.surfaceRotationFromPhysicalCardinalSnap(physicalCardinalSnapDegrees.roundToInt())
 
@@ -406,6 +410,8 @@ fun PreviewEngineScreen(
     adbCalibrateGrabSmoke: Boolean = false,
     /** `--ei pns_preview_self_timer_sec N` — seeds [PreviewChromePreferences.selfTimerDelaySec] (normalized). */
     adbInitialSelfTimerSec: Int? = null,
+    /** **`--es pns_preview_focal_mm_slot N`** — applies [FocalMmSlot] once after seed; logs **`focalSlotTap=`**. */
+    adbFocalMmSlotProbe: FocalMmSlot? = null,
     /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */
     imageCaptureReturn: ImageCaptureReturnContract? = null,
 ) {
@@ -436,7 +442,8 @@ fun PreviewEngineScreen(
             adbSuperMacroProbe ||
             adbM6FpsLutProbe ||
             adbCalibrateGrabSmoke ||
-            adbInitialSelfTimerSec != null
+            adbInitialSelfTimerSec != null ||
+            adbFocalMmSlotProbe != null
     controller.superMacroAdbProbe = adbSuperMacroProbe
     // RAW + bracket runs disable face stats to cut CameraMetadataJV noise; dial-only (H, BKT UI) keeps Eye-AF / tracker.
     controller.automationSuppressFacePipeline =
@@ -469,21 +476,28 @@ fun PreviewEngineScreen(
         adbM6FpsLutProbe,
         adbCalibrateGrabSmoke,
         adbInitialSelfTimerSec,
+        adbFocalMmSlotProbe,
     ) {
-        if (adbSequentialRawStills > 0 ||
-            adbBracketPattern != null ||
+        val captureAutomation = adbSequentialRawStills > 0 || adbBracketPattern != null
+        val dialOrProfileOrSeed =
             adbInitialDial != null ||
-            adbInitialImagingProfile != null ||
-            !adbSeedCameraId.isNullOrBlank() ||
+                adbInitialImagingProfile != null ||
+                !adbSeedCameraId.isNullOrBlank()
+        val probeOrTimerOrLut =
             adbSuperMacroProbe ||
-            adbM6FpsLutProbe ||
-            adbCalibrateGrabSmoke ||
-            !adbPreviewStillsLutName.isNullOrBlank() ||
-            adbInitialSelfTimerSec != null
-        ) {
+                adbM6FpsLutProbe ||
+                adbCalibrateGrabSmoke ||
+                !adbPreviewStillsLutName.isNullOrBlank() ||
+                adbInitialSelfTimerSec != null ||
+                adbFocalMmSlotProbe != null
+        if (captureAutomation || dialOrProfileOrSeed || probeOrTimerOrLut) {
             PnsAdbLog.i(
                 context,
-                "automation extras raw=$adbSequentialRawStills bracket=$adbBracketPattern dial=$adbInitialDial profile=${adbInitialImagingProfile?.id} seedCam=$adbSeedCameraId superMacroProbe=$adbSuperMacroProbe stillsLutSeed=$adbPreviewStillsLutName m6FpsLutProbe=$adbM6FpsLutProbe calibrateGrabSmoke=$adbCalibrateGrabSmoke selfTimerSecSeed=$adbInitialSelfTimerSec suppressFps=${controller.suppressPeriodicFpsLogs} suppressFacePipeline=${controller.automationSuppressFacePipeline}",
+                "automation extras raw=$adbSequentialRawStills bracket=$adbBracketPattern dial=$adbInitialDial " +
+                    "profile=${adbInitialImagingProfile?.id} seedCam=$adbSeedCameraId superMacroProbe=$adbSuperMacroProbe " +
+                    "stillsLutSeed=$adbPreviewStillsLutName m6FpsLutProbe=$adbM6FpsLutProbe calibrateGrabSmoke=$adbCalibrateGrabSmoke " +
+                    "selfTimerSecSeed=$adbInitialSelfTimerSec focalMmSlot=${adbFocalMmSlotProbe?.labelMm} " +
+                    "suppressFps=${controller.suppressPeriodicFpsLogs} suppressFacePipeline=${controller.automationSuppressFacePipeline}",
             )
         }
     }
@@ -711,6 +725,7 @@ fun PreviewEngineScreen(
             adbM6FpsLutProbe ||
             adbCalibrateGrabSmoke ||
             adbInitialSelfTimerSec != null ||
+            adbFocalMmSlotProbe != null ||
             !adbPreviewStillsLutName.isNullOrBlank() ||
             adbInitialImagingProfile != null
 
@@ -756,8 +771,62 @@ fun PreviewEngineScreen(
         }
     }
 
+    var focalSlotProbeConsumed by remember(adbFocalMmSlotProbe) { mutableStateOf(false) }
+
+    LaunchedEffect(controller, adbFocalMmSlotProbe, focalSlotProbeConsumed) {
+        val slot = adbFocalMmSlotProbe ?: return@LaunchedEffect
+        if (focalSlotProbeConsumed) return@LaunchedEffect
+        var w = 0
+        while (w < FOCAL_SLOT_PROBE_EMPTY_IDS_WAIT_LOOPS && controller.cameraIds().isEmpty()) {
+            delay(50)
+            w++
+        }
+        if (controller.cameraIds().isEmpty()) {
+            Log.w("PNS.ChromeUx", "focalSlotTap=mm=${slot.labelMm} skipped=no_camera_ids")
+            focalSlotProbeConsumed = true
+            return@LaunchedEffect
+        }
+        var w2 = 0
+        while (w2 < FOCAL_SLOT_PROBE_NULL_CAMERA_WAIT_LOOPS && selectedCameraId == null) {
+            delay(50)
+            w2++
+        }
+        if (selectedCameraId == null) {
+            Log.w("PNS.ChromeUx", "focalSlotTap=mm=${slot.labelMm} skipped=no_seed_camera")
+            focalSlotProbeConsumed = true
+            return@LaunchedEffect
+        }
+        delay(FOCAL_SLOT_PROBE_POST_SEED_MS)
+        val ids = controller.cameraIds()
+        val before = selectedCameraId
+        val pair =
+            resolveFocalMmSlot(context.applicationContext, slot, ids)
+                ?: run {
+                    Log.i("PNS.ChromeUx", "focalSlotTap=mm=${slot.labelMm} skipped=no_mapping")
+                    focalSlotProbeConsumed = true
+                    return@LaunchedEffect
+                }
+        selectedCameraId = pair.first
+        focalCrop = pair.second
+        Log.i(
+            "PNS.ChromeUx",
+            "focalSlotTap=mm=${slot.labelMm} cameraIdBefore=$before cameraIdAfter=${pair.first} focalCrop=${pair.second?.name ?: "native"}",
+        )
+        focalSlotProbeConsumed = true
+    }
+
     var imagingProfile by remember(adbInitialImagingProfile) {
-        mutableStateOf(adbInitialImagingProfile ?: HudSettings.loadImagingProfile(context))
+        // JVM: sealed `data object` singleton fields can be observed null during early companion init;
+        // touch both before prefs / intent paths return an [ImagingProfile] (see [EncoderRoute.downgradedProfiles]).
+        listOf(ImagingProfile.StandardPro, ImagingProfile.UltraMax)
+        mutableStateOf(
+            runCatching {
+                val r = adbInitialImagingProfile ?: HudSettings.loadImagingProfile(context)
+                // Touch [.id] so a null / half-built singleton fails here instead of in SideEffect → controller.
+                r.id
+                r
+            }.getOrElse { ImagingProfile.StandardPro },
+        )
     }
     /** Latest profile / camera for ADB automation without restarting the capture coroutine. */
     val imagingProfileState = rememberUpdatedState(imagingProfile)
@@ -1226,7 +1295,10 @@ private fun PreviewEngineContent(
     }
     TrackModeTransition("camera", selectedCameraId ?: "null")
     TrackModeTransition("fps", selectedFps.toString())
-    TrackModeTransition("imaging_profile", imagingProfile.id)
+    TrackModeTransition(
+        "imaging_profile",
+        runCatching { imagingProfile.id }.getOrElse { "invalid_profile" },
+    )
     TrackModeTransition("recording", isRecording.toString())
     TrackModeTransition("focal_crop", focalCrop?.name ?: "null")
     TrackModeTransition("command_dial", commandDialMode.name)
@@ -3601,6 +3673,12 @@ private fun PreviewRightRail(
     /** Settings ▸ Guides & framing nested pane. */
     var settingsGuidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubPage by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        Log.i(
+            "PNS.ChromeUx",
+            "expandShortcuts=surface=modalDialog host=PreviewRightRail",
+        )
+    }
     LaunchedEffect(expandedKey) {
         if (expandedKey != "Settings") {
             settingsSubPage = null

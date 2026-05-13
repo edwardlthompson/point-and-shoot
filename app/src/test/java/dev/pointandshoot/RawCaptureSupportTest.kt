@@ -9,7 +9,8 @@ class RawCaptureSupportTest {
 
     /**
      * JVM unit tests cannot construct [android.util.Size] (android.jar stubs throw [RuntimeException]).
-     * **RAW12 → RAW10 → RAW_SENSOR** ordering is validated on-device via probe **`rawPickEffective=`** lines.
+     * [RawStreamPreference.Default] follows **RAW12 → RAW_SENSOR → RAW10** (fleet scripted-DNG default);
+     * use [RawStreamPreference.RawSensorFirst] when probing HALs that need SENSOR before RAW12/RAW10.
      */
 
     @Test
@@ -19,6 +20,18 @@ class RawCaptureSupportTest {
                 raw12 = emptyList(),
                 raw10 = emptyList(),
                 rawSensor = emptyList(),
+            ),
+        )
+    }
+
+    @Test
+    fun pickRawOutputFromMaps_raw10Only_returnsNullWhenNoRaw10() {
+        assertNull(
+            RawCaptureSupport.pickRawOutputFromMaps(
+                raw12 = emptyList(),
+                raw10 = emptyList(),
+                rawSensor = emptyList(),
+                preference = RawStreamPreference.Raw10Only,
             ),
         )
     }

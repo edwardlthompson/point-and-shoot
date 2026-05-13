@@ -190,6 +190,31 @@ Re-run via `adb shell am start -W -n dev.pointandshoot/.MainActivity
 `getExternalFilesDir(null)/deep_caps_<utc>.json` and can be pulled
 with `adb pull`.
 
+## Master routing table (capability → app behavior → probe / automation)
+
+Cross-fleet map: **what the HAL advertises**, **where the app branches**, and **how to re-verify** (Markdown export, JSON under `hfr-runs/`, or PowerShell from `AGENTS.md`). Rows are host-maintained; extend when new gates ship.
+
+| Capability / signal | App behavior (primary Kotlin) | Probe / script / artifact |
+|---|---|---|
+| Shallow camera metadata (no session) | `CameraCapabilitiesProbe.buildProbeReport`, `DeviceCameraCapabilityCache`, wall-clock budget + `degraded=true` | **`PNS.ProbeHub`** `Shallow scan:` log line; **`scripts/pns_shallow_scan_hub_validate.ps1`** + **`pns_automation_smoke.ps1`**; `PROBE_RESULTS_*.md` export; `files/PROBE_EXPORT_LATEST.md` + `scripts/pns_ae_highlight_probe_adb.ps1` |
+| Logical / physical routing | `DodgeMappingScreen`, `PreviewEngineScreen` physical id readout | Manual dodge screen; `PNS.AdbValidation` preview scenarios |
+| RAW format pick (12 / 10 / sensor) | `RawCaptureSupport.pickRawOutput`, probe `rawPickEffective=` | Probe Markdown RAW stream tables; `RawCaptureSupportTest` |
+| Focal-length slot availability | `FocalSlotAvailability` (MP gate for digital eq.) | `FocalSlotAvailabilityTest`; readout chips on preview |
+| Capability gate HUD | `CapabilityGateBridge`, `CapabilityGate`, Settings → HUD | Engineering hub **Capability gates (live)** |
+| HDR / 10-bit preview session | `PreviewHdrSessionSupport`, `PreviewController` session retries | `PNS.AdbValidation` `previewSessionDynamicRange`; `PreviewHdrSessionSupportTest` |
+| Flash / torch / strength | `PreviewFlashPolicy`, 7×7 flash tile | `scripts/pns_chrome_ux_gate.ps1`, `chrome_ux_gate.json` |
+| Stream use-case hints | `Camera2SessionCompat.outputConfigurationsWithOptionalStreamUseCases` | Session-matrix / preview validate logs |
+| Camera2 extensions | `CameraExtensionSupport`, `CameraExtensionSessionSmokeRunner` | `pns_screen=cameraextsmoke`; probe export section |
+| Reprocess still hints | `PreviewReprocessStillHints` | Probe export; `CaptureLatencyProbeScreen` |
+| Super Macro vendor key | `VendorKeyGuard`, `applySuperMacroVendorProbe` | `scripts/pns_adb_preview_validate.ps1` super-macro scenario; `super_macro_gate.json` |
+| HFR + encoder matrix | `ExhaustiveMediaProbeScreen`, encoder summaries | `scripts/pns_hfr_autorun.ps1`; `exhaustive_probe_*.json`; About **From the latest probe** |
+| Deep lens / sensor JSON | `DeepCapsProbeScreen` | `deep_caps_*.json`; ADB `pns_autodeepcaps` |
+| Face / eye / metering | `FaceMeterProbeScreen` | `scripts/pns_face_meter_probe.ps1`; `face_meter_probe_*` |
+| MediaStore / DCIM | `CaptureStorage`, gallery thumb | `scripts/pns_milestone6_gate.ps1` / `mediastore_probe.json`; `pns_pull_dcim_captures.ps1` |
+| Chrome UX (grid, readout, shutters) | `PreviewEngineScreen`, `PNS.ChromeUx` | `pns_chrome_ux_gate.ps1`, `chrome_ux_smoke.json` |
+| AE / highlight vendor keys | Probe markdown + `VendorKeyGuard` | `pns_ae_highlight_probe_adb.ps1` |
+| QR / barcode (planned) | _TBD_ — prerequisite doc `docs/camera2_reference_qr_barcode_appendix.md` | Static key catalog `docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md` |
+
 ## Outstanding Phase 0 follow-ons
 
 - Vendor key search for OIS exposure on `cameraId=2` (LYT-808 main) and

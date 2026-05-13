@@ -1,8 +1,13 @@
 package dev.pointandshoot
 
+import android.content.Context
 import android.content.Intent
+import android.hardware.display.DisplayManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
 import androidx.core.content.IntentCompat
@@ -35,6 +40,22 @@ import androidx.core.view.WindowInsetsControllerCompat
  *   the result to the caller.
  */
 class MainActivity : ComponentActivity() {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val displayListener: DisplayManager.DisplayListener =
+        object : DisplayManager.DisplayListener {
+            override fun onDisplayAdded(displayId: Int) {}
+
+            override fun onDisplayRemoved(displayId: Int) {}
+
+            override fun onDisplayChanged(displayId: Int) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+                val wid = window.decorView.display?.displayId ?: return
+                if (wid == displayId) {
+                    PnsWindowPreferredRefreshRate.applyUpTo(this@MainActivity)
+                }
+            }
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -50,6 +71,7 @@ class MainActivity : ComponentActivity() {
         // We handle merged cutout + gesture insets in Compose via rememberSystemInsetsDp.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBarsForImmersive()
+        PnsWindowPreferredRefreshRate.applyUpTo(this)
 
         val launchScreen = resolveLaunchScreenForMain(intent)
         val imageCaptureReturn = resolveImageCaptureReturn()
@@ -105,10 +127,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            dm.registerDisplayListener(displayListener, mainHandler)
+            PnsWindowPreferredRefreshRate.applyUpTo(this)
+        }
+    }
+
+    override fun onStop() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            dm.unregisterDisplayListener(displayListener)
+        }
+        super.onStop()
+    }
+
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             hideSystemBarsForImmersive()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                PnsWindowPreferredRefreshRate.applyUpTo(this)
+            }
         }
     }
 

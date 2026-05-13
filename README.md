@@ -1,5 +1,23 @@
 # Point & Shoot
 
+---
+
+## STOP — capture / ADB automation (read before changing preview or RAW stills)
+
+**Do not** tie **`automationSuppressFacePipeline`** to **`pns_preview_raw_count`** / sequential RAW-only automation. Suppressing the face/YUV analysis path forced **`wantYuv=false`** on the H-dial preview session and broke RAW still session create on real hardware (e.g. **CPH2655 / OnePlus 13 class stacks**): `SESSION_CREATE_THROW` / `CAMERA_DISCONNECTED`. **Rule:** `automationSuppressFacePipeline` is for **bracket** automation only; sequential RAW-only must keep the **same preview stream wiring as in-app H** so scripted still capture matches user capture. After any change under `PreviewEngineScreen.kt` / `RawCaptureSupport.kt` affecting stills or sessions, run **`scripts/pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) on USB. See **`AGENTS.md`** (capture automation warning), **`BUILD_PLAN.md`** item **11**, and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top warning).
+
+**Bulk “restore everything” from the bisect checklist without per-step USB proof is unsafe.** On **CPH2655** (`8bf09993`, May 2026), re-enabling **§4a** (API 33+ stream-use-case tags on the REGULAR session) alone caused **RAW still timeouts**; re-applying Milestone **10.1** **§2** RAW10-before-RAW_SENSOR order produced **RAW10** captures that **`DngCreator`** refused (**unsupported format 37**). **§1** (still **PreviewStabilization**) and **§5** (**PreviewPostRawSensitivity**) were restored **with** a green **`pns_photo_capture_verify`** only while **§4a** and the **§2** bisect tier order stayed reverted. See **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 for the incremental proof table.
+
+**Future agents — do not merge without USB proof if you change:**
+
+| Area | Avoid |
+|------|--------|
+| `PreviewEngineScreen.kt` REGULAR `createSession` | Turning **`streamHints`** back to **`SDK_INT >= TIRAMISU`** (§4a “restore”) — **RAW still timeout** + **`onError` 4** on this fleet. |
+| `RawCaptureSupport.kt` **`Default`** tier | **RAW12 → RAW10 → RAW_SENSOR** (Milestone 10.1 order) — **`DngCreator` format 37** failure on this fleet; keep **RAW_SENSOR before RAW10** unless DNG path + device gate prove otherwise. |
+| Bisect doc §1–§5 | **All hunks at once** — use **per-hunk** **`pns_photo_capture_verify.ps1`**; see **`AGENTS.md`** (§4a / §2 CRITICAL) and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 “What agents must avoid”. |
+
+---
+
 [![Toolchain verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml)
 [![Plan doc verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)

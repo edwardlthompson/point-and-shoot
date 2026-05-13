@@ -141,6 +141,9 @@ object DiagnosticsMode {
 
         sb.append(LutDiagnosticsBuilder.buildSection(colorState))
 
+        sb.appendLine()
+        sb.append(PnsCapturePipelineDiagnostics.formatReportSection())
+
         return sb.toString()
     }
 

@@ -6,6 +6,7 @@
 # - Runs `pns_failure_matrix_smoke.ps1` unless `-SkipFailureMatrix`.
 # - When at least one authorized device is connected: runs `pns_adb_preview_validate.ps1 -ChromeUxPack` unless `-SkipChromeUxPack`.
 # - Optional `-RunAeHighlightProbe`: runs `pns_ae_highlight_probe_adb.ps1` (debuggable APK; probe markdown + optional root JSON).
+# - Always runs `pns_shallow_scan_hub_validate.ps1` unless **`-SkipShallowScanHubValidate`** (cold-start **probehub** + **`PNS.ProbeHub`** `Shallow scan:` log assert; stub JSON when no adb device).
 #
 # Optional `-TryAdbRoot`: runs `adb root` best-effort
 # (userdebug / rooted fleet); may restart adbd  -  waits briefly before device scripts.
@@ -15,6 +16,7 @@
 #
 # Optional `-AppendSection5` (+ `-ProbePlan`): after a fully passing smoke (no prior step failure), runs `pns_probe_append_section5.ps1`
 # for gate JSON under this run's `outDir` when artifacts exist: `failure_matrix_smoke.json`, full-validate `super_macro_gate.json` / `mediastore_probe.json`,
+# `shallow_scan_hub_validate.json` (device run only; **`-PassOnly`** skips **adbConnected=false** stubs),
 # and `chrome_ux_gate.json` only when an authorized adb device was present (host-only chrome pass does not append PROBE_BUILD_PLAN section 5).
 # `mediastore_probe.json`: uses `-PassOnly` only when `dcimHasPnsCapture` is true so empty-DCIM runs still append an audit row.
 #
@@ -33,6 +35,7 @@ param(
     [switch]$RunFullAdbPreviewValidate,
     [switch]$RequireMediaStoreDcim,
     [switch]$RunAeHighlightProbe,
+    [switch]$SkipShallowScanHubValidate,
     [switch]$AppendSection5,
     [string]$ProbePlan = ""
 )
@@ -191,6 +194,23 @@ else {
     Step-Set "adbPreviewChromeUxPack" $true
 }
 
+if (-not $SkipShallowScanHubValidate.IsPresent) {
+    Write-Host ""
+    Write-Host "========== [automation_smoke] pns_shallow_scan_hub_validate.ps1 =========="
+    $ssDir = Join-Path $outDir "shallow_scan_hub_validate"
+    New-Item -ItemType Directory -Force -Path $ssDir | Out-Null
+    $ss = Join-Path $PSScriptRoot "pns_shallow_scan_hub_validate.ps1"
+    $ssArgs = @{ OutDir = $ssDir }
+    if ($Serial) { $ssArgs["Serial"] = $Serial }
+    if ($SkipInstall.IsPresent) { $ssArgs["SkipInstall"] = $true }
+    & $ss @ssArgs
+    Step-Set "shallowScanHubValidate" ($LASTEXITCODE -eq 0)
+}
+else {
+    Write-Host "[automation_smoke] -SkipShallowScanHubValidate"
+    Step-Set "shallowScanHubValidate" $true
+}
+
 if ($adbOk -and $RunAeHighlightProbe.IsPresent) {
     Write-Host ""
     Write-Host "========== [automation_smoke] pns_ae_highlight_probe_adb.ps1 =========="
@@ -298,6 +318,7 @@ if ($AppendSection5.IsPresent) {
         }
 
         Invoke-AutomationAppend "chrome_ux_gate" "chromeUxGate" "chrome_ux_gate\chrome_ux_gate.json"
+        Invoke-AutomationAppend "shallow_scan_hub" "shallowScanHubValidate" "shallow_scan_hub_validate\shallow_scan_hub_validate.json"
         Invoke-AutomationAppend "failure_matrix_smoke" "failureMatrixSmoke" "failure_matrix_smoke\failure_matrix_smoke.json"
         Invoke-AutomationAppend "super_macro_gate" "adbPreviewFullValidate" "adb_preview_full_validate\super_macro_gate.json"
         # mediastore: `pns_probe_append_section5 -PassOnly` skips append when dcimHasPnsCapture=false; still record empty DCIM in §5.

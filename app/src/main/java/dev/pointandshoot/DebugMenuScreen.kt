@@ -52,6 +52,16 @@ private data class DebugSection(
 )
 
 /**
+ * Shallow probe export summaries for [DebugMenuScreen] (keeps the screen composable under Detekt parameter limits).
+ */
+data class DebugMenuProbeSnapshot(
+    val reportMdReady: Boolean,
+    val cameraSummaries: List<String>,
+    val shallowScanHubLine: String? = null,
+    val capabilityGateLines: List<String> = emptyList(),
+)
+
+/**
  * Unified **engineering hub**: probe tools, diagnostics, and in-app developer shortcuts.
  * Open from the preview grid via **long-press Settings**, or when launching with **`pns_screen=probehub`**
  * ([PNS_SCREEN_PROBE_HUB]) for ADB automation (`scripts/pns_ae_highlight_probe_adb.ps1`).
@@ -59,13 +69,12 @@ private data class DebugSection(
  * @param onBackToCamera When non-null, shows a back affordance to return to the live preview. When null (probe
  * activity root), the host should install [androidx.activity.compose.BackHandler] for navigation.
  */
+@Suppress("LongParameterList", "FunctionNaming")
 @Composable
 fun DebugMenuScreen(
     padding: PaddingValues,
     hasCameraPermission: Boolean,
-    reportMdReady: Boolean,
-    cameraSummaries: List<String>,
-    capabilityGateLines: List<String> = emptyList(),
+    probeSnapshot: DebugMenuProbeSnapshot,
     onBackToCamera: (() -> Unit)?,
     onShowMapping: () -> Unit,
     onShowPreviewEngine: () -> Unit,
@@ -347,29 +356,15 @@ fun DebugMenuScreen(
                     .padding(top = 8.dp),
             ) {
                 DebugAuxiliaryCard(title = "Probe snapshot") {
-                    Text(
-                        text = "Short summaries from the last on-device capability scan. Export the full report under Outputs.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.65f),
+                    ProbeSnapshotCardInner(
+                        cameraSummaries = probeSnapshot.cameraSummaries,
+                        shallowScanHubLine = probeSnapshot.shallowScanHubLine,
                     )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 10.dp),
-                        color = Color.White.copy(alpha = 0.12f),
-                    )
-                    for (line in cameraSummaries) {
-                        Text(
-                            text = line,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.88f),
-                        )
-                    }
                 }
             }
         }
 
-        if (capabilityGateLines.isNotEmpty()) {
+        if (probeSnapshot.capabilityGateLines.isNotEmpty()) {
             item {
                 Column(
                     Modifier
@@ -388,7 +383,7 @@ fun DebugMenuScreen(
                             modifier = Modifier.padding(vertical = 10.dp),
                             color = Color.White.copy(alpha = 0.12f),
                         )
-                        for (line in capabilityGateLines) {
+                        for (line in probeSnapshot.capabilityGateLines) {
                             Text(
                                 text = line,
                                 maxLines = 3,
@@ -404,7 +399,7 @@ fun DebugMenuScreen(
 
         item {
             OutputsCard(
-                reportMdReady = reportMdReady,
+                reportMdReady = probeSnapshot.reportMdReady,
                 onExport = onExport,
                 onDumpDiagnostics = onDumpDiagnostics,
                 modifier =
@@ -414,6 +409,40 @@ fun DebugMenuScreen(
                         .padding(top = 8.dp),
             )
         }
+    }
+}
+
+@Suppress("FunctionNaming")
+@Composable
+private fun ProbeSnapshotCardInner(
+    cameraSummaries: List<String>,
+    shallowScanHubLine: String?,
+) {
+    Text(
+        text = "Short summaries from the last on-device capability scan. Export the full report under Outputs.",
+        style = MaterialTheme.typography.bodySmall,
+        color = Color.White.copy(alpha = 0.65f),
+    )
+    if (!shallowScanHubLine.isNullOrBlank()) {
+        Text(
+            text = shallowScanHubLine,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFFAAEECC),
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+    HorizontalDivider(
+        modifier = Modifier.padding(vertical = 10.dp),
+        color = Color.White.copy(alpha = 0.12f),
+    )
+    for (line in cameraSummaries) {
+        Text(
+            text = line,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.88f),
+        )
     }
 }
 

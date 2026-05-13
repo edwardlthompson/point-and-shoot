@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -40,6 +42,8 @@ import org.json.JSONObject
 import android.hardware.camera2.CameraMetadata
 
 private const val TAG = "PNS.Probe"
+/** Single-line shallow metadata summary for ADB gates (`scripts/pns_shallow_scan_hub_validate.ps1`). */
+private const val TAG_PROBE_HUB = "PNS.ProbeHub"
 
 const val EXTRA_PNS_SCREEN = "pns_screen"
 const val EXTRA_PNS_AUTOSWEEP = "pns_autosweep"
@@ -64,9 +68,21 @@ const val EXTRA_PNS_AUTOFACEMETER = "pns_autofacemeter"
  */
 const val EXTRA_PNS_PREVIEW_DIAL = "pns_preview_dial"
 const val EXTRA_PNS_PREVIEW_RAW_COUNT = "pns_preview_raw_count"
+/** When true with [EXTRA_PNS_PREVIEW_RAW_COUNT] > 0: shorter ADB settle/poll (dev smoke only). */
+const val EXTRA_PNS_PREVIEW_RAW_STILL_FAST = "pns_preview_raw_still_fast"
 const val EXTRA_PNS_PREVIEW_BRACKET = "pns_preview_bracket"
 /** `standard_pro` or `ultra_max` — seeds [ImagingProfile] for scripted preview capture (Sprint 4.3 RAW12). */
 const val EXTRA_PNS_PREVIEW_IMAGING_PROFILE = "pns_preview_imaging_profile"
+/**
+ * Optional RAW stream pick for preview session + still path (`default`, `raw_sensor_first`,
+ * `raw12_only`, `raw_sensor_only`, `raw10_only`). See `RawStreamPreference` in `RawCaptureSupport.kt`.
+ */
+const val EXTRA_PNS_PREVIEW_RAW_STREAM = "pns_preview_raw_stream"
+/**
+ * When present (`--ez`), seeds [PreviewChromePreferences.stillCaptureJpegCompanion] for this process
+ * only (session-only; does not write prefs disk). Matrix testing for RAW+ vs RAW-only.
+ */
+const val EXTRA_PNS_PREVIEW_JPEG_COMPANION = "pns_preview_jpeg_companion"
 /** Optional physical/logical id (e.g. `3` = ultra-wide on dodge) for scripted preview validation. */
 const val EXTRA_PNS_PREVIEW_CAMERA_ID = "pns_preview_camera_id"
 /**
@@ -177,6 +193,7 @@ fun CameraCapabilitiesProbe(
     }
     var reportMd by remember { mutableStateOf("") }
     var cameraSummaries by remember { mutableStateOf(listOf<String>()) }
+    var shallowScanHubLine by remember { mutableStateOf<String?>(null) }
     var capabilityGateLines by remember { mutableStateOf(listOf<String>()) }
     var showMapping by remember { mutableStateOf(false) }
     var showPreviewEngine by remember { mutableStateOf(false) }
@@ -294,6 +311,8 @@ fun CameraCapabilitiesProbe(
         }
         if (!hasCameraPermission) return@LaunchedEffect
         if (launchScreen == PNS_SCREEN_PREVIEW) {
+            // Cold ADB `pns_screen=preview` — intent automation extras are intentional for this entry.
+            previewLaunchedFromDebug = false
             showPreviewEngine = true
         } else if (launchScreen == SCREEN_ENC) {
             showEncoderProbe = true
@@ -342,15 +361,31 @@ fun CameraCapabilitiesProbe(
         }
         if (!hasCameraPermission) {
             capabilityGateLines = emptyList()
+            shallowScanHubLine = null
             return@LaunchedEffect
         }
-        val report = buildProbeReport(context, scanBudgetMs = 4000L)
+        val t0 = SystemClock.elapsedRealtime()
+        val report =
+            withContext(Dispatchers.Default) {
+                buildProbeReport(context, scanBudgetMs = 4000L)
+            }
+        val elapsedMs = SystemClock.elapsedRealtime() - t0
         reportMd = report
         Log.i(TAG, "Probe built (${report.length} chars), ready to export.")
         cameraSummaries = report
             .lineSequence()
             .filter { it.startsWith("- Camera ") }
             .toList()
+        val camCount =
+            Regex("^## Cameras \\((\\d+)\\)", RegexOption.MULTILINE)
+                .find(report)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toIntOrNull()
+                ?: cameraSummaries.size
+        val degraded = report.contains("degraded=true")
+        shallowScanHubLine = "Shallow scan: ${elapsedMs}ms cameras=$camCount degraded=$degraded"
+        Log.i(TAG_PROBE_HUB, shallowScanHubLine ?: "")
 
         capabilityGateLines = CapabilityGateBridge.uiLines(context)
 
@@ -376,6 +411,8 @@ fun CameraCapabilitiesProbe(
                                         inz.previewBracketExtra() != null ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank() ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE).isNullOrBlank() ||
+                                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_RAW_STREAM).isNullOrBlank() ||
+                                        inz.hasExtra(EXTRA_PNS_PREVIEW_JPEG_COMPANION) ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
                                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false)) ||
                                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
@@ -397,12 +434,14 @@ fun CameraCapabilitiesProbe(
 
     if (showPreviewEngine) {
         // Read intent extras every frame — `remember` cached stale 0 when preview opened without extras earlier in-process.
-        val adbDial = activity?.intent.previewDialModeExtra()
-        val adbRawCount = activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0
-        val adbBracket = activity?.intent.previewBracketExtra()
-        val adbImagingProfile = activity?.intent.previewImagingProfileExtra()
-        val adbCameraId = activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
-        val adbSuperMacroProbe = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SUPER_MACRO_PROBE, false) ?: false
+        val adbDialRaw = activity?.intent.previewDialModeExtra()
+        val adbRawCountRaw = activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_RAW_COUNT, 0) ?: 0
+        val adbRawStillFastRaw = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_RAW_STILL_FAST, false) ?: false
+        val adbBracketRaw = activity?.intent.previewBracketExtra()
+        val adbImagingProfileRaw = activity?.intent.previewImagingProfileExtra()
+        val adbRawStreamFromIntent = activity?.intent.previewRawStreamPreferenceExtra()
+        val adbJpegCompanionFromIntent = activity?.intent.previewJpegCompanionSeedExtra()
+        val adbCameraIdRaw = activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
         val adbPreviewStillsLutName = activity?.intent.previewStillsLutNameExtra()
         val adbM6FpsLutProbe = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false) ?: false
         val adbCalibrateGrabSmoke =
@@ -410,6 +449,39 @@ fun CameraCapabilitiesProbe(
         val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
         val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
         val previewSeedPrimaryPhoto = activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA
+        /**
+         * Sticky `Intent` problem: ADB / Studio may leave `pns_preview_raw_count`, `pns_preview_raw_stream`,
+         * `pns_preview_jpeg_companion`, etc. on [ComponentActivity.getIntent]. Re-reading those every
+         * composition is correct for dedicated `pns_screen=preview` runs, but opening the live preview
+         * from the engineering hub must not replay automation or force RAW stream overrides from an
+         * earlier shell session.
+         *
+         * After visiting the hub, [previewLaunchedFromDebug] is true. If [launchScreen] is still
+         * [PNS_SCREEN_PREVIEW], the user is continuing the same cold ADB preview route — keep honoring
+         * intent. If [launchScreen] is anything else (or null), ignore sticky preview automation extras.
+         */
+        val trustIntentForPreviewPipeline =
+            !previewLaunchedFromDebug || launchScreen == PNS_SCREEN_PREVIEW
+        val automationWantsIntentPipeline =
+            adbRawCountRaw > 0 ||
+                adbBracketRaw != null ||
+                launchScreen == PNS_SCREEN_PREVIEW ||
+                !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank())
+        val useIntentAutomationPipeline = trustIntentForPreviewPipeline && automationWantsIntentPipeline
+        val adbSequentialRawStills = if (trustIntentForPreviewPipeline) adbRawCountRaw else 0
+        val adbBracketPattern = if (trustIntentForPreviewPipeline) adbBracketRaw else null
+        val adbRawStreamPreference = if (useIntentAutomationPipeline) adbRawStreamFromIntent else null
+        val adbJpegCompanionSeed = if (useIntentAutomationPipeline) adbJpegCompanionFromIntent else null
+        val adbRawStillFastAutomation = if (trustIntentForPreviewPipeline) adbRawStillFastRaw else false
+        val adbInitialDial = if (trustIntentForPreviewPipeline) adbDialRaw else null
+        val adbInitialImagingProfile = if (trustIntentForPreviewPipeline) adbImagingProfileRaw else null
+        val adbSeedCameraId = if (trustIntentForPreviewPipeline) adbCameraIdRaw else null
+        val adbSuperMacroProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SUPER_MACRO_PROBE, false) ?: false
+            } else {
+                false
+            }
         PreviewEngineScreen(
             onBack = {
                 val ic = imageCaptureReturn
@@ -429,11 +501,14 @@ fun CameraCapabilitiesProbe(
                 showDebugMenu = true
             },
             startAutoSweep = autoSweep,
-            adbInitialDial = adbDial,
-            adbSequentialRawStills = adbRawCount,
-            adbBracketPattern = adbBracket,
-            adbInitialImagingProfile = adbImagingProfile,
-            adbSeedCameraId = adbCameraId,
+            adbInitialDial = adbInitialDial,
+            adbSequentialRawStills = adbSequentialRawStills,
+            adbRawStillFastAutomation = adbRawStillFastAutomation,
+            adbBracketPattern = adbBracketPattern,
+            adbInitialImagingProfile = adbInitialImagingProfile,
+            adbRawStreamPreference = adbRawStreamPreference,
+            adbJpegCompanionSeed = adbJpegCompanionSeed,
+            adbSeedCameraId = adbSeedCameraId,
             adbSuperMacroProbe = adbSuperMacroProbe,
             adbPreviewStillsLutName = adbPreviewStillsLutName,
             adbM6FpsLutProbe = adbM6FpsLutProbe,
@@ -611,13 +686,18 @@ fun CameraCapabilitiesProbe(
         DebugMenuScreen(
             padding = insets.asPaddingValues(extra = 16.dp),
             hasCameraPermission = hasCameraPermission,
-            reportMdReady = reportMd.isNotBlank(),
-            cameraSummaries = cameraSummaries,
-            capabilityGateLines = capabilityGateLines,
+            probeSnapshot =
+                DebugMenuProbeSnapshot(
+                    reportMdReady = reportMd.isNotBlank(),
+                    cameraSummaries = cameraSummaries,
+                    shallowScanHubLine = shallowScanHubLine,
+                    capabilityGateLines = capabilityGateLines,
+                ),
             onBackToCamera = {
                 showDebugMenu = false
                 // Restore live preview; opening the dev menu clears this flag — without setting it
                 // again we fall through to the engineering hub when launchScreen is non-null (e.g. ADB preview).
+                previewLaunchedFromDebug = true
                 showPreviewEngine = true
             },
             onShowMapping = {
@@ -741,17 +821,25 @@ fun CameraCapabilitiesProbe(
 
     val insets = rememberSystemInsetsDp()
     BackHandler {
+        previewLaunchedFromDebug = true
         showPreviewEngine = true
     }
     DebugMenuScreen(
         padding = insets.asPaddingValues(extra = 16.dp),
         hasCameraPermission = hasCameraPermission,
-        reportMdReady = reportMd.isNotBlank(),
-        cameraSummaries = cameraSummaries,
-        capabilityGateLines = capabilityGateLines,
+        probeSnapshot =
+            DebugMenuProbeSnapshot(
+                reportMdReady = reportMd.isNotBlank(),
+                cameraSummaries = cameraSummaries,
+                shallowScanHubLine = shallowScanHubLine,
+                capabilityGateLines = capabilityGateLines,
+            ),
         onBackToCamera = null,
         onShowMapping = { showMapping = true },
-        onShowPreviewEngine = { showPreviewEngine = true },
+        onShowPreviewEngine = {
+            previewLaunchedFromDebug = true
+            showPreviewEngine = true
+        },
         onShowEncoderProbe = { showEncoderProbe = true },
         onShowLegacyCamera1 = { showLegacyCamera1 = true },
         onShowDeepCaps = { showDeepCaps = true },
@@ -1304,6 +1392,28 @@ private fun Intent?.previewImagingProfileExtra(): ImagingProfile? {
         else -> null
     }
 }
+
+internal fun Intent?.previewRawStreamPreferenceExtra(): RawStreamPreference? {
+    val s = this?.getStringExtra(EXTRA_PNS_PREVIEW_RAW_STREAM)?.trim()?.lowercase() ?: return null
+    return when (s) {
+        "", "default" -> RawStreamPreference.Default
+        "raw_sensor_first", "sensor_first", "sensorfirst" -> RawStreamPreference.RawSensorFirst
+        "raw12_only", "raw12only", "12_only" -> RawStreamPreference.Raw12Only
+        "raw_sensor_only", "sensor_only", "rawsensor_only" -> RawStreamPreference.RawSensorOnly
+        "raw10_only", "raw10only", "10_only" -> RawStreamPreference.Raw10Only
+        else -> {
+            Log.w(TAG, "unknown pns_preview_raw_stream=$s")
+            null
+        }
+    }
+}
+
+internal fun Intent?.previewJpegCompanionSeedExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_JPEG_COMPANION)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_JPEG_COMPANION, true)
+    } else {
+        null
+    }
 
 private fun Intent?.previewStillsLutNameExtra(): String? =
     this?.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT)?.trim()?.takeIf { it.isNotBlank() }

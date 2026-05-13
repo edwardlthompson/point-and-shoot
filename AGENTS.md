@@ -6,6 +6,25 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 ---
 
+## CRITICAL — sequential RAW / `pns_preview_raw_count` and preview session wiring
+
+**Never** set **`automationSuppressFacePipeline = true`** for **`adbSequentialRawStills > 0`** alone (sequential RAW-only / `pns_preview_raw_count`). That path must keep the **same H-dial YUV / face-pipeline behavior** as manual H capture; suppressing it forced **`wantYuv=false`** and broke RAW still session create on **CPH2655-class** stacks (`CAMERA_DISCONNECTED`). **Only `adbBracketPattern != null`** should enable **`automationSuppressFacePipeline`**. See **`README.md`** STOP banner, **`BUILD_PLAN.md`** item **11** (hard rule), and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top). After any capture-session change: **`scripts/pns_photo_capture_verify.ps1`** or **`scripts/pns_capture_pipeline_verify.ps1`** on USB; after bulk restore from the bisect doc: **`scripts/pns_capture_restore_verified.ps1`**.
+
+**Incremental restore (May 2026, CPH2655 proof):** Do **not** re-apply every §1–§5 “shipping” hunk in one commit without **per-hunk** **`pns_photo_capture_verify`** (or pipeline verify). **§4a** (stream hints on) and **§2** (RAW10 before RAW_SENSOR on `Default`) each broke scripted capture on **`8bf09993`** while other rows stayed restored; the **max verified** combo for that device keeps **§4a off** and **§2 bisected**, and restores **§1** + **§5**. Table: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8.
+
+---
+
+## CRITICAL — REGULAR session stream hints (§4a) and `Default` RAW tier (§2)
+
+**Do not** flip these back to “Milestone shipping” on **`PreviewEngineScreen.kt`** / **`RawCaptureSupport.kt`** for the dodge / **CPH2655-class** fleet **without** a fresh USB **`pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) pass — they are **known regressions** on **`8bf09993`** (May 2026):
+
+- **§4a — `streamHints = SDK_INT >= TIRAMISU` on the REGULAR session:** causes scripted RAW still **timeouts** and **`ERROR_CAMERA_DEVICE` (`onError` 4)** after capture starts (HAL never completes the still in time). **Keep** bisect **`streamHints = false`** (+ comments) unless you have **device proof** and a **narrow** OEM-specific gate.
+- **§2 — `RawStreamPreference.Default` with RAW10 before RAW_SENSOR:** picks **RAW10 (format 37)**; capture can succeed but **`DngCreator.writeImage`** fails with **`Unsupported image format 37`**. **Keep** bisect order **RAW12 → RAW_SENSOR → RAW10** for **`Default`** here until the DNG pipeline explicitly supports RAW10 for this path **and** USB proof exists.
+
+Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 and **§8 “What agents must avoid”**.
+
+---
+
 ## Terminal and shell
 
 - **OS:** Windows (PowerShell). Prefer **absolute paths** when passing paths to tools.
@@ -21,7 +40,7 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 | `scripts\pns_gradlew.ps1` | Runs `gradlew.bat` with JDK resolved in-process (e.g. `.\scripts\pns_gradlew.ps1 :app:assembleDebug`). |
 | `scripts\pns_baseline_profile_generate.ps1` | USB device: optional animation-scale tweaks + `pns_gradlew.ps1 :app:generateBaselineProfile` → `app\src\release\generated\baselineProfiles\`. |
 | `scripts\pns_java_home.ps1` | JDK discovery; use `-ListCandidates` if resolution fails. |
-| `scripts\pns_verify_toolchain.ps1` | Toolchain sanity checks. |
+| `scripts\pns_verify_toolchain.ps1` | Toolchain sanity checks. Resolves a JDK via `pns_java_home.ps1 -EmitPath` before invoking Gradle so minimal PATH shells (no prior `JAVA_HOME`) still run `assembleDebug` / Detekt / lint / unit tests. |
 | `scripts\pns_install_ndk.ps1` | NDK install helper when needed. |
 
 `pns_milestone6_gate.ps1` may call `gradlew.bat` directly from repo root; either pattern is valid.
@@ -106,6 +125,13 @@ Use these from repo root unless a script documents otherwise.
 | `pns_sideload_and_launch.ps1` | Build (optional), `adb install -r`, grant camera, launch app (`-LaunchScreen preview` default). Prepends SDK **platform-tools** to PATH when **`pns_resolve_adb.ps1`** is present. |
 | `pns_resolve_adb.ps1` | Prefer one **adb**: **`-EmitPath`** prints SDK **platform-tools\\adb.exe**; **`-CheckOnly`** exits **2** if PATH adb differs; dot-source **`-PrependToPath`** (**`-Quiet`**) at startup in device-facing **`scripts\\`** automation (preview validate, probes, gates, DCIM pull, screencap, Perfetto, sideload, HFR/cold-start, probe watch/append, automation smoke, etc.). |
 | `pns_adb_preview_validate.ps1` | Device preview validation; **`-Milestone6Pack`** for milestone pack. |
+| `pns_capture_still_forensics.ps1` | Cold **preview** + **`pns_preview_dial=H`** + **`pns_preview_raw_count`**: install (optional), pull pid + ring logcat into **`hfr-runs/capture_still_forensics_*`** (use after DNG save failures; see **`PNS.CaptureStill`**). **`-Fast`** passes **`pns_preview_raw_still_fast`** for shorter in-app ADB settle and a shorter default wait. |
+| `pns_photo_capture_verify.ps1` | Loop **assembleDebug** (optional) → install → cold preview + one scripted RAW still; retries until **`PNS.AdbValidation`** shows **`captureRawStill 1/1 ok=true saved=`** or **`-MaxAttempts`**. Optional **`-SweepCameraIds`** tries **`pns_preview_camera_id`** **`(default),0,1,2,3`** in one artifact folder. Uses timeout-wrapped **adb**; artifacts **`hfr-runs/photo_capture_verify_*`** (logcat + **`run-as`** `files/PNS_CAPTURE_PIPELINE_DIAGNOSTICS.txt` when present). Logcat filter includes **`PNS.Cam:I`** for **`PNS.PreviewSessionCtx`**. Prefer **`pns_capture_pipeline_verify.ps1`** for **`docs/CAPTURE_PIPELINE_VERIFY_*.json`** (BUILD_PLAN item **11**). |
+| `pns_capture_pipeline_verify.ps1` | Wraps **`pns_photo_capture_verify.ps1`** in a child process; writes **`hfr-runs/capture_pipeline_gate_*/gate.json`**, **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`**, appends **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**. Optional **`-BisectStep`**, **`-Notes`**, **`-NoHistoryAppend`**. |
+| `pns_capture_bisect_device.ps1` | **USB:** cumulative bisect steps **1..N** on **`PreviewEngineScreen.kt`** + **`RawCaptureSupport.kt`** (see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**), **`assembleDebug`**, **`pns_capture_pipeline_verify`** per step; **`hfr-runs/capture_bisect_device_*/report.md`**. **`-DryRun`**, **`-Fast`**, **`-FromStep`**, **`-NoRestore`**, **`-WriteDocHistory`**. |
+| `pns_capture_restore_verified.ps1` | **`assembleDebug`** + USB **`pns_capture_pipeline_verify.ps1`** after capture restores — gate **`captureRawStill 1/1 ok=true saved=`** before merge. **Do not** treat as “ship full Milestone §1–§5”; **§4a** / **§2** are fleet-sensitive — see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8. |
+| `pns_raw_regression_bisect.ps1` | **USB automation:** snapshot `RawCaptureSupport.kt` + `PreviewEngineScreen.kt`, run **`pns_photo_capture_verify`** on baseline, then re-apply **one** suspect regression at a time (wrong default RAW tier order, `desiredFps` default 120, gated H-dial YUV), rebuild, re-verify; writes **`hfr-runs/raw_regression_bisect_*/results.json`** + **`report.md`**. Exit **1** if baseline fails (bisect inconclusive on that device). Dot-source **`pns_resolve_adb.ps1 -PrependToPath`** first on Windows if PATH adb differs from SDK. |
+| `pns_raw_capture_matrix.ps1` | **20-cell** matrix (optional **`-Quick`** for 4 cells): **`pns_preview_imaging_profile`** × **`pns_preview_raw_stream`** (`default`, `raw_sensor_first`, `raw12_only`, `raw_sensor_only`, `raw10_only`) × **`pns_preview_jpeg_companion`**, plus optional **`-CameraId`**. Artifacts **`hfr-runs/raw_capture_matrix_*`** (`matrix.csv`, `matrix.md`, per-cell logcat). See **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**. |
 | `pns_gen_camera2_keys_reference.ps1` | Regenerate **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** from **`local.properties` → sdk.dir** `platforms/android-<N>/android.jar`; **`<N>` = `compileSdk`** parsed from **`app/build.gradle.kts`** (override **`-ApiLevel`**). |
 | `pns_ae_highlight_probe_adb.ps1` | Cold-start **`pns_screen=probehub`** + **`pns_auto_export_probe`**, pull **`PROBE_EXPORT_LATEST.md`**, write **`ae_highlight_probe_summary.txt`** + **`ae_highlight_probe.json`** (`summary` path); optional **`-AlsoRootCapabilityAdb`**. **Debuggable APK** required for `run-as`. |
 | `pns_face_meter_probe.ps1` | Cold-start **`pns_screen=facemeter`** + **`pns_autofacemeter`**, wait for **`FACE_METER_PROBE_DONE`** in **`PNS.SWEEP_SIGNAL`**, pull **`face_meter_probe_*.{md,json}`** (face / eye / metering inventory). Artifacts under **`hfr-runs\face_meter_probe_*`**. |

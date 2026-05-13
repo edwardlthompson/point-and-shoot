@@ -21,14 +21,18 @@ object PreviewStillCaptureHints {
      * Enables zero-shutter-lag when the HAL advertises [CaptureRequest.CONTROL_ENABLE_ZSL] and the
      * shot is a normal (non–manual-sensor) JPEG-capable still — same policy as
      * [CaptureLatencyProbeScreen] latency A/B.
+     *
+     * **RAW + JPEG dual-surface stills:** pass [wantZsl] `false`. Several OEM HALs return no RAW
+     * image, `onCaptureFailed`, or other errors when ZSL is enabled on the same request as a RAW
+     * target ([PreviewEngineScreen.PreviewController.captureRawStill] / bracket RAW path).
      */
     fun applyZslIfCompatible(
         builder: CaptureRequest.Builder,
         characteristics: CameraCharacteristics,
-        needJpeg: Boolean,
+        wantZsl: Boolean,
         manualSensorStill: Boolean,
     ) {
-        if (!needJpeg || manualSensorStill) return
+        if (!wantZsl || manualSensorStill) return
         val keys = characteristics.availableCaptureRequestKeys ?: return
         if (!keys.contains(CaptureRequest.CONTROL_ENABLE_ZSL)) return
         runCatching { builder.set(CaptureRequest.CONTROL_ENABLE_ZSL, true) }

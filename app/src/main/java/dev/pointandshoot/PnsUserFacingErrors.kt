@@ -13,6 +13,10 @@ object PnsUserFacingErrors {
         val raw = t?.message?.lowercase().orEmpty()
         return when {
             raw.isBlank() -> "Could not save this capture."
+            raw.contains("unsupported image format") ->
+                "Could not save — this RAW layout is not supported for DNG on this device build."
+            raw.contains("no raw buffer") || raw.contains("no jpeg buffer") ->
+                "Could not save — the camera did not deliver the full image. Try again in a moment."
             raw.contains("busy") || raw.contains("encode_lane") || raw.contains("engine busy") ->
                 "Could not save — the engine is still finishing the last capture. Try again in a moment."
             raw.contains("enospc") || raw.contains("no space") || raw.contains("quota") ->

@@ -21,6 +21,24 @@ class PnsUserFacingErrorsTest {
     }
 
     @Test
+    fun stillCaptureFailure_mapsNoRawBuffer() {
+        assertEquals(
+            "Could not save — the camera did not deliver the full image. Try again in a moment.",
+            PnsUserFacingErrors.stillCaptureFailure(IllegalStateException("No RAW buffer")),
+        )
+    }
+
+    @Test
+    fun stillCaptureFailure_mapsUnsupportedImageFormat() {
+        assertEquals(
+            "Could not save — this RAW layout is not supported for DNG on this device build.",
+            PnsUserFacingErrors.stillCaptureFailure(
+                IllegalArgumentException("Unsupported image format 37"),
+            ),
+        )
+    }
+
+    @Test
     fun stillCaptureFailure_blankMessage() {
         assertEquals(
             "Could not save this capture.",

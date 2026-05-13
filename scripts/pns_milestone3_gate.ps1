@@ -60,6 +60,9 @@ if (-not $SkipGradle.IsPresent) {
 & $sideload @sl
 if (-not $?) { throw "pns_sideload_and_launch.ps1 failed" }
 
+# Match pns_chrome_ux_gate.ps1: preview + readout need time before logcat (cold start is fast-returning).
+Start-Sleep -Seconds 22
+
 $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) {
     . $resolve -PrependToPath -Quiet 2>$null

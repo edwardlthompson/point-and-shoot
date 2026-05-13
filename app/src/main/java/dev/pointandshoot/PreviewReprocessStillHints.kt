@@ -7,7 +7,8 @@ import android.hardware.camera2.CaptureRequest
 /**
  * Characteristics-only view of **YUV / private reprocessing** and related stall metadata.
  * End-to-end **`createReprocessCaptureRequest`** remains the Phase 5 probe scope ([CaptureLatencyProbeScreen]);
- * preview engine still ships **ZSL** via [PreviewStillCaptureHints.applyZslIfCompatible] when JPEG is attached.
+ * preview engine keeps **ZSL** off for RAW(+JPEG) preview stills ([PreviewStillCaptureHints.applyZslIfCompatible]);
+ * [CaptureLatencyProbeScreen] still measures ZSL on/off for JPEG-only latency.
  */
 object PreviewReprocessStillHints {
 

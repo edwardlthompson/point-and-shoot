@@ -2,7 +2,7 @@
 
 **Purpose:** Single roadmap for shipping the Parts 1–5 spec with **milestones → sprints → gates**. Execution order: **foundations → probes → mapping → capture engine → HUD/UX (Milestone 9) → color/LUT → quality bar → CI automation → Milestone 10 (post-M9 backlog) → human publication (Milestone H).**
 
-**Living docs:** `PROBE_BUILD_PLAN.md` (§5 audit log; **§6** probe/infra checklist ↔ **milestones** mapping table), `CHANGELOG.md`, `CLI_BUILD_AND_SIDELOAD.md`, `DODGE_PROFILE.md`, `COLOR_PIPELINE.md`, `NDK_PLAN.md`. **Milestone 10** backlog: fleet + probe Phases A–E + video/QR/chrome-unlock (ordered sprints).
+**Living docs:** `PROBE_BUILD_PLAN.md` (§5 audit log; **§6** probe/infra checklist ↔ **milestones** mapping table), `CHANGELOG.md`, `CLI_BUILD_AND_SIDELOAD.md`, `DODGE_PROFILE.md`, `COLOR_PIPELINE.md`, `NDK_PLAN.md`, **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (capture bisect / restore checklist). **Milestone 10** backlog: fleet + probe Phases A–E + video/QR/chrome-unlock (ordered sprints).
 
 ---
 
@@ -23,6 +23,13 @@
 8. **ADB:** prefer `%LOCALAPPDATA%\Android\Sdk\platform-tools` first on `PATH` (pair/connect vs legacy adb).
 9. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** to the USB serial from **`adb devices`** for **`pns_sideload_and_launch.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_milestone6_gate.ps1`**, **`pns_device_screencap.ps1`** when **`-Serial`** is omitted. Use **`-Serial`** when more than one device is connected or you need to override the env file.
 10. **Git after each milestone (agents):** When a **numbered milestone** (0–10, excluding H) is complete — all sprint checkboxes for that milestone are `[x]` and the **Milestone gate** for that milestone passes per items 3–5 above — **`git commit`** the closing changes with a message that names the milestone (for example `Milestone 7: storage and failure-matrix gates`) and **`git push`** to the branch’s upstream **before** starting work on the next milestone. Do not accumulate finished milestone work across long-lived local branches without pushing; humans and CI rely on the remote for review and bisect.
+11. **Capture / preview pipeline regression gate (mandatory when the change affects still capture, RAW/DNG, bracketing, `PreviewController` session surfaces, YUV analysis / highlight metering streams, stabilization keys on requests, imaging profile stream wiring, or material edits to `PreviewEngineScreen.kt` / `RawCaptureSupport.kt`):** Before marking the task complete, run **`scripts/pns_capture_pipeline_verify.ps1`** (wraps **`pns_photo_capture_verify.ps1`** in a child process, records **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`** + **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**, and writes **`hfr-runs/capture_pipeline_gate_*`**) on a **USB device**, or run **`scripts/pns_photo_capture_verify.ps1`** directly with the same device expectations. For **automated cumulative bisect** (apply steps **1..N** from **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**, **assembleDebug**, and verify each step), use **`scripts/pns_capture_bisect_device.ps1`**. After **re-applying** reverted capture features from that doc, run **`scripts/pns_capture_restore_verified.ps1`** (assemble + same USB gate) so restore work cannot ship without a green **`captureRawStill 1/1 ok=true saved=`** needle. Alternatively run **`scripts/pns_milestone6_gate.ps1`** when that pack covers the behavior. Keep artifacts under **`hfr-runs/`**. If a device is unavailable, state that explicitly in **`PROBE_BUILD_PLAN.md`** §5 and get a human waiver before merge. **If a revert is required** to restore stable capture, append a row to **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** with **what was reverted**, **why**, and **exact restore steps** (code snippet or commit range) so features can be re-applied safely later. Prefer a **narrow follow-up fix** over leaving a revert undocumented.
+
+**Hard rule (May 2026 — do not regress):** Never gate **`automationSuppressFacePipeline`** on **`adbSequentialRawStills > 0`** alone. Doing so skipped the H-dial YUV path for **`pns_preview_raw_count`** / sequential RAW and broke RAW still session create on **CPH2655-class** devices (`CAMERA_DISCONNECTED`). **Only bracket automation** may set **`automationSuppressFacePipeline`**. See **`README.md`** (STOP banner), **`AGENTS.md`** (capture warning), and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top).
+
+**Incremental restore rule:** Re-applying **all** bisect doc §1–§5 “Milestone shipping” hunks at once failed **`pns_photo_capture_verify`** on USB **CPH2655**; **§4a** (REGULAR **`OutputConfiguration` stream-use-case** tags) and **§2** (RAW10-before-RAW_SENSOR **`Default`** tier) required separate device proof and stayed **reverted** on that fleet while **§1** + **§5** were restored with a green gate. Evidence and ordering: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8.
+
+**Agents must not ship (without new USB proof on target hardware):** (1) **`streamHints = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU`** on the REGULAR session — observed **RAW still timeout** + **`ERROR_CAMERA_DEVICE`**; (2) **`Default` = RAW12 → RAW10 → RAW_SENSOR`** in **`RawCaptureSupport`** — observed **`DngCreator` Unsupported image format 37**. Avoidance checklist: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 *What agents must avoid*; narrative: **`AGENTS.md`** *CRITICAL — REGULAR session stream hints*.
 
 **Human work:** Only **Milestone H — Human & publication** contains tasks that require a person (accounts, subjective judgment, physical charts, desktop apps). Agents prepare artifacts; humans close **[HUMAN]** items.
 
@@ -43,6 +50,10 @@
 | `scripts/pns_device_screencap.ps1` | **`adb exec-out screencap -p`** to PNG via **`Process` stdout stream** (avoids broken PS pipelines); use for **`BUILD_PLAN`** UI verification artifacts |
 | `scripts/pns_pull_dcim_captures.ps1` | **`adb pull`** **`/sdcard/DCIM/Point & Shoot`** to **`hfr-runs/pull_dcim_*`** (or **`-OutDir`**); supports **`pns_adb_device.env`** / **`-Serial`** — desktop half of Sprint **7.3** / **Milestone H.1** |
 | `scripts/pns_sideload_and_launch.ps1` | **`assembleDebug`** + **`adb install -r -t`** + runtime grants + **`am start`** preview (`--es pns_screen preview`); primary fast path for **UI work gate** (“How agents must execute”, item 6) |
+| `scripts/pns_photo_capture_verify.ps1` | Scripted H-dial RAW still cold loop until **`PNS.AdbValidation`** `captureRawStill 1/1 ok=true saved=`; core gate for **How agents must execute** item **11** (artifacts **`hfr-runs/photo_capture_verify_*`**). Prefer **`pns_capture_pipeline_verify.ps1`** when you need **`docs/CAPTURE_PIPELINE_VERIFY_*.json`** records. |
+| `scripts/pns_capture_pipeline_verify.ps1` | Wraps **`pns_photo_capture_verify.ps1`** (child **`powershell.exe`**); writes **`hfr-runs/capture_pipeline_gate_*/gate.json`**, **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`**, appends **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**. Optional **`-BisectStep`**, **`-Notes`**, **`-NoHistoryAppend`**. |
+| `scripts/pns_capture_bisect_device.ps1` | Cumulative bisect **1..N**: patch **`PreviewEngineScreen.kt`** + **`RawCaptureSupport.kt`** per **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**, **`assembleDebug`**, **`pns_capture_pipeline_verify`** each step; **`hfr-runs/capture_bisect_device_*/report.md`**. **`-DryRun`**, **`-Fast`**, **`-FromStep`**, **`-NoRestore`**. |
+| `scripts/pns_capture_restore_verified.ps1` | After restoring bisect-reverted capture code from **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**, runs **`assembleDebug`** + **`pns_capture_pipeline_verify.ps1`** (USB **`captureRawStill 1/1 ok=true saved=`** gate). Run before merging capture restores. |
 | `scripts/pns_adb_device.env` (gitignored; copy `.example`) | Default **`PNS_ADB_SERIAL`** (USB serial) for scripts when **`-Serial`** omitted |
 | `.github/workflows/toolchain-verify.yml` | CI mirror of toolchain |
 
@@ -476,13 +487,14 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 ### Sprint 10.1 — Probe export + shallow fleet cache (seconds budget; no session)
 
 - [x] **[HOST]** **`CameraCapabilitiesProbe` stream map:** add **`RAW12`** and **`RAW10`** sections (sizes + min frame duration when non-empty), mirroring the existing **`RAW_SENSOR`** block.
-- [x] **[HOST]** **Derived summary line per camera:** emit `rawPickEffective=RAW12|RAW10|RAW_SENSOR|null` + chosen **`Size`**, computed with the same logic as **`RawCaptureSupport.pickRawOutput`** so **`PROBE_RESULTS`** matches preview still behavior.
+- [x] **[HOST]** **Derived summary line per camera:** emit `rawPickEffective=RAW12|RAW10|RAW_SENSOR|null` + chosen **`Size`**, computed with the same logic as **`RawCaptureSupport.pickRawOutput`** (default tier **RAW12 → RAW_SENSOR → RAW10**; see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** bisect **#2**) so **`PROBE_RESULTS`** matches preview still behavior.
 - [x] **[HOST]** **HFR roll-up per camera:** single summary line or table row: e.g. **`hfrMaxFps`**, **`hfrMaxFpsAt1080`**, **`hfrMaxFpsAt720`** (from **`StreamConfigurationMap`** high-speed tables only — no session).
 - [x] **[HOST]** **Doc touch:** **`README.md`** / **`DODGE_PROFILE.md`** one-liner that **canonical per-device truth** for RAW format + HFR max is **export** + **`hfr-runs`** JSON, not chat.
 - [x] **[HOST]** **Spec `DeviceCameraCapabilityCache` (or equivalent)** — versioned schema (`schemaVersion`, `appVersionCode`, `androidSdk`, `Build.FINGERPRINT` or `SERIAL` hash): per `cameraId`: `lensFacing`, physical / logical hints, `LENS_INFO_AVAILABLE_FOCAL_LENGTHS`, zoom ranges, largest **JPEG** / **RAW** / **RAW12** from `StreamConfigurationMap` **without** opening a session; optional **high-speed** max FPS from `getHighSpeedVideoSizes` + `getHighSpeedVideoFpsRangesFor`. **Exclude:** session configuration queries, encoder smoke, exhaustive matrix, thermal.
 - [x] **[HOST]** **Executor + wall-clock budget** — run scan on **`Dispatchers.Default`** / `cameraExecutor`; cooperative timeout (**2.5–4 s**); partial results + `degraded=true` when truncated.
 - [ ] **[MIXED]** **Persistence** — DataStore / `EncryptedSharedPreferences`; refresh on install, app upgrade, **Settings → Rescan cameras**; optional dev staleness.
-- [ ] **[MIXED]** **Developer parity** — debug hub line: last shallow scan ms, cameras=N, degraded=…
+- [x] **[MIXED]** **Developer parity** — debug hub line: last shallow scan ms, cameras=N, degraded=… (**engineering hub** shows line after shallow scan; **Settings → Rescan** / DataStore persistence remains open).
+- [x] **[HOST]** **ADB shallow hub gate** — **`scripts/pns_shallow_scan_hub_validate.ps1`** asserts **`PNS.ProbeHub`** + **`PNS.Probe`** **`Probe built`** after **`pns_screen=probehub`** cold start; wired into **`pns_automation_smoke.ps1`** (opt-out **`-SkipShallowScanHubValidate`**); **`pns_probe_append_section5.ps1`** schema **`pns.shallow_scan_hub_validate.v1`**.
 
 **Sprint check:** `pns_verify_toolchain.ps1 -RunTests`; §5 note for cold-start **TotalTime** when closing **[MIXED]** device work.
 
@@ -543,13 +555,13 @@ This project does **not** replicate Ricoh GR (or any vendor) firmware. Public OE
 
 - [ ] **[MIXED]** **Reference fleet** — re-export **`PROBE_RESULTS`** / **`deep_caps`** on ≥2 extra device classes; diff RAW12 / HFR max / DR profiles.
 - [ ] **[HOST]** **Automation hooks** — asserted log/JSON per shipped **10.5–10.6** feature in smoke / M6 / validate scripts.
-- [ ] **[HOST]** **`DODGE_PROFILE.md` master table** — capability → app behavior → probe/script.
+- [x] **[HOST]** **`DODGE_PROFILE.md` master table** — capability → app behavior → probe/script.
 
 **Sprint check:** §5 (no secret serials in committed prose); `-SkipGradle` OK for doc-only.
 
 ### Sprint 10.9 — QR / barcode
 
-- [ ] **[MIXED]** **API & vendor inventory** — **`docs/camera2_reference_qr_barcode_appendix.md`** + **`CAMERA2_KEYS`** link (prerequisite).
+- [x] **[MIXED]** **API & vendor inventory** — **`docs/camera2_reference_qr_barcode_appendix.md`** (stub) + link to **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`**; full vendor QR key survey still **device / fleet**.
 - [ ] **[MIXED]** **QR scan mode** — ML Kit or **`ImageAnalysis`**; optional **`pns_screen=qrscan`**; throttled YUV; stride-safe.
 
 **Sprint check:** host doc + device smoke when UI lands.

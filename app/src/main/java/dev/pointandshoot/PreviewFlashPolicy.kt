@@ -12,7 +12,7 @@ import android.util.Log
  * See `BUILD_PLAN.md` Sprint 9.12 / 4.4; HAL truth is always [CameraCharacteristics.FLASH_INFO_AVAILABLE]
  * and [CameraCharacteristics.getAvailableCaptureRequestKeys].
  *
- * **Variable strength (API 33+):** when [CaptureRequest.FLASH_STRENGTH_LEVEL] is advertised, torch and
+ * **Variable strength (API 35+):** when [CaptureRequest.FLASH_STRENGTH_LEVEL] is advertised, torch and
  * still flash requests set it from [CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL] clamped to
  * [CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL]. Torch stays on the active [android.hardware.camera2.CameraDevice]
  * session ([CaptureRequest.FLASH_MODE_TORCH]); [android.hardware.camera2.CameraManager.turnOnTorchWithStrengthLevel]
@@ -36,6 +36,9 @@ enum class PreviewFlashMode {
 object PreviewFlashPolicy {
     private const val TAG = "PNS.FlashPolicy"
 
+    /** [CaptureRequest.FLASH_STRENGTH_LEVEL] is lint-gated to API 35+ in current platform stubs. */
+    private const val FLASH_STRENGTH_LEVEL_MIN_API = 35
+
     fun flashHardwareAvailable(chars: CameraCharacteristics): Boolean =
         chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
 
@@ -52,7 +55,7 @@ object PreviewFlashPolicy {
     }
 
     /**
-     * Picks a request [CaptureRequest.FLASH_STRENGTH_LEVEL] from HAL default/max (API 33+ metadata).
+     * Picks a request [CaptureRequest.FLASH_STRENGTH_LEVEL] from HAL default/max (API 35+ metadata).
      * Exposed for JVM unit tests.
      */
     internal fun flashStrengthLevelForHardware(defaultLevel: Int?, maxLevel: Int): Int? {
@@ -62,7 +65,8 @@ object PreviewFlashPolicy {
     }
 
     private fun tryApplyFlashStrengthLevel(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        // FLASH_STRENGTH_LEVEL is lint-gated to API 35+ despite related FLASH_INFO_STRENGTH_* keys on 33+.
+        if (Build.VERSION.SDK_INT < FLASH_STRENGTH_LEVEL_MIN_API) return
         if (!flashHardwareAvailable(chars) || !isBackCamera(chars)) return
         if (chars.availableCaptureRequestKeys?.contains(CaptureRequest.FLASH_STRENGTH_LEVEL) != true) return
         val maxLevel = chars.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) ?: return

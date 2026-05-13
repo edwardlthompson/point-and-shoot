@@ -216,7 +216,7 @@ function Write-ScenarioLogcat([string]$OutPath) {
         foreach ($ln in $tailLines) { [void]$sb.AppendLine($ln) }
         # Tag-filtered dump survives even when the mixed ring drops app lines (filters apply before line cap).
         [void]$sb.AppendLine("--- supplement: tag-filtered PNS.* (bounded tail) ---")
-        $tagCmd = "logcat -d -t 120000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.GLES:I PNS.ModeTransition:I PNS.ChromeUx:I"
+        $tagCmd = "logcat -d -t 120000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.CaptureStill:W PNS.Reader:W PNS.Dng:D PNS.Storage:D PNS.StillExif:I PNS.StillHints:W PNS.GLES:I PNS.ModeTransition:I PNS.ChromeUx:I AndroidRuntime:E"
         $tagLines = if ($Serial) {
             @(& adb -s $Serial shell $tagCmd 2>&1)
         } else {
@@ -354,11 +354,16 @@ if ($ChromeUxPack) {
 elseif ($Milestone6Pack) {
     Write-Host "[adb_preview_validate] Milestone6Pack: BUILD_PLAN M6 automation only"
     # 1) DNG UniqueCameraModel 50708 IFD append + Software LUT line (Ultra-Max RAW12 single still).
-    Run-Scenario "m6_raw12_ultra_50708" 75 @(
+    # `dial=H` + `raw_still_fast` align with `pns_raw_capture_matrix.ps1` / Sprint 4.3 `raw12_ultra_max_x1`:
+    # cold-start `LaunchedEffect(adbSequentialRawStills)` must not race repeated `preview_pipeline_restart`
+    # while `canCaptureRawStill` is still false (`dial=null` saw still begin then no `ok=` within the window).
+    Run-Scenario "m6_raw12_ultra_50708" 110 @(
         "--es", "pns_screen", "preview",
         "--es", "pns_preview_imaging_profile", "ultra_max",
         "--ei", "pns_preview_raw_count", "1",
-        "--es", "pns_preview_stills_lut", "PnsCinematic"
+        "--es", "pns_preview_stills_lut", "PnsCinematic",
+        "--es", "pns_preview_dial", "H",
+        "--ez", "pns_preview_raw_still_fast", "true"
     )
     # 2) Baseline vs bundled LUT preview FPS (≤5% budget checked in-app).
     Run-Scenario "m6_lut_fps_probe" 100 @(
@@ -414,7 +419,7 @@ if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
     )
 
     # 2b) Ultra-Max (RAW12 DNG) single still  -  BUILD_PLAN Milestone 4 Sprint 4.3
-    Run-Scenario "raw12_ultra_max_x1" 75 @(
+    Run-Scenario "raw12_ultra_max_x1" 100 @(
         "--es", "pns_screen", "preview",
         "--es", "pns_preview_imaging_profile", "ultra_max",
         "--ei", "pns_preview_raw_count", "1"
@@ -460,7 +465,9 @@ $patterns = @(
     "PNS.ChromeUx",
     "selfTimerSec=",
     "preview adb seed selfTimerDelaySec=",
-    "encode_lane_busy"
+    "encode_lane_busy",
+    "PNS.CaptureStill",
+    "captureRawStill ok=false"
 )
 $sb = New-Object System.Text.StringBuilder
 foreach ($p in $patterns) {

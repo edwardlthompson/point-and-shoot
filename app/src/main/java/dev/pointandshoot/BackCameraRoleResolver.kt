@@ -29,10 +29,11 @@ object BackCameraRoleResolver {
         if (infos.isNotEmpty()) {
             return rolesFromEnumeratedPhysicals(infos)
         }
+        val wide = logicalBackAggregateWide(cm, ids) ?: wideCameraLegacy(ids)
         return Roles(
-            wide = wideCameraLegacy(ids),
-            ultraWide = ultraWideLegacy(cm, ids),
-            tele = teleLegacy(cm, ids),
+            wide = wide,
+            ultraWide = ultraWideLegacy(cm, ids, wide),
+            tele = teleLegacy(cm, ids, wide),
         )
     }
 
@@ -93,13 +94,13 @@ object BackCameraRoleResolver {
         TELE_LEGACY_ORDER.filter { it in ids }.toSet()
 
     /** Legacy UW: prefer `3`, else smallest focal among non-wide non-tele candidates. */
-    private fun ultraWideLegacy(cm: CameraManager, ids: List<String>): String? {
+    private fun ultraWideLegacy(cm: CameraManager, ids: List<String>, wide: String?): String? {
         if (ids.contains("3")) return "3"
-        val wide = wideCameraLegacy(ids)
+        val wideResolved = wide ?: wideCameraLegacy(ids)
         val teleIds = teleLogicalPresent(ids)
         val candidates =
             ids.filter { id ->
-                id != "1" && id != wide && id !in teleIds
+                id != "1" && id != wideResolved && id !in teleIds
             }
         if (candidates.size == 1) return candidates.first()
         val withFocal =
@@ -116,11 +117,32 @@ object BackCameraRoleResolver {
         return candidates.firstOrNull()
     }
 
-    private fun teleLegacy(cm: CameraManager, ids: List<String>): String? {
+    private fun teleLegacy(cm: CameraManager, ids: List<String>, wide: String?): String? {
         TELE_LEGACY_ORDER.firstOrNull { ids.contains(it) }?.let { return it }
-        val wide = wideCameraLegacy(ids)
-        val uw = ultraWideLegacy(cm, ids)
-        return ids.firstOrNull { id -> id != "1" && id != wide && id != uw }
+        val wideResolved = wide ?: wideCameraLegacy(ids)
+        val uw = ultraWideLegacy(cm, ids, wideResolved)
+        return ids.firstOrNull { id -> id != "1" && id != wideResolved && id != uw }
+    }
+
+    /**
+     * Back-facing **logical** camera that wraps multiple physical ids (e.g. OnePlus `0` → `[2,3,4]`).
+     * When [enumerateBackPhysical] is empty, [wideCameraLegacy] would pick physical `2` alone; some HALs
+     * disconnect on RAW session create for that id while the logical wrapper works (see `DODGE_PROFILE.md`).
+     */
+    private fun logicalBackAggregateWide(cm: CameraManager, ids: List<String>): String? {
+        val candidates =
+            ids.mapNotNull { id ->
+                val cc = runCatching { cm.getCameraCharacteristics(id) }.getOrNull() ?: return@mapNotNull null
+                if (cc.get(CameraCharacteristics.LENS_FACING) != CameraCharacteristics.LENS_FACING_BACK) {
+                    return@mapNotNull null
+                }
+                val children = cc.physicalCameraIds.toSet()
+                if (children.size < 2) return@mapNotNull null
+                id
+            }
+        if (candidates.isEmpty()) return null
+        if ("0" in candidates) return "0"
+        return candidates.minWith(compareBy({ it.toIntOrNull() ?: Int.MAX_VALUE }, { it }))
     }
 
     private fun wideCameraLegacy(ids: List<String>): String? =

@@ -243,6 +243,8 @@ fun PreviewReadoutStrip(
     logicalPhysicalId: String? = null,
     menu: ReadoutMenuSnapshot,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
+    /** When false, FPS readout stays visible but the target FPS menu is disabled (photo-primary tray). */
+    fpsTargetEditable: Boolean = true,
     onPickIso: (Int?) -> Unit,
     onPickShutter: (Long?) -> Unit,
     onPickAwb: (Int?) -> Unit,
@@ -469,8 +471,14 @@ fun PreviewReadoutStrip(
                     valueMinWidth = fpsValueMinWidth,
                     labelStyle = labelStyle,
                     valueStyle = valueStyle,
-                    onClick = { fpsMenu = true },
-                    accessibilityLabel = "Measured FPS. Current $fpsDisplay. Opens FPS menu.",
+                    enabled = fpsTargetEditable,
+                    onClick = { if (fpsTargetEditable) fpsMenu = true },
+                    accessibilityLabel =
+                        if (fpsTargetEditable) {
+                            "Measured FPS. Current $fpsDisplay. Opens FPS menu."
+                        } else {
+                            "Measured FPS. Current $fpsDisplay. Read-only in photo mode."
+                        },
                 )
                 PnsChromeDropdownMenu(expanded = fpsMenu, onDismissRequest = { fpsMenu = false }) {
                     for (opt in fpsOptions) {
@@ -634,6 +642,7 @@ private fun ReadoutMetricChip(
     valueMinWidth: Dp,
     labelStyle: TextStyle,
     valueStyle: TextStyle,
+    enabled: Boolean = true,
     onClick: () -> Unit,
     accessibilityLabel: String,
 ) {
@@ -647,6 +656,7 @@ private fun ReadoutMetricChip(
                 .clip(shape)
                 .border(1.dp, Color.White.copy(alpha = 0.28f), shape)
                 .clickable(
+                    enabled = enabled,
                     interactionSource = interaction,
                     indication = null,
                     onClick = onClick,

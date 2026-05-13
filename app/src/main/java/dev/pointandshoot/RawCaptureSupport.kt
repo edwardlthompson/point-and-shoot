@@ -10,16 +10,48 @@ import android.view.Surface
 import android.view.WindowManager
 
 /**
+ * Host / ADB override for which advertised RAW stream to attach in preview (see
+ * `pns_preview_raw_stream` in `CameraCapabilitiesProbe`).
+ *
+ * **Default** (in-tree): **RAW12 → RAW_SENSOR → RAW10** when all three are advertised — **USB-verified** scripted DNG
+ * on **CPH2655-class** stacks (RAW10-first Milestone **10.1** order produced **ImageFormat 37** buffers that
+ * **`DngCreator.writeImage`** rejected). Prefer **`pns_preview_raw_stream`** / **[Raw10Only]** for HAL matrix work.
+ * Other values exist for OEM matrix testing where the advertised format does not deliver buffers.
+ */
+enum class RawStreamPreference {
+    /** RAW12 → RAW_SENSOR → RAW10 (fleet default; probe `rawPickEffective=` matches this). */
+    Default,
+
+    /** RAW_SENSOR → RAW12 → RAW10 — tests HALs that advertise RAW12 but only fill RAW_SENSOR. */
+    RawSensorFirst,
+
+    /** Largest RAW12 only; `null` if unsupported. */
+    Raw12Only,
+
+    /** Largest RAW_SENSOR only; `null` if unsupported. */
+    RawSensorOnly,
+
+    /** Largest RAW10 only; `null` if unsupported (often incompatible with [DngCreator]). */
+    Raw10Only,
+}
+
+/**
  * RAW still helpers for Phase 1 Camera2 capture ([BUILD_PLAN.md] §4).
  */
 object RawCaptureSupport {
 
+    /** Same as [pickRawOutput] with [RawStreamPreference.Default] (RAW12 → RAW_SENSOR → RAW10). */
+    fun pickRawOutput(characteristics: CameraCharacteristics): Pair<Int, Size>? =
+        pickRawOutput(characteristics, RawStreamPreference.Default)
+
     /**
-     * Prefer [ImageFormat.RAW12], then [ImageFormat.RAW10], then [ImageFormat.RAW_SENSOR]
-     * (matches [BUILD_PLAN.md] Milestone **10.1** `rawPickEffective` ordering).
-     * Returns `(format, largestSizeByArea)` or `null` if no RAW output exists.
+     * Same as [pickRawOutput] but honors [preference] for matrix / OEM diagnostics
+     * (`pns_preview_raw_stream` ADB extra).
      */
-    fun pickRawOutput(characteristics: CameraCharacteristics): Pair<Int, Size>? {
+    fun pickRawOutput(
+        characteristics: CameraCharacteristics,
+        preference: RawStreamPreference,
+    ): Pair<Int, Size>? {
         val map =
             characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 ?: return null
@@ -27,6 +59,7 @@ object RawCaptureSupport {
             raw12 = runCatching { map.getOutputSizes(ImageFormat.RAW12)?.toList() }.getOrNull(),
             raw10 = runCatching { map.getOutputSizes(ImageFormat.RAW10)?.toList() }.getOrNull(),
             rawSensor = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }.getOrNull(),
+            preference = preference,
         )
     }
 
@@ -37,13 +70,23 @@ object RawCaptureSupport {
         raw12: List<Size>?,
         raw10: List<Size>?,
         rawSensor: List<Size>?,
+        preference: RawStreamPreference = RawStreamPreference.Default,
     ): Pair<Int, Size>? {
         fun largest(sizes: List<Size>?): Size? =
             sizes?.takeIf { it.isNotEmpty() }?.maxByOrNull { it.width.toLong() * it.height }
-        largest(raw12)?.let { return ImageFormat.RAW12 to it }
-        largest(raw10)?.let { return ImageFormat.RAW10 to it }
-        largest(rawSensor)?.let { return ImageFormat.RAW_SENSOR to it }
-        return null
+        return when (preference) {
+            RawStreamPreference.Default ->
+                largest(raw12)?.let { ImageFormat.RAW12 to it }
+                    ?: largest(rawSensor)?.let { ImageFormat.RAW_SENSOR to it }
+                    ?: largest(raw10)?.let { ImageFormat.RAW10 to it }
+            RawStreamPreference.RawSensorFirst ->
+                largest(rawSensor)?.let { ImageFormat.RAW_SENSOR to it }
+                    ?: largest(raw12)?.let { ImageFormat.RAW12 to it }
+                    ?: largest(raw10)?.let { ImageFormat.RAW10 to it }
+            RawStreamPreference.Raw12Only -> largest(raw12)?.let { ImageFormat.RAW12 to it }
+            RawStreamPreference.RawSensorOnly -> largest(rawSensor)?.let { ImageFormat.RAW_SENSOR to it }
+            RawStreamPreference.Raw10Only -> largest(raw10)?.let { ImageFormat.RAW10 to it }
+        }
     }
 
     /** Label for probe `rawPickEffective=` lines (Milestone **10.1**). */

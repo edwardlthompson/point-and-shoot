@@ -7,6 +7,7 @@
 #   - pns.chrome_ux_gate.v1  -  chrome_ux_gate.json (pns_chrome_ux_gate.ps1)
 #   - pns.failure_matrix_smoke.v1  -  failure_matrix_smoke.json (pns_failure_matrix_smoke.ps1)
 #   - pns.root_capability_adb.v1  -  root_capability_adb.json (pns_root_capability_adb.ps1)
+#   - pns.shallow_scan_hub_validate.v1  -  shallow_scan_hub_validate.json (pns_shallow_scan_hub_validate.ps1)
 
 param(
     [Parameter(Mandatory = $true)]
@@ -58,6 +59,9 @@ if (-not $schema) {
     }
     elseif ($null -ne $j.adbShellId -and $null -ne $j.adbRootAttempted) {
         $schema = "pns.root_capability_adb.v1"
+    }
+    elseif ($null -ne $j.shallowScanHubOk -and $null -ne $j.probeBuiltOk) {
+        $schema = "pns.shallow_scan_hub_validate.v1"
     }
 }
 
@@ -182,6 +186,27 @@ switch -Wildcard ($schema) {
             "readoutCaptureOk=$($j.readoutCaptureOk); selfTimerOk=$($j.selfTimerOk); flashQsGrid7Ok=$($j.flashQsGrid7Ok); " +
             "flashPreviewHardwareOk=$($j.flashPreviewHardwareOk); deviceSkipReason=$($j.deviceSkipReason); " +
             "adb serial=$adbSerial; artifact=$relArtifact"
+        $newRow = '| ' + $dateUtc + ' | ' + $Item + ' | ' + $evidence + ' |'
+    }
+    "pns.shallow_scan_hub_validate.v1" {
+        if ($PassOnly.IsPresent -and -not $j.adbConnected) {
+            Write-Host "`[probe_append_section5] skip: shallow_scan_hub_validate adbConnected=false (-PassOnly)"
+            exit 0
+        }
+        if ($PassOnly.IsPresent -and -not $j.pass) {
+            Write-Host "`[probe_append_section5] skip: shallow_scan_hub_validate pass=false (-PassOnly)"
+            exit 0
+        }
+        if (-not $Item) {
+            $pf = if ($j.pass) { "pass" } else { "FAIL" }
+            $Item = "**Milestone 10.1  -  shallow scan hub log ($pf)**"
+        }
+        $ml = if ($j.matchedShallowLine) { $j.matchedShallowLine.ToString().Trim() } else { "(none)" }
+        if ($ml.Length -gt 200) { $ml = $ml.Substring(0, 197) + "..." }
+        $evidence =
+            "``shallow_scan_hub_validate.json`` pass=$($j.pass); adbConnected=$($j.adbConnected); " +
+            "shallowScanHubOk=$($j.shallowScanHubOk); probeBuiltOk=$($j.probeBuiltOk); matchedLine=$ml; " +
+            "waitSec=$($j.waitSec); adb serial=$adbSerial; artifact=$relArtifact"
         $newRow = '| ' + $dateUtc + ' | ' + $Item + ' | ' + $evidence + ' |'
     }
     default {

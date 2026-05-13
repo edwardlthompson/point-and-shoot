@@ -30,11 +30,37 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **Milestone 10.1–10.2 (host)** — Probe Markdown export: **RAW12 / RAW10 / RAW_SENSOR** stream tables + per-camera **`rawPickEffective=`**; **HFR rollup** line; **4s** cooperative scan budget with **`degraded=true`** truncation; embedded **`DeviceCameraCapabilityCache`** JSON (`schemaVersion`, `fingerprintSha256Prefix`, per-id JPEG/RAW sizes, HFR maxima). **`RawCaptureSupport.pickRawOutput`** now prefers **RAW12 → RAW10 → RAW_SENSOR**. Pure **`FocalSlotAvailability`** (**≥12 MP** gate for digital eq. slots) + **`FocalSlotAvailabilityTest`**. **`RawCaptureSupportTest`** covers **`rawPickEffectiveLabel`** + empty pick maps (JVM stubs cannot construct **`android.util.Size`** for full ordering tests).
 
+- **Milestone 10.1 / 10.8 / 10.9 (host)** — Shallow probe build runs on **`Dispatchers.Default`**; engineering hub **Probe snapshot** shows **`Shallow scan: …ms cameras=N degraded=…`**; **`DODGE_PROFILE.md`** master routing table; **`docs/camera2_reference_qr_barcode_appendix.md`** stub linking the static **`CAMERA2_KEYS`** catalog.
+
+- **ADB automation — shallow scan hub validate** — **`scripts/pns_shallow_scan_hub_validate.ps1`** cold-starts **`pns_screen=probehub`**, asserts **`PNS.ProbeHub`** + **`PNS.Probe`** log lines (ring-buffer-safe logcat filter), writes **`shallow_scan_hub_validate.json`**; integrated into **`pns_automation_smoke.ps1`** (optional **`-SkipShallowScanHubValidate`**); **`pns_probe_append_section5.ps1`** accepts schema **`pns.shallow_scan_hub_validate.v1`**.
+
+### Fixed
+
+- **Scripted RAW / bracket ADB — preview FPS seed** — **`PreviewEngineScreen`**: when **`adbSequentialRawStills`** or bracket automation is active, seed **`selectedFps`** to **60** (not **90**) so **`controller.setDesired`** matches the sub-120 RAW path on cold start; reduces HAL **`captureRawStill`** timeouts on some OEMs.
+
+- **Scripted RAW still (ADB / H dial)** — **`PreviewEngineScreen`**: when **`automationSuppressFacePipeline`** is true (sequential RAW / bracket automation), **do not** attach the YUV analysis **`ImageReader`** for H-dial metering, histogram, or zebra alone; only attach when the face HUD still needs YUV. Prevents **`wantYuv=true`** + **`suppressFacePipeline=true`** (extra **`PNS.PreviewSessionCtx`** restarts, HAL **`captureRawStill`** timeouts, **`ERROR_CAMERA_DEVICE`** on some OEMs).
+
+- **Capture bisect #3 (imaging profile init)** — **`PreviewEngineScreen`**: drop Milestone 9 **`runCatching`** / **`StandardPro` fallback** and singleton **`listOf`** touch in **`imagingProfile`** **`remember`**; keep **`SideEffect`** → **`setImagingProfileForStreams`** so JPEG companion stream shape still tracks the HUD profile.
+
+- **Capture bisect #5 (post-RAW sensitivity on still)** — **`PreviewEngineScreen`**: omit **`PreviewPostRawSensitivity.applyIfCompatible`** on RAW still and bracket **`TEMPLATE_STILL_CAPTURE`** builders (preview repeating unchanged) to bisect OEM HAL timeouts.
+
+- **Capture bisect #4a (REGULAR session stream-use-case hints)** — **`PreviewEngineScreen`**: pass **`streamHints = false`** into **`createRegularCaptureSessionWithRetries`** so **`OutputConfiguration.setStreamUseCase`** is never applied on the normal preview+RAW(+JPEG) session path (macro session path already omitted hints).
+
+- **Scripted RAW still — post-`stopRepeating` settle** — **`PreviewEngineScreen`**: when **`adbValidationShotLabel`** is set, wait at least **420 ms** (vs **160 ms**) before **`sess.capture`** so logical-camera HALs can settle after **`stopRepeating`**; logs **`PNS.AdbValidation`** **`captureRawStill afterStopRepeatingDebounceMs=…`**.
+
+- **`pns_photo_capture_verify.ps1`** — optional **`-SweepCameraIds`**: cold-starts preview with **`pns_preview_camera_id`** for **`(default),0,1,2,3`** until success or all seeds fail; per-seed artifacts under **`seed_*`**. Logcat: prefer **`--pid=`** from **`pidof`**, then tag filter, then broad **`-t 12000`** pull filtered in-host for **PNS** / **`captureRawStill`**. **`pns_capture_pipeline_verify.ps1`** forwards **`-SweepCameraIds`**.
+
+- **Capture bisect #4b (`maybeRestart` 0 ms debounce) — rejected** — Setting **`MAYBE_RESTART_DEBOUNCE_MS = 0L`** caused **`CameraAccessException` / `CAMERA_DISCONNECTED`** during **`onConfigured` → `startRepeating`** on CPH2655; tree keeps **48 ms**.
+
+- **Photo mode preview FPS** — **`PreviewEngineScreen`** now passes **`selectedFps`** into **`PreviewController.setDesired`** in Photo mode (previously forced **120**), so the FPS sheet / readout applies and **DNG** can run when preview is below **120 fps** (RAW **`ImageReader`** session).
+
+- **Highlight (H) metering at default 120 fps** — **`CommandDialMode.H`** now triggers an automatic cap to the highest quick FPS **below 120** (same requirement as the YUV **`ImageReader`** path in **`PreviewController.createSession`**), so highlight-weighted metering stays wired after honoring **`selectedFps`** for Photo.
+
 ### Changed
 
 - **`WelcomePermissionsScreen`** — when a **required** runtime permission is still off, shows **Open app settings** (`ACTION_APPLICATION_DETAILS_SETTINGS`); camera step adds explicit **Don\u2019t allow** recovery copy. **Optional** mic/location steps gain **Skip (optional)** (advance without granting).
 
-- **`DebugMenuScreen`** (engineering hub) — camera-permission banner adds **Open app settings**; probe destination rows set a combined **`contentDescription`** for screen readers.
+- **`DebugMenuScreen`** (engineering hub) — camera-permission banner adds **Open app settings**; probe destination rows set a combined **`contentDescription`** for screen readers; **Probe snapshot** shows the **Shallow scan** timing line after **`buildProbeReport`** completes.
 
 - **`CalibrateScreen`** / **`LutImporterScreen`** — removed **Toast** duplicates where inline status / result text already conveys the same outcome (**`BUILD_PLAN`** single-channel UX).
 

@@ -28,16 +28,10 @@ if (-not (Test-Path -LiteralPath $envLocal)) {
 }
 
 if (-not $SkipGradle.IsPresent) {
-    Write-Host "`[milestone6_gate] gradlew :app:assembleDebug"
-    $gradlew = Join-Path $projRoot "gradlew.bat"
-    Push-Location $projRoot
-    try {
-        & $gradlew ":app:assembleDebug" "--no-daemon"
-        if ($LASTEXITCODE -ne 0) { throw "assembleDebug failed exit=$LASTEXITCODE" }
-    }
-    finally {
-        Pop-Location
-    }
+    Write-Host "`[milestone6_gate] pns_gradlew.ps1 :app:assembleDebug"
+    $gradlewHelper = Join-Path $PSScriptRoot "pns_gradlew.ps1"
+    & $gradlewHelper ":app:assembleDebug" "--no-daemon"
+    if ($LASTEXITCODE -ne 0) { throw "assembleDebug failed exit=$LASTEXITCODE" }
 }
 
 $validate = Join-Path $PSScriptRoot "pns_adb_preview_validate.ps1"

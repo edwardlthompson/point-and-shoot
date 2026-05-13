@@ -1,7 +1,9 @@
 package dev.pointandshoot
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraExtensionCharacteristics
@@ -16,6 +18,7 @@ import android.util.Log
 import android.util.Size
 import android.view.Surface
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
@@ -65,6 +68,12 @@ object CameraExtensionSessionSmokeRunner {
             extIds.firstOrNull { it == CameraExtensionCharacteristics.EXTENSION_HDR }
                 ?: extIds.firstOrNull { it == CameraExtensionCharacteristics.EXTENSION_NIGHT }
                 ?: extIds[0]
+
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            PnsAdbLog.i(activity, "cameraExtensionSession skipped no_camera_permission")
+            if (finishActivityWhenDone) activity.finish()
+            return
+        }
 
         val ht = HandlerThread("PNS.ExtSmoke")
         ht.start()

@@ -130,6 +130,9 @@ android {
     }
 
     packaging {
+        // Release shrinking uses R8 + shrinkResources (see `buildTypes.release`). Native `.so`
+        // packaging defaults trade APK zip size vs mmap install — do not toggle
+        // `jniLibs.useLegacyPackaging` without measuring and checking 16 KB page-size guidance.
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }

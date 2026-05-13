@@ -4242,6 +4242,9 @@ private class PreviewController(
          */
         private const val RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS = 160L
 
+        /** Minimum post-[stopRepeating] delay for scripted ADB RAW still (fleet §4e); see `REVERTED_FEATURES_RESTORE_LIST.md`. */
+        private const val RAW_STILL_SCRIPTED_MIN_POST_STOP_DEBOUNCE_MS = 420L
+
         /**
          * After [CameraCaptureSession.CaptureCallback.onCaptureCompleted], the HAL may still be
          * filling the RAW [ImageReader] (especially RAW12). If we fail too early, automation sees
@@ -5545,7 +5548,10 @@ private class PreviewController(
                 val afterStopDebounceMs =
                     if (shotTag != null) {
                         // Scripted ADB: give the HAL longer after stopRepeating before firing still (OEM settle).
-                        maxOf(RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS, 420L)
+                        maxOf(
+                            RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS,
+                            RAW_STILL_SCRIPTED_MIN_POST_STOP_DEBOUNCE_MS,
+                        )
                     } else {
                         RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS
                     }

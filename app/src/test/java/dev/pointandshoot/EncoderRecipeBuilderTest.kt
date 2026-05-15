@@ -103,6 +103,17 @@ class EncoderRecipeBuilderTest {
         assertEquals("video/x-vp9", rows[0].mime)
     }
 
+    @Test
+    fun `recipes attach HAL HFR max when map provided`() {
+        val summary = EncoderResultAggregator.summarize(
+            listOf(ok("2", SessionKind.Hfr, 1920, 1080, 240, "video/avc")),
+        )
+        val withHal = EncoderRecipeBuilder.recipesFromSummary(summary, mapOf("2" to 480))
+        assertEquals(480, withHal[0].halAdvertisedHfrMaxFps)
+        val withoutHal = EncoderRecipeBuilder.recipesFromSummary(summary)
+        assertNull(withoutHal[0].halAdvertisedHfrMaxFps)
+    }
+
     // ---------- errorRowsFromSummary ----------
 
     @Test

@@ -5,9 +5,40 @@ package dev.pointandshoot
  * stacks are mapped to stable phrases; keep logs on the throwing site for engineers.
  */
 object PnsUserFacingErrors {
+    private const val MAX_TECHNICAL_COPY_CHARS = 4000
+
     fun stillCaptureFailure(t: Throwable?): String = classifyStorageOrEngine(t)
 
     fun bracketCaptureFailure(t: Throwable?): String = classifyStorageOrEngine(t)
+
+    /**
+     * Whether a snackbar **Retry** affordance is appropriate (transient HAL / pipeline conditions).
+     * When true, callers typically pass [onRetry] to [pnsShowSnackbar] instead of clipboard Copy.
+     */
+    fun shouldOfferRetryAfterStillFailure(t: Throwable?): Boolean = isRetryableCaptureThrowable(t)
+
+    fun shouldOfferRetryAfterBracketFailure(t: Throwable?): Boolean = isRetryableCaptureThrowable(t)
+
+    private fun isRetryableCaptureThrowable(t: Throwable?): Boolean {
+        val raw = t?.message?.lowercase().orEmpty()
+        val cn = t?.javaClass?.simpleName?.lowercase().orEmpty()
+        return when {
+            raw.contains("encode_lane") || raw.contains("engine busy") -> true
+            raw.contains("busy") && !raw.contains("permission") && !raw.contains("eacces") -> true
+            raw.contains("no raw buffer") || raw.contains("no jpeg buffer") -> true
+            raw.contains("timed out") || raw.contains("timeout") -> true
+            raw.contains("retry") -> true
+            cn.contains("timeout") -> true
+            else -> false
+        }
+    }
+
+    /** Longer OEM / stack text for clipboard (Milestone 10 Sprint 10.15). */
+    fun technicalDetailForCopy(t: Throwable?): String {
+        val m = t?.message?.trim().orEmpty()
+        val cn = t?.javaClass?.simpleName ?: "Throwable"
+        return if (m.isBlank()) cn else "$cn: $m".take(MAX_TECHNICAL_COPY_CHARS)
+    }
 
     private fun classifyStorageOrEngine(t: Throwable?): String {
         val raw = t?.message?.lowercase().orEmpty()

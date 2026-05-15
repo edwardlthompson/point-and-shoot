@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Build
 import android.util.Size
@@ -13,7 +14,7 @@ import org.json.JSONObject
 
 /**
  * Sprint **10.1** — shallow, session-free camera capability snapshot for fleet / probe export.
- * Markdown embed lives in [buildProbeReport]; persistence is a later **[MIXED]** row.
+ * Markdown embed lives in [buildProbeReport]; JSON is also persisted via [ShallowCapabilityCacheStore].
  */
 object DeviceCameraCapabilityCache {
     const val SCHEMA_VERSION: Int = 1
@@ -76,6 +77,24 @@ object DeviceCameraCapabilityCache {
     fun hfrRollupMarkdownLine(map: StreamConfigurationMap?): String {
         val (a, b, c) = hfrMaxAtSizeClasses(map)
         return "- hfrRollup maxFps=${a ?: "null"} maxFpsAt1080=${b ?: "null"} maxFpsAt720=${c ?: "null"}"
+    }
+
+    /**
+     * Per-`cameraId` max **upper** FPS from [StreamConfigurationMap.getHighSpeedVideoFpsRangesFor]
+     * across all [StreamConfigurationMap.getHighSpeedVideoSizes] entries (session-free catalog).
+     * Used for preview FPS ceiling + About “live probe” HAL alignment (Milestone **10.5**).
+     */
+    fun halHighSpeedMaxFpsByCameraId(context: Context): Map<String, Int?> {
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val out = linkedMapOf<String, Int?>()
+        for (id in cm.cameraIdList) {
+            val map =
+                runCatching {
+                    cm.getCameraCharacteristics(id).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                }.getOrNull()
+            out[id] = hfrMaxAtSizeClasses(map).first
+        }
+        return out
     }
 
     fun cameraJson(id: String, cc: CameraCharacteristics, map: StreamConfigurationMap?): JSONObject {

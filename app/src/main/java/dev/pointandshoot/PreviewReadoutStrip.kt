@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.hardware.camera2.CaptureResult
+import android.util.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.media.MediaRecorder
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -113,24 +116,9 @@ private fun wbCandidateStrings(menu: ReadoutMenuSnapshot): Set<String> =
     buildSet {
         add("—")
         add("AWB")
+        add("SHD")
         add("?99999")
-        menu.awbChoices.forEach {
-            add(if (it == null) "AWB" else PreviewReadoutFormat.awbModeLabel(it))
-        }
-    }
-
-private fun phyCandidateStrings(activePhysicalId: String?): Set<String> =
-    buildSet {
-        if (activePhysicalId == null) return@buildSet
-        add("—")
-        val compact =
-            if (activePhysicalId.length <= 14) {
-                activePhysicalId
-            } else {
-                activePhysicalId.take(14) + "…"
-            }
-        add(compact)
-        add("99999999999999…")
+        menu.awbChoices.forEach { add(PreviewReadoutFormat.awbModeLabel(it)) }
     }
 
 private fun computeReadoutFontScale(
@@ -141,8 +129,7 @@ private fun computeReadoutFontScale(
     menu: ReadoutMenuSnapshot,
     stillLutIndex: String,
     videoLutIndex: String,
-    jpegCompanion: Boolean,
-    logicalPhysicalId: String?,
+    includeVideoRes: Boolean,
 ): Float {
     if (maxWidthPx <= 0) return 1f
 
@@ -153,12 +140,19 @@ private fun computeReadoutFontScale(
         val ssMin = maxReadoutValueWidthDp(textMeasurer, vs, ssCandidateStrings(menu), density)
         val wbMin = maxReadoutValueWidthDp(textMeasurer, vs, wbCandidateStrings(menu), density)
         val fpsMin = maxReadoutValueWidthDp(textMeasurer, vs, listOf("9999fps", "—fps"), density)
+        val resMin =
+            if (includeVideoRes) {
+                maxReadoutValueWidthDp(textMeasurer, vs, listOf("3840×2160", "1080p", "8888p"), density)
+            } else {
+                0.dp
+            }
         val lutStillMin =
             maxReadoutValueWidthDp(textMeasurer, vs, listOf(stillLutIndex, "999"), density)
         val lutVideoMin =
             maxReadoutValueWidthDp(textMeasurer, vs, listOf(videoLutIndex, "999"), density)
-        val rawStrings = if (jpegCompanion) listOf("DNG", "DNG+") else listOf("DNG")
-        val rawMin = maxReadoutValueWidthDp(textMeasurer, vs, rawStrings, density)
+        // Reserve width for IMG chip value (DNG / DNG+ / JPG).
+        val imgStrings = listOf("DNG", "DNG+", "JPG")
+        val imgMin = maxReadoutValueWidthDp(textMeasurer, vs, imgStrings, density)
 
         val gapPx = with(density) { ReadoutChipGap.roundToPx() }
         var rowPx =
@@ -166,20 +160,15 @@ private fun computeReadoutFontScale(
                 chipOuterWidthPx(textMeasurer, density, "Ss", ls, ssMin) +
                 chipOuterWidthPx(textMeasurer, density, "WB", ls, wbMin) +
                 chipOuterWidthPx(textMeasurer, density, "FPS", ls, fpsMin) +
+                if (includeVideoRes) {
+                    chipOuterWidthPx(textMeasurer, density, "RES", ls, resMin)
+                } else {
+                    0
+                } +
                 chipOuterWidthPx(textMeasurer, density, "Still", ls, lutStillMin) +
                 chipOuterWidthPx(textMeasurer, density, "Video", ls, lutVideoMin) +
-                chipOuterWidthPx(textMeasurer, density, "RAW", ls, rawMin)
-        if (logicalPhysicalId != null) {
-            val phyMin =
-                maxReadoutValueWidthDp(
-                    textMeasurer,
-                    vs,
-                    phyCandidateStrings(logicalPhysicalId),
-                    density,
-                )
-            rowPx += chipOuterWidthPx(textMeasurer, density, "Phy", ls, phyMin)
-        }
-        val chipCount = 7 + (if (logicalPhysicalId != null) 1 else 0)
+                chipOuterWidthPx(textMeasurer, density, "IMG", ls, imgMin)
+        val chipCount = if (includeVideoRes) 8 else 7
         rowPx += gapPx * (chipCount - 1)
         return rowPx
     }
@@ -224,14 +213,25 @@ object PreviewReadoutFormat {
             else -> "?$mode"
         }
     }
+
+    /** Second line under each WB preset in the readout menu (Kelvin anchor + tint direction). */
+    fun awbModeMenuSubtitle(mode: Int): String? =
+        AwbPresetReadout.kelvinTintForMode(mode)?.let { kt ->
+            if (kt.kelvin <= 0) {
+                kt.tintNote
+            } else {
+                "~${kt.kelvin} K · ${kt.tintNote}"
+            }
+        }
 }
 
 /**
- * Exposure readout between the finder and the 7×7 chrome grid: tappable chips open popups (ISO /
- * Ss / WB / FPS / Still LUT / Video LUT / RAW pipeline). Menus may overlap the preview; the strip
+ * Exposure readout between the finder and the **7×3** quick chrome grid (plus focal row): tappable chips open popups (ISO /
+ * Ss / WB / FPS / Still LUT / Video LUT / IMG still pipeline). Menus may overlap the preview; the strip
  * itself stays in its own band when closed (see `docs/preview-chrome-layout-style-guide.md`).
  * The strip stays screen-aligned — it does **not** counter-rotate with device/chrome twist.
  */
+@Suppress("LongParameterList", "LongMethod", "FunctionNaming")
 @Composable
 fun PreviewReadoutStrip(
     iso: Int?,
@@ -239,30 +239,43 @@ fun PreviewReadoutStrip(
     awbMode: Int?,
     measuredFps: Double,
     stillCaptureJpegCompanion: Boolean,
-    /** [CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID] when non-null (API 29+ HAL). */
-    logicalPhysicalId: String? = null,
+    /** True when the preview session actually has a hardware JPEG surface (matches [PreviewController.previewUsesJpegCompanion]). */
+    sessionJpegCompanionReady: Boolean,
+    imagingProfile: ImagingProfile,
     menu: ReadoutMenuSnapshot,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     /** When false, FPS readout stays visible but the target FPS menu is disabled (photo-primary tray). */
     fpsTargetEditable: Boolean = true,
     onPickIso: (Int?) -> Unit,
     onPickShutter: (Long?) -> Unit,
-    onPickAwb: (Int?) -> Unit,
+    onPickAwb: (Int) -> Unit,
     onPickFps: (Int) -> Unit,
     stillLut: LutCatalog,
     videoLut: LutCatalog,
     onPickStillLut: (LutCatalog) -> Unit,
     onPickVideoLut: (LutCatalog) -> Unit,
-    onPickStillPipeline: (Boolean) -> Unit,
+    /** Sets lossless DNG, Ultra (DNG+), or hardware JPG-only still profile. */
+    onPickImagingProfile: (ImagingProfile) -> Unit,
+    /** When profile is DNG-based, requests hardware JPEG alongside RAW. Ignored for [ImagingProfile.JpegOnly]. */
+    onPickStillCaptureJpegCompanion: (Boolean) -> Unit,
+    /** Samples center YUV chroma (gray card) and locks preview WB; see [GrayCardWhiteBalance]. */
+    onGrayCardWb: () -> Unit = {},
+    /** Shallow hub rescan in flight without a valid JSON snapshot yet — non-blocking readout hint. */
+    focalMapCalibratingHint: Boolean = false,
+    /** Still / bracket encode progress; Milestone **10.15** (shown ahead of focal-map hint). */
+    capturePipelineHint: String? = null,
+    /** Last completed still metadata (Milestone **10.6**); shown inside the IMG menu. */
+    lastStillPostReadout: StillPostReadoutSnapshot? = null,
+    /** Video mode: [MediaRecorder] output sizes from the active camera map (readout only). */
+    videoResSelectorVisible: Boolean = false,
+    videoEncodeSizes: List<Size> = emptyList(),
+    videoEncodeShortLabel: String = "",
+    onPickVideoEncodeSize: (Size) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isoText = iso?.toString() ?: "—"
     val ss = PreviewReadoutFormat.formatShutter(exposureNs)
     val awb = PreviewReadoutFormat.awbModeLabel(awbMode)
-    val phyDisplay =
-        logicalPhysicalId?.let { id ->
-            if (id.length <= 14) id else id.take(14) + "…"
-        }
     val fpsDisplay =
         if (measuredFps > 0.05) {
             "${ceil(measuredFps).toInt()}fps"
@@ -274,15 +287,25 @@ fun PreviewReadoutStrip(
     val baseLabelTypography = MaterialTheme.typography.labelSmall
     val stillLutIndex = stillLut.indexInScope(LutCatalog.Scope.Stills).toString()
     val videoLutIndex = videoLut.indexInScope(LutCatalog.Scope.Video).toString()
+    val rawChipValue =
+        PreviewReadoutStillPipeline.chipLabel(imagingProfile, stillCaptureJpegCompanion, sessionJpegCompanionReady)
+    val rawChipA11y =
+        PreviewReadoutStillPipeline.chipContentDescription(
+            imagingProfile,
+            stillCaptureJpegCompanion,
+            sessionJpegCompanionReady,
+        )
     var isoMenu by remember { mutableStateOf(false) }
     var ssMenu by remember { mutableStateOf(false) }
     var awbMenu by remember { mutableStateOf(false) }
     var fpsMenu by remember { mutableStateOf(false) }
     var stillLutMenu by remember { mutableStateOf(false) }
     var videoLutMenu by remember { mutableStateOf(false) }
-    var rawMenu by remember { mutableStateOf(false) }
+    var imgMenu by remember { mutableStateOf(false) }
+    var videoResMenu by remember { mutableStateOf(false) }
     val stillLutChoices = remember { LutCatalog.forScope(LutCatalog.Scope.Stills) }
     val videoLutChoices = remember { LutCatalog.forScope(LutCatalog.Scope.Video) }
+    val includeVideoRes = videoResSelectorVisible && videoEncodeSizes.isNotEmpty()
 
     Row(
         modifier =
@@ -302,9 +325,8 @@ fun PreviewReadoutStrip(
                     menu,
                     stillLutIndex,
                     videoLutIndex,
-                    stillCaptureJpegCompanion,
-                    logicalPhysicalId,
                     baseLabelTypography,
+                    includeVideoRes,
                 ) {
                     computeReadoutFontScale(
                         maxPx,
@@ -314,8 +336,7 @@ fun PreviewReadoutStrip(
                         menu,
                         stillLutIndex,
                         videoLutIndex,
-                        stillCaptureJpegCompanion,
-                        logicalPhysicalId,
+                        includeVideoRes,
                     )
                 }
             val labelStyle = remember(scale, baseLabelTypography) { baseLabelTypography.scaledFont(scale) }
@@ -340,6 +361,20 @@ fun PreviewReadoutStrip(
                 remember(scale, textMeasurer, valueStyle, density) {
                     maxReadoutValueWidthDp(textMeasurer, valueStyle, listOf("9999fps", "—fps"), density)
                 }
+            val resValueMinWidth =
+                remember(scale, includeVideoRes, videoEncodeShortLabel, textMeasurer, valueStyle, density) {
+                    if (!includeVideoRes) {
+                        0.dp
+                    } else {
+                        val opts =
+                            buildSet {
+                                add(videoEncodeShortLabel)
+                                add("3840×2160")
+                                add("1080p")
+                            }
+                        maxReadoutValueWidthDp(textMeasurer, valueStyle, opts, density)
+                    }
+                }
             val lutStillValueMinWidth =
                 remember(scale, stillLutIndex, textMeasurer, lutValueStyle, density) {
                     maxReadoutValueWidthDp(
@@ -358,24 +393,10 @@ fun PreviewReadoutStrip(
                         density,
                     )
                 }
-            val rawValueStrings =
-                if (stillCaptureJpegCompanion) listOf("DNG", "DNG+") else listOf("DNG")
-            val rawValueMinWidth =
-                remember(scale, stillCaptureJpegCompanion, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(textMeasurer, valueStyle, rawValueStrings, density)
-                }
-            val phyValueMinWidth =
-                remember(scale, logicalPhysicalId, textMeasurer, valueStyle, density) {
-                    if (logicalPhysicalId == null) {
-                        0.dp
-                    } else {
-                        maxReadoutValueWidthDp(
-                            textMeasurer,
-                            valueStyle,
-                            phyCandidateStrings(logicalPhysicalId),
-                            density,
-                        )
-                    }
+            val imgValueStrings = listOf("DNG", "DNG+", "JPG")
+            val imgValueMinWidth =
+                remember(scale, rawChipValue, textMeasurer, valueStyle, density) {
+                    maxReadoutValueWidthDp(textMeasurer, valueStyle, imgValueStrings, density)
                 }
 
             Row(
@@ -449,19 +470,36 @@ fun PreviewReadoutStrip(
                 )
                 PnsChromeDropdownMenu(expanded = awbMenu, onDismissRequest = { awbMenu = false }) {
                     for (choice in menu.awbChoices) {
-                        val label =
-                            when (choice) {
-                                null -> "Default (program)"
-                                else -> PreviewReadoutFormat.awbModeLabel(choice)
-                            }
-                        PnsChromePlainMenuItem(
-                            label = label,
-                            onClick = {
-                                onPickAwb(choice)
-                                awbMenu = false
-                            },
-                        )
+                        val title = PreviewReadoutFormat.awbModeLabel(choice)
+                        val subtitle = PreviewReadoutFormat.awbModeMenuSubtitle(choice)
+                        if (subtitle == null) {
+                            PnsChromePlainMenuItem(
+                                label = title,
+                                onClick = {
+                                    onPickAwb(choice)
+                                    awbMenu = false
+                                },
+                            )
+                        } else {
+                            PnsChromeDetailMenuItem(
+                                title = title,
+                                subtitle = subtitle,
+                                onClick = {
+                                    onPickAwb(choice)
+                                    awbMenu = false
+                                },
+                            )
+                        }
                     }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+                    PnsChromeDetailMenuItem(
+                        title = "Gray card custom WB",
+                        subtitle = "Fill the finder center with a neutral gray card, then tap",
+                        onClick = {
+                            onGrayCardWb()
+                            awbMenu = false
+                        },
+                    )
                 }
             }
             Box {
@@ -498,17 +536,33 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            if (phyDisplay != null) {
-                ReadoutMetricChip(
-                    label = "Phy",
-                    value = phyDisplay,
-                    valueMinWidth = phyValueMinWidth,
-                    labelStyle = labelStyle,
-                    valueStyle = valueStyle,
-                    onClick = { },
-                    accessibilityLabel =
-                        "Logical multi-camera active physical camera. Current $phyDisplay. Read-only.",
-                )
+            if (includeVideoRes) {
+                Box {
+                    ReadoutMetricChip(
+                        label = "RES",
+                        value = videoEncodeShortLabel,
+                        valueMinWidth = resValueMinWidth,
+                        labelStyle = labelStyle,
+                        valueStyle = valueStyle,
+                        onClick = { videoResMenu = true },
+                        accessibilityLabel =
+                            "Video encode resolution. Current $videoEncodeShortLabel. Opens resolution menu.",
+                    )
+                    PnsChromeDropdownMenu(expanded = videoResMenu, onDismissRequest = { videoResMenu = false }) {
+                        for (choice in videoEncodeSizes) {
+                            val title = InAppVideoRecordingSupport.shortLabel(choice)
+                            val subtitle = "${choice.width}×${choice.height}"
+                            PnsChromeDetailMenuItem(
+                                title = title,
+                                subtitle = subtitle,
+                                onClick = {
+                                    onPickVideoEncodeSize(choice)
+                                    videoResMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
             }
             Box {
                 ReadoutLutChip(
@@ -558,31 +612,116 @@ fun PreviewReadoutStrip(
             }
                 Box {
                     ReadoutMetricChip(
-                        label = "RAW",
-                        value = if (stillCaptureJpegCompanion) "DNG+" else "DNG",
-                        valueMinWidth = rawValueMinWidth,
+                        label = "IMG",
+                        value = rawChipValue,
+                        valueMinWidth = imgValueMinWidth,
                         labelStyle = labelStyle,
                         valueStyle = valueStyle,
-                        onClick = { rawMenu = true },
-                        accessibilityLabel =
-                            "Still capture pipeline. Current ${if (stillCaptureJpegCompanion) "DNG+" else "DNG only"}. Opens RAW menu.",
+                        onClick = { imgMenu = true },
+                        accessibilityLabel = rawChipA11y,
                     )
-                    PnsChromeDropdownMenu(expanded = rawMenu, onDismissRequest = { rawMenu = false }) {
-                        PnsChromePlainMenuItem(
-                            label = "RAW (DNG only)",
-                            onClick = {
-                                onPickStillPipeline(false)
-                                rawMenu = false
-                            },
-                        )
-                        PnsChromePlainMenuItem(
-                            label = "RAW+ (DNG + JPEG)",
-                            onClick = {
-                                onPickStillPipeline(true)
-                                rawMenu = false
-                            },
-                        )
+                    PnsChromeDropdownMenu(expanded = imgMenu, onDismissRequest = { imgMenu = false }) {
+                        Column {
+                            PnsChromePlainMenuItem(
+                                label = "DNG (lossless RAW)",
+                                onClick = {
+                                    onPickImagingProfile(ImagingProfile.StandardPro)
+                                    imgMenu = false
+                                },
+                            )
+                            PnsChromePlainMenuItem(
+                                label = "DNG+ (Ultra RAW)",
+                                onClick = {
+                                    onPickImagingProfile(ImagingProfile.UltraMax)
+                                    imgMenu = false
+                                },
+                            )
+                            PnsChromePlainMenuItem(
+                                label = "JPG (hardware still only)",
+                                onClick = {
+                                    onPickImagingProfile(ImagingProfile.JpegOnly)
+                                    imgMenu = false
+                                },
+                            )
+                            if (imagingProfile !is ImagingProfile.JpegOnly) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    color = Color.White.copy(alpha = 0.18f),
+                                )
+                                Text(
+                                    text = "With DNG / DNG+",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                                )
+                                PnsChromePlainMenuItem(
+                                    label = if (stillCaptureJpegCompanion) {
+                                        "JPEG companion: on"
+                                    } else {
+                                        "JPEG companion: off"
+                                    },
+                                    onClick = {
+                                        onPickStillCaptureJpegCompanion(!stillCaptureJpegCompanion)
+                                        imgMenu = false
+                                    },
+                                )
+                            }
+                            val post = lastStillPostReadout
+                            if (post != null) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    color = Color.White.copy(alpha = 0.18f),
+                                )
+                                Text(
+                                    text = "Last still (HAL)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                                )
+                                post.rawFormatLabel?.let { fmt ->
+                                    Text(
+                                        text = "Format: $fmt",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.82f),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                                    )
+                                }
+                                post.dynamicRangeShort?.let { dr ->
+                                    Text(
+                                        text = "Dynamic range: $dr",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.82f),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                                    )
+                                }
+                                post.rawBinningDisplay?.let { b ->
+                                    Text(
+                                        text = "RAW binning: $b",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.82f),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+                        }
                     }
+                }
+                if (!capturePipelineHint.isNullOrBlank()) {
+                    Text(
+                        text = capturePipelineHint,
+                        style = labelStyle,
+                        color = PnsColors.PhotoOrange.copy(alpha = 0.95f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else if (focalMapCalibratingHint) {
+                    Text(
+                        text = "Calibrating focal map…",
+                        style = labelStyle,
+                        color = PnsColors.WarnAmber,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }

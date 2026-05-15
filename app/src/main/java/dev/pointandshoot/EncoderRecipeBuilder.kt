@@ -15,6 +15,10 @@ package dev.pointandshoot
  * by mime (lexicographic, for deterministic ordering). Surfacing more rows
  * per camera floods the About page; the curated [KNOWN_GOOD_RECIPES] list
  * already covers the broader landscape.
+ *
+ * Optional [halHighSpeedMaxFpsByCameraId] attaches **HAL catalog** maxima
+ * ([DeviceCameraCapabilityCache.hfrMaxAtSizeClasses]) next to encoder-measured
+ * rows for Milestone **10.5** alignment.
  */
 object EncoderRecipeBuilder {
 
@@ -24,16 +28,20 @@ object EncoderRecipeBuilder {
      * Returns rows sorted by `cameraId` then HFR-first within camera so the
      * About page reads top-down by physical camera.
      */
-    fun recipesFromSummary(summary: EncoderSummary): List<Row> {
+    fun recipesFromSummary(
+        summary: EncoderSummary,
+        halHighSpeedMaxFpsByCameraId: Map<String, Int?> = emptyMap(),
+    ): List<Row> {
         if (summary.knownGood.isEmpty()) return emptyList()
         val out = mutableListOf<Row>()
         val byCamera = summary.knownGood.groupBy { it.cameraId }.toSortedMap()
         for ((camId, attempts) in byCamera) {
+            val halMax = halHighSpeedMaxFpsByCameraId[camId]
             // Best HFR for this camera (already sorted by descending fps + area in summary).
             attempts.firstOrNull { it.sessionKind == SessionKind.Hfr }
-                ?.let { out += rowOf(it, camId) }
+                ?.let { out += rowOf(it, camId, halMax) }
             attempts.firstOrNull { it.sessionKind == SessionKind.Regular }
-                ?.let { out += rowOf(it, camId) }
+                ?.let { out += rowOf(it, camId, halMax) }
         }
         return out
     }
@@ -78,6 +86,8 @@ object EncoderRecipeBuilder {
         val mime: String,
         val measuredFps: Double,
         val title: String,
+        /** Max upper FPS from [StreamConfigurationMap] high-speed tables for this [cameraId], if known. */
+        val halAdvertisedHfrMaxFps: Int? = null,
     )
 
     data class ErrorRow(val canonicalError: String, val count: Int)
@@ -94,7 +104,11 @@ object EncoderRecipeBuilder {
 
     // ---------- helpers ----------
 
-    private fun rowOf(attempt: EncoderAttempt, cameraId: String): Row = Row(
+    private fun rowOf(
+        attempt: EncoderAttempt,
+        cameraId: String,
+        halAdvertisedHfrMaxFps: Int?,
+    ): Row = Row(
         cameraId = cameraId,
         sessionKind = attempt.sessionKind,
         sizeLabel = attempt.sizeLabel,
@@ -102,6 +116,7 @@ object EncoderRecipeBuilder {
         mime = attempt.mime ?: EncoderAttempt.extractMimeFromNote(attempt.note) ?: "(unknown)",
         measuredFps = attempt.measuredFps,
         title = titleFor(cameraId, attempt),
+        halAdvertisedHfrMaxFps = halAdvertisedHfrMaxFps,
     )
 
     private fun titleFor(cameraId: String, attempt: EncoderAttempt): String =

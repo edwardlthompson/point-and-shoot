@@ -55,7 +55,13 @@ object EncoderRoute {
          * progress reporting and storage budget checks.
          */
         val fileCountForCapture: Int
-            get() = if (tonalWritten != null) 2 else if (fallbackJpeg) 2 else 1
+            get() =
+                when {
+                    profile is ImagingProfile.JpegOnly -> 1
+                    tonalWritten != null -> 2
+                    fallbackJpeg -> 2
+                    else -> 1
+                }
     }
 
     /** User-facing message when the route falls back. Public for test parity. */
@@ -67,6 +73,15 @@ object EncoderRoute {
      * native encoder library is loaded.
      */
     fun decide(profile: ImagingProfile, nativeAvailable: Boolean): Decision {
+        if (profile is ImagingProfile.JpegOnly) {
+            return Decision(
+                profile = profile,
+                rawWritten = RawMode.None,
+                tonalWritten = null,
+                fallbackJpeg = false,
+                downgradeReason = null,
+            )
+        }
         val needsNative = profile.tonalContainer.requiresNativeEncoder
         return if (!needsNative || nativeAvailable) {
             Decision(
@@ -102,8 +117,8 @@ object EncoderRoute {
      */
     fun downgradedProfiles(nativeAvailable: Boolean): List<ImagingProfile> {
         if (nativeAvailable) return emptyList()
-        val candidates = listOf<ImagingProfile>(ImagingProfile.StandardPro, ImagingProfile.UltraMax)
-        return candidates.filter { it.tonalContainer.requiresNativeEncoder }
+        val candidates = listOf(ImagingProfile.StandardPro, ImagingProfile.UltraMax, ImagingProfile.JpegOnly)
+        return candidates.filter { it !is ImagingProfile.JpegOnly && it.tonalContainer.requiresNativeEncoder }
     }
 }
 
@@ -116,4 +131,5 @@ val TonalContainer.requiresNativeEncoder: Boolean
     get() = when (this) {
         TonalContainer.Avif10BitHdr -> true
         TonalContainer.JpegXl12Bit -> true
+        TonalContainer.JpegSdr8 -> false
     }

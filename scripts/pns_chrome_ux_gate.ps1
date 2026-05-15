@@ -1,7 +1,7 @@
 # Milestone 9 - host + device chrome UX gate (ADB; optional root not required).
 # - Runs scripts/pns_verify_toolchain.ps1 -RunTests (unless -SkipHost or -SkipHostTests)
 # - When an authorized device is connected: install APK, grant CAMERA, cold-start preview,
-#   capture logcat; assert PNS.ChromeUx seedOk..grid7 (incl. flash QS), flashPreviewHardware=, modeDialPopout=, readoutCapture=, selfTimerSec=
+#   capture logcat; assert PNS.ChromeUx seedOk..grid7x3 (incl. flash QS), flashPreviewHardware=, modeDialPopout=, readoutCapture=, selfTimerSec=
 #   (device start uses --ei pns_preview_self_timer_sec 3 to exercise ADB seed + selfTimerSec=3)
 # - Writes hfr-runs/.../chrome_ux_gate.json
 #
@@ -85,7 +85,16 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
 }
 
 function Test-AdbAuthorizedDevice {
-    $lines = @(adb devices 2>&1)
+    # Mixed PATH adb vs SDK adb can print "server version doesn't match; killing..." to stderr;
+    # with $ErrorActionPreference = Stop that becomes a terminating NativeCommandError even when adb exits 0.
+    $prevEa = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    try {
+        $lines = @(adb devices 2>&1)
+    }
+    finally {
+        $ErrorActionPreference = $prevEa
+    }
     foreach ($line in $lines) {
         if ($line -match '\tdevice$') {
             return $true
@@ -95,7 +104,7 @@ function Test-AdbAuthorizedDevice {
 }
 
 function Save-LogcatTail([string]$OutPath) {
-    # Noisy OEM HALs can fill >12k lines in seconds  -  ring-tail-only drops early PNS.ChromeUx (seedOk, grid7, …).
+    # Noisy OEM HALs can fill >12k lines in seconds  -  ring-tail-only drops early PNS.ChromeUx (seedOk, grid7x3, …).
     # Large mixed tail + tag-filtered ChromeUx supplement matches scripts/pns_adb_preview_validate.ps1 discipline.
     $prev = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
@@ -200,14 +209,15 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     $null = Invoke-Adb @("shell", "am", "force-stop", $pkg)
     Start-Sleep -Milliseconds 600
     # Seed self-timer + optional focal mm slot (Milestone 9.13 tele preset ADB proof).
-    $shellCmd = "am start -n ${pkg}/.MainActivity --es pns_screen preview --ei pns_preview_self_timer_sec $SelfTimerSec"
+    $shellCmd = "am start -W -n ${pkg}/.MainActivity --es pns_screen preview --ei pns_preview_self_timer_sec $SelfTimerSec"
     if (-not [string]::IsNullOrWhiteSpace($FocalMmSlot)) {
         $slot = $FocalMmSlot.Trim()
         $shellCmd += " --es pns_preview_focal_mm_slot $slot"
     }
     $null = Invoke-Adb @("shell", $shellCmd)
-    # Allow preview session start + readout=fallback (10s after repeating begins on slow devices).
-    Start-Sleep -Seconds 22
+    # Cold-start preview + ChromeUx seed lines; `-W` waits for activity idle (avoids empty logcat when
+    # the process is slow to attach under memory pressure). 35s allows repeating + readout=fallback.
+    Start-Sleep -Seconds 35
 
     $logPath = Join-Path $OutDir "logcat_chrome_seed.txt"
     Save-LogcatTail $logPath
@@ -241,17 +251,18 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx readout=live|fallback in logcat."
     }
-    if ($logText -match 'PNS\.ChromeUx.*dualShutter=visible') {
+    if ($logText -match 'PNS\.ChromeUx.*(trayShutter=centerOfBar|trayShutter=centerColumn|trayShutter=singleCenter|dualShutter=visible|photoVideoToggle=combinedToggleFab|photoVideoToggle=modeFabStyle)') {
         $dualShutterOk = $true
     }
     else {
-        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx dualShutter=visible in logcat."
+        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx tray shutter line (centerOfBar|centerColumn|singleCenter|dualShutter=visible) in logcat."
     }
-    if ($logText -match 'PNS\.ChromeUx.*grid7=layout') {
+    # Sprint 10.13: grid7x3=layout (legacy APKs may still emit grid7=layout).
+    if ($logText -match 'PNS\.ChromeUx.*grid7x3=layout' -or $logText -match 'PNS\.ChromeUx.*grid7=layout') {
         $grid7Ok = $true
     }
     else {
-        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx grid7=layout in logcat."
+        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx grid7x3=layout (or legacy grid7=layout) in logcat."
     }
     if ($logText -match 'PNS\.ChromeUx.*modeDialPopout=(anchorVisible|expanded|skipped_no_dial|menuSelect)') {
         $modeDialPopoutOk = $true
@@ -259,7 +270,8 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx modeDialPopout= in logcat."
     }
-    if ($logText -match 'PNS\.ChromeUx.*readoutCapture=(RAW|RAW\+)') {
+    # Keep in sync with [PreviewReadoutStillPipeline.chromeUxLogValue] (DNG / DNG+ / DNG12 / JPG / legacy JPEG / RAW).
+    if ($logText -match 'PNS\.ChromeUx.*readoutCapture=(DNG12\+|DNG12|DNG\+|DNG|RAW\+|RAW|JPEG only|JPEG|JPG)') {
         $readoutCaptureOk = $true
     }
     else {

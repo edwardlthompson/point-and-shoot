@@ -23,7 +23,9 @@ object CapabilityGate {
         gate(
             feature = Feature.RawDng,
             enabled = caps.hasRawCapability,
-            disabledReason = "RAW capture is not advertised by this camera (no RAW capability bit).",
+            disabledReason =
+                "RAW capture is not advertised by this camera (no RAW capability bit). " +
+                    "Use the JPEG only imaging profile (HUD strip or Settings → HUD) for hardware JPEG stills.",
         ),
         gate(
             feature = Feature.UltraMaxProfile,

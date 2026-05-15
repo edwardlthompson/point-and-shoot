@@ -78,6 +78,22 @@ data class HudSettings(
      * accepts the full surface list. Off by default (Milestone 4 HDR preview).
      */
     val enableHdr10LivePreview: Boolean = false,
+    /**
+     * Research-only: when a device advertises Qualcomm **session** vendor key
+     * `org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing`, REGULAR preview session
+     * creation may attach it via [SessionConfiguration.setSessionParameters]. **Off by default**
+     * (matrix / HAL risk); Milestone **10.6** Phase C.
+     */
+    val enableResearchAfBracketing: Boolean = false,
+    /**
+     * Discrete ISP bias for hardware JPEG / preview paths (-2 softer … +2 sharper).
+     * Engine maps to advertised EDGE / NR / tonemap / color-correction modes ([PreviewJpegProcessingHints]).
+     */
+    val hardwareJpegIspBias: Int = 0,
+    /**
+     * Software re-encode quality for RAW companion JPEG path ([Bitmap.compress]); clamped 70–100 in engine.
+     */
+    val softwareJpegCompanionQuality: Int = 92,
 ) {
     /** Resolve the currently-active stills LUT, falling back to None on rename / removal. */
     fun stillsLut(): LutCatalog = resolveLut(selectedLutForStills)
@@ -111,6 +127,15 @@ data class HudSettings(
         private const val KEY_POST_RAW_BOOST = "enable_post_raw_sensitivity_boost"
         private const val KEY_AUTO_FRAMING = "enable_auto_framing"
         private const val KEY_HDR_10_PREVIEW = "enable_hdr10_live_preview"
+        private const val KEY_RESEARCH_AF_BRACKET = "enable_research_af_bracketing"
+        private const val KEY_HARDWARE_JPEG_ISP_BIAS = "hardware_jpeg_isp_bias"
+        private const val KEY_SOFTWARE_JPEG_QUALITY = "software_jpeg_companion_quality"
+        private const val KEY_BRACKET_PATTERN = "bracket_pattern_last"
+
+        private const val HARDWARE_JPEG_ISP_BIAS_MIN = -2
+        private const val HARDWARE_JPEG_ISP_BIAS_MAX = 2
+        private const val SOFTWARE_JPEG_COMPANION_QUALITY_MIN = 70
+        private const val SOFTWARE_JPEG_COMPANION_QUALITY_MAX = 100
         private const val KEY_COMMAND_DIAL_MODE = "command_dial_mode"
         private const val KEY_IMAGING_PROFILE = "imaging_profile"
 
@@ -142,6 +167,19 @@ data class HudSettings(
                 .apply()
         }
 
+        fun loadBracketPattern(context: Context): BracketPattern {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val name = prefs.getString(KEY_BRACKET_PATTERN, null) ?: return BracketPattern.Three
+            return BracketPattern.entries.firstOrNull { it.name == name } ?: BracketPattern.Three
+        }
+
+        fun saveBracketPattern(context: Context, pattern: BracketPattern) {
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_BRACKET_PATTERN, pattern.name)
+                .apply()
+        }
+
         fun load(context: Context): HudSettings {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val defaults = HudSettings()
@@ -165,6 +203,13 @@ data class HudSettings(
                 enablePostRawSensitivityBoost = prefs.getBoolean(KEY_POST_RAW_BOOST, defaults.enablePostRawSensitivityBoost),
                 enableAutoFraming = prefs.getBoolean(KEY_AUTO_FRAMING, defaults.enableAutoFraming),
                 enableHdr10LivePreview = prefs.getBoolean(KEY_HDR_10_PREVIEW, defaults.enableHdr10LivePreview),
+                enableResearchAfBracketing =
+                    prefs.getBoolean(KEY_RESEARCH_AF_BRACKET, defaults.enableResearchAfBracketing),
+                hardwareJpegIspBias = prefs.getInt(KEY_HARDWARE_JPEG_ISP_BIAS, defaults.hardwareJpegIspBias)
+                    .coerceIn(HARDWARE_JPEG_ISP_BIAS_MIN, HARDWARE_JPEG_ISP_BIAS_MAX),
+                softwareJpegCompanionQuality =
+                    prefs.getInt(KEY_SOFTWARE_JPEG_QUALITY, defaults.softwareJpegCompanionQuality)
+                        .coerceIn(SOFTWARE_JPEG_COMPANION_QUALITY_MIN, SOFTWARE_JPEG_COMPANION_QUALITY_MAX),
             )
         }
 
@@ -192,6 +237,18 @@ data class HudSettings(
                 .putBoolean(KEY_POST_RAW_BOOST, settings.enablePostRawSensitivityBoost)
                 .putBoolean(KEY_AUTO_FRAMING, settings.enableAutoFraming)
                 .putBoolean(KEY_HDR_10_PREVIEW, settings.enableHdr10LivePreview)
+                .putBoolean(KEY_RESEARCH_AF_BRACKET, settings.enableResearchAfBracketing)
+                .putInt(
+                    KEY_HARDWARE_JPEG_ISP_BIAS,
+                    settings.hardwareJpegIspBias.coerceIn(HARDWARE_JPEG_ISP_BIAS_MIN, HARDWARE_JPEG_ISP_BIAS_MAX),
+                )
+                .putInt(
+                    KEY_SOFTWARE_JPEG_QUALITY,
+                    settings.softwareJpegCompanionQuality.coerceIn(
+                        SOFTWARE_JPEG_COMPANION_QUALITY_MIN,
+                        SOFTWARE_JPEG_COMPANION_QUALITY_MAX,
+                    ),
+                )
                 .commit()
         }
 

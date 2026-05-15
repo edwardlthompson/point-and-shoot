@@ -54,16 +54,18 @@ object MlKitFaceTrackSupport {
         if (bufferWidth <= 0 || bufferHeight <= 0) {
             return MlFaceHudDetections(emptyList(), emptyList())
         }
-        val input = InputImage.fromMediaImage(image, rotationDegrees)
-        val faces: List<Face> =
-            runCatching {
-                Tasks.await(detector.process(input), timeoutMs, TimeUnit.MILLISECONDS)
-            }.getOrDefault(emptyList())
+        // Snapshot dimensions before [Tasks.await]: ML Kit may release the [Image] when detection
+        // completes, so [Image.getWidth] after await can throw "Image is already closed".
         val yuvW = image.width
         val yuvH = image.height
         if (yuvW <= 0 || yuvH <= 0) {
             return MlFaceHudDetections(emptyList(), emptyList())
         }
+        val input = InputImage.fromMediaImage(image, rotationDegrees)
+        val faces: List<Face> =
+            runCatching {
+                Tasks.await(detector.process(input), timeoutMs, TimeUnit.MILLISECONDS)
+            }.getOrDefault(emptyList())
         val boxes = ArrayList<FaceTrackBoxBuffer>(faces.size)
         val eyes = ArrayList<EyeMark>(faces.size * 2)
         for (face in faces) {

@@ -120,6 +120,18 @@ binding the 3D texture entirely (saves the per-frame fragment cost).
 For preview, the LUT applies on the same GLES surface as video so the user
 sees what they'll record.
 
+## HFR preview color (Milestone 10 Sprint 10.10) — **single owner**
+
+Some devices show **different preview color / contrast** at **HFR** (constrained high-speed `CameraCaptureSession`, typically `desiredFps ≥ 120`) vs **60 fps** normal preview. **Owner:** [`PreviewController`](app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt) session split:
+
+| Path | Session template / notes |
+|------|---------------------------|
+| **Normal preview** (`desiredFps < 120`, non–high-speed session) | [`buildPreviewCaptureRequestBuilder`](app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt) uses `CameraDevice.TEMPLATE_PREVIEW` unless overridden by readout / FPS band logic. |
+| **HFR preview** | Same builder uses `CameraDevice.TEMPLATE_RECORD` when `fpsRange.lower ≥ 120` (burst-oriented ISP path). Tonemap / noise reduction / edge enhancement can differ from `TEMPLATE_PREVIEW`. |
+| **In-app video record** (MediaRecorder surface attached) | Builder forces `TEMPLATE_RECORD` and adds the encoder surface as a second `addTarget`; preview FPS target is capped for the repeating request while recording. **No audio** in the first ship (silent MP4); geotag uses [`MediaRecorder.applyCaptureGeotag`](app/src/main/java/dev/pointandshoot/MediaRecorderGeotag.kt) when location is available. |
+
+Fleet follow-up: A/B `CaptureRequest` keys (`TONEMAP_MODE`, `EDGE_MODE`, `NOISE_REDUCTION_MODE`, vendor extensions) **only** with USB proof — do not toggle for “looks nicer” without device evidence (see `docs/REVERTED_FEATURES_RESTORE_LIST.md` capture rules).
+
 ## Calibration mode flow (when shipped)
 
 1. User taps **Calibrate** in the HUD.

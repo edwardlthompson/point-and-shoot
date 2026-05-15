@@ -9,4 +9,5 @@
     <include domain="sharedpref" path="pns_root_capability.xml" />
     <include domain="sharedpref" path="pns_composition_guides.xml" />
     <include domain="sharedpref" path="pns_ui_hints.xml" />
+    <include domain="sharedpref" path="pns_probehub_nav.xml" />
 </full-backup-content>

@@ -4,6 +4,8 @@
 
 .DESCRIPTION
   Uses the same **`captureRawStill`** path as preview **H** mode / ADB **`pns_preview_raw_count`** (not UI coordinate taps).
+  Each cold start passes **`pns_preview_imaging_profile=standard_pro`** so a user-persisted **Ultra-Max** HUD choice cannot break the default scripted gate (Ultra-Max remains testable via **`pns_adb_preview_validate.ps1`** scenarios / explicit extras).
+  Also passes **`pns_preview_camera_id=0`** so the M23 focal-slot default (which may resolve to a tele / no-RAW logical id on some OEM stacks) cannot strand scripted RAW on a non-RAW camera; use **`-SweepCameraIds`** when you need a wider id sweep.
   After each cold start, pulls filtered **logcat** and checks for **`PNS.AdbValidation`** `captureRawStill 1/1 ok=true saved=`.
   Treats **`PNS.CaptureStill`** `ok=false`, **`save ok=false`**, **`No RAW buffer`**, and **`FATAL EXCEPTION`** as hard failures for that attempt, then retries.
 
@@ -73,31 +75,51 @@ function Get-AdbPath {
 }
 
 function Invoke-AdbExe([string]$adbExe, [string[]]$PrefixArgs, [string[]]$CmdArgs, [int]$TimeoutMs) {
-    $all = $PrefixArgs + $CmdArgs
-    $p = Start-Process -FilePath $adbExe -ArgumentList $all -NoNewWindow -PassThru -Wait:$false `
-        -RedirectStandardOutput "$env:TEMP\pns_adb_out_$PID.txt" `
-        -RedirectStandardError "$env:TEMP\pns_adb_err_$PID.txt"
-    if (-not $p.WaitForExit($TimeoutMs)) {
-        try { $p.Kill() } catch { }
+    # Windows PowerShell: `Start-Process -ArgumentList $string[]` can corrupt long `adb shell am start …`
+    # argv lists so `--es` / `--ei` extras never reach the device (Compose sees null intent seeds). Run the
+    # same argv via call splatting in a child job and poll with a timeout.
+    $all = @([string[]]$PrefixArgs) + @([string[]]$CmdArgs)
+    $outPath = Join-Path $env:TEMP ("pns_adb_out_{0}.txt" -f [Guid]::NewGuid().ToString("N"))
+    $errPath = Join-Path $env:TEMP ("pns_adb_err_{0}.txt" -f [Guid]::NewGuid().ToString("N"))
+    Remove-Item -LiteralPath $outPath, $errPath -ErrorAction SilentlyContinue
+    $job = Start-Job -ScriptBlock {
+        param([string]$Exe, [string[]]$Argv, [string]$OutFile, [string]$ErrFile)
+        $ErrorActionPreference = "Continue"
+        try {
+            & $Exe @Argv 1> $OutFile 2> $ErrFile
+        }
+        catch {
+            [void][System.IO.File]::AppendAllText($ErrFile, "`n$($_.Exception.Message)`n")
+        }
+        if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+    } -ArgumentList $adbExe, $all, $outPath, $errPath
+    $sec = [Math]::Max(1, [int]([Math]::Ceiling($TimeoutMs / 1000.0)))
+    $w = Wait-Job -Job $job -Timeout $sec
+    if (-not $w) {
+        try { Stop-Job $job -ErrorAction SilentlyContinue } catch { }
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch { }
+        Remove-Item -LiteralPath $outPath, $errPath -ErrorAction SilentlyContinue
         throw "adb timeout (${TimeoutMs}ms): $($CmdArgs -join ' ')"
     }
     $exitCode = 0
     try {
-        if ($null -ne $p.ExitCode) { $exitCode = [int]$p.ExitCode }
+        $exitCode = [int](Receive-Job $job -ErrorAction SilentlyContinue)
     }
     catch {
         $exitCode = -1
     }
-    $out = if (Test-Path "$env:TEMP\pns_adb_out_$PID.txt") {
-        Get-Content -LiteralPath "$env:TEMP\pns_adb_out_$PID.txt" -Raw -ErrorAction SilentlyContinue
-    } else { "" }
-    $err = if (Test-Path "$env:TEMP\pns_adb_err_$PID.txt") {
-        Get-Content -LiteralPath "$env:TEMP\pns_adb_err_$PID.txt" -Raw -ErrorAction SilentlyContinue
-    } else { "" }
+    try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch { }
+    $out = if (Test-Path -LiteralPath $outPath) {
+        Get-Content -LiteralPath $outPath -Raw -ErrorAction SilentlyContinue
+    }
+    else { "" }
+    $err = if (Test-Path -LiteralPath $errPath) {
+        Get-Content -LiteralPath $errPath -Raw -ErrorAction SilentlyContinue
+    }
+    else { "" }
     if ($null -eq $out) { $out = "" }
     if ($null -eq $err) { $err = "" }
-    Remove-Item "$env:TEMP\pns_adb_out_$PID.txt" -ErrorAction SilentlyContinue
-    Remove-Item "$env:TEMP\pns_adb_err_$PID.txt" -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $outPath, $errPath -ErrorAction SilentlyContinue
     return [pscustomobject]@{ ExitCode = $exitCode; StdOut = $out; StdErr = $err }
 }
 
@@ -135,21 +157,34 @@ function Invoke-AdbRedirectStdoutToFile([string[]]$CmdArgs, [string]$outFile, [i
     $prefix = @()
     if ($Serial) { $prefix = @("-s", $Serial) }
     $errFile = "$outFile.stderr.txt"
-    $all = $prefix + $CmdArgs
-    $p = Start-Process -FilePath $adbExe -ArgumentList $all -NoNewWindow -PassThru -Wait:$false `
-        -RedirectStandardOutput $outFile `
-        -RedirectStandardError $errFile
-    if (-not $p.WaitForExit($TimeoutMs)) {
-        try { $p.Kill() } catch { }
+    $all = @([string[]]$prefix) + @([string[]]$CmdArgs)
+    Remove-Item -LiteralPath $errFile -ErrorAction SilentlyContinue
+    $job = Start-Job -ScriptBlock {
+        param([string]$Exe, [string[]]$Argv, [string]$OutFile, [string]$ErrFile)
+        $ErrorActionPreference = "Continue"
+        try {
+            & $Exe @Argv 1> $OutFile 2> $ErrFile
+        }
+        catch {
+            [void][System.IO.File]::AppendAllText($ErrFile, "`n$($_.Exception.Message)`n")
+        }
+        if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+    } -ArgumentList $adbExe, $all, $outFile, $errFile
+    $sec = [Math]::Max(1, [int]([Math]::Ceiling($TimeoutMs / 1000.0)))
+    $w = Wait-Job -Job $job -Timeout $sec
+    if (-not $w) {
+        try { Stop-Job $job -ErrorAction SilentlyContinue } catch { }
+        try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch { }
         throw "adb timeout (${TimeoutMs}ms): $($CmdArgs -join ' ')"
     }
     $exitCode = 0
     try {
-        if ($null -ne $p.ExitCode) { $exitCode = [int]$p.ExitCode }
+        $exitCode = [int](Receive-Job $job -ErrorAction SilentlyContinue)
     }
     catch {
         $exitCode = -1
     }
+    try { Remove-Job $job -Force -ErrorAction SilentlyContinue } catch { }
     Remove-Item $errFile -ErrorAction SilentlyContinue
     return $exitCode
 }
@@ -241,7 +276,9 @@ foreach ($camSeed in $seedList) {
             "--activity-clear-task",
             "--es", "pns_screen", "preview",
             "--es", "pns_preview_dial", "H",
-            "--ei", "pns_preview_raw_count", "1"
+            "--ei", "pns_preview_raw_count", "1",
+            "--es", "pns_preview_imaging_profile", "standard_pro",
+            "--es", "pns_preview_camera_id", "0"
         )
         if ($Fast) {
             $amArgs += @("--ez", "pns_preview_raw_still_fast", "true")

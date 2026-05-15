@@ -2,6 +2,8 @@
 
 This document describes **what combinations the app can exercise** for scripted preview RAW stills, the **intent / bit-depth story** per profile, and **observed results** from host automation.
 
+**Fleet context (Milestone 10 Sprint 10.8):** see **`FLEET_REFERENCE_M10_8.md`** for how this matrix relates to committed **`PROBE_RESULTS.md`** and **`DODGE_PROFILE.md`** caps.
+
 Implementation reference: `RawCaptureSupport.kt` (`RawStreamPreference`, `pickRawOutput`), `ImagingProfile.kt`, `PreviewEngineScreen.kt` (`PreviewController` session RAW attach).
 
 ## Automation

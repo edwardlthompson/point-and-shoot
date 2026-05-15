@@ -8,7 +8,8 @@ import android.hardware.camera2.CaptureRequest
  * consumer; these gains give a visible, preset-shaped response on the finder while Camera2
  * requests still drive capture metadata.
  *
- * Values are mild (anchor G at 1) to limit stacking when the HAL *does* apply some correction.
+ * Kelvin anchors for presets are documented for menus in [AwbPresetReadout]; these RGB nudges
+ * are tuned to loosely track the same family (mild gains, G pinned at 1).
  */
 object ReadoutAwbPreviewShaderGains {
 

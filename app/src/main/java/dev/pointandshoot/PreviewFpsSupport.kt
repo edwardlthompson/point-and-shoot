@@ -96,4 +96,28 @@ object PreviewFpsSupport {
         ranges.firstOrNull { it.lower <= desiredFps && it.upper >= desiredFps }?.let { return it }
         return null
     }
+
+    internal fun maxStockTargetFromOptions(options: List<QuickFpsOption>): Int? =
+        options.asSequence().filter { !it.requiresRoot }.map { it.targetFps }.maxOrNull()
+
+    internal fun bestStockTargetAtOrBelow(options: List<QuickFpsOption>, ceiling: Int): Int? =
+        options.asSequence().filter { !it.requiresRoot }.map { it.targetFps }.filter { it <= ceiling }.maxOrNull()
+
+    /**
+     * When the user switches **cameraId** (lens), keep [desiredFps] if it is still achievable without root
+     * on the new camera; otherwise step down to the best stock target at or below the prior choice, then
+     * the overall stock maximum, then **60** (photo-primary safe default).
+     */
+    fun clampFpsToAchievableWithoutRoot(context: Context, cameraId: String, desiredFps: Int): Int {
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val map =
+            runCatching {
+                cm.getCameraCharacteristics(cameraId).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            }.getOrNull()
+        if (canAchieveWithoutRoot(cm, cameraId, map, desiredFps)) return desiredFps
+        val opts = enumerateQuickFpsOptions(context, cameraId)
+        return bestStockTargetAtOrBelow(opts, desiredFps)
+            ?: maxStockTargetFromOptions(opts)
+            ?: 60
+    }
 }

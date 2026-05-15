@@ -4,6 +4,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,12 +13,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -27,16 +32,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 
 private data class DebugEntry(
     val title: String,
@@ -59,6 +70,8 @@ data class DebugMenuProbeSnapshot(
     val cameraSummaries: List<String>,
     val shallowScanHubLine: String? = null,
     val capabilityGateLines: List<String> = emptyList(),
+    /** Last [android.hardware.camera2.CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID] from preview (engineering). */
+    val logicalMultiCameraActivePhysicalId: String? = null,
 )
 
 /**
@@ -69,7 +82,7 @@ data class DebugMenuProbeSnapshot(
  * @param onBackToCamera When non-null, shows a back affordance to return to the live preview. When null (probe
  * activity root), the host should install [androidx.activity.compose.BackHandler] for navigation.
  */
-@Suppress("LongParameterList", "FunctionNaming")
+@Suppress("LongParameterList", "FunctionNaming", "LongMethod")
 @Composable
 fun DebugMenuScreen(
     padding: PaddingValues,
@@ -82,6 +95,7 @@ fun DebugMenuScreen(
     onShowLegacyCamera1: () -> Unit,
     onShowDeepCaps: () -> Unit,
     onShowFaceMeterProbe: () -> Unit,
+    onShowQrScan: () -> Unit,
     onShowSessionMatrix: () -> Unit,
     onShowHdrDcgRuntime: () -> Unit,
     onShowCaptureLatency: () -> Unit,
@@ -101,7 +115,16 @@ fun DebugMenuScreen(
     onRequestPermission: () -> Unit,
     onResetPermissionWelcome: () -> Unit,
     onExport: () -> Unit,
+    probeHubNavEpoch: Int = 0,
+    onRecordProbeHubEntry: (String) -> Unit = {},
+    onLaunchProbeHubTitle: (String) -> Unit = {},
+    onToggleProbeHubFavorite: (String) -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val appCtx = context.applicationContext
+    val recentTitles = remember(probeHubNavEpoch) { ProbeHubRecentsStore.recentTitles(appCtx) }
+    val favoriteTitles = remember(probeHubNavEpoch) { ProbeHubRecentsStore.favoriteTitles(appCtx) }
+
     val sections =
         listOf(
             DebugSection(
@@ -120,6 +143,12 @@ fun DebugMenuScreen(
                             "Camera2 preview path with HUD — same as the main camera experience.",
                             true,
                             onShowPreviewEngine,
+                        ),
+                        DebugEntry(
+                            "QR / barcode scan",
+                            "CameraX ImageAnalysis (YUV) + ZXing; ADB `pns_screen=qrscan`.",
+                            true,
+                            onShowQrScan,
                         ),
                         DebugEntry(
                             "Legacy Camera1 probe",
@@ -311,7 +340,43 @@ fun DebugMenuScreen(
                     hasCameraPermission = hasCameraPermission,
                     onRequestPermission = onRequestPermission,
                 )
+                HubProbeQuickReturnStrip(
+                    recentTitles = recentTitles,
+                    favoriteTitles = favoriteTitles,
+                    onOpenTitle = { t ->
+                        onRecordProbeHubEntry(t)
+                        onLaunchProbeHubTitle(t)
+                    },
+                    onToggleFavorite = onToggleProbeHubFavorite,
+                )
                 val orientationProbe by OrientationProbeBridge.snapshotState
+                DebugAuxiliaryCard(title = "Logical multi-camera (preview)") {
+                    var activePhys by remember {
+                        mutableStateOf(
+                            probeSnapshot.logicalMultiCameraActivePhysicalId
+                                ?: PreviewLogicalPhysicalDebugBridge.snapshot(),
+                        )
+                    }
+                    LaunchedEffect(probeHubNavEpoch) {
+                        while (true) {
+                            activePhys = PreviewLogicalPhysicalDebugBridge.snapshot()
+                            delay(400)
+                        }
+                    }
+                    Text(
+                        text =
+                            "Active physical camera id from the last preview session " +
+                                "(LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID). Empty until preview has run.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.72f),
+                    )
+                    Text(
+                        text = activePhys?.ifBlank { "—" } ?: "—",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFFAAEECC),
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 DebugAuxiliaryCard(title = "Orientation / preview probe") {
                     Text(
                         text =
@@ -345,7 +410,13 @@ fun DebugMenuScreen(
         }
 
         items(sections) { section ->
-            SectionBlock(section = section, hasCameraPermission = hasCameraPermission)
+            SectionBlock(
+                section = section,
+                hasCameraPermission = hasCameraPermission,
+                favoriteTitles = favoriteTitles,
+                onRecordProbeHubEntry = onRecordProbeHubEntry,
+                onToggleProbeHubFavorite = onToggleProbeHubFavorite,
+            )
         }
 
         item {
@@ -501,6 +572,85 @@ private fun EngineeringHubHeader(onBackToCamera: (() -> Unit)?) {
     }
 }
 
+@Suppress("FunctionNaming")
+@Composable
+private fun HubProbeQuickReturnStrip(
+    recentTitles: List<String>,
+    favoriteTitles: Set<String>,
+    onOpenTitle: (String) -> Unit,
+    onToggleFavorite: (String) -> Unit,
+) {
+    if (recentTitles.isEmpty() && favoriteTitles.isEmpty()) {
+        Text(
+            text = "Open a probe below to build recents and starred favorites here.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.52f),
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (favoriteTitles.isNotEmpty()) {
+            Text(
+                text = "Favorites",
+                style = MaterialTheme.typography.labelLarge,
+                color = PnsColors.PhotoOrange,
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                for (t in favoriteTitles) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onOpenTitle(t) }, modifier = Modifier.widthIn(max = 200.dp)) {
+                            Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        IconButton(onClick = { onToggleFavorite(t) }) {
+                            Icon(
+                                Icons.Outlined.Star,
+                                contentDescription = "Remove favorite",
+                                tint = PnsColors.PhotoOrange,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (recentTitles.isNotEmpty()) {
+            Text(
+                text = "Recent",
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White.copy(alpha = 0.75f),
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                for (t in recentTitles) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onOpenTitle(t) }, modifier = Modifier.widthIn(max = 200.dp)) {
+                            Text(t, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        IconButton(onClick = { onToggleFavorite(t) }) {
+                            Icon(
+                                imageVector =
+                                    if (favoriteTitles.contains(t)) {
+                                        Icons.Outlined.Star
+                                    } else {
+                                        Icons.Outlined.StarBorder
+                                    },
+                                contentDescription = if (favoriteTitles.contains(t)) "Unstar" else "Star as favorite",
+                                tint = Color.White.copy(alpha = 0.65f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun HubPermissionBanner(
     hasCameraPermission: Boolean,
@@ -587,10 +737,14 @@ private fun DebugAuxiliaryCard(
     }
 }
 
+@Suppress("FunctionNaming")
 @Composable
 private fun SectionBlock(
     section: DebugSection,
     hasCameraPermission: Boolean,
+    favoriteTitles: Set<String>,
+    onRecordProbeHubEntry: (String) -> Unit,
+    onToggleProbeHubFavorite: (String) -> Unit,
 ) {
     Column(
         modifier =
@@ -616,16 +770,23 @@ private fun SectionBlock(
                 DebugEntryRow(
                     entry = entry,
                     enabled = !entry.requiresCamera || hasCameraPermission,
+                    isFavorite = favoriteTitles.contains(entry.title),
+                    onRecordProbeHubEntry = onRecordProbeHubEntry,
+                    onToggleFavorite = { onToggleProbeHubFavorite(entry.title) },
                 )
             }
         }
     }
 }
 
+@Suppress("FunctionNaming")
 @Composable
 private fun DebugEntryRow(
     entry: DebugEntry,
     enabled: Boolean,
+    isFavorite: Boolean,
+    onRecordProbeHubEntry: (String) -> Unit,
+    onToggleFavorite: () -> Unit,
 ) {
     val rowSemantics =
         buildString {
@@ -638,53 +799,71 @@ private fun DebugEntryRow(
                 append(". Disabled, needs camera permission.")
             }
         }
-    Card(
-        onClick = entry.onClick,
-        enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.08f),
-                disabledContainerColor = Color.White.copy(alpha = 0.04f),
-            ),
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .semantics { contentDescription = rowSemantics },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        Card(
+            onClick = {
+                if (enabled) onRecordProbeHubEntry(entry.title)
+                entry.onClick()
+            },
+            enabled = enabled,
+            shape = RoundedCornerShape(12.dp),
+            colors =
+                CardDefaults.cardColors(
+                    containerColor = Color.White.copy(alpha = 0.08f),
+                    disabledContainerColor = Color.White.copy(alpha = 0.04f),
+                ),
+            modifier = Modifier.weight(1f),
         ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = entry.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (enabled) Color.White else Color.White.copy(alpha = 0.42f),
-                )
-                Text(
-                    text = entry.subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = if (enabled) 0.68f else 0.38f),
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = entry.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = if (enabled) Color.White else Color.White.copy(alpha = 0.42f),
+                    )
+                    Text(
+                        text = entry.subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = if (enabled) 0.68f else 0.38f),
+                        maxLines = 4,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (!enabled) {
+                    Text(
+                        text = "Needs camera",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = PnsColors.WarnAmber,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.ChevronRight,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.38f),
+                    )
+                }
             }
-            if (!enabled) {
-                Text(
-                    text = "Needs camera",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = PnsColors.WarnAmber,
-                )
-            } else {
+        }
+        if (enabled) {
+            IconButton(onClick = onToggleFavorite) {
                 Icon(
-                    imageVector = Icons.Outlined.ChevronRight,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.38f),
+                    imageVector = if (isFavorite) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                    contentDescription = if (isFavorite) "Remove favorite" else "Add favorite",
+                    tint = if (isFavorite) PnsColors.PhotoOrange else Color.White.copy(alpha = 0.55f),
                 )
             }
         }

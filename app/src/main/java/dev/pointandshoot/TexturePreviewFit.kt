@@ -216,6 +216,65 @@ object TexturePreviewFit {
     }
 
     /**
+     * Like [mapBufferToView] but first applies **inv(ST)** to normalized buffer UV, matching
+     * [lut_preview_external.vert.glsl] `uStMatrix * vec4(bufUv, 0, 1)` in reverse for landmarks
+     * reported in the same buffer space as [SurfaceTexture.getTransformMatrix] expects.
+     */
+    fun mapBufferToViewWithExternalOesInvert(
+        bufferX: Float,
+        bufferY: Float,
+        viewWidthPx: Int,
+        viewHeightPx: Int,
+        bufferWidthPx: Int,
+        bufferHeightPx: Int,
+        coverCrop: Boolean,
+        stMatrixColumnMajor4x4: FloatArray?,
+    ): Pair<Float, Float> {
+        if (stMatrixColumnMajor4x4 == null || stMatrixColumnMajor4x4.size < 16) {
+            return mapBufferToView(
+                bufferX,
+                bufferY,
+                viewWidthPx,
+                viewHeightPx,
+                bufferWidthPx,
+                bufferHeightPx,
+                coverCrop,
+            )
+        }
+        val inv = FloatArray(16)
+        if (!android.opengl.Matrix.invertM(inv, 0, stMatrixColumnMajor4x4, 0)) {
+            return mapBufferToView(
+                bufferX,
+                bufferY,
+                viewWidthPx,
+                viewHeightPx,
+                bufferWidthPx,
+                bufferHeightPx,
+                coverCrop,
+            )
+        }
+        val bw = bufferWidthPx.toFloat().coerceAtLeast(1f)
+        val bh = bufferHeightPx.toFloat().coerceAtLeast(1f)
+        val bu = bufferX / bw
+        val bv = bufferY / bh
+        val inVec = floatArrayOf(bu, bv, 0f, 1f)
+        val outH = FloatArray(4)
+        android.opengl.Matrix.multiplyMV(outH, 0, inv, 0, inVec, 0)
+        val w = outH[3].takeIf { kotlin.math.abs(it) > 1e-6f } ?: 1f
+        val buAdj = outH[0] / w
+        val bvAdj = outH[1] / w
+        return mapBufferToView(
+            buAdj * bw,
+            bvAdj * bh,
+            viewWidthPx,
+            viewHeightPx,
+            bufferWidthPx,
+            bufferHeightPx,
+            coverCrop,
+        )
+    }
+
+    /**
      * Maps a point from the **YUV analysis** frame (same optical pipeline as preview, possibly
      * different resolution) into **preview buffer pixel** space using the same uniform scale +
      * centered offset as [lut_preview_external.vert.glsl] `viewToBufferUv` / [mapBufferToView].

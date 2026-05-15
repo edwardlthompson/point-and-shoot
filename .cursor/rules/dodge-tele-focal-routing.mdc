@@ -1,0 +1,21 @@
+---
+description: Locked dodge tele focal routing (73/85/150 mm) — no Fleet policy regressions
+globs:
+alwaysApply: true
+---
+
+# Dodge tele focal routing (locked)
+
+**Do not change without explicit maintainer request + USB proof** (`pns_chrome_ux_gate.ps1 -FocalMmSlot 150`, manual **73 → 85 → 150** with FPS **under 120**).
+
+## Invariants
+
+- **No `FocalRoutingPolicy` / `FleetAuto` / persisted tele routing prefs** — ship **one** dodge-style path aligned with **`DODGE_PROFILE.md`** (**73** native tele **`Roles.tele`**, **85** `Portrait85`, **150** `LongTele150` on **same** mid-tele sensor).
+- **`resolveFocalMmSlot` → `teleOpenablePair`:** When physical tele **`tid`** appears in **`cameraIdList`**, **prefer `tid to mode`** (open physical **e.g. `4`**) over forcing logical parent **`0`** first — wrong choice broke **`SCALER_CROP_REGION`** equivalence vs **73**.
+- **`SensorCropGeometry`:** **`LongTele150`** gates on **`teleId`** only — never treat **`longTeleId`** as the crop target for the **150 mm** M-slot on this product baseline.
+
+## Automation
+
+- Never run **`pns_photo_capture_verify`** / **`pns_capture_pipeline_verify`** **in parallel** with **`pns_chrome_ux_gate`** on one device — causes **`ERROR_CAMERA_DEVICE`** false failures.
+
+Full rationale + verification commands: **`AGENTS.md`** section **CRITICAL — Dodge tele focal slots**.

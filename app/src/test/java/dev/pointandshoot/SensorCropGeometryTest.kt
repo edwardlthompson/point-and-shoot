@@ -4,27 +4,74 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Avoid instantiating [android.graphics.Rect] here: JVM unit tests use Android stubs
- * that throw on [Rect.width] / copy constructors. Offset + [Rect] integration is
- * covered on-device via [PreviewEngineScreen] + logcat `SCALER_CROP_REGION=…`.
- */
 class SensorCropGeometryTest {
 
     @Test
-    fun allows_digital_crop_only_on_wide_and_tele_physical_ids() {
-        assertTrue(SensorCropGeometry.allowsDigitalCrop("2", FocalMode.Street35))
-        assertTrue(SensorCropGeometry.allowsDigitalCrop("2", FocalMode.Standard50))
-        assertFalse(SensorCropGeometry.allowsDigitalCrop("2", FocalMode.Portrait85))
+    fun allows_digital_crop_matches_resolved_roles_physical_session() {
+        val wide = "2"
+        val tele = "7"
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(tele, FocalMode.Portrait85, null, wide, tele),
+        )
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(tele, FocalMode.LongTele150, null, wide, tele),
+        )
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(wide, FocalMode.Street35, null, wide, tele),
+        )
+        assertFalse(
+            SensorCropGeometry.allowsDigitalCrop("3", FocalMode.Portrait85, null, wide, tele),
+        )
+    }
 
-        assertTrue(SensorCropGeometry.allowsDigitalCrop("4", FocalMode.Portrait85))
-        assertTrue(SensorCropGeometry.allowsDigitalCrop("4", FocalMode.LongTele150))
-        assertFalse(SensorCropGeometry.allowsDigitalCrop("4", FocalMode.Street35))
+    @Test
+    fun allows_digital_crop_logical_parent_covers_physical_tele() {
+        val wide = "1"
+        val tele = "5"
+        val logical = "0"
+        val phys = setOf("1", wide, tele, "6")
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(logical, FocalMode.Portrait85, phys, wide, tele),
+        )
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(logical, FocalMode.Street35, phys, wide, tele),
+        )
+        assertFalse(
+            SensorCropGeometry.allowsDigitalCrop(logical, FocalMode.Portrait85, emptySet(), wide, tele),
+        )
+    }
 
-        assertTrue(SensorCropGeometry.allowsDigitalCrop("5", FocalMode.Portrait85))
-        assertTrue(SensorCropGeometry.allowsDigitalCrop("6", FocalMode.LongTele150))
+    @Test
+    fun long_tele_150_crop_uses_mid_tele_sensor_only() {
+        val wide = "0"
+        val tele = "4"
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(tele, FocalMode.LongTele150, null, wide, tele),
+        )
+    }
 
-        assertFalse(SensorCropGeometry.allowsDigitalCrop("3", FocalMode.Street35))
-        assertFalse(SensorCropGeometry.allowsDigitalCrop("0", FocalMode.Street35))
+    @Test
+    fun long_tele_150_rejects_wrong_physical_even_when_fourth_lens_exists_elsewhere() {
+        val wide = "0"
+        val tele = "4"
+        val periscope = "9"
+        assertTrue(
+            SensorCropGeometry.allowsDigitalCrop(
+                tele,
+                FocalMode.LongTele150,
+                null,
+                wide,
+                tele,
+            ),
+        )
+        assertFalse(
+            SensorCropGeometry.allowsDigitalCrop(
+                periscope,
+                FocalMode.LongTele150,
+                null,
+                wide,
+                tele,
+            ),
+        )
     }
 }

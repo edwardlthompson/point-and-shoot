@@ -1,6 +1,8 @@
 package dev.pointandshoot
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PnsUserFacingErrorsTest {
@@ -44,5 +46,30 @@ class PnsUserFacingErrorsTest {
             "Could not save this capture.",
             PnsUserFacingErrors.stillCaptureFailure(RuntimeException("")),
         )
+    }
+
+    @Test
+    fun shouldOfferRetry_trueForEncodeLaneBusy() {
+        assertTrue(PnsUserFacingErrors.shouldOfferRetryAfterStillFailure(IllegalStateException("encode_lane_busy")))
+        assertTrue(PnsUserFacingErrors.shouldOfferRetryAfterBracketFailure(IllegalStateException("encode_lane_busy")))
+    }
+
+    @Test
+    fun shouldOfferRetry_trueForTimeoutMessage() {
+        assertTrue(PnsUserFacingErrors.shouldOfferRetryAfterStillFailure(RuntimeException("capture timed out")))
+    }
+
+    @Test
+    fun shouldOfferRetry_falseForPermission() {
+        assertFalse(
+            PnsUserFacingErrors.shouldOfferRetryAfterStillFailure(
+                SecurityException("permission denied"),
+            ),
+        )
+    }
+
+    @Test
+    fun shouldOfferRetry_falseForNull() {
+        assertFalse(PnsUserFacingErrors.shouldOfferRetryAfterStillFailure(null))
     }
 }

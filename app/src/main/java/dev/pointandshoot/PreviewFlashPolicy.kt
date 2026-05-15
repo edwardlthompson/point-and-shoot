@@ -39,6 +39,13 @@ object PreviewFlashPolicy {
     /** [CaptureRequest.FLASH_STRENGTH_LEVEL] is lint-gated to API 35+ in current platform stubs. */
     private const val FLASH_STRENGTH_LEVEL_MIN_API = 35
 
+    /**
+     * Milestone 10 Sprint **10.12**: Highlight (H) is **expose-for-highlights** metering — flash / torch
+     * fight that program and surprise users; keep LED off for preview + stills while the dial is H.
+     */
+    fun highlightDialSuppressesFlashAndTorch(commandDialMode: CommandDialMode): Boolean =
+        commandDialMode == CommandDialMode.H
+
     fun flashHardwareAvailable(chars: CameraCharacteristics): Boolean =
         chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
 
@@ -106,7 +113,8 @@ object PreviewFlashPolicy {
 
     /**
      * Torch / [CaptureRequest.FLASH_MODE] at the end of preview request assembly (after AE is set).
-     * Highlight (H) + vendor highlight AE: only honors **Torch** vs off; does not replace AE mode.
+     * Highlight (H): **no** flash or torch ([highlightDialSuppressesFlashAndTorch]); other dials honor
+     * [PreviewFlashMode] (torch / on fallback / off).
      */
     fun applyPreviewFlashHardwareKeys(
         req: CaptureRequest.Builder,
@@ -123,23 +131,8 @@ object PreviewFlashPolicy {
             safeFlashOff(req, chars)
             return
         }
-        val aeMode =
-            runCatching { req.get(CaptureRequest.CONTROL_AE_MODE) }.getOrNull()
-        val highlightStyleH =
-            commandDialMode == CommandDialMode.H &&
-                aeMode != null &&
-                aeMode != CaptureRequest.CONTROL_AE_MODE_ON &&
-                aeMode != CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH &&
-                aeMode != CaptureRequest.CONTROL_AE_MODE_OFF
-        if (highlightStyleH) {
-            when (flashMode) {
-                PreviewFlashMode.Torch -> {
-                    runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_TORCH) }
-                        .onFailure { Log.w(TAG, "torch (H highlight): ${it.message}") }
-                    tryApplyFlashStrengthLevel(req, chars)
-                }
-                else -> safeFlashOff(req, chars)
-            }
+        if (highlightDialSuppressesFlashAndTorch(commandDialMode)) {
+            safeFlashOff(req, chars)
             return
         }
         when (flashMode) {
@@ -164,19 +157,25 @@ object PreviewFlashPolicy {
 
     /**
      * Single still capture: fire flash when user asked for flash / auto / torch (RAW path still benefits
-     * from preflash metering when JPEG companion exists).
+     * from preflash metering when JPEG companion exists). Highlight (H): LED stays off — same as preview
+     * ([highlightDialSuppressesFlashAndTorch]).
      */
     fun applyStillFlashKeys(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
         flashMode: PreviewFlashMode,
         manualSensorStill: Boolean,
+        commandDialMode: CommandDialMode,
     ) {
         if (manualSensorStill || !hasFlashModeKey(chars)) {
             if (hasFlashModeKey(chars)) safeFlashOff(req, chars)
             return
         }
         if (!flashHardwareAvailable(chars) || !isBackCamera(chars)) {
+            safeFlashOff(req, chars)
+            return
+        }
+        if (highlightDialSuppressesFlashAndTorch(commandDialMode)) {
             safeFlashOff(req, chars)
             return
         }

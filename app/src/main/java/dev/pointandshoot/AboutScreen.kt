@@ -35,12 +35,14 @@ import androidx.compose.ui.unit.dp
 fun AboutScreen(
     onBack: () -> Unit,
     liveSummary: EncoderSummary? = null,
+    liveHalHfrMaxByCameraId: Map<String, Int?> = emptyMap(),
 ) {
     val insets = rememberSystemInsetsDp()
     AboutScreenContent(
         padding = insets.asPaddingValues(extra = 16.dp),
         onBack = onBack,
         liveSummary = liveSummary,
+        liveHalHfrMaxByCameraId = liveHalHfrMaxByCameraId,
     )
 }
 
@@ -49,6 +51,7 @@ private fun AboutScreenContent(
     padding: PaddingValues,
     onBack: () -> Unit,
     liveSummary: EncoderSummary? = null,
+    liveHalHfrMaxByCameraId: Map<String, Int?> = emptyMap(),
 ) {
     LazyColumn(
         modifier = Modifier
@@ -70,6 +73,13 @@ private fun AboutScreenContent(
                 text = "Apache-2.0. No proprietary blobs. No Google Play Services.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.7f),
+            )
+            Text(
+                text =
+                    "Imaging profiles: Standard Pro and Ultra-Max write DNG; JPEG only uses the " +
+                        "hardware JPEG still path (no RAW) when selected from the HUD or Settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.75f),
             )
         }
 
@@ -114,7 +124,9 @@ private fun AboutScreenContent(
                     color = Color.White.copy(alpha = 0.7f),
                 )
             }
-            items(EncoderRecipeBuilder.recipesFromSummary(liveSummary)) { row -> LiveRecipeCard(row) }
+            items(EncoderRecipeBuilder.recipesFromSummary(liveSummary, liveHalHfrMaxByCameraId)) { row ->
+                LiveRecipeCard(row)
+            }
             val errorRows = EncoderRecipeBuilder.errorRowsFromSummary(liveSummary, maxRows = 5)
             if (errorRows.isNotEmpty()) {
                 item {
@@ -223,6 +235,14 @@ private fun LiveRecipeCard(row: EncoderRecipeBuilder.Row) {
         Text(text = "size     : ${row.sizeLabel}", style = MaterialTheme.typography.bodySmall)
         Text(text = "fpsRange : ${row.fpsLabel}", style = MaterialTheme.typography.bodySmall)
         Text(text = "mime     : ${row.mime}", style = MaterialTheme.typography.bodySmall)
+        row.halAdvertisedHfrMaxFps?.let { halMax ->
+            Text(
+                text = "HAL HFR max (catalog) : $halMax fps — StreamConfigurationMap high-speed " +
+                    "upper bound for this cameraId; encoder row is measured encode success.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.55f),
+            )
+        }
         Text(
             text = "measured : ${"%.1f".format(row.measuredFps)} fps",
             style = MaterialTheme.typography.bodySmall,

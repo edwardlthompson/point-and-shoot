@@ -37,8 +37,22 @@ class EncoderRouteTest {
         assertEquals(TonalContainer.JpegXl12Bit, decision.tonalWritten)
         assertFalse(decision.fallbackJpeg)
         assertNull(decision.downgradeReason)
+        assertEquals(2, decision.fileCountForCapture)
     }
 
+    @Test
+    fun `decide JpegOnly is single hardware JPEG file regardless of native encoders`() {
+        val on = EncoderRoute.decide(ImagingProfile.JpegOnly, nativeAvailable = true)
+        val off = EncoderRoute.decide(ImagingProfile.JpegOnly, nativeAvailable = false)
+        assertEquals(RawMode.None, on.rawWritten)
+        assertEquals(RawMode.None, off.rawWritten)
+        assertNull(on.tonalWritten)
+        assertNull(off.tonalWritten)
+        assertFalse(on.fallbackJpeg)
+        assertFalse(off.fallbackJpeg)
+        assertEquals(1, on.fileCountForCapture)
+        assertEquals(1, off.fileCountForCapture)
+    }
     @Test
     fun `decide downgrades to JPEG when native is absent - StandardPro`() {
         val decision = EncoderRoute.decide(ImagingProfile.StandardPro, nativeAvailable = false)
@@ -87,13 +101,10 @@ class EncoderRouteTest {
     }
 
     @Test
-    fun `every TonalContainer requires the native encoder in Phase 0`() {
-        TonalContainer.values().forEach { container ->
-            assertTrue(
-                "$container should require the native encoder until a JPEG container ships",
-                container.requiresNativeEncoder,
-            )
-        }
+    fun `every HDR tonal container requires the native encoder`() {
+        assertTrue(TonalContainer.Avif10BitHdr.requiresNativeEncoder)
+        assertTrue(TonalContainer.JpegXl12Bit.requiresNativeEncoder)
+        assertFalse(TonalContainer.JpegSdr8.requiresNativeEncoder)
     }
 
     @Test

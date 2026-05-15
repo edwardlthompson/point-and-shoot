@@ -37,7 +37,7 @@
 
 .PARAMETER ChromeUxPack
   Run only BUILD_PLAN Milestone 9 ChromeUx intent scenarios (`pns_preview_self_timer_sec`, …).
-  Writes chrome_ux_smoke.json (device-only): self-timer ADB seed, grid7 quickActions includes flash QS,
+  Writes chrome_ux_smoke.json (device-only): self-timer ADB seed, ChromeUx quickActions (grid7x3 line) includes flash QS,
   and one-shot PNS.ChromeUx flashPreviewHardware=true|false. Mutually exclusive with -Milestone6Pack and -SuperMacroOnly.
 
 .EXAMPLE
@@ -65,6 +65,14 @@ if (Test-Path -LiteralPath $resolveAdbForSession) {
     . $resolveAdbForSession -PrependToPath -Quiet
 }
 
+# Always invoke the same adb binary as PATH resolution (avoids client/server version mismatch when
+# multiple adb installs exist and the daemon was started by a different client).
+$script:PnsAdbExe = "adb"
+$__pnsAdbCmd = Get-Command adb -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($__pnsAdbCmd -and $__pnsAdbCmd.Source) {
+    $script:PnsAdbExe = $__pnsAdbCmd.Source
+}
+
 if (($ChromeUxPack -and $Milestone6Pack) -or ($ChromeUxPack -and $SuperMacroOnly)) {
     throw "ChromeUxPack is mutually exclusive with Milestone6Pack and SuperMacroOnly."
 }
@@ -83,10 +91,10 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 function Invoke-Adb([string[]]$CmdArgs) {
     if ($Serial) {
-        & adb -s $Serial @CmdArgs
+        & $script:PnsAdbExe -s $Serial @CmdArgs
     }
     else {
-        & adb @CmdArgs
+        & $script:PnsAdbExe @CmdArgs
     }
     if ($LASTEXITCODE -ne 0) {
         throw "adb $($CmdArgs -join ' ') failed exit=$LASTEXITCODE"
@@ -95,10 +103,10 @@ function Invoke-Adb([string[]]$CmdArgs) {
 
 function Invoke-AdbIgnore([string[]]$CmdArgs) {
     if ($Serial) {
-        & adb -s $Serial @CmdArgs 2>$null
+        & $script:PnsAdbExe -s $Serial @CmdArgs 2>$null
     }
     else {
-        & adb @CmdArgs 2>$null
+        & $script:PnsAdbExe @CmdArgs 2>$null
     }
 }
 
@@ -168,9 +176,9 @@ function Write-ScenarioLogcat([string]$OutPath) {
         for ($try = 0; $try -lt 25; $try++) {
             if ($try -gt 0) { Start-Sleep -Milliseconds 200 }
             $pidOfOut = if ($Serial) {
-                (& adb -s $Serial shell pidof $pkg 2>&1 | Out-String)
+                (& $script:PnsAdbExe -s $Serial shell pidof $pkg 2>&1 | Out-String)
             } else {
-                (& adb shell pidof $pkg 2>&1 | Out-String)
+                (& $script:PnsAdbExe shell pidof $pkg 2>&1 | Out-String)
             }
             $pidTokens = @( ($pidOfOut.Trim() -split '\s+') | Where-Object { $_ -match '^\d+$' } )
             $tryPid = $null
@@ -189,9 +197,9 @@ function Write-ScenarioLogcat([string]$OutPath) {
         if ($chosenPid -match '^\d+$') {
             Write-Host "[adb_preview_validate] logcat -d --pid=$chosenPid (app process)"
             $pidLines = if ($Serial) {
-                @(& adb -s $Serial logcat -d --pid=$chosenPid 2>&1)
+                @(& $script:PnsAdbExe -s $Serial logcat -d --pid=$chosenPid 2>&1)
             } else {
-                @(adb logcat -d --pid=$chosenPid 2>&1)
+                @(& $script:PnsAdbExe logcat -d --pid=$chosenPid 2>&1)
             }
             foreach ($ln in $pidLines) { [void]$pidBlock.Add($ln) }
             $lc = $pidBlock.Count
@@ -204,9 +212,9 @@ function Write-ScenarioLogcat([string]$OutPath) {
         }
         Write-Host "[adb_preview_validate] logcat -d -t $fallbackTail (ring supplement)"
         $tailLines = if ($Serial) {
-            @(& adb -s $Serial logcat -d -t $fallbackTail 2>&1)
+            @(& $script:PnsAdbExe -s $Serial logcat -d -t $fallbackTail 2>&1)
         } else {
-            @(adb logcat -d -t $fallbackTail 2>&1)
+            @(& $script:PnsAdbExe logcat -d -t $fallbackTail 2>&1)
         }
         $sb = New-Object System.Text.StringBuilder
         if ($pidBlock.Count -gt 0) {
@@ -218,9 +226,9 @@ function Write-ScenarioLogcat([string]$OutPath) {
         [void]$sb.AppendLine("--- supplement: tag-filtered PNS.* (bounded tail) ---")
         $tagCmd = "logcat -d -t 120000 *:S PNS.AdbValidation:I PNS.Preview:I PNS.Cam:I PNS.CaptureStill:W PNS.Reader:W PNS.Dng:D PNS.Storage:D PNS.StillExif:I PNS.StillHints:W PNS.GLES:I PNS.ModeTransition:I PNS.ChromeUx:I AndroidRuntime:E"
         $tagLines = if ($Serial) {
-            @(& adb -s $Serial shell $tagCmd 2>&1)
+            @(& $script:PnsAdbExe -s $Serial shell $tagCmd 2>&1)
         } else {
-            @(adb shell $tagCmd 2>&1)
+            @(& $script:PnsAdbExe shell $tagCmd 2>&1)
         }
         foreach ($ln in $tagLines) { [void]$sb.AppendLine($ln) }
         # Multi-tag filter can still starve `PNS.AdbValidation` when Preview/Cam are chatty; keep a dedicated tail
@@ -228,9 +236,9 @@ function Write-ScenarioLogcat([string]$OutPath) {
         [void]$sb.AppendLine("--- supplement: PNS.AdbValidation only (bounded tail) ---")
         $advOnlyCmd = "logcat -d -t 50000 *:S PNS.AdbValidation:I"
         $advLines = if ($Serial) {
-            @(& adb -s $Serial shell $advOnlyCmd 2>&1)
+            @(& $script:PnsAdbExe -s $Serial shell $advOnlyCmd 2>&1)
         } else {
-            @(adb shell $advOnlyCmd 2>&1)
+            @(& $script:PnsAdbExe shell $advOnlyCmd 2>&1)
         }
         foreach ($ln in $advLines) { [void]$sb.AppendLine($ln) }
         [System.IO.File]::WriteAllText($OutPath, $sb.ToString(), [System.Text.UTF8Encoding]::new($false))
@@ -258,10 +266,10 @@ function Write-MediaStorePnsProbe([string]$OutDir) {
 
     function Invoke-AdbShellOneLiner([string]$Cmd) {
         if ($Serial) {
-            @(& adb -s $Serial shell $Cmd 2>&1)
+            @(& $script:PnsAdbExe -s $Serial shell $Cmd 2>&1)
         }
         else {
-            @(adb shell $Cmd 2>&1)
+            @(& $script:PnsAdbExe shell $Cmd 2>&1)
         }
     }
 
@@ -305,7 +313,7 @@ function Write-MediaStorePnsProbe([string]$OutDir) {
         $dcimText = [System.IO.File]::ReadAllText($dcimLsPath)
     }
     # Any deterministic capture filename under DCIM counts (see CaptureStorage.filename).
-    $dcimOk = $dcimText -match '(?im)pns_.+\.(dng|jxl|avif)'
+    $dcimOk = $dcimText -match '(?im)pns_.+\.(dng|jxl|avif|jpe?g)'
     $tailText = ""
     if (Test-Path -LiteralPath $tailPath) {
         $tailText = [System.IO.File]::ReadAllText($tailPath)
@@ -425,6 +433,17 @@ if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
         "--ei", "pns_preview_raw_count", "1"
     )
 
+    Run-Scenario "jpeg_only_x1" 100 @(
+        "--es", "pns_screen", "preview",
+        "--es", "pns_preview_imaging_profile", "jpeg_only",
+        "--ei", "pns_preview_raw_count", "1"
+    )
+
+    Run-Scenario "m10_hdr_preview_session_log" 40 @(
+        "--es", "pns_screen", "preview",
+        "--ez", "pns_preview_hdr10_live_preview", "true"
+    )
+
     # 3) BKT 3-shot bracket (dial BKT + bracket pattern)
     Run-Scenario "bracket_bkt3" 45 @(
         "--es", "pns_screen", "preview",
@@ -467,7 +486,10 @@ $patterns = @(
     "preview adb seed selfTimerDelaySec=",
     "encode_lane_busy",
     "PNS.CaptureStill",
-    "captureRawStill ok=false"
+    "captureJpegHardwareStill ok=false",
+    "captureJpegHardwareStill 1/1 ok=true",
+    "previewSessionDynamicRange profile=",
+    "preview adb seed hdr10LivePreview=true"
 )
 $sb = New-Object System.Text.StringBuilder
 foreach ($p in $patterns) {
@@ -592,7 +614,40 @@ if ($ChromeUxPack) {
     $cxObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $cxJson -Encoding utf8
     Write-Host "[adb_preview_validate] chrome_ux_smoke pass=$($cxObj.pass) -> $cxJson"
     if (-not $cxObj.pass) {
-        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3, AdbValidation preview adb seed selfTimerDelaySec=3, grid7 quickActions including flash, flashPreviewHardware=true|false, expandShortcuts=modalDialog, and focalSlotTap= in $m9Log"
+        throw "ChromeUxPack smoke failed: expected PNS.ChromeUx selfTimerSec=3, AdbValidation preview adb seed selfTimerDelaySec=3, ChromeUx quickActions including flash (grid7x3=layout line), flashPreviewHardware=true|false, expandShortcuts=modalDialog, and focalSlotTap= in $m9Log"
+    }
+}
+
+if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
+    function Read-LogText([string]$rel) {
+        $p = Join-Path $OutDir $rel
+        if (-not (Test-Path -LiteralPath $p)) { return "" }
+        return [System.IO.File]::ReadAllText($p)
+    }
+    $jpegText = Read-LogText "logcat_jpeg_only_x1.txt"
+    $jpegOk = $jpegText -match "captureJpegHardwareStill 1/1 ok=true"
+    $hdrText = Read-LogText "logcat_m10_hdr_preview_session_log.txt"
+    $hdrSeedOk = $hdrText -match "PNS.AdbValidation: preview adb seed hdr10LivePreview=true"
+    $hdrDrOk = $hdrText -match "PNS.AdbValidation: previewSessionDynamicRange profile="
+    $m10Obj = [ordered]@{
+        schema                 = "pns.m10_host_automation_hooks.v1"
+        generatedAtUtc         = [DateTime]::UtcNow.ToString("o")
+        outDir                 = $OutDir
+        jpegOnlyStillOk        = [bool]$jpegOk
+        hdrPreviewSeedOk       = [bool]$hdrSeedOk
+        hdrSessionDynamicRangeOk = [bool]$hdrDrOk
+        jpegOnlyLogArtifact    = "logcat_jpeg_only_x1.txt"
+        hdrPreviewLogArtifact  = "logcat_m10_hdr_preview_session_log.txt"
+        notes                  = "hdrSessionDynamicRangeOk is device-dependent (HAL may omit line when HDR preview unsupported)."
+    }
+    $m10Json = Join-Path $OutDir "m10_build_plan_host_hooks.json"
+    $m10Obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $m10Json -Encoding utf8
+    Write-Host "[adb_preview_validate] m10_build_plan_host_hooks jpegOk=$jpegOk hdrSeedOk=$hdrSeedOk hdrDrOk=$hdrDrOk -> $m10Json"
+    if (-not $jpegOk) {
+        throw "jpeg_only_x1 gate: expected PNS.AdbValidation line 'captureJpegHardwareStill 1/1 ok=true' in logcat_jpeg_only_x1.txt"
+    }
+    if (-not $hdrSeedOk) {
+        throw "m10_hdr_preview_session_log gate: expected PNS.AdbValidation 'preview adb seed hdr10LivePreview=true' in logcat_m10_hdr_preview_session_log.txt"
     }
 }
 

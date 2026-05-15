@@ -106,6 +106,10 @@ if (-not $SkipInstall.IsPresent) {
 Write-Host "[root_privileged_smoke] pm grant CAMERA (best-effort)"
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA")
 
+# Ring buffer is often dominated by prior preview/M6 runs; clear so `-t 2500` captures this cold start.
+Write-Host "[root_privileged_smoke] logcat -c (best-effort, isolate rootPrivScan)"
+Invoke-AdbIgnore @("logcat", "-c")
+
 Write-Host "[root_privileged_smoke] force-stop + cold start rootsettings + pns_auto_root_diagnostics"
 Invoke-Adb @("shell", "am", "force-stop", $pkg)
 $startArgs = @(
@@ -120,15 +124,18 @@ if ($LASTEXITCODE -ne 0) { throw "am start failed exit=$LASTEXITCODE" }
 Write-Host "[root_privileged_smoke] waiting ${WaitSec}s for diagnostics..."
 Start-Sleep -Seconds $WaitSec
 
+# Tag-only dump: a raw `*:I` tail is often 2500+ lines of system noise in <30s, which drops `PNS.AdbValidation` lines
+# from the ring even right after `logcat -c` (see `rootPrivScan` miss on busy devices).
+# Use separate argv tokens so PowerShell does not misparse `PNS.AdbValidation:I` (colon).
 $logPath = Join-Path $OutDir "logcat_tail_for_rootPrivScan.txt"
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
 try {
     if ($Serial) {
-        & adb -s $Serial logcat -d -t 2500 "*:I" 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
+        & adb -s $Serial @("logcat", "-d", "-s", "PNS.AdbValidation:I") 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
     }
     else {
-        & adb logcat -d -t 2500 "*:I" 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
+        & adb @("logcat", "-d", "-s", "PNS.AdbValidation:I") 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
     }
 }
 finally { $ErrorActionPreference = $prevEap }
@@ -140,6 +147,29 @@ if (-not (Test-Path -LiteralPath $logPath)) {
 $logText = ""
 if (Test-Path -LiteralPath $logPath) {
     $logText = [System.IO.File]::ReadAllText($logPath, [System.Text.UTF8Encoding]::new($false))
+}
+
+# If tag-only dump is empty (some adb/transport edge cases) or `rootPrivScan` never arrived, scan a bounded noisy tail.
+if ($logText -notmatch "rootPrivScan") {
+    $fbPath = Join-Path $OutDir "logcat_fallback_tag_grep.txt"
+    $ErrorActionPreference = "Continue"
+    try {
+        if ($Serial) {
+            & adb -s $Serial @("logcat", "-d", "-t", "12000", "*:I") 2>&1 | Where-Object { $_ -match "PNS\.AdbValidation" } |
+                Set-Content -LiteralPath $fbPath -Encoding utf8
+        }
+        else {
+            & adb @("logcat", "-d", "-t", "12000", "*:I") 2>&1 | Where-Object { $_ -match "PNS\.AdbValidation" } |
+                Set-Content -LiteralPath $fbPath -Encoding utf8
+        }
+    }
+    finally { $ErrorActionPreference = $prevEap }
+    if (Test-Path -LiteralPath $fbPath) {
+        $fb = [System.IO.File]::ReadAllText($fbPath, [System.Text.UTF8Encoding]::new($false))
+        if ($fb.Length -gt 0) {
+            $logText = $logText + "`n--- fallback PNS.AdbValidation grep ---`n" + $fb
+        }
+    }
 }
 
 $hits = @($logText -split "`n" | Where-Object { $_ -match "rootPrivScan" })

@@ -1,6 +1,6 @@
 # Camera2 - keys and core APIs (reference)
 
-**Generated:** 2026-05-12 00:56:56 UTC  
+**Generated:** 2026-05-14 01:46:26 UTC  
 **Source:** platforms/android-36/android.jar (resolved from local.properties sdk.dir) - API **36** (matches app compileSdk in app/build.gradle.kts).  
 **Regenerate:** ``.\scripts\pns_gen_camera2_keys_reference.ps1`` from repo root.
 

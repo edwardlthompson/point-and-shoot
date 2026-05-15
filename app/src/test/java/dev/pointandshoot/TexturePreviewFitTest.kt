@@ -179,4 +179,22 @@ class TexturePreviewFitTest {
         assertEquals(1422, w)
         assertEquals(800, h)
     }
+
+    @Test
+    fun `mapBufferToViewWithExternalOesInvert null st matches mapBufferToView`() {
+        val a = TexturePreviewFit.mapBufferToView(30f, 40f, 200, 300, 800, 600, coverCrop = true)
+        val b =
+            TexturePreviewFit.mapBufferToViewWithExternalOesInvert(
+                30f,
+                40f,
+                200,
+                300,
+                800,
+                600,
+                coverCrop = true,
+                null,
+            )
+        assertEquals(a.first, b.first, 0.05f)
+        assertEquals(a.second, b.second, 0.05f)
+    }
 }

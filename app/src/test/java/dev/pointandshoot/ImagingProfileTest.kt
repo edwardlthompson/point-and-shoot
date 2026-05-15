@@ -26,6 +26,12 @@ class ImagingProfileTest {
     fun `byId resolves ultra_max and standard_pro`() {
         assertEquals(ImagingProfile.UltraMax, ImagingProfile.byId("ultra_max"))
         assertEquals(ImagingProfile.StandardPro, ImagingProfile.byId("standard_pro"))
+        assertEquals(ImagingProfile.JpegOnly, ImagingProfile.byId("jpeg_only"))
+    }
+
+    @Test(expected = IllegalStateException::class)
+    fun `JpegOnly has no DNG capture kind`() {
+        ImagingProfile.JpegOnly.toDngCaptureKind()
     }
 
     @Test

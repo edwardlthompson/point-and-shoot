@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.Intent
 import android.hardware.display.DisplayManager
 import android.net.Uri
@@ -68,6 +69,20 @@ class MainActivity : ComponentActivity() {
         // remains unaffected when verbose is muted in release.
         PnsLog.init(applicationContext)
 
+        if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW, false) == true) {
+            HudSettings.save(this, HudSettings.load(this).copy(enableHdr10LivePreview = true))
+            PnsAdbLog.i(applicationContext, "preview adb seed hdr10LivePreview=true")
+        }
+
+        // Cold `am start --es pns_preview_imaging_profile …` must win over a persisted HUD profile
+        // before Compose reads automation props (see `pns_photo_capture_verify.ps1` + PreviewEngineScreen).
+        val imagingProfileSeed = intent?.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE)?.trim()
+        if (!imagingProfileSeed.isNullOrEmpty()) {
+            val seeded = ImagingProfile.byId(imagingProfileSeed.lowercase())
+            HudSettings.saveImagingProfile(this, seeded)
+            PnsAdbLog.i(applicationContext, "preview adb seed imagingProfile=${seeded.id}")
+        }
+
         // We handle merged cutout + gesture insets in Compose via rememberSystemInsetsDp.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBarsForImmersive()
@@ -75,11 +90,14 @@ class MainActivity : ComponentActivity() {
 
         val launchScreen = resolveLaunchScreenForMain(intent)
         val imageCaptureReturn = resolveImageCaptureReturn()
+        val videoCaptureReturn = resolveVideoCaptureReturn()
         val autoSweep = intent?.getBooleanExtra(EXTRA_PNS_AUTOSWEEP, false) ?: false
         val autoEnc = intent?.getBooleanExtra(EXTRA_PNS_AUTOENC, false) ?: false
         val autoDeepCaps = intent?.getBooleanExtra(EXTRA_PNS_AUTODEEPCAPS, false) ?: false
         val autoSessionMatrix = intent?.getBooleanExtra(EXTRA_PNS_AUTOSESSIONMATRIX, false) ?: false
-        val autoHdrDcgRuntime = intent?.getBooleanExtra(EXTRA_PNS_AUTOHDRDCG, false) ?: false
+        val debuggable = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        val autoHdrDcgRuntime =
+            debuggable && (intent?.getBooleanExtra(EXTRA_PNS_AUTOHDRDCG, false) ?: false)
         val autoCaptureLatency = intent?.getBooleanExtra(EXTRA_PNS_AUTOCAPTURELATENCY, false) ?: false
         val autoRawHdrExcl = intent?.getBooleanExtra(EXTRA_PNS_AUTORAWHDREXCL, false) ?: false
         val autoBurst = intent?.getBooleanExtra(EXTRA_PNS_AUTOBURST, false) ?: false
@@ -101,6 +119,7 @@ class MainActivity : ComponentActivity() {
                             CameraCapabilitiesProbe(
                                 launchScreen = launchScreen,
                                 imageCaptureReturn = imageCaptureReturn,
+                                videoCaptureReturn = videoCaptureReturn,
                                 autoSweep = autoSweep,
                                 autoEncProbe = autoEnc,
                                 autoDeepCaps = autoDeepCaps,
@@ -165,6 +184,7 @@ class MainActivity : ComponentActivity() {
         return when (intent?.action) {
             MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA,
             MediaStore.INTENT_ACTION_VIDEO_CAMERA,
+            MediaStore.ACTION_VIDEO_CAPTURE,
             MediaStore.ACTION_IMAGE_CAPTURE_SECURE,
             MediaStore.ACTION_IMAGE_CAPTURE,
             -> PNS_SCREEN_PREVIEW
@@ -179,6 +199,16 @@ class MainActivity : ComponentActivity() {
             host = this,
             callerOutputUri =
                 IntentCompat.getParcelableExtra(inz, MediaStore.EXTRA_OUTPUT, Uri::class.java),
+        )
+    }
+
+    private fun resolveVideoCaptureReturn(): VideoCaptureReturnContract? {
+        val inz = intent ?: return null
+        if (inz.action != MediaStore.ACTION_VIDEO_CAPTURE) return null
+        return VideoCaptureReturnContract(
+            host = this,
+            callerOutputUri = IntentCompat.getParcelableExtra(inz, MediaStore.EXTRA_OUTPUT, Uri::class.java),
+            preferHighQuality = inz.getIntExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1) != 0,
         )
     }
 
@@ -198,4 +228,15 @@ class ImageCaptureReturnContract(
     val host: ComponentActivity,
     /** When non-null, caller expects the JPEG bytes written to this URI; otherwise a small bitmap is returned in `data`. */
     val callerOutputUri: Uri?,
+)
+
+/**
+ * Activity was started with [MediaStore.ACTION_VIDEO_CAPTURE]; after the user stops recording, write
+ * an MP4 and [android.app.Activity.setResult] with the saved [Uri] on [Intent.getData].
+ */
+class VideoCaptureReturnContract(
+    val host: ComponentActivity,
+    val callerOutputUri: Uri?,
+    /** From [MediaStore.EXTRA_VIDEO_QUALITY] — when false, use a smaller / lower-bitrate clip. */
+    val preferHighQuality: Boolean,
 )

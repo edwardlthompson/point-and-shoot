@@ -1,6 +1,6 @@
 # Preview chrome layout & style guide (canonical)
 
-This document is the **source of truth** for the approved **portrait** preview-engine chrome: vertical bands, insets, finder sizing, faint dividers, and how that layout interacts with the **frozen** 7×7 grid rule (`.cursor/rules/preview-chrome-ui-lock.mdc`).
+This document is the **source of truth** for the approved **portrait** preview-engine chrome: vertical bands, insets, finder sizing, faint dividers, and how that layout interacts with the **frozen** **7×3** quick-grid name + focal row + **two** sticky shortcut rows (see `.cursor/rules/preview-chrome-ui-lock.mdc`).
 
 **Baseline:** User-approved UI **locked in code** as of **2026-05** (`PreviewEngineScreen` portrait column). When the stack or inset policy changes, update this file in the same change.
 
@@ -32,15 +32,15 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 
 6. **Section divider** — `PreviewChromeSectionDivider()`.
 
-7. **Quick settings** — `PreviewRightRail` / `PreviewChromeGrid7x7` (focal row + icon grid + shortcut dialogs). **`Modifier.weight(PreviewChromeRailFlexWeight)`** (baseline **1f**); **clipped** to its lane.
+7. **Quick settings** — `PreviewRightRail` / `PreviewChromeGrid7x3` (focal row + **two** logical shortcut icon rows + shortcut dialogs). **`Modifier.weight(PreviewChromeRailFlexWeight)`** (baseline **1f**); **clipped** to its lane. **Settings** expand tile at **row 2, column 6** (`settingsAt=r2c6` in **`PNS.ChromeUx`**). Total **physical** grid rows in the rail = **3** (focal + two shortcut rows).
 
-8. **Shutter bar** — `PreviewBottomCaptureTray` when gallery thumb, on-screen shutter, or command dial is shown. Fixed height; **clipped** to its lane. Divider above when present follows the same divider component.
+8. **Shutter bar** — `PreviewBottomCaptureTray` when gallery thumb, on-screen shutter, or command dial is shown. Fixed height; **clipped** to its lane. **Tray:** gallery thumb (start), **center-weighted** shutter column, **Photo/Video** segmented toggle immediately **left of** the mode-dial slot (end). Divider above when present follows the same divider component.
 
 ---
 
 ## Visual language
 
-- **Separators:** Thin, low-contrast **horizontal** rules between major bands (`PreviewChromeSectionDivider`) so regions read as distinct **without** altering 7×7 cell math, gaps, or chip styling inside the grid.
+- **Separators:** Thin, low-contrast **horizontal** rules between major bands (`PreviewChromeSectionDivider`) so regions read as distinct **without** altering quick-grid cell math, gaps, or chip styling inside the grid.
 - **Chrome background:** Charcoal band under system insets; finder tile sits on the same family of tones as the rest of preview chrome (see `PnsColors` usage in `PreviewEngineScreen`).
 - **Grid / readout / tray:** Locked styling and spacing per **`preview-chrome-ui-lock.mdc`** — this guide does not redefine tile internals; it defines **where** they sit relative to the finder and readout.
 
@@ -64,6 +64,7 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 | Merged system-bar + cutout insets | `SystemInsets.kt` — `rememberSystemInsetsDp()`, `asPaddingValues()` |
 | Optional **2×** top helper (not used by preview route) | `SystemInsets.kt` — `asPaddingValuesWithExtraTopBarBand()` |
 | Readout strip | `PreviewReadoutStrip.kt` |
+| Quick grid (7 cols × focal row + **two** shortcut rows; **Settings** at **r2c6**) | `PreviewEngineScreen.kt` — `previewChromeGridSlots`, `PreviewChromeGrid7x3` |
 | Section divider | `PreviewChromeSectionDivider` in `PreviewEngineScreen.kt` |
 
 ---

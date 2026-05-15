@@ -2,7 +2,9 @@ package dev.pointandshoot
 
 import android.hardware.camera2.CaptureRequest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PreviewFlashPolicyTest {
@@ -65,5 +67,12 @@ class PreviewFlashPolicyTest {
     @Test
     fun flashStrengthLevelForHardware_fallsBackToMaxWhenDefaultNull() {
         assertEquals(4, PreviewFlashPolicy.flashStrengthLevelForHardware(null, 4))
+    }
+
+    @Test
+    fun highlightDialSuppressesFlashAndTorch_onlyForH() {
+        assertTrue(PreviewFlashPolicy.highlightDialSuppressesFlashAndTorch(CommandDialMode.H))
+        assertFalse(PreviewFlashPolicy.highlightDialSuppressesFlashAndTorch(CommandDialMode.Auto))
+        assertFalse(PreviewFlashPolicy.highlightDialSuppressesFlashAndTorch(CommandDialMode.BKT))
     }
 }

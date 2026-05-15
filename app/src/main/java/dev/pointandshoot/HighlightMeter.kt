@@ -9,7 +9,9 @@ import kotlin.math.pow
  * Highlight-weighted metering per BUILD_PLAN §4 (Phase 1): **expose-for-highlights** with
  * **scene scaling** — tiny hot speculars (filaments, sun disk) still pull hard; uniformly bright
  * or high-key scenes raise the effective highlight target so mids and ambient brightness are not
- * crushed. Predominantly dark scenes get a modest brighten boost on the positive-EV path.
+ * crushed. **Evenly lit scenes without a bright upper tail** leave correction near **0** so preview
+ * matches normal AE; brighten-toward-ceiling is suppressed when there is no highlight headroom to
+ * trade against.
  *
  * **OEM-style goals (non-cloning):** documented “highlight-weighted” behaviors from compact-camera
  * marketing (preserve highlight gradation, tame spotlights, accept deeper shadows) are mapped to these
@@ -22,6 +24,9 @@ import kotlin.math.pow
  *    (diffuse / normal indoor-outdoor) or many pixels sit in upper mid-tones.
  * 3. Tiered minimum darken EV when above the **effective** ceiling (stronger near 255).
  * 4. [DEFAULT_HIGHLIGHT_DARKEN_GAIN] multiplies **negative** EV (kept modest to avoid clamp pegging).
+ * 5. **Clip-save engagement:** negative EV is scaled by a weight that stays **~0** until the
+ *    histogram shows **near-clip** stress (upper tail / 99.5th percentile / mass at bin 245+), then
+ *    ramps toward **1** so flat and mid-key scenes match **Auto** while highlights get protection.
  *
  * Pure data + pure functions; Phase 1 plugs the histogram from downsampled YUV preview.
  */
@@ -56,6 +61,27 @@ object HighlightMeter {
      */
     const val DEFAULT_HIGHLIGHT_DARKEN_GAIN: Double = 2.55
 
+    /** Hot-pixel tail bin for clip engagement heuristics (see [fractionAtOrAbove]). */
+    private const val NEAR_CLIP_PIXEL_BIN_245: Int = 245
+
+    /** 99.5th percentile lower-tail mass for engagement. */
+    private const val LOWER_TAIL_PERCENTILE_995: Double = 0.995
+
+    /** Denominator guard when (CLIP_FRAC245_HIGH - CLIP_FRAC245_LOW) is tiny. */
+    private const val CLIP_FRAC_DENOM_EPSILON: Double = 1e-12
+
+    /**
+     * Histogram-derived highlight suggestion split so the preview engine can **temporally smooth**
+     * [darkenEngagement] (reduces breathing) while keeping [evCore] a pure per-frame function of the
+     * histogram. For negative [evCore], effective EV is `evCore * smoothedEngagement`.
+     */
+    data class HighlightEvBreakdown(
+        /** EV after gain, optional compress, and clamp — **before** multiplying [darkenEngagement]. */
+        val evCore: Double,
+        /** In `[0, 1]`; multiply into negative [evCore] only. */
+        val darkenEngagement: Double,
+    )
+
     /**
      * @param histogram256 a 256-bin luminance histogram (bin 0 = darkest).
      * @param percentile   lower-tail mass in (0,1]; see [DEFAULT_BRIGHT_TAIL_PERCENTILE].
@@ -72,13 +98,28 @@ object HighlightMeter {
         darkenGain: Double = DEFAULT_HIGHLIGHT_DARKEN_GAIN,
         maxAbsEv: Double = 24.0,
     ): Double {
+        val b = suggestEvCorrectionBreakdown(histogram256, percentile, ceilingValue, darkenGain, maxAbsEv)
+        return if (b.evCore < 0.0) b.evCore * b.darkenEngagement else b.evCore
+    }
+
+    /**
+     * Same inputs as [suggestEvCorrection]; exposes [HighlightEvBreakdown.evCore] before engagement
+     * so the engine can smooth [HighlightEvBreakdown.darkenEngagement].
+     */
+    fun suggestEvCorrectionBreakdown(
+        histogram256: IntArray,
+        percentile: Double = DEFAULT_BRIGHT_TAIL_PERCENTILE,
+        ceilingValue: Int = DEFAULT_HIGHLIGHT_CEILING,
+        darkenGain: Double = DEFAULT_HIGHLIGHT_DARKEN_GAIN,
+        maxAbsEv: Double = 24.0,
+    ): HighlightEvBreakdown {
         require(histogram256.size == 256) { "expected 256-bin histogram, got ${histogram256.size}" }
         require(percentile > 0.0 && percentile <= 1.0) { "percentile out of range: $percentile" }
         require(ceilingValue in 1..255) { "ceilingValue out of range: $ceilingValue" }
         require(darkenGain >= 1.0) { "darkenGain must be >= 1.0: $darkenGain" }
 
         val total = histogram256.fold(0L) { acc, n -> acc + n }
-        if (total <= 0L) return 0.0
+        if (total <= 0L) return HighlightEvBreakdown(0.0, 0.0)
 
         val pTail = lowerTailBin(histogram256, total, percentile)
         val minSupport = minPeakSupportCount(total)
@@ -99,7 +140,11 @@ object HighlightMeter {
                 .toInt()
                 .coerceIn(ceilingValue, relaxedTop)
 
-        if (p == effectiveCeiling) return 0.0
+        if (p == effectiveCeiling) return HighlightEvBreakdown(0.0, 0.0)
+
+        val frac245 = fractionAtOrAbove(histogram256, total, NEAR_CLIP_PIXEL_BIN_245)
+        val p995 = lowerTailBin(histogram256, total, LOWER_TAIL_PERCENTILE_995)
+        val darkenEngage = darkenEngagementWeight(frac245, p995, p)
 
         val current = p.coerceAtLeast(1).toDouble()
         val target8 = effectiveCeiling.toDouble()
@@ -132,8 +177,60 @@ object HighlightMeter {
             ev *= darkenBrightenBoostForMedian(lowerTailBin(histogram256, total, 0.5))
         }
 
-        return clamp(ev, -maxAbsEv, maxAbsEv)
+        ev = clamp(ev, -maxAbsEv, maxAbsEv)
+
+        return when {
+            ev < 0.0 -> HighlightEvBreakdown(ev, darkenEngage)
+            ev > 0.0 && shouldSuppressPositiveBrighten(frac245, p995) -> HighlightEvBreakdown(0.0, darkenEngage)
+            else -> HighlightEvBreakdown(ev, darkenEngage)
+        }
     }
+
+    /**
+     * Weight in **[0, 1]** for how much **negative EV** (exposure pull to save highlights) applies.
+     * Stays **~0** until **near-clip** signals appear so **H ≈ Auto** on flat / mid-key frames; ramps
+     * as bin **245+** mass, **99.5th percentile** luma, or the metered peak approach clipping.
+     */
+    fun darkenEngagementWeight(fracAtOrAbove245: Double, p995Bin: Int, pMetered: Int): Double {
+        val w245 =
+            smoothstep01(
+                ((fracAtOrAbove245 - CLIP_FRAC245_LOW) /
+                    (CLIP_FRAC245_HIGH - CLIP_FRAC245_LOW).coerceAtLeast(CLIP_FRAC_DENOM_EPSILON)),
+            )
+        val w995 =
+            smoothstep01(
+                ((p995Bin.toDouble() - CLIP_P995_LOW) / (CLIP_P995_HIGH - CLIP_P995_LOW))
+                    .coerceIn(0.0, 1.0),
+            )
+        val wPeak =
+            smoothstep01(
+                ((pMetered.toDouble() - CLIP_P_LOW) / (CLIP_P_HIGH - CLIP_P_LOW))
+                    .coerceIn(0.0, 1.0),
+            )
+        return max(max(w245, w995), wPeak).coerceIn(0.0, 1.0)
+    }
+
+    /** No near-clip mass and modest 99.5% bin → do not brighten toward the highlight ceiling. */
+    private fun shouldSuppressPositiveBrighten(fracAtOrAbove245: Double, p995Bin: Int): Boolean =
+        fracAtOrAbove245 < POSITIVE_SUPPRESS_FRAC245 && p995Bin < POSITIVE_SUPPRESS_P995
+
+    /** Fraction of pixels at or above bin 245; ramps engagement for clip-save behavior. */
+    private const val CLIP_FRAC245_LOW: Double = 7e-6
+
+    private const val CLIP_FRAC245_HIGH: Double = 0.00085
+
+    /** 99.5th percentile below this → treat as no highlight headroom to manage (Auto-like). */
+    private const val CLIP_P995_LOW: Double = 214.0
+
+    private const val CLIP_P995_HIGH: Double = 248.0
+
+    /** Metered highlight bin must approach white before peak-alone engagement ramps. */
+    private const val CLIP_P_LOW: Double = 234.0
+
+    private const val CLIP_P_HIGH: Double = 252.0
+
+    private const val POSITIVE_SUPPRESS_FRAC245: Double = 9e-6
+    private const val POSITIVE_SUPPRESS_P995: Int = 154
 
     /** Fraction of pixels at or above this bin (hot sky, lamps, speculars). */
     private const val BRIGHT_PIXEL_BIN_START: Int = 192

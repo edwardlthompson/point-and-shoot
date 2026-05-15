@@ -54,8 +54,10 @@ private fun decodeScaledBitmap(cr: android.content.ContentResolver, uri: Uri, ma
  * If no handler exists for the resolved MIME type, retries [Intent.ACTION_VIEW] with a generic
  * wildcard MIME (any type), then offers [Intent.ACTION_SEND] via [Intent.createChooser] so
  * **Share** / **Open with** paths still work (`BUILD_PLAN` UX backlog — gallery thumb).
+ *
+ * @return true if an activity was started (viewer or chooser); false if nothing matched.
  */
-fun openMediaWithSystemResolver(context: Context, uri: Uri) {
+fun openMediaWithSystemResolver(context: Context, uri: Uri): Boolean {
     val cr = context.contentResolver
     val mime = cr.getType(uri) ?: "*/*"
 
@@ -73,8 +75,8 @@ fun openMediaWithSystemResolver(context: Context, uri: Uri) {
             false
         }
 
-    if (tryStart(viewIntent(mime))) return
-    if (mime != "*/*" && tryStart(viewIntent("*/*"))) return
+    if (tryStart(viewIntent(mime))) return true
+    if (mime != "*/*" && tryStart(viewIntent("*/*"))) return true
 
     val sendIntent =
         Intent(Intent.ACTION_SEND).apply {
@@ -86,11 +88,12 @@ fun openMediaWithSystemResolver(context: Context, uri: Uri) {
         Intent.createChooser(sendIntent, "Share or open capture").apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-    if (tryStart(chooser)) return
+    if (tryStart(chooser)) return true
 
     Toast.makeText(
         context,
         "No app can open this file — try Share from another app or install a viewer.",
         Toast.LENGTH_LONG,
     ).show()
+    return false
 }

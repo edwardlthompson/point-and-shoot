@@ -4,6 +4,8 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Operational rule:** If a task can be done via `adb`, Gradle, or a repo script from a terminal in this workspace, **run it**. Only ask the human when something is **missing from the machine** (no device, no JDK, MCP server down, auth not completed) or **unsafe** (destructive prod action).
 
+**Device truth rule:** Do **not** tell the user a **fix or feature is delivered / done** until it is **verified on a real device over USB ADB** (install the build under test, exercise the path, and report script artifacts or log needles). If no device is online, say explicitly that **device verification was not run** and treat the change as **unverified**. Use repo scripts (`pns_photo_capture_verify`, `pns_in_app_video_verify`, `pns_chrome_ux_gate`, `pns_adb_preview_validate`, etc.) when they match the change; otherwise document the exact `adb` / `am start` steps you ran and what you observed.
+
 ---
 
 ## CRITICAL — sequential RAW / `pns_preview_raw_count` and preview session wiring
@@ -22,6 +24,54 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 - **§2 — `RawStreamPreference.Default` with RAW10 before RAW_SENSOR:** picks **RAW10 (format 37)**; capture can succeed but **`DngCreator.writeImage`** fails with **`Unsupported image format 37`**. **Keep** bisect order **RAW12 → RAW_SENSOR → RAW10** for **`Default`** here until the DNG pipeline explicitly supports RAW10 for this path **and** USB proof exists.
 
 Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 and **§8 “What agents must avoid”**.
+
+---
+
+## CRITICAL — GLES preview aspect (do not reapply reverted fixes)
+
+**May 2026 (CPH2655 / user-verified):** Multiple attempts to fix **gallery-return** or **resume** preview stretch **broke default preview** (distorted / stretched) and were **reverted**. **Do not reintroduce** these patterns without maintainer sign-off, a **new** design, and USB proof on a real device:
+
+1. **`LaunchedEffect`** (or similar coroutine) calling **`LutCameraPreviewRenderer.setGeometry`**, especially keyed on **`previewPipelineGeneration`**, **`previewBufferSize`**, **`centerViewSize`**, or other high-churn Compose state — races **layout** and **`RENDERMODE_WHEN_DIRTY`**.
+2. **`Handler.post`**-deferred **`kickPreviewPipelineRestart()`** on **`ON_RESUME`** — ordering vs **`GLSurfaceView.onResume()`** / new **`SurfaceTexture`** was reverted as risky.
+3. **`PreviewController.setPreviewBufferGeometryListener`** + coalesced **`mainHandler`** notifications + **`GLSurfaceView.queueEvent { setGeometry }`** on **`previewBufferSize()`** changes — **reverted**; user reported preview broken again.
+4. **`PreviewController.setPreviewDisplayLayoutSyncListener`** + **`previewLayoutSyncNonce`** + extra **`ON_RESUME`** buffer / layout nudges — **reverted May 2026**; caused **cold-start** distortion and related regressions on **`8bf09993`**-class devices.
+
+**Shipped invariant:** **`setGeometry`** is driven only from **`PreviewMainViewport`** — **`AndroidView` `update`** and **`OnLayoutChangeListener`**. Any future gallery/resume fix must **not** duplicate that contract with a second writer unless explicitly redesigned.
+
+**May 2026 follow-up — what actually failed (do not repeat blindly):**
+
+| Approach | Result |
+|----------|--------|
+| **`previewGeometryApplyToken`** + delayed second bump + **`AndroidView` `update`** | User: **gallery** stretch **not** fixed; extra complexity. |
+| **`setPreviewDisplayLayoutSyncListener`** + pushing **`previewBufferSize()`** into Compose from **`reconcile…`** (even gated) | **Cold-start** finder / preview distortion — view-sized ST hints are **not** buffer WxH. |
+| **`previewLayoutSyncNonce`** + **`ON_RESUME`** re-read **`previewBufferSize`** | Same **cold-start** class of breakage when combined with forced **`AndroidView` `update`**. |
+| **`GLSurfaceView.setPreserveEGLContextOnPause(true)`** | **`Surface was abandoned`** / **`createCaptureSession`** **`IllegalArgumentException`** on **`8bf09993`** cold **`pns_photo_capture_verify`**. |
+| **`Handler.post`**-**delayed** **`kickPreviewPipelineRestart()`** only | Listed as risky (ordering vs new **`SurfaceTexture`**). |
+| **Hard task restart** after tray **`openMediaWithSystemResolver` → true** | **Shipped May 2026** — **`Intent` `CLEAR_TASK` + `NEW_TASK`**, **`finishAffinity()`**, relaunch same activity class copying **`intent` extras** — cold-start–equivalent when GLES preview stays wrong after external viewers. **Only** when a viewer actually started (**`AtomicBoolean`**); other resumes use **`kick`** + **`View.post`** layout. |
+
+**Industry-aligned pattern that stays within the `setGeometry` contract:** After **`kickPreviewPipelineRestart()`** on **`ON_RESUME`**, call **`previewHostSlot.view?.post { requestLayout(); invalidate() }`** (and optionally a **second** nested **`post { }`** only if USB proof requires it). **`View.post`** defers until after the current UI traversal so **`GLSurfaceView.onResume()`** and window insets typically run first — same idea as “defer work to next message” in Camera / **`SurfaceView`** samples. **Do not** combine this with Compose-driven **`previewBufferSize`** overrides from **`reconcile…`** view hints.
+
+Resume handling: when returning after **`openMediaWithSystemResolver`** succeeded from the tray thumb, **`restartMainActivityCold`** (task clear + relaunch). Otherwise **`kickPreviewPipelineRestart()`** + optional **`GLSurfaceView` `post` layout** above; Compose **`previewBufferSize`** stays on the existing controller poll. Still **no** coroutine-driven **`setGeometry`** and **no** controller **`setGeometry`** listener — **`setGeometry`** stays only in **`PreviewMainViewport`**’s **`AndroidView` `update`** + **`OnLayoutChangeListener`**.
+
+---
+
+## CRITICAL — Dodge tele focal slots (73 / 85 / 150 mm) — do not regress
+
+This is **preview/correctness**, not Gradle compile failures. **May 2026 regression:** adding **`FocalRoutingPolicy` / `FleetAuto`**, **`effectivePolicy`**, and resolving tele chips through **logical `cameraId=0` alone** when **physical tele** (e.g. **`4`**, LYT-600 ~**13.9 mm**) was already in **`cameraIdList`** broke **digital equivalence**:
+
+- **85 mm** / **150 mm** looked unchanged vs **73 mm** (`SCALER_CROP_REGION` / active-array basis mismatch).
+- **Fleet** routing could send **150 mm** toward **`longTele`** instead of **digital `LongTele150`** on **`Roles.tele`** — violates **`DODGE_PROFILE.md`** for the reference stack.
+
+**Shipped invariant (do not revert without maintainer sign-off + USB proof):**
+
+1. **Single policy — dodge tele row:** **`resolveFocalMmSlot`** / **`telePhysicalForPreviewPin`** use **`Roles.tele`** for **all three** tele M-slots (**73** native, **85** `Portrait85`, **150** `LongTele150`). **No** second “fleet” policy enum or persisted prefs for tele routing.
+2. **Physical-first when enumerated:** **`teleOpenablePair`** must prefer **`tid to mode`** when **`tid in ids`** so preview opens **physical tele** when the HAL lists it — keeps crop math on the **tele sensor’s** active array (see **`BackCameraRoleResolver.kt`**).
+3. **`SensorCropGeometry`:** **`LongTele150`** **`allowsDigitalCrop`** gates on **`teleId`** only (mid-tele sensor), **not** **`longTeleId`**.
+4. **FPS:** Digital crops apply only when **`desiredFps < 120`** in **`PreviewController`**; do not “fix” tele UX by forcing fleet lens-switch — clamp FPS or document readout behavior instead.
+
+**Automation hygiene:** Do **not** run **`pns_capture_pipeline_verify`** / **`pns_photo_capture_verify`** **concurrently** with **`pns_chrome_ux_gate`** against the same device — overlapping cold starts produce **`ERROR_CAMERA_DEVICE` / capture failed** **false negatives**.
+
+**Minimum verification** after touching **`BackCameraRoleResolver.kt`**, **`SensorCropGeometry.kt`**, **`FocalLensStripSupport.kt`**, or focal / crop wiring in **`PreviewEngineScreen.kt`**: JVM tests (`BackCameraRoleResolverTest`, `SensorCropGeometryTest`) + USB **`scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150`** (expect **`teleFocalSlotOk=true`**, log **`focalSlotTap=`** with **`cameraIdAfter=`** physical tele and **`focalCrop=LongTele150`** when applicable). Optionally **`pns_photo_capture_verify.ps1 -Fast`** — run **alone**, not parallel with chrome gate.
 
 ---
 
@@ -127,11 +177,13 @@ Use these from repo root unless a script documents otherwise.
 | `pns_adb_preview_validate.ps1` | Device preview validation; **`-Milestone6Pack`** for milestone pack. |
 | `pns_capture_still_forensics.ps1` | Cold **preview** + **`pns_preview_dial=H`** + **`pns_preview_raw_count`**: install (optional), pull pid + ring logcat into **`hfr-runs/capture_still_forensics_*`** (use after DNG save failures; see **`PNS.CaptureStill`**). **`-Fast`** passes **`pns_preview_raw_still_fast`** for shorter in-app ADB settle and a shorter default wait. |
 | `pns_photo_capture_verify.ps1` | Loop **assembleDebug** (optional) → install → cold preview + one scripted RAW still; retries until **`PNS.AdbValidation`** shows **`captureRawStill 1/1 ok=true saved=`** or **`-MaxAttempts`**. Optional **`-SweepCameraIds`** tries **`pns_preview_camera_id`** **`(default),0,1,2,3`** in one artifact folder. Uses timeout-wrapped **adb**; artifacts **`hfr-runs/photo_capture_verify_*`** (logcat + **`run-as`** `files/PNS_CAPTURE_PIPELINE_DIAGNOSTICS.txt` when present). Logcat filter includes **`PNS.Cam:I`** for **`PNS.PreviewSessionCtx`**. Prefer **`pns_capture_pipeline_verify.ps1`** for **`docs/CAPTURE_PIPELINE_VERIFY_*.json`** (BUILD_PLAN item **11**). |
+| `pns_in_app_video_verify.ps1` | Cold **preview** with **`pns_preview_primary_photo=false`** + **`pns_preview_automation_in_app_video_sec`**: install (optional), **`assembleDebug`** (optional), assert **`PNS.AdbValidation`** **`inAppVideoSaved ok=true`** and **`bytes ≥ MinBytes`**; artifacts **`hfr-runs/in_app_video_verify_*`**. Uses **`adb exec-out logcat -s …`** for OEM-stable tag dumps. Gate after in-app **`MediaRecorder`** / **`PreviewEngineScreen`** session changes alongside **`pns_capture_pipeline_verify.ps1`** when RAW session wiring moves. |
 | `pns_capture_pipeline_verify.ps1` | Wraps **`pns_photo_capture_verify.ps1`** in a child process; writes **`hfr-runs/capture_pipeline_gate_*/gate.json`**, **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`**, appends **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**. Optional **`-BisectStep`**, **`-Notes`**, **`-NoHistoryAppend`**. |
 | `pns_capture_bisect_device.ps1` | **USB:** cumulative bisect steps **1..N** on **`PreviewEngineScreen.kt`** + **`RawCaptureSupport.kt`** (see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**), **`assembleDebug`**, **`pns_capture_pipeline_verify`** per step; **`hfr-runs/capture_bisect_device_*/report.md`**. **`-DryRun`**, **`-Fast`**, **`-FromStep`**, **`-NoRestore`**, **`-WriteDocHistory`**. |
 | `pns_capture_restore_verified.ps1` | **`assembleDebug`** + USB **`pns_capture_pipeline_verify.ps1`** after capture restores — gate **`captureRawStill 1/1 ok=true saved=`** before merge. **Do not** treat as “ship full Milestone §1–§5”; **§4a** / **§2** are fleet-sensitive — see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8. |
 | `pns_raw_regression_bisect.ps1` | **USB automation:** snapshot `RawCaptureSupport.kt` + `PreviewEngineScreen.kt`, run **`pns_photo_capture_verify`** on baseline, then re-apply **one** suspect regression at a time (wrong default RAW tier order, `desiredFps` default 120, gated H-dial YUV), rebuild, re-verify; writes **`hfr-runs/raw_regression_bisect_*/results.json`** + **`report.md`**. Exit **1** if baseline fails (bisect inconclusive on that device). Dot-source **`pns_resolve_adb.ps1 -PrependToPath`** first on Windows if PATH adb differs from SDK. |
 | `pns_raw_capture_matrix.ps1` | **20-cell** matrix (optional **`-Quick`** for 4 cells): **`pns_preview_imaging_profile`** × **`pns_preview_raw_stream`** (`default`, `raw_sensor_first`, `raw12_only`, `raw_sensor_only`, `raw10_only`) × **`pns_preview_jpeg_companion`**, plus optional **`-CameraId`**. Artifacts **`hfr-runs/raw_capture_matrix_*`** (`matrix.csv`, `matrix.md`, per-cell logcat). See **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**. |
+| `pns_deep_caps_diff.ps1` | Host-side **Markdown** diff of two **`deep_caps_*.json`** pulls (**HFR max**, **HDR DR** summary, **`maxNumOutputRaw`**, **`rawCapabilityAdvertised`** per `cameraId`). See **`docs/FLEET_REFERENCE_M10_8.md`** (Milestone **10.8** fleet evidence). |
 | `pns_gen_camera2_keys_reference.ps1` | Regenerate **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** from **`local.properties` → sdk.dir** `platforms/android-<N>/android.jar`; **`<N>` = `compileSdk`** parsed from **`app/build.gradle.kts`** (override **`-ApiLevel`**). |
 | `pns_ae_highlight_probe_adb.ps1` | Cold-start **`pns_screen=probehub`** + **`pns_auto_export_probe`**, pull **`PROBE_EXPORT_LATEST.md`**, write **`ae_highlight_probe_summary.txt`** + **`ae_highlight_probe.json`** (`summary` path); optional **`-AlsoRootCapabilityAdb`**. **Debuggable APK** required for `run-as`. |
 | `pns_face_meter_probe.ps1` | Cold-start **`pns_screen=facemeter`** + **`pns_autofacemeter`**, wait for **`FACE_METER_PROBE_DONE`** in **`PNS.SWEEP_SIGNAL`**, pull **`face_meter_probe_*.{md,json}`** (face / eye / metering inventory). Artifacts under **`hfr-runs\face_meter_probe_*`**. |
@@ -201,14 +253,15 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 | Rule | Summary |
 |------|---------|
 | `.cursor/rules/adb-device-env.mdc` | ADB env file, `PNS_ADB_SERIAL` (USB), script entry points. |
+| `.cursor/rules/dodge-tele-focal-routing.mdc` | **Locked** dodge tele **73/85/150 mm** routing + crop gates — no fleet policy; physical tele preferred when enumerated; see **`AGENTS.md`** CRITICAL section. |
 | `.cursor/rules/preview-chrome-ui-lock.mdc` | **Frozen** preview chrome layout — behavioral fixes only unless the user explicitly changes UI. |
-| `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, 7×7 rail (matches the lock rule). |
+| `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |
 
 ---
 
 ## Project plans (human-authored scope)
 
-- `BUILD_PLAN.md`, `PROBE_BUILD_PLAN.md` — milestones, gates, and probe expectations. Use them to choose the right script and artifacts paths (e.g. `hfr-runs\`, `milestone6_gate.json`).
+- `BUILD_PLAN.md` (active milestones), `BUILD_PLAN_COMPLETED.md` (archived milestones 0–7), `PROBE_BUILD_PLAN.md` — milestones, gates, and probe expectations. Use them to choose the right script and artifacts paths (e.g. `hfr-runs\`, `milestone6_gate.json`).
 
 ### MainActivity / navigation (automation vs in-app)
 
@@ -228,6 +281,8 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 ## UI change policy (short)
 
 Preview chrome is **locked** by rule (`preview-chrome-ui-lock.mdc`) and specified in **`docs/preview-chrome-layout-style-guide.md`** — do not “improve” spacing/tiles/colors without an explicit user request. Prefer minimal diffs for behavior bugs only.
+
+**GLES external-OES preview (`LutCameraPreviewRenderer` / `setGeometry`):** treat aspect as **locked** to the **`PreviewMainViewport`** layout + **`AndroidView` `update`** path unless the user explicitly requests a pipeline change. See **`AGENTS.md`** **CRITICAL — GLES preview aspect (do not reapply reverted fixes)** for patterns that were tried and **reverted** after breaking preview.
 
 ---
 

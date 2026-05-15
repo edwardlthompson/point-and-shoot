@@ -14,6 +14,7 @@
 |------|--------|
 | `PreviewEngineScreen.kt` REGULAR `createSession` | Turning **`streamHints`** back to **`SDK_INT >= TIRAMISU`** (§4a “restore”) — **RAW still timeout** + **`onError` 4** on this fleet. |
 | `RawCaptureSupport.kt` **`Default`** tier | **RAW12 → RAW10 → RAW_SENSOR** (Milestone 10.1 order) — **`DngCreator` format 37** failure on this fleet; keep **RAW_SENSOR before RAW10** unless DNG path + device gate prove otherwise. |
+| `BackCameraRoleResolver.kt` / `SensorCropGeometry.kt` / tele **`resolveFocalMmSlot`** | **Fleet-style dual policy**, **`longTele`** routing for **150 mm**, or **logical-first** tele when **physical tele is in `cameraIdList`** — breaks **85/150** digital crops vs **73** on dodge; see **`AGENTS.md`** CRITICAL “Dodge tele focal slots”. Verify with **`pns_chrome_ux_gate.ps1 -FocalMmSlot 150`**. |
 | Bisect doc §1–§5 | **All hunks at once** — use **per-hunk** **`pns_photo_capture_verify.ps1`**; see **`AGENTS.md`** (§4a / §2 CRITICAL) and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 “What agents must avoid”. |
 
 ---

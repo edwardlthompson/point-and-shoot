@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraMetadata
+import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.os.Build
@@ -24,9 +25,20 @@ internal fun outputConfigurationsWithOptionalStreamUseCases(
     surfaces: List<Surface>,
     enableHints: Boolean,
     previewDynamicRangeProfile: Long? = null,
+    /** Logical multi-camera: pin preview stream to this physical camera id (API 28+). */
+    previewPhysicalCameraId: String? = null,
 ): List<OutputConfiguration> {
     return surfaces.mapIndexed { index, surface ->
         OutputConfiguration(surface).apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                index == 0 &&
+                !previewPhysicalCameraId.isNullOrBlank()
+            ) {
+                runCatching { setPhysicalCameraId(previewPhysicalCameraId) }
+                    .onFailure { e ->
+                        Log.w(TAG, "setPhysicalCameraId=$previewPhysicalCameraId: ${e.message}")
+                    }
+            }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && index == 0 && previewDynamicRangeProfile != null) {
                 runCatching { setDynamicRangeProfile(previewDynamicRangeProfile) }
                     .onFailure { e ->
@@ -58,6 +70,8 @@ internal fun outputConfigurationsWithOptionalStreamUseCases(
  *   hints; callers should retry with **false** if [createCaptureSession] fails on picky HALs.
  * @param previewDynamicRangeProfile When non-null (API 33+), applies [OutputConfiguration.setDynamicRangeProfile]
  *   on the first output (preview surface). Callers should retry with **null** if session create fails.
+ * @param sessionParametersTemplate When non-null (API 33+), applies [SessionConfiguration.setSessionParameters]
+ *   before [createCaptureSession]. Callers should retry with **null** if the HAL rejects the bundle.
  */
 internal fun CameraDevice.createCaptureSessionRegularOutputs(
     surfaces: List<Surface>,
@@ -65,12 +79,15 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
     callback: CameraCaptureSession.StateCallback,
     streamUseCaseHints: Boolean = false,
     previewDynamicRangeProfile: Long? = null,
+    sessionParametersTemplate: CaptureRequest? = null,
+    previewPhysicalCameraId: String? = null,
 ) {
     val outputConfigs =
         outputConfigurationsWithOptionalStreamUseCases(
             surfaces,
             enableHints = streamUseCaseHints,
             previewDynamicRangeProfile = previewDynamicRangeProfile,
+            previewPhysicalCameraId = previewPhysicalCameraId,
         )
     val sessionConfig =
         SessionConfiguration(
@@ -79,6 +96,12 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
             handlerExecutor(handler),
             callback,
         )
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && sessionParametersTemplate != null) {
+        runCatching { sessionConfig.setSessionParameters(sessionParametersTemplate) }
+            .onFailure { e ->
+                Log.w(TAG, "setSessionParameters: ${e.message}")
+            }
+    }
     createCaptureSession(sessionConfig)
 }
 

@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -21,6 +22,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,6 +53,7 @@ fun WelcomePermissionsScreen(
     onFinished: () -> Unit,
 ) {
     val context = LocalContext.current
+    val appCtx = context.applicationContext
     var step by rememberSaveable { mutableIntStateOf(0) }
     val totalSteps = 1 + runtimeSteps.size + TRAILING_STEPS_AFTER_RUNTIME
 
@@ -60,6 +63,19 @@ fun WelcomePermissionsScreen(
     val vibrationIndex = lastRuntimeIndex + 1
     val notificationIndex = lastRuntimeIndex + 2
     val doneIndex = lastRuntimeIndex + 3
+
+    LaunchedEffect(step) {
+        if (welcomePermissionsShouldAutoAdvanceOptionalSkippedStep(
+                step = step,
+                runtimeSteps = runtimeSteps,
+                firstRuntimeIndex = firstRuntimeIndex,
+                lastRuntimeIndex = lastRuntimeIndex,
+                appCtx = appCtx,
+            )
+        ) {
+            step++
+        }
+    }
 
     fun allRequiredRuntimeGranted(): Boolean =
         runtimeSteps.all { spec ->
@@ -115,6 +131,16 @@ fun WelcomePermissionsScreen(
                                 "nothing is requested without context.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.88f),
+                        )
+                        Text(
+                            "Preview tips: volume keys can trigger a still when the on-screen shutter is enabled. " +
+                                "On the live preview, swipe up for the front camera and swipe down to return to rear cameras " +
+                                "(vertical drag on the finder — tray and side rails are unchanged). " +
+                                "Edge swipes that trigger system back or home can conflict with tall vertical drags — " +
+                                "if a swipe does not switch cameras, use Capture and tools → Front / Rear in the rail, " +
+                                "or Settings → HUD. You can replay this welcome from Settings → Replay tips.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.78f),
                         )
                     }
                     in firstRuntimeIndex..lastRuntimeIndex -> {
@@ -174,7 +200,15 @@ fun WelcomePermissionsScreen(
                             }
                             if (!spec.requiredToEnterApp) {
                                 TextButton(
-                                    onClick = { step++ },
+                                    onClick = {
+                                        when (spec.permission) {
+                                            Manifest.permission.RECORD_AUDIO ->
+                                                WelcomePrefs.markSkippedOptionalRecordAudio(appCtx)
+                                            Manifest.permission.ACCESS_FINE_LOCATION ->
+                                                WelcomePrefs.markSkippedOptionalFineLocation(appCtx)
+                                        }
+                                        step++
+                                    },
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text("Skip (optional)")
@@ -299,5 +333,22 @@ fun WelcomePermissionsScreen(
                 else -> {}
             }
         }
+    }
+}
+
+private fun welcomePermissionsShouldAutoAdvanceOptionalSkippedStep(
+    step: Int,
+    runtimeSteps: List<WelcomeRuntimePermissionStep>,
+    firstRuntimeIndex: Int,
+    lastRuntimeIndex: Int,
+    appCtx: Context,
+): Boolean {
+    if (step !in firstRuntimeIndex..lastRuntimeIndex) return false
+    val spec = runtimeSteps[step - firstRuntimeIndex]
+    if (spec.requiredToEnterApp) return false
+    return when (spec.permission) {
+        Manifest.permission.RECORD_AUDIO -> WelcomePrefs.hasSkippedOptionalRecordAudio(appCtx)
+        Manifest.permission.ACCESS_FINE_LOCATION -> WelcomePrefs.hasSkippedOptionalFineLocation(appCtx)
+        else -> false
     }
 }

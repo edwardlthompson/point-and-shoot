@@ -47,7 +47,7 @@ fun NativeDiagnosticsScreen(
     val available = NativeEncoders.isAvailable
     val loadError = NativeEncoders.lastLoadError
     val version = NativeEncoders.version()
-    val profiles = listOf<ImagingProfile>(ImagingProfile.StandardPro, ImagingProfile.UltraMax)
+    val profiles = listOf<ImagingProfile>(ImagingProfile.StandardPro, ImagingProfile.UltraMax, ImagingProfile.JpegOnly)
 
     val insets = rememberSystemInsetsDp()
     Column(

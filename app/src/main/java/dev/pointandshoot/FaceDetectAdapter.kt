@@ -1,6 +1,8 @@
 package dev.pointandshoot
 
 import androidx.compose.ui.geometry.Offset
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Pure-data adapter that converts Camera2 face/eye landmarks (in active-array
@@ -23,6 +25,19 @@ import androidx.compose.ui.geometry.Offset
 object FaceDetectAdapter {
 
     /**
+     * How sensor landmarks are scaled into the **camera preview buffer** before
+     * [TexturePreviewFit.mapBufferToView] maps buffer → view for overlays.
+     *
+     * [Stretch] is legacy independent X/Y scale (does **not** match GLES center-crop / letterbox).
+     * Prefer [UniformCover] / [UniformContain] so Eye-AF marks line up with [LutCameraPreviewRenderer].
+     */
+    enum class PreviewBufferScalePolicy {
+        Stretch,
+        UniformCover,
+        UniformContain,
+    }
+
+    /**
      * Inputs are intentionally typed as primitive coordinates so this stays
      * decoupled from `android.graphics.Rect` / `Point` (which need stubs in
      * pure-JVM tests). Callers do the boxing once at the engine boundary.
@@ -34,6 +49,8 @@ object FaceDetectAdapter {
      * @param previewHeight         height of the preview surface in pixels.
      * @param sensorOrientationDeg  `SENSOR_ORIENTATION` (0/90/180/270).
      * @param mirrorHorizontally    typically true for the front camera.
+     * @param bufferScalePolicy [PreviewBufferScalePolicy.UniformCover] / [UniformContain] match
+     *   [TexturePreviewFit.mapBufferToView] for the same `coverCrop` flag; [Stretch] is legacy.
      */
     fun mapEyeToPreview(
         eyeSensor: SensorPoint,
@@ -44,6 +61,7 @@ object FaceDetectAdapter {
         sensorOrientationDeg: Int,
         mirrorHorizontally: Boolean,
         confidence: Float = 1f,
+        bufferScalePolicy: PreviewBufferScalePolicy = PreviewBufferScalePolicy.UniformCover,
     ): EyeMark {
         require(activeArrayWidth > 0 && activeArrayHeight > 0) {
             "active-array dimensions must be positive (was ${activeArrayWidth}x$activeArrayHeight)"
@@ -64,13 +82,37 @@ object FaceDetectAdapter {
             rotationDeg = rot,
         )
 
-        // Step 2: scale into the preview surface (assume center-fit / fill match;
-        // the engine boundary is responsible for letterboxing / pillarboxing if
-        // it differs - this adapter is the math, not the policy).
-        val sx = previewWidth.toDouble() / rotatedW.toDouble()
-        val sy = previewHeight.toDouble() / rotatedH.toDouble()
-        val previewX = rotatedX * sx
-        val previewY = rotatedY * sy
+        // Step 2: scale into the preview surface.
+        val previewX: Double
+        val previewY: Double
+        when (bufferScalePolicy) {
+            PreviewBufferScalePolicy.UniformCover,
+            PreviewBufferScalePolicy.UniformContain,
+            -> {
+                val bw = previewWidth.toDouble()
+                val bh = previewHeight.toDouble()
+                val rw = rotatedW.toDouble().coerceAtLeast(1.0)
+                val rh = rotatedH.toDouble().coerceAtLeast(1.0)
+                val scale =
+                    if (bufferScalePolicy == PreviewBufferScalePolicy.UniformCover) {
+                        max(bw / rw, bh / rh)
+                    } else {
+                        min(bw / rw, bh / rh)
+                    }
+                val drawnW = rw * scale
+                val drawnH = rh * scale
+                val dx = (bw - drawnW) / 2.0
+                val dy = (bh - drawnH) / 2.0
+                previewX = rotatedX * scale + dx
+                previewY = rotatedY * scale + dy
+            }
+            PreviewBufferScalePolicy.Stretch -> {
+                val sx = previewWidth.toDouble() / rotatedW.toDouble()
+                val sy = previewHeight.toDouble() / rotatedH.toDouble()
+                previewX = rotatedX * sx
+                previewY = rotatedY * sy
+            }
+        }
 
         // Step 3: optionally mirror horizontally (front camera UX).
         val finalX = if (mirrorHorizontally) previewWidth - previewX else previewX
@@ -99,6 +141,7 @@ object FaceDetectAdapter {
         sensorOrientationDeg: Int,
         mirrorHorizontally: Boolean,
         confidence: Float = 0.5f,
+        bufferScalePolicy: PreviewBufferScalePolicy = PreviewBufferScalePolicy.UniformCover,
     ): EyeMark {
         require(faceRight > faceLeft && faceBottom > faceTop) {
             "face rect must have positive area (was [${faceLeft},${faceTop} -> ${faceRight},${faceBottom}])"
@@ -114,6 +157,7 @@ object FaceDetectAdapter {
             sensorOrientationDeg = sensorOrientationDeg,
             mirrorHorizontally = mirrorHorizontally,
             confidence = confidence,
+            bufferScalePolicy = bufferScalePolicy,
         )
     }
 

@@ -114,7 +114,7 @@ fun ProHudScreen(onBack: () -> Unit) {
                         )
                     }
                     Text(
-                        text = "profile  ${imagingProfile.displayName}",
+                        text = "profile  ${imagingProfile.previewStillModeShortLabel}",
                         style = MaterialTheme.typography.labelMedium,
                         color = Color.White.copy(alpha = 0.65f),
                         modifier = Modifier.padding(top = 4.dp),
@@ -150,17 +150,22 @@ fun ProHudScreen(onBack: () -> Unit) {
                     OutlinedButton(
                         onClick = {
                             val next =
-                                if (imagingProfile == ImagingProfile.StandardPro) {
-                                    ImagingProfile.UltraMax
-                                } else {
-                                    ImagingProfile.StandardPro
+                                when (imagingProfile) {
+                                    ImagingProfile.StandardPro -> ImagingProfile.UltraMax
+                                    ImagingProfile.UltraMax -> ImagingProfile.JpegOnly
+                                    ImagingProfile.JpegOnly -> ImagingProfile.StandardPro
                                 }
                             imagingProfile = next
                             HudSettings.saveImagingProfile(context, next)
                         },
                     ) {
                         Text(
-                            text = if (imagingProfile == ImagingProfile.StandardPro) "-> Ultra-Max" else "-> Standard Pro",
+                            text =
+                                when (imagingProfile) {
+                                    ImagingProfile.StandardPro -> "-> Ultra-Max"
+                                    ImagingProfile.UltraMax -> "-> JPEG only"
+                                    ImagingProfile.JpegOnly -> "-> Standard Pro"
+                                },
                         )
                     }
                     Spacer16()

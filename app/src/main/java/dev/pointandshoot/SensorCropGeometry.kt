@@ -4,47 +4,66 @@ import android.graphics.Rect
 import android.hardware.camera2.CameraCharacteristics
 
 /**
- * Maps [BUILD_PLAN.md] §3 digital-crop modes to Camera2
- * [android.hardware.camera2.CaptureRequest.SCALER_CROP_REGION].
+ * Maps [BUILD_PLAN.md] digital-crop modes to Camera2 SCALER_CROP_REGION.
+ * Crop policy uses [BackCameraRoleResolver] ids (and logical physical children), not hardcoded camera numbers.
  *
- * Crop rectangles are expressed in the same coordinate system as
- * [CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE] (pixel coordinates on
- * the full sensor, not necessarily origin `(0,0)`).
+ * **73 / 85 / 150 mm** digital equivalents always apply on the resolved **mid-tele** sensor ([Roles.tele])
+ * per [DODGE_PROFILE.md] — there is no alternate “fleet” long-native lens path for the 150 mm slot.
  */
 object SensorCropGeometry {
 
-    /** LYT-808 wide — Street / Standard digital crops. */
     private val WIDE_DIGITAL_MODES = setOf(FocalMode.Street35, FocalMode.Standard50)
 
-    /** LYT-600 tele — Portrait / long-tele digital crops. */
-    private val TELE_DIGITAL_MODES = setOf(FocalMode.Portrait85, FocalMode.LongTele150)
-
-    fun allowsDigitalCrop(cameraId: String, mode: FocalMode): Boolean =
-        when (cameraId) {
-            "2" -> mode in WIDE_DIGITAL_MODES
-            "4", "5", "6" -> mode in TELE_DIGITAL_MODES
+    fun allowsDigitalCrop(
+        sessionCameraId: String,
+        mode: FocalMode,
+        sessionPhysicalIds: Set<String>?,
+        wideId: String?,
+        teleId: String?,
+    ): Boolean {
+        val phys = sessionPhysicalIds.orEmpty()
+        fun sessionCoversPhysical(pid: String?): Boolean {
+            if (pid == null) return false
+            if (sessionCameraId == pid) return true
+            return phys.isNotEmpty() && pid in phys
+        }
+        return when (mode) {
+            in WIDE_DIGITAL_MODES -> sessionCoversPhysical(wideId)
+            FocalMode.Portrait85 -> sessionCoversPhysical(teleId)
+            FocalMode.LongTele150 -> sessionCoversPhysical(teleId)
             else -> false
         }
+    }
 
-    /**
-     * @param mode `null` = use full [CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE]
-     * (native lens FOV for that cameraId).
-     */
     fun scalerCropRect(
         characteristics: CameraCharacteristics,
-        cameraId: String,
+        sessionCameraId: String,
         mode: FocalMode?,
+        sessionPhysicalIds: Set<String>? = null,
+        wideId: String? = null,
+        teleId: String? = null,
     ): Rect {
         val active =
             characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
                 ?: return Rect(0, 0, 0, 0)
-        return scalerCropRect(active, cameraId, mode)
+        return scalerCropRect(
+            active,
+            sessionCameraId,
+            mode,
+            sessionPhysicalIds,
+            wideId,
+            teleId,
+        )
     }
 
-    /**
-     * Testable entry: [activeArray] is typically from [SENSOR_INFO_ACTIVE_ARRAY_SIZE].
-     */
-    fun scalerCropRect(activeArray: Rect, cameraId: String, mode: FocalMode?): Rect {
+    fun scalerCropRect(
+        activeArray: Rect,
+        sessionCameraId: String,
+        mode: FocalMode?,
+        sessionPhysicalIds: Set<String>? = null,
+        wideId: String? = null,
+        teleId: String? = null,
+    ): Rect {
         if (mode == null) {
             return Rect(
                 activeArray.left,
@@ -53,7 +72,14 @@ object SensorCropGeometry {
                 activeArray.bottom,
             )
         }
-        if (!allowsDigitalCrop(cameraId, mode)) {
+        if (!allowsDigitalCrop(
+                sessionCameraId,
+                mode,
+                sessionPhysicalIds,
+                wideId,
+                teleId,
+            )
+        ) {
             return Rect(
                 activeArray.left,
                 activeArray.top,

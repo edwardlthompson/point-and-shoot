@@ -7,6 +7,23 @@ import org.junit.Test
 class BackCameraRoleResolverTest {
 
     @Test
+    fun `four physical backs assign uw wide portraitTele longTele by sorted focal`() {
+        val r =
+            BackCameraRoleResolver.rolesFromEnumeratedPhysicalsForTests(
+                listOf(
+                    "uw" to 2.2f,
+                    "wide" to 6.1f,
+                    "portrait" to 13f,
+                    "peri" to 24f,
+                ),
+            )
+        assertEquals("uw", r.ultraWide)
+        assertEquals("wide", r.wide)
+        assertEquals("portrait", r.tele)
+        assertEquals("peri", r.longTele)
+    }
+
+    @Test
     fun `three physical backs cluster uw wide tele by focal length`() {
         val r =
             BackCameraRoleResolver.rolesFromEnumeratedPhysicalsForTests(
@@ -79,5 +96,22 @@ class BackCameraRoleResolverTest {
     @Test
     fun pickCameraIdFromM23Resolve_empty_ids_returns_null() {
         assertNull(pickCameraIdFromM23Resolve("2" to null, emptyList()))
+    }
+
+    @Test
+    fun m150_preview_pin_always_mid_tele_even_when_long_tele_enumerated() {
+        val roles =
+            BackCameraRoleResolver.rolesFromEnumeratedPhysicalsForTests(
+                listOf(
+                    "uw" to 2.2f,
+                    "wide" to 6.1f,
+                    "portraitTele" to 13f,
+                    "periscope" to 24f,
+                ),
+            )
+        assertEquals("portraitTele", roles.tele)
+        assertEquals("periscope", roles.longTele)
+        assertEquals("portraitTele", telePhysicalForPreviewPin(FocalMmSlot.M150, roles))
+        assertEquals("portraitTele", telePhysicalForPreviewPin(FocalMmSlot.M73, roles))
     }
 }

@@ -19,7 +19,10 @@ object BackCameraRoleResolver {
     data class Roles(
         val wide: String?,
         val ultraWide: String?,
+        /** ~2–3× “portrait” tele used for 73 / 85 mm slots (not the longest periscope). */
         val tele: String?,
+        /** Longest focal rear module when present (150 mm slot); null on 3-lens stacks. */
+        val longTele: String? = null,
     )
 
     private val TELE_LEGACY_ORDER = listOf("4", "5", "6")
@@ -34,6 +37,7 @@ object BackCameraRoleResolver {
             wide = wide,
             ultraWide = ultraWideLegacy(cm, ids, wide),
             tele = teleLegacy(cm, ids, wide),
+            longTele = null,
         )
     }
 
@@ -48,7 +52,16 @@ object BackCameraRoleResolver {
 
     private fun rolesFromEnumeratedPhysicals(infos: List<BackPhys>): Roles {
         require(infos.isNotEmpty()) { "use legacy path for empty enumeration" }
-        if (infos.size >= 3) {
+        if (infos.size >= 4) {
+            val sorted = infos.sortedBy { it.focalMm ?: 0f }
+            val n = sorted.size
+            val uw = sorted[0].id
+            val wide = sorted[1].id
+            val tele = sorted[n - 2].id
+            val longTele = sorted[n - 1].id
+            return Roles(wide = wide, ultraWide = uw, tele = tele, longTele = longTele)
+        }
+        if (infos.size == 3) {
             val sortedFocal = infos.mapNotNull { it.focalMm }.sorted()
             val uw =
                 infos.minByOrNull { it.focalMm ?: Float.POSITIVE_INFINITY }?.id
@@ -62,7 +75,7 @@ object BackCameraRoleResolver {
                         abs((cam.focalMm ?: 0f) - (middleTarget ?: 0f))
                     }?.id
                     ?: infos.firstOrNull { it.id != uw && it.id != tele }?.id
-            return Roles(wide = main, ultraWide = uw, tele = tele)
+            return Roles(wide = main, ultraWide = uw, tele = tele, longTele = null)
         }
         if (infos.size == 2) {
             val sorted = infos.sortedBy { it.focalMm ?: 0f }
@@ -70,9 +83,10 @@ object BackCameraRoleResolver {
                 ultraWide = sorted[0].id,
                 wide = sorted[1].id,
                 tele = null,
+                longTele = null,
             )
         }
-        return Roles(wide = infos[0].id, ultraWide = null, tele = null)
+        return Roles(wide = infos[0].id, ultraWide = null, tele = null, longTele = null)
     }
 
     private data class BackPhys(val id: String, val focalMm: Float?)
@@ -153,20 +167,69 @@ object BackCameraRoleResolver {
         }
 }
 
+/**
+ * Physical tele module chosen for preview output pin / focal-row native hints on **73 / 85 / 150** mm slots.
+ * Always the clustering **mid-tele** ([Roles.tele]); 85 / 150 mm use digital crops on that sensor ([DODGE_PROFILE.md]).
+ */
+internal fun telePhysicalForPreviewPin(slot: FocalMmSlot, roles: BackCameraRoleResolver.Roles): String? =
+    when (slot) {
+        FocalMmSlot.M73, FocalMmSlot.M85, FocalMmSlot.M150 -> roles.tele
+        else -> null
+    }
+
+/**
+ * When [physicalCameraId] is a **child** of a logical multi-camera id (e.g. tele `4` under logical `0`),
+ * opening the **physical** id directly can crash some OEM HALs; open [logicalParent] and route the
+ * preview [OutputConfiguration] with [android.hardware.camera2.params.OutputConfiguration.setPhysicalCameraId].
+ */
+fun logicalParentForPhysicalCamera(cm: CameraManager, physicalCameraId: String, ids: List<String>): String? {
+    for (id in ids) {
+        val cc = runCatching { cm.getCameraCharacteristics(id) }.getOrNull() ?: continue
+        val children = runCatching { cc.physicalCameraIds }.getOrNull() ?: continue
+        if (physicalCameraId in children) return id
+    }
+    return null
+}
+
 fun resolveFocalMmSlot(context: Context, slot: FocalMmSlot, ids: List<String>): Pair<String, FocalMode?>? {
     val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     val roles = BackCameraRoleResolver.resolve(cm, ids)
+    return resolveFocalMmSlotWithRoles(cm, ids, roles, slot)
+}
+
+/**
+ * JVM-friendly hook for unit tests (fixed [BackCameraRoleResolver.Roles] without [CameraManager] stubs).
+ */
+internal fun resolveFocalMmSlotWithRoles(
+    cm: CameraManager,
+    ids: List<String>,
+    roles: BackCameraRoleResolver.Roles,
+    slot: FocalMmSlot,
+): Pair<String, FocalMode?>? {
     val wide = roles.wide ?: return null
-    val tele = roles.tele
     val uw = roles.ultraWide
+    /** Prefer opening an enumerated **physical** tele id directly when listed ([DODGE_PROFILE.md] `cameraId=4`). */
+    fun teleOpenablePair(physicalId: String?, mode: FocalMode?): Pair<String, FocalMode?>? =
+        physicalId?.let { tid ->
+            when {
+                tid in ids -> tid to mode
+                else ->
+                    logicalParentForPhysicalCamera(cm, tid, ids)?.let { parent -> parent to mode }
+                        ?: (tid to mode)
+            }
+        }
     return when (slot) {
         FocalMmSlot.M14 -> uw?.let { it to null }
         FocalMmSlot.M23 -> wide to null
         FocalMmSlot.M35 -> wide to FocalMode.Street35
         FocalMmSlot.M50 -> wide to FocalMode.Standard50
-        FocalMmSlot.M73 -> tele?.let { it to null }
-        FocalMmSlot.M85 -> tele?.let { it to FocalMode.Portrait85 }
-        FocalMmSlot.M150 -> tele?.let { it to FocalMode.LongTele150 }
+        FocalMmSlot.M73 -> teleOpenablePair(telePhysicalForPreviewPin(slot, roles), null)
+        FocalMmSlot.M85 -> teleOpenablePair(telePhysicalForPreviewPin(slot, roles), FocalMode.Portrait85)
+        FocalMmSlot.M150 ->
+            teleOpenablePair(
+                telePhysicalForPreviewPin(slot, roles),
+                FocalMode.LongTele150,
+            )
     }
 }
 

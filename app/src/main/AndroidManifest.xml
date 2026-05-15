@@ -5,6 +5,10 @@
     <uses-feature
         android:name="android.hardware.camera.any"
         android:required="false" />
+    <!-- Declared explicitly so OEM camera / resolver pickers can treat the app as camera-capable. -->
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 
     <!-- Dangerous / runtime: each must have a matching step in WelcomeFlowConfig.runtimePermissionSteps -->
     <uses-permission android:name="android.permission.CAMERA" />
@@ -53,6 +57,10 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="android.media.action.VIDEO_CAMERA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.media.action.VIDEO_CAPTURE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>

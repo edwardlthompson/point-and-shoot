@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
@@ -116,6 +117,42 @@ fun PnsChromePlainMenuItem(
                 label,
                 color = if (enabled) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.38f),
             )
+        },
+        onClick = onClick,
+        enabled = enabled,
+        colors = itemColors,
+    )
+}
+
+@Composable
+fun PnsChromeDetailMenuItem(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val itemColors =
+        MenuDefaults.itemColors(
+            textColor = Color.White.copy(alpha = 0.92f),
+            leadingIconColor = PnsColors.PhotoOrange,
+            disabledTextColor = Color.White.copy(alpha = 0.38f),
+            disabledLeadingIconColor = Color.White.copy(alpha = 0.28f),
+        )
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(
+                    title,
+                    color = if (enabled) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.38f),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    subtitle,
+                    modifier = Modifier.padding(top = 2.dp),
+                    color = if (enabled) Color.White.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.28f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
         },
         onClick = onClick,
         enabled = enabled,

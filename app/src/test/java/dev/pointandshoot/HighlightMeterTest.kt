@@ -9,6 +9,20 @@ class HighlightMeterTest {
     private fun emptyHist(): IntArray = IntArray(256)
 
     @Test
+    fun `suggestEvCorrection matches breakdown times instant engagement`() {
+        val h = emptyHist().also { it[254] = 1_000 }
+        val full = HighlightMeter.suggestEvCorrection(h)
+        val b = HighlightMeter.suggestEvCorrectionBreakdown(h)
+        val fromBreakdown =
+            if (b.evCore < 0.0) {
+                b.evCore * b.darkenEngagement
+            } else {
+                b.evCore
+            }
+        assertEquals(fromBreakdown, full, 1e-9)
+    }
+
+    @Test
     fun `empty histogram returns zero correction`() {
         val ev = HighlightMeter.suggestEvCorrection(emptyHist())
         assertEquals(0.0, ev, 0.0)
@@ -30,11 +44,11 @@ class HighlightMeterTest {
     }
 
     @Test
-    fun `dark histogram suggests positive EV (brighten)`() {
-        // All weight at bin 30 -> brighten toward default ceiling.
+    fun `evenly dark histogram without bright tail stays neutral`() {
+        // No pixels near white / no upper tail → H mode should not lift exposure vs normal AE.
         val h = emptyHist().also { it[30] = 1_000 }
         val ev = HighlightMeter.suggestEvCorrection(h)
-        assertTrue("expected positive ev to brighten; was $ev", ev > 0.0)
+        assertTrue("expected near-zero ev; was $ev", kotlin.math.abs(ev) < 0.02)
     }
 
     @Test
@@ -108,12 +122,33 @@ class HighlightMeterTest {
     }
 
     @Test
-    fun `slightly hot meter still pulls at least base floor`() {
-        // Just above default ceiling: log slope alone would be a small nudge; floor dominates.
-        val c = HighlightMeter.DEFAULT_HIGHLIGHT_CEILING
-        val h = emptyHist().also { it[c + 3] = 5_000 }
+    fun `bright upper tail still pulls darken with floor`() {
+        // Bulk mid + enough mass high that engagement ramps in; floor still applies vs ceiling.
+        val h =
+            emptyHist().apply {
+                this[48] = 398_500
+                this[236] = 2_500
+            }
         val ev = HighlightMeter.suggestEvCorrection(h)
-        assertTrue("expected base floor darken after gain; was $ev", ev <= -4.5)
+        assertTrue("expected strong darken after engagement + gain; was $ev", ev <= -3.5)
+    }
+
+    @Test
+    fun `uniform bright mid key without near clip mass stays neutral`() {
+        val h = emptyHist().apply {
+            for (b in 160..195) this[b] = 5_000
+        }
+        val ev = HighlightMeter.suggestEvCorrection(h)
+        assertTrue("expected near-neutral; was $ev", kotlin.math.abs(ev) < 0.06)
+    }
+
+    @Test
+    fun `even mid key scene without bright tail returns near zero`() {
+        val h = emptyHist().apply {
+            for (b in 90..130) this[b] = 2_000
+        }
+        val ev = HighlightMeter.suggestEvCorrection(h)
+        assertTrue("expected near-neutral; was $ev", kotlin.math.abs(ev) < 0.08)
     }
 
     @Test

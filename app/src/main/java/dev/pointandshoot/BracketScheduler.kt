@@ -70,11 +70,18 @@ object BracketScheduler {
             "rangeLow ($rangeLow) must be <= rangeHigh ($rangeHigh)"
         }
 
-        return plan.stops.map { stop ->
-            val raw = stop.evOffset / evPerStep
-            val rounded = raw.roundToInt()
-            clamp(rounded, rangeLow, rangeHigh)
-        }
+        val rounded =
+            plan.stops.map { stop ->
+                val raw = stop.evOffset / evPerStep
+                val r = raw.roundToInt()
+                clamp(r, rangeLow, rangeHigh)
+            }
+        return ensureDistinctAeCompensationSteps(
+            rounded,
+            rangeLow,
+            rangeHigh,
+            referenceIndex = plan.stops.indexOfFirst { it.isReference },
+        )
     }
 
     /**
@@ -89,4 +96,56 @@ object BracketScheduler {
     ): List<Int> = aeStepsFor(BracketPlan.build(pattern, evStep), cameraStep, range)
 
     private fun clamp(v: Int, lo: Int, hi: Int): Int = max(lo, min(hi, v))
+
+    /**
+     * After clamping, several EV steps can collapse to the same integer compensation unit (especially
+     * at range extremes). Camera2 still needs strictly increasing (or at least non-colliding) steps
+     * for meaningful bracket separation — repair by monotonic nudging, then a backward pass.
+     */
+    internal fun ensureDistinctAeCompensationSteps(
+        base: List<Int>,
+        rangeLow: Int,
+        rangeHigh: Int,
+        referenceIndex: Int,
+    ): List<Int> = bracketDistinctAeSteps(base, rangeLow, rangeHigh, referenceIndex)
+}
+
+private fun bracketDistinctAeSteps(
+    base: List<Int>,
+    rangeLow: Int,
+    rangeHigh: Int,
+    referenceIndex: Int,
+): List<Int> {
+    if (base.size <= 1) return base
+    if (base.distinct().size == base.size) return base
+    val bumped = bracketBumpMonotonicDistinct(base, rangeLow, rangeHigh)
+    return bracketShiftReferenceToZero(bumped, rangeLow, rangeHigh, referenceIndex)
+}
+
+private fun bracketBumpMonotonicDistinct(base: List<Int>, rangeLow: Int, rangeHigh: Int): MutableList<Int> {
+    val out = base.toMutableList()
+    for (i in 1 until out.size) {
+        if (out[i] <= out[i - 1]) {
+            out[i] = (out[i - 1] + 1).coerceAtMost(rangeHigh)
+        }
+    }
+    for (i in out.size - 2 downTo 0) {
+        if (out[i] >= out[i + 1]) {
+            out[i] = (out[i + 1] - 1).coerceAtLeast(rangeLow)
+        }
+    }
+    return out
+}
+
+private fun bracketShiftReferenceToZero(
+    out: List<Int>,
+    rangeLow: Int,
+    rangeHigh: Int,
+    referenceIndex: Int,
+): List<Int> {
+    if (referenceIndex !in out.indices || 0 !in rangeLow..rangeHigh) return out
+    val delta = -out[referenceIndex]
+    if (delta == 0) return out
+    val shifted = out.map { (it + delta).coerceIn(rangeLow, rangeHigh) }.toMutableList()
+    return bracketBumpMonotonicDistinct(shifted, rangeLow, rangeHigh)
 }

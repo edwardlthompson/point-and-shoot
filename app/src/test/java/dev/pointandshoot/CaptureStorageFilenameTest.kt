@@ -40,6 +40,17 @@ class CaptureStorageFilenameTest {
     }
 
     @Test
+    fun `JPEG only profile hardware JPEG filename contains jpeg_only id`() {
+        val name = CaptureStorage.filename(
+            profile = ImagingProfile.JpegOnly,
+            kind = CaptureStorage.CaptureKind.JpegSdr,
+            sequence = 2,
+        )
+        assertTrue("expected .jpg suffix; was $name", name.endsWith(".jpg"))
+        assertTrue("expected jpeg_only id; was $name", name.contains("_jpeg_only_"))
+    }
+
+    @Test
     fun `AVIF capture has avif extension`() {
         val name = CaptureStorage.filename(
             profile = ImagingProfile.StandardPro,

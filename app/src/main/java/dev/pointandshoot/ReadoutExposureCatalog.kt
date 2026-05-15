@@ -11,14 +11,15 @@ import android.util.Range
 data class ReadoutMenuSnapshot(
     val isoChoices: List<Int?>,
     val exposureChoices: List<Long?>,
-    val awbChoices: List<Int?>,
+    /** HAL AWB modes only (no implicit “program default”); see [ReadoutExposureCatalog.awbChoices]. */
+    val awbChoices: List<Int>,
 ) {
     companion object {
         val EMPTY =
             ReadoutMenuSnapshot(
                 listOf(null),
                 listOf(null),
-                listOf(null),
+                emptyList(),
             )
     }
 }
@@ -144,37 +145,41 @@ object ReadoutExposureCatalog {
     }
 
     /**
-     * AWB modes for popup; first entry is **null** = let the shooting program choose (no explicit override).
+     * AWB modes for the readout popup: **AWB (auto) first**, then presets **coldest → warmest**
+     * ([`AwbPresetReadout`] Kelvin anchors), then HAL-specific modes not in the table, then **OFF** last.
      */
-    fun awbChoices(chars: CameraCharacteristics): List<Int?> {
-        val avail = chars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES) ?: intArrayOf()
-        val list = ArrayList<Int?>()
-        list.add(null)
-        val ordered =
-            intArrayOf(
-                CaptureRequest.CONTROL_AWB_MODE_AUTO,
-                CaptureRequest.CONTROL_AWB_MODE_OFF,
-                CaptureRequest.CONTROL_AWB_MODE_INCANDESCENT,
-                CaptureRequest.CONTROL_AWB_MODE_FLUORESCENT,
-                CaptureRequest.CONTROL_AWB_MODE_WARM_FLUORESCENT,
-                CaptureRequest.CONTROL_AWB_MODE_DAYLIGHT,
-                CaptureRequest.CONTROL_AWB_MODE_CLOUDY_DAYLIGHT,
-                CaptureRequest.CONTROL_AWB_MODE_TWILIGHT,
-                CaptureRequest.CONTROL_AWB_MODE_SHADE,
-            )
+    fun awbChoices(chars: CameraCharacteristics): List<Int> =
+        awbChoicesFromAvailableModes(
+            chars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES) ?: intArrayOf(),
+        )
+
+    /**
+     * @see awbChoices — exposed for JVM unit tests without stubbing [CameraCharacteristics].
+     */
+    internal fun awbChoicesFromAvailableModes(avail: IntArray): List<Int> {
+        val out = ArrayList<Int>()
         val seen = HashSet<Int>()
-        for (m in ordered) {
+        if (avail.contains(CaptureRequest.CONTROL_AWB_MODE_AUTO) && seen.add(CaptureRequest.CONTROL_AWB_MODE_AUTO)) {
+            out.add(CaptureRequest.CONTROL_AWB_MODE_AUTO)
+        }
+        for (m in AwbPresetReadout.KELVIN_DESCENDING_PRESET_ORDER) {
             if (avail.contains(m) && seen.add(m)) {
-                list.add(m)
+                out.add(m)
             }
         }
         for (m in avail) {
-            if (!seen.contains(m)) {
-                list.add(m)
-                seen.add(m)
+            if (m == CaptureRequest.CONTROL_AWB_MODE_AUTO || m == CaptureRequest.CONTROL_AWB_MODE_OFF) {
+                continue
+            }
+            if (AwbPresetReadout.KELVIN_DESCENDING_PRESET_ORDER.contains(m)) continue
+            if (seen.add(m)) {
+                out.add(m)
             }
         }
-        return list
+        if (avail.contains(CaptureRequest.CONTROL_AWB_MODE_OFF) && seen.add(CaptureRequest.CONTROL_AWB_MODE_OFF)) {
+            out.add(CaptureRequest.CONTROL_AWB_MODE_OFF)
+        }
+        return out
     }
 
     fun clampIso(

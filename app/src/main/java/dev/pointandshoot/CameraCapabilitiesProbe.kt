@@ -2,6 +2,7 @@ package dev.pointandshoot
 
 import android.Manifest
 import android.content.Context
+import android.content.SharedPreferences
 import android.content.Intent
 import android.provider.MediaStore
 import android.provider.Settings
@@ -21,8 +22,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -73,6 +76,9 @@ const val EXTRA_PNS_PREVIEW_RAW_STILL_FAST = "pns_preview_raw_still_fast"
 const val EXTRA_PNS_PREVIEW_BRACKET = "pns_preview_bracket"
 /** `standard_pro` or `ultra_max` — seeds [ImagingProfile] for scripted preview capture (Sprint 4.3 RAW12). */
 const val EXTRA_PNS_PREVIEW_IMAGING_PROFILE = "pns_preview_imaging_profile"
+
+/** When true, cold start persists **HDR / 10-bit live preview** on before preview session create (M10 automation). */
+const val EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW = "pns_preview_hdr10_live_preview"
 /**
  * Optional RAW stream pick for preview session + still path (`default`, `raw_sensor_first`,
  * `raw12_only`, `raw_sensor_only`, `raw10_only`). See `RawStreamPreference` in `RawCaptureSupport.kt`.
@@ -114,6 +120,18 @@ const val EXTRA_PNS_PREVIEW_SELF_TIMER_SEC = "pns_preview_self_timer_sec"
 const val EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT = "pns_preview_focal_mm_slot"
 
 /**
+ * Optional **`--ez pns_preview_primary_photo false`** with [PNS_SCREEN_PREVIEW]: cold-start **video-primary**
+ * tray (vs photo-primary default).
+ */
+const val EXTRA_PNS_PREVIEW_PRIMARY_PHOTO = "pns_preview_primary_photo"
+
+/**
+ * Debug APK + [PNS_SCREEN_PREVIEW]: after preview settles, record **N** seconds via in-app
+ * [android.media.MediaRecorder] automation (**`scripts/pns_in_app_video_verify.ps1`**). Values clamp to **[0, 120]**.
+ */
+const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC = "pns_preview_automation_in_app_video_sec"
+
+/**
  * When true, after the full markdown probe is built (requires `CAMERA` grant), writes
  * [PROBE_EXPORT_LATEST_FILE] under the app's **files** dir. Host pull (debuggable):
  * `adb exec-out run-as dev.pointandshoot cat files/PROBE_EXPORT_LATEST.md`.
@@ -144,6 +162,9 @@ const val EXTRA_PNS_AUTO_ROOT_DIAGNOSTICS = "pns_auto_root_diagnostics"
 /** Value for [EXTRA_PNS_SCREEN] — opens the engineering hub ([DebugMenuScreen]) without a sub-probe route. */
 const val PNS_SCREEN_PROBE_HUB = "probehub"
 
+/** Value for [EXTRA_PNS_SCREEN] — CameraX preview + YUV [ImageAnalysis] QR / barcode scan (ZXing). */
+const val PNS_SCREEN_QR_SCAN = "qrscan"
+
 private const val SCREEN_ENC = "enc"
 private const val SCREEN_DEEPCAPS = "deepcaps"
 private const val SCREEN_SESSION_MATRIX = "sessionmatrix"
@@ -169,6 +190,7 @@ const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 fun CameraCapabilitiesProbe(
     launchScreen: String? = null,
     imageCaptureReturn: ImageCaptureReturnContract? = null,
+    videoCaptureReturn: VideoCaptureReturnContract? = null,
     autoSweep: Boolean = false,
     autoEncProbe: Boolean = false,
     autoDeepCaps: Boolean = false,
@@ -210,6 +232,7 @@ fun CameraCapabilitiesProbe(
     var showExhaustive by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
+    var aboutHalHfrMaxByCameraId by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     var showProHud by remember { mutableStateOf(false) }
     var showHudSettings by remember { mutableStateOf(false) }
     var hudSettingsFocus by remember { mutableStateOf(HudSettingsFocus.None) }
@@ -219,14 +242,78 @@ fun CameraCapabilitiesProbe(
     var showNativeDiagnostics by remember { mutableStateOf(false) }
     var showRootSettings by remember { mutableStateOf(false) }
     var showFaceMeterProbe by remember { mutableStateOf(false) }
+    var showQrScan by remember { mutableStateOf(false) }
     var showDebugMenu by remember { mutableStateOf(false) }
     var previewLaunchedFromDebug by remember { mutableStateOf(false) }
+    var probeHubNavEpoch by remember { mutableIntStateOf(0) }
+
+    var shallowRescanSeq by remember {
+        mutableLongStateOf(ShallowCapabilityCacheStore.readRescanSeq(context.applicationContext))
+    }
+    val appCtx = context.applicationContext
+    DisposableEffect(appCtx) {
+        val prefs = ShallowCapabilityCacheStore.prefs(appCtx)
+        val listener =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == ShallowCapabilityCacheStore.KEY_RESCAN_SEQ) {
+                    shallowRescanSeq = prefs.getLong(ShallowCapabilityCacheStore.KEY_RESCAN_SEQ, 0L)
+                }
+            }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     val activity = context as? ComponentActivity
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
     val intentExhaustiveHfrOnly = activity?.intent?.getBooleanExtra(EXTRA_PNS_EXHAUSTIVE_HFR_ONLY, false) ?: false
     val effectiveIncludeLogical = exhaustiveIncludeLogical || intentIncludeLogical
     val effectiveExhaustiveHfrOnly = exhaustiveHfrOnly || intentExhaustiveHfrOnly
+
+    fun navigateProbeFromTitle(title: String, dismissDebugMenu: Boolean) {
+        if (dismissDebugMenu) showDebugMenu = false
+        when (title) {
+            "Dodge lens mapping" -> showMapping = true
+            "Live preview (engine)" -> {
+                previewLaunchedFromDebug = true
+                showPreviewEngine = true
+            }
+            "QR / barcode scan" -> showQrScan = true
+            "Legacy Camera1 probe" -> showLegacyCamera1 = true
+            "Deep capabilities" -> showDeepCaps = true
+            "Face / eye / metering probe" -> showFaceMeterProbe = true
+            "Session configuration matrix" -> showSessionMatrix = true
+            "HDR / dynamic range runtime" -> showHdrDcgRuntime = true
+            "Logical vs physical" -> showLogicalPhysical = true
+            "Exhaustive encoder / media matrix" -> showExhaustive = true
+            "HFR encoder probe" -> showEncoderProbe = true
+            "Capture latency" -> showCaptureLatency = true
+            "RAW vs HDR exclusivity" -> showRawHdrExcl = true
+            "Burst probe" -> showBurstProbe = true
+            "Calibrate" -> showCalibrate = true
+            "Import LUT" -> showLutImport = true
+            "Live GL LUT preview" -> showGlPreview = true
+            "Pro HUD (mock)" -> showProHud = true
+            "HUD settings" -> {
+                hudSettingsFocus = HudSettingsFocus.None
+                showHudSettings = true
+            }
+            "About / heritage" -> showAbout = true
+            "Native diagnostics" -> showNativeDiagnostics = true
+            "Root-only enhancements" -> showRootSettings = true
+            "Diagnostics dump (quick)" -> {
+                DiagnosticsMode.setEnabled(context, true)
+                val path = DiagnosticsMode.dump(context)
+                val msg =
+                    if (path != null) {
+                        "Diagnostics written to $path"
+                    } else {
+                        "Diagnostics dump skipped (no external storage)"
+                    }
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+            else -> Log.w(TAG_PROBE_HUB, "Unknown probe hub entry title=$title")
+        }
+    }
 
     var permissionEpoch by remember { mutableIntStateOf(0) }
     val requestPermission = rememberLauncherForActivityResult(
@@ -296,17 +383,27 @@ fun CameraCapabilitiesProbe(
         }
     }
 
-    LaunchedEffect(showAbout) {
+    LaunchedEffect(showAbout, hasCameraPermission) {
         if (!showAbout) return@LaunchedEffect
         aboutLiveSummary =
             EncoderAttemptJsonAdapter.loadLatest(context)?.let { result ->
                 EncoderResultAggregator.summarize(result.attempts)
+            }
+        aboutHalHfrMaxByCameraId =
+            if (hasCameraPermission) {
+                DeviceCameraCapabilityCache.halHighSpeedMaxFpsByCameraId(context.applicationContext)
+            } else {
+                emptyMap()
             }
     }
 
     LaunchedEffect(hasCameraPermission, launchScreen) {
         if (launchScreen == PNS_SCREEN_FACE_METER) {
             showFaceMeterProbe = true
+            return@LaunchedEffect
+        }
+        if (launchScreen == PNS_SCREEN_QR_SCAN) {
+            showQrScan = true
             return@LaunchedEffect
         }
         if (!hasCameraPermission) return@LaunchedEffect
@@ -355,8 +452,8 @@ fun CameraCapabilitiesProbe(
         }
     }
 
-    LaunchedEffect(hasCameraPermission, launchScreen) {
-        if (launchScreen == PNS_SCREEN_FACE_METER) {
+    LaunchedEffect(hasCameraPermission, launchScreen, shallowRescanSeq) {
+        if (launchScreen == PNS_SCREEN_FACE_METER || launchScreen == PNS_SCREEN_QR_SCAN) {
             return@LaunchedEffect
         }
         if (!hasCameraPermission) {
@@ -384,7 +481,8 @@ fun CameraCapabilitiesProbe(
                 ?.toIntOrNull()
                 ?: cameraSummaries.size
         val degraded = report.contains("degraded=true")
-        shallowScanHubLine = "Shallow scan: ${elapsedMs}ms cameras=$camCount degraded=$degraded"
+        val disk = if (ShallowCapabilityCacheStore.loadValidCachedRoot(context) != null) " diskCache=ok" else ""
+        shallowScanHubLine = "Shallow scan: ${elapsedMs}ms cameras=$camCount degraded=$degraded$disk"
         Log.i(TAG_PROBE_HUB, shallowScanHubLine ?: "")
 
         capabilityGateLines = CapabilityGateBridge.uiLines(context)
@@ -403,6 +501,7 @@ fun CameraCapabilitiesProbe(
             inz != null &&
                 (
                     inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_FACE_METER ||
+                        inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_QR_SCAN ||
                         inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_CAMERA_EXT_SMOKE ||
                         (
                             inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_PREVIEW &&
@@ -418,7 +517,11 @@ fun CameraCapabilitiesProbe(
                                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
                                         inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC) ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT).isNullOrBlank() ||
-                                        inz.action == MediaStore.ACTION_IMAGE_CAPTURE
+                                        inz.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) ||
+                                        ((inz.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0) > 0) ||
+                                        inz.hasExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW) ||
+                                        inz.action == MediaStore.ACTION_IMAGE_CAPTURE ||
+                                        inz.action == MediaStore.ACTION_VIDEO_CAPTURE
                                 )
                             )
                     )
@@ -448,7 +551,14 @@ fun CameraCapabilitiesProbe(
             activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false) ?: false
         val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
         val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
-        val previewSeedPrimaryPhoto = activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA
+        val intentPrimaryPhotoSeed =
+            activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) }
+                ?.getBooleanExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, true)
+        val previewSeedPrimaryPhoto =
+            intentPrimaryPhotoSeed ?: (
+                activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA &&
+                    activity?.intent?.action != MediaStore.ACTION_VIDEO_CAPTURE
+            )
         /**
          * Sticky `Intent` problem: ADB / Studio may leave `pns_preview_raw_count`, `pns_preview_raw_stream`,
          * `pns_preview_jpeg_companion`, etc. on [ComponentActivity.getIntent]. Re-reading those every
@@ -466,8 +576,15 @@ fun CameraCapabilitiesProbe(
             adbRawCountRaw > 0 ||
                 adbBracketRaw != null ||
                 launchScreen == PNS_SCREEN_PREVIEW ||
-                !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank())
+                !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank()) ||
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0) > 0
         val useIntentAutomationPipeline = trustIntentForPreviewPipeline && automationWantsIntentPipeline
+        val adbAutomationInAppVideoSec =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
+            } else {
+                0
+            }
         val adbSequentialRawStills = if (trustIntentForPreviewPipeline) adbRawCountRaw else 0
         val adbBracketPattern = if (trustIntentForPreviewPipeline) adbBracketRaw else null
         val adbRawStreamPreference = if (useIntentAutomationPipeline) adbRawStreamFromIntent else null
@@ -484,16 +601,22 @@ fun CameraCapabilitiesProbe(
             }
         PreviewEngineScreen(
             onBack = {
-                val ic = imageCaptureReturn
-                if (ic != null) {
-                    ic.host.setResult(android.app.Activity.RESULT_CANCELED)
-                    ic.host.finish()
-                } else {
-                    showPreviewEngine = false
-                    if (previewLaunchedFromDebug) {
-                        showDebugMenu = true
+                when {
+                    imageCaptureReturn != null -> {
+                        imageCaptureReturn.host.setResult(android.app.Activity.RESULT_CANCELED)
+                        imageCaptureReturn.host.finish()
                     }
-                    previewLaunchedFromDebug = false
+                    videoCaptureReturn != null -> {
+                        videoCaptureReturn.host.setResult(android.app.Activity.RESULT_CANCELED)
+                        videoCaptureReturn.host.finish()
+                    }
+                    else -> {
+                        showPreviewEngine = false
+                        if (previewLaunchedFromDebug) {
+                            showDebugMenu = true
+                        }
+                        previewLaunchedFromDebug = false
+                    }
                 }
             },
             onOpenDeveloperMenu = {
@@ -516,7 +639,9 @@ fun CameraCapabilitiesProbe(
             adbInitialSelfTimerSec = adbSelfTimerSec,
             adbFocalMmSlotProbe = adbFocalMmSlotProbe,
             imageCaptureReturn = imageCaptureReturn,
+            videoCaptureReturn = videoCaptureReturn,
             initialPrimaryPhoto = previewSeedPrimaryPhoto,
+            adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
         )
         return
     }
@@ -619,6 +744,7 @@ fun CameraCapabilitiesProbe(
         AboutScreen(
             onBack = { showAbout = false },
             liveSummary = aboutLiveSummary,
+            liveHalHfrMaxByCameraId = aboutHalHfrMaxByCameraId,
         )
         return
     }
@@ -635,6 +761,12 @@ fun CameraCapabilitiesProbe(
                 hudSettingsFocus = HudSettingsFocus.None
             },
             initialFocus = hudSettingsFocus,
+            onReplayWelcomeTips = {
+                WelcomePrefs.resetPermissionOnboardingForDebug(context.applicationContext)
+                showHudSettings = false
+                hudSettingsFocus = HudSettingsFocus.None
+                showPermissionWelcome = true
+            },
         )
         return
     }
@@ -681,6 +813,20 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    if (showQrScan) {
+        QrScanScreen(
+            hasCameraPermission = hasCameraPermission,
+            onRequestCameraPermission = { requestPermission.launch(Manifest.permission.CAMERA) },
+            onBack = {
+                showQrScan = false
+                if (launchScreen == PNS_SCREEN_QR_SCAN) {
+                    activity?.finish()
+                }
+            },
+        )
+        return
+    }
+
     if (launchScreen == null && showDebugMenu) {
         val insets = rememberSystemInsetsDp()
         DebugMenuScreen(
@@ -692,6 +838,7 @@ fun CameraCapabilitiesProbe(
                     cameraSummaries = cameraSummaries,
                     shallowScanHubLine = shallowScanHubLine,
                     capabilityGateLines = capabilityGateLines,
+                    logicalMultiCameraActivePhysicalId = PreviewLogicalPhysicalDebugBridge.snapshot(),
                 ),
             onBackToCamera = {
                 showDebugMenu = false
@@ -724,6 +871,10 @@ fun CameraCapabilitiesProbe(
             onShowFaceMeterProbe = {
                 showDebugMenu = false
                 showFaceMeterProbe = true
+            },
+            onShowQrScan = {
+                showDebugMenu = false
+                showQrScan = true
             },
             onShowSessionMatrix = {
                 showDebugMenu = false
@@ -804,17 +955,37 @@ fun CameraCapabilitiesProbe(
                     .format(Instant.now())
                 exportLauncher.launch("PROBE_RESULTS_$ts.md")
             },
+            probeHubNavEpoch = probeHubNavEpoch,
+            onRecordProbeHubEntry = { t ->
+                ProbeHubRecentsStore.recordOpen(appCtx, t)
+                probeHubNavEpoch++
+            },
+            onLaunchProbeHubTitle = { navigateProbeFromTitle(it, dismissDebugMenu = true) },
+            onToggleProbeHubFavorite = { t ->
+                ProbeHubRecentsStore.toggleFavoriteTitle(appCtx, t)
+                probeHubNavEpoch++
+            },
         )
         return
     }
 
     if (launchScreen == null) {
-        val previewSeedPrimaryPhoto = activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA
+        val intentPrimaryPhotoDefault =
+            activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) }
+                ?.getBooleanExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, true)
+        val previewSeedPrimaryPhoto =
+            intentPrimaryPhotoDefault ?: (
+                activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA &&
+                    activity?.intent?.action != MediaStore.ACTION_VIDEO_CAPTURE
+            )
+        val adbAutomationInAppVideoSec =
+            (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
         PreviewEngineScreen(
             onBack = { activity?.finish() },
             onOpenDeveloperMenu = { showDebugMenu = true },
             startAutoSweep = autoSweep,
             initialPrimaryPhoto = previewSeedPrimaryPhoto,
+            adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
         )
         return
     }
@@ -833,6 +1004,7 @@ fun CameraCapabilitiesProbe(
                 cameraSummaries = cameraSummaries,
                 shallowScanHubLine = shallowScanHubLine,
                 capabilityGateLines = capabilityGateLines,
+                logicalMultiCameraActivePhysicalId = PreviewLogicalPhysicalDebugBridge.snapshot(),
             ),
         onBackToCamera = null,
         onShowMapping = { showMapping = true },
@@ -844,6 +1016,7 @@ fun CameraCapabilitiesProbe(
         onShowLegacyCamera1 = { showLegacyCamera1 = true },
         onShowDeepCaps = { showDeepCaps = true },
         onShowFaceMeterProbe = { showFaceMeterProbe = true },
+        onShowQrScan = { showQrScan = true },
         onShowSessionMatrix = { showSessionMatrix = true },
         onShowHdrDcgRuntime = { showHdrDcgRuntime = true },
         onShowCaptureLatency = { showCaptureLatency = true },
@@ -878,6 +1051,16 @@ fun CameraCapabilitiesProbe(
                 .withZone(ZoneId.systemDefault())
                 .format(Instant.now())
             exportLauncher.launch("PROBE_RESULTS_$ts.md")
+        },
+        probeHubNavEpoch = probeHubNavEpoch,
+        onRecordProbeHubEntry = { t ->
+            ProbeHubRecentsStore.recordOpen(appCtx, t)
+            probeHubNavEpoch++
+        },
+        onLaunchProbeHubTitle = { navigateProbeFromTitle(it, dismissDebugMenu = false) },
+        onToggleProbeHubFavorite = { t ->
+            ProbeHubRecentsStore.toggleFavoriteTitle(appCtx, t)
+            probeHubNavEpoch++
         },
     )
 }
@@ -1031,10 +1214,9 @@ internal fun buildProbeReport(context: Context, scanBudgetMs: Long = 4000L): Str
         }
     }
 
-    DeviceCameraCapabilityCache.appendMarkdownJsonBlock(
-        sb,
-        DeviceCameraCapabilityCache.buildRoot(context.applicationContext, camerasJson, scanDegraded),
-    )
+    val shallowRoot = DeviceCameraCapabilityCache.buildRoot(context.applicationContext, camerasJson, scanDegraded)
+    DeviceCameraCapabilityCache.appendMarkdownJsonBlock(sb, shallowRoot)
+    ShallowCapabilityCacheStore.saveAfterProbe(context.applicationContext, shallowRoot)
 
     return sb.toString()
 }
@@ -1389,6 +1571,7 @@ private fun Intent?.previewImagingProfileExtra(): ImagingProfile? {
     return when (s) {
         ImagingProfile.StandardPro.id -> ImagingProfile.StandardPro
         ImagingProfile.UltraMax.id -> ImagingProfile.UltraMax
+        ImagingProfile.JpegOnly.id -> ImagingProfile.JpegOnly
         else -> null
     }
 }

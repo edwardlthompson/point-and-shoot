@@ -133,4 +133,34 @@ class FaceDetectAdapterTest {
             )
         }
     }
+
+    @Test
+    fun `uniform center crop differs from legacy stretch when buffer aspect mismatches sensor`() {
+        val sensorX = 3000
+        val sensorY = sensorH / 2
+        val stretch = FaceDetectAdapter.mapEyeToPreview(
+            eyeSensor = SensorPoint(sensorX, sensorY),
+            activeArrayWidth = sensorW,
+            activeArrayHeight = sensorH,
+            previewWidth = previewW,
+            previewHeight = previewH,
+            sensorOrientationDeg = 0,
+            mirrorHorizontally = false,
+            bufferScalePolicy = FaceDetectAdapter.PreviewBufferScalePolicy.Stretch,
+        )
+        val uniform = FaceDetectAdapter.mapEyeToPreview(
+            eyeSensor = SensorPoint(sensorX, sensorY),
+            activeArrayWidth = sensorW,
+            activeArrayHeight = sensorH,
+            previewWidth = previewW,
+            previewHeight = previewH,
+            sensorOrientationDeg = 0,
+            mirrorHorizontally = false,
+            bufferScalePolicy = FaceDetectAdapter.PreviewBufferScalePolicy.UniformCover,
+        )
+        assertEquals(810f, stretch.position.x, tolerance)
+        assertEquals(1180f, uniform.position.x, tolerance)
+        assertEquals(960f, stretch.position.y, tolerance)
+        assertEquals(960f, uniform.position.y, tolerance)
+    }
 }

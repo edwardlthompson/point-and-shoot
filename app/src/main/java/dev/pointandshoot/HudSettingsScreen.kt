@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import android.widget.Toast
 
 /**
  * HUD toggles + extras for the in-preview **Settings** popup (same data as [HudSettingsScreen], chrome styling).
@@ -90,6 +91,25 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
             }
         }
 
+        OutlinedButton(
+            onClick = {
+                ShallowCapabilityCacheStore.requestShallowScanRescan(ctx.applicationContext)
+                Toast.makeText(
+                    ctx,
+                    "Shallow rescan queued — reopen Diagnostics hub to refresh.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Rescan cameras (shallow cache)")
+        }
+        Text(
+            text = ShallowCapabilityCacheStore.lastScanSummaryLine(ctx),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.52f),
+        )
+
         Text(
             text = "HUD elements",
             style = MaterialTheme.typography.titleSmall,
@@ -102,7 +122,9 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
         WhiteBalanceReadoutInfoCard()
         CompositionGuideQuickControls()
         TextButton(
-            onClick = { onUpdate(HudSettings()) },
+            onClick = {
+                onUpdate(HudSettings())
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Reset HUD to defaults", color = Color.White.copy(alpha = 0.88f))
@@ -123,6 +145,7 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
 fun HudSettingsScreen(
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus = HudSettingsFocus.None,
+    onReplayWelcomeTips: (() -> Unit)? = null,
 ) {
     val state = rememberHudSettings()
     val insets = rememberSystemInsetsDp()
@@ -132,6 +155,7 @@ fun HudSettingsScreen(
         onUpdate = state.update,
         onBack = onBack,
         initialFocus = initialFocus,
+        onReplayWelcomeTips = onReplayWelcomeTips,
     )
 }
 
@@ -142,6 +166,7 @@ private fun HudSettingsScreenContent(
     onUpdate: (HudSettings) -> Unit,
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus,
+    onReplayWelcomeTips: (() -> Unit)?,
 ) {
     val ctx = LocalContext.current
     val cameraGranted =
@@ -166,7 +191,16 @@ private fun HudSettingsScreenContent(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             OutlinedButton(onClick = onBack) { Text("Back") }
-            OutlinedButton(onClick = { onUpdate(HudSettings()) }) { Text("Reset to defaults") }
+            OutlinedButton(
+                onClick = {
+                    onUpdate(HudSettings())
+                },
+            ) {
+                Text("Reset to defaults")
+            }
+            if (onReplayWelcomeTips != null) {
+                OutlinedButton(onClick = onReplayWelcomeTips) { Text("Replay welcome tips") }
+            }
         }
 
         Text("Settings > HUD", style = MaterialTheme.typography.titleLarge)
@@ -208,6 +242,25 @@ private fun HudSettingsScreenContent(
                 }
             }
         }
+
+        OutlinedButton(
+            onClick = {
+                ShallowCapabilityCacheStore.requestShallowScanRescan(ctx.applicationContext)
+                Toast.makeText(
+                    ctx,
+                    "Shallow rescan queued — reopen Diagnostics hub to refresh.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Rescan cameras (shallow cache)")
+        }
+        Text(
+            text = ShallowCapabilityCacheStore.lastScanSummaryLine(ctx),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.52f),
+        )
 
         val listState = rememberLazyListState()
         LaunchedEffect(initialFocus, rows) {
@@ -428,6 +481,14 @@ private fun hudToggleRows(
                     "isSessionConfigurationSupported. Off by default.",
             enabled = settings.enableHdr10LivePreview,
             onChange = { onUpdate(settings.copy(enableHdr10LivePreview = it)) },
+        ),
+        HudToggleRow(
+            title = "Research: AF bracketing session vendor key",
+            description =
+                "When advertised (Qualcomm `EnableAFBracketing` session key), attaches it to REGULAR " +
+                    "preview session parameters. Off by default — HAL-specific; disable if preview fails to open.",
+            enabled = settings.enableResearchAfBracketing,
+            onChange = { onUpdate(settings.copy(enableResearchAfBracketing = it)) },
         ),
     )
 

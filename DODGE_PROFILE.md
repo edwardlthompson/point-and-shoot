@@ -4,7 +4,9 @@ This document maps the **Point & Shoot** shooting modes (15/23/35/50/73/85/150/2
 
 Primary probe artifacts: exported **`PROBE_EXPORT_LATEST.md`** (Markdown dump), **`hfr-runs/deep_caps_round11.json`** (lensInfo + keys; adb **8bf09993**), plus newer **`deep_caps_*.json`** / **`logical_physical_*.json`** runs under `hfr-runs/` when present.
 
-**Focal slot availability (Milestone 10.2, pure policy):** digital equivalents **35 / 50 / 85 / 150** mm are only meaningful when the active rear **active-array** budget is **≥ 12 effective MP** (`width × height / 1e6`); see **`FocalSlotAvailability`** in code (UI graying / lens strip remains **[MIXED]**).
+**Fleet evidence (Milestone 10 Sprint 10.8):** see **`docs/FLEET_REFERENCE_M10_8.md`** for reconciling this profile with committed **`PROBE_RESULTS.md`** and scripted RAW outcomes in **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**.
+
+**Focal slot availability (Milestone 10.2):** digital equivalents **35 / 50 / 85 / 150** mm are only meaningful when the active rear **active-array** budget is **≥ 12 effective MP** (`width × height / 1e6`); see **`FocalSlotAvailability`** + **`FocalLensStripSupport`** in code (preview focal row shows native mm sublabels; tele slots dim on front camera; probe-hub shallow rescan bumps **`rememberFocalMapCalibratingHintVisible`** → **“Calibrating focal map…”** on the readout strip until a valid cache JSON lands).
 
 ## Spec ↔ Camera2 mapping (master table)
 
@@ -104,7 +106,12 @@ lives in this file alongside `CropPlan`),
 
 The AboutScreen renders these dynamically from `EncoderSummary` (built on
 top of `EncoderResultAggregator` + `EncoderRecipeBuilder`) so the doc and
-the in-app surface cannot drift. The static table below is the audit-time
+the in-app surface cannot drift. **Preview** FPS quick targets are enumerated
+per `cameraId` from AE + high-speed tables (`PreviewFpsSupport`); switching
+lenses may clamp the target when the prior fps is not stock-achievable on the
+new camera. **About → From the latest probe (live)** also prints each row’s
+**HAL HFR max (catalog)** next to encoder-measured recipes when camera
+permission is granted. The static table below is the audit-time
 snapshot for offline reference; the in-app surface is the source of truth
 for any specific build.
 
@@ -124,6 +131,16 @@ Each `FocalMode` defaults to the Standard Pro imaging profile (lossless DNG
 + 10-bit AVIF + Display P3) unless explicitly overridden. Switching to
 Ultra-Max bumps the imaging pipeline to uncompressed RAW12 + 12-bit JXL +
 Rec. 2020 across every focal mode (see `ImagingProfile.kt`).
+
+### HUD readout vs live session (Milestone 10.5)
+
+The finder readout RAW pipeline chip (`PreviewReadoutStrip`) and the matching
+`PNS.ChromeUx` `readoutCapture=` line are computed by **`PreviewReadoutStillPipeline`**:
+
+- **Standard Pro** — **`DNG`**: lossless compressed DNG only. **`DNG+`**: user enabled **RAW + JPEG companion** *and* the preview session actually attached a hardware JPEG **`ImageReader`** (`PreviewController.previewUsesJpegCompanion()`).
+- **Ultra-Max** — **`DNG12`**: uncompressed RAW12 DNG intent (JPEG companion is often omitted on **CPH2655-class** stacks where RAW12+JPEG broke session create). **`DNG12+`** when both the profile and the live session carry the companion surface.
+- **JPEG-only profile** — **`JPG`** (readout chip; rail cycle label matches **`ImagingProfile.previewStillModeShortLabel`**).
+- **`scripts/pns_chrome_ux_gate.ps1`** accepts **`DNG`/`DNG+`/`DNG12`/`DNG12+`/`JPEG`/`JPG`** and legacy **`RAW`/`RAW+`** tokens for older logcats.
 
 ## Color & LUT pipeline applicability
 
@@ -199,10 +216,12 @@ Cross-fleet map: **what the HAL advertises**, **where the app branches**, and **
 | Shallow camera metadata (no session) | `CameraCapabilitiesProbe.buildProbeReport`, `DeviceCameraCapabilityCache`, wall-clock budget + `degraded=true` | **`PNS.ProbeHub`** `Shallow scan:` log line; **`scripts/pns_shallow_scan_hub_validate.ps1`** + **`pns_automation_smoke.ps1`**; `PROBE_RESULTS_*.md` export; `files/PROBE_EXPORT_LATEST.md` + `scripts/pns_ae_highlight_probe_adb.ps1` |
 | Logical / physical routing | `DodgeMappingScreen`, `PreviewEngineScreen` physical id readout | Manual dodge screen; `PNS.AdbValidation` preview scenarios |
 | RAW format pick (12 / 10 / sensor) | `RawCaptureSupport.pickRawOutput`, probe `rawPickEffective=` | Probe Markdown RAW stream tables; `RawCaptureSupportTest` |
-| Focal-length slot availability | `FocalSlotAvailability` (MP gate for digital eq.) | `FocalSlotAvailabilityTest`; readout chips on preview |
+| Readout RAW chip vs session | `PreviewReadoutStillPipeline` + `PreviewController.previewUsesJpegCompanion` | `PNS.ChromeUx` `readoutCapture=`; `pns_chrome_ux_gate.ps1` |
+| Per-lens HFR ceiling (preview + About) | `PreviewFpsSupport` + `DeviceCameraCapabilityCache.halHighSpeedMaxFpsByCameraId` | FPS sheet / readout; About live recipes `HAL HFR max (catalog)`; `fpsClampForLens` in `PNS.ChromeUx` |
+| Focal-length slot availability | `FocalSlotAvailability` + `FocalLensStripSupport` (MP gate, front tele dim, rescan hint) | `FocalSlotAvailabilityTest` / `FocalLensStripSupportTest`; preview focal row chips |
 | Capability gate HUD | `CapabilityGateBridge`, `CapabilityGate`, Settings → HUD | Engineering hub **Capability gates (live)** |
 | HDR / 10-bit preview session | `PreviewHdrSessionSupport`, `PreviewController` session retries | `PNS.AdbValidation` `previewSessionDynamicRange`; `PreviewHdrSessionSupportTest` |
-| Flash / torch / strength | `PreviewFlashPolicy`, 7×7 flash tile | `scripts/pns_chrome_ux_gate.ps1`, `chrome_ux_gate.json` |
+| Flash / torch / strength | `PreviewFlashPolicy`, 7×3 flash tile | `scripts/pns_chrome_ux_gate.ps1`, `chrome_ux_gate.json` |
 | Stream use-case hints | `Camera2SessionCompat.outputConfigurationsWithOptionalStreamUseCases` | Session-matrix / preview validate logs |
 | Camera2 extensions | `CameraExtensionSupport`, `CameraExtensionSessionSmokeRunner` | `pns_screen=cameraextsmoke`; probe export section |
 | Reprocess still hints | `PreviewReprocessStillHints` | Probe export; `CaptureLatencyProbeScreen` |

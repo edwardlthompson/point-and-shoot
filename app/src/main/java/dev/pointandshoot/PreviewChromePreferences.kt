@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.content.Context
+import android.hardware.camera2.CameraManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +70,12 @@ data class PreviewChromePreferences(
      * Default **Auto** (not forced flash); user choice persists in [PREFS_NAME].
      */
     val previewFlashMode: PreviewFlashMode = PreviewFlashMode.Auto,
+    /**
+     * In-app [android.media.MediaRecorder] encode width/height; **0×0** means auto (720p-first heuristic).
+     * Validated against per-camera [android.hardware.camera2.params.StreamConfigurationMap] when recording starts.
+     */
+    val inAppVideoEncodeWidth: Int = 0,
+    val inAppVideoEncodeHeight: Int = 0,
 ) {
     companion object {
         const val PREFS_NAME = "pns_preview_chrome"
@@ -86,6 +93,32 @@ data class PreviewChromePreferences(
         private const val KEY_SELF_TIMER_DELAY_SEC = "self_timer_delay_sec"
         private const val KEY_STILL_JPEG_COMPANION = "still_capture_jpeg_companion"
         private const val KEY_PREVIEW_FLASH_MODE = "preview_flash_mode_ordinal"
+        private const val KEY_IN_APP_VIDEO_ENC_W = "in_app_video_encode_w"
+        private const val KEY_IN_APP_VIDEO_ENC_H = "in_app_video_encode_h"
+        private const val KEY_LAST_REAR_CAMERA_ID = "last_rear_camera_id"
+
+        /** Last non-front preview `cameraId` (for Milestone **10.2** / future front→rear UX). */
+        fun readLastRearCameraId(context: Context): String? {
+            val raw =
+                context.applicationContext
+                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getString(KEY_LAST_REAR_CAMERA_ID, null)
+                    ?.trim()
+                    ?: return null
+            if (raw.isEmpty()) return null
+            val cm = context.applicationContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            return raw.takeIf { !Camera2Facing.isFrontCamera(cm, it) }
+        }
+
+        fun saveLastRearCameraIdIfRear(context: Context, cameraId: String) {
+            val id = cameraId.trim()
+            if (id.isEmpty()) return
+            val cm = context.applicationContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            if (Camera2Facing.isFrontCamera(cm, id)) return
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+                .putString(KEY_LAST_REAR_CAMERA_ID, id)
+                .apply()
+        }
 
         fun load(context: Context): PreviewChromePreferences {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -111,6 +144,10 @@ data class PreviewChromePreferences(
                     PreviewFlashMode.fromStorageOrdinal(
                         prefs.getInt(KEY_PREVIEW_FLASH_MODE, defaults.previewFlashMode.ordinal),
                     ),
+                inAppVideoEncodeWidth =
+                    prefs.getInt(KEY_IN_APP_VIDEO_ENC_W, defaults.inAppVideoEncodeWidth).coerceAtLeast(0),
+                inAppVideoEncodeHeight =
+                    prefs.getInt(KEY_IN_APP_VIDEO_ENC_H, defaults.inAppVideoEncodeHeight).coerceAtLeast(0),
             )
         }
 
@@ -129,6 +166,8 @@ data class PreviewChromePreferences(
                 .putInt(KEY_SELF_TIMER_DELAY_SEC, normalizeSelfTimerDelaySec(value.selfTimerDelaySec))
                 .putBoolean(KEY_STILL_JPEG_COMPANION, value.stillCaptureJpegCompanion)
                 .putInt(KEY_PREVIEW_FLASH_MODE, value.previewFlashMode.ordinal)
+                .putInt(KEY_IN_APP_VIDEO_ENC_W, value.inAppVideoEncodeWidth.coerceAtLeast(0))
+                .putInt(KEY_IN_APP_VIDEO_ENC_H, value.inAppVideoEncodeHeight.coerceAtLeast(0))
                 .apply()
         }
 

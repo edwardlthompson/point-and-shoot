@@ -57,7 +57,18 @@ class BracketSchedulerTest {
             rangeLow = -3,
             rangeHigh = 3,
         )
-        assertEquals(listOf(-3, -3, -2, 0, 2, 3, 3), steps)
+        assertEquals(listOf(-3, -2, -1, 0, 1, 2, 3), steps)
+    }
+
+    @Test
+    fun `ensureDistinctAeCompensationSteps spreads collapsed clamps`() {
+        val repaired = BracketScheduler.ensureDistinctAeCompensationSteps(
+            base = listOf(-3, -3, -2, 0, 2, 3, 3),
+            rangeLow = -3,
+            rangeHigh = 3,
+            referenceIndex = 3,
+        )
+        assertEquals(listOf(-3, -2, -1, 0, 1, 2, 3), repaired)
     }
 
     @Test

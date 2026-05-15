@@ -5,6 +5,7 @@ import android.content.Context
 import android.location.Location
 import android.net.Uri
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -253,6 +254,67 @@ object CaptureStorage {
             location = fix,
             displayName = displayName,
         )
+    }
+
+    /**
+     * Like [openVideoOutput] but returns a read/write [ParcelFileDescriptor] for encoders
+     * ([MediaMuxer]). Caller must [ParcelFileDescriptor.close], then [finalizePendingVideoInsert]
+     * on success, or [discardPendingVideo] on failure.
+     */
+    fun openVideoOutputReadWritePfd(
+        context: Context,
+        profile: ImagingProfile,
+        sequence: Long? = null,
+    ): Pair<Uri, ParcelFileDescriptor> {
+        val kind = CaptureKind.Mp4
+        val resolver = context.applicationContext.contentResolver
+        val seq = sequence ?: seqCounter.incrementAndGet()
+        val displayName = filename(profile, kind, seq)
+        val relativePath = videoRelativePath(profile)
+
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
+            put(MediaStore.Video.Media.MIME_TYPE, kind.mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
+        }
+
+        val collection =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            } else {
+                @Suppress("DEPRECATION")
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            }
+
+        val uri = resolver.insert(collection, values)
+            ?: error("MediaStore video insert returned null for $displayName ($relativePath)")
+        val pfd =
+            resolver.openFileDescriptor(uri, "rw")
+                ?: error("MediaStore.openFileDescriptor returned null for $uri")
+        Log.d(TAG, "openVideoOutputReadWritePfd uri=$uri displayName=$displayName")
+        return uri to pfd
+    }
+
+    fun finalizePendingVideoInsert(context: Context, uri: Uri) {
+        val app = context.applicationContext
+        val fix = CaptureLocationBridge.snapshot()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
+            runCatching { app.contentResolver.update(uri, values, null, null) }
+                .onFailure { Log.w(TAG, "clear IS_PENDING failed for $uri", it) }
+        }
+        if (fix != null) {
+            MediaGeotag.applyToVideoUri(app, uri, fix)
+        }
+        Log.d(TAG, "finalizePendingVideoInsert uri=$uri")
+    }
+
+    fun discardPendingVideo(context: Context, uri: Uri) {
+        runCatching { context.applicationContext.contentResolver.delete(uri, null, null) }
+            .onFailure { Log.w(TAG, "discardPendingVideo failed for $uri", it) }
     }
 
     /** Build the deterministic filename for this capture. */

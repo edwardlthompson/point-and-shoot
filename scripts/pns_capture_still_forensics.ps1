@@ -6,7 +6,7 @@
   Optionally installs **app-debug.apk**, cold-starts preview with **`pns_preview_dial=H`** (forces
   preview below 120 fps so the RAW ImageReader session matches **pns_adb_preview_validate** style runs)
   and **`pns_preview_raw_count`**, waits, then writes **logcat_raw_still_forensics.txt** (pid-scoped dump
-  plus ring tail). Inspect **`PNS.CaptureStill`**, **`PNS.AdbValidation`**, **`PNS.Dng`** via
+  plus ring tail). Inspect **`PNS.CaptureStill`**, **`PNS.StillBoundary`**, **`PNS.AdbValidation`**, **`PNS.Dng`** via
   **adb logcat** or extend this script.
 
 .PARAMETER Serial
@@ -218,7 +218,7 @@ foreach ($ln in $tailLines) {
 [void]$sb.AppendLine("--- supplement: host tag-filtered ---")
 $hostTagArgs = @(
     "logcat", "-d", "-t", "$tagTail", "*:S",
-    "PNS.AdbValidation:I", "PNS.CaptureStill:W", "PNS.Preview:I", "PNS.Cam:I",
+    "PNS.AdbValidation:I", "PNS.CaptureStill:W", "PNS.StillBoundary:I", "PNS.Preview:I", "PNS.Cam:I",
     "PNS.Reader:W", "PNS.Dng:D", "PNS.Storage:D", "AndroidRuntime:E"
 )
 $tagLines = if ($Serial) {
@@ -239,6 +239,7 @@ Write-Host ('[capture_still_forensics] wrote ' + $logPath)
 $summaryPath = Join-Path $outDir "failure_lines.txt"
 $patterns = @(
     "PNS.CaptureStill",
+    "PNS.StillBoundary",
     "captureRawStill",
     "PNS.AdbValidation",
     "Unsupported image format",

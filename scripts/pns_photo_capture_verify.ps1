@@ -199,7 +199,7 @@ function Test-UsableAppLogcatDump([string]$path, [string]$packageName) {
     try { [void]$fs.Read($buf, 0, $snipLen) }
     finally { $fs.Dispose() }
     $head = [System.Text.Encoding]::UTF8.GetString($buf)
-    if ($head -match 'PNS\.(AdbValidation|CaptureStill|Cam|Preview)') { return $true }
+    if ($head -match 'PNS\.(AdbValidation|CaptureStill|StillBoundary|Cam|Preview)') { return $true }
     if ($head -match 'AndroidRuntime') { return $true }
     if ($head -match [regex]::Escape($packageName)) { return $true }
     return $false
@@ -331,7 +331,7 @@ foreach ($camSeed in $seedList) {
         if (-not (Test-Path -LiteralPath $rawPath) -or ((Get-Item -LiteralPath $rawPath).Length -eq 0)) {
             $tagArgs = @(
                 "shell", "logcat", "-d", "-v", "threadtime", "-t", "40000", "*:S",
-                "PNS.AdbValidation:I", "PNS.CaptureStill:W", "PNS.Cam:W", "PNS.Cam:I", "PNS.Reader:W", "PNS.Dng:W",
+                "PNS.AdbValidation:I", "PNS.CaptureStill:W", "PNS.StillBoundary:I", "PNS.Cam:W", "PNS.Cam:I", "PNS.Reader:W", "PNS.Dng:W",
                 "AndroidRuntime:E"
             )
             try {
@@ -361,7 +361,7 @@ foreach ($camSeed in $seedList) {
             $fullText = [System.IO.File]::ReadAllText($rawPath, [System.Text.UTF8Encoding]::new($false))
             $logText = (
                 $fullText -split "`r?`n" |
-                    Where-Object { $_ -match 'PNS\.(AdbValidation|CaptureStill|Cam|Reader|Dng)|captureRawStill|AndroidRuntime' }
+                    Where-Object { $_ -match 'PNS\.(AdbValidation|CaptureStill|StillBoundary|Cam|Reader|Dng)|captureRawStill|AndroidRuntime' }
             ) -join "`n"
             if ([string]::IsNullOrWhiteSpace($logText)) {
                 $logText = $fullText

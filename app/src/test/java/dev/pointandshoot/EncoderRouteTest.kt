@@ -19,72 +19,81 @@ import org.junit.Test
 class EncoderRouteTest {
 
     @Test
-    fun `decide writes both files when native is available - StandardPro`() {
-        val decision = EncoderRoute.decide(ImagingProfile.StandardPro, nativeAvailable = true)
-        assertEquals(ImagingProfile.StandardPro, decision.profile)
-        assertEquals(RawMode.LosslessCompressedDng, decision.rawWritten)
-        assertEquals(TonalContainer.Avif10BitHdr, decision.tonalWritten)
-        assertFalse(decision.fallbackJpeg)
-        assertNull(decision.downgradeReason)
-        assertEquals(2, decision.fileCountForCapture)
+    fun `decide independent raw and tonal bundles when native is available - StandardPro`() {
+        val plan =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Standard,
+                jpeg = ImgMenuTier.Standard,
+                hdrWhenJpegOff = ImgMenuTier.Standard,
+            ).resolveCapturePlan()
+        val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = true)
+        val tonalDecision = EncoderRoute.decide(plan.tonal!!, nativeAvailable = true)
+        assertEquals(RawMode.LosslessCompressedDng, rawDecision.rawWritten)
+        assertNull(rawDecision.tonalWritten)
+        assertEquals(TonalContainer.Avif10BitHdr, tonalDecision.tonalWritten)
+        assertEquals(1, rawDecision.fileCountForCapture)
+        assertEquals(1, tonalDecision.fileCountForCapture)
     }
 
     @Test
-    fun `decide writes both files when native is available - UltraMax`() {
-        val decision = EncoderRoute.decide(ImagingProfile.UltraMax, nativeAvailable = true)
-        assertEquals(ImagingProfile.UltraMax, decision.profile)
-        assertEquals(RawMode.UncompressedRaw12Dng, decision.rawWritten)
-        assertEquals(TonalContainer.JpegXl12Bit, decision.tonalWritten)
-        assertFalse(decision.fallbackJpeg)
-        assertNull(decision.downgradeReason)
-        assertEquals(2, decision.fileCountForCapture)
+    fun `decide independent raw and tonal bundles when native is available - UltraMax`() {
+        val plan =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Ultra,
+                jpeg = ImgMenuTier.Ultra,
+                hdrWhenJpegOff = ImgMenuTier.Ultra,
+            ).resolveCapturePlan()
+        val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = true)
+        val tonalDecision = EncoderRoute.decide(plan.tonal!!, nativeAvailable = true)
+        assertEquals(RawMode.UncompressedRaw12Dng, rawDecision.rawWritten)
+        assertEquals(TonalContainer.JpegXl12Bit, tonalDecision.tonalWritten)
     }
 
     @Test
-    fun `decide JpegOnly is single hardware JPEG file regardless of native encoders`() {
-        val on = EncoderRoute.decide(ImagingProfile.JpegOnly, nativeAvailable = true)
-        val off = EncoderRoute.decide(ImagingProfile.JpegOnly, nativeAvailable = false)
+    fun `decide JpegOnly tonal bundle is single file regardless of native encoders`() {
+        val bundle =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Off,
+                jpeg = ImgMenuTier.Standard,
+                hdrWhenJpegOff = ImgMenuTier.Standard,
+            ).resolveCapturePlan().tonal!!
+        val on = EncoderRoute.decide(bundle, nativeAvailable = true)
+        val off = EncoderRoute.decide(bundle, nativeAvailable = false)
         assertEquals(RawMode.None, on.rawWritten)
-        assertEquals(RawMode.None, off.rawWritten)
-        assertNull(on.tonalWritten)
-        assertNull(off.tonalWritten)
-        assertFalse(on.fallbackJpeg)
-        assertFalse(off.fallbackJpeg)
+        assertEquals(TonalContainer.Avif10BitHdr, on.tonalWritten)
+        assertTrue(off.fallbackJpeg)
         assertEquals(1, on.fileCountForCapture)
         assertEquals(1, off.fileCountForCapture)
     }
+
     @Test
-    fun `decide downgrades to JPEG when native is absent - StandardPro`() {
-        val decision = EncoderRoute.decide(ImagingProfile.StandardPro, nativeAvailable = false)
-        assertEquals(ImagingProfile.StandardPro, decision.profile)
-        assertEquals(RawMode.LosslessCompressedDng, decision.rawWritten)
-        assertNull("Tonal container substituted by JPEG fallback", decision.tonalWritten)
-        assertTrue(decision.fallbackJpeg)
-        assertEquals(EncoderRoute.DOWNGRADE_MESSAGE, decision.downgradeReason)
-        assertEquals(2, decision.fileCountForCapture)
+    fun `decide tonal downgrades to JPEG when native is absent`() {
+        val plan =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Standard,
+                jpeg = ImgMenuTier.Standard,
+                hdrWhenJpegOff = ImgMenuTier.Standard,
+            ).resolveCapturePlan()
+        val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = false)
+        val tonalDecision = EncoderRoute.decide(plan.tonal!!, nativeAvailable = false)
+        assertEquals(RawMode.LosslessCompressedDng, rawDecision.rawWritten)
+        assertNull(rawDecision.tonalWritten)
+        assertTrue(tonalDecision.fallbackJpeg)
+        assertEquals(EncoderRoute.DOWNGRADE_MESSAGE, tonalDecision.downgradeReason)
     }
 
     @Test
-    fun `decide downgrades to JPEG when native is absent - UltraMax`() {
-        val decision = EncoderRoute.decide(ImagingProfile.UltraMax, nativeAvailable = false)
-        assertEquals(ImagingProfile.UltraMax, decision.profile)
-        assertEquals(RawMode.UncompressedRaw12Dng, decision.rawWritten)
-        assertNull(decision.tonalWritten)
-        assertTrue(decision.fallbackJpeg)
-        assertEquals(EncoderRoute.DOWNGRADE_MESSAGE, decision.downgradeReason)
-    }
-
-    @Test
-    fun `decide preserves the rawMode for both profiles regardless of native state`() {
-        val onWithStdPro = EncoderRoute.decide(ImagingProfile.StandardPro, true).rawWritten
-        val offWithStdPro = EncoderRoute.decide(ImagingProfile.StandardPro, false).rawWritten
-        assertEquals(onWithStdPro, offWithStdPro)
-        assertEquals(RawMode.LosslessCompressedDng, onWithStdPro)
-
-        val onWithUltra = EncoderRoute.decide(ImagingProfile.UltraMax, true).rawWritten
-        val offWithUltra = EncoderRoute.decide(ImagingProfile.UltraMax, false).rawWritten
-        assertEquals(onWithUltra, offWithUltra)
-        assertEquals(RawMode.UncompressedRaw12Dng, onWithUltra)
+    fun `decide preserves rawMode on raw bundle regardless of native state`() {
+        val plan =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Ultra,
+                jpeg = ImgMenuTier.Off,
+                hdrWhenJpegOff = ImgMenuTier.Ultra,
+            ).resolveCapturePlan()
+        val on = EncoderRoute.decide(plan.raw!!, true).rawWritten
+        val off = EncoderRoute.decide(plan.raw!!, false).rawWritten
+        assertEquals(on, off)
+        assertEquals(RawMode.UncompressedRaw12Dng, on)
     }
 
     @Test
@@ -105,6 +114,22 @@ class EncoderRouteTest {
         assertTrue(TonalContainer.Avif10BitHdr.requiresNativeEncoder)
         assertTrue(TonalContainer.JpegXl12Bit.requiresNativeEncoder)
         assertFalse(TonalContainer.JpegSdr8.requiresNativeEncoder)
+    }
+
+    @Test
+    fun `decide raw bundle writes DNG only tonal is separate capture`() {
+        val bundle =
+            StillCaptureBundle(
+                rawMode = RawMode.LosslessCompressedDng,
+                tonalContainer = TonalContainer.JpegXl12Bit,
+                colorSpace = ColorSpaceTarget.Rec2020,
+                dngColorSpace = ColorSpaceTarget.DisplayP3,
+            )
+        val decision = EncoderRoute.decide(bundle, nativeAvailable = true)
+        assertEquals(ImagingProfile.StandardPro, decision.profile)
+        assertEquals(RawMode.LosslessCompressedDng, decision.rawWritten)
+        assertEquals(null, decision.tonalWritten)
+        assertEquals(1, decision.fileCountForCapture)
     }
 
     @Test

@@ -188,4 +188,20 @@ object PreviewFlashPolicy {
             }
         }
     }
+
+    /**
+     * When true, skip [StillCaptureAfFreeze] on the still request — [applyStillFlashKeys] may drive
+     * `FLASH_MODE_SINGLE` / auto flash metering where HALs expect AF/AE precapture freedom.
+     */
+    fun stillFlashSkipsAfFreeze(
+        flashMode: PreviewFlashMode,
+        manualSensorStill: Boolean,
+        commandDialMode: CommandDialMode,
+        chars: CameraCharacteristics,
+    ): Boolean {
+        if (manualSensorStill) return false
+        if (highlightDialSuppressesFlashAndTorch(commandDialMode)) return false
+        if (!flashHardwareAvailable(chars) || !isBackCamera(chars)) return false
+        return flashMode != PreviewFlashMode.Off
+    }
 }

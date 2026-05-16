@@ -4,6 +4,8 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureRequest
 import android.util.Log
 import android.util.Rational
+import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Centralized feature-detection + safe-fallback helpers for **vendor Camera2
@@ -42,6 +44,10 @@ import android.util.Rational
 object VendorKeyGuard {
 
     private const val TAG = "PNS.VendorKey"
+
+    private data class CachedLegacySet(val method: Method, val value: Any, val tag: String)
+
+    private val legacySetterCache = ConcurrentHashMap<String, CachedLegacySet>()
 
     /**
      * Returns true if [characteristics] advertises a *characteristic* key whose
@@ -295,12 +301,48 @@ object VendorKeyGuard {
             )
         for (setMethod in candidates) {
             for ((value, tag) in attempts) {
+                val valueType = value.javaClass
+                val cacheKey = "${key.name}#${valueType.canonicalName ?: valueType.name}"
+                val cached = legacySetterCache[cacheKey]
+                if (cached != null) {
+                    val okFromCache =
+                        runCatching {
+                            cached.method.invoke(builder, key, cached.value)
+                            true
+                        }.fold(
+                            onSuccess = { it },
+                            onFailure = { e ->
+                                val iae =
+                                    e as? IllegalArgumentException
+                                        ?: e.cause as? IllegalArgumentException
+                                if (iae != null) {
+                                    legacySetterCache.remove(cacheKey)
+                                }
+                                false
+                            },
+                        )
+                    if (okFromCache) return cached.tag
+                }
                 val ok =
                     runCatching {
                         setMethod.invoke(builder, key, value)
                         true
-                    }.getOrDefault(false)
-                if (ok) return tag
+                    }.fold(
+                        onSuccess = { it },
+                        onFailure = { e ->
+                            val iae =
+                                e as? IllegalArgumentException
+                                    ?: e.cause as? IllegalArgumentException
+                            if (iae != null) {
+                                legacySetterCache.remove(cacheKey)
+                            }
+                            false
+                        },
+                    )
+                if (ok) {
+                    legacySetterCache[cacheKey] = CachedLegacySet(setMethod, value, tag)
+                    return tag
+                }
             }
         }
         return null

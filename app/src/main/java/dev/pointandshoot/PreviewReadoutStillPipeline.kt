@@ -3,11 +3,17 @@ package dev.pointandshoot
 /**
  * Finder readout strip + **`PNS.ChromeUx`** `readoutCapture=` labels for the still pipeline.
  *
- * Milestone **10.5** “RAW depth honesty”: **Ultra-Max** shows **DNG12** (uncompressed RAW12 DNG intent)
- * so the chip does not imply the same lossless path as **Standard Pro** **DNG**. **DNG+** / **DNG12+**
- * mean a hardware JPEG companion surface is actually attached (`PreviewController.previewUsesJpegCompanion`).
+ * RAW and tonal tiers are **independent** (no hardware JPEG companion on the DNG request).
+ * Tonal still uses a separate capture → JXL / AVIF / fallback JPEG file.
  */
 object PreviewReadoutStillPipeline {
+
+  private fun tonalSuffix(jpeg: ImgMenuTier): String =
+      when (jpeg) {
+          ImgMenuTier.Ultra -> "JXL"
+          ImgMenuTier.Standard -> "AVIF"
+          ImgMenuTier.Off -> ""
+      }
 
     /** Short label on the readout strip RAW pipeline chip. */
     fun chipLabel(
@@ -15,15 +21,71 @@ object PreviewReadoutStillPipeline {
         stillCaptureJpegCompanion: Boolean,
         sessionJpegCompanionReady: Boolean,
     ): String =
+        chipLabel(
+            imagingProfile,
+            wantsTonal = stillCaptureJpegCompanion,
+            sessionTonalReady = sessionJpegCompanionReady,
+            jpegTier = ImgMenuTier.Standard,
+        )
+
+    fun chipLabel(
+        intent: ComposedStillIntent,
+        stillCaptureJpegCompanion: Boolean,
+        sessionJpegCompanionReady: Boolean,
+    ): String {
+        val wantsTonal = intent.wantsTonalStill()
+        val jpegTier =
+            if (wantsTonal) {
+                intent.jpeg
+            } else {
+                ImgMenuTier.Off
+            }
+        return when (intent.raw) {
+            ImgMenuTier.Off ->
+                when (jpegTier) {
+                    ImgMenuTier.Ultra -> "JXL"
+                    ImgMenuTier.Standard -> "AVIF"
+                    ImgMenuTier.Off -> "JPG"
+                }
+            ImgMenuTier.Ultra -> {
+                val base = "DNG12"
+                if (wantsTonal && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                    "$base+${tonalSuffix(jpegTier)}"
+                } else {
+                    base
+                }
+            }
+            ImgMenuTier.Standard -> {
+                val base = "DNG"
+                if (wantsTonal && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                    "$base+${tonalSuffix(jpegTier)}"
+                } else {
+                    base
+                }
+            }
+        }
+    }
+
+    private fun chipLabel(
+        imagingProfile: ImagingProfile,
+        wantsTonal: Boolean,
+        sessionTonalReady: Boolean,
+        jpegTier: ImgMenuTier,
+    ): String =
         when {
-            imagingProfile is ImagingProfile.JpegOnly -> "JPG"
+            imagingProfile is ImagingProfile.JpegOnly ->
+                when (jpegTier) {
+                    ImgMenuTier.Ultra -> "JXL"
+                    ImgMenuTier.Standard -> "AVIF"
+                    else -> "JPG"
+                }
             imagingProfile is ImagingProfile.UltraMax ->
-                if (stillCaptureJpegCompanion && sessionJpegCompanionReady) {
-                    "DNG12+"
+                if (wantsTonal && sessionTonalReady) {
+                    "DNG12+${tonalSuffix(jpegTier)}"
                 } else {
                     "DNG12"
                 }
-            stillCaptureJpegCompanion && sessionJpegCompanionReady -> "DNG+"
+            wantsTonal && sessionTonalReady -> "DNG+${tonalSuffix(jpegTier)}"
             else -> "DNG"
         }
 
@@ -35,30 +97,39 @@ object PreviewReadoutStillPipeline {
     ): String =
         chipLabel(imagingProfile, stillCaptureJpegCompanion, sessionJpegCompanionReady)
 
+    fun chromeUxLogValue(
+        intent: ComposedStillIntent,
+        stillCaptureJpegCompanion: Boolean,
+        sessionJpegCompanionReady: Boolean,
+    ): String =
+        chipLabel(intent, stillCaptureJpegCompanion, sessionJpegCompanionReady)
+
     fun chipContentDescription(
         imagingProfile: ImagingProfile,
         stillCaptureJpegCompanion: Boolean,
         sessionJpegCompanionReady: Boolean,
     ): String =
-        when {
-            imagingProfile is ImagingProfile.JpegOnly ->
-                "Still capture pipeline. JPG-only profile (hardware JPEG still, no DNG). Opens capture menu."
-            imagingProfile is ImagingProfile.UltraMax ->
-                when {
-                    stillCaptureJpegCompanion && sessionJpegCompanionReady ->
-                        "Still capture pipeline. Ultra-Max uncompressed RAW12 DNG with hardware JPEG companion. Opens RAW menu."
-                    stillCaptureJpegCompanion ->
-                        "Still capture pipeline. Ultra-Max RAW12 DNG; JPEG companion requested but surface not active " +
-                            "(RAW12+JPEG can be disabled on some devices). Opens RAW menu."
-                    else ->
-                        "Still capture pipeline. Ultra-Max uncompressed RAW12 DNG without JPEG companion. Opens RAW menu."
+        "Still capture pipeline. Opens IMG menu."
+
+    fun chipContentDescription(
+        intent: ComposedStillIntent,
+        stillCaptureJpegCompanion: Boolean,
+        sessionJpegCompanionReady: Boolean,
+    ): String =
+        when (intent.raw) {
+            ImgMenuTier.Off ->
+                "Still capture. Independent tonal still (IMG -JPEG- tier). Opens IMG menu."
+            ImgMenuTier.Ultra ->
+                if (intent.wantsTonalStill() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                    "Still capture. Ultra RAW12 DNG plus separate tonal file. Opens IMG menu."
+                } else {
+                    "Still capture. Ultra RAW12 DNG only. Opens IMG menu."
                 }
-            stillCaptureJpegCompanion && sessionJpegCompanionReady ->
-                "Still capture pipeline. Lossless DNG with hardware JPEG companion. Opens RAW menu."
-            stillCaptureJpegCompanion ->
-                "Still capture pipeline. DNG with JPEG requested but companion surface not active; " +
-                    "DNG only until session supports it. Opens RAW menu."
-            else ->
-                "Still capture pipeline. Lossless DNG only. Opens RAW menu."
+            ImgMenuTier.Standard ->
+                if (intent.wantsTonalStill() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                    "Still capture. Lossless DNG plus separate tonal file. Opens IMG menu."
+                } else {
+                    "Still capture. Lossless DNG only. Opens IMG menu."
+                }
         }
 }

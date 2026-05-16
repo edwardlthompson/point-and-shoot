@@ -39,7 +39,8 @@ data class HudSettings(
     val showHorizonLevel: Boolean = true,
     /**
      * Focus-peaking false color; [FocusPeakingColor.Off] disables the overlay.
-     * Implemented in `lut_preview_external.frag.glsl` on the GL preview path.
+     * Implemented in `lut_preview_external.frag.glsl` on the GL preview path — **edge-based** luma
+     * gradients, not a Camera2 AF confirmation (tele can show peaks while RAW is slightly soft).
      */
     val focusPeakingColor: FocusPeakingColor = FocusPeakingColor.Off,
     val focusPeakingStrength: FocusPeakingStrength = FocusPeakingStrength.Medium,
@@ -57,6 +58,12 @@ data class HudSettings(
      * [android.hardware.camera2.CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE] to ON.
      */
     val enableLensOpticalStabilization: Boolean = true,
+    /**
+     * When true, **still** [CaptureRequest]s force optical stabilization OFF when the HAL lists OFF,
+     * while preview may still request OIS if [enableLensOpticalStabilization] is on. OEM-dependent
+     * aid for tripod / static scenes where sensor-shift can look like motion blur.
+     */
+    val disableOisForStillCapture: Boolean = false,
     /**
      * Preview-only electronic stabilization ([android.hardware.camera2.CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE]).
      * Off by default (latency / crop); skipped for HFR (AE target range upper ≥ 120) and still captures.
@@ -85,6 +92,19 @@ data class HudSettings(
      * (matrix / HAL risk); Milestone **10.6** Phase C.
      */
     val enableResearchAfBracketing: Boolean = false,
+    /**
+     * In-app RAW still only (no scripted ADB label): after [stopRepeating] debounce, run preview-only
+     * AF settle captures before the high-res still (Open Camera–style polling). **Off by default**;
+     * requires flash off and non-manual sensor. USB-prove before treating as default-on.
+     */
+    val enableOpenCameraStyleAfSettleBeforeStill: Boolean = false,
+    /**
+     * In-app still only: after shutter tap, run AF precapture triggers and **wait** (with timeout)
+     * until preview [android.hardware.camera2.CaptureResult.CONTROL_AF_STATE] is passive focused or
+     * focused locked before starting RAW/JPEG still capture. Skipped for manual sensor, S dial,
+     * flash paths that need OEM precapture freedom, and high-speed constrained sessions.
+     */
+    val waitForAfFocusBeforeStill: Boolean = false,
     /**
      * Discrete ISP bias for hardware JPEG / preview paths (-2 softer … +2 sharper).
      * Engine maps to advertised EDGE / NR / tonemap / color-correction modes ([PreviewJpegProcessingHints]).
@@ -123,11 +143,14 @@ data class HudSettings(
         private const val KEY_LUT_STILLS = "selected_lut_stills"
         private const val KEY_LUT_VIDEO = "selected_lut_video"
         private const val KEY_LENS_OIS = "enable_lens_optical_stabilization"
+        private const val KEY_DISABLE_OIS_STILL = "disable_ois_for_still_capture"
         private const val KEY_VIDEO_STAB_PREVIEW = "enable_video_stabilization_preview"
         private const val KEY_POST_RAW_BOOST = "enable_post_raw_sensitivity_boost"
         private const val KEY_AUTO_FRAMING = "enable_auto_framing"
         private const val KEY_HDR_10_PREVIEW = "enable_hdr10_live_preview"
         private const val KEY_RESEARCH_AF_BRACKET = "enable_research_af_bracketing"
+        private const val KEY_AF_SETTLE_BEFORE_STILL = "enable_open_camera_style_af_settle_before_still"
+        private const val KEY_WAIT_AF_FOCUS_BEFORE_STILL = "wait_for_af_focus_before_still"
         private const val KEY_HARDWARE_JPEG_ISP_BIAS = "hardware_jpeg_isp_bias"
         private const val KEY_SOFTWARE_JPEG_QUALITY = "software_jpeg_companion_quality"
         private const val KEY_BRACKET_PATTERN = "bracket_pattern_last"
@@ -138,6 +161,54 @@ data class HudSettings(
         private const val SOFTWARE_JPEG_COMPANION_QUALITY_MAX = 100
         private const val KEY_COMMAND_DIAL_MODE = "command_dial_mode"
         private const val KEY_IMAGING_PROFILE = "imaging_profile"
+        private const val KEY_IMG_RAW_TIER = "img_menu_raw_tier"
+        private const val KEY_IMG_JPEG_TIER = "img_menu_jpeg_tier"
+        private const val KEY_IMG_HDR_WHEN_JPEG_OFF = "img_menu_hdr_when_jpeg_off"
+        private const val KEY_LAST_RAW_IMAGING_PROFILE_ID = "last_raw_imaging_profile_id"
+
+        /** Last Standard / Ultra raw choice for BKT auto-exit from JPEG-only. */
+        fun loadLastRawImagingProfileId(context: Context): String {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getString(KEY_LAST_RAW_IMAGING_PROFILE_ID, ImagingProfile.StandardPro.id)
+                ?: ImagingProfile.StandardPro.id
+        }
+
+        fun saveLastRawImagingProfileId(context: Context, id: String) {
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_LAST_RAW_IMAGING_PROFILE_ID, id)
+                .apply()
+        }
+
+        fun loadComposedStillIntent(
+            context: Context,
+            jpegCompanionOn: Boolean,
+        ): ComposedStillIntent {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val rawS = prefs.getString(KEY_IMG_RAW_TIER, null)
+            if (rawS == null) {
+                return ComposedStillIntent.fromLegacyImagingProfile(loadImagingProfile(context), jpegCompanionOn)
+            }
+            val raw = runCatching { ImgMenuTier.valueOf(rawS) }.getOrElse { ImgMenuTier.Standard }
+            val jpeg = runCatching { ImgMenuTier.valueOf(prefs.getString(KEY_IMG_JPEG_TIER, ImgMenuTier.Standard.name)!!) }
+                .getOrElse { ImgMenuTier.Standard }
+            val hdrOff = runCatching {
+                ImgMenuTier.valueOf(prefs.getString(KEY_IMG_HDR_WHEN_JPEG_OFF, ImgMenuTier.Standard.name)!!)
+            }.getOrElse { ImgMenuTier.Standard }
+            val hdrWhenOff = if (hdrOff == ImgMenuTier.Off) ImgMenuTier.Standard else hdrOff
+            return ComposedStillIntent(raw = raw, jpeg = jpeg, hdrWhenJpegOff = hdrWhenOff)
+        }
+
+        fun saveComposedStillIntent(context: Context, intent: ComposedStillIntent) {
+            val app = context.applicationContext
+            app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_IMG_RAW_TIER, intent.raw.name)
+                .putString(KEY_IMG_JPEG_TIER, intent.jpeg.name)
+                .putString(KEY_IMG_HDR_WHEN_JPEG_OFF, intent.hdrWhenJpegOff.name)
+                .putString(KEY_IMAGING_PROFILE, intent.storageProfile().id)
+                .apply()
+        }
 
         /** Last imaging profile (Standard Pro vs Ultra-Max); persists across launches. */
         fun loadImagingProfile(context: Context): ImagingProfile {
@@ -199,12 +270,17 @@ data class HudSettings(
                 selectedLutForStills = prefs.getString(KEY_LUT_STILLS, defaults.selectedLutForStills) ?: defaults.selectedLutForStills,
                 selectedLutForVideo = prefs.getString(KEY_LUT_VIDEO, defaults.selectedLutForVideo) ?: defaults.selectedLutForVideo,
                 enableLensOpticalStabilization = prefs.getBoolean(KEY_LENS_OIS, defaults.enableLensOpticalStabilization),
+                disableOisForStillCapture = prefs.getBoolean(KEY_DISABLE_OIS_STILL, defaults.disableOisForStillCapture),
                 enableVideoStabilizationPreview = prefs.getBoolean(KEY_VIDEO_STAB_PREVIEW, defaults.enableVideoStabilizationPreview),
                 enablePostRawSensitivityBoost = prefs.getBoolean(KEY_POST_RAW_BOOST, defaults.enablePostRawSensitivityBoost),
                 enableAutoFraming = prefs.getBoolean(KEY_AUTO_FRAMING, defaults.enableAutoFraming),
                 enableHdr10LivePreview = prefs.getBoolean(KEY_HDR_10_PREVIEW, defaults.enableHdr10LivePreview),
                 enableResearchAfBracketing =
                     prefs.getBoolean(KEY_RESEARCH_AF_BRACKET, defaults.enableResearchAfBracketing),
+                enableOpenCameraStyleAfSettleBeforeStill =
+                    prefs.getBoolean(KEY_AF_SETTLE_BEFORE_STILL, defaults.enableOpenCameraStyleAfSettleBeforeStill),
+                waitForAfFocusBeforeStill =
+                    prefs.getBoolean(KEY_WAIT_AF_FOCUS_BEFORE_STILL, defaults.waitForAfFocusBeforeStill),
                 hardwareJpegIspBias = prefs.getInt(KEY_HARDWARE_JPEG_ISP_BIAS, defaults.hardwareJpegIspBias)
                     .coerceIn(HARDWARE_JPEG_ISP_BIAS_MIN, HARDWARE_JPEG_ISP_BIAS_MAX),
                 softwareJpegCompanionQuality =
@@ -233,11 +309,14 @@ data class HudSettings(
                 .putString(KEY_LUT_STILLS, settings.selectedLutForStills)
                 .putString(KEY_LUT_VIDEO, settings.selectedLutForVideo)
                 .putBoolean(KEY_LENS_OIS, settings.enableLensOpticalStabilization)
+                .putBoolean(KEY_DISABLE_OIS_STILL, settings.disableOisForStillCapture)
                 .putBoolean(KEY_VIDEO_STAB_PREVIEW, settings.enableVideoStabilizationPreview)
                 .putBoolean(KEY_POST_RAW_BOOST, settings.enablePostRawSensitivityBoost)
                 .putBoolean(KEY_AUTO_FRAMING, settings.enableAutoFraming)
                 .putBoolean(KEY_HDR_10_PREVIEW, settings.enableHdr10LivePreview)
                 .putBoolean(KEY_RESEARCH_AF_BRACKET, settings.enableResearchAfBracketing)
+                .putBoolean(KEY_AF_SETTLE_BEFORE_STILL, settings.enableOpenCameraStyleAfSettleBeforeStill)
+                .putBoolean(KEY_WAIT_AF_FOCUS_BEFORE_STILL, settings.waitForAfFocusBeforeStill)
                 .putInt(
                     KEY_HARDWARE_JPEG_ISP_BIAS,
                     settings.hardwareJpegIspBias.coerceIn(HARDWARE_JPEG_ISP_BIAS_MIN, HARDWARE_JPEG_ISP_BIAS_MAX),

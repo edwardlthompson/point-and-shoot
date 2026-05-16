@@ -177,6 +177,8 @@ jbyteArray encode_jxl(JNIEnv* env, const uint8_t* rgb, int width, int height, in
     }
 
     JxlEncoderFrameSettings* frame_settings = JxlEncoderFrameSettingsCreate(enc, nullptr);
+    // Faster still encode on device (default effort is very slow at full resolution).
+    JxlEncoderFrameSettingsSetOption(frame_settings, JXL_ENC_FRAME_SETTING_EFFORT, 3);
     JxlPixelFormat pixel_format = {3, JXL_TYPE_FLOAT, JXL_NATIVE_ENDIAN, 0};
     if (JxlEncoderAddImageFrame(frame_settings, &pixel_format, pixels.data(),
                                 sizeof(float) * pixels.size()) != JXL_ENC_SUCCESS) {

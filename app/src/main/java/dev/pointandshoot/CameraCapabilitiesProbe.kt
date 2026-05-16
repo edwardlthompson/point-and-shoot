@@ -89,6 +89,8 @@ const val EXTRA_PNS_PREVIEW_RAW_STREAM = "pns_preview_raw_stream"
  * only (session-only; does not write prefs disk). Matrix testing for RAW+ vs RAW-only.
  */
 const val EXTRA_PNS_PREVIEW_JPEG_COMPANION = "pns_preview_jpeg_companion"
+/** When true: one [PreviewController.captureComposedStill] after preview ready (IMG matrix path). */
+const val EXTRA_PNS_PREVIEW_COMPOSED_STILL = "pns_preview_composed_still"
 /** Optional physical/logical id (e.g. `3` = ultra-wide on dodge) for scripted preview validation. */
 const val EXTRA_PNS_PREVIEW_CAMERA_ID = "pns_preview_camera_id"
 /**
@@ -572,6 +574,12 @@ fun CameraCapabilitiesProbe(
          */
         val trustIntentForPreviewPipeline =
             !previewLaunchedFromDebug || launchScreen == PNS_SCREEN_PREVIEW
+        val adbComposedStillSmoke =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_COMPOSED_STILL, false) ?: false
+            } else {
+                false
+            }
         val automationWantsIntentPipeline =
             adbRawCountRaw > 0 ||
                 adbBracketRaw != null ||
@@ -631,6 +639,7 @@ fun CameraCapabilitiesProbe(
             adbInitialImagingProfile = adbInitialImagingProfile,
             adbRawStreamPreference = adbRawStreamPreference,
             adbJpegCompanionSeed = adbJpegCompanionSeed,
+            adbComposedStillSmoke = adbComposedStillSmoke,
             adbSeedCameraId = adbSeedCameraId,
             adbSuperMacroProbe = adbSuperMacroProbe,
             adbPreviewStillsLutName = adbPreviewStillsLutName,

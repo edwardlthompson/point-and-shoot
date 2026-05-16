@@ -4,6 +4,8 @@
 
 **Living docs:** `PROBE_BUILD_PLAN.md` (§5 audit log; **§6** probe/infra checklist ↔ **milestones** mapping table), `CHANGELOG.md`, `CLI_BUILD_AND_SIDELOAD.md`, `DODGE_PROFILE.md`, `COLOR_PIPELINE.md`, `NDK_PLAN.md`, **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (capture bisect / restore checklist). **Milestone 10** backlog: fleet + probe Phases A–E + video/QR/chrome-unlock (ordered sprints). **Milestone 4 Sprint 4.5** (main plan): system **`ACTION_VIDEO_CAPTURE`**, BKT shutter parity, hardware JPEG / ISP tuning + **Milestone 5 Sprint 5.1** HUD controls row.
 
+**Engineering roadmap (audit 2026-05-15, OnePlus 13 / LineageOS 23):** P0–P3 backlog covering DNG mmap patching (`TiffUniqueCameraModel50708` / `Dng12Saver`), preview metadata atomics, Compose poll consolidation (`PreviewEnginePollState` + `produceState`), JPEG companion pool + pause drain, `VendorKeyGuard` legacy-setter cache, ADB intent hardening (`pns_intent_fuzz.ps1`), optional `captureBurst` bracketing, and cross-cutting scripts (`pns_probe_device.ps1`). Track implementation vs gates in this file and `CHANGELOG.md`; device verification per `AGENTS.md`.
+
 ---
 
 ### How agents must execute (nonstop discipline)
@@ -24,6 +26,7 @@
 9. **ADB serial:** optional **`scripts/pns_adb_device.env`** (copy **`scripts/pns_adb_device.env.example`**) sets **`PNS_ADB_SERIAL`** to the USB serial from **`adb devices`** for **`pns_sideload_and_launch.ps1`**, **`pns_adb_preview_validate.ps1`**, **`pns_milestone6_gate.ps1`**, **`pns_device_screencap.ps1`** when **`-Serial`** is omitted. Use **`-Serial`** when more than one device is connected or you need to override the env file.
 10. **Git after each milestone (agents):** When a **numbered milestone** (0–11, excluding H) is complete — all sprint checkboxes for that milestone are `[x]` and the **Milestone gate** for that milestone passes per items 3–5 above — **`git commit`** the closing changes with a message that names the milestone (for example `Milestone 7: storage and failure-matrix gates`) and **`git push`** to the branch’s upstream **before** starting work on the next milestone. Do not accumulate finished milestone work across long-lived local branches without pushing; humans and CI rely on the remote for review and bisect.
 11. **Capture / preview pipeline regression gate (mandatory when the change affects still capture, RAW/DNG, bracketing, `PreviewController` session surfaces, YUV analysis / highlight metering streams, stabilization keys on requests, imaging profile stream wiring, or material edits to `PreviewEngineScreen.kt` / `RawCaptureSupport.kt`):** Before marking the task complete, run **`scripts/pns_capture_pipeline_verify.ps1`** (wraps **`pns_photo_capture_verify.ps1`** in a child process, records **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`** + **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**, and writes **`hfr-runs/capture_pipeline_gate_*`**) on a **USB device**, or run **`scripts/pns_photo_capture_verify.ps1`** directly with the same device expectations. For **automated cumulative bisect** (apply steps **1..N** from **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**, **assembleDebug**, and verify each step), use **`scripts/pns_capture_bisect_device.ps1`**. After **re-applying** reverted capture features from that doc, run **`scripts/pns_capture_restore_verified.ps1`** (assemble + same USB gate) so restore work cannot ship without a green **`captureRawStill 1/1 ok=true saved=`** needle. Alternatively run **`scripts/pns_milestone6_gate.ps1`** when that pack covers the behavior. Keep artifacts under **`hfr-runs/`**. If a device is unavailable, state that explicitly in **`PROBE_BUILD_PLAN.md`** §5 and get a human waiver before merge. **If a revert is required** to restore stable capture, append a row to **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** with **what was reverted**, **why**, and **exact restore steps** (code snippet or commit range) so features can be re-applied safely later. Prefer a **narrow follow-up fix** over leaving a revert undocumented.
+12. **Build plan archive:** When **every** checkbox in a **`### Sprint`** is **`[x]`**, move that sprint’s body off **`BUILD_PLAN.md`** into **`BUILD_PLAN_COMPLETED.md`** and refresh pointers (archive table, backlog consolidation, execution order). Full procedure: **`### Archiving completed sprints — procedure`** under **Completed milestones & sprints** below. Do not duplicate long shipped sprint text in the active plan.
 
 **Hard rule (May 2026 — do not regress):** Never gate **`automationSuppressFacePipeline`** on **`adbSequentialRawStills > 0`** alone. Doing so skipped the H-dial YUV path for **`pns_preview_raw_count`** / sequential RAW and broke RAW still session create on **CPH2655-class** devices (`CAMERA_DISCONNECTED`). **Only bracket automation** may set **`automationSuppressFacePipeline`**. See **`README.md`** (STOP banner), **`AGENTS.md`** (capture warning), and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top).
 
@@ -97,6 +100,40 @@ Remaining open **`[ ]`** work is under **`## Milestone 10`** (Sprint **10.16**, 
 | **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **Milestones 0–7**; **Milestone 8–9**; **2026 performance backlog**; **Milestone 10** sprints **10.1–10.13**, **10.15**; **Milestone 11** sprints **11.1**, **11.2**, **11.4** |
 
 **Still open in this file:** Milestone **10** sprint **10.16** and **Milestone 10 gate**; **Milestone 11** sprint **11.3** and **Milestone 11 gate**; **Milestone H**; **Sprint 9.13** human finder-geometry rows (see archive — three `[ ]` items).
+
+### Archiving completed sprints — procedure (repeatable; future automation)
+
+Use this checklist whenever **shipped** sprint bodies should leave the active plan and live only in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)**. Goal: **`BUILD_PLAN.md`** stays a short **remaining work** index; history stays grep-able in the completed file.
+
+1. **Eligibility — move only fully closed sprints**  
+   - A **`### Sprint …`** block may move when **every** task line is **`- [x]`** (or the sprint is **non-checkbox** narrative that is explicitly done — rare).  
+   - **Do not** move a sprint that still contains **`- [ ]`** (e.g. human finder geometry in archived **9.13**). Split or leave the whole sprint in the active file until those rows close or are descoped.  
+   - **Whole milestones (0–7 style):** When **all** sprints + gate for a numbered milestone are done, the entire milestone body may already live in the archive; keep **Milestone H** and any **post-archive pointers** in the active plan as today.
+
+2. **Cut / paste**  
+   - **From:** `BUILD_PLAN.md` — the sprint section from **`### Sprint …`** through its **`**Sprint check:**`** line (inclusive), and any sprint-only notes that belong with it.  
+   - **To:** `BUILD_PLAN_COMPLETED.md` — append under the correct **`## Milestone …`** heading. If this is the first archived chunk for a milestone still active elsewhere, add a subsection title such as **`## Milestone N — completed sprints (a.b, c.d)`** and a one-line pointer: **Open:** sprint **x.y** + **Milestone N gate** remain in **`BUILD_PLAN.md`**.
+
+3. **Replace in `BUILD_PLAN.md` with pointers**  
+   - Under the milestone **`##`**, keep **Objective**, **Key references** (if remaining sprints need them), and **`**Milestone N gate**`** until the milestone is finished.  
+   - Add or refresh a single line: **`**Completed sprints** … → [BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md) (*anchor / section title*)`**.  
+   - Update **`**Suggested execution order (remaining):**`** so it lists only open sprints + gate.
+
+4. **Sync index prose (both files)**  
+   - **Archive table** (above): extend the **Contents** cell with new sprint numbers or milestone names.  
+   - **`### Backlog consolidation`**: list which milestones still have **`[ ]`** in the active file vs what shipped to the archive.  
+   - **`BUILD_PLAN_COMPLETED.md` top blurb** (first paragraph): mirror dates / milestone ranges so agents opening the archive cold see the same scope.
+
+5. **Descoped or cancelled sprints**  
+   - **Do not** copy to **`BUILD_PLAN_COMPLETED.md`** as “completed.” Remove from the active plan; record intent under **`### Future features (deferred — unscheduled)`** (one bullet) if the team should remember why it vanished (example: former **10.14**).
+
+6. **Gate tables**  
+   - Keep **`**Milestone N gate**`** in **`BUILD_PLAN.md`** while **any** sprint for milestone **N** is still open in this file. When the milestone is fully shipped, the gate row may move with the last body or stay as a one-line “gate satisfied — see §5” in the archive — **match existing style** for milestones **8–11** in the completed file.
+
+7. **Future script / agent automation (optional)**  
+   - **Pre-flight:** For each **`### Sprint x.y`**, ensure no `^- \[ \]` appears before the next `### Sprint` or `**Milestone` gate.  
+   - **Grep aids:** Open work: **`BUILD_PLAN.md`** with **`^- \[ \]`**; sprint headers: **`^### Sprint`**.  
+   - A maintainer script could: (1) parse markdown headings under **`## Milestone`**, (2) split children by **`### Sprint`**, (3) flag sprints with mixed `[ ]`/`[x]`, (4) emit a diff-friendly move list — **not shipped in-repo yet**; follow steps **1–6** manually until such a script exists.
 
 ---
 
@@ -246,3 +283,4 @@ For line-by-line historical checkboxes, use `git log -- BUILD_PLAN.md` and `PROB
 
 - **Version:** Milestone/sprint rewrite (2026). Replaces numbered §0–§10 narrative checklist; **Milestone 11** (2026) capture UX + video backlog; technical truth remains in source + `PROBE_BUILD_PLAN.md`.
 - **Owner:** Project maintainer approves Milestone H closures.
+- **Archive cadence:** After closing sprints, run **`### Archiving completed sprints — procedure`** (under **Completed milestones & sprints**) so **`BUILD_PLAN.md`** does not grow unbounded.

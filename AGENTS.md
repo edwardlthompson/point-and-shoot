@@ -27,6 +27,29 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 
 ---
 
+## CRITICAL — DNG metadata pairing (`DngMetadataResolver`) and RAW still diagnostics
+
+**Shipped May 2026 (CPH2655-class, user-verified):** Logical multi-camera DNG saves use **`DngMetadataResolver.resolveForDngSave`** → **`DngMetadataResolution`** for **`DngCreator(characteristics, totalCaptureResult)`**. **Do not change without explicit maintainer request + USB `pns_photo_capture_verify.ps1` or `pns_capture_pipeline_verify.ps1` proof** on a representative logical-multi-camera device.
+
+**Invariants**
+
+1. **Never hybrid:** If a physical id is picked for DNG but **`TotalCaptureResult.getPhysicalCameraTotalResults()`** does **not** contain that id, **must** use **logical** `CameraCharacteristics` **and** **logical** `TotalCaptureResult` — **never** physical characteristics + logical result (dark / green RAW decode).
+2. **Unpinned logical RAW vs populated physical map:** With **preview-only** physical pin, RAW stays on the **logical** stream. The HAL may still return **non-empty** `physicalCameraTotalResults` for the picked id — **do not** pass that physical `TotalCaptureResult` + physical `CameraCharacteristics` into **`DngCreator`** unless RAW outputs are physically pinned and USB proof exists. **`resolveForDngSave(..., allowPhysicalTotalResultPairing = false)`** (shipped at all **`PreviewEngineScreen`** call sites) forces **logical + logical** in that case; **`pairedPhysical=false`** in **`dng save diag`** is expected when the map has keys but pairing is suppressed.
+3. **`resolveForDngSave` return type** stays **`DngMetadataResolution`** (do not regress to `Pair`‑only); **`pickPhysicalIdForDng`** stays covered by **`DngMetadataResolverTest`**.
+4. **`PreviewEngineScreen.kt`** RAW still + bracket DNG paths: keep **`Log.i`** on **`PNS.CaptureStill`** with the **`dng save diag`** line (**`toDiagSummary()`** + ISO + RAW `Image` format/size). Fleet triage greps this tag.
+5. **REGULAR session `OutputConfiguration` physical pin:** on logical multi-camera stacks where **`physicalCameraTotalResults`** is **empty** for stills, pin **preview (output 0)** only — **do not** pin **RAW** / **hardware JPEG** surfaces to a physical child without USB proof that per-physical **`TotalCaptureResult`** entries populate; otherwise RAW pixels and **`DngCreator`** metadata disagree (dark / green DNG).
+6. **`RawCaptureSupport.pickRawOutputForPreviewSession`:** keep **`usePhysicalChildRawStreamMapForLogicalSession = false`** at **`PreviewEngineScreen.kt`** call sites while RAW is unpinned — RAW **`ImageReader`** format/size must follow the **logical** **`SCALER_STREAM_CONFIGURATION_MAP`** so they match the **logical** RAW output the HAL attaches to the session.
+    - **Failure mode if regressed:** After **preview-only** physical pin (RAW/JPEG **unpinned**), the legacy path still called **`pickRawForLogicalMulticamPinnedAux`**, which picked RAW WxH/format from the **preview physical child’s** characteristics. That can disagree with the actual **logical** RAW stream → **same symptom** as hybrid metadata: **very dark DNG + strong green cast** on **UW/tele** while wide + JPEG look fine — even when **`DngMetadataResolver`** already falls back to **logical + logical**. **Do not** set **`usePhysicalChildRawStreamMapForLogicalSession = true`** (or re-inline that physical map pick) unless RAW surfaces are **physically pinned** to match **and** USB aux-slot DNG review passes.
+7. **Logical multi-cam + aux preview pin — do not use `Default` RAW tier alone (very common mistake):** Leaf UW/tele uses **`shouldUseLeafNonWideBackRawSensorPolicy`** → **`RAW_SENSOR`** first. **Logical** `cameraId` sessions have **non-empty** `physicalCameraIds`, so that leaf branch **does not run**; **`pickRawOutput(chars, RawStreamPreference.Default)`** still follows fleet **§2** order **RAW12 → RAW_SENSOR → RAW10** on the **logical** map. On CPH2655-class stacks, aux slots under a **non-wide preview physical pin** often need **`RAW_SENSOR` / `RAWSensorFirst`** from that **same logical** map (see **`shouldPreferRawSensorForAuxPhysicalPreviewPin`** inside **`pickRawOutputForPreviewSession`**). **What broke it:** disabling **`pickRawForLogicalMulticamPinnedAux`** fixed **wrong** physical-map sizing but removed the **implicit** RAW_SENSOR preference that path applied from the child map — leaving **RAW12-first** on logical and reproducing dark/green DNG. **Triage:** session create log **`RAW ImageReader … format=`** should be **`32`** (`RAW_SENSOR`) for M14/M150-style pins, not **`37`** (RAW12).
+
+**Docs / scripts:** **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`** (section **Aux DNG color cast triage**); **`scripts/pns_aux_dng_triage_focal_slots.ps1`**, **`scripts/pns_aux_dng_exp2_raw_stream.ps1`**.
+
+**Does not override:** **§4a** stream hints or **§2** default RAW tier order — those remain separate CRITICAL blocks above.
+
+**Cursor rule:** **`.cursor/rules/dng-logical-multicam-metadata-lock.mdc`**.
+
+---
+
 ## CRITICAL — GLES preview aspect (do not reapply reverted fixes)
 
 **May 2026 (CPH2655 / user-verified):** Multiple attempts to fix **gallery-return** or **resume** preview stretch **broke default preview** (distorted / stretched) and were **reverted**. **Do not reintroduce** these patterns without maintainer sign-off, a **new** design, and USB proof on a real device:
@@ -254,6 +277,7 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 |------|---------|
 | `.cursor/rules/adb-device-env.mdc` | ADB env file, `PNS_ADB_SERIAL` (USB), script entry points. |
 | `.cursor/rules/dodge-tele-focal-routing.mdc` | **Locked** dodge tele **73/85/150 mm** routing + crop gates — no fleet policy; physical tele preferred when enumerated; see **`AGENTS.md`** CRITICAL section. |
+| `.cursor/rules/dng-logical-multicam-metadata-lock.mdc` | **Locked** **`DngMetadataResolver`** (**`allowPhysicalTotalResultPairing=false`**), **`RawCaptureSupport.pickRawOutputForPreviewSession`** (**`usePhysicalChildRawStreamMap=false`**, logical-map **`RAW_SENSOR`** when **`shouldPreferRawSensorForAuxPhysicalPreviewPin`** — do not rely on **`Default`**/RAW12 alone on logical), **`PNS.CaptureStill`** **`dng save diag`**; see **`AGENTS.md`** CRITICAL — DNG metadata pairing. |
 | `.cursor/rules/preview-chrome-ui-lock.mdc` | **Frozen** preview chrome layout — behavioral fixes only unless the user explicitly changes UI. |
 | `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |
 

@@ -14,7 +14,8 @@ import android.util.Range
  *   [CameraCharacteristics.CONTROL_AVAILABLE_VIDEO_STABILIZATION_MODES], the user enables
  *   [HudSettings.enableVideoStabilizationPreview], and we are not in an HFR / high-speed preview path.
  *
- * EIS is **not** applied on still-capture builders (HAL variance / crop); OIS still is when available.
+ * EIS is **not** applied on still-capture builders (HAL variance / crop); OIS still is when available,
+ * unless [applyToRequest] is told to force OIS **off** for stills only (tripod / static preference).
  */
 object PreviewStabilization {
     private const val TAG = "PNS.Stabilization"
@@ -43,6 +44,8 @@ object PreviewStabilization {
     /**
      * @param previewFpsRange AE target FPS range for this repeating request (null = leave HFR detection to template only).
      * @param isStillCapture when true, skips EIS (still pipeline).
+     * @param disableOisForStill when [isStillCapture] and the user enables the HUD “OIS off for stills”
+     * preference, forces [CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE] OFF when advertised.
      */
     fun applyToRequest(
         builder: CaptureRequest.Builder,
@@ -51,19 +54,32 @@ object PreviewStabilization {
         previewFpsRange: Range<Int>?,
         manualSensor: Boolean,
         isStillCapture: Boolean,
+        disableOisForStill: Boolean = false,
     ) {
         val keys = chars.availableCaptureRequestKeys ?: return
         val hfrPreview =
             previewFpsRange != null && previewFpsRange.upper >= HFR_PREVIEW_EIS_DISABLE_FPS
 
-        if (settings.enableLensOpticalStabilization &&
-            keys.contains(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE)
-        ) {
+        if (keys.contains(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE)) {
             val avail = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION) ?: intArrayOf()
-            val mode = pickOpticalStabilizationMode(avail)
-            if (mode != null) {
-                runCatching { builder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, mode) }
-                    .onFailure { Log.w(TAG, "LENS_OPTICAL_STABILIZATION_MODE: ${it.message}") }
+            when {
+                isStillCapture &&
+                    disableOisForStill &&
+                    avail.contains(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF) -> {
+                    runCatching {
+                        builder.set(
+                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE,
+                            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF,
+                        )
+                    }.onFailure { Log.w(TAG, "LENS_OPTICAL_STABILIZATION_MODE OFF (still): ${it.message}") }
+                }
+                settings.enableLensOpticalStabilization -> {
+                    val mode = pickOpticalStabilizationMode(avail)
+                    if (mode != null) {
+                        runCatching { builder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, mode) }
+                            .onFailure { Log.w(TAG, "LENS_OPTICAL_STABILIZATION_MODE: ${it.message}") }
+                    }
+                }
             }
         }
 

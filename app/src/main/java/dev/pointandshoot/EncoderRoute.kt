@@ -33,8 +33,8 @@ object EncoderRoute {
         val rawWritten: RawMode,
         /**
          * The tonal container actually written. `null` when [fallbackJpeg] is
-         * `true` (the route writes a JPEG instead). When non-null, this equals
-         * [ImagingProfile.tonalContainer].
+         * `true` (the route writes a JPEG instead). When non-null, matches the
+         * resolved [StillCaptureBundle.tonalContainer] passed to [decide].
          */
         val tonalWritten: TonalContainer?,
         /**
@@ -57,7 +57,7 @@ object EncoderRoute {
         val fileCountForCapture: Int
             get() =
                 when {
-                    profile is ImagingProfile.JpegOnly -> 1
+                    rawWritten == RawMode.None -> 1
                     tonalWritten != null -> 2
                     fallbackJpeg -> 2
                     else -> 1
@@ -72,34 +72,42 @@ object EncoderRoute {
      * Decide what the capture pipeline writes for [profile] given whether the
      * native encoder library is loaded.
      */
-    fun decide(profile: ImagingProfile, nativeAvailable: Boolean): Decision {
-        if (profile is ImagingProfile.JpegOnly) {
-            return Decision(
-                profile = profile,
-                rawWritten = RawMode.None,
-                tonalWritten = null,
-                fallbackJpeg = false,
-                downgradeReason = null,
-            )
+    fun decide(profile: ImagingProfile, nativeAvailable: Boolean): Decision =
+        decide(legacyStillBundle(profile), nativeAvailable)
+
+    /**
+     * Decides capture outputs from a resolved [StillCaptureBundle] (independent RAW vs HDR tiers).
+     * [Decision.profile] is [storageProfileFromBundle] for MediaStore folder layout only.
+     */
+    fun decide(bundle: StillCaptureBundle, nativeAvailable: Boolean): Decision {
+        val profile = storageProfileFromBundle(bundle)
+        if (bundle.rawMode == RawMode.None) {
+            val needsNative = bundle.tonalContainer.requiresNativeEncoder
+            return if (!needsNative || nativeAvailable) {
+                Decision(
+                    profile = profile,
+                    rawWritten = RawMode.None,
+                    tonalWritten = bundle.tonalContainer,
+                    fallbackJpeg = false,
+                    downgradeReason = null,
+                )
+            } else {
+                Decision(
+                    profile = profile,
+                    rawWritten = RawMode.None,
+                    tonalWritten = null,
+                    fallbackJpeg = true,
+                    downgradeReason = DOWNGRADE_MESSAGE,
+                )
+            }
         }
-        val needsNative = profile.tonalContainer.requiresNativeEncoder
-        return if (!needsNative || nativeAvailable) {
-            Decision(
-                profile = profile,
-                rawWritten = profile.rawMode,
-                tonalWritten = profile.tonalContainer,
-                fallbackJpeg = false,
-                downgradeReason = null,
-            )
-        } else {
-            Decision(
-                profile = profile,
-                rawWritten = profile.rawMode,
-                tonalWritten = null,
-                fallbackJpeg = true,
-                downgradeReason = DOWNGRADE_MESSAGE,
-            )
-        }
+        return Decision(
+            profile = profile,
+            rawWritten = bundle.rawMode,
+            tonalWritten = null,
+            fallbackJpeg = false,
+            downgradeReason = null,
+        )
     }
 
     /**

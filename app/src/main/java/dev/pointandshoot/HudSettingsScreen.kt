@@ -427,11 +427,11 @@ private fun hudToggleRows(
             onChange = { onUpdate(settings.copy(showHighlightClipZebra = it)) },
         ),
         HudToggleRow(
-                title = "Focus peaking (preview)",
+            title = "Focus peaking (preview)",
             description =
-                "Preview false-color edges when the native shader lands. " +
-                    "Color and sensitivity: chrome grid → Preview & keys → " +
-                    "Preview framing & overlays → Focus peaking. " +
+                "Edge-based false color on the GL preview (high-contrast luma gradients), not a Camera2 " +
+                    "AF confirmation — tele scenes can peak while the RAW plane is slightly soft. " +
+                    "Color and sensitivity: chrome grid → Preview & keys → Preview framing & overlays → Focus peaking. " +
                     "This switch is a quick on/off (on picks red if you had Off).",
             enabled = settings.focusPeakingEnabled(),
             onChange = { on ->
@@ -457,6 +457,14 @@ private fun hudToggleRows(
                 "When the HAL exposes OIS, request ON for preview + stills (Camera2).",
             enabled = settings.enableLensOpticalStabilization,
             onChange = { onUpdate(settings.copy(enableLensOpticalStabilization = it)) },
+        ),
+        HudToggleRow(
+            title = "Tripod / static: OIS off for stills only",
+            description =
+                "When OIS is otherwise enabled, still captures can force optical stabilization OFF " +
+                    "if the HAL lists OFF (preview unchanged). Try on a tripod if tele stills look smeared.",
+            enabled = settings.disableOisForStillCapture,
+            onChange = { onUpdate(settings.copy(disableOisForStillCapture = it)) },
         ),
         HudToggleRow(
             title = "Preview video stabilization (EIS)",
@@ -489,6 +497,23 @@ private fun hudToggleRows(
                     "preview session parameters. Off by default — HAL-specific; disable if preview fails to open.",
             enabled = settings.enableResearchAfBracketing,
             onChange = { onUpdate(settings.copy(enableResearchAfBracketing = it)) },
+        ),
+        HudToggleRow(
+            title = "Open Camera–style AF settle before RAW still",
+            description =
+                "In-app only (not scripted ADB), flash off: after stopRepeating, run preview-only AF " +
+                    "polling captures before the high-res still. Off by default — try for tele tripod softness.",
+            enabled = settings.enableOpenCameraStyleAfSettleBeforeStill,
+            onChange = { onUpdate(settings.copy(enableOpenCameraStyleAfSettleBeforeStill = it)) },
+        ),
+        HudToggleRow(
+            title = "Wait for AF before still (shutter gate)",
+            description =
+                "In-app only: after shutter, run AF precapture triggers and block capture until the HAL " +
+                    "reports passive focused or focused locked (or timeout). Skipped for manual ISO/shutter, " +
+                    "S dial, flash Auto/On/Torch on back hardware, and HFR constrained preview. Peaking is still edge-based, not this signal.",
+            enabled = settings.waitForAfFocusBeforeStill,
+            onChange = { onUpdate(settings.copy(waitForAfFocusBeforeStill = it)) },
         ),
     )
 

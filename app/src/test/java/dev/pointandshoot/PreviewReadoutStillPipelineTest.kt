@@ -8,7 +8,7 @@ class PreviewReadoutStillPipelineTest {
     @Test
     fun chipLabel_jpegOnly() {
         assertEquals(
-            "JPG",
+            "AVIF",
             PreviewReadoutStillPipeline.chipLabel(
                 ImagingProfile.JpegOnly,
                 stillCaptureJpegCompanion = true,
@@ -20,7 +20,7 @@ class PreviewReadoutStillPipelineTest {
     @Test
     fun chipLabel_standardPro_dngPlusWhenCompanionActive() {
         assertEquals(
-            "DNG+",
+            "DNG+AVIF",
             PreviewReadoutStillPipeline.chipLabel(
                 ImagingProfile.StandardPro,
                 stillCaptureJpegCompanion = true,
@@ -54,11 +54,17 @@ class PreviewReadoutStillPipelineTest {
     }
 
     @Test
-    fun chipLabel_ultraMax_dng12PlusWhenBoth() {
+    fun chipLabel_ultraMax_dng12PlusJxlWhenBoth() {
+        val intent =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Ultra,
+                jpeg = ImgMenuTier.Ultra,
+                hdrWhenJpegOff = ImgMenuTier.Ultra,
+            )
         assertEquals(
-            "DNG12+",
+            "DNG12+JXL",
             PreviewReadoutStillPipeline.chipLabel(
-                ImagingProfile.UltraMax,
+                intent,
                 stillCaptureJpegCompanion = true,
                 sessionJpegCompanionReady = true,
             ),

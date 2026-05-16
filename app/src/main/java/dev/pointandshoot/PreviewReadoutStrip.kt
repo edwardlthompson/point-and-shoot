@@ -241,7 +241,7 @@ fun PreviewReadoutStrip(
     stillCaptureJpegCompanion: Boolean,
     /** True when the preview session actually has a hardware JPEG surface (matches [PreviewController.previewUsesJpegCompanion]). */
     sessionJpegCompanionReady: Boolean,
-    imagingProfile: ImagingProfile,
+    composedStillIntent: ComposedStillIntent,
     menu: ReadoutMenuSnapshot,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     /** When false, FPS readout stays visible but the target FPS menu is disabled (photo-primary tray). */
@@ -254,10 +254,8 @@ fun PreviewReadoutStrip(
     videoLut: LutCatalog,
     onPickStillLut: (LutCatalog) -> Unit,
     onPickVideoLut: (LutCatalog) -> Unit,
-    /** Sets lossless DNG, Ultra (DNG+), or hardware JPG-only still profile. */
-    onPickImagingProfile: (ImagingProfile) -> Unit,
-    /** When profile is DNG-based, requests hardware JPEG alongside RAW. Ignored for [ImagingProfile.JpegOnly]. */
-    onPickStillCaptureJpegCompanion: (Boolean) -> Unit,
+    /** Persists IMG menu tiers (RAW vs HDR / companion); must apply [ComposedStillIntent.coerceNoOffOff] if needed. */
+    onComposedStillIntentChange: (ComposedStillIntent) -> Unit,
     /** Samples center YUV chroma (gray card) and locks preview WB; see [GrayCardWhiteBalance]. */
     onGrayCardWb: () -> Unit = {},
     /** Shallow hub rescan in flight without a valid JSON snapshot yet — non-blocking readout hint. */
@@ -288,10 +286,10 @@ fun PreviewReadoutStrip(
     val stillLutIndex = stillLut.indexInScope(LutCatalog.Scope.Stills).toString()
     val videoLutIndex = videoLut.indexInScope(LutCatalog.Scope.Video).toString()
     val rawChipValue =
-        PreviewReadoutStillPipeline.chipLabel(imagingProfile, stillCaptureJpegCompanion, sessionJpegCompanionReady)
+        PreviewReadoutStillPipeline.chipLabel(composedStillIntent, stillCaptureJpegCompanion, sessionJpegCompanionReady)
     val rawChipA11y =
         PreviewReadoutStillPipeline.chipContentDescription(
-            imagingProfile,
+            composedStillIntent,
             stillCaptureJpegCompanion,
             sessionJpegCompanionReady,
         )
@@ -393,7 +391,7 @@ fun PreviewReadoutStrip(
                         density,
                     )
                 }
-            val imgValueStrings = listOf("DNG", "DNG+", "JPG")
+            val imgValueStrings = listOf("DNG", "DNG+", "DNG12", "DNG12+", "JPG", "JPG+")
             val imgValueMinWidth =
                 remember(scale, rawChipValue, textMeasurer, valueStyle, density) {
                     maxReadoutValueWidthDp(textMeasurer, valueStyle, imgValueStrings, density)
@@ -622,48 +620,94 @@ fun PreviewReadoutStrip(
                     )
                     PnsChromeDropdownMenu(expanded = imgMenu, onDismissRequest = { imgMenu = false }) {
                         Column {
-                            PnsChromePlainMenuItem(
-                                label = "DNG (lossless RAW)",
-                                onClick = {
-                                    onPickImagingProfile(ImagingProfile.StandardPro)
-                                    imgMenu = false
-                                },
+                            fun applyIntent(next: ComposedStillIntent) {
+                                onComposedStillIntentChange(next.coerceNoOffOff())
+                            }
+                            fun onPickRawTier(t: ImgMenuTier) {
+                                val base = composedStillIntent.copy(raw = t)
+                                val withHdr =
+                                    if (t != ImgMenuTier.Off && base.jpeg == ImgMenuTier.Off) {
+                                        base.copy(hdrWhenJpegOff = t)
+                                    } else {
+                                        base
+                                    }
+                                applyIntent(withHdr)
+                                imgMenu = false
+                            }
+                            fun onPickJpegTier(t: ImgMenuTier) {
+                                val base = composedStillIntent.copy(jpeg = t)
+                                val withHdr =
+                                    if (base.raw != ImgMenuTier.Off && t == ImgMenuTier.Off) {
+                                        base.copy(hdrWhenJpegOff = base.raw)
+                                    } else {
+                                        base
+                                    }
+                                applyIntent(withHdr)
+                                imgMenu = false
+                            }
+                            Text(
+                                text = "-RAW-",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            )
+                            PnsChromeDetailMenuItem(
+                                title = "Ultra",
+                                subtitle = ImgMenuHints.rawRowSubtitle(ImgMenuTier.Ultra)!!,
+                                selected = composedStillIntent.raw == ImgMenuTier.Ultra,
+                                onClick = { onPickRawTier(ImgMenuTier.Ultra) },
+                            )
+                            PnsChromeDetailMenuItem(
+                                title = "Standard",
+                                subtitle = ImgMenuHints.rawRowSubtitle(ImgMenuTier.Standard)!!,
+                                selected = composedStillIntent.raw == ImgMenuTier.Standard,
+                                onClick = { onPickRawTier(ImgMenuTier.Standard) },
                             )
                             PnsChromePlainMenuItem(
-                                label = "DNG+ (Ultra RAW)",
-                                onClick = {
-                                    onPickImagingProfile(ImagingProfile.UltraMax)
-                                    imgMenu = false
-                                },
+                                label = "Off",
+                                selected = composedStillIntent.raw == ImgMenuTier.Off,
+                                onClick = { onPickRawTier(ImgMenuTier.Off) },
                             )
-                            PnsChromePlainMenuItem(
-                                label = "JPG (hardware still only)",
-                                onClick = {
-                                    onPickImagingProfile(ImagingProfile.JpegOnly)
-                                    imgMenu = false
-                                },
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                color = Color.White.copy(alpha = 0.18f),
                             )
-                            if (imagingProfile !is ImagingProfile.JpegOnly) {
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(vertical = 6.dp),
-                                    color = Color.White.copy(alpha = 0.18f),
+                            Text(
+                                text = "-JPEG-",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            )
+                            if (composedStillIntent.raw == ImgMenuTier.Off) {
+                                PnsChromeDetailMenuItem(
+                                    title = "Ultra",
+                                    subtitle = ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Ultra)!!,
+                                    selected = composedStillIntent.jpeg == ImgMenuTier.Ultra,
+                                    onClick = { onPickJpegTier(ImgMenuTier.Ultra) },
                                 )
-                                Text(
-                                    text = "With DNG / DNG+",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = Color.White.copy(alpha = 0.55f),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+                                PnsChromeDetailMenuItem(
+                                    title = "Standard",
+                                    subtitle = ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Standard)!!,
+                                    selected = composedStillIntent.jpeg == ImgMenuTier.Standard,
+                                    onClick = { onPickJpegTier(ImgMenuTier.Standard) },
+                                )
+                            } else {
+                                PnsChromeDetailMenuItem(
+                                    title = "Ultra",
+                                    subtitle = ImgMenuHints.jpegHdrRowSubtitle(ImgMenuTier.Ultra)!!,
+                                    selected = composedStillIntent.jpeg == ImgMenuTier.Ultra,
+                                    onClick = { onPickJpegTier(ImgMenuTier.Ultra) },
+                                )
+                                PnsChromeDetailMenuItem(
+                                    title = "Standard",
+                                    subtitle = ImgMenuHints.jpegHdrRowSubtitle(ImgMenuTier.Standard)!!,
+                                    selected = composedStillIntent.jpeg == ImgMenuTier.Standard,
+                                    onClick = { onPickJpegTier(ImgMenuTier.Standard) },
                                 )
                                 PnsChromePlainMenuItem(
-                                    label = if (stillCaptureJpegCompanion) {
-                                        "JPEG companion: on"
-                                    } else {
-                                        "JPEG companion: off"
-                                    },
-                                    onClick = {
-                                        onPickStillCaptureJpegCompanion(!stillCaptureJpegCompanion)
-                                        imgMenu = false
-                                    },
+                                    label = "Off",
+                                    selected = composedStillIntent.jpeg == ImgMenuTier.Off,
+                                    onClick = { onPickJpegTier(ImgMenuTier.Off) },
                                 )
                             }
                             val post = lastStillPostReadout

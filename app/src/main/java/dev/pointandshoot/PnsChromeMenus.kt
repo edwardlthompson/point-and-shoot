@@ -103,6 +103,7 @@ fun PnsChromePlainMenuItem(
     label: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    selected: Boolean = false,
 ) {
     val itemColors =
         MenuDefaults.itemColors(
@@ -111,16 +112,34 @@ fun PnsChromePlainMenuItem(
             disabledTextColor = Color.White.copy(alpha = 0.38f),
             disabledLeadingIconColor = Color.White.copy(alpha = 0.28f),
         )
+    val labelColor =
+        when {
+            !enabled -> Color.White.copy(alpha = 0.38f)
+            selected -> PnsColors.PhotoOrange.copy(alpha = 0.98f)
+            else -> Color.White.copy(alpha = 0.92f)
+        }
     DropdownMenuItem(
         text = {
-            Text(
-                label,
-                color = if (enabled) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.38f),
-            )
+            Text(label, color = labelColor)
         },
         onClick = onClick,
         enabled = enabled,
         colors = itemColors,
+        leadingIcon = {
+            Box(
+                modifier = Modifier.size(22.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = null,
+                        tint = PnsColors.PhotoOrange,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        },
     )
 }
 
@@ -130,6 +149,7 @@ fun PnsChromeDetailMenuItem(
     subtitle: String,
     onClick: () -> Unit,
     enabled: Boolean = true,
+    selected: Boolean = false,
 ) {
     val itemColors =
         MenuDefaults.itemColors(
@@ -138,18 +158,30 @@ fun PnsChromeDetailMenuItem(
             disabledTextColor = Color.White.copy(alpha = 0.38f),
             disabledLeadingIconColor = Color.White.copy(alpha = 0.28f),
         )
+    val titleColor =
+        when {
+            !enabled -> Color.White.copy(alpha = 0.38f)
+            selected -> PnsColors.PhotoOrange.copy(alpha = 0.98f)
+            else -> Color.White.copy(alpha = 0.92f)
+        }
+    val subtitleColor =
+        when {
+            !enabled -> Color.White.copy(alpha = 0.28f)
+            selected -> PnsColors.PhotoOrange.copy(alpha = 0.72f)
+            else -> Color.White.copy(alpha = 0.62f)
+        }
     DropdownMenuItem(
         text = {
             Column {
                 Text(
                     title,
-                    color = if (enabled) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.38f),
+                    color = titleColor,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     subtitle,
                     modifier = Modifier.padding(top = 2.dp),
-                    color = if (enabled) Color.White.copy(alpha = 0.62f) else Color.White.copy(alpha = 0.28f),
+                    color = subtitleColor,
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
@@ -157,5 +189,20 @@ fun PnsChromeDetailMenuItem(
         onClick = onClick,
         enabled = enabled,
         colors = itemColors,
+        leadingIcon = {
+            Box(
+                modifier = Modifier.size(22.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = null,
+                        tint = PnsColors.PhotoOrange,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        },
     )
 }

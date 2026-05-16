@@ -20,23 +20,41 @@ private fun handlerExecutor(handler: Handler): Executor = Executor { cmd -> hand
  * Builds [OutputConfiguration] entries, optionally tagging stream use cases (API 33+) so the HAL
  * can optimize preview vs still surfaces (`BUILD_PLAN` stream use cases). Failures are swallowed
  * per-surface so we still produce a valid config list.
+ *
+ * **Logical multi-camera + RAW:** [physicalPinnedSurfaceIndices] is reserved for HALs that supply
+ * per-physical [android.hardware.camera2.TotalCaptureResult] entries for still capture. On stacks
+ * where [TotalCaptureResult.getPhysicalCameraTotalResults] is **empty** while RAW is still pinned
+ * to a physical id, [android.hardware.camera2.DngCreator] gets **logical** metadata for **physical**
+ * pixels → dark / green DNG. **Shipped default:** pass **null** so only output **0** (preview) is
+ * pinned ([previewPhysicalCameraId] set, indices default to `setOf(0)`). Callers may pass a
+ * non-null index set only with USB proof that physical totals populate for those outputs.
  */
 internal fun outputConfigurationsWithOptionalStreamUseCases(
     surfaces: List<Surface>,
     enableHints: Boolean,
     previewDynamicRangeProfile: Long? = null,
-    /** Logical multi-camera: pin preview stream to this physical camera id (API 28+). */
+    /** Logical multi-camera: physical camera id for pinned outputs (API 28+). */
     previewPhysicalCameraId: String? = null,
+    /**
+     * When non-null and [previewPhysicalCameraId] is set, pins these indices into [previewPhysicalCameraId].
+     * When null and [previewPhysicalCameraId] is set, pins index **0** only (legacy).
+     */
+    physicalPinnedSurfaceIndices: Set<Int>? = null,
 ): List<OutputConfiguration> {
+    val pinId = previewPhysicalCameraId?.takeIf { it.isNotBlank() }
+    val indicesToPin: Set<Int>? =
+        when {
+            pinId == null -> null
+            physicalPinnedSurfaceIndices != null -> physicalPinnedSurfaceIndices
+            else -> setOf(0)
+        }
     return surfaces.mapIndexed { index, surface ->
         OutputConfiguration(surface).apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
-                index == 0 &&
-                !previewPhysicalCameraId.isNullOrBlank()
-            ) {
-                runCatching { setPhysicalCameraId(previewPhysicalCameraId) }
+            val pinHere = indicesToPin?.contains(index) == true
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && pinHere) {
+                runCatching { setPhysicalCameraId(pinId!!) }
                     .onFailure { e ->
-                        Log.w(TAG, "setPhysicalCameraId=$previewPhysicalCameraId: ${e.message}")
+                        Log.w(TAG, "setPhysicalCameraId=$pinId idx=$index: ${e.message}")
                     }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && index == 0 && previewDynamicRangeProfile != null) {
@@ -81,6 +99,7 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
     previewDynamicRangeProfile: Long? = null,
     sessionParametersTemplate: CaptureRequest? = null,
     previewPhysicalCameraId: String? = null,
+    physicalPinnedSurfaceIndices: Set<Int>? = null,
 ) {
     val outputConfigs =
         outputConfigurationsWithOptionalStreamUseCases(
@@ -88,6 +107,7 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
             enableHints = streamUseCaseHints,
             previewDynamicRangeProfile = previewDynamicRangeProfile,
             previewPhysicalCameraId = previewPhysicalCameraId,
+            physicalPinnedSurfaceIndices = physicalPinnedSurfaceIndices,
         )
     val sessionConfig =
         SessionConfiguration(

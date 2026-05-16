@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.content.Context
 import android.graphics.ImageFormat
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Build
 import android.util.Size
@@ -39,6 +40,202 @@ enum class RawStreamPreference {
  * RAW still helpers for Phase 1 Camera2 capture ([BUILD_PLAN.md] §4).
  */
 object RawCaptureSupport {
+
+    /**
+     * When true, [pickRawForLogicalMulticamPinnedAux] prefers [RawStreamPreference.RawSensorOnly] /
+     * [RawStreamPreference.RawSensorFirst] — logical multi-camera with preview pinned to a non-wide
+     * physical id while the session id stays the logical parent.
+     */
+    internal fun shouldPreferRawSensorForAuxPhysicalPreviewPin(
+        userPreference: RawStreamPreference,
+        logicalPhysicalChildren: Set<String>,
+        previewPhysicalCameraId: String?,
+        wideBackCameraId: String?,
+    ): Boolean {
+        if (userPreference != RawStreamPreference.Default) return false
+        if (logicalPhysicalChildren.isEmpty()) return false
+        val pin =
+            previewPhysicalCameraId?.takeIf { it.isNotBlank() && it in logicalPhysicalChildren }
+                ?: return false
+        val wide = wideBackCameraId ?: return false
+        return pin != wide
+    }
+
+    /**
+     * **Leaf** back camera (no [CameraCharacteristics.getPhysicalCameraIds]) whose id is not the
+     * resolved wide role — typical **UW / tele** opened as `cameraId=3` / `4` while wide stays `2`.
+     * There is no preview [OutputConfiguration] pin on these sessions ([schedulePreviewPhysicalForFocalSlot]
+     * only pins tele when `pair.first == logicalParent`), so [shouldPreferRawSensorForAuxPhysicalPreviewPin]
+     * never ran; **RAW12** still decodes as dark/green in DNG while JPEG looks fine.
+     */
+    internal fun shouldUseLeafNonWideBackRawSensorPolicy(
+        userPreference: RawStreamPreference,
+        sessionCameraId: String,
+        wideBackCameraId: String?,
+        logicalPhysicalChildren: Set<String>,
+        lensFacing: Int?,
+    ): Boolean {
+        if (userPreference != RawStreamPreference.Default) return false
+        if (wideBackCameraId == null || sessionCameraId == wideBackCameraId) return false
+        if (logicalPhysicalChildren.isNotEmpty()) return false
+        if (lensFacing != null && lensFacing != CameraCharacteristics.LENS_FACING_BACK) return false
+        return true
+    }
+
+    /**
+     * RAW [ImageReader] format/size for the active preview session. Handles:
+     * - **Leaf** non-wide back cameras (prefer `RAW_SENSOR` over packed `RAW12` for DngCreator).
+     * - **Logical** multi-camera with a **non-wide** preview physical pin: prefer **`RAW_SENSOR` /
+     *   `RAW_SENSOR`-first** from the **logical** stream map (same route as unpinned session RAW).
+     *   [pickRawOutput] **Default** would try **RAW12** first on that map; some HALs still deliver plain
+     *   Bayer for aux slots — wrong packing vs [DngCreator] + logical metadata reads as dark / green
+     *   (CPH2655-class). This stays on the logical map (unlike [pickRawForLogicalMulticamPinnedAux]).
+     * - **Logical** default: by default RAW is negotiated from the **logical** stream map so it
+     *   matches **unpinned** RAW outputs (preview-only [OutputConfiguration.setPhysicalCameraId]).
+     *   Use [usePhysicalChildRawStreamMapForLogicalSession] only when RAW/JPEG outputs are pinned to
+     *   the same physical id **and** USB proof shows per-physical [TotalCaptureResult] for DNG.
+     * Explicit [RawStreamPreference] from ADB / HUD (non-[RawStreamPreference.Default]) is never overridden.
+     */
+    fun pickRawOutputForPreviewSession(
+        cm: CameraManager,
+        cameraIds: List<String>,
+        sessionCameraId: String,
+        sessionCharacteristics: CameraCharacteristics?,
+        previewPhysicalCameraId: String?,
+        userPreference: RawStreamPreference,
+        /**
+         * When **true**, non-wide preview physical pins may pick RAW size/format from that child's
+         * [CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP] (legacy path; requires RAW surface
+         * physically pinned). **Default false** (shipped): keep RAW pick on the **logical** map so
+         * dimensions and packing match the unpinned RAW stream (avoids dark / green DNG on OEMs
+         * with empty [TotalCaptureResult.physicalCameraTotalResults]).
+         */
+        usePhysicalChildRawStreamMapForLogicalSession: Boolean = false,
+    ): Pair<Int, Size>? {
+        val chars = sessionCharacteristics ?: return null
+        if (userPreference != RawStreamPreference.Default) {
+            return pickRawOutput(chars, userPreference)
+        }
+        val facing = chars.get(CameraCharacteristics.LENS_FACING)
+        if (facing != null && facing != CameraCharacteristics.LENS_FACING_BACK) {
+            return pickRawOutput(chars, userPreference)
+        }
+        val roles = BackCameraRoleResolver.resolve(cm, cameraIds)
+        val wide = roles.wide
+        val sessionChildren =
+            runCatching { chars.physicalCameraIds?.toSet().orEmpty() }.getOrDefault(emptySet())
+        if (shouldUseLeafNonWideBackRawSensorPolicy(
+                userPreference,
+                sessionCameraId,
+                wide,
+                sessionChildren,
+                facing,
+            )
+        ) {
+            return pickRawOutput(chars, RawStreamPreference.RawSensorOnly)
+                ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst)
+                ?: pickRawOutput(chars, userPreference)
+        }
+        if (shouldPreferRawSensorForAuxPhysicalPreviewPin(
+                userPreference,
+                sessionChildren,
+                previewPhysicalCameraId,
+                wide,
+            )
+        ) {
+            return pickRawOutput(chars, RawStreamPreference.RawSensorOnly)
+                ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst)
+                ?: pickRawOutput(chars, userPreference)
+        }
+        if (usePhysicalChildRawStreamMapForLogicalSession) {
+            pickRawForLogicalMulticamPinnedAux(cm, cameraIds, chars, previewPhysicalCameraId, userPreference)
+                ?.let { return it }
+        }
+        return pickRawOutput(chars, userPreference)
+    }
+
+    private fun pickRawForLogicalMulticamPinnedAux(
+        cm: CameraManager,
+        cameraIds: List<String>,
+        chars: CameraCharacteristics,
+        previewPhysicalCameraId: String?,
+        userPreference: RawStreamPreference,
+    ): Pair<Int, Size>? {
+        val physicalChildren =
+            runCatching { chars.physicalCameraIds?.toSet().orEmpty() }.getOrDefault(emptySet())
+        val wide = BackCameraRoleResolver.resolve(cm, cameraIds).wide
+        if (!shouldPreferRawSensorForAuxPhysicalPreviewPin(userPreference, physicalChildren, previewPhysicalCameraId, wide)) {
+            return null
+        }
+        val pin = previewPhysicalCameraId ?: return null
+        val pinTrimmed = pin.trim().takeIf { it.isNotBlank() } ?: return null
+        val auxSensorOnlyFirst = RawStreamPreference.RawSensorOnly
+        val auxSensorFirst = RawStreamPreference.RawSensorFirst
+        val physChars = runCatching { cm.getCameraCharacteristics(pinTrimmed) }.getOrNull()
+        val fromPhysical =
+            physChars?.let { pc ->
+                pickRawOutput(pc, auxSensorOnlyFirst)
+                    ?: pickRawOutput(pc, auxSensorFirst)
+            }
+        return fromPhysical
+            ?: pickRawOutput(chars, auxSensorOnlyFirst)
+            ?: pickRawOutput(chars, auxSensorFirst)
+    }
+
+    /**
+     * JVM-testable core for [useNeutralColorPipelineForRawStill] (no [CameraManager]).
+     *
+     * @param sessionPhysicalChildren [CameraCharacteristics.getPhysicalCameraIds] for the **session** camera.
+     */
+    internal fun useNeutralColorPipelineForRawStillCore(
+        wideBackCameraId: String?,
+        sessionPhysicalChildren: Set<String>,
+        lensFacing: Int?,
+        sessionCameraId: String,
+        previewPhysicalCameraId: String?,
+    ): Boolean {
+        val wide = wideBackCameraId ?: return false
+        if (sessionPhysicalChildren.isEmpty()) {
+            return shouldUseLeafNonWideBackRawSensorPolicy(
+                RawStreamPreference.Default,
+                sessionCameraId,
+                wide,
+                sessionPhysicalChildren,
+                lensFacing,
+            )
+        }
+        return shouldPreferRawSensorForAuxPhysicalPreviewPin(
+            RawStreamPreference.Default,
+            sessionPhysicalChildren,
+            previewPhysicalCameraId,
+            wide,
+        )
+    }
+
+    /**
+     * RAW+JPEG still capture: use a **DngCreator-friendly** color pipeline (skip HQ CC / tonemap
+     * overrides from [PreviewJpegProcessingHints]) on auxiliary sensors — leaf UW/tele ids or
+     * logical sessions with a non-wide preview physical pin.
+     */
+    fun useNeutralColorPipelineForRawStill(
+        cm: CameraManager,
+        cameraIds: List<String>,
+        sessionCharacteristics: CameraCharacteristics,
+        sessionCameraId: String,
+        previewPhysicalCameraId: String?,
+    ): Boolean {
+        val wide = BackCameraRoleResolver.resolve(cm, cameraIds).wide ?: return false
+        val children =
+            runCatching { sessionCharacteristics.physicalCameraIds?.toSet().orEmpty() }
+                .getOrDefault(emptySet())
+        return useNeutralColorPipelineForRawStillCore(
+            wide,
+            children,
+            sessionCharacteristics.get(CameraCharacteristics.LENS_FACING),
+            sessionCameraId,
+            previewPhysicalCameraId,
+        )
+    }
 
     /** Same as [pickRawOutput] with [RawStreamPreference.Default] (RAW12 → RAW_SENSOR → RAW10). */
     fun pickRawOutput(characteristics: CameraCharacteristics): Pair<Int, Size>? =

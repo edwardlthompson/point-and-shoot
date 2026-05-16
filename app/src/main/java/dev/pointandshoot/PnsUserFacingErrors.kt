@@ -48,6 +48,14 @@ object PnsUserFacingErrors {
                 "Could not save — this RAW layout is not supported for DNG on this device build."
             raw.contains("no raw buffer") || raw.contains("no jpeg buffer") ->
                 "Could not save — the camera did not deliver the full image. Try again in a moment."
+            raw.contains("tonal jpeg path unavailable") || raw.contains("jpeg still session not ready") ->
+                "Could not save — the JPEG still path is not ready. Wait for preview, then try again."
+            raw.contains("raw still session not ready") || raw.contains("session is updating") ->
+                "Could not save — the camera session is still updating. Wait a moment, then try again."
+            raw.contains("no tonal tier") ->
+                "Could not save — JPEG tier was not ready. Open IMG, set JPEG, and try again."
+            raw.contains("tonal still save failed") ->
+                "Could not save the JPEG/AVIF/JXL file. Try again."
             raw.contains("busy") || raw.contains("encode_lane") || raw.contains("engine busy") ->
                 "Could not save — the engine is still finishing the last capture. Try again in a moment."
             raw.contains("enospc") || raw.contains("no space") || raw.contains("quota") ->

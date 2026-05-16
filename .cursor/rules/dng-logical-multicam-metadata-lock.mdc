@@ -1,0 +1,36 @@
+---
+description: Locked DNG metadata pairing for logical multi-camera + RAW still diag logging
+globs:
+alwaysApply: true
+---
+
+# DNG metadata pairing (locked)
+
+**Do not change without explicit maintainer request + USB proof** (`scripts/pns_photo_capture_verify.ps1` or `scripts/pns_capture_pipeline_verify.ps1` on a **logical multi-camera** stack such as **CPH2655** `8bf09993`).
+
+## Invariants
+
+1. **`DngMetadataResolver.resolveForDngSave`** returns **`DngMetadataResolution`** (not a bare `Pair` only). Pairing for **`DngCreator(characteristics, totalCaptureResult)`** must stay consistent with the resolver KDoc: **never** use **physical** `CameraCharacteristics` with a **logical** `TotalCaptureResult` when the HAL omits that physical id from **`physicalCameraTotalResults`** (API **30+** / **R+**) — that hybrid decodes as **dark / green** DNGs. When the map is missing the picked id, **fallback = logical + logical** (same as single-camera logical session).
+2. **`allowPhysicalTotalResultPairing`:** stays **`false`** at all **`PreviewEngineScreen`** **`resolveForDngSave`** call sites while RAW is **unpinned** — even if **`physicalCameraTotalResults`** contains the picked id, **logical + logical** must be used for **`DngCreator`** so tags match the **logical** RAW stream. **`true`** only with maintainer USB proof and **physically pinned** RAW outputs.
+3. **`pickPhysicalIdForDng`** selection order stays: **preview physical pin** when listed in **`getPhysicalCameraIds`**, else **`LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID`** from the result — see **`DngMetadataResolverTest`**.
+4. **`PreviewEngineScreen.kt`** — after **`resolveForDngSave`** on **RAW still** and **bracket** save paths, keep **`Log.i(CaptureStillLog.TAG, "dng save diag …")`** including **`DngMetadataResolution.toDiagSummary()`**, **`SENSOR_SENSITIVITY`**, RAW **`Image`** format and WxH. Do not strip or downgrade to **`Log.d`** without maintainer sign-off (fleet triage depends on **`PNS.CaptureStill`** grep).
+5. **`Dng12Saver`**, **`StillCaptureMetadata.applyToDngUri`**, **`TiffExifSubIfdCapturePatch`**: unrelated refactors must **not** change the **`characteristics` / `TotalCaptureResult`** passed into **`DngCreator`** vs what **`resolveForDngSave`** returned.
+6. **REGULAR session `OutputConfiguration` physical pin:** on **logical** parent devices where **`physicalCameraTotalResults` is empty** for stills, **do not** pin **RAW** or **hardware JPEG** surfaces to a physical child **only** preview (output **0**) may be pinned — otherwise RAW pixels and **`DngCreator`** metadata disagree (dark / green DNG). Non-null **`physicalPinnedSurfaceIndices`** for RAW/JPEG requires maintainer USB proof that the HAL populates per-physical totals.
+7. **`RawCaptureSupport.pickRawOutputForPreviewSession`:** **`usePhysicalChildRawStreamMapForLogicalSession`** stays **`false`** at **`PreviewEngineScreen.kt`** call sites while RAW/JPEG are unpinned — RAW **`ImageReader`** WxH/format must come from the **logical** **`SCALER_STREAM_CONFIGURATION_MAP`** so they match the logical RAW stream. Enabling the physical-child RAW map pick requires the same USB proof as physically pinning RAW outputs.
+8. **Logical multi-cam + non-wide preview pin — `Default` RAW tier trap:** **`pickRawOutputForPreviewSession`** must run **`pickRawOutput(chars, RawSensorOnly/RawSensorFirst)`** when **`shouldPreferRawSensorForAuxPhysicalPreviewPin`** is true **before** falling through to **`Default`** on the **logical** map alone. **Common regression:** fixing (7) by removing **`pickRawForLogicalMulticamPinnedAux`** but leaving **`pickRawOutput(chars, Default)`** re-selects **RAW12** first on logical; leaf aux already forces **`RAW_SENSOR`** via empty `physicalCameraIds`, but **logical** sessions do not — aux DNG stays dark/green. Expect **`rawFmt=32`** in **`dng save diag`** / **`RAW ImageReader format=32`** for those pins.
+
+## Regression signature (do not mistake for “only” DngCreator pairing)
+
+If aux DNGs are **dark + green** but **`dng save diag`** already shows **logical + logical** (`pairedPhysical=false` when expected): check that **`usePhysicalChildRawStreamMapForLogicalSession`** was not turned on and that no refactor reintroduced **`pickRawForLogicalMulticamPinnedAux`** for unpinned RAW. Wrong **`ImageReader`** dimensions/packing vs delivered buffer mimics metadata mismatch in decoders.
+
+If **`pairedPhysical=true`** while RAW/JPEG outputs remain **unpinned** from the preview physical id, **`allowPhysicalTotalResultPairing`** was likely set **true** or **`resolveForDngSave`** was forked — that pairs physical **`DngCreator`** tags with **logical** RAW pixels (same cast).
+
+If **`dng save diag`** shows **`pairedPhysical=false`** and **`rawFmt=37`** (RAW12) or **`RAW ImageReader … format=37`** on a **logical** session with a **non-wide** preview physical pin (UW/tele), you hit the **`Default`** tier trap — restore **`RAW_SENSOR` / `RawSensorFirst`** on the **logical** map via **`shouldPreferRawSensorForAuxPhysicalPreviewPin`** in **`pickRawOutputForPreviewSession`** (do not “fix” by re-enabling **`usePhysicalChildRawStreamMapForLogicalSession`** without pinned RAW + USB proof).
+
+- **§4a** REGULAR **`streamHints`** and **§2** **`RawStreamPreference.Default`** tier order remain **separate CRITICAL locks** in **`AGENTS.md`**. This rule does **not** authorize flipping those to “fix” DNG color without a fresh USB gate.
+
+## References
+
+- **`AGENTS.md`** — **CRITICAL — DNG metadata pairing (`DngMetadataResolver`) and RAW still diagnostics**
+- **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`** — **Aux DNG color cast triage**
+- Scripts: **`scripts/pns_aux_dng_triage_focal_slots.ps1`**, **`scripts/pns_aux_dng_exp2_raw_stream.ps1`**

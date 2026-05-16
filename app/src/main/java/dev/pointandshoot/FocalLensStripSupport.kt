@@ -74,12 +74,18 @@ object FocalLensStripSupport {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val roles = BackCameraRoleResolver.resolve(cm, ids)
         val telePhysical = telePhysicalForPreviewPin(slot, roles)
+        val uwPhysical = ultraWidePhysicalForPreviewPin(slot, roles)
         val physical =
-            if (slot == FocalMmSlot.M73 || slot == FocalMmSlot.M85 || slot == FocalMmSlot.M150) {
-                val parent = telePhysical?.let { logicalParentForPhysicalCamera(cm, it, ids) }
-                if (telePhysical != null && parent != null && pair.first == parent) telePhysical else null
-            } else {
-                null
+            when {
+                slot == FocalMmSlot.M73 || slot == FocalMmSlot.M85 || slot == FocalMmSlot.M150 -> {
+                    val parent = telePhysical?.let { logicalParentForPhysicalCamera(cm, it, ids) }
+                    if (telePhysical != null && parent != null && pair.first == parent) telePhysical else null
+                }
+                slot == FocalMmSlot.M14 -> {
+                    val parent = uwPhysical?.let { logicalParentForPhysicalCamera(cm, it, ids) }
+                    if (uwPhysical != null && parent != null && pair.first == parent) uwPhysical else null
+                }
+                else -> null
             }
         return physical ?: pair.first
     }

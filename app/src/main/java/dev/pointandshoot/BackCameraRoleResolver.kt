@@ -177,6 +177,10 @@ internal fun telePhysicalForPreviewPin(slot: FocalMmSlot, roles: BackCameraRoleR
         else -> null
     }
 
+/** Physical ultra-wide for preview [OutputConfiguration] pin on **14 mm** when the slot opens the logical parent. */
+internal fun ultraWidePhysicalForPreviewPin(slot: FocalMmSlot, roles: BackCameraRoleResolver.Roles): String? =
+    if (slot == FocalMmSlot.M14) roles.ultraWide else null
+
 /**
  * When [physicalCameraId] is a **child** of a logical multi-camera id (e.g. tele `4` under logical `0`),
  * opening the **physical** id directly can crash some OEM HALs; open [logicalParent] and route the
@@ -218,8 +222,17 @@ internal fun resolveFocalMmSlotWithRoles(
                         ?: (tid to mode)
             }
         }
+    fun uwOpenablePair(): Pair<String, FocalMode?>? =
+        uw?.let { uwId ->
+            when {
+                uwId in ids -> uwId to null
+                else ->
+                    logicalParentForPhysicalCamera(cm, uwId, ids)?.let { parent -> parent to null }
+                        ?: (uwId to null)
+            }
+        }
     return when (slot) {
-        FocalMmSlot.M14 -> uw?.let { it to null }
+        FocalMmSlot.M14 -> uwOpenablePair()
         FocalMmSlot.M23 -> wide to null
         FocalMmSlot.M35 -> wide to FocalMode.Street35
         FocalMmSlot.M50 -> wide to FocalMode.Standard50

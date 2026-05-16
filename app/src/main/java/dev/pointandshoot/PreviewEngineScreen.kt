@@ -524,12 +524,19 @@ private fun schedulePreviewPhysicalForFocalSlot(
                 telePhysicalForPreviewPin(slot, roles)
             else -> null
         }
-    val parent = telePhysical?.let { logicalParentForPhysicalCamera(cm, it, ids) }
+    val uwPhysical =
+        if (slot == FocalMmSlot.M14) ultraWidePhysicalForPreviewPin(slot, roles) else null
     val physical =
-        if (slot == FocalMmSlot.M73 || slot == FocalMmSlot.M85 || slot == FocalMmSlot.M150) {
-            if (telePhysical != null && parent != null && pair.first == parent) telePhysical else null
-        } else {
-            null
+        when {
+            slot == FocalMmSlot.M73 || slot == FocalMmSlot.M85 || slot == FocalMmSlot.M150 -> {
+                val parent = telePhysical?.let { logicalParentForPhysicalCamera(cm, it, ids) }
+                if (telePhysical != null && parent != null && pair.first == parent) telePhysical else null
+            }
+            slot == FocalMmSlot.M14 -> {
+                val parent = uwPhysical?.let { logicalParentForPhysicalCamera(cm, it, ids) }
+                if (uwPhysical != null && parent != null && pair.first == parent) uwPhysical else null
+            }
+            else -> null
         }
     controller.setPreviewSurfacePhysicalCameraId(physical)
 }
@@ -7050,6 +7057,7 @@ private class PreviewController(
                         chars,
                         camId,
                         previewSurfacePhysicalCameraId,
+                        focalCropMode,
                     )
                 PreviewJpegProcessingHints.applyToCaptureRequest(
                     this,
@@ -8002,6 +8010,7 @@ private class PreviewController(
                         chars,
                         camId,
                         previewSurfacePhysicalCameraId,
+                        focalCropMode,
                     )
                 PreviewJpegProcessingHints.applyToCaptureRequest(
                     this,
@@ -9217,6 +9226,7 @@ private class PreviewController(
             )
             pinPhys = null
             pinSurfaceIndices = null
+            previewSurfacePhysicalCameraId = null
             createErr = tryOnce(streamHints, chosenPreviewDr, sessionParametersTemplate)
         }
         if (createErr != null && sessionParametersTemplate != null) {
@@ -9300,6 +9310,7 @@ private class PreviewController(
                     chars,
                     previewSurfacePhysicalCameraId,
                     rawStreamPreference,
+                    focalCropMode = focalCropMode,
                     usePhysicalChildRawStreamMapForLogicalSession = false,
                 )
             val jpegOnlySession = imagingProfileForStreams is ImagingProfile.JpegOnly
@@ -11539,6 +11550,7 @@ private class PreviewController(
                                 ch,
                                 previewSurfacePhysicalCameraId,
                                 rawStreamPreference,
+                                focalCropMode = focalCropMode,
                                 usePhysicalChildRawStreamMapForLogicalSession = false,
                             )
                         } else {

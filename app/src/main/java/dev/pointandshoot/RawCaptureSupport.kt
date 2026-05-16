@@ -62,6 +62,43 @@ object RawCaptureSupport {
     }
 
     /**
+     * Logical multi-camera on the **parent** [CameraDevice] id: prefer [ImageFormat.RAW_SENSOR] when
+     * tele digital-eq is active but the HAL dropped preview [OutputConfiguration] physical pin
+     * (still routes aux pixels on the logical RAW stream).
+     */
+    internal fun shouldPreferRawSensorForLogicalTeleFocalCrop(
+        userPreference: RawStreamPreference,
+        logicalPhysicalChildren: Set<String>,
+        focalCropMode: FocalMode?,
+    ): Boolean {
+        if (userPreference != RawStreamPreference.Default) return false
+        if (logicalPhysicalChildren.isEmpty()) return false
+        return when (focalCropMode) {
+            FocalMode.Portrait85, FocalMode.LongTele150 -> true
+            else -> false
+        }
+    }
+
+    private fun preferRawSensorForAuxBackStill(
+        userPreference: RawStreamPreference,
+        logicalPhysicalChildren: Set<String>,
+        previewPhysicalCameraId: String?,
+        wideBackCameraId: String?,
+        focalCropMode: FocalMode?,
+    ): Boolean =
+        shouldPreferRawSensorForAuxPhysicalPreviewPin(
+            userPreference,
+            logicalPhysicalChildren,
+            previewPhysicalCameraId,
+            wideBackCameraId,
+        ) ||
+            shouldPreferRawSensorForLogicalTeleFocalCrop(
+                userPreference,
+                logicalPhysicalChildren,
+                focalCropMode,
+            )
+
+    /**
      * **Leaf** back camera (no [CameraCharacteristics.getPhysicalCameraIds]) whose id is not the
      * resolved wide role — typical **UW / tele** opened as `cameraId=3` / `4` while wide stays `2`.
      * There is no preview [OutputConfiguration] pin on these sessions ([schedulePreviewPhysicalForFocalSlot]
@@ -103,6 +140,8 @@ object RawCaptureSupport {
         sessionCharacteristics: CameraCharacteristics?,
         previewPhysicalCameraId: String?,
         userPreference: RawStreamPreference,
+        /** Active [PreviewController.setFocalCrop] mode; used when logical tele slots lose HAL preview pin. */
+        focalCropMode: FocalMode? = null,
         /**
          * When **true**, non-wide preview physical pins may pick RAW size/format from that child's
          * [CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP] (legacy path; requires RAW surface
@@ -136,11 +175,12 @@ object RawCaptureSupport {
                 ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst)
                 ?: pickRawOutput(chars, userPreference)
         }
-        if (shouldPreferRawSensorForAuxPhysicalPreviewPin(
+        if (preferRawSensorForAuxBackStill(
                 userPreference,
                 sessionChildren,
                 previewPhysicalCameraId,
                 wide,
+                focalCropMode,
             )
         ) {
             return pickRawOutput(chars, RawStreamPreference.RawSensorOnly)
@@ -164,7 +204,7 @@ object RawCaptureSupport {
         val physicalChildren =
             runCatching { chars.physicalCameraIds?.toSet().orEmpty() }.getOrDefault(emptySet())
         val wide = BackCameraRoleResolver.resolve(cm, cameraIds).wide
-        if (!shouldPreferRawSensorForAuxPhysicalPreviewPin(userPreference, physicalChildren, previewPhysicalCameraId, wide)) {
+        if (!preferRawSensorForAuxBackStill(userPreference, physicalChildren, previewPhysicalCameraId, wide, null)) {
             return null
         }
         val pin = previewPhysicalCameraId ?: return null
@@ -193,6 +233,7 @@ object RawCaptureSupport {
         lensFacing: Int?,
         sessionCameraId: String,
         previewPhysicalCameraId: String?,
+        focalCropMode: FocalMode? = null,
     ): Boolean {
         val wide = wideBackCameraId ?: return false
         if (sessionPhysicalChildren.isEmpty()) {
@@ -204,11 +245,12 @@ object RawCaptureSupport {
                 lensFacing,
             )
         }
-        return shouldPreferRawSensorForAuxPhysicalPreviewPin(
+        return preferRawSensorForAuxBackStill(
             RawStreamPreference.Default,
             sessionPhysicalChildren,
             previewPhysicalCameraId,
             wide,
+            focalCropMode,
         )
     }
 
@@ -223,6 +265,7 @@ object RawCaptureSupport {
         sessionCharacteristics: CameraCharacteristics,
         sessionCameraId: String,
         previewPhysicalCameraId: String?,
+        focalCropMode: FocalMode? = null,
     ): Boolean {
         val wide = BackCameraRoleResolver.resolve(cm, cameraIds).wide ?: return false
         val children =
@@ -234,6 +277,7 @@ object RawCaptureSupport {
             sessionCharacteristics.get(CameraCharacteristics.LENS_FACING),
             sessionCameraId,
             previewPhysicalCameraId,
+            focalCropMode,
         )
     }
 

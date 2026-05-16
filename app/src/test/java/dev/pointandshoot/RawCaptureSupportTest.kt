@@ -81,6 +81,30 @@ class RawCaptureSupportTest {
     }
 
     @Test
+    fun shouldPreferRawSensor_logicalTeleFocalCrop_true() {
+        assertEquals(
+            true,
+            RawCaptureSupport.shouldPreferRawSensorForLogicalTeleFocalCrop(
+                RawStreamPreference.Default,
+                logicalPhysicalChildren = setOf("2", "3", "4"),
+                focalCropMode = FocalMode.LongTele150,
+            ),
+        )
+    }
+
+    @Test
+    fun shouldPreferRawSensor_logicalTeleFocalCrop_native_false() {
+        assertEquals(
+            false,
+            RawCaptureSupport.shouldPreferRawSensorForLogicalTeleFocalCrop(
+                RawStreamPreference.Default,
+                logicalPhysicalChildren = setOf("2", "3", "4"),
+                focalCropMode = null,
+            ),
+        )
+    }
+
+    @Test
     fun shouldPreferRawSensor_nonDefaultPreference_false() {
         assertEquals(
             false,

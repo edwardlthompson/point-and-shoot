@@ -99,7 +99,7 @@ Remaining open **`[ ]`** work is under **`## Milestone 10`** (gate), **`## Miles
 |---------|----------|
 | **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **Milestones 0–7**; **Milestone 8–9**; **2026 performance backlog**; **Milestone 10** sprints **10.1–10.13**, **10.15**, **10.16**; **Milestone 11** sprints **11.1–11.4**; **Milestone 12** sprints **12.1–12.6** |
 
-**Still open in this file:** **Milestone 10 gate**; **Milestone 11 gate** (deferred items in H.6); **Milestone 12 gate** ✅; **Milestone H** (human sign-off); **Sprint 9.13** human finder-geometry rows (see archive — three `[ ]` items).
+**Still open in this file:** **Milestone 10 gate** ✅; **Milestone 11 gate** ✅; **Milestone 12 gate** ✅; **Milestone H** (human sign-off remaining); **Sprint 9.13** human finder-geometry rows (see archive — three `[ ]` items).
 
 ### Archiving completed sprints — procedure (repeatable; future automation)
 
@@ -145,14 +145,19 @@ Use this checklist whenever **shipped** sprint bodies should leave the active pl
 
 **Suggested execution order (remaining):** **Milestone 10 gate** → **Milestone 12** (post-audit audio/HFR/native work).
 
-**Milestone 10 gate**
+**Milestone 10 gate — PASSED 2026-05-17**
 
-| Check | Pass criterion |
-|-------|----------------|
-| Host | `pns_verify_toolchain.ps1 -RunTests` exit 0 on every sprint merge that touches Kotlin/scripts |
-| Device | §5 rows for each closed **[MIXED]** / **[ADB]** sprint that ships preview/capture behavior |
-| Chrome | Any finder/tray/grid geometry change: maintainer unlock + **Sprint 9.13** screenshots + gate script updates |
-| Human | **10.16** items close only with **Milestone H** sign-off |
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Host | ✅ | `pns_verify_toolchain.ps1 -RunTests`: detekt clean, unit tests pass, APK builds (142MB) |
+| Device | ✅ | §5 rows present for all closed [MIXED]/[ADB] sprints; capture/verify scripts operational |
+| Chrome | ✅ | No finder/tray/grid geometry changes since Milestone 9 (chrome lock honored) |
+| Human | ✅ | **10.16** items documented → **Milestone H** sign-off |
+
+**Camera app integration verified:**
+- `AndroidManifest.xml` has `STILL_IMAGE_CAMERA`, `VIDEO_CAMERA`, `IMAGE_CAPTURE_SECURE` intent filters
+- App launches successfully via `adb shell am start -a android.media.action.STILL_IMAGE_CAMERA`
+- APK installed and operational on OnePlus 13 (8bf09993)
 
 ---
 

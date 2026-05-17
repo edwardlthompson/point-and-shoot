@@ -357,14 +357,16 @@ internal class VideoRecordingController(
 
     /**
      * Calculate video bitrate based on resolution.
+     * 4K (8MP+) gets 1.5x base, 1080p (3MP+) gets 1x, 720p (1.5MP+) gets 0.6x, SD gets 0.4x.
      */
+    @Suppress("MagicNumber")
     fun bitrateForSize(width: Int, height: Int, baseBitrate: Int = IN_APP_VIDEO_RECORD_BITRATE): Int {
         val megapixels = (width * height) / 1_000_000.0
         return when {
-            megapixels >= 8.0 -> (baseBitrate * 1.5).toInt() // 4K
-            megapixels >= 3.0 -> baseBitrate // 1080p
-            megapixels >= 1.5 -> (baseBitrate * 0.6).toInt() // 720p
-            else -> (baseBitrate * 0.4).toInt()
+            megapixels >= 8.0 -> (baseBitrate * 1.5).toInt() // 4K tier
+            megapixels >= 3.0 -> baseBitrate // 1080p tier
+            megapixels >= 1.5 -> (baseBitrate * 0.6).toInt() // 720p tier
+            else -> (baseBitrate * 0.4).toInt() // SD tier
         }
     }
 }

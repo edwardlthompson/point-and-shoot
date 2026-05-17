@@ -584,9 +584,9 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 
 ---
 
-## Milestone 12 — completed sprints (12.1, 12.4, 12.6)
+## Milestone 12 — completed sprints (12.1, 12.4, 12.5, 12.6)
 
-**Objective (full milestone):** Address **P0–P2 findings** from **May 16, 2026 codebase audit** (branch `chore/preview-chrome-camera-intents-histogram`, commit `9c535b7`). Ship audio-enabled video recording, design HFR recording path, complete native encoder integration, refactor monolithic video controller, and establish deterministic audio verification. **Open:** Sprints **12.2**, **12.3**, **12.5** and **Milestone 12 gate** remain in **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+**Objective (full milestone):** Address **P0–P2 findings** from **May 16, 2026 codebase audit** (branch `chore/preview-chrome-camera-intents-histogram`, commit `9c535b7`). Ship audio-enabled video recording, design HFR recording path, complete native encoder integration, refactor monolithic video controller, and establish deterministic audio verification. **Open:** Sprints **12.2**, **12.3** and **Milestone 12 gate** remain in **[BUILD_PLAN.md](BUILD_PLAN.md)**.
 
 **Suggested execution order:** **12.1** → **12.2** → **12.3** → **12.4** → **12.5** → **12.6** → **Milestone 12 gate** (12.2–12.5 still active in main plan).
 
@@ -613,6 +613,22 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 - [x] **[ADB]** `pns_capture_pipeline_verify.ps1` green. **Completed 2026-05-17:** `captureRawStill 1/1 ok=true saved=` — still capture not broken.
 
 **Sprint check:** Host detekt clean; video verify green; capture pipeline green; two-phase session rebuild working rock solid.
+
+### Sprint 12.5 — Audio verification guardrail (P1)
+
+- [x] **[HOST]** Create **`scripts/pns_video_audio_verify.ps1`** extending `pns_in_app_video_verify.ps1`. **Completed 2026-05-16:** `-RequireAudioTrack`, `-MinAudioBitrate` parameters; ffprobe validation.
+- [x] **[HOST]** Add `VideoAudio` pack to `pns_sprint_guardrail.ps1` regression dispatch. **Completed 2026-05-17:** Created orchestrator with VideoAudio + CapturePipeline packs; unified `sprint_guardrail.v1` JSON schema; PROBE_BUILD_PLAN.md §5 evidence.
+- [x] **[HOST]** Update guardrail JSON schema: `video_audio_gate.v1` with `audioStreamPresent`, `audioCodec`, `audioSampleRate`, `audioBitRate`, `pass`.
+- [x] **[ADB]** Run with RECORD_AUDIO denied; verify `audioEnabled=false` in logs. **Completed:** Fresh install shows `PNS.Video: inAppVideoPrepared audioEnabled=false`.
+- [x] **[MIXED]** Document guardrail usage in BUILD_PLAN.md with PowerShell examples.
+
+**Usage:**
+```powershell
+.\scripts\pns_sprint_guardrail.ps1 -Pack VideoAudio -Serial 8bf09993
+.\scripts\pns_sprint_guardrail.ps1 -Pack All -Fast
+```
+
+**Sprint check:** Script exists; both grant/deny permission cases tested; gate JSON schema valid; documentation complete.
 
 ### Sprint 12.6 — Automation infrastructure (P2)
 

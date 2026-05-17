@@ -84,7 +84,7 @@ Ongoing practices beyond the closed rows above; align evidence with **`PERFORMAN
 
 ### Backlog consolidation (**post–Milestone 9 work**)
 
-Remaining open **`[ ]`** work is under **`## Milestone 10`** (gate), **`## Milestone 11`** (Sprint **11.3**, gate), **`## Milestone 12`** (Sprints **12.2**, **12.3**, **12.5**, gate), **`## Milestone H`** (truly human-dependent work), and **`## Milestone 9 → Sprint 9.13`** (three human finder-geometry rows in the archive). Shipped sprints **10.1–10.13** / **10.15** / **10.16**, Milestones **8–9**, Milestone **11** sprints **11.1** / **11.2** / **11.4**, and Milestone **12** sprints **12.1** / **12.4** / **12.6** bodies live in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)**. **Chrome lock** policy is unchanged (**`docs/preview-chrome-layout-style-guide.md`**). Shipped items from removed **`[x]`** rows remain in **`CHANGELOG.md`** / **Appendix B**.
+Remaining open **`[ ]`** work is under **`## Milestone 10`** (gate), **`## Milestone 11`** (Sprint **11.3**, gate), **`## Milestone 12`** (Sprints **12.2**, **12.3**, gate), **`## Milestone H`** (truly human-dependent work), and **`## Milestone 9 → Sprint 9.13`** (three human finder-geometry rows in the archive). Shipped sprints **10.1–10.13** / **10.15** / **10.16**, Milestones **8–9**, Milestone **11** sprints **11.1** / **11.2** / **11.4**, and Milestone **12** sprints **12.1** / **12.4** / **12.5** / **12.6** bodies live in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)**. **Chrome lock** policy is unchanged (**`docs/preview-chrome-layout-style-guide.md`**). Shipped items from removed **`[x]`** rows remain in **`CHANGELOG.md`** / **Appendix B**.
 
 ### Future features (deferred — unscheduled)
 
@@ -97,9 +97,9 @@ Remaining open **`[ ]`** work is under **`## Milestone 10`** (gate), **`## Miles
 
 | Archive | Contents |
 |---------|----------|
-| **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **Milestones 0–7**; **Milestone 8–9**; **2026 performance backlog**; **Milestone 10** sprints **10.1–10.13**, **10.15**, **10.16**; **Milestone 11** sprints **11.1**, **11.2**, **11.4**; **Milestone 12** sprints **12.1**, **12.4**, **12.6** |
+| **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **Milestones 0–7**; **Milestone 8–9**; **2026 performance backlog**; **Milestone 10** sprints **10.1–10.13**, **10.15**, **10.16**; **Milestone 11** sprints **11.1**, **11.2**, **11.4**; **Milestone 12** sprints **12.1**, **12.4**, **12.5**, **12.6** |
 
-**Still open in this file:** **Milestone 10 gate**; **Milestone 11** sprint **11.3** and **Milestone 11 gate**; **Milestone 12** sprints **12.2–12.5** and **Milestone 12 gate**; **Milestone H** (human sign-off); **Sprint 9.13** human finder-geometry rows (see archive — three `[ ]` items).
+**Still open in this file:** **Milestone 10 gate**; **Milestone 11** sprint **11.3** and **Milestone 11 gate**; **Milestone 12** sprints **12.2**, **12.3** and **Milestone 12 gate**; **Milestone H** (human sign-off); **Sprint 9.13** human finder-geometry rows (see archive — three `[ ]` items).
 
 ### Archiving completed sprints — procedure (repeatable; future automation)
 
@@ -279,14 +279,7 @@ Use this checklist whenever **shipped** sprint bodies should leave the active pl
 
 ### Sprint 12.5 — Audio verification guardrail (P1)
 
-- [x] **[HOST]** Create **`scripts/pns_video_audio_verify.ps1`** extending `pns_in_app_video_verify.ps1`. Additional parameters: `-RequireAudioTrack`, `-MinAudioBitrate`.
-- [x] **[HOST]** Script pulls MP4, runs `ffprobe -v error -show_streams -select_streams a` to verify audio stream exists. Fails if no audio stream or codec not AAC.
-- [ ] **[HOST]** Add `VideoAudio` pack to `pns_sprint_guardrail.ps1` regression dispatch (placeholder currently fails; implement fully). **Note:** Sprint guardrail orchestration script pending future sprint.
-- [x] **[HOST]** Update guardrail JSON schema: `video_audio_gate.v1` with fields `audioStreamPresent`, `audioCodec`, `audioSampleRate`, `audioBitRate`, `pass`.
-- [x] **[ADB]** Run with RECORD_AUDIO denied; verify `audioEnabled=false` in logs, video records without audio. **Completed:** Fresh install without RECORD_AUDIO shows `PNS.Video: inAppVideoPrepared audioEnabled=false`.
-- [ ] **[MIXED]** Document guardrail usage in `CLI_BUILD_AND_SIDELOAD.md`. **Pending:** Script testing complete first.
-
-**Sprint check:** Script exists; both grant/deny permission cases tested; gate JSON schema valid; documentation updated.
+**Completed 2026-05-17 → [BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Milestone 12 — Sprint 12.5*).
 
 **Completed sprints** **12.1** (audio recording), **12.6** (automation infrastructure) → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Milestone 12 — completed sprints*).
 

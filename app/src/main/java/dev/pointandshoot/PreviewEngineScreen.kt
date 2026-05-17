@@ -1259,22 +1259,26 @@ fun PreviewEngineScreen(
     LaunchedEffect(isRecording, primaryPhoto, selectedFps, selectedCameraId, imagingProfile, videoCaptureReturn) {
         val want = isRecording && !primaryPhoto
         if (!want) {
-            controller.applyInAppVideoRecordingShell(false, imagingProfile) { ev ->
-                when (ev) {
-                    InAppVideoRecordingUiEvent.StartFailed -> Unit
-                    is InAppVideoRecordingUiEvent.Stopped -> {
-                        if (ev.uri != null) {
-                            lastGalleryUri = ev.uri
-                        }
-                        val vc = videoCaptureReturn
-                        if (vc != null && ev.uri != null) {
-                            captureScope.launch {
-                                deliverVideoCaptureToCaller(vc, imagingProfile, recordedVideoUri = ev.uri)
+            controller.applyInAppVideoRecordingShell(
+                wantRecord = false,
+                profile = imagingProfile,
+                onUi = { ev ->
+                    when (ev) {
+                        InAppVideoRecordingUiEvent.StartFailed -> Unit
+                        is InAppVideoRecordingUiEvent.Stopped -> {
+                            if (ev.uri != null) {
+                                lastGalleryUri = ev.uri
+                            }
+                            val vc = videoCaptureReturn
+                            if (vc != null && ev.uri != null) {
+                                captureScope.launch {
+                                    deliverVideoCaptureToCaller(vc, imagingProfile, recordedVideoUri = ev.uri)
+                                }
                             }
                         }
                     }
                 }
-            }
+            )
             return@LaunchedEffect
         }
         if (selectedFps >= 120) {
@@ -1312,30 +1316,36 @@ fun PreviewEngineScreen(
             "PNS.ChromeUx",
             "inAppVideoShellRequest fps=$selectedFps cam=$camForVideo out=DCIM/Point and Shoot (MediaStore)",
         )
-        controller.applyInAppVideoRecordingShell(true, imagingProfile) { ev ->
-            when (ev) {
-                InAppVideoRecordingUiEvent.StartFailed -> {
-                    isRecording = false
-                    PnsAdbLog.i(context.applicationContext, "inAppVideoShellStartFailed")
-                    captureScope.pnsShowSnackbar(
-                        snackbarHostState,
-                        "Can't start in-app video (try fps ≤ 119, rear camera).",
-                        longDuration = false,
-                    )
-                }
-                is InAppVideoRecordingUiEvent.Stopped -> {
-                    if (ev.uri != null) {
-                        lastGalleryUri = ev.uri
+        controller.applyInAppVideoRecordingShell(
+            wantRecord = true,
+            profile = imagingProfile,
+            onUi = { ev ->
+                when (ev) {
+                    InAppVideoRecordingUiEvent.StartFailed -> {
+                        isRecording = false
+                        PnsAdbLog.i(context.applicationContext, "inAppVideoShellStartFailed")
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "Can't start in-app video (try fps ≤ 119, rear camera).",
+                            longDuration = false,
+                        )
                     }
-                    val vc = videoCaptureReturn
-                    if (vc != null && ev.uri != null) {
-                        captureScope.launch {
-                            deliverVideoCaptureToCaller(vc, imagingProfile, recordedVideoUri = ev.uri)
+
+                    is InAppVideoRecordingUiEvent.Stopped -> {
+                        isRecording = false
+                        if (ev.uri != null) {
+                            lastGalleryUri = ev.uri
+                        }
+                        val vc = videoCaptureReturn
+                        if (vc != null && ev.uri != null) {
+                            captureScope.launch {
+                                deliverVideoCaptureToCaller(vc, imagingProfile, recordedVideoUri = ev.uri)
+                            }
                         }
                     }
                 }
             }
-        }
+        )
     }
 
     val debuggableVideoAutomation =
@@ -6447,18 +6457,19 @@ private class PreviewController(
     }
 
     /**
-     * Video recording shell - delegates to [videoController].
-     * Sprint 12.4: Extracted from PreviewController monolith.
-     *
-     * Two-phase flow:
+     * Apply video recording shell with HFR support (Sprint 12.2/12.4).
+     * Delegates to [videoController] with two-phase flow:
      * 1. Prepare recorder (get surface)
      * 2. Rebuild session with recording surface
      * 3. Start recorder after session settled
+     *
+     * When wantHighSpeed=true and device supports it, enables HFR recording path.
      */
     fun applyInAppVideoRecordingShell(
         wantRecord: Boolean,
         profile: ImagingProfile,
         onUi: (InAppVideoRecordingUiEvent) -> Unit,
+        wantHighSpeed: Boolean = false,
     ) {
         // Map UI events from VideoRecordingController to PreviewController events
         val onEvent: (VideoRecordingController.Event) -> Unit = { event ->
@@ -6481,6 +6492,14 @@ private class PreviewController(
             return
         }
 
+        // Check if device supports high-speed video for the current camera
+        val supportsHighSpeed = runCatching {
+            val cameraId = selectedCameraId ?: return@runCatching false
+            val chars = cm.getCameraCharacteristics(cameraId)
+            val map: StreamConfigurationMap? = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            InAppVideoRecordingSupport.supportsHighSpeedVideoRecording(map)
+        }.getOrDefault(false)
+
         h.post {
             val result = videoController.applyShell(
                 wantRecord = wantRecord,
@@ -6488,6 +6507,8 @@ private class PreviewController(
                 desiredFps = desiredFps,
                 size = currentSurfaceSize ?: android.util.Size(1920, 1080),
                 orientationHintDegrees = 0,
+                wantHighSpeed = wantHighSpeed,
+                supportsHighSpeed = supportsHighSpeed,
                 onEvent = onEvent,
             )
 

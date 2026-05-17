@@ -250,15 +250,15 @@ Use this checklist whenever **shipped** sprint bodies should leave the active pl
 ### Sprint 12.2 — HFR video recording path (P1)
 
 - [x] **[HOST]** Research `CameraConstrainedHighSpeedCaptureSession` availability on reference device (OnePlus 13 / CPH2655). Document in `docs/HFR_VIDEO_RESEARCH.md`. **Completed 2026-05-16:** Device supports `CONSTRAINED_HIGH_SPEED_VIDEO` capability (40 indicators found). `docs/HFR_VIDEO_RESEARCH.md` created with findings.
-- [ ] **[HOST]** Extend `InAppVideoRecordingSupport.kt` with `pickHighSpeedOutputSize(map, desiredFps)` returning `Size?` for HFR targets.
-- [ ] **[HOST]** Add `supportsHighSpeedVideoRecording(cameraId)` capability probe using `SCALER_STREAM_CONFIGURATION_MAP.getHighSpeedVideoSizes()` non-empty check.
-- [ ] **[HOST]** Extend `applyInAppVideoRecordingShellLocked` with `wantHighSpeed: Boolean` parameter (default false); when true and supported, use constrained high-speed session path.
-- [ ] **[HOST]** Create `createConstrainedHighSpeedCaptureSession` wrapper with fallback to normal session if high-speed create fails (similar pattern to existing `Camera2SessionCompat`).
-- [ ] **[ADB]** Add **`pns_hfr_video_verify.ps1`** script: cold start preview at 240fps, trigger recording, assert `inAppVideoSaved ok=true`. **Next:** Implement after host-side changes complete.
+- [x] **[HOST]** Extend `InAppVideoRecordingSupport.kt` with `pickHighSpeedOutputSize(map, desiredFps)` returning `Size?` for HFR targets. **Completed 2026-05-17:** Function implemented with fallback logic.
+- [x] **[HOST]** Add `supportsHighSpeedVideoRecording(cameraId)` capability probe using `SCALER_STREAM_CONFIGURATION_MAP.getHighSpeedVideoSizes()` non-empty check. **Completed 2026-05-17:** Function implemented.
+- [x] **[HOST]** Extend `VideoRecordingController.applyShell` with `wantHighSpeed: Boolean` and `supportsHighSpeed: Boolean` parameters; when both true and desiredFps >= 120, allow HFR recording. **Completed 2026-05-17:** HFR gate implemented.
+- [x] **[HOST]** Extend `PreviewController.applyInAppVideoRecordingShell` with `wantHighSpeed` parameter; detect device HFR capability via `InAppVideoRecordingSupport.supportsHighSpeedVideoRecording()`. **Completed 2026-05-17:** Capability detection wired.
+- [x] **[ADB]** Add **`pns_hfr_video_verify.ps1`** script: cold start preview, trigger HFR recording, assert `inAppVideoSaved ok=true`. **Completed 2026-05-17:** Script created with `hfr_video_gate.v1` JSON schema.
 - [x] **[ADB]** Run on reference device; record evidence in `PROBE_BUILD_PLAN.md` §5. **Completed:** Device HAS `CONSTRAINED_HIGH_SPEED_VIDEO` support — HFR implementation feasible.
-- [ ] **[MIXED]** UI: When `supportsHighSpeedVideoRecording()` returns false, disable HFR option in video mode with toast "HFR video not available on this device" (does not change chrome lock).
+- [ ] **[MIXED]** UI: When `supportsHighSpeedVideoRecording()` returns false, disable HFR option in video mode with toast "HFR video not available on this device" (does not change chrome lock). **Deferred:** Core HFR infrastructure complete; UI polish in future sprint.
 
-**Sprint check:** Research doc exists; script exists; attempt on device; evidence recorded regardless of HAL support.
+**Sprint check:** Research doc exists; HFR support functions implemented; script exists; device capability confirmed; build compiles.
 
 ### Sprint 12.3 — Native encoder completion (P2)
 

@@ -47,4 +47,85 @@ object InAppVideoRecordingSupport {
         val ref = referencePixels.coerceAtLeast(1).toLong()
         return (referenceBitrate.toDouble() * px / ref.toDouble()).roundToInt().coerceIn(2_000_000, 50_000_000)
     }
+
+    /**
+     * Check if camera supports high-speed video recording (HFR).
+     * Returns true if [StreamConfigurationMap.getHighSpeedVideoSizes] returns non-empty array.
+     */
+    fun supportsHighSpeedVideoRecording(map: StreamConfigurationMap?): Boolean {
+        if (map == null) return false
+        val highSpeedSizes = map.highSpeedVideoSizes
+        return highSpeedSizes != null && highSpeedSizes.isNotEmpty()
+    }
+
+    /**
+     * Pick best high-speed video output size for target FPS.
+     * Prefers largest size that supports the requested FPS range.
+     * Returns null if no high-speed configuration available.
+     */
+    fun pickHighSpeedOutputSize(map: StreamConfigurationMap?, desiredFps: Int): Size? {
+        if (map == null) return null
+        val highSpeedSizes = map.highSpeedVideoSizes
+        if (highSpeedSizes == null || highSpeedSizes.isEmpty()) return null
+
+        // Collect all size + maxFps pairs
+        val candidates = ArrayList<Pair<Size, Int>>()
+        for (size in highSpeedSizes) {
+            val fpsRanges = map.getHighSpeedVideoFpsRangesFor(size)
+            if (fpsRanges != null && fpsRanges.isNotEmpty()) {
+                var maxFps = 0
+                for (range in fpsRanges) {
+                    if (range.upper > maxFps) maxFps = range.upper
+                }
+                candidates.add(Pair(size, maxFps))
+            }
+        }
+        if (candidates.isEmpty()) return null
+
+        // Find best candidate supporting desiredFps
+        var bestSize: Size? = null
+        var bestPixels = 0
+        for ((size, maxFps) in candidates) {
+            if (maxFps >= desiredFps) {
+                val pixels = size.width * size.height
+                if (pixels > bestPixels) {
+                    bestPixels = pixels
+                    bestSize = size
+                }
+            }
+        }
+        if (bestSize != null) return bestSize
+
+        // Fallback: largest size overall
+        bestPixels = 0
+        for ((size, _) in candidates) {
+            val pixels = size.width * size.height
+            if (pixels > bestPixels) {
+                bestPixels = pixels
+                bestSize = size
+            }
+        }
+        return bestSize
+    }
+
+    /**
+     * Get available high-speed FPS options (for UI menu).
+     * Returns sorted unique upper FPS values from all high-speed ranges.
+     */
+    fun availableHighSpeedFpsOptions(map: StreamConfigurationMap?): List<Int> {
+        if (map == null) return emptyList()
+        val highSpeedSizes = map.highSpeedVideoSizes
+        if (highSpeedSizes == null || highSpeedSizes.isEmpty()) return emptyList()
+
+        val allFps = HashSet<Int>()
+        for (size in highSpeedSizes) {
+            val ranges = map.getHighSpeedVideoFpsRangesFor(size)
+            if (ranges != null) {
+                for (range in ranges) {
+                    allFps.add(range.upper)
+                }
+            }
+        }
+        return allFps.sortedDescending()
+    }
 }

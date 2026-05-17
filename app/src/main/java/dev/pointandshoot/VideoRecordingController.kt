@@ -106,7 +106,15 @@ internal class VideoRecordingController(
      * Apply video recording shell - prepares or tears down recording.
      * Thread-safe: posts to handler internally.
      *
-     * Returns PrepareResult indicating what action was taken:
+     * @param wantRecord true to start recording, false to stop
+     * @param profile imaging profile for output path
+     * @param desiredFps target frame rate (may be capped)
+     * @param size video output size
+     * @param orientationHintDegrees rotation hint for recorder
+     * @param wantHighSpeed if true and device supports HFR, use high-speed recording path
+     * @param supportsHighSpeed device capability - true if high-speed video available
+     * @param onEvent callback for recording events
+     * @return PrepareResult indicating what action was taken:
      * - Ready(surface): Recording prepared, caller must rebuild session with surface
      * - Rejected(reason): Preparation failed
      * - NoAction: No state change (already prepared, stopping, or debounced)
@@ -117,6 +125,8 @@ internal class VideoRecordingController(
         desiredFps: Int,
         size: android.util.Size,
         orientationHintDegrees: Int,
+        wantHighSpeed: Boolean = false,
+        supportsHighSpeed: Boolean = false,
         onEvent: (Event) -> Unit,
     ): PrepareResult {
         val h = handler
@@ -130,11 +140,11 @@ internal class VideoRecordingController(
         }
 
         return if (Thread.currentThread() === h.looper.thread) {
-            applyShellLocked(wantRecord, profile, desiredFps, size, orientationHintDegrees, onEvent)
+            applyShellLocked(wantRecord, profile, desiredFps, size, orientationHintDegrees, wantHighSpeed, supportsHighSpeed, onEvent)
         } else {
             var result: PrepareResult = PrepareResult.NoAction
             h.post {
-                result = applyShellLocked(wantRecord, profile, desiredFps, size, orientationHintDegrees, onEvent)
+                result = applyShellLocked(wantRecord, profile, desiredFps, size, orientationHintDegrees, wantHighSpeed, supportsHighSpeed, onEvent)
             }
             // Note: This is a synchronous return - the actual result will be set after post executes
             // For correct behavior, this should be called from handler thread
@@ -148,6 +158,8 @@ internal class VideoRecordingController(
         desiredFps: Int,
         size: android.util.Size,
         orientationHintDegrees: Int,
+        wantHighSpeed: Boolean,
+        supportsHighSpeed: Boolean,
         onEvent: (Event) -> Unit,
     ): PrepareResult {
         // Debounce duplicate states
@@ -173,12 +185,12 @@ internal class VideoRecordingController(
             return PrepareResult.NoAction // Already recording or in failure hold
         }
 
-        // HFR check - block 120fps+ video
-        if (desiredFps >= 120) {
-            Log.w(TAG, "HFR video not supported (fps=$desiredFps)")
+        // HFR check - block 120fps+ video unless device supports high-speed
+        if (desiredFps >= 120 && !(wantHighSpeed && supportsHighSpeed)) {
+            Log.w(TAG, "HFR video rejected: fps=$desiredFps, wantHighSpeed=$wantHighSpeed, supportsHighSpeed=$supportsHighSpeed")
             startFailureHold = true
             mainHandler.post { onEvent(Event.StartFailed) }
-            return PrepareResult.Rejected("HFR not supported")
+            return PrepareResult.Rejected("HFR not supported or not enabled")
         }
 
         val targetFps = min(desiredFps, IN_APP_VIDEO_PREVIEW_CAP_FPS).coerceIn(MIN_FPS, MAX_FPS)

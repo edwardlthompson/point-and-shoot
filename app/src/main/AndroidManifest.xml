@@ -50,9 +50,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- System "open camera" / quick-launch (e.g. double-press power) resolves these; show in app picker. -->
+            <!-- System "open camera" / quick-launch (e.g. double-press power) resolves these; show in app picker.
+                 MAIN action + LAUNCHER category required for some OEMs to list as default camera option. -->
             <intent-filter>
                 <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
+                <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <intent-filter>

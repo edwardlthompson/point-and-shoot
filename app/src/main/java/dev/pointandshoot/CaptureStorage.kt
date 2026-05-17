@@ -18,8 +18,7 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Writes capture outputs to MediaStore per [STORAGE_STRATEGY.md](../../../../STORAGE_STRATEGY.md).
  *
- *   * Standard Pro -> `DCIM/Point & Shoot/`
- *   * Ultra-Max    -> `DCIM/Point & Shoot/Ultra-Max/`
+ *   * All profiles -> `DCIM/Point & Shoot/`
  *   * Video        -> `DCIM/Point & Shoot/` (same DCIM tree as stills)
  *   * Diagnostics  -> app-private external files (no MediaStore insert)
  *
@@ -336,17 +335,11 @@ object CaptureStorage {
     }
 
     private fun relativePath(profile: ImagingProfile): String {
-        return when (profile) {
-            ImagingProfile.UltraMax -> "$ROOT_RELATIVE_PATH/Ultra-Max"
-            else -> ROOT_RELATIVE_PATH
-        }
+        return ROOT_RELATIVE_PATH
     }
 
     private fun videoRelativePath(profile: ImagingProfile): String {
-        return when (profile) {
-            ImagingProfile.UltraMax -> "$VIDEO_ROOT_RELATIVE_PATH/Ultra-Max"
-            else -> VIDEO_ROOT_RELATIVE_PATH
-        }
+        return VIDEO_ROOT_RELATIVE_PATH
     }
 
     /**

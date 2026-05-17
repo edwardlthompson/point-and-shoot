@@ -5379,6 +5379,7 @@ private sealed class InAppVideoRecordingUiEvent {
 
     data class Stopped(
         val uri: Uri?,
+        val audioEnabled: Boolean,
     ) : InAppVideoRecordingUiEvent()
 }
 
@@ -5459,8 +5460,7 @@ private class PreviewController(
         /** EMA alpha when [highlightDarkenEngageEma] rises (slower ramp to reduce breathing). */
         private const val HIGHLIGHT_ENGAGE_EMA_RISE_ALPHA = 0.11
 
-        private const val IN_APP_VIDEO_PREVIEW_CAP_FPS = 60
-        private const val IN_APP_VIDEO_RECORD_BITRATE = 12_000_000
+        // Video constants moved to VideoRecordingController (Sprint 12.4)
 
         /** HUD **Wait for AF before still**: poll repeating AF state on [PreviewController.handler]. */
         private const val AF_SHUTTER_GATE_POLL_MS = 28L
@@ -5531,21 +5531,16 @@ private class PreviewController(
     private var device: CameraDevice? = null
     private var session: CameraCaptureSession? = null
 
-    /** Assigned from [handler] thread; UI/automation polls via [peekInAppVideoRecorderPresent]. */
-    @Volatile private var inAppVideoRecorder: MediaRecorder? = null
-    private var inAppVideoRecordingSurface: Surface? = null
-    private var inAppVideoRecordingUri: Uri? = null
-    private var inAppVideoRecordingPfd: ParcelFileDescriptor? = null
-    @Volatile private var inAppVideoRecorderStarted: Boolean = false
-    /** Dedupes [applyInAppVideoRecordingShell] across idle recompositions. */
-    private var lastInAppVideoShellWant: Boolean? = null
+    /** Video recording controller (Sprint 12.4 refactoring). */
+    private val videoController: VideoRecordingController by lazy {
+        VideoRecordingController(appContext, handler, mainHandler)
+    }
 
     /**
-     * After a start failure, blocks further start attempts until [applyInAppVideoRecordingShellLocked]
-     * sees [wantRecord]==false (Compose clears recording). Prevents a prepare failure / async
-     * [InAppVideoRecordingUiEvent.StartFailed] window from re-entering prepare every frame.
+     * True when video recording is prepared but session hasn't been rebuilt with recording surface yet.
+     * Prevents adding recording surface to capture requests before session is ready.
      */
-    @Volatile private var inAppVideoShellStartFailureHold: Boolean = false
+    @Volatile private var videoRecordingSessionRebuildPending: Boolean = false
 
     private var lastStatus: String = "Idle"
 
@@ -6447,191 +6442,73 @@ private class PreviewController(
     }
 
     private fun previewTargetFpsForSession(): Int {
-        if (inAppVideoRecorder != null) return minOf(desiredFps, IN_APP_VIDEO_PREVIEW_CAP_FPS)
+        if (videoController.isRecorderPresent()) return minOf(desiredFps, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
         return desiredFps
     }
 
-    private fun mediaRecorderTargetFps(): Int =
-        minOf(desiredFps, IN_APP_VIDEO_PREVIEW_CAP_FPS).coerceIn(15, 60)
-
+    /**
+     * Video recording shell - delegates to [videoController].
+     * Sprint 12.4: Extracted from PreviewController monolith.
+     *
+     * Two-phase flow:
+     * 1. Prepare recorder (get surface)
+     * 2. Rebuild session with recording surface
+     * 3. Start recorder after session settled
+     */
     fun applyInAppVideoRecordingShell(
         wantRecord: Boolean,
         profile: ImagingProfile,
         onUi: (InAppVideoRecordingUiEvent) -> Unit,
     ) {
+        // Map UI events from VideoRecordingController to PreviewController events
+        val onEvent: (VideoRecordingController.Event) -> Unit = { event ->
+            when (event) {
+                is VideoRecordingController.Event.StartFailed -> {
+                    mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
+                }
+                is VideoRecordingController.Event.Stopped -> {
+                    mainHandler.post { onUi(InAppVideoRecordingUiEvent.Stopped(event.uri, event.audioEnabled)) }
+                }
+            }
+        }
+
+        // Must run on handler thread for synchronous result
         val h = handler
         if (h == null) {
             if (wantRecord) {
-                inAppVideoShellStartFailureHold = true
                 mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
-            } else {
-                inAppVideoShellStartFailureHold = false
             }
             return
         }
-        h.post { applyInAppVideoRecordingShellLocked(wantRecord, profile, onUi) }
+
+        h.post {
+            val result = videoController.applyShell(
+                wantRecord = wantRecord,
+                profile = profile,
+                desiredFps = desiredFps,
+                size = currentSurfaceSize ?: android.util.Size(1920, 1080),
+                orientationHintDegrees = 0,
+                onEvent = onEvent,
+            )
+
+            // If recording prepared successfully, mark that we need session rebuild
+            if (result is VideoRecordingController.PrepareResult.Ready) {
+                Log.i("PNS.Cam", "Video prepared, marking session rebuild needed")
+                videoRecordingSessionRebuildPending = true
+                maybeRestartBody()
+            }
+        }
     }
 
-    private fun applyInAppVideoRecordingShellLocked(
-        wantRecord: Boolean,
-        profile: ImagingProfile,
-        onUi: (InAppVideoRecordingUiEvent) -> Unit,
-    ) {
-        if (!wantRecord) {
-            inAppVideoShellStartFailureHold = false
-            if (inAppVideoRecorder == null && lastInAppVideoShellWant != true) {
-                return
-            }
-            lastInAppVideoShellWant = false
-            val hadRecorder = inAppVideoRecorder != null
-            val uri = if (hadRecorder) stopInAppVideoRecordingLocked() else null
-            if (hadRecorder) {
-                mainHandler.post { onUi(InAppVideoRecordingUiEvent.Stopped(uri)) }
-            }
-            return
-        }
-        if (inAppVideoRecorder != null) return
-        if (desiredFps >= 120) {
-            inAppVideoShellStartFailureHold = true
-            mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
-            return
-        }
-        val camId = selectedCameraId
-        if (camId.isNullOrBlank()) {
-            inAppVideoShellStartFailureHold = true
-            mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
-            return
-        }
-        inAppVideoShellStartFailureHold = false
-        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
-        val map = chars?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-        val chrome = PreviewChromePreferences.load(appContext)
-        val sz =
-            InAppVideoRecordingSupport.pickOutputSize(map, chrome.inAppVideoEncodeWidth, chrome.inAppVideoEncodeHeight)
-        val recordFps = mediaRecorderTargetFps()
-        val bitrate =
-            InAppVideoRecordingSupport.bitrateForSize(sz.width, sz.height, IN_APP_VIDEO_RECORD_BITRATE)
-        val pair =
-            runCatching {
-                CaptureStorage.openVideoOutputReadWritePfd(appContext, profile)
-            }.getOrElse {
-                inAppVideoShellStartFailureHold = true
-                mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
-                return
-            }
-        val uri = pair.first
-        val pfd = pair.second
-        val mr =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                MediaRecorder(appContext)
-            } else {
-                @Suppress("DEPRECATION")
-                MediaRecorder()
-            }
-        try {
-            mr.setVideoSource(MediaRecorder.VideoSource.SURFACE)
-            mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            mr.setVideoEncoder(MediaRecorder.VideoEncoder.H264)
-            mr.setVideoSize(sz.width, sz.height)
-            mr.setVideoFrameRate(recordFps)
-            mr.setVideoEncodingBitRate(bitrate)
-            if (chars != null) {
-                val rotation =
-                    (appContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager)
-                        .getDisplay(Display.DEFAULT_DISPLAY)
-                        ?.rotation ?: Surface.ROTATION_0
-                val hint =
-                    PreviewStillCaptureHints.normalizeOrientationDegrees(
-                        RawCaptureSupport.orientationClockwiseDegForDng(chars, rotation),
-                    )
-                mr.setOrientationHint(hint)
-            }
-            mr.setOutputFile(pfd.fileDescriptor)
-            mr.applyCaptureGeotag(CaptureLocationBridge.snapshot())
-            mr.prepare()
-        } catch (t: Throwable) {
-            Log.w(tag, "in-app MediaRecorder prepare failed", t)
-            runCatching { mr.release() }
-            runCatching { pfd.close() }
-            runCatching { CaptureStorage.discardPendingVideo(appContext, uri) }
-            inAppVideoShellStartFailureHold = true
-            mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
-            return
-        }
-        inAppVideoRecorder = mr
-        inAppVideoRecordingSurface = mr.surface
-        inAppVideoRecordingUri = uri
-        inAppVideoRecordingPfd = pfd
-        inAppVideoRecorderStarted = false
-        inAppVideoShellStartFailureHold = false
-        lastInAppVideoShellWant = true
-        Log.i(
-            "PNS.ChromeUx",
-            "inAppVideoEncoder=prepared size=${sz.width}x${sz.height} fps=$recordFps",
-        )
-        maybeRestartBody()
-    }
+    /** Get recording surface for session configuration. */
+    fun getInAppVideoRecordingSurface(): Surface? = videoController.getRecordingSurface()
 
-    private fun stopInAppVideoRecordingLocked(): Uri? {
-        val mr = inAppVideoRecorder ?: return null
-        val uri = inAppVideoRecordingUri
-        val pfd = inAppVideoRecordingPfd
-        runCatching { session?.stopRepeating() }
-        runCatching { mr.stop() }
-        runCatching { session?.close() }
-        session = null
-        sessionCommittedGeneration = -1L
-        runCatching { mr.reset() }
-        runCatching { mr.release() }
-        inAppVideoRecorder = null
-        inAppVideoRecordingSurface = null
-        inAppVideoRecorderStarted = false
-        runCatching { pfd?.close() }
-        inAppVideoRecordingPfd = null
-        inAppVideoRecordingUri = null
-        var out: Uri? = null
-        if (uri != null) {
-            runCatching {
-                CaptureStorage.finalizePendingVideoInsert(appContext, uri)
-                out = uri
-                Log.i("PNS.ChromeUx", "inAppVideoSaved uri=$uri")
-                val bytes =
-                    runCatching {
-                        appContext.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
-                    }.getOrElse { -1L }
-                PnsAdbLog.i(appContext, "inAppVideoSaved ok=true bytes=$bytes uri=$uri")
-            }.onFailure { e ->
-                Log.w(tag, "finalize video failed", e)
-                runCatching { CaptureStorage.discardPendingVideo(appContext, uri) }
-            }
-        }
-        maybeRestartBody()
-        return out
-    }
+    /** Start recorder after preview settles. */
+    fun maybeStartInAppVideoRecorder() = videoController.maybeStartRecorder()
 
+    /** Tear down recording for camera close. */
     private fun tearDownInAppVideoRecordingForCloseCamera() {
-        val mr = inAppVideoRecorder ?: return
-        val uri = inAppVideoRecordingUri
-        val pfd = inAppVideoRecordingPfd
-        runCatching { session?.stopRepeating() }
-        runCatching { mr.stop() }
-        runCatching { session?.close() }
-        session = null
-        sessionCommittedGeneration = -1L
-        runCatching { mr.reset() }
-        runCatching { mr.release() }
-        inAppVideoRecorder = null
-        inAppVideoRecordingSurface = null
-        inAppVideoRecorderStarted = false
-        runCatching { pfd?.close() }
-        inAppVideoRecordingPfd = null
-        inAppVideoRecordingUri = null
-        if (uri != null) {
-            runCatching { CaptureStorage.finalizePendingVideoInsert(appContext, uri) }
-                .onFailure { runCatching { CaptureStorage.discardPendingVideo(appContext, uri) } }
-        }
-        lastInAppVideoShellWant = false
-        inAppVideoShellStartFailureHold = false
+        videoController.tearDownForCloseCamera()
     }
 
     private fun capturePipelineBaseContext(): LinkedHashMap<String, String> {
@@ -8543,9 +8420,9 @@ private class PreviewController(
     }
 
     /** Preview frames delivered to [TextureView] since last [closeCamera]; ADB RAW settle gate. */
-    fun peekInAppVideoRecorderPresent(): Boolean = inAppVideoRecorder != null
+    fun peekInAppVideoRecorderPresent(): Boolean = videoController.isRecorderPresent()
 
-    fun peekInAppVideoShellStartFailureHold(): Boolean = inAppVideoShellStartFailureHold
+    fun peekInAppVideoShellStartFailureHold(): Boolean = videoController.isStartFailureHold()
 
     fun previewCameraHandlerReady(): Boolean = handler != null
 
@@ -8754,9 +8631,8 @@ private class PreviewController(
 
     /**
      * @param teardownPreparedMediaRecorder When false, omits [tearDownInAppVideoRecordingForCloseCamera] so a
-     * prepared [inAppVideoRecorder] survives [generation] bumps while [maybeRestartBody] rebuilds the capture
-     * session to attach [inAppVideoRecordingSurface]. Full teardown paths ([stop], texture destroyed, errors)
-     * pass true (default).
+     * prepared video recorder survives [generation] bumps while [maybeRestartBody] rebuilds the capture
+     * session. Full teardown paths ([stop], texture destroyed, errors) pass true (default).
      */
     private fun closeCamera(teardownPreparedMediaRecorder: Boolean = true) {
         PreviewLogicalPhysicalDebugBridge.clear()
@@ -8951,8 +8827,7 @@ private class PreviewController(
             maybeRestartSessionPendingDeferrals = 0
         }
         val preservePreparedMediaRecorder =
-            inAppVideoRecorder != null &&
-                lastInAppVideoShellWant == true &&
+            videoController.isRecorderPresent() &&
                 (device == null || device?.id == camId)
         closeCamera(teardownPreparedMediaRecorder = !preservePreparedMediaRecorder)
         val h = handler ?: return
@@ -9285,7 +9160,7 @@ private class PreviewController(
         val map = runCatching { cm.getCameraCharacteristics(camId).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) }.getOrNull()
         val target = pickHighSpeedTarget(map, desiredFps)
 
-        val useHighSpeed = inAppVideoRecorder == null && target != null && desiredFps >= 120
+        val useHighSpeed = !videoController.isRecorderPresent() && target != null && desiredFps >= 120
         Log.d(tag, "createSession camId=$camId desiredFps=$desiredFps useHighSpeed=$useHighSpeed target=${target?.first?.width}x${target?.first?.height} ${target?.second}")
 
         runCatching { rawImageReader?.close() }
@@ -9296,9 +9171,9 @@ private class PreviewController(
         yuvImageReader = null
 
         val surfaces = mutableListOf(surf)
-        inAppVideoRecordingSurface?.takeIf { it.isValid }?.let { surfaces.add(it) }
+        videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { surfaces.add(it) }
         if (!useHighSpeed) {
-            if (inAppVideoRecorder == null) {
+            if (!videoController.isRecorderPresent()) {
             val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
             val mapForStreams =
                 chars?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
@@ -9584,6 +9459,8 @@ private class PreviewController(
                             }
                             session = sess
                             sessionCommittedGeneration = generation
+                            // Clear video session rebuild flag - new session now has recording surface
+                            videoRecordingSessionRebuildPending = false
                             val fpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession())
                             startRepeating(sess, camera, surf, fpsRange = fpsRange, camId = camId)
                         } finally {
@@ -9596,6 +9473,8 @@ private class PreviewController(
                             if (gen == generation) {
                                 sessionPreviewDynamicRangeShort = null
                             }
+                            // Clear video session rebuild flag - session creation failed
+                            videoRecordingSessionRebuildPending = false
                             lastStatus = "Session configure failed (normal)"
                             recordCapturePipelineEvent(
                                 "SESSION_CONFIGURE_FAILED",
@@ -9839,14 +9718,18 @@ private class PreviewController(
     ): CaptureRequest.Builder {
         val template =
             when {
-                inAppVideoRecordingSurface != null -> CameraDevice.TEMPLATE_RECORD
+                videoController.isRecorderPresent() -> CameraDevice.TEMPLATE_RECORD
                 fpsRange != null && fpsRange.lower >= 120 -> CameraDevice.TEMPLATE_RECORD
                 else -> CameraDevice.TEMPLATE_PREVIEW
             }
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
         return camera.createCaptureRequest(template).apply {
             addTarget(surf)
-            inAppVideoRecordingSurface?.takeIf { it.isValid }?.let { addTarget(it) }
+            // Only add recording surface if session rebuild is complete
+            // (videoRecordingSessionRebuildPending is set when prepared, cleared when session created)
+            if (!videoRecordingSessionRebuildPending) {
+                videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { addTarget(it) }
+            }
             yuvImageReader?.let { addTarget(it.surface) }
             if (fpsRange != null) {
                 set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
@@ -11289,17 +11172,12 @@ private class PreviewController(
         return MeteringRectangle(cx, cy, cw, ch, MeteringRectangle.METERING_WEIGHT_MAX)
     }
 
+    /**
+     * Called after preview settles to start the video recorder.
+     * Sprint 12.4: Delegates to VideoRecordingController.
+     */
     private fun maybeStartInAppVideoRecorderAfterPreview() {
-        if (inAppVideoRecorder == null || inAppVideoRecorderStarted) return
-        inAppVideoRecorderStarted = true
-        runCatching { inAppVideoRecorder?.start() }
-            .onSuccess {
-                Log.i("PNS.ChromeUx", "inAppVideoRecorder.start ok")
-            }
-            .onFailure { e ->
-                Log.w(tag, "MediaRecorder.start failed", e)
-                inAppVideoRecorderStarted = false
-            }
+        videoController.maybeStartRecorder()
     }
 
     private fun startRepeating(
@@ -11342,12 +11220,8 @@ private class PreviewController(
             Log.d(tag, "Normal repeatingRequest started")
             scheduleReadoutChromeUxFallback()
             val camH = handler
-            if (inAppVideoRecorder != null && !inAppVideoRecorderStarted && camH != null) {
-                // Some stacks need a few frames to the MediaRecorder surface before start(), or muxing stays empty.
-                camH.postDelayed({ maybeStartInAppVideoRecorderAfterPreview() }, 200L)
-            } else {
-                maybeStartInAppVideoRecorderAfterPreview()
-            }
+            // Sprint 12.4: Video recorder start handled by VideoRecordingController after preview settles.
+            maybeStartInAppVideoRecorderAfterPreview()
         } catch (e: CameraAccessException) {
             lastStatus = "Repeating failed: ${e.reason}"
         } catch (t: Throwable) {

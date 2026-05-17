@@ -6,6 +6,8 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Device truth rule:** Do **not** tell the user a **fix or feature is delivered / done** until it is **verified on a real device over USB ADB** (install the build under test, exercise the path, and report script artifacts or log needles). If no device is online, say explicitly that **device verification was not run** and treat the change as **unverified**. Use repo scripts (`pns_photo_capture_verify`, `pns_in_app_video_verify`, `pns_chrome_ux_gate`, `pns_adb_preview_validate`, etc.) when they match the change; otherwise document the exact `adb` / `am start` steps you ran and what you observed.
 
+**Battery and heat rule (MANDATORY):** After **every** ADB testing session — success or failure — you **must close the app** to prevent battery drain and device overheating. The user may not be present to supervise. Use `adb shell am force-stop dev.pointandshoot` or equivalent cleanup in all scripts. **Never leave the camera app running after testing completes.** This applies to all automated scripts, verification runs, and manual ADB exercises.
+
 ---
 
 ## CRITICAL — sequential RAW / `pns_preview_raw_count` and preview session wiring

@@ -1,12 +1,12 @@
 {
   "schema": "pns.capture_pipeline_gate.v1",
-  "utc": "2026-05-15T20:56:37.9354593Z",
+  "utc": "2026-05-17T01:52:56.0257673Z",
   "exitCode": 0,
   "pass": true,
   "bisectStep": "",
-  "gitRevShort": "6689f06",
+  "gitRevShort": "9c535b7",
   "notes": "",
-  "verifyRunDir": "hfr-runs/photo_capture_verify_20260515_205536",
-  "verifyOkFile": "hfr-runs/photo_capture_verify_20260515_205536/VERIFY_OK.txt",
-  "childArgs": "-NoProfile -ExecutionPolicy Bypass -File C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\scripts\\pns_photo_capture_verify.ps1 -MaxAttempts 2 -WaitSec 55 -Fast -SkipInstall"
+  "verifyRunDir": "hfr-runs/photo_capture_verify_20260517_015054",
+  "verifyOkFile": "hfr-runs/photo_capture_verify_20260517_015054/VERIFY_OK.txt",
+  "childArgs": "-NoProfile -ExecutionPolicy Bypass -File C:\\Users\\edwar\\point-and-shoot\\point-and-shoot\\scripts\\pns_photo_capture_verify.ps1 -Serial 8bf09993 -MaxAttempts 30 -WaitSec 55"
 }

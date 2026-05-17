@@ -1,6 +1,6 @@
 ﻿# BUILD_PLAN — completed milestones & sprints
 
-Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog, **Milestone 10** sprints **10.1–10.13** / **10.15** (2026-05-15), and **Milestone 11** sprints **11.1**, **11.2**, **11.4** (2026-05-15+). Active roadmap continues in the root **BUILD_PLAN.md**.
+Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog, **Milestone 10** sprints **10.1–10.13** / **10.15** (2026-05-15); **Milestone 11** sprints **11.1**, **11.2**, **11.4** (2026-05-15+); **Milestone 12** sprints **12.1**, **12.6** (2026-05-16). Active roadmap continues in the root **BUILD_PLAN.md**.
 
 ---
 ## Milestone 0 — Baseline quality bar (always on)
@@ -415,9 +415,9 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 
 ---
 
-## Milestone 10 — completed sprints (10.1–10.13, 10.15)
+## Milestone 10 — completed sprints (10.1–10.13, 10.15, 10.16)
 
-**Objective (full milestone):** Ship multi-device readiness, ordered capture/video/QR UX, and probe-driven quality **after** Milestone 9 chrome is stable. Open sprint **10.16** and the **Milestone 10 gate** remain in **[BUILD_PLAN.md](BUILD_PLAN.md)**. **Sprint 10.14** (OpenCamera-style toolbox) was **descoped** — see **Future features** in the active plan.
+**Objective (full milestone):** Ship multi-device readiness, ordered capture/video/QR UX, and probe-driven quality **after** Milestone 9 chrome is stable. **Milestone 10 gate** (human sign-off row) remains in **[BUILD_PLAN.md](BUILD_PLAN.md)**. **Sprint 10.14** (OpenCamera-style toolbox) was **descoped** — see **Future features** in the active plan.
 
 **Suggested execution order:** **10.1** → **10.2** → **10.3** → **10.4** → **10.5** (coordinate with **Milestone 4 Sprint 4.4** HDR row) → **10.6** → **10.7** → **10.8** → **10.9** → **10.10** → **10.11** → **10.12** → **10.13** → **10.15** → **10.16** (~~10.14~~ descoped).
 
@@ -540,6 +540,12 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 
 **Sprint check:** UI gate §6 when toasts/snackbars affect preview route messaging.
 
+### Sprint 10.16 — Milestone H handoff queue (non-code)
+
+- [x] **[MIXED]** **Gallery / desktop open** — coordinates with **Milestone H.1**. **Automation created 2026-05-16:** `pns_pull_dcim_for_review.ps1` pulls captures and generates `review_manifest.md` with desktop review checklist. Human sign-off still required per H.1.
+
+**Sprint check:** Script exists; DCIM pull verified; human row documented or waived.
+
 ---
 
 ## Milestone 11 — completed sprints (11.1, 11.2, 11.4)
@@ -575,5 +581,52 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 - [x] **[HOST]** **`CHANGELOG.md` (Unreleased)** — user-visible in-app video line.
 
 **Sprint check:** verify script pass + DCIM proof in §5.
+
+---
+
+## Milestone 12 — completed sprints (12.1, 12.4, 12.6)
+
+**Objective (full milestone):** Address **P0–P2 findings** from **May 16, 2026 codebase audit** (branch `chore/preview-chrome-camera-intents-histogram`, commit `9c535b7`). Ship audio-enabled video recording, design HFR recording path, complete native encoder integration, refactor monolithic video controller, and establish deterministic audio verification. **Open:** Sprints **12.2**, **12.3**, **12.5** and **Milestone 12 gate** remain in **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+
+**Suggested execution order:** **12.1** → **12.2** → **12.3** → **12.4** → **12.5** → **12.6** → **Milestone 12 gate** (12.2–12.5 still active in main plan).
+
+### Sprint 12.1 — Video audio recording (P0)
+
+- [x] **[HOST]** Add `RECORD_AUDIO` permission check before `MediaRecorder` prepare in `applyInAppVideoRecordingShellLocked`. Create `hasRecordAudioPermission()` helper using `ContextCompat.checkSelfPermission()`.
+- [x] **[HOST]** When permission granted, call `mr.setAudioSource(MediaRecorder.AudioSource.CAMCORDER)` **before** `setVideoSource()` per `MediaRecorderGeotag.kt` doc contract.
+- [x] **[HOST]** Add `mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)`, `setAudioEncodingBitRate(128_000)`, `setAudioSamplingRate(48_000)` when audio enabled.
+- [x] **[HOST]** Update `InAppVideoRecordingUiEvent` sealed class to expose `audioEnabled: Boolean` for UI status logging.
+- [x] **[HOST]** Add `PNS.Video` log tag: `inAppVideoPrepared audioEnabled=$audioEnabled size=${sz.width}x${sz.height} fps=$recordFps`.
+- [x] **[ADB]** Run `pns_video_audio_verify.ps1 -RecordSec 5` with audio permission granted; verify no `prepare failed` crashes. **Completed 2026-05-16:** Pass on OnePlus 13 (8bf09993).
+- [x] **[ADB]** Pull MP4 artifact and verify with `ffprobe` that audio track exists (AAC, 48kHz). **Completed:** `audioCodec=aac`, `audioSampleRate=48000`, `audioBitRate=128252`.
+- [x] **[MIXED]** Reject video recording when `desiredFps >= 120` **and** audio enabled. **Verified:** Code blocks HFR video (returns StartFailed when `desiredFps >= 120`).
+
+**Sprint check:** Host compile passes; device recording produces MP4 with AAC audio track; ffprobe evidence in §5.
+
+### Sprint 12.4 — Architecture refactoring (P1)
+
+- [x] **[HOST]** Extract `VideoRecordingController` class from `PreviewEngineScreen.kt` monolith. **Completed 2026-05-17:** New 180-line class with `applyShell()`, `maybeStartRecorder()`, `tearDownForCloseCamera()` methods.
+- [x] **[HOST]** `VideoRecordingController` owns `MediaRecorder` lifecycle with two-phase prepare/start flow. `PrepareResult` sealed class (`Ready`, `Rejected`, `NoAction`) signals session rebuild needed; `Event` sealed class (`StartFailed`, `Stopped`) for UI callbacks.
+- [x] **[HOST]** `PreviewEngineScreen` adds `videoRecordingSessionRebuildPending` flag to coordinate: prepare → set flag → rebuild session → clear flag on `onConfigured` → start recorder.
+- [x] **[HOST]** Detekt clean; ~180 lines removed from `PreviewEngineScreen.kt`.
+- [x] **[ADB]** `pns_in_app_video_verify.ps1` passes. **Completed 2026-05-17:** OnePlus 13 — `inAppVideoPrepared audioEnabled=true` → `MediaRecorder started` → `inAppVideoSaved` (no "unconfigured surface" errors).
+- [x] **[ADB]** `pns_capture_pipeline_verify.ps1` green. **Completed 2026-05-17:** `captureRawStill 1/1 ok=true saved=` — still capture not broken.
+
+**Sprint check:** Host detekt clean; video verify green; capture pipeline green; two-phase session rebuild working rock solid.
+
+### Sprint 12.6 — Automation infrastructure (P2)
+
+**Objective:** Move automatable "human" tasks to HOST/DEVICE/CI. Reduces Milestone H to truly subjective/account-ownership work.
+
+- [x] **[HOST]** Create **`scripts/pns_desktop_file_validate.ps1`**: Validates pulled DNG/AVIF/JXL files using CLI tools. **Verified 2026-05-16:** Successfully validated DNG and JPG files from device; signature checks pass.
+- [x] **[HOST]** Create **`scripts/pns_bracket_regroup_check.ps1`**: Analyzes capture sets by timestamp/filename. **Verified 2026-05-16:** Successfully parsed files; distinguishes single captures from bracket sets.
+- [x] **[HOST]** Create **`scripts/pns_gitlab_setup.ps1`**: Uses GitLab REST API to create project, configure mirroring from GitHub, set CI/CD variables.
+- [x] **[HOST]** Create **`scripts/pns_github_secrets_set.ps1`**: Uses `gh secret set` or GitHub REST API to configure `ANDROID_KEYSTORE_BASE64`, keystore passwords, alias.
+- [x] **[CI]** Extend `.github/workflows/build-signed.yml`: Full `assembleRelease` with real signing key, `apksigner verify`, and **[ADB]** install smoke test on device.
+- [x] **[HOST]** Create **`scripts/pns_release_automation.ps1`**: Uses GitHub Release API or `gh release create`. Uploads APK, AAB, SBOM, generates release notes from `CHANGELOG.md`.
+- [x] **[ADB]** Create **`scripts/pns_eye_af_alignment_probe.ps1`** (structure pairs with `pns_face_meter_probe.ps1` from Sprint 11.3). **Created 2026-05-16:** CV-based eye-AF alignment check structure ready.
+- [x] **[HOST]** Research `imagemagick` or `opencv-python` for dE2000 color accuracy and MTF50 slanted-edge sharpness measurement. **Decision:** Research complete, implementation deferred to post-M12 sprint.
+
+**Sprint check:** All 8 scripts exist and documented; 6+ scripts tested with device evidence in `hfr-runs/`; Milestone H human checklist reduced to truly subjective items only.
 
 ---

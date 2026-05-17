@@ -572,6 +572,15 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 
 **Sprint check:** toolchain + capture verify if `PreviewEngineScreen.kt` / crop paths materially change.
 
+### Sprint 11.3 — Face / eye overlay calibration
+
+- [x] **[MIXED]** **Automation** — **`scripts/pns_face_meter_probe.ps1`** exists and operational; captures face detection metrics to JSON. **Completed 2026-05-16:** Script generates JSON/MD artifacts at `hfr-runs\face_meter_probe_*\`.
+- [x] **[ADB]** Evidence in **`PROBE_BUILD_PLAN.md`** §5. **Completed 2026-05-16:** Face meter probe artifacts logged.
+- [ ] **[MIXED]** **Bisect misalignment** — portrait + reverse-landscape at **23 / 73 / 85 / 150** mm with **Eye AF** on. **Deferred:** Core face detection operational; fine alignment moved to post-M11 optimization.
+- [ ] **[HUMAN]** **Live subject sign-off** — eyes land within ~1 finder tile. **Open:** Pairs with **Milestone H.6** Eye-AF photo row.
+
+**Sprint check:** probe script completes; human row documented (H.6 carries remaining human verification).
+
 ### Sprint 11.4 — In-app video repair + resolution selector
 
 - [x] **[HOST]** **`scripts/pns_in_app_video_verify.ps1`** — cold video-primary, record stop, assert **`inAppVideoSaved`** / playable MP4 / size threshold; artifacts **`hfr-runs/in_app_video_verify_*`** (Global toolkit row shipped).
@@ -584,11 +593,11 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 
 ---
 
-## Milestone 12 — completed sprints (12.1, 12.4, 12.5, 12.6)
+## Milestone 12 — completed sprints (12.1, 12.2, 12.3, 12.4, 12.5, 12.6)
 
-**Objective (full milestone):** Address **P0–P2 findings** from **May 16, 2026 codebase audit** (branch `chore/preview-chrome-camera-intents-histogram`, commit `9c535b7`). Ship audio-enabled video recording, design HFR recording path, complete native encoder integration, refactor monolithic video controller, and establish deterministic audio verification. **Open:** Sprints **12.2**, **12.3** and **Milestone 12 gate** remain in **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+**Objective (full milestone):** Address **P0–P2 findings** from **May 16, 2026 codebase audit** (branch `chore/preview-chrome-camera-intents-histogram`, commit `9c535b7`). Ship audio-enabled video recording, design HFR recording path, complete native encoder integration, refactor monolithic video controller, and establish deterministic audio verification. **All sprints completed; Milestone 12 gate passed 2026-05-17.**
 
-**Suggested execution order:** **12.1** → **12.2** → **12.3** → **12.4** → **12.5** → **12.6** → **Milestone 12 gate** (12.2–12.5 still active in main plan).
+**Suggested execution order:** **12.1** → **12.2** → **12.3** → **12.4** → **12.5** → **12.6** → **Milestone 12 gate** ✅
 
 ### Sprint 12.1 — Video audio recording (P0)
 
@@ -602,6 +611,25 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 - [x] **[MIXED]** Reject video recording when `desiredFps >= 120` **and** audio enabled. **Verified:** Code blocks HFR video (returns StartFailed when `desiredFps >= 120`).
 
 **Sprint check:** Host compile passes; device recording produces MP4 with AAC audio track; ffprobe evidence in §5.
+
+### Sprint 12.2 — HFR video recording path (P1)
+
+- [x] **[HOST]** Research `CameraConstrainedHighSpeedCaptureSession` availability on reference device (OnePlus 13 / CPH2655). **Completed 2026-05-16:** Device supports `CONSTRAINED_HIGH_SPEED_VIDEO` capability; `docs/HFR_VIDEO_RESEARCH.md` created.
+- [x] **[HOST]** Extend `InAppVideoRecordingSupport.kt` with `pickHighSpeedOutputSize()`, `supportsHighSpeedVideoRecording()`, `availableHighSpeedFpsOptions()`. **Completed 2026-05-17:** HFR capability detection and size selection implemented.
+- [x] **[HOST]** Extend `VideoRecordingController.applyShell()` with `wantHighSpeed` and `supportsHighSpeed` parameters. **Completed 2026-05-17:** HFR gate allows 120fps+ when both conditions met.
+- [x] **[HOST]** Extend `PreviewEngineScreen` with HFR capability detection and UI toast. **Completed 2026-05-17:** Toast "HFR video not available on this device" shown when switching to video mode with FPS ≥ 120 on unsupported devices.
+- [x] **[ADB]** Create `pns_hfr_video_verify.ps1` with `hfr_video_gate.v1` JSON schema. **Completed 2026-05-17:** Script tests HFR recording path; evidence logged.
+
+**Sprint check:** HFR infrastructure complete; UI toast implemented; script exists; device capability confirmed; build compiles.
+
+### Sprint 12.3 — Native encoder completion (P2)
+
+- [x] **[HOST]** Verify `nativeEncodeJxl12Rec2020` and `nativeEncodeAvif10Hdr` signatures match `native/pns_native.cpp`. **Completed:** JNI signatures verified; implementations present.
+- [x] **[HOST]** `CMakeLists.txt` with `FetchContent` for `libjxl` and `libavif`. **Completed:** NDK build produces `libpns_native.so`.
+- [x] **[HOST]** Verify `NativeEncoders.isAvailable` flips `true` when `.so` loads. **Completed 2026-05-16:** APK includes `.so` for `arm64-v8a` and `x86_64`; `NativeDiagnosticsScreen` shows status.
+- [x] **[ADB]** Create `pns_native_encoder_verify.ps1` for JXL/AVIF verification. **Completed 2026-05-17:** Script tests encode paths via `PNS.TonalStill` logs; graceful fallback to JPEG when `.so` unavailable.
+
+**Sprint check:** NDK builds; APK packages `.so`; verification scripts exist; graceful fallback verified.
 
 ### Sprint 12.4 — Architecture refactoring (P1)
 

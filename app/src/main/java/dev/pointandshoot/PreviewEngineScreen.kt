@@ -1973,6 +1973,25 @@ fun PreviewEngineScreen(
                         .maxOrNull()
                 selectedFps = cap ?: 60
             }
+            // Photo → video: warn if HFR not available on this device (Sprint 12.2 UI polish)
+            if (!next && selectedFps >= 120) {
+                val camId = selectedCameraId
+                if (camId != null) {
+                    val hasHighSpeed = runCatching {
+                        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                        val chars = cm.getCameraCharacteristics(camId)
+                        val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                        InAppVideoRecordingSupport.supportsHighSpeedVideoRecording(map)
+                    }.getOrDefault(false)
+                    if (!hasHighSpeed) {
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "HFR video not available on this device",
+                            longDuration = false,
+                        )
+                    }
+                }
+            }
         },
     )
 

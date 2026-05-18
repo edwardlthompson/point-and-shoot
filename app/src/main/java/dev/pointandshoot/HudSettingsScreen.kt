@@ -499,6 +499,51 @@ private fun hudToggleRows(
             onChange = { onUpdate(settings.copy(enableResearchAfBracketing = it)) },
         ),
         HudToggleRow(
+            title = "Research: HFR AI Camera HSR (120fps)",
+            description =
+                "When advertised (Qualcomm `EnableAICameraHSR` session key), attaches it to REGULAR " +
+                    "preview session parameters to enable AI Camera High Speed Recording. Off by default — " +
+                    "HAL-specific; Milestone 13.3 research for 120fps video.",
+            enabled = settings.enableResearchHfrAICameraHSR,
+            onChange = { onUpdate(settings.copy(enableResearchHfrAICameraHSR = it)) },
+        ),
+        HudToggleRow(
+            title = "Research: HFR VIULL (Ultra Low Latency)",
+            description =
+                "When advertised (Qualcomm `EnableVIULL` session key), attaches it to REGULAR " +
+                    "preview session parameters to enable Video ISP Ultra Low Latency mode (critical for HFR). " +
+                    "Off by default — HAL-specific; Milestone 13.3 research for 120fps video.",
+            enabled = settings.enableResearchHfrVIULL,
+            onChange = { onUpdate(settings.copy(enableResearchHfrVIULL = it)) },
+        ),
+        HudToggleRow(
+            title = "Research: HFR VSR (Video Stabilization Rotation)",
+            description =
+                "When advertised (Qualcomm `EnableVSR` session key), attaches it to REGULAR " +
+                    "preview session parameters to enable Video Stabilization Rotation (may be required for HFR). " +
+                    "Off by default — HAL-specific; Milestone 13.3 research for 120fps video.",
+            enabled = settings.enableResearchHfrVSR,
+            onChange = { onUpdate(settings.copy(enableResearchHfrVSR = it)) },
+        ),
+        HudToggleRow(
+            title = "Research: DCG HDR mode (10-bit)",
+            description =
+                "When advertised (Qualcomm `EnableHDRDCGMode` session key), attaches it to REGULAR " +
+                    "preview session parameters to enable Dual Conversion Gain mode for HDR video. " +
+                    "Off by default — HAL-specific; Milestone 13.2 research for 10-bit video.",
+            enabled = settings.enableResearchDcgHDR,
+            onChange = { onUpdate(settings.copy(enableResearchDcgHDR = it)) },
+        ),
+        HudToggleRow(
+            title = "Research: Qualcomm HDR mode (10-bit)",
+            description =
+                "When advertised (Qualcomm `EnableQHDR` session key), attaches it to REGULAR " +
+                    "preview session parameters to enable Qualcomm HDR mode for 10-bit video. " +
+                    "Off by default — HAL-specific; Milestone 13.2 research for 10-bit video.",
+            enabled = settings.enableResearchQHDR,
+            onChange = { onUpdate(settings.copy(enableResearchQHDR = it)) },
+        ),
+        HudToggleRow(
             title = "Open Camera–style AF settle before RAW still",
             description =
                 "In-app only (not scripted ADB), flash off: after stopRepeating, run preview-only AF " +

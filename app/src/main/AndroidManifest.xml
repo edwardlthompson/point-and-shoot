@@ -45,7 +45,8 @@
             android:label="Point &amp; Shoot"
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize|keyboardHidden|uiMode"
-            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+            android:clearTaskOnLaunch="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -69,12 +70,52 @@
                 <action android:name="android.media.action.IMAGE_CAPTURE_SECURE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Lockscreen quick-launch camera (secure device, e.g. double-press power when locked). -->
+            <intent-filter>
+                <action android:name="android.media.action.STILL_IMAGE_CAMERA_SECURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <!-- Other apps / system "take picture" — caller expects [setResult] + JPEG per [MediaStore.ACTION_IMAGE_CAPTURE]. -->
             <intent-filter>
                 <action android:name="android.media.action.IMAGE_CAPTURE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- Quick Settings tiles for one-tap camera access (Android 7.0+). -->
+        <service
+            android:name=".quicksettings.CameraTileService"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Camera"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".quicksettings.VideoTileService"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Video"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".quicksettings.SelfieTileService"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Selfie"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
     </application>
 

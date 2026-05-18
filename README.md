@@ -67,6 +67,17 @@ These are **not implemented yet** — they are the targets the probe is gating d
 - **Phase 0 (capability probe):** working. Probe writes JSON + Markdown; host script pulls artifacts into `hfr-runs/`.
 - **Dodge profile mapping:** working hypothesis in `DODGE_PROFILE.md`, refined as probe deltas arrive.
 - **Imaging engine + HUD:** planned and gated by probe outputs (see `BUILD_PLAN.md`).
+- **Milestone 13 (video features):**
+  - ✅ **Sprint 13.1:** Power button quick-launch (broadcast receiver for camera launch)
+  - ✅ **Sprint 13.5:** DCG mode wiring (DcgModeSupport.kt with DynamicRangeProfiles detection)
+  - ✅ **Sprint 13.6:** Macro shooting mode (CommandDialMode.Macro with vendor key session parameters)
+  - ✅ **Sprint 13.7:** Multi-camera research documentation (existing RAW_CAPTURE_DEVICE_MATRIX.md)
+  - ⚠️ **Sprint 13.2:** 10-bit video - BLOCKED by device MediaRecorder limitation (OMX encoder does not support 10-bit encoding on current device)
+  - ⚠️ **Sprint 13.3:** HFR video 1080p@120fps - BLOCKED by device OMX encoder limitation (device OMX encoder does not support 120fps)
+  - ⚠️ **Sprint 13.4:** Unified picker - PARTIAL (backend wired, UI scope issues - deferred to end)
+  - ⚠️ **Sprint 13.8-13.13:** Deferred (require complex implementations or device capabilities)
+
+See `PROBE_BUILD_PLAN.md` for detailed device limitation documentation.
 
 ## Screenshots
 

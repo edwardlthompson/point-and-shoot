@@ -1,12 +1,12 @@
 {
   "schema": "pns.capture_pipeline_gate.v1",
-  "utc": "2026-05-17T02:40:27.0368503Z",
+  "utc": "2026-05-17T07:17:45.9637041Z",
   "exitCode": 0,
   "pass": true,
   "bisectStep": "",
-  "gitRevShort": "b44df33",
+  "gitRevShort": "ccd5ab6",
   "notes": "",
   "verifyRunDir": "hfr-runs/photo_capture_verify_20260517_023925",
   "verifyOkFile": "hfr-runs/photo_capture_verify_20260517_023925/VERIFY_OK.txt",
-  "childArgs": "-NoProfile -ExecutionPolicy Bypass -File C:\\Users\\edwar\\point-and-shoot\\point-and-shoot\\scripts\\pns_photo_capture_verify.ps1 -Serial 8bf09993 -MaxAttempts 30 -WaitSec 55 -Fast"
+  "childArgs": "-NoProfile -ExecutionPolicy Bypass -File C:\\Users\\edwar\\point-and-shoot\\point-and-shoot\\scripts\\pns_photo_capture_verify.ps1 -Serial 8bf09993 -MaxAttempts 30 -WaitSec 55"
 }

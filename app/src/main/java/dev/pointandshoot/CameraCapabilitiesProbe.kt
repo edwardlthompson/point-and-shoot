@@ -134,6 +134,32 @@ const val EXTRA_PNS_PREVIEW_PRIMARY_PHOTO = "pns_preview_primary_photo"
 const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC = "pns_preview_automation_in_app_video_sec"
 
 /**
+ * Debug APK + [PNS_SCREEN_PREVIEW]: target FPS for in-app video automation.
+ * When > 60 the [MediaCodecVideoRecorder] path is used (bypasses `ro.media.recorder-max-base-layer-fps=60`).
+ * Defaults to 120 when [EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC] > 0 and this extra is absent.
+ *
+ * Typical ADB: `--ei pns_preview_video_fps 120`
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_FPS = "pns_preview_video_fps"
+
+/**
+ * Debug APK + [PNS_SCREEN_PREVIEW]: when `true`, in-app video automation uses HEVC Main10
+ * (10-bit) profile via [MediaCodecVideoRecorder] (`c2.qti.hevc.encoder`).
+ *
+ * Typical ADB: `--ez pns_preview_video_10bit true`
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_TENBIT = "pns_preview_video_10bit"
+
+/**
+ * Sprint 13.5: Debug APK + [PNS_SCREEN_PREVIEW]: when `true`, in-app video automation records
+ * DCG (HEVC Main10HDR10 + `isHdr10=true` + `KEY_HDR_STATIC_INFO` SEI metadata) via
+ * [MediaCodecVideoRecorder]. Used by `pns_video_hdr10_metadata_verify.ps1`.
+ *
+ * Typical ADB: `--ez pns_preview_video_dcg true`
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_DCG = "pns_preview_video_dcg"
+
+/**
  * When true, after the full markdown probe is built (requires `CAMERA` grant), writes
  * [PROBE_EXPORT_LATEST_FILE] under the app's **files** dir. Host pull (debuggable):
  * `adb exec-out run-as dev.pointandshoot cat files/PROBE_EXPORT_LATEST.md`.
@@ -593,6 +619,24 @@ fun CameraCapabilitiesProbe(
             } else {
                 0
             }
+        val adbAutomationVideoFps =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_FPS, 0) ?: 0).let { if (it > 0) it else null }
+            } else {
+                null
+            }
+        val adbAutomationVideoTenBit =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_TENBIT, false) ?: false
+            } else {
+                false
+            }
+        val adbAutomationVideoDcg =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_DCG, false) ?: false
+            } else {
+                false
+            }
         val adbSequentialRawStills = if (trustIntentForPreviewPipeline) adbRawCountRaw else 0
         val adbBracketPattern = if (trustIntentForPreviewPipeline) adbBracketRaw else null
         val adbRawStreamPreference = if (useIntentAutomationPipeline) adbRawStreamFromIntent else null
@@ -651,6 +695,9 @@ fun CameraCapabilitiesProbe(
             videoCaptureReturn = videoCaptureReturn,
             initialPrimaryPhoto = previewSeedPrimaryPhoto,
             adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
+            adbAutomationVideoFps = adbAutomationVideoFps,
+            adbAutomationVideoTenBit = adbAutomationVideoTenBit,
+            adbAutomationVideoDcg = adbAutomationVideoDcg,
         )
         return
     }
@@ -1561,6 +1608,7 @@ private fun Intent?.previewDialModeExtra(): CommandDialMode? {
         "H" -> CommandDialMode.H
         "S" -> CommandDialMode.S
         "BKT" -> CommandDialMode.BKT
+        "MACRO" -> CommandDialMode.Macro
         else -> null
     }
 }

@@ -31,6 +31,8 @@ data class HudSettings(
     val showFpsReadout: Boolean = true,
     val showIsoShutterReadout: Boolean = true,
     val showHistogram: Boolean = false,        // disabled by default - cost vs benefit on small phones
+    /** Sprint 13.9: Extend luma histogram to RGB channels when enabled. Requires [showHistogram]. */
+    val showRgbHistogram: Boolean = false,
     /** Near-clip zebra (~0.95 luma) from YUV analysis; optional aid on highlight-hostile sensors. */
     val showHighlightClipZebra: Boolean = false,
     val showHighlightWeightedMeter: Boolean = true,
@@ -93,6 +95,46 @@ data class HudSettings(
      */
     val enableResearchAfBracketing: Boolean = false,
     /**
+     * Research-only: when a device advertises Qualcomm **session** vendor key
+     * `org.codeaurora.qcamera3.sessionParameters.EnableAICameraHSR`, REGULAR preview session
+     * creation may attach it via [SessionConfiguration.setSessionParameters] to enable
+     * AI Camera High Speed Recording (HFR). **Off by default** (matrix / HAL risk);
+     * Milestone 13.3 research for 120fps video.
+     */
+    val enableResearchHfrAICameraHSR: Boolean = false,
+    /**
+     * Research-only: when a device advertises Qualcomm **session** vendor key
+     * `org.codeaurora.qcamera3.sessionParameters.EnableVIULL`, REGULAR preview session
+     * creation may attach it via [SessionConfiguration.setSessionParameters] to enable
+     * Video ISP Ultra Low Latency mode (critical for HFR). **Off by default** (matrix / HAL risk);
+     * Milestone 13.3 research for 120fps video.
+     */
+    val enableResearchHfrVIULL: Boolean = false,
+    /**
+     * Research-only: when a device advertises Qualcomm **session** vendor key
+     * `org.codeaurora.qcamera3.sessionParameters.EnableVSR`, REGULAR preview session
+     * creation may attach it via [SessionConfiguration.setSessionParameters] to enable
+     * Video Stabilization Rotation (may be required for HFR). **Off by default** (matrix / HAL risk);
+     * Milestone 13.3 research for 120fps video.
+     */
+    val enableResearchHfrVSR: Boolean = false,
+    /**
+     * Research-only: when a device advertises Qualcomm **session** vendor key
+     * `org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode`, REGULAR preview session
+     * creation may attach it via [SessionConfiguration.setSessionParameters] to enable
+     * Dual Conversion Gain mode for HDR video. **Off by default** (matrix / HAL risk);
+     * Milestone 13.2 research for 10-bit video.
+     */
+    val enableResearchDcgHDR: Boolean = false,
+    /**
+     * Research-only: when a device advertises Qualcomm **session** vendor key
+     * `org.codeaurora.qcamera3.sessionParameters.EnableQHDR`, REGULAR preview session
+     * creation may attach it via [SessionConfiguration.setSessionParameters] to enable
+     * Qualcomm HDR mode for 10-bit video. **Off by default** (matrix / HAL risk);
+     * Milestone 13.2 research for 10-bit video.
+     */
+    val enableResearchQHDR: Boolean = false,
+    /**
      * In-app RAW still only (no scripted ADB label): after [stopRepeating] debounce, run preview-only
      * AF settle captures before the high-res still (Open Camera–style polling). **Off by default**;
      * requires flash off and non-manual sensor. USB-prove before treating as default-on.
@@ -133,6 +175,7 @@ data class HudSettings(
         private const val KEY_FPS = "show_fps_readout"
         private const val KEY_ISO_SHUTTER = "show_iso_shutter_readout"
         private const val KEY_HISTOGRAM = "show_histogram"
+        private const val KEY_RGB_HISTOGRAM = "show_rgb_histogram"
         private const val KEY_HIGHLIGHT_CLIP_ZEBRA = "show_highlight_clip_zebra"
         private const val KEY_HIGHLIGHT_METER = "show_highlight_meter"
         private const val KEY_EYE_AF = "show_eye_af_overlay"
@@ -148,7 +191,12 @@ data class HudSettings(
         private const val KEY_POST_RAW_BOOST = "enable_post_raw_sensitivity_boost"
         private const val KEY_AUTO_FRAMING = "enable_auto_framing"
         private const val KEY_HDR_10_PREVIEW = "enable_hdr10_live_preview"
-        private const val KEY_RESEARCH_AF_BRACKET = "enable_research_af_bracketing"
+        private const val KEY_RESEARCH_AF_BRACKET = "enable_research_af_bracket"
+        private const val KEY_RESEARCH_HFR_AI_CAMERA_HSR = "enable_research_hfr_ai_camera_hsr"
+        private const val KEY_RESEARCH_HFR_VIULL = "enable_research_hfr_viull"
+        private const val KEY_RESEARCH_HFR_VSR = "enable_research_hfr_vsr"
+        private const val KEY_RESEARCH_DCG_HDR = "enable_research_dcg_hdr"
+        private const val KEY_RESEARCH_QHDR = "enable_research_qhdr"
         private const val KEY_AF_SETTLE_BEFORE_STILL = "enable_open_camera_style_af_settle_before_still"
         private const val KEY_WAIT_AF_FOCUS_BEFORE_STILL = "wait_for_af_focus_before_still"
         private const val KEY_HARDWARE_JPEG_ISP_BIAS = "hardware_jpeg_isp_bias"
@@ -261,6 +309,7 @@ data class HudSettings(
                 showFpsReadout = prefs.getBoolean(KEY_FPS, defaults.showFpsReadout),
                 showIsoShutterReadout = prefs.getBoolean(KEY_ISO_SHUTTER, defaults.showIsoShutterReadout),
                 showHistogram = prefs.getBoolean(KEY_HISTOGRAM, defaults.showHistogram),
+                showRgbHistogram = prefs.getBoolean(KEY_RGB_HISTOGRAM, defaults.showRgbHistogram),
                 showHighlightClipZebra = prefs.getBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, defaults.showHighlightClipZebra),
                 showHighlightWeightedMeter = prefs.getBoolean(KEY_HIGHLIGHT_METER, defaults.showHighlightWeightedMeter),
                 showEyeAfOverlay = prefs.getBoolean(KEY_EYE_AF, defaults.showEyeAfOverlay),
@@ -277,6 +326,16 @@ data class HudSettings(
                 enableHdr10LivePreview = prefs.getBoolean(KEY_HDR_10_PREVIEW, defaults.enableHdr10LivePreview),
                 enableResearchAfBracketing =
                     prefs.getBoolean(KEY_RESEARCH_AF_BRACKET, defaults.enableResearchAfBracketing),
+                enableResearchHfrAICameraHSR =
+                    prefs.getBoolean(KEY_RESEARCH_HFR_AI_CAMERA_HSR, defaults.enableResearchHfrAICameraHSR),
+                enableResearchHfrVIULL =
+                    prefs.getBoolean(KEY_RESEARCH_HFR_VIULL, defaults.enableResearchHfrVIULL),
+                enableResearchHfrVSR =
+                    prefs.getBoolean(KEY_RESEARCH_HFR_VSR, defaults.enableResearchHfrVSR),
+                enableResearchDcgHDR =
+                    prefs.getBoolean(KEY_RESEARCH_DCG_HDR, defaults.enableResearchDcgHDR),
+                enableResearchQHDR =
+                    prefs.getBoolean(KEY_RESEARCH_QHDR, defaults.enableResearchQHDR),
                 enableOpenCameraStyleAfSettleBeforeStill =
                     prefs.getBoolean(KEY_AF_SETTLE_BEFORE_STILL, defaults.enableOpenCameraStyleAfSettleBeforeStill),
                 waitForAfFocusBeforeStill =
@@ -299,6 +358,7 @@ data class HudSettings(
                 .putBoolean(KEY_FPS, settings.showFpsReadout)
                 .putBoolean(KEY_ISO_SHUTTER, settings.showIsoShutterReadout)
                 .putBoolean(KEY_HISTOGRAM, settings.showHistogram)
+                .putBoolean(KEY_RGB_HISTOGRAM, settings.showRgbHistogram)
                 .putBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, settings.showHighlightClipZebra)
                 .putBoolean(KEY_HIGHLIGHT_METER, settings.showHighlightWeightedMeter)
                 .putBoolean(KEY_EYE_AF, settings.showEyeAfOverlay)
@@ -315,6 +375,11 @@ data class HudSettings(
                 .putBoolean(KEY_AUTO_FRAMING, settings.enableAutoFraming)
                 .putBoolean(KEY_HDR_10_PREVIEW, settings.enableHdr10LivePreview)
                 .putBoolean(KEY_RESEARCH_AF_BRACKET, settings.enableResearchAfBracketing)
+                .putBoolean(KEY_RESEARCH_HFR_AI_CAMERA_HSR, settings.enableResearchHfrAICameraHSR)
+                .putBoolean(KEY_RESEARCH_HFR_VIULL, settings.enableResearchHfrVIULL)
+                .putBoolean(KEY_RESEARCH_HFR_VSR, settings.enableResearchHfrVSR)
+                .putBoolean(KEY_RESEARCH_DCG_HDR, settings.enableResearchDcgHDR)
+                .putBoolean(KEY_RESEARCH_QHDR, settings.enableResearchQHDR)
                 .putBoolean(KEY_AF_SETTLE_BEFORE_STILL, settings.enableOpenCameraStyleAfSettleBeforeStill)
                 .putBoolean(KEY_WAIT_AF_FOCUS_BEFORE_STILL, settings.waitForAfFocusBeforeStill)
                 .putInt(

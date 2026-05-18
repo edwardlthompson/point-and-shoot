@@ -454,6 +454,14 @@ Logcat tag: **`PNS.SWEEP_SIGNAL`**.
 
 ---
 
+## 5. Progress log
+
+| Timestamp | Item | Note |
+|-----------|------|------|
+| 2026-05-17 01:28 UTC | Milestone 13.2/13.3 device limitation | Device OMX encoder service reports "OMX service is not available" for HFR 120fps and 10-bit video recording. MediaRecorder produces 0-byte corrupted files. This is a device/hardware limitation, not a code bug. HFR camera session creation succeeds (CameraConstrainedHighSpeedCaptureSession), but MediaRecorder encoder cannot encode at 120fps on this device. 10-bit H.265 encoding also fails with same MediaRecorder issue. These sprints require a different device with OMX encoder support for high-frame-rate and 10-bit encoding. |
+
+---
+
 ## 10. Suggested validation on hardware
 
 - **CI first:** merge probe-affecting work only after **`toolchain-verify`** is green (Ubuntu parity with full `pns_verify_toolchain.ps1`). Plan-only edits to `PROBE_BUILD_PLAN.md` should pass **`plan-doc-verify`** (`-SkipGradle`).

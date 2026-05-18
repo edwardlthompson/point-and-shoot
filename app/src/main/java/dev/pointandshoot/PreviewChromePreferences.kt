@@ -76,6 +76,10 @@ data class PreviewChromePreferences(
      */
     val inAppVideoEncodeWidth: Int = 0,
     val inAppVideoEncodeHeight: Int = 0,
+    /** [VideoCodec.ordinal] of the last user-selected video codec; -1 = not set (use default). */
+    val inAppVideoCodecOrdinal: Int = -1,
+    /** Last user-selected video frame rate; 0 = not set (use default). */
+    val inAppVideoFps: Int = 0,
 ) {
     companion object {
         const val PREFS_NAME = "pns_preview_chrome"
@@ -95,6 +99,8 @@ data class PreviewChromePreferences(
         private const val KEY_PREVIEW_FLASH_MODE = "preview_flash_mode_ordinal"
         private const val KEY_IN_APP_VIDEO_ENC_W = "in_app_video_encode_w"
         private const val KEY_IN_APP_VIDEO_ENC_H = "in_app_video_encode_h"
+        private const val KEY_IN_APP_VIDEO_CODEC = "in_app_video_codec_ordinal"
+        private const val KEY_IN_APP_VIDEO_FPS = "in_app_video_fps"
         private const val KEY_LAST_REAR_CAMERA_ID = "last_rear_camera_id"
 
         /** Last non-front preview `cameraId` (for Milestone **10.2** / future front→rear UX). */
@@ -148,6 +154,10 @@ data class PreviewChromePreferences(
                     prefs.getInt(KEY_IN_APP_VIDEO_ENC_W, defaults.inAppVideoEncodeWidth).coerceAtLeast(0),
                 inAppVideoEncodeHeight =
                     prefs.getInt(KEY_IN_APP_VIDEO_ENC_H, defaults.inAppVideoEncodeHeight).coerceAtLeast(0),
+                inAppVideoCodecOrdinal =
+                    prefs.getInt(KEY_IN_APP_VIDEO_CODEC, defaults.inAppVideoCodecOrdinal),
+                inAppVideoFps =
+                    prefs.getInt(KEY_IN_APP_VIDEO_FPS, defaults.inAppVideoFps).coerceAtLeast(0),
             )
         }
 
@@ -168,6 +178,8 @@ data class PreviewChromePreferences(
                 .putInt(KEY_PREVIEW_FLASH_MODE, value.previewFlashMode.ordinal)
                 .putInt(KEY_IN_APP_VIDEO_ENC_W, value.inAppVideoEncodeWidth.coerceAtLeast(0))
                 .putInt(KEY_IN_APP_VIDEO_ENC_H, value.inAppVideoEncodeHeight.coerceAtLeast(0))
+                .putInt(KEY_IN_APP_VIDEO_CODEC, value.inAppVideoCodecOrdinal)
+                .putInt(KEY_IN_APP_VIDEO_FPS, value.inAppVideoFps.coerceAtLeast(0))
                 .apply()
         }
 

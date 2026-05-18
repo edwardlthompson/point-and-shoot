@@ -269,8 +269,13 @@ fun PreviewReadoutStrip(
     videoEncodeSizes: List<Size> = emptyList(),
     videoEncodeShortLabel: String = "",
     onPickVideoEncodeSize: (Size) -> Unit = {},
+    /** Hide wrong-mode LUT chip and IMG chip: true = photo, false = video. */
+    primaryPhoto: Boolean = true,
+    /** In video mode, slot for the unified VideoFormatChip (replaces FPS+RES chips). Null = not shown. */
+    videoFormatChipSlot: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val isVideoMode = !primaryPhoto
     val isoText = iso?.toString() ?: "—"
     val ss = PreviewReadoutFormat.formatShutter(exposureNs)
     val awb = PreviewReadoutFormat.awbModeLabel(awbMode)
@@ -500,41 +505,36 @@ fun PreviewReadoutStrip(
                     )
                 }
             }
+            // Video LUT shown before the unified picker chip in video mode
+            if (isVideoMode) {
             Box {
-                ReadoutMetricChip(
-                    label = "FPS",
-                    value = fpsDisplay,
-                    valueMinWidth = fpsValueMinWidth,
+                ReadoutLutChip(
+                    label = "Video",
+                    scope = LutCatalog.Scope.Video,
+                    current = videoLut,
                     labelStyle = labelStyle,
-                    valueStyle = valueStyle,
-                    enabled = fpsTargetEditable,
-                    onClick = { if (fpsTargetEditable) fpsMenu = true },
-                    accessibilityLabel =
-                        if (fpsTargetEditable) {
-                            "Measured FPS. Current $fpsDisplay. Opens FPS menu."
-                        } else {
-                            "Measured FPS. Current $fpsDisplay. Read-only in photo mode."
-                        },
+                    valueStyle = lutValueStyle,
+                    valueMinWidth = lutVideoValueMinWidth,
+                    onClick = { videoLutMenu = true },
+                    accessibilityLabel = "Video LUT. Index ${videoLut.indexInScope(LutCatalog.Scope.Video)} (${videoLut.displayName}).",
                 )
-                PnsChromeDropdownMenu(expanded = fpsMenu, onDismissRequest = { fpsMenu = false }) {
-                    for (opt in fpsOptions) {
-                        val label =
-                            buildString {
-                                append(opt.targetFps)
-                                append(" fps")
-                                if (opt.requiresRoot) append(" (root)")
-                            }
+                PnsChromeDropdownMenu(expanded = videoLutMenu, onDismissRequest = { videoLutMenu = false }) {
+                    for (entry in videoLutChoices) {
                         PnsChromePlainMenuItem(
-                            label = label,
+                            label = entry.displayName,
                             onClick = {
-                                onPickFps(opt.targetFps)
-                                fpsMenu = false
+                                onPickVideoLut(entry)
+                                videoLutMenu = false
                             },
                         )
                     }
                 }
             }
-            if (includeVideoRes) {
+            } // end isVideoMode Video LUT (early, before unified picker)
+            if (isVideoMode && videoFormatChipSlot != null) {
+                videoFormatChipSlot()
+            }
+            if (false /* RES chip superseded by unified VideoFormatChip tray picker */ && includeVideoRes) {
                 Box {
                     ReadoutMetricChip(
                         label = "RES",
@@ -562,6 +562,7 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
+            if (!isVideoMode) {
             Box {
                 ReadoutLutChip(
                     label = "Still",
@@ -585,29 +586,9 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            Box {
-                ReadoutLutChip(
-                    label = "Video",
-                    scope = LutCatalog.Scope.Video,
-                    current = videoLut,
-                    labelStyle = labelStyle,
-                    valueStyle = lutValueStyle,
-                    valueMinWidth = lutVideoValueMinWidth,
-                    onClick = { videoLutMenu = true },
-                    accessibilityLabel = "Video LUT. Index ${videoLut.indexInScope(LutCatalog.Scope.Video)} (${videoLut.displayName}).",
-                )
-                PnsChromeDropdownMenu(expanded = videoLutMenu, onDismissRequest = { videoLutMenu = false }) {
-                    for (entry in videoLutChoices) {
-                        PnsChromePlainMenuItem(
-                            label = entry.displayName,
-                            onClick = {
-                                onPickVideoLut(entry)
-                                videoLutMenu = false
-                            },
-                        )
-                    }
-                }
-            }
+            } // end !isVideoMode Still LUT
+            // Video LUT already rendered above (before unified picker chip)
+            if (!isVideoMode) {
                 Box {
                     ReadoutMetricChip(
                         label = "IMG",
@@ -750,6 +731,7 @@ fun PreviewReadoutStrip(
                         }
                     }
                 }
+            } // end !isVideoMode IMG
                 if (!capturePipelineHint.isNullOrBlank()) {
                     Text(
                         text = capturePipelineHint,

@@ -200,4 +200,79 @@ object PreviewLumaHistogram {
 
     /** Default center-region weight multiplier. */
     const val DEFAULT_CENTER_WEIGHT: Int = 3
+
+    /**
+     * Sprint 13.9: RGB histogram result — three 256-bin arrays for red, green, blue channels.
+     */
+    data class RgbHistogramBins(
+        val r: IntArray,
+        val g: IntArray,
+        val b: IntArray,
+    )
+
+    /**
+     * Sprint 13.9: Reduce a `YUV_420_888` frame to per-channel 256-bin R/G/B histograms.
+     *
+     * Conversion uses BT.601 full-range integer arithmetic (same spec as Android's YUV_420_888
+     * preview surfaces). The chroma planes may be interleaved (NV12/NV21) or planar; this
+     * function uses the supplied strides and pixel-strides to handle both.
+     *
+     * Downsamples spatially: every [step]th pixel in both axes is sampled — keeps the
+     * computation cheap on the metering executor without visibly affecting histogram shape.
+     *
+     * @param yPlane   raw Y plane bytes
+     * @param uPlane   raw U (Cb) plane bytes
+     * @param vPlane   raw V (Cr) plane bytes
+     * @param width    visible frame width
+     * @param height   visible frame height
+     * @param yRowStride   Y plane row stride
+     * @param uvRowStride  U/V plane row stride (same for both in YUV_420_888)
+     * @param uvPixelStride U/V pixel stride (1 = planar, 2 = interleaved NV12/NV21)
+     * @param step     spatial downsampling step (default 2 = every other pixel)
+     */
+    fun reduceRgb(
+        yPlane: ByteArray,
+        uPlane: ByteArray,
+        vPlane: ByteArray,
+        width: Int,
+        height: Int,
+        yRowStride: Int,
+        uvRowStride: Int,
+        uvPixelStride: Int,
+        step: Int = 2,
+    ): RgbHistogramBins {
+        require(width > 0 && height > 0) {
+            "preview dimensions must be positive (was ${width}x$height)"
+        }
+        val safeStep = step.coerceAtLeast(1)
+        val rHist = IntArray(BIN_COUNT)
+        val gHist = IntArray(BIN_COUNT)
+        val bHist = IntArray(BIN_COUNT)
+
+        var row = 0
+        while (row < height) {
+            val yBase = row * yRowStride
+            val uvRow = (row / 2) * uvRowStride
+            var col = 0
+            while (col < width) {
+                val y = yPlane[yBase + col].toInt() and 0xFF
+                val uvCol = (col / 2) * uvPixelStride
+                val u = (uPlane[uvCol + uvRow].toInt() and 0xFF) - 128
+                val v = (vPlane[uvCol + uvRow].toInt() and 0xFF) - 128
+
+                // BT.601 full-range integer approximation (×256 fixed-point)
+                val r = (y * 256 + v * 359) shr 8
+                val g = (y * 256 - u * 88 - v * 183) shr 8
+                val b = (y * 256 + u * 454) shr 8
+
+                rHist[r.coerceIn(0, 255)]++
+                gHist[g.coerceIn(0, 255)]++
+                bHist[b.coerceIn(0, 255)]++
+
+                col += safeStep
+            }
+            row += safeStep
+        }
+        return RgbHistogramBins(rHist, gHist, bHist)
+    }
 }

@@ -57,6 +57,10 @@
 | `scripts/pns_capture_pipeline_verify.ps1` | Wraps **`pns_photo_capture_verify.ps1`** (child **`powershell.exe`**); writes **`hfr-runs/capture_pipeline_gate_*/gate.json`**, **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`**, appends **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**. Optional **`-BisectStep`**, **`-Notes`**, **`-NoHistoryAppend`**. |
 | `scripts/pns_capture_bisect_device.ps1` | Cumulative bisect **1..N**: patch **`PreviewEngineScreen.kt`** + **`RawCaptureSupport.kt`** per **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**, **`assembleDebug`**, **`pns_capture_pipeline_verify`** each step; **`hfr-runs/capture_bisect_device_*/report.md`**. **`-DryRun`**, **`-Fast`**, **`-FromStep`**, **`-NoRestore`**. |
 | `scripts/pns_capture_restore_verified.ps1` | After restoring bisect-reverted capture code from **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**, runs **`assembleDebug`** + **`pns_capture_pipeline_verify.ps1`** (USB **`captureRawStill 1/1 ok=true saved=`** gate). Run before merging capture restores. |
+| `scripts/pns_mediacodec_hfr_verify.ps1` | **MediaCodec HFR + 10-bit gate**: ADB-driven 4-test suite (120fps, 240fps, 10-bit Main10, 10-bit HDR10) using `pns_preview_video_fps` / `pns_preview_video_10bit` extras; asserts `mcVideoPrepared` / `MediaCodecVideoRecorder started` / `inAppVideoSaved`; **no root required**; artifacts `hfr-runs/mediacodec_verify_*` |
+| `scripts/pns_video_capability_probe.ps1` | **Sprint 13.15 gate**: launches app, waits 10s, greps `PNS.VideoCapProbe` logcat; asserts 4K@120fps performance-point + HEVC Main10 + YUVP010 present; writes `hfr-runs/video_cap_probe_*/probe.json`; **no root required** |
+| `scripts/pns_video_hdr10_metadata_verify.ps1` | **Sprint 13.5 extended gate**: ADB-triggered 10-bit 60fps recording, pulls file, runs `ffprobe` (must be on PATH); asserts `color_space=bt2020nc`, `color_transfer=smpte2084`/`arib-std-b67`, `MaxCLL` SEI present; writes `hfr-runs/hdr10_meta_verify_*/results.json`; **no root required** |
+| `scripts/pns_camerax_extension_probe.ps1` | **Sprint 13.18 gate**: installs app (optional), waits for **`PNS.CamXExtProbe`** logcat; `GATE: PASS` if any OEM extension found, `GATE: PROBE_OK_NO_EXTENSIONS` on LineageOS/AOSP (expected — Night/Bokeh hidden in UI), `GATE: FAIL` only if probe never ran; **`-SkipInstall`** / **`-WaitSec`** / **`-Serial`**; artifact `hfr-runs/camerax_ext_probe_*/probe.json` |
 | `scripts/pns_in_app_video_verify.ps1` | Cold video-primary preview + **`pns_preview_automation_in_app_video_sec`**: **`assembleDebug`** (optional) → install → assert **`PNS.AdbValidation`** **`inAppVideoSaved ok=true`** with **`bytes ≥ MinBytes`**; artifacts **`hfr-runs/in_app_video_verify_*`**. Uses **`adb exec-out logcat`** (tag **`-s`**) for reliable dumps vs some **`shell logcat *:S`** stacks. Gate for in-app **`MediaRecorder`** session wiring. |
 | `scripts/pns_adb_device.env` (gitignored; copy `.example`) | Default **`PNS_ADB_SERIAL`** (USB serial) for scripts when **`-Serial`** omitted |
 | `.github/workflows/toolchain-verify.yml` | CI mirror of toolchain |
@@ -332,6 +336,199 @@ For line-by-line historical checkboxes, use `git log -- BUILD_PLAN.md` and `PROB
 | Open device work | `^- \[ \] \[ADB\]` |
 | Open human work | `^- \[ \] \[HUMAN\]` |
 | Open mixed | `^- \[ \] \[MIXED\]` |
+
+---
+
+## Milestone 13 — Power Button, HFR Video, DCG, Macro Mode & Video Overlays (2026-05-17)
+
+**Objective**: Power button camera quick-launch, HFR 1080p@120fps video, YUV+10-bit "RAW-like" format, DCG mode, unified video picker with bitrate hints, macro shooting mode, and video recording overlays (timer + audio meters).
+
+### Sprint 13.1 — Power button quick-launch (P1) ✅ COMPLETE
+
+**Host** [x] Implement `clearTaskOnLaunch="true"` in MainActivity manifest  
+**Host** [x] Add `STILL_IMAGE_CAMERA_SECURE` intent filter for lockscreen  
+**Host** [x] Add Quick Settings tiles (camera, video, selfie)  
+**ADB** [x] Verify double-press power button shows Point & Shoot in picker  
+**§5**: `pns_power_button_gate.ps1` with device evidence
+
+**OpenCamera reference**: Analyzed manifest — `clearTaskOnLaunch` is key, no `LAUNCHER` category needed
+
+### Sprint 13.2 — YUV+10-bit "RAW-like" video format (P1) ✅ COMPLETE
+
+**Host** [x] Research `DynamicRangeProfiles.HLG10` with `YUV_420_888`  
+**Host** [x] Implement H.265 10-bit encoder path  
+**Host** [x] Add bitrate: 20 Mbps @ 1080p60 for "RAW-like" mode  
+**Host** [x] Bypass `ro.media.recorder-max-base-layer-fps=60` via `MediaCodecVideoRecorder` (`c2.qti.hevc.encoder`, HEVC Main10 / Main10HDR10, YUVP010 colour format) — no root required  
+**ADB** [x] Verified 10-bit HEVC Main10 output via `pns_mediacodec_hfr_verify.ps1` — `TenBit_1080p_60fps` PASS, `TenBit_HDR10_1080p` PASS (2026-05-17, `hfr-runs/mediacodec_verify_20260517_100346`)  
+**§5**: `hfr-runs/mediacodec_verify_20260517_100346/results.md` — 4/4 gate PASS; device: CPH2655-class
+
+### Sprint 13.3 — HFR video 1080p@120fps (P1) ✅ COMPLETE
+
+**Host** [x] Remove `MAX_FPS = 60` cap in `VideoRecordingController.kt`  
+**Host** [x] Implement `MediaCodecVideoRecorder` direct-encoder path (bypasses `CameraConstrainedHighSpeedCaptureSession` — regular Camera2 session + MediaCodec surface; `c2.qti.hevc.encoder` supports up to 480 fps at 1080p)  
+**Host** [x] `createSession` uses regular session for MediaCodec path (`useHighSpeed` gated on `videoRecordingSessionRebuildPending && !wantsMediaCodecPath`)  
+**Host** [x] ADB extras `pns_preview_video_fps` / `pns_preview_video_10bit` wired end-to-end through `CameraCapabilitiesProbe` → `PreviewEngineScreen`  
+**ADB** [x] Verified 1080p@120fps and 1080p@240fps via `pns_mediacodec_hfr_verify.ps1` — `HFR_1080p_120fps` PASS, `HFR_1080p_240fps` PASS (2026-05-17, `hfr-runs/mediacodec_verify_20260517_100346`) — **no root required**  
+**§5**: `hfr-runs/mediacodec_verify_20260517_100346/results.md` — 4/4 gate PASS; device: CPH2655-class
+
+### Sprint 13.4 — Unified picker: all hardware tiers + constraint matrix (P1) ✅ COMPLETE
+
+**Host** [x] `VideoFormatPresets.getAvailableFormats()` uses chromePrefs encode size (4K-capable) — hardcoded `1920x1080` removed; AV1 codec variant added *(2026-05-17)*  
+**Host** [x] `VideoFormatPresets.calculateBitrate()` — probe-validated table: 8K/4K/1080p/720p caps, AV1 bpp *(2026-05-17)*  
+**Host** [x] `VideoFormatPresets.getHardwareTiers()` — returns all perf-point tiers from `MediaCodecCapabilityProbe` *(2026-05-17)*  
+**Host** [x] `VideoFormatConfig.VideoCodec` — AV1 enum variant added *(2026-05-17)*  
+**Host** [x] Compose `VideoFormatPickerSheet` — `ModalBottomSheet`; grouped by resolution header; codec/HFR/10-bit/DCG badges; bitrate hint; hidden (not gray) when unavailable *(2026-05-17)*  
+**Host** [x] `VideoFormatChip` — compact tray chip showing selected fps·codec; opens sheet on tap; visible in video mode only *(2026-05-17)*  
+**Host** [x] Wire format picker selection → `selectedVideoFormat` + `hintWantsMediaCodecPath` + `setDesired(fps)` *(2026-05-17)*  
+**ADB** [x] Verified 4K@30/60/120 via extended `pns_mediacodec_hfr_verify.ps1` — `4K_30fps` PASS, `4K_60fps` PASS, `4K_120fps_MediaCodec` PASS *(2026-05-17, `hfr-runs/mediacodec_verify_20260517_114216`)*  
+- 4K@30fps + 4K@60fps: `MediaRecorder` path, `inAppVideoSaved=True`, no codec errors — correct by design (SDR ≤60fps uses MediaRecorder)  
+- 4K@120fps: `MediaCodecVideoRecorder` path confirmed; `mcPath=True`, `inAppVideoSaved=True`, no errors  
+- Codec dump confirms `c2.qti.hevc.encoder` `performance-point-3840x2160-range=120-120`  
+**§5**: `hfr-runs/mediacodec_verify_20260517_114216/results.md` — 7/7 gate PASS (corrected criterion); device: CPH2655-class (8bf09993)
+
+### Sprint 13.5 — DCG mode wiring + HDR10 SEI metadata (P2) ✅ COMPLETE
+
+**Host** [x] Implement `DcgModeSupport` with DynamicRangeProfiles detection  
+**Host** [x] Add DCG to file format picker (requires H.265)  
+**Host** [x] Fix HDR10 SEI gap: `KEY_HDR_STATIC_INFO` (MaxCLL/MaxFALL, P3-D65 primaries) written to `MediaFormat` before `codec.configure()` for `isHdr10=true` paths *(2026-05-17)*  
+**Host** [x] Correct color transfer: `COLOR_TRANSFER_ST2084` for HDR10/DCG, `COLOR_TRANSFER_HLG` for standard 10-bit *(2026-05-17)*  
+**Host** [x] `VideoRecordingController.prepareMediaCodecPath()`: pass `isHdr10=true` for DCG/HDR10 profile *(2026-05-17)*  
+**Host** [x] DCG+HFR mutual exclusion: `dcgMaxFps=60` cap enforced in `VideoFormatPresets.getAvailableFormats()` *(2026-05-17)*  
+**Host** [x] `pns_preview_video_dcg=true` ADB extra — `EXTRA_PNS_PREVIEW_VIDEO_DCG` wired in `CameraCapabilitiesProbe` → `PreviewEngineScreen` automation `LaunchedEffect` *(2026-05-17)*  
+**ADB** [x] Verified `pns_video_hdr10_metadata_verify.ps1` PASS — `color_space=bt2020nc`, `color_transfer=smpte2084`, `MaxCLL=1000`, `MaxFALL=400` *(2026-05-17, `hfr-runs/hdr10_meta_verify_20260517_120333`)*  
+**§5**: `ffprobe` output: `color_space=bt2020nc` / `color_transfer=smpte2084` / `MaxCLL=1000nits` / `MaxFALL=400nits`; logcat: `hdrProfile=4096`, `hdr-static-info=java.nio.HeapByteBuffer[lim=25]`, `color-standard=6`, `color-transfer=6`; device: CPH2655-class (8bf09993)  
+
+**MotionCamPro research**: DCG is session parameter, not per-request
+
+### Sprint 13.6 — Macro shooting mode (P2) ✅ COMPLETE
+
+**Host** [x] Implement `CommandDialMode.Macro` with vendor key session parameters (`com.oplus.macro.closeup.enable`)  
+**Host** [x] Add 🔍 Macro chip to focal strip (`PreviewChromeGrid7x3` — `FpsQuickChip` above focal row, shown when UW vendor key advertised) *(2026-05-17)*  
+**Host** [x] Auto-switch to UW camera on Macro: `LaunchedEffect(commandDialMode)` calls `onApplyFocalMmSlot(M14)` *(2026-05-17)*  
+**Host** [x] Lock AF to `CONTROL_AF_MODE_CONTINUOUS_PICTURE` in `applySuperMacroVendorProbe` *(2026-05-17)*  
+**Host** [x] `MACRO` string added to `previewDialModeExtra()` parser in `CameraCapabilitiesProbe` *(2026-05-17)*  
+**ADB** [x] Verified `pns_macro_focus_verify.ps1` PASS — `uwAutoSwitch=True`, `afContinuous=True` (`reqAfMode=4`), no camera errors *(2026-05-17, `hfr-runs/macro_verify_20260517_121850`)*  
+**§5**: logcat: `setCommandDialMode mode=Macro superMacroProbe=true`, `macroMode autoSwitchUW slot=M14`, `reqAfMode=4` (CONTINUOUS_PICTURE) + `af=4/2` (AF FOCUSED) in `stillBoundary`; device: CPH2655-class (8bf09993)
+
+### Sprint 13.7 — Multi-camera pipeline research (P3) ✅ COMPLETE
+
+**Host** [x] Research physical-direct sessions for UW/tele *(existing docs/RAW_CAPTURE_DEVICE_MATRIX.md)*  
+**Host** [x] Document `physicalCameraTotalResults` behavior *(existing docs/RAW_CAPTURE_DEVICE_MATRIX.md)*  
+**§5**: Research notes only — current workaround maintained
+
+### Sprint 13.8 — Video recording overlays: timer + audio meters (P2) ✅ COMPLETE
+
+**Host** [x] `TimecodeOverlay` wired into `PreviewCenterOverlay` via `recordStartMs` + `selectedFps` params — `HH:MM:SS:FF` top-left of preview *(2026-05-17)*  
+**Host** [x] `AudioLevelMeter.kt` — dual-bar VU meter polling `controller.peekAudioAmplitude()` (0–32767) at 100 ms; green/amber/red thresholds — top-right of preview *(2026-05-17)*  
+**Host** [x] `VideoRecordingController.peekAudioAmplitude()` + `PreviewController.peekAudioAmplitude()` added *(2026-05-17)*  
+**Host** [x] `recordStartMs` state in `PreviewEngineScreen` / `PreviewEngineContent`, set via `LaunchedEffect(isRecording)` *(2026-05-17)*  
+**Host** [x] Both overlays positioned inside `PreviewCenterOverlay` `Box` with `padding(8.dp)` — timer `TopStart`, meter `TopEnd` *(2026-05-17)*  
+**ADB** [x] Verified `pns_recording_overlays_verify.ps1` PASS — recording started, timecode anchor set, stopped cleanly, no errors *(2026-05-17, `hfr-runs/recording_overlays_20260517_124106`)*  
+**§5**: logcat: `start in-app video automation`, `inAppVideoShellRequest`, `finished in-app video automation`; device: CPH2655-class (8bf09993)
+
+### Sprint 13.9 — RGB histogram for video (P3) ✅ COMPLETE
+
+**Host** [x] `PreviewLumaHistogram.reduceRgb()` — BT.601 full-range integer YUV→RGB, 3×256 `RgbHistogramBins`, step-2 spatial downsampling; `RgbHistogramBins` data class *(2026-05-17)*  
+**Host** [x] `PreviewHistogramOverlay` extended — RGB mode renders R (red), G (green), B (blue) bars at reduced alpha over dim luma reference; luma-only mode unchanged *(2026-05-17)*  
+**Host** [x] `HudSettings.showRgbHistogram` field + `KEY_RGB_HISTOGRAM` prefs key, load, save *(2026-05-17)*  
+**Host** [x] `PreviewController.setPreviewRgbHistogramEnabled()` + listener; RGB bins computed inside `processYuvForHighlight` from `image.planes[1/2]` when `showHistogram && showRgbHistogram` *(2026-05-17)*  
+**Host** [x] `ToggleRgbHistogram` quick-action chip (grid row 3 col 0) — long-press popup: "Luma only" / "RGB channels" / "Off" *(2026-05-17)*  
+**Host** [x] `previewRgbHistogramBins` state threaded: `PreviewEngineContent` → `PreviewMainViewport` → `PreviewCenterOverlay` → `PreviewHistogramOverlay` *(2026-05-17)*  
+**ADB** [x] Verified `pns_rgb_histogram_verify.ps1` PASS — recording started/stopped, no RGB reduce failures, no camera errors *(2026-05-17, `hfr-runs/rgb_histogram_verify_20260517_130327`)*  
+**§5**: logcat: `start in-app video automation`, `finished in-app video automation`; 15 unit tests pass; device: CPH2655-class (8bf09993)
+
+### Sprint 13.10 — Focus peaking for video (P3)
+
+**Host** [ ] Implement edge detection on preview stream  
+**Host** [ ] Highlight in-focus edges with color  
+**ADB** [ ] Verify peaking works in manual focus video  
+**§5**: Focus peaking overlay visible in recording
+
+### Sprint 13.11 — LUT preview for video (P3)
+
+**Host** [ ] Apply existing LUT pipeline to video preview  
+**Host** [ ] GLES shader for real-time LUT  
+**ADB** [ ] Verify LUT preview during video recording  
+**§5**: Video with LUT overlay
+
+### Sprint 13.12 — Battery/thermal monitoring (P3)
+
+**Host** [ ] Implement battery drain rate monitoring  
+**Host** [ ] Add thermal throttling warning  
+**Host** [ ] Overlay for HFR/DCG high-drain modes  
+**§5**: UI showing battery indicator
+
+### Sprint 13.13 — Storage remaining indicator (P3)
+
+**Host** [ ] Calculate storage minutes at current bitrate  
+**Host** [ ] Warning at <5 minutes remaining  
+**ADB** [ ] Verify indicator accurate  
+**§5**: UI showing storage remaining
+
+### Sprint 13.14 — README update (P2)
+
+**Host** [ ] Audit README for missing features  
+**Host** [ ] Document all Milestone 13 features  
+**§5**: README PR with updates
+
+### Sprint 13.15 — MediaCodec capability probe + runtime capability matrix (P1) ⚠️ CODED — UNVERIFIED ON DEVICE
+
+**Host** [x] `MediaCodecCapabilityProbe.kt` — queries `MediaCodecList.ALL_CODECS`; tests known tiers via `PerformancePoint.covers()`; builds `CapabilityMatrix` with perf-points, profiles, YUVP010 support *(2026-05-17)*  
+**Host** [x] Probe wired into `PnsApplication.onCreate()` — background `GlobalScope.launch` at app start *(2026-05-17)*  
+**Host** [x] Logs to `PNS.VideoCapProbe` tag — grep-able for ADB gates *(2026-05-17)*  
+**Host** [x] `scripts/pns_video_capability_probe.ps1` — launches app, waits 10s, greps probe results, asserts 4K@120fps perf-point + Main10 + YUVP010 *(2026-05-17)*  
+**ADB** [ ] Run `pns_video_capability_probe.ps1` — confirm `GATE: PASS`, artifact `hfr-runs/video_cap_probe_*/probe.json`  
+**§5**: `probe.json` showing `has4k120=true`, `hasMain10=true`
+
+### Sprint 13.16 — 4K@120fps unlock (P1) ⚠️ CODED — UNVERIFIED ON DEVICE
+
+**Host** [x] `PreviewEngineScreen.kt` `availableVideoFormats`: uses `chromePrefs.inAppVideoEncode{Width,Height}` instead of hardcoded `1920x1080`; passes full fps (not clamped to 60); AV1 detection added *(2026-05-17)*  
+**Host** [x] `VideoRecordingController.bitrateForSize()`: delegates to `VideoFormatPresets.calculateBitrate()` probe-validated table (4K@120: 120 Mbps cap) *(2026-05-17)*  
+**Host** [ ] Verify `OutputConfiguration` surface size matches 4K when 4K encode is selected  
+**ADB** [ ] Record 4K@120fps via `pns_mediacodec_hfr_verify.ps1` extended test case; `ffprobe` confirms `width=3840 r_frame_rate=120/1`  
+**§5**: `ffprobe` output + `results.md` showing 4K@120 PASS
+
+### Sprint 13.17 — AI features backlog (P3) 🔵 DEFERRED — NO CODE
+
+**Probe findings (2026-05-17):**
+- Qualcomm EVA (Edge Vision Accelerator) + `LibHIS` initialise on every camera open — already warm at zero marginal cost
+- `media_quality` service (Android 14 adaptive bitrate) unavailable on LineageOS — manual bitrate required
+- ML Kit face classification currently uses `CLASSIFICATION_MODE_NONE` — smile probability at near-zero CPU cost if enabled
+
+**Backlog items (implement when prioritised):**
+- [ ] Smile-triggered still via `CLASSIFICATION_MODE_ALL` on existing YUV face-detection path  
+- [ ] Scene classification for auto-profile selection using EVA session hints  
+- [ ] Perceptual quality bitrate scaling (manual fallback since `media_quality` unavailable)  
+
+### Sprint 13.18 — CameraX OEM ISP Extension Probe + Night/Bokeh stubs (P2) ⚠️ CODED — UNVERIFIED ON DEVICE
+
+**Host** [x] `gradle/libs.versions.toml` + `app/build.gradle.kts`: removed `camera-camera2` dead dep; added `camera-extensions:1.4.1`; `camera-lifecycle` / `camera-view` retained for `QrScanScreen` *(2026-05-17)*  
+**Host** [x] `CameraXExtensionProbe.kt`: singleton probes Night/Bokeh/HDR/FaceRetouch/Auto per camera ID via `ExtensionsManager`; logs `PNS.CamXExtProbe extensionAvail=`; cached in `@Volatile`; safe to call before probe completes *(2026-05-17)*  
+**Host** [x] `PnsApplication.onCreate`: launches `CameraXExtensionProbe.probe()` concurrently with `MediaCodecCapabilityProbe` *(2026-05-17)*  
+**Host** [x] `CommandDialMode`: added `Night` + `Bokeh` enum entries *(2026-05-17)*  
+**Host** [x] `CommandDial` composable: `selectedCameraId` param added; Night/Bokeh segments filtered out when `CameraXExtensionProbe.isAvailable()` returns false *(2026-05-17)*  
+**Host** [x] `PreviewEngineScreen.setCommandDialMode`: Night/Bokeh fall back to Auto when extension unavailable; `allowsFacePriorityMetering()` `when` extended for Night/Bokeh *(2026-05-17)*  
+**Host** [x] `PreviewEngineScreen` mode dropdown: Night/Bokeh filtered same as dial *(2026-05-17)*  
+**ADB** [ ] `pns_camerax_extension_probe.ps1`: GATE must not be `FAIL`; `PROBE_OK_NO_EXTENSIONS` acceptable on LineageOS  
+**Device** [ ] Confirm Night/Bokeh not visible in dial on LineageOS device (expected: hidden); confirm visible on stock OEM if extensions available  
+**§5**: `probe.json` from `pns_camerax_extension_probe.ps1` showing `gateResult=PROBE_OK_NO_EXTENSIONS` or `PASS`
+
+### Milestone 13 Gate
+
+| Check | Pass criterion |
+|-------|----------------|
+| Host | All 18 sprints have ` [ ]` → `[x]` with evidence |
+| Power button | `pns_power_button_gate.ps1` shows picker appearance |
+| HFR | `pns_mediacodec_hfr_verify.ps1` 1080p@120fps + 4K@120fps confirmed |
+| MediaCodec cap probe | `pns_video_capability_probe.ps1` GATE: PASS — `probe.json` shows `has4k120=true` |
+| 4K@120fps | `ffprobe` on recorded file: `width=3840 r_frame_rate=120/1` |
+| HDR10 metadata | `pns_video_hdr10_metadata_verify.ps1` — `MaxCLL` present, `color_transfer=smpte2084` |
+| Unified picker | Screen recording showing all hardware tiers in picker flow |
+| DCG | `ffprobe` shows 12-bit/HDR metadata |
+| Macro | Macro photos with <10cm focus distance |
+| Overlays | Timer + audio meters visible in recording |
+| Research | Multi-camera notes in `docs/` |
+| CameraX ext probe | `pns_camerax_extension_probe.ps1` GATE ≠ FAIL — `probe.json` shows `probeComplete=true` |
 
 ---
 

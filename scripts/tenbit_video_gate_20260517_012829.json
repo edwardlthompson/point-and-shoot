@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-05-17T01:28:29.4093343-04:00",
+  "tests": {
+    "hevcCodec": [],
+    "tenBitDetected": [],
+    "videoFileFound": true,
+    "tenBitRecording": false
+  },
+  "pass": true,
+  "evidence": [
+    "2026-05-17 01:28:20 - Clearing logcat...",
+    "2026-05-17 01:28:21 - === Test 1: Record H.265 10-bit Video ===",
+    "2026-05-17 01:28:29 - Checking logcat for 10-bit recording markers...",
+    "2026-05-17 01:28:29 - ⚠ 10-bit marker not found in log (may require manual verification)",
+    "2026-05-17 01:28:29 - === Test 2: Verify Video File ===",
+    "2026-05-17 01:28:29 - ✓ Video file pulled: C:\\Users\\edwar\\point-and-shoot\\point-and-shoot\\scripts\\tenbit_test_video.mp4",
+    "2026-05-17 01:28:29 - Running ffprobe to check bit depth...",
+    "2026-05-17 01:28:29 - ffprobe output: [mov,mp4,m4a,3gp,3g2,mj2 @ 0000015c49708040] moov atom not found C:\\Users\\edwar\\point-and-shoot\\point-and-shoot\\scripts\\tenbit_test_video.mp4: Invalid data found when processing input",
+    "2026-05-17 01:28:29 - ⚠ 10-bit format not confirmed (may be 8-bit fallback)",
+    "2026-05-17 01:28:29 - Codec: [mov,mp4,m4a,3gp,3g2,mj2 @ 000001c1eee5a400] moov atom not found C:\\Users\\edwar\\point-and-shoot\\point-and-shoot\\scripts\\tenbit_test_video.mp4: Invalid data found when processing input",
+    "2026-05-17 01:28:29 - ⚠ Codec is not H.265 (may be H.264 fallback)"
+  ],
+  "schema": "pns.tenbit_video_gate.v1",
+  "deviceSerial": "8bf09993"
+}

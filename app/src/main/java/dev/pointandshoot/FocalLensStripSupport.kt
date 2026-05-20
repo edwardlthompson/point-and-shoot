@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import dev.pointandshoot.fleet.FleetCameraProfiles
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -35,7 +36,7 @@ object FocalLensStripSupport {
     fun digitalEqSlotsEnabledForWide(context: Context, ids: List<String>): Boolean {
         if (ids.isEmpty()) return false
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val wide = BackCameraRoleResolver.resolve(cm, ids).wide ?: return false
+        val wide = FleetCameraProfiles.resolvedRoles(cm, ids).wide ?: return false
         val arr =
             runCatching {
                 cm.getCameraCharacteristics(wide).get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
@@ -72,7 +73,7 @@ object FocalLensStripSupport {
         pair: Pair<String, FocalMode?>,
     ): String {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val roles = BackCameraRoleResolver.resolve(cm, ids)
+        val roles = FleetCameraProfiles.resolvedRoles(cm, ids)
         val telePhysical = telePhysicalForPreviewPin(slot, roles)
         val uwPhysical = ultraWidePhysicalForPreviewPin(slot, roles)
         val physical =

@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import kotlin.math.roundToInt
 
 /**
  * HUD toggles + extras for the in-preview **Settings** popup (same data as [HudSettingsScreen], chrome styling).
@@ -115,6 +116,10 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
             style = MaterialTheme.typography.titleSmall,
             color = PnsColors.PhotoOrange,
             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        )
+        HudStillCaptureModeRow(
+            mode = settings.stillCaptureMode,
+            onModeChange = { mode -> onUpdate(settings.copy(stillCaptureMode = mode)) },
         )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             rows.forEach { row -> HudToggle(row) }
@@ -285,6 +290,18 @@ private fun HudSettingsScreenContent(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item(key = "still_capture_mode") {
+                HudStillCaptureModeRow(
+                    mode = settings.stillCaptureMode,
+                    onModeChange = { mode -> onUpdate(settings.copy(stillCaptureMode = mode)) },
+                )
+            }
+            item(key = "video_bitrate_scale") {
+                VideoBitrateScaleSection(
+                    scalePercent = settings.videoBitrateScalePercent,
+                    onScaleChange = { pct -> onUpdate(settings.copy(videoBitrateScalePercent = pct)) },
+                )
+            }
             items(rows, key = { it.title }) { row -> HudToggle(row) }
             item(key = "wb_readout_info") {
                 WhiteBalanceReadoutInfoCard()
@@ -317,6 +334,36 @@ private fun WhiteBalanceReadoutInfoCard() {
                     "use your camera vendor app for vendor-specific WB locks.",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.72f),
+        )
+    }
+}
+
+@Composable
+private fun VideoBitrateScaleSection(
+    scalePercent: Int,
+    onScaleChange: (Int) -> Unit,
+) {
+    val scale = scalePercent.coerceIn(HudSettings.VIDEO_BITRATE_SCALE_MIN, HudSettings.VIDEO_BITRATE_SCALE_MAX)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Video bitrate scale (manual)",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text = "Scales in-app encode bitrate ($scale% of MediaCodec probe table, 50–150%).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        androidx.compose.material3.Slider(
+            value = scale.toFloat(),
+            onValueChange = { v -> onScaleChange(v.roundToInt()) },
+            valueRange = HudSettings.VIDEO_BITRATE_SCALE_MIN.toFloat()..
+                HudSettings.VIDEO_BITRATE_SCALE_MAX.toFloat(),
+            steps = 9,
         )
     }
 }
@@ -384,6 +431,18 @@ private fun hudToggleRows(
             onChange = { onUpdate(settings.copy(showTimecode = it)) },
         ),
         HudToggleRow(
+            title = "Power + thermal (HFR / DCG)",
+            description = "Battery % and drain rate on high-drain video preview; thermal warning when hot.",
+            enabled = settings.showPowerThermalOverlay,
+            onChange = { onUpdate(settings.copy(showPowerThermalOverlay = it)) },
+        ),
+        HudToggleRow(
+            title = "Storage remaining (video)",
+            description = "Estimated minutes left at the current encode bitrate; warns below 5 minutes.",
+            enabled = settings.showStorageRemainingOverlay,
+            onChange = { onUpdate(settings.copy(showStorageRemainingOverlay = it)) },
+        ),
+        HudToggleRow(
             title = "FPS readout",
             description = "Live capture / preview frame rate, useful for HFR debugging.",
             enabled = settings.showFpsReadout,
@@ -408,6 +467,22 @@ private fun hudToggleRows(
             onChange = { onUpdate(settings.copy(showEyeAfOverlay = it)) },
         ),
         HudToggleRow(
+            title = "Smile-triggered still (13V.17)",
+            description =
+                "Photo mode: ML Kit smile probability fires the tray still path (~4.5 s cooldown). " +
+                    "Uses YUV analysis; enable Eye-AF or this toggle alone.",
+            enabled = settings.enableSmileTriggeredStill,
+            onChange = { onUpdate(settings.copy(enableSmileTriggeredStill = it)) },
+        ),
+        HudToggleRow(
+            title = "Scene vendor hints (read-only)",
+            description =
+                "Logs OEM scene/quality Camera2 keys at startup (PNS.SceneHint). " +
+                    "Often empty on LineageOS; no capture behavior yet.",
+            enabled = settings.showSceneVendorHints,
+            onChange = { onUpdate(settings.copy(showSceneVendorHints = it)) },
+        ),
+        HudToggleRow(
             title = "Horizon level",
             description = "Accelerometer line on the preview only (Sony Photography Pro style).",
             enabled = settings.showHorizonLevel,
@@ -427,7 +502,7 @@ private fun hudToggleRows(
             onChange = { onUpdate(settings.copy(showHighlightClipZebra = it)) },
         ),
         HudToggleRow(
-            title = "Focus peaking (preview)",
+            title = "Focus peaking (preview / video)",
             description =
                 "Edge-based false color on the GL preview (high-contrast luma gradients), not a Camera2 " +
                     "AF confirmation — tele scenes can peak while the RAW plane is slightly soft. " +
@@ -526,13 +601,36 @@ private fun hudToggleRows(
             onChange = { onUpdate(settings.copy(enableResearchHfrVSR = it)) },
         ),
         HudToggleRow(
+            title = "Video: RAW lane (.mcraw, OP13)",
+            description =
+                "Records preview-session RAW frames to a P&S MCRAW-class `.mcraw` file (no MediaRecorder). " +
+                    "OnePlus 13 leaf cameras only. Disables DCG HDR session while active.",
+            enabled = settings.videoEncodeLane == VideoEncodeLane.Raw,
+            onChange = { rawOn ->
+                onUpdate(
+                    settings.copy(
+                        videoEncodeLane = if (rawOn) VideoEncodeLane.Raw else VideoEncodeLane.Encoded,
+                        enableResearchDcgHDR = if (rawOn) false else settings.enableResearchDcgHDR,
+                    ),
+                )
+            },
+        ),
+        HudToggleRow(
             title = "Research: DCG HDR mode (10-bit)",
             description =
                 "When advertised (Qualcomm `EnableHDRDCGMode` session key), attaches it to REGULAR " +
                     "preview session parameters to enable Dual Conversion Gain mode for HDR video. " +
-                    "Off by default — HAL-specific; Milestone 13.2 research for 10-bit video.",
+                    "Off by default — HAL-specific; Milestone 13.2 research for 10-bit video. " +
+                    "Disabled while RAW video lane is on.",
             enabled = settings.enableResearchDcgHDR,
-            onChange = { onUpdate(settings.copy(enableResearchDcgHDR = it)) },
+            onChange = { dcgOn ->
+                onUpdate(
+                    settings.copy(
+                        enableResearchDcgHDR = dcgOn,
+                        videoEncodeLane = if (dcgOn) VideoEncodeLane.Encoded else settings.videoEncodeLane,
+                    ),
+                )
+            },
         ),
         HudToggleRow(
             title = "Research: Qualcomm HDR mode (10-bit)",
@@ -568,6 +666,47 @@ private data class HudToggleRow(
     val enabled: Boolean,
     val onChange: (Boolean) -> Unit,
 )
+
+@Composable
+private fun HudStillCaptureModeRow(
+    mode: StillCaptureMode,
+    onModeChange: (StillCaptureMode) -> Unit,
+) {
+    val cycle: () -> Unit = {
+        val next =
+            when (mode) {
+                StillCaptureMode.Standard -> StillCaptureMode.ZslStill
+                StillCaptureMode.ZslStill -> StillCaptureMode.HdrStill
+                StillCaptureMode.HdrStill -> StillCaptureMode.Standard
+            }
+        onModeChange(next)
+    }
+    val effective = StillCaptureModePolicy.effectiveForCapture(mode)
+    val scaffoldNote =
+        if (mode != effective) {
+            " (ships as ${effective.name} until 13.8b/c)"
+        } else {
+            ""
+        }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            "Still capture mode (M13.8)",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.White,
+        )
+        Text(
+            "Standard = ProShot DNG. ZSL = ring buffer (13.8b). HDR = 3-shot EV bracket burst (13.8c).$scaffoldNote",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.65f),
+        )
+        OutlinedButton(onClick = cycle, modifier = Modifier.fillMaxWidth()) {
+            Text("Mode: ${mode.name}$scaffoldNote", color = Color.White)
+        }
+    }
+}
 
 @Composable
 private fun HudToggle(row: HudToggleRow) {

@@ -68,8 +68,8 @@ android {
         applicationId = "dev.pointandshoot"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.0"
+        versionCode = 13001
+        versionName = "0.13.0-beta.1"
 
         ndk {
             // Device (arm64) + emulator (x86_64). Omit 32-bit ABIs to keep CI/APK lean.
@@ -183,6 +183,7 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
 
     implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.extensions)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)

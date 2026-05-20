@@ -156,6 +156,11 @@ object CameraXExtensionProbe {
         } catch (e: Exception) {
             Log.w(TAG, "extension probe failed: ${e::class.java.simpleName}: ${e.message}")
             cached = ExtensionMatrix(emptyMap())
+            Log.i(
+                TAG,
+                "extensionProbeComplete noExtensions=true probeFailed=${e::class.java.simpleName}",
+            )
+            Log.i(TAG, "extensionAvail=none (OEM extensions not available on this device/ROM)")
         }
     }
 }

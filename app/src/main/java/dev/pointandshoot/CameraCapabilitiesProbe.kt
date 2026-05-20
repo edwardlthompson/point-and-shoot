@@ -43,6 +43,9 @@ import java.time.format.DateTimeFormatter
 import org.json.JSONArray
 import org.json.JSONObject
 import android.hardware.camera2.CameraMetadata
+import dev.pointandshoot.fleet.FleetCameraProfileBuilder
+import dev.pointandshoot.fleet.FleetCameraProfileStore
+import dev.pointandshoot.fleet.FleetCameraProfiles
 
 private const val TAG = "PNS.Probe"
 /** Single-line shallow metadata summary for ADB gates (`scripts/pns_shallow_scan_hub_validate.ps1`). */
@@ -89,6 +92,33 @@ const val EXTRA_PNS_PREVIEW_RAW_STREAM = "pns_preview_raw_stream"
  * only (session-only; does not write prefs disk). Matrix testing for RAW+ vs RAW-only.
  */
 const val EXTRA_PNS_PREVIEW_JPEG_COMPANION = "pns_preview_jpeg_companion"
+
+/** Matrix bisect: skip [StillCaptureMetadata.applyToDngUri] after DNG save. */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_STILL_METADATA = "pns_preview_dng_skip_still_metadata"
+
+/**
+ * Override still DNG backend on OP13: `framework_proshot` | `motioncam_inspired`.
+ * See [DngSaveBisectState] and `docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`.
+ */
+const val EXTRA_PNS_PREVIEW_STILL_DNG_BACKEND = "pns_preview_still_dng_backend"
+
+/** Sprint 13.8: `standard` | `zsl` | `hdr` — seeds [StillCaptureMode] for automation. */
+const val EXTRA_PNS_PREVIEW_STILL_MODE = "pns_preview_still_mode"
+
+/** Skip DNG tag 50708 ([Dng12Saver] unique camera model buffer rewrite). */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_UNIQUE_CAMERA_MODEL = "pns_preview_dng_skip_unique_camera_model"
+
+/** Skip [PreviewJpegProcessingHints] on RAW still capture request. */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_JPEG_HINTS_STILL = "pns_preview_dng_skip_jpeg_hints_still"
+
+/** Force [LeafDngHalReconcile] ASN patch on leaf rear ids (true/false). */
+const val EXTRA_PNS_PREVIEW_DNG_FORCE_LEAF_RECONCILE = "pns_preview_dng_force_leaf_reconcile"
+
+/** Leaf reconcile: use Bayer ASN (legacy) instead of OP13 gains-first. */
+const val EXTRA_PNS_PREVIEW_DNG_FORCE_BAYER_ASN = "pns_preview_dng_force_bayer_asn"
+
+/** Skip [DngCreator.setDescription] / LUT software line on DNG save. */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_SOFTWARE_DESC = "pns_preview_dng_skip_software_desc"
 /** When true: one [PreviewController.captureComposedStill] after preview ready (IMG matrix path). */
 const val EXTRA_PNS_PREVIEW_COMPOSED_STILL = "pns_preview_composed_still"
 /** Optional physical/logical id (e.g. `3` = ultra-wide on dodge) for scripted preview validation. */
@@ -143,6 +173,18 @@ const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC = "pns_preview_automatio
 const val EXTRA_PNS_PREVIEW_VIDEO_FPS = "pns_preview_video_fps"
 
 /**
+ * Debug APK + [PNS_SCREEN_PREVIEW]: chrome in-app video encode width for automation (**13V.16**).
+ * Typical ADB: `--ei pns_preview_video_encode_w 3840`
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W = "pns_preview_video_encode_w"
+
+/**
+ * Debug APK + [PNS_SCREEN_PREVIEW]: chrome in-app video encode height for automation (**13V.16**).
+ * Typical ADB: `--ei pns_preview_video_encode_h 2160`
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H = "pns_preview_video_encode_h"
+
+/**
  * Debug APK + [PNS_SCREEN_PREVIEW]: when `true`, in-app video automation uses HEVC Main10
  * (10-bit) profile via [MediaCodecVideoRecorder] (`c2.qti.hevc.encoder`).
  *
@@ -158,6 +200,55 @@ const val EXTRA_PNS_PREVIEW_VIDEO_TENBIT = "pns_preview_video_10bit"
  * Typical ADB: `--ez pns_preview_video_dcg true`
  */
 const val EXTRA_PNS_PREVIEW_VIDEO_DCG = "pns_preview_video_dcg"
+
+/**
+ * Sprint **13.6**: scripted RAW video record (**`scripts/pns_raw_video_verify.ps1`**).
+ * Clamped to **[0, 120]** seconds; uses [RawVideoRecordingController] (no MediaRecorder).
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC = "pns_preview_video_raw_sec"
+
+/**
+ * Sprint **13V.10**: seed HUD focus-peaking color for ADB gates (`Red`, `Green`, …).
+ * Typical ADB: `--es pns_preview_focus_peaking Red`
+ */
+const val EXTRA_PNS_PREVIEW_FOCUS_PEAKING = "pns_preview_focus_peaking"
+
+/**
+ * Sprint **13V.11**: seed [HudSettings.selectedLutForVideo] for GLES preview during video
+ * (`PnsCinematic`, `BwBt709`, …). Typical ADB: `--es pns_preview_video_lut PnsCinematic`
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_LUT = "pns_preview_video_lut"
+
+/**
+ * Sprint **13V.12**: force power + thermal HUD on preview (`--ez pns_preview_force_power_thermal true`).
+ */
+const val EXTRA_PNS_PREVIEW_FORCE_POWER_THERMAL = "pns_preview_force_power_thermal"
+
+/**
+ * Sprint **13V.13**: override free bytes for storage-remaining math (`--ei pns_preview_storage_available_bytes N`).
+ */
+const val EXTRA_PNS_PREVIEW_STORAGE_AVAILABLE_BYTES = "pns_preview_storage_available_bytes"
+
+/**
+ * Sprint **13V.17**: enable smile-triggered still (`--ez pns_preview_smile_still true`).
+ */
+const val EXTRA_PNS_PREVIEW_SMILE_STILL = "pns_preview_smile_still"
+
+/**
+ * Sprint **13V.17** gate only: fire one tray still after preview session settle (no ML Kit face required).
+ * Requires [EXTRA_PNS_PREVIEW_SMILE_STILL]. Typical: `--ez pns_preview_smile_still_synthetic true`.
+ */
+const val EXTRA_PNS_PREVIEW_SMILE_STILL_SYNTHETIC = "pns_preview_smile_still_synthetic"
+
+/**
+ * Sprint **13V.17**: seed HUD video bitrate scale **50–150** (`--ei pns_preview_video_bitrate_scale 125`).
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_BITRATE_SCALE = "pns_preview_video_bitrate_scale"
+
+/**
+ * Sprint **13V.17**: enable scene vendor hint logging toggle (`--ez pns_preview_scene_vendor_hints true`).
+ */
+const val EXTRA_PNS_PREVIEW_SCENE_VENDOR_HINTS = "pns_preview_scene_vendor_hints"
 
 /**
  * When true, after the full markdown probe is built (requires `CAMERA` grant), writes
@@ -611,8 +702,17 @@ fun CameraCapabilitiesProbe(
                 adbBracketRaw != null ||
                 launchScreen == PNS_SCREEN_PREVIEW ||
                 !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank()) ||
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0) > 0
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0) > 0 ||
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0) ?: 0) > 0 ||
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SMILE_STILL, false) == true ||
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_BITRATE_SCALE, 0) ?: 0) > 0
         val useIntentAutomationPipeline = trustIntentForPreviewPipeline && automationWantsIntentPipeline
+        val adbAutomationVideoRawSec =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0) ?: 0).coerceIn(0, 120)
+            } else {
+                0
+            }
         val adbAutomationInAppVideoSec =
             if (trustIntentForPreviewPipeline) {
                 (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
@@ -625,6 +725,18 @@ fun CameraCapabilitiesProbe(
             } else {
                 null
             }
+        val adbAutomationVideoEncodeW =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W, 0) ?: 0).let { if (it > 0) it else null }
+            } else {
+                null
+            }
+        val adbAutomationVideoEncodeH =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H, 0) ?: 0).let { if (it > 0) it else null }
+            } else {
+                null
+            }
         val adbAutomationVideoTenBit =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_TENBIT, false) ?: false
@@ -634,6 +746,72 @@ fun CameraCapabilitiesProbe(
         val adbAutomationVideoDcg =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_DCG, false) ?: false
+            } else {
+                false
+            }
+        val adbDngBisectActive =
+            if (trustIntentForPreviewPipeline) {
+                DngSaveBisectState.applyFromPreviewIntent(activity?.intent)
+            } else {
+                DngSaveBisectState.reset()
+                false
+            }
+        val adbStillCaptureMode =
+            if (trustIntentForPreviewPipeline) {
+                StillCaptureModePolicy.parseAdbExtra(
+                    activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_STILL_MODE),
+                )
+            } else {
+                null
+            }
+        val adbSeedFocusPeakingColor =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent.previewFocusPeakingColorExtra()
+            } else {
+                null
+            }
+        val adbSeedVideoLutName =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent.previewVideoLutNameExtra()
+            } else {
+                null
+            }
+        val adbForcePowerThermalOverlay =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_FORCE_POWER_THERMAL, false) ?: false
+            } else {
+                false
+            }
+        val adbStorageAvailableBytes =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getLongExtra(EXTRA_PNS_PREVIEW_STORAGE_AVAILABLE_BYTES, -1L)?.let { v ->
+                    if (v >= 0L) v else null
+                }
+            } else {
+                null
+            }
+        val adbEnableSmileStill =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SMILE_STILL, false) ?: false
+            } else {
+                false
+            }
+        val adbSmileStillSynthetic =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SMILE_STILL_SYNTHETIC, false) ?: false
+            } else {
+                false
+            }
+        val adbVideoBitrateScalePercent =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_BITRATE_SCALE, 0) ?: 0)
+                    .takeIf { it in HudSettings.VIDEO_BITRATE_SCALE_MIN..HudSettings.VIDEO_BITRATE_SCALE_MAX }
+            } else {
+                null
+            }
+        val adbSceneVendorHints =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SCENE_VENDOR_HINTS, false) ?: false
             } else {
                 false
             }
@@ -696,8 +874,21 @@ fun CameraCapabilitiesProbe(
             initialPrimaryPhoto = previewSeedPrimaryPhoto,
             adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
             adbAutomationVideoFps = adbAutomationVideoFps,
+            adbAutomationVideoEncodeW = adbAutomationVideoEncodeW,
+            adbAutomationVideoEncodeH = adbAutomationVideoEncodeH,
             adbAutomationVideoTenBit = adbAutomationVideoTenBit,
             adbAutomationVideoDcg = adbAutomationVideoDcg,
+            adbAutomationVideoRawSec = adbAutomationVideoRawSec,
+            adbDngBisectActive = adbDngBisectActive,
+            adbStillCaptureMode = adbStillCaptureMode,
+            adbSeedFocusPeakingColor = adbSeedFocusPeakingColor,
+            adbSeedVideoLutName = adbSeedVideoLutName,
+            adbForcePowerThermalOverlay = adbForcePowerThermalOverlay,
+            adbStorageAvailableBytes = adbStorageAvailableBytes,
+            adbEnableSmileStill = adbEnableSmileStill,
+            adbSmileStillSynthetic = adbSmileStillSynthetic,
+            adbVideoBitrateScalePercent = adbVideoBitrateScalePercent,
+            adbSceneVendorHints = adbSceneVendorHints,
         )
         return
     }
@@ -1274,6 +1465,12 @@ internal fun buildProbeReport(context: Context, scanBudgetMs: Long = 4000L): Str
     DeviceCameraCapabilityCache.appendMarkdownJsonBlock(sb, shallowRoot)
     ShallowCapabilityCacheStore.saveAfterProbe(context.applicationContext, shallowRoot)
 
+    val fleetSnap = FleetCameraProfileBuilder.buildSnapshot(context.applicationContext)
+    FleetCameraProfileStore.save(context.applicationContext, fleetSnap)
+    FleetCameraProfileStore.appendProbeMarkdown(sb, fleetSnap)
+    FleetCameraProfileStore.appendCatalogMarkdown(sb, context.applicationContext, probeHiddenIds = false)
+    FleetCameraProfiles.invalidateMemoryCache()
+
     return sb.toString()
 }
 
@@ -1657,6 +1854,18 @@ internal fun Intent?.previewJpegCompanionSeedExtra(): Boolean? =
 
 private fun Intent?.previewStillsLutNameExtra(): String? =
     this?.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT)?.trim()?.takeIf { it.isNotBlank() }
+
+internal fun Intent?.previewFocusPeakingColorExtra(): FocusPeakingColor? {
+    val raw = this?.getStringExtra(EXTRA_PNS_PREVIEW_FOCUS_PEAKING)?.trim() ?: return null
+    return FocusPeakingColor.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) }
+        ?: run {
+            Log.w(TAG, "unknown pns_preview_focus_peaking=$raw")
+            null
+        }
+}
+
+internal fun Intent?.previewVideoLutNameExtra(): String? =
+    this?.getStringExtra(EXTRA_PNS_PREVIEW_VIDEO_LUT)?.trim()?.takeIf { it.isNotBlank() }
 
 private fun Intent?.previewSelfTimerSecExtra(): Int? =
     if (this != null && hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC)) {

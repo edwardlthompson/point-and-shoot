@@ -70,6 +70,36 @@ object DngMetadataResolver {
     private const val TAG = "PNS.DngMeta"
 
     /**
+     * ProShot leaf path: [DngCreator] uses the opened [sessionCameraId] characteristics + still
+     * [TotalCaptureResult] only — no logical/physical resolver fork.
+     */
+    fun pairForDngCreator(
+        cm: CameraManager,
+        sessionCameraId: String,
+        sessionCharacteristics: CameraCharacteristics,
+        totalResult: TotalCaptureResult,
+        previewPhysicalCameraId: String?,
+        allowPhysicalTotalResultPairing: Boolean,
+    ): Pair<CameraCharacteristics, TotalCaptureResult> {
+        val children =
+            runCatching { sessionCharacteristics.physicalCameraIds?.toSet().orEmpty() }
+                .getOrDefault(emptySet())
+        if (children.isEmpty()) {
+            return sessionCharacteristics to totalResult
+        }
+        val resolved =
+            resolveForDngSave(
+                cm,
+                sessionCameraId,
+                sessionCharacteristics,
+                totalResult,
+                previewPhysicalCameraId,
+                allowPhysicalTotalResultPairing,
+            )
+        return resolved.characteristics to resolved.totalResult
+    }
+
+    /**
      * Prefer [previewPhysicalCameraId] when listed under [CameraCharacteristics.getPhysicalCameraIds],
      * else [CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID] from [totalResult].
      */
@@ -135,7 +165,17 @@ object DngMetadataResolver {
             )
 
         if (physicalChildren.isEmpty()) {
-            return resolution(logicalCharacteristics, totalResult, picked = null, paired = false)
+            Log.d(
+                TAG,
+                "dng metadata: leaf session id=$sessionCameraId " +
+                    "(DngCreator uses opened characteristics + still TotalCaptureResult)",
+            )
+            return resolution(
+                logicalCharacteristics,
+                totalResult,
+                picked = sessionCameraId,
+                paired = false,
+            )
         }
 
         val picked =

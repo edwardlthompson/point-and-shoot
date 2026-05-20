@@ -57,6 +57,11 @@ object CaptureStorage {
         Avif10BitHdr("image/avif", "avif"),
         JpegXl12Bit("image/jxl", "jxl"),
         Mp4("video/mp4", "mp4"),
+        /**
+         * MCRAW-class RAW video (P&S `PNMRAWV1` container, Sprint **13.6**).
+         * MediaStore row uses `video/mp4` MIME; file extension remains `.mcraw`.
+         */
+        McrawVideo("video/mp4", "mcraw"),
     }
 
     /**
@@ -209,6 +214,51 @@ object CaptureStorage {
      * Same as [openOutput] for video files under `DCIM/Point & Shoot/`.
      * Pair with [MediaRecorder.applyCaptureGeotag] before [MediaRecorder.prepare] for in-file GPS.
      */
+    /** RAW video `.mcraw` under `DCIM/Point & Shoot/` (Video MediaStore row, octet-stream body). */
+    fun openMcrawVideoOutput(
+        context: Context,
+        profile: ImagingProfile,
+        sequence: Long? = null,
+        filenameSuffix: String? = null,
+    ): Handle {
+        val kind = CaptureKind.McrawVideo
+        val resolver = context.applicationContext.contentResolver
+        val seq = sequence ?: seqCounter.incrementAndGet()
+        val displayName = filename(profile, kind, seq, filenameSuffix)
+        val relativePath = videoRelativePath(profile)
+        val values =
+            ContentValues().apply {
+                put(MediaStore.Video.Media.DISPLAY_NAME, displayName)
+                put(MediaStore.Video.Media.MIME_TYPE, kind.mimeType)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.Video.Media.RELATIVE_PATH, relativePath)
+                    put(MediaStore.Video.Media.IS_PENDING, 1)
+                }
+            }
+        val collection =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            } else {
+                @Suppress("DEPRECATION")
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            }
+        val uri =
+            resolver.insert(collection, values)
+                ?: error("MediaStore mcraw insert returned null for $displayName ($relativePath)")
+        val out =
+            resolver.openOutputStream(uri, "w")
+                ?: error("MediaStore.openOutputStream returned null for $uri")
+        Log.d(TAG, "openMcrawVideoOutput uri=$uri displayName=$displayName")
+        return Handle(
+            context = context.applicationContext,
+            uri = uri,
+            output = out,
+            kind = kind,
+            location = null,
+            displayName = displayName,
+        )
+    }
+
     fun openVideoOutput(
         context: Context,
         profile: ImagingProfile,
@@ -399,13 +449,13 @@ object CaptureStorage {
             runCatching { output.flush() }
             runCatching { output.close() }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val values = ContentValues().apply {
-                    put(
-                        if (kind.mimeType.startsWith("video/")) MediaStore.Video.Media.IS_PENDING
-                        else MediaStore.Images.Media.IS_PENDING,
-                        0,
-                    )
-                }
+                val pendingKey =
+                    if (kind.mimeType.startsWith("video/")) {
+                        MediaStore.Video.Media.IS_PENDING
+                    } else {
+                        MediaStore.Images.Media.IS_PENDING
+                    }
+                val values = ContentValues().apply { put(pendingKey, 0) }
                 runCatching { context.contentResolver.update(uri, values, null, null) }
                     .onFailure { Log.w(TAG, "clear IS_PENDING failed for $uri", it) }
             }

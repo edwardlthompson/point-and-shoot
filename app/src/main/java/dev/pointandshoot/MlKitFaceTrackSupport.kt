@@ -31,6 +31,36 @@ object MlKitFaceTrackSupport {
 
     private val detector: FaceDetector = FaceDetection.getClient(options)
 
+    private val smileOptions =
+        FaceDetectorOptions.Builder()
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+            .build()
+
+    private val smileDetector: FaceDetector by lazy { FaceDetection.getClient(smileOptions) }
+
+    /** Max [com.google.mlkit.vision.face.Face.smilingProbability] in [0,1], or null if unavailable. */
+    fun maxSmilingProbability(
+        image: Image,
+        rotationDegrees: Int,
+        timeoutMs: Long = 120L,
+    ): Float? {
+        if (image.width <= 0 || image.height <= 0) return null
+        val input = InputImage.fromMediaImage(image, rotationDegrees)
+        val faces: List<Face> =
+            runCatching {
+                Tasks.await(smileDetector.process(input), timeoutMs, TimeUnit.MILLISECONDS)
+            }.getOrDefault(emptyList())
+        var max: Float? = null
+        for (face in faces) {
+            val p = face.smilingProbability ?: continue
+            if (max == null || p > max) max = p
+        }
+        return max
+    }
+
     fun detectFacesToBufferBoxes(
         image: Image,
         rotationDegrees: Int,

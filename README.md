@@ -46,36 +46,71 @@ A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (A
   - Deep characteristics, session-configuration matrix, HDR/DCG runtime, capture latency, RAW + dynamic-range exclusivity, burst / AE bracket, logical-vs-physical, exhaustive HFR + encoder matrix, legacy Camera1 sanity.
   - JSON artifacts that survive on-device runs and a Markdown export for review.
   - **Milestone 10.1:** the Markdown export also lists **RAW12 / RAW10 / RAW_SENSOR** stream sizes (with min frame duration), **`rawPickEffective=`** (aligned with `RawCaptureSupport.pickRawOutput`), **HFR rollup** lines, and a versioned **shallow fleet JSON** block — treat those exports plus **`hfr-runs/`** pulls as canonical per-device numbers, not chat-only summaries.
+- **Portrait preview engine (locked chrome)** — **7×3** quick grid, **3:4** finder, dodge tele **73 / 85 / 150 mm** on physical mid-tele when enumerated; GLES external-OES preview with per-mode LUTs, optional focus peaking (M dial + video), horizon line, histogram / zebra aids. Layout contract: [`docs/preview-chrome-layout-style-guide.md`](docs/preview-chrome-layout-style-guide.md).
+- **Stills (M13)** — ProShot-style **DNG** via framework `DngCreator` on OP13 leaf cameras; optional **ZSL** / **HDR still** (3× DNG bracket); fleet **`FleetCameraProfile`** + openability gates; aux UW/tele color still under human ACR review (**[`BUILD_PLAN.md`](BUILD_PLAN.md)** **H.7**).
+- **Encoded video (M12 + 13V)** — In-app **MP4** (`MediaRecorder` ≤60 fps, **MediaCodec** for HFR / 10-bit / DCG); unified **format picker**; DCG + HDR10 metadata path; power-button quick-launch; macro dial; timecode + audio meters; RGB histogram; focus peaking; GLES **video LUT** preview; battery/thermal + **storage-remaining** HUD on video modes.
+- **RAW video lane (M13.6)** — MCRAW-class **`.mcraw`** (`PNMRAWV1`) on OP13 leaf cameras when HUD **RAW** lane is enabled — not a gallery-playable MP4.
 - **Host orchestration** (`scripts/pns_hfr_autorun.ps1`)
   - Build → install → grant camera → run any subset of probes → pull JSON → write a suite-summary file → optional Phase 9 thermal snapshot.
 - **Toolchain gate** (`scripts/pns_verify_toolchain.ps1`)
   - Gradle `assembleDebug`, UTF-8 enforcement on Kotlin and PowerShell, PowerShell parser sanity. Mirrored in CI on Ubuntu (`.github/workflows/toolchain-verify.yml`).
 - **CLI-only workflow** — every step runs from PowerShell + ADB; Android Studio is optional.
 
-## Imaging-engine targets (roadmap)
+## Imaging-engine targets (roadmap vs shipped)
 
-These are **not implemented yet** — they are the targets the probe is gating decisions for:
+| Area | Shipped (reference: **CPH2655** USB gates) | Still planned / partial |
+|------|-------------------------------------------|-------------------------|
+| **Stills** | DNG (RAW_SENSOR-first on OP13 leaf); hardware JPEG companion; ZSL / HDR still modes; bracket bursts | Full **AVIF** / **JPEG XL** still encode bodies (NDK path stubbed); Ultra-Max profile polish |
+| **Video** | H.264/HEVC MP4; HFR via MediaCodec; 10-bit + DCG HDR10; RAW `.mcraw` lane; LUT on preview; smile still + bitrate scale (**13V.17**) | LUT baked into encoded MP4 |
+| **HUD / metering** | Highlight-weighted meter, eye-AF overlay, face track boxes, readout strip, command dial **A/M/H/S/BKT/Macro** | Nikon-style 3D tracking persistence |
+| **LUTs & color** | Built-in + imported `.cube`; GLES preview + still CPU path; calibration screen | Full DNG matrix injection from calibration export |
+| **Haptics** | Still capture haptics; video tally without record haptics | — |
 
-- **Standard Pro** profile: lossless-compressed DNG + 10-bit AVIF (HDR) + Display P3
-- **Ultra-Max** profile: uncompressed RAW12 DNG + 12-bit JPEG XL + Rec. 2020
-- **Sensor stability protocol**: 30 ms haptic delay on still capture; tally-only (no haptic) on video start/stop
-- **Metering / AF**: highlight-weighted metering (Ricoh GR style), Sony-style Eye-AF overlay, Nikon-style 3D tracking persistence, RAW exposure brackets (3 / 5 / 7)
-- **Color management & LUTs (Phase 4)**: in-app calibration against a 24-patch reference chart (computes WB gains + 3×3 CCM + MTF50 baseline → exports a `.cube` LUT and writes `ColorMatrix1` / `ForwardMatrix1` to DNG); built-in FOSS LUT library (ACES sRGB↔ACEScct, Filmic, Rec.709 identity, B&W BT.601/709, in-house "Cinematic") plus user-imported `.cube` / `.3dl`; LUTs apply to live preview / video (GLES `sampler3D`) and stills (CPU trilinear); RAW (DNG) is never baked — LUT name + SHA256 are recorded as sidecar metadata. See `BUILD_PLAN.md` §7.
+Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md).
 
 ## Status
 
-- **Phase 0 (capability probe):** working. Probe writes JSON + Markdown; host script pulls artifacts into `hfr-runs/`.
-- **Dodge profile mapping:** working hypothesis in `DODGE_PROFILE.md`, refined as probe deltas arrive.
-- **Imaging engine + HUD:** planned and gated by probe outputs (see `BUILD_PLAN.md`).
-- **Milestone 13 (video features):**
-  - ✅ **Sprint 13.1:** Power button quick-launch (broadcast receiver for camera launch)
-  - ✅ **Sprint 13.5:** DCG mode wiring (DcgModeSupport.kt with DynamicRangeProfiles detection)
-  - ✅ **Sprint 13.6:** Macro shooting mode (CommandDialMode.Macro with vendor key session parameters)
-  - ✅ **Sprint 13.7:** Multi-camera research documentation (existing RAW_CAPTURE_DEVICE_MATRIX.md)
-  - ⚠️ **Sprint 13.2:** 10-bit video - BLOCKED by device MediaRecorder limitation (OMX encoder does not support 10-bit encoding on current device)
-  - ⚠️ **Sprint 13.3:** HFR video 1080p@120fps - BLOCKED by device OMX encoder limitation (device OMX encoder does not support 120fps)
-  - ⚠️ **Sprint 13.4:** Unified picker - PARTIAL (backend wired, UI scope issues - deferred to end)
-  - ⚠️ **Sprint 13.8-13.13:** Deferred (require complex implementations or device capabilities)
+| Milestone | State | Notes |
+|-----------|--------|--------|
+| **Phase 0 / probes** | ✅ | JSON + Markdown export; `hfr-runs/` artifacts |
+| **M10** (product expansion) | ✅ Gate passed | Shallow cache, focal strip, JPEG-only profile, Photo\|Video tray, 7×3 grid, QR scan, … → [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
+| **M11** (capture UX) | ✅ Gate passed | WB menu order, dodge tele crops, in-app video + RES selector |
+| **M12** (video completeness) | ✅ Gate passed | Audio policy, `VideoRecordingController`, MediaCodec HFR path |
+| **M13** (fleet RAW) | 🚧 **13.7** (automated ✅) | USB gates **PASS** on `8bf09993`; human **ACR 3/3** + visual aux parity → **H.7** |
+| **M13V** (video expansion) | ✅ USB-verified | **13V.1–13V.18** incl. 4K@120, AI features, CameraX probe — see table below |
+
+**Latest pre-release:** [`v0.13.0-beta.1`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.13.0-beta.1) — APK `Point-and-Shoot_0.13.0-beta.1.apk` · notes [`RELEASE_NOTES_v0.13.0-beta.1.md`](RELEASE_NOTES_v0.13.0-beta.1.md)
+
+**Active roadmap:** [`BUILD_PLAN.md`](BUILD_PLAN.md) · **Archive:** [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
+
+### Shipped video & preview features (M13V.1–13V.18)
+
+| Sprint | Feature | Verify script (USB) |
+|--------|---------|---------------------|
+| **13V.1** | Power button / QS tiles → preview | `pns_power_button_gate.ps1` |
+| **13V.15** | HEVC MediaCodec capability matrix (`PNS.VideoCapProbe`) | `pns_video_capability_probe.ps1` |
+| **13V.2–4** | MediaCodec 10-bit + HFR + format picker | `pns_mediacodec_hfr_verify.ps1` |
+| **13V.5** | DCG session + HDR10 metadata | `pns_video_hdr10_metadata_verify.ps1` |
+| **13V.6** | Macro command dial | `pns_macro_focus_verify.ps1` |
+| **13V.8** | Timecode + audio meters | `pns_recording_overlays_verify.ps1` |
+| **13V.9** | RGB histogram | `pns_rgb_histogram_verify.ps1` |
+| **13V.10** | Focus peaking (M dial video) | `pns_focus_peaking_verify.ps1` |
+| **13V.11** | Video LUT on GLES preview | `pns_video_lut_preview_verify.ps1` |
+| **13V.12** | Battery + thermal HUD | `pns_power_thermal_verify.ps1` |
+| **13V.13** | Storage minutes remaining | `pns_storage_remaining_verify.ps1` |
+| **13V.16** | 4K@120 encode unlock (HFR MediaCodec) | `pns_mediacodec_hfr_verify.ps1` |
+| **13V.17** | Smile still, scene probe, bitrate scale | `pns_ai_features_verify.ps1` |
+| **13V.18** | CameraX OEM extension probe | `pns_camerax_extension_probe.ps1` |
+
+Sprint docs: [`docs/M13V_10_FOCUS_PEAKING.md`](docs/M13V_10_FOCUS_PEAKING.md) … [`docs/M13V_18_CAMERAX_EXTENSIONS.md`](docs/M13V_18_CAMERAX_EXTENSIONS.md). Agent automation index: [`AGENTS.md`](AGENTS.md).
+
+### Core capture gates (still regression)
+
+```powershell
+.\scripts\pns_capture_pipeline_verify.ps1    # RAW still 1/1 — after session/DNG changes
+.\scripts\pns_photo_capture_verify.ps1 -Fast # lighter still smoke
+.\scripts\pns_chrome_ux_gate.ps1 -FocalMmSlot 150   # dodge tele — do not run parallel with capture verify
+```
 
 See `PROBE_BUILD_PLAN.md` for detailed device limitation documentation.
 
@@ -117,10 +152,13 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 ## Documentation
 
 ### Product
-- **Product roadmap & V&V gates** — [`BUILD_PLAN.md`](BUILD_PLAN.md)
+- **Product roadmap & V&V gates** — [`BUILD_PLAN.md`](BUILD_PLAN.md) · completed milestones — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)
 - **Probe automation plan** — [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md)
 - **OnePlus 13 hardware-to-software mapping** — [`DODGE_PROFILE.md`](DODGE_PROFILE.md)
 - **Latest probe export** — [`PROBE_RESULTS.md`](PROBE_RESULTS.md)
+- **Fleet RAW / DNG policy** — [`docs/FLEET_ONEPLUS13_RAW_POLICY.md`](docs/FLEET_ONEPLUS13_RAW_POLICY.md) · [`docs/DNG_OPENABILITY_REGRESSIONS.md`](docs/DNG_OPENABILITY_REGRESSIONS.md)
+- **Video (DCG / RAW lane)** — [`docs/M13_4_DCG_SESSION.md`](docs/M13_4_DCG_SESSION.md) · [`docs/M13_6_RAW_VIDEO.md`](docs/M13_6_RAW_VIDEO.md)
+- **Preview chrome layout (locked)** — [`docs/preview-chrome-layout-style-guide.md`](docs/preview-chrome-layout-style-guide.md)
 
 ### Engineering
 - **Capture engine architecture** (threading, backpressure, cancellation) — [`CAPTURE_ARCHITECTURE.md`](CAPTURE_ARCHITECTURE.md)
@@ -133,6 +171,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 - **CLI build / sideload** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
 
 ### Releases
+- **Latest beta** — [`v0.13.0-beta.1`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.13.0-beta.1) · [`RELEASE_NOTES_v0.13.0-beta.1.md`](RELEASE_NOTES_v0.13.0-beta.1.md)
 - **Changelog** — [`CHANGELOG.md`](CHANGELOG.md)
 - **Release-notes template** — [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)
 - **Local release-signing config** — [`keystore.properties.example`](keystore.properties.example)
@@ -165,7 +204,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
   - `app/src/test/java/dev/pointandshoot/` — pure-JVM unit tests (`BracketPlanTest`, `BracketSchedulerTest`, `HighlightMeterTest`, `TimecodeFormatTest`, `CaptureStorageFilenameTest`, `CropPlanTest`, `FaceDetectAdapterTest`, `TrackerStateTest`, `CapabilityGateTest`, `EncoderResultAggregatorTest`, `EncoderAttemptJsonAdapterTest`, `EncoderRecipeBuilderTest`, `PerfBudgetTest`, `PnsLogTest`, `Lut3DTest`, `LutPipelineTest`, `LutShaderProgramSourceTest`, `LutPreviewRendererQuadTest`, `TestPatternTest`, `NativeEncodersFallbackTest`, `EncoderRouteTest`, `LensInfoSummaryTest`, `PreviewLumaHistogramTest`, `Dl3ParserTest`, `Spi3dParserTest`, `DngLutMetadataTest`, `RootCapabilityTest`, `RootCapabilityProbeTest`, `HdrCurvesTest`, `ColorSpaceMatrixTest`, `WorkingSpaceTest`, `AvifColrPayloadTest`, `HdrStaticMetadataTest`, `IsobmffSampleAspectTest`, `AvifAuxiliaryBoxesTest`, `IsobmffBoxTest`, `ItemPropertyAssociationTest`, `IsobmffItemPropertiesTest`, `PrimaryItemBoxTest`, `ItemInfoEntryTest`, `ItemInfoBoxTest`, `HandlerReferenceBoxTest`, `ItemLocationBoxTest`, `MetaBoxTest`, `FileTypeBoxTest`, `MediaDataBoxTest`, `ImageSpatialExtentsTest`, `AvifStillMuxerTest`, `Av1CodecConfigurationTest`, `ItemReferenceBoxTest`, `AvifAuxiliaryTypePropertyTest`, `AvifImageGridTest`, `AvifImageOverlayTest`, `LutImportValidatorTest`, `BuiltInLutsTest`, `LutCatalogTest`, `LutSidecarTest`, `LutSidecarWriterTest`, `HudSettingsLutResolutionTest`, `ImportedLutStoreTest`, `BitmapRgbPlaneTest`, `CalibrationMathTest`, `CalibrationToLutTest`, `CalibrationProfileJsonAdapterTest`, `CalibrationProfileStorageTest`, `CalibrationCcmAccuracyTest`, `DngColorTagsTest`, `ReferenceTargetTest`, `CalibrationSamplerTest`, `SlantedEdgeMtfTest`, `ColorMathTest`, `LutCreditsBuilderTest`, `LutDiagnosticsBuilderTest`, `MetadataSerializationGoldenTest`)
 - `native/` — NDK / JNI stubs + CMake skeleton + license matrix for the planned libavif / libjxl pipeline (`pns_native.cpp` JNI stubs matching `NativeEncoders`; `CMakeLists.txt` with commented `FetchContent_Declare` blocks; `THIRD_PARTY.md` license matrix; `README.md` Phase-0 layout)
 - `metadata/` — F-Droid compliance placeholders
-- `scripts/` — PowerShell automation: primary **`pns_verify_toolchain.ps1`** (validates every **`*.ps1`** in this folder + Gradle gates), **`pns_hfr_autorun.ps1`**, **`pns_probe_watch.ps1`**, **`pns_license_inventory.ps1`**, **`pns_sbom.ps1`**, **`pns_install_ndk.ps1`**, and ADB/preview helpers (`pns_adb_preview_validate.ps1`, `pns_sideload_and_launch.ps1`, …).
+- `scripts/` — PowerShell automation: **`pns_verify_toolchain.ps1`**, **`pns_hfr_autorun.ps1`**, capture gates (**`pns_capture_pipeline_verify.ps1`**, **`pns_photo_capture_verify.ps1`**, **`pns_aux_dng_capture_analyze.ps1`**), video gates (**`pns_mediacodec_hfr_verify.ps1`**, **`pns_in_app_video_verify.ps1`**, **`pns_video_hdr10_metadata_verify.ps1`**, **`pns_raw_video_verify.ps1`**, **`pns_focus_peaking_verify.ps1`**, **`pns_video_lut_preview_verify.ps1`**, **`pns_power_thermal_verify.ps1`**, **`pns_storage_remaining_verify.ps1`**, …), **`pns_sideload_and_launch.ps1`**, **`pns_chrome_ux_gate.ps1`**. Full index: [`AGENTS.md`](AGENTS.md).
 - `hfr-runs/` — pulled probe artifacts (gitignored)
 - `.github/workflows/` — CI: toolchain verify + unit tests + debug-APK artifact (Ubuntu), plan-doc verify, signed-build (manual / `v*` tag)
 

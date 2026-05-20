@@ -11,11 +11,26 @@ data class FocusPeakingGlUniforms(
     val sensitivity: Float,
 ) {
     companion object {
-        fun fromHud(settings: HudSettings): FocusPeakingGlUniforms {
-            if (!settings.focusPeakingEnabled()) {
+        /**
+         * @param forceForManualVideo When true (M dial + in-app recording), peaking is drawn even if
+         * the HUD color is Off — uses [FocusPeakingColor.Red] so manual-focus video is visible without
+         * persisting a user preference change.
+         */
+        fun fromHud(
+            settings: HudSettings,
+            forceForManualVideo: Boolean = false,
+        ): FocusPeakingGlUniforms {
+            val userEnabled = settings.focusPeakingEnabled()
+            if (!userEnabled && !forceForManualVideo) {
                 return FocusPeakingGlUniforms(false, 0f, 0f, 0f, 0f)
             }
-            val c = settings.focusPeakingColor.toOverlayColor()
+            val color =
+                if (userEnabled) {
+                    settings.focusPeakingColor
+                } else {
+                    FocusPeakingColor.Red
+                }
+            val c = color.toOverlayColor()
             return FocusPeakingGlUniforms(
                 enabled = true,
                 r = c.red,

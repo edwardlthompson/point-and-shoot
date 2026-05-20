@@ -21,4 +21,11 @@ class FocusPeakingGlUniformsTest {
         assertTrue(u.enabled)
         assertTrue(u.sensitivity > 0f)
     }
+
+    @Test
+    fun `forceForManualVideo enables red when hud peaking off`() {
+        val u = FocusPeakingGlUniforms.fromHud(HudSettings(), forceForManualVideo = true)
+        assertTrue(u.enabled)
+        assertTrue(u.r > 0.9f)
+    }
 }

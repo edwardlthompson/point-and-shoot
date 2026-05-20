@@ -40,11 +40,11 @@ adb -s $Serial shell logcat -G 64M 2>$null | Out-Null
 # ── focal slots to probe ─────────────────────────────────────────────────────
 # mm label maps to the focal-mm-slot values the app understands.
 # NOTE: session IDs confirmed from logcat — slot 14 routes session=2 (UW),
-#       slot 23 routes session=3 (Wide reference), slot 150 routes session=4 (Tele).
+#       slot 23 routes session=3 (Wide reference), slot 73 routes session=4 (native tele).
 $slots = @(
     @{ mm = "14";  label = "UW_session2"   },
     @{ mm = "23";  label = "Wide_session3" },
-    @{ mm = "150"; label = "Tele_session4" }
+    @{ mm = "73";  label = "Tele_session4" }
 )
 
 $report = [System.Collections.Generic.List[string]]::new()
@@ -73,7 +73,7 @@ foreach ($slot in $slots) {
         --es pns_preview_camera_id 0 `
         --es pns_preview_focal_mm_slot $mm `
         --ez pns_preview_raw_still_fast true `
-        --ez pns_preview_jpeg_companion true | Out-Host
+        --ez pns_preview_jpeg_companion false | Out-Host
 
     Write-Host "[dng_color_probe] waiting 55 s for capture + save..."
     Start-Sleep -Seconds 55

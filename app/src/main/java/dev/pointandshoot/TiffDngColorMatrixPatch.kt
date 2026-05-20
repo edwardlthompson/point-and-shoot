@@ -24,11 +24,46 @@ object TiffDngColorMatrixPatch {
 
     // DNG tag constants
     private const val TAG_DNG_PRIVATE     = 50740  // SubIFD pointer to raw IFD
-    private const val TAG_COLOR_MATRIX1   = 50721
-    private const val TAG_COLOR_MATRIX2   = 50722
-    private const val TAG_FORWARD_MATRIX1 = 50964
-    private const val TAG_FORWARD_MATRIX2 = 50965
-    private const val TAG_AS_SHOT_NEUTRAL  = 50728  // RATIONAL[3], unsigned
+    internal const val TAG_COLOR_MATRIX1 = 50721
+    internal const val TAG_COLOR_MATRIX2 = 50722
+    internal const val TAG_FORWARD_MATRIX1 = 50964
+    internal const val TAG_FORWARD_MATRIX2 = 50965
+    private const val TAG_AS_SHOT_NEUTRAL = 50728 // RATIONAL[3], unsigned
+
+    /** Reads SRATIONAL matrix tag element [0,0] from IFD0 (for USB hal-cal diag). */
+    fun readMatrixElement00(original: ByteArray, tag: Int): Float? =
+        runCatching { readMatrixElement00Internal(original, tag) }.getOrNull()
+
+    private fun readMatrixElement00Internal(original: ByteArray, tag: Int): Float {
+        require(original.size >= 8)
+        val bb = ByteBuffer.wrap(original).order(ByteOrder.LITTLE_ENDIAN)
+        bb.position(0)
+        require(bb.short == 0x4949.toShort())
+        require(bb.short == 42.toShort())
+        val ifd0Offset = bb.int.toLong() and 0xFFFF_FFFFL
+        if (ifd0Offset < 0 || ifd0Offset + 2 > original.size) error("bad ifd0")
+        bb.position(ifd0Offset.toInt())
+        val count = bb.short.toInt() and 0xFFFF
+        val entryStart = ifd0Offset.toInt() + 2
+        for (i in 0 until count) {
+            val base = entryStart + i * 12
+            if (base + 12 > original.size) break
+            bb.position(base)
+            val t = bb.short.toInt() and 0xFFFF
+            val type = bb.short.toInt() and 0xFFFF
+            val cnt = bb.int
+            if (t != tag || type != TIFF_TYPE_SRATIONAL || cnt != 9) continue
+            val dataOffset =
+                ByteBuffer.wrap(original, base + 8, 4).order(ByteOrder.LITTLE_ENDIAN).int
+            val needed = 9 * SRATIONAL_SIZE
+            if (dataOffset < 0 || dataOffset + needed > original.size) break
+            val n0 = ByteBuffer.wrap(original, dataOffset, 4).order(ByteOrder.LITTLE_ENDIAN).int
+            val d0 =
+                ByteBuffer.wrap(original, dataOffset + 4, 4).order(ByteOrder.LITTLE_ENDIAN).int
+            return n0.toFloat() / d0.coerceAtLeast(1).toFloat()
+        }
+        error("tag $tag not found")
+    }
 
     private const val TIFF_TYPE_SRATIONAL = 10  // signed rational: 8 bytes per entry
     private const val TIFF_TYPE_RATIONAL  = 5   // unsigned rational: 8 bytes per entry
@@ -53,9 +88,19 @@ object TiffDngColorMatrixPatch {
         gains: android.hardware.camera2.params.RggbChannelVector,
     ): ByteArray = runCatching { patchAsnInternal(original, gains) }.getOrElse { original }
 
+    /** Normalized AsShotNeutral `[R, G, B]` (max == 1) from capture gains. */
+    fun asShotNeutralFromGains(gains: android.hardware.camera2.params.RggbChannelVector): FloatArray {
+        val gAvg = (gains.greenEven + gains.greenOdd) / 2f
+        val invR = 1f / gains.red.coerceAtLeast(1e-6f)
+        val invG = 1f / gAvg.coerceAtLeast(1e-6f)
+        val invB = 1f / gains.blue.coerceAtLeast(1e-6f)
+        val maxInv = maxOf(invR, invG, invB)
+        return floatArrayOf(invR / maxInv, invG / maxInv, invB / maxInv)
+    }
+
     /**
      * Overload that accepts a pre-normalized [FloatArray] `[R, G, B]` where max == 1.0.
-     * Used by [Dng12Saver.bayerAsShotNeutral] which computes ASN from raw pixel channel means.
+     * Used by [DngBayerAsShotNeutral] which computes ASN from raw pixel channel means.
      */
     fun patchAsShotNeutralFromFloats(
         original: ByteArray,
@@ -164,7 +209,39 @@ object TiffDngColorMatrixPatch {
     }
 
     /**
-     * Full-matrix patch from [CameraCharacteristics] — replaces CM1/CM2/FM1/FM2.
+     * Reconcile CM1/CM2/FM1/FM2 in **IFD0** from [CameraCharacteristics] (Android [DngCreator]
+     * places ForwardMatrix in IFD0; sub-IFD path in [patch] may be a no-op).
+     */
+    fun patchCalibrationTagsIfd0(
+        original: ByteArray,
+        characteristics: CameraCharacteristics,
+    ): ByteArray = runCatching { patchCalibrationIfd0Internal(original, characteristics) }
+        .getOrElse { original }
+
+    private fun patchCalibrationIfd0Internal(
+        original: ByteArray,
+        characteristics: CameraCharacteristics,
+    ): ByteArray {
+        require(original.size >= 8) { "buffer too small" }
+        val buf = original.copyOf()
+        val bb = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN)
+        bb.position(0)
+        require(bb.short == 0x4949.toShort()) { "not little-endian TIFF" }
+        require(bb.short == 42.toShort()) { "not TIFF 42" }
+        val ifd0Offset = bb.int.toLong() and 0xFFFF_FFFFL
+        val tagsToReplace =
+            mapOf(
+                TAG_COLOR_MATRIX1 to characteristics.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1),
+                TAG_COLOR_MATRIX2 to characteristics.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2),
+                TAG_FORWARD_MATRIX1 to characteristics.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1),
+                TAG_FORWARD_MATRIX2 to characteristics.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2),
+            )
+        overwriteSRationalTagsInIfd(bb, buf, ifd0Offset, tagsToReplace)
+        return buf
+    }
+
+    /**
+     * Full-matrix patch from [CameraCharacteristics] — replaces CM1/CM2/FM1/FM2 in raw sub-IFD.
      * Returns [original] unchanged on any error.
      */
     fun patch(original: ByteArray, overrides: CameraCharacteristics): ByteArray {

@@ -42,6 +42,7 @@ param(
     [int]$WaitSec = 55,
     [switch]$Fast,
     [switch]$SweepCameraIds,
+    [string]$PreviewStillMode = "",
     [switch]$SkipAssemble,
     [switch]$SkipInstall
 )
@@ -285,6 +286,9 @@ foreach ($camSeed in $seedList) {
         }
         if (-not [string]::IsNullOrWhiteSpace($camSeed)) {
             $amArgs += @("--es", "pns_preview_camera_id", $camSeed)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($PreviewStillMode)) {
+            $amArgs += @("--es", "pns_preview_still_mode", $PreviewStillMode.Trim().ToLower())
         }
         try {
             Invoke-AdbTimed $amArgs 120000 | Out-Null

@@ -43,7 +43,7 @@ enum class FocusPeakingColor(val displayName: String) {
         }
 }
 
-/** Edge-detection aggressiveness for the future peaking shader. */
+/** Edge-detection aggressiveness for the GLES preview peaking shader. */
 enum class FocusPeakingStrength(val displayName: String) {
     Low("Low"),
     Medium("Medium"),

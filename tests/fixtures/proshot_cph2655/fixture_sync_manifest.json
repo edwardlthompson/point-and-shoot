@@ -1,0 +1,26 @@
+﻿{
+    "source":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\proshot_live_forensics_20260520_000958",
+    "fixtureDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\tests\\fixtures\\proshot_cph2655",
+    "timestampUtc":  "2026-05-20T00:27:27.3005002Z",
+    "schema":  "proshot_fixture_sync.v1",
+    "slots":  [
+                  {
+                      "cameraId":  "3",
+                      "file":  "proshot_uw_cam3.dng",
+                      "sourcePath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\proshot_live_forensics_20260520_000958\\proshot_uw_3.dng",
+                      "slot":  "uw"
+                  },
+                  {
+                      "cameraId":  "2",
+                      "file":  "proshot_wide_cam2.dng",
+                      "sourcePath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\proshot_live_forensics_20260520_000958\\proshot_wide_2.dng",
+                      "slot":  "wide"
+                  },
+                  {
+                      "cameraId":  "4",
+                      "file":  "proshot_tele_cam4.dng",
+                      "sourcePath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\proshot_live_forensics_20260520_000958\\proshot_tele_4.dng",
+                      "slot":  "tele"
+                  }
+              ]
+}

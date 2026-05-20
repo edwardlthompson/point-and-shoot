@@ -2,8 +2,13 @@ package dev.pointandshoot
 
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.DngCreator
 import android.hardware.camera2.TotalCaptureResult
+import dev.pointandshoot.fleet.LeafDngHalReconcile
+import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.ProShotPipelineContract
+import dev.pointandshoot.DngBayerAsShotNeutral
 import android.location.Location
 import android.media.Image
 import android.os.SystemClock
@@ -83,6 +88,13 @@ class Dng12Saver(
          * [TiffUniqueCameraModel50708] (requires buffering the full DNG in memory).
          */
         uniqueCameraModel: String? = null,
+        /** Opened [android.hardware.camera2.CameraDevice] id for OP13 leaf HAL reconcile. */
+        sessionCameraId: String? = null,
+        /**
+         * When set for aux leaf (UW/tele), CM/FM in the DNG are patched from wide cam **2** while
+         * [characteristics] / [captureResult] still pair with the opened aux session for [DngCreator].
+         */
+        wideCalibrationCharacteristics: CameraCharacteristics? = null,
         /** When non-null, gates [PnsAdbValidation] success lines to debuggable / diagnostics builds. */
         adbValidationContext: Context? = null,
     ): SaveStats {
@@ -96,11 +108,12 @@ class Dng12Saver(
                 runCatching { setLocation(fix) }
                     .onFailure { Log.w(TAG, "DngCreator.setLocation failed", it) }
             }
-            if (!softwareDescription.isNullOrBlank()) {
+            if (!softwareDescription.isNullOrBlank() && !DngSaveBisectState.skipDngSoftwareDescription) {
                 runCatching { setDescription(softwareDescription) }
                     .onFailure { Log.w(TAG, "DngCreator.setDescription failed", it) }
             }
         }
+        logDngColorDiag(characteristics, captureResult, sessionCameraId)
 
         // Compression hint: DngCreator on Android does not expose a public
         // "uncompressed vs lossless" toggle; the underlying TIFF writer is
@@ -111,27 +124,65 @@ class Dng12Saver(
         Log.d(TAG, "writing DNG profile=${profile.id} raw=${profile.rawMode}")
 
         val stamp50708 = !uniqueCameraModel.isNullOrBlank()
-        if (!stamp50708) {
+        val reconcileLeaf =
+            !sessionCameraId.isNullOrBlank() &&
+                ProShotPipelineContract.leafPostSaveTiffReconcileEnabled(sessionCameraId)
+        val wideCal = wideCalibrationCharacteristics != null
+        Log.i(
+            TAG,
+            "dng openability diag cam=$sessionCameraId reconcile=$reconcileLeaf " +
+                "wideCal=$wideCal stamp50708=$stamp50708 " +
+                "pureProShot=${OnePlus13FleetPolicy.useProShotPureDngSave()}",
+        )
+        if (!stamp50708 && !reconcileLeaf) {
             creator.writeImage(destination, image)
         } else {
+            val preWriteBayerAsn =
+                if (
+                    reconcileLeaf &&
+                    !LeafDngHalReconcile.usesHalColorCalibration(sessionCameraId) &&
+                    !LeafDngHalReconcile.usesAsnOnlyReconcile(sessionCameraId) &&
+                    !LeafDngHalReconcile.usesWideLeafCalibrationReconcile(sessionCameraId)
+                ) {
+                    DngBayerAsShotNeutral.estimate(characteristics, image, captureResult)
+                } else {
+                    null
+                }
             val baos = ByteArrayOutputStream()
             creator.writeImage(baos, image)
-            val rawBytes = baos.toByteArray()
-            val patchResult =
-                runCatching {
-                    TiffUniqueCameraModel50708.appendTag50708(rawBytes, uniqueCameraModel.trim())
-                }
-            val outBytes =
-                patchResult.getOrElse { e ->
-                    Log.w(TAG, "UniqueCameraModel (50708) append failed; writing unpatched DNG", e)
-                    rawBytes
-                }
-            destination.write(outBytes)
-            if (patchResult.isSuccess) {
+            var rawBytes = baos.toByteArray()
+            if (reconcileLeaf) {
+                rawBytes =
+                    LeafDngHalReconcile.applyPostDngCreatorPatches(
+                        rawBytes,
+                        characteristics,
+                        captureResult,
+                        image,
+                        sessionCameraId = sessionCameraId,
+                        preWriteBayerAsn = preWriteBayerAsn,
+                        wideCalibrationCharacteristics = wideCalibrationCharacteristics,
+                    )
                 adbValidationContext?.let {
-                    PnsAdbLog.i(it, "dng UniqueCameraModel 50708 IFD append ok")
+                    PnsAdbLog.i(it, "dng leaf HAL reconcile ok cam=$sessionCameraId")
                 }
             }
+            if (stamp50708) {
+                val patchResult =
+                    runCatching {
+                        TiffUniqueCameraModel50708.appendTag50708(rawBytes, uniqueCameraModel.trim())
+                    }
+                rawBytes =
+                    patchResult.getOrElse { e ->
+                        Log.w(TAG, "UniqueCameraModel (50708) append failed; writing unpatched DNG", e)
+                        rawBytes
+                    }
+                if (patchResult.isSuccess) {
+                    adbValidationContext?.let {
+                        PnsAdbLog.i(it, "dng UniqueCameraModel 50708 IFD append ok")
+                    }
+                }
+            }
+            destination.write(rawBytes)
         }
         destination.flush()
 
@@ -148,6 +199,8 @@ class Dng12Saver(
         location: Location? = null,
         softwareDescription: String? = null,
         uniqueCameraModel: String? = null,
+        sessionCameraId: String? = null,
+        wideCalibrationCharacteristics: CameraCharacteristics? = null,
         adbValidationContext: Context? = null,
     ): SaveStats {
         file.parentFile?.mkdirs()
@@ -160,6 +213,8 @@ class Dng12Saver(
                 location,
                 softwareDescription,
                 uniqueCameraModel,
+                sessionCameraId,
+                wideCalibrationCharacteristics,
                 adbValidationContext,
             )
         }
@@ -186,6 +241,39 @@ class Dng12Saver(
             180 -> 3 // ORIENTATION_ROTATE_180
             270 -> 8 // ORIENTATION_ROTATE_270
             else -> 1
+        }
+
+        private fun logDngColorDiag(
+            characteristics: CameraCharacteristics,
+            captureResult: TotalCaptureResult,
+            sessionCameraId: String?,
+        ) {
+            val cm1 = characteristics.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM1)
+            val cm2 = characteristics.get(CameraCharacteristics.SENSOR_COLOR_TRANSFORM2)
+            val fm1 = characteristics.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX1)
+            val fm2 = characteristics.get(CameraCharacteristics.SENSOR_FORWARD_MATRIX2)
+            val gains = captureResult.get(CaptureResult.COLOR_CORRECTION_GAINS)
+            val neutral = captureResult.get(CaptureResult.SENSOR_NEUTRAL_COLOR_POINT)
+            val gainStr =
+                if (gains != null) {
+                    "R=${"%.3f".format(gains.red)} G=${"%.3f".format((gains.greenEven + gains.greenOdd) / 2f)} B=${"%.3f".format(gains.blue)}"
+                } else {
+                    "null"
+                }
+            Log.i(
+                TAG,
+                "dng color diag cam=$sessionCameraId gains=$gainStr " +
+                    "cm1=${matrixDiag(cm1)} cm2=${matrixDiag(cm2)} " +
+                    "fm1=${matrixDiag(fm1)} fm2=${matrixDiag(fm2)} neutral=${neutral?.contentToString() ?: "null"}",
+            )
+        }
+
+        private fun matrixDiag(m: android.hardware.camera2.params.ColorSpaceTransform?): String {
+            if (m == null) return "null"
+            return runCatching {
+                val e = m.getElement(0, 0)
+                "${e.numerator}/${e.denominator}"
+            }.getOrElse { "?" }
         }
     }
 }

@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
+import android.os.SystemClock
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.view.Surface
@@ -178,6 +179,7 @@ class MediaCodecVideoRecorder(
     private var muxer: MediaMuxer? = null
     private var videoTrack = -1
     private var muxerStarted = false
+    @Volatile private var muxerReadyLatch = CountDownLatch(1)
     private var encoderSurface: Surface? = null
     private var pfd: ParcelFileDescriptor? = null
     private var pendingUri: Uri? = null
@@ -197,6 +199,23 @@ class MediaCodecVideoRecorder(
     /** Peak amplitude since last call (0..32767), resets on read. */
     fun peekAmplitude(): Int = peakAmplitude.getAndSet(0)
 
+    /** True after [MediaMuxer.start] and the video track is registered (first encoded frame path). */
+    fun isMuxerReady(): Boolean = muxerStarted
+
+    /**
+     * Block until the muxer has started or [timeoutMs] elapses. Call after [start] once the
+     * Camera2 session is feeding the encoder [Surface] — avoids empty MP4s when
+     * [onOutputFormatChanged] would otherwise arrive only at [stop].
+     */
+    fun awaitMuxerReady(timeoutMs: Long): Boolean {
+        if (muxerStarted) return true
+        val deadline = SystemClock.uptimeMillis() + timeoutMs.coerceAtLeast(0L)
+        while (!muxerStarted && SystemClock.uptimeMillis() < deadline) {
+            muxerReadyLatch.await(50L, TimeUnit.MILLISECONDS)
+        }
+        return muxerStarted
+    }
+
     /**
      * Prepare the encoder. Returns the [Surface] that must be added to the Camera2 session.
      * Returns null if the codec failed to configure.
@@ -205,6 +224,9 @@ class MediaCodecVideoRecorder(
         check(state == State.Idle) { "prepare called in state $state" }
         this.pfd = pfd
         this.pendingUri = uri
+        muxerReadyLatch = CountDownLatch(1)
+        muxerStarted = false
+        stopping.set(false)
 
         val codecName = config.effectiveEncoder
         Log.i(TAG, "prepare codec=$codecName size=${config.width}x${config.height} fps=${config.fps} 10bit=${config.isTenBit} hdrProfile=${config.hdrProfile}")
@@ -261,7 +283,14 @@ class MediaCodecVideoRecorder(
                 override fun onInputBufferAvailable(mc: MediaCodec, index: Int) {}
 
                 override fun onOutputBufferAvailable(mc: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
-                    if (stopping.get() && (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) == 0) {
+                    if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                        mc.releaseOutputBuffer(index, false)
+                        return
+                    }
+                    // Drop late frames only after muxer is running and EOS was signaled.
+                    if (stopping.get() && muxerStarted &&
+                        (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) == 0
+                    ) {
                         mc.releaseOutputBuffer(index, false)
                         return
                     }
@@ -292,6 +321,7 @@ class MediaCodecVideoRecorder(
                         }
                         muxer?.start()
                         muxerStarted = true
+                        muxerReadyLatch.countDown()
                         Log.i(TAG, "muxer started videoTrack=$videoTrack format=$format")
                     }
                 }

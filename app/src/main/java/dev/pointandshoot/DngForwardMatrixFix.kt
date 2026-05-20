@@ -10,8 +10,8 @@ import android.util.Rational
  *   FM = sRGB_D50 × pinv(CM2)
  * then validated against the captured logcat on CPH2655 (OPPO Find X8 Pro) May 2026.
  *
- * Applied in [Dng12Saver] via [TiffDngColorMatrixPatch] when the session camera ID matches
- * a known-broken entry.
+ * **Deprecated / unwired (May 2026):** FM/ASN post-patch in [Dng12Saver] was reverted — broke wide/tele on CPH2655.
+ * Do not wire without ProShot-aligned session design + USB proof. See [docs/DNG_REFERENCE_APPS.md].
  *
  * **Safe no-op:** if the patch fails or the camera ID is not listed the original DNG is written.
  */
@@ -31,15 +31,12 @@ object DngForwardMatrixFix {
      * Outer key: device model prefix (Build.MODEL prefix, lower-case).
      * Inner key: camera ID string.
      *
-     * CPH2655 = OPPO Find X8 Pro (Qualcomm SM8750 / Snapdragon 8 Elite).
-     *  - Camera "2": UW  (Sony IMX906 equivalent, ~14 mm)
-     *  - Camera "3": Wide (Sony LYT-900, ~23 mm) — reference, left unchanged
-     *  - Camera "4": Tele (Sony LYT-600, ~73–150 mm equivalent)
+     * CPH2655 = OnePlus 13 dodge leaf ids ([OnePlus13FleetPolicy]): **3** UW, **2** wide, **4** tele.
      */
     private val overrides: Map<String, Map<String, FmOverride>> = mapOf(
         "cph2655" to mapOf(
-            // UW (cam2) — FM = sRGB→XYZ_D50 × pinv(CM2_uw), computed May 2026 from v4 DNG
-            "2" to FmOverride(
+            // UW (cam3) — FM = sRGB→XYZ_D50 × pinv(CM2_uw), computed May 2026 from v4 DNG
+            "3" to FmOverride(
                 fm1 = arrayOf(
                     r(3083), r(3971), r(5936),
                     r(2278), r(5766), r(4936),
@@ -77,7 +74,7 @@ object DngForwardMatrixFix {
 
     private val wbCorrections: Map<String, Map<String, WbCorrection>> = mapOf(
         "cph2655" to mapOf(
-            "2" to WbCorrection(scaleR = 1.147f, scaleB = 1.036f),   // UW
+            "3" to WbCorrection(scaleR = 1.147f, scaleB = 1.036f),   // UW
             "4" to WbCorrection(scaleR = 1.602f, scaleB = 1.147f),   // Tele
         ),
     )

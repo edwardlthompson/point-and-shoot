@@ -106,6 +106,13 @@ internal class VideoRecordingController(
      */
     fun isRecorderPresent(): Boolean = mediaRecorder != null || mcRecorder?.isActive == true
 
+    /** True after [maybeStartRecorder] / MediaRecorder.start (not merely prepared). */
+    fun isRecorderStarted(): Boolean = recorderStarted
+
+    /** MediaCodec path: true once [MediaMuxer] has started (first encoder output format). */
+    fun isMuxerReadyForRecord(): Boolean =
+        mcRecorder?.isMuxerReady() == true || mediaRecorder != null
+
     /**
      * Pre-signal from the Compose layer that the upcoming recording will use [MediaCodecVideoRecorder].
      * Called synchronously before `isRecording=true` triggers a session rebuild, so [createSession]
@@ -224,7 +231,7 @@ internal class VideoRecordingController(
 
         // HFR check - MediaCodec path handles fps > 60 natively; no rejection needed for that path
         val isHfr = desiredFps >= HFR_THRESHOLD_FPS
-        val useMediaCodecPath = isHfr || videoFormat.isTenBit
+        val useMediaCodecPath = isHfr || videoFormat.isTenBit || videoFormat.isDcg
         // Signal immediately so createSession can skip useHighSpeed before recorder is prepared
         wantsMediaCodecPath = useMediaCodecPath
         if (isHfr && !useMediaCodecPath && !(wantHighSpeed && supportsHighSpeed)) {
@@ -248,6 +255,16 @@ internal class VideoRecordingController(
         }
         
         val actualBitrate = bitrateForSize(size.width, size.height, targetFps, videoFormat.codec)
+        val scalePct =
+            HudSettings.load(appContext).videoBitrateScalePercent.coerceIn(
+                HudSettings.VIDEO_BITRATE_SCALE_MIN,
+                HudSettings.VIDEO_BITRATE_SCALE_MAX,
+            )
+        Log.i(
+            TAG,
+            "videoBitrateScale=${scalePct}% actualBitrate=$actualBitrate " +
+                "size=${size.width}x${size.height} fps=$targetFps codec=${videoFormat.codec}",
+        )
 
         // Open video output
         val pair = runCatching {
@@ -516,5 +533,13 @@ internal class VideoRecordingController(
         fps: Int = 30,
         codec: VideoCodec = VideoCodec.H265,
         baseBitrate: Int = IN_APP_VIDEO_RECORD_BITRATE,
-    ): Int = VideoFormatPresets.calculateBitrate(width, height, fps, codec)
+    ): Int {
+        val base = VideoFormatPresets.calculateBitrate(width, height, fps, codec)
+        val scale =
+            HudSettings.load(appContext).videoBitrateScalePercent.coerceIn(
+                HudSettings.VIDEO_BITRATE_SCALE_MIN,
+                HudSettings.VIDEO_BITRATE_SCALE_MAX,
+            )
+        return (base.toLong() * scale / 100L).toInt().coerceAtLeast(2_000_000)
+    }
 }

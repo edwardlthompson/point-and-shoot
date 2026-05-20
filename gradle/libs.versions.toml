@@ -35,6 +35,7 @@ androidx-compose-material-icons-extended = { module = "androidx.compose.material
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 
 androidx-camera-core = { module = "androidx.camera:camera-core", version.ref = "cameraXExtensions" }
+androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraXExtensions" }
 androidx-camera-extensions = { module = "androidx.camera:camera-extensions", version.ref = "cameraXExtensions" }
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "cameraXExtensions" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "cameraXExtensions" }

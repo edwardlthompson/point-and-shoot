@@ -36,6 +36,7 @@ param(
     [switch]$SweepCameraIds,
     [switch]$SkipAssemble,
     [switch]$SkipInstall,
+    [string]$PreviewStillMode = "",
     [string]$BisectStep = "",
     [string]$Notes = "",
     [switch]$NoHistoryAppend
@@ -83,6 +84,10 @@ if ($Fast) { $argList.Add("-Fast") }
 if ($SweepCameraIds) { $argList.Add("-SweepCameraIds") }
 if ($SkipAssemble) { $argList.Add("-SkipAssemble") }
 if ($SkipInstall) { $argList.Add("-SkipInstall") }
+if (-not [string]::IsNullOrWhiteSpace($PreviewStillMode)) {
+    $argList.Add("-PreviewStillMode")
+    $argList.Add($PreviewStillMode)
+}
 
 Write-Host "[capture_pipeline_verify] invoking photo_capture_verify (child process)..."
 $p = Start-Process -FilePath "powershell.exe" -ArgumentList $argList -Wait -PassThru -NoNewWindow

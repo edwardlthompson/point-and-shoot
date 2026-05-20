@@ -34,6 +34,13 @@ keystore.b64
 # NDK / CMake build outputs
 .cxx/
 
+# Release APK copies at repo root (GitHub release assets only)
+Point-and-Shoot_*.apk
+
+# jadx bundle (downloaded on demand by pns_*_apk_decompile.ps1)
+tools/jadx/*
+!tools/jadx/README.md
+
 # CycloneDX SBOM artifacts emitted on demand by scripts/pns_sbom.ps1
 # (gate verifies in-memory; no need to commit the JSON).
 docs/sbom.json

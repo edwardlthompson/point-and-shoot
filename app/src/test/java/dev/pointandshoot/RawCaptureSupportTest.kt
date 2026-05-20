@@ -38,6 +38,28 @@ class RawCaptureSupportTest {
     }
 
     @Test
+    fun pickRawSensorWxHForActiveArray_prefersExactActiveArray() {
+        val picked =
+            RawCaptureSupport.pickRawSensorWxHForActiveArray(
+                rawSensorSizes = listOf(4096 to 3072, 1920 to 1440),
+                activeW = 4096,
+                activeH = 3072,
+            )
+        assertEquals(4096 to 3072, picked)
+    }
+
+    @Test
+    fun pickRawSensorWxHForActiveArray_fallsBackToLargest() {
+        val picked =
+            RawCaptureSupport.pickRawSensorWxHForActiveArray(
+                rawSensorSizes = listOf(1920 to 1440, 4000 to 3000),
+                activeW = 4096,
+                activeH = 3072,
+            )
+        assertEquals(4000 to 3000, picked)
+    }
+
+    @Test
     fun rawPickEffectiveLabel_mapsFormats() {
         assertEquals("RAW12", RawCaptureSupport.rawPickEffectiveLabel(ImageFormat.RAW12))
         assertEquals("RAW10", RawCaptureSupport.rawPickEffectiveLabel(ImageFormat.RAW10))
@@ -132,9 +154,9 @@ class RawCaptureSupportTest {
     }
 
     @Test
-    fun useNeutralColorPipelineForRawStillCore_leafUw_true() {
+    fun useNeutralColorPipelineForRawStillCore_leafUw_false() {
         assertEquals(
-            true,
+            false,
             RawCaptureSupport.useNeutralColorPipelineForRawStillCore(
                 wideBackCameraId = "2",
                 sessionPhysicalChildren = emptySet(),
@@ -169,6 +191,24 @@ class RawCaptureSupportTest {
                 lensFacing = CameraCharacteristics.LENS_FACING_BACK,
                 sessionCameraId = "0",
                 previewPhysicalCameraId = "4",
+            ),
+        )
+    }
+
+    @Test
+    fun isLeafBackSession_trueForEmptyPhysicalChildrenOnBack() {
+        assertEquals(
+            true,
+            RawCaptureSupport.isLeafBackSession(
+                sessionPhysicalChildren = emptySet(),
+                lensFacing = CameraCharacteristics.LENS_FACING_BACK,
+            ),
+        )
+        assertEquals(
+            false,
+            RawCaptureSupport.isLeafBackSession(
+                sessionPhysicalChildren = setOf("2", "3"),
+                lensFacing = CameraCharacteristics.LENS_FACING_BACK,
             ),
         )
     }

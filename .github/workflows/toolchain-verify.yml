@@ -83,6 +83,13 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Host DNG fixture gates (13.3g openability)
+        shell: pwsh
+        run: |
+          Set-Location "${{ github.workspace }}"
+          python3 --version
+          ./scripts/pns_fixture_dng_gates.ps1
+
       - name: Run pns_verify_toolchain.ps1 (assemble + gates + :app:testDebugUnitTest)
         shell: pwsh
         run: |

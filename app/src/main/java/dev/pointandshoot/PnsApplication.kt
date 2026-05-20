@@ -16,5 +16,6 @@ class PnsApplication : Application() {
         PnsStartupTrace.recordApplicationOnCreate()
         GlobalScope.launch { MediaCodecCapabilityProbe.probe() }
         GlobalScope.launch { CameraXExtensionProbe.probe(this@PnsApplication) }
+        GlobalScope.launch { SceneVendorHintProbe.probe(this@PnsApplication) }
     }
 }

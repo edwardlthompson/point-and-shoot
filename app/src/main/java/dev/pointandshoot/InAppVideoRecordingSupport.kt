@@ -2,6 +2,7 @@ package dev.pointandshoot
 
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.media.MediaRecorder
+import android.util.Range
 import android.util.Size
 import kotlin.math.roundToInt
 
@@ -127,5 +128,51 @@ object InAppVideoRecordingSupport {
             }
         }
         return allFps.sortedDescending()
+    }
+
+    /**
+     * Pick constrained high-speed preview + record size for [desiredFps] (Sprint **13V.16**).
+     *
+     * When [preferredEncodeSize] is **4K** (e.g. 3840×2160), prefer that tier if the HAL lists it
+     * as a high-speed size before falling back to 1080p / 720p defaults.
+     */
+    fun pickHighSpeedVideoTarget(
+        map: StreamConfigurationMap?,
+        desiredFps: Int,
+        preferredEncodeSize: Size? = null,
+    ): Pair<Size, Range<Int>>? {
+        if (map == null) return null
+        val sizes = runCatching { map.highSpeedVideoSizes?.toList() }.getOrNull().orEmpty()
+        if (sizes.isEmpty()) return null
+
+        fun matchesSize(want: Size): Boolean =
+            sizes.any { it.width == want.width && it.height == want.height }
+
+        fun fpsRangeFor(size: Size): Range<Int>? {
+            val ranges = runCatching { map.getHighSpeedVideoFpsRangesFor(size) }.getOrNull() ?: return null
+            return ranges.firstOrNull { it.lower == desiredFps && it.upper == desiredFps }
+                ?: ranges.firstOrNull { it.upper == desiredFps }
+        }
+
+        val pref = preferredEncodeSize?.takeIf { it.width > 0 && it.height > 0 }
+        if (pref != null && matchesSize(pref)) {
+            fpsRangeFor(pref)?.let { return pref to it }
+        }
+
+        if (pref != null && pref.width >= 3840) {
+            sizes
+                .mapNotNull { s -> fpsRangeFor(s)?.let { range -> s to range } }
+                .maxByOrNull { it.first.width.toLong() * it.first.height }
+                ?.let { return it }
+        }
+
+        val preferredOrder = listOf(Size(1920, 1080), Size(1280, 720))
+        val candidateSizes =
+            (preferredOrder.filter { matchesSize(it) } + sizes).distinctBy { "${it.width}x${it.height}" }
+
+        for (s in candidateSizes) {
+            fpsRangeFor(s)?.let { return s to it }
+        }
+        return null
     }
 }

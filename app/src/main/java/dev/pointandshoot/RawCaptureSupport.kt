@@ -9,6 +9,8 @@ import android.os.Build
 import android.util.Size
 import android.view.Surface
 import android.view.WindowManager
+import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.StillDngBackend
 
 /**
  * Host / ADB override for which advertised RAW stream to attach in preview (see
@@ -163,6 +165,16 @@ object RawCaptureSupport {
         val wide = roles.wide
         val sessionChildren =
             runCatching { chars.physicalCameraIds?.toSet().orEmpty() }.getOrDefault(emptySet())
+        if (OnePlus13FleetPolicy.appliesToDevice() && isLeafBackSession(sessionChildren, facing)) {
+            when (OnePlus13FleetPolicy.stillDngBackend()) {
+                StillDngBackend.MOTIONCAM_INSPIRED ->
+                    pickRawAtActiveArrayRawSensor(chars)?.let { return it }
+                StillDngBackend.FRAMEWORK_PROSHOT ->
+                    pickRawOutputFromFormatOrder(chars, OnePlus13FleetPolicy.LEAF_RAW_FORMAT_ORDER)
+                        ?.let { return it }
+                StillDngBackend.MOTIONCAM_NATIVE -> Unit
+            }
+        }
         if (shouldUseLeafNonWideBackRawSensorPolicy(
                 userPreference,
                 sessionCameraId,
@@ -237,13 +249,10 @@ object RawCaptureSupport {
     ): Boolean {
         val wide = wideBackCameraId ?: return false
         if (sessionPhysicalChildren.isEmpty()) {
-            return shouldUseLeafNonWideBackRawSensorPolicy(
-                RawStreamPreference.Default,
-                sessionCameraId,
-                wide,
-                sessionPhysicalChildren,
-                lensFacing,
-            )
+            // Leaf physical id (UW/tele/wide): keep RAW_SENSOR pick in [pickRawOutputForPreviewSession],
+            // but still apply ISP color correction on the still request — ProShot does; skipping CC
+            // here mis-tags DngCreator metadata on CPH2655 aux (dark / green cast).
+            return false
         }
         return preferRawSensorForAuxBackStill(
             RawStreamPreference.Default,
@@ -255,9 +264,9 @@ object RawCaptureSupport {
     }
 
     /**
-     * RAW+JPEG still capture: use a **DngCreator-friendly** color pipeline (skip HQ CC / tonemap
-     * overrides from [PreviewJpegProcessingHints]) on auxiliary sensors — leaf UW/tele ids or
-     * logical sessions with a non-wide preview physical pin.
+     * RAW+JPEG still capture: skip HQ color correction from [PreviewJpegProcessingHints] only on
+     * **logical** sessions with a non-wide preview physical pin (or tele focal crop) — not on
+     * leaf physical UW/tele/wide opens (ProShot-aligned CC on those stills).
      */
     fun useNeutralColorPipelineForRawStill(
         cm: CameraManager,
@@ -302,6 +311,68 @@ object RawCaptureSupport {
             rawSensor = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }.getOrNull(),
             preference = preference,
         )
+    }
+
+    internal fun isLeafBackSession(
+        sessionPhysicalChildren: Set<String>,
+        lensFacing: Int?,
+    ): Boolean =
+        lensFacing == CameraCharacteristics.LENS_FACING_BACK && sessionPhysicalChildren.isEmpty()
+
+    /**
+     * MotionCam-style: prefer [ImageFormat.RAW_SENSOR] at [SENSOR_INFO_ACTIVE_ARRAY_SIZE] when listed,
+     * else largest RAW_SENSOR (not ProShot's max-area pick across formats).
+     */
+    internal fun pickRawAtActiveArrayRawSensor(characteristics: CameraCharacteristics): Pair<Int, Size>? {
+        val map =
+            characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?: return null
+        val active =
+            characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+                ?: return null
+        val sizes =
+            runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }.getOrNull().orEmpty()
+        if (sizes.isEmpty()) return null
+        val target = Size(active.width(), active.height())
+        sizes.firstOrNull { it.width == target.width && it.height == target.height }
+            ?.let { return ImageFormat.RAW_SENSOR to it }
+        val largest =
+            sizes.maxByOrNull { it.width.toLong() * it.height }
+                ?: return null
+        return ImageFormat.RAW_SENSOR to largest
+    }
+
+    /**
+     * ProShot leaf RAW pick order on the **opened** camera map (Milestone **13.3c**).
+     */
+    internal fun pickRawOutputFromFormatOrder(
+        characteristics: CameraCharacteristics,
+        formatOrder: List<Int>,
+    ): Pair<Int, Size>? {
+        val map =
+            characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                ?: return null
+        fun largest(fmt: Int): Size? {
+            val sizes = runCatching { map.getOutputSizes(fmt)?.toList() }.getOrNull().orEmpty()
+            return sizes.takeIf { it.isNotEmpty() }?.maxByOrNull { it.width.toLong() * it.height }
+        }
+        for (fmt in formatOrder) {
+            largest(fmt)?.let { return fmt to it }
+        }
+        return null
+    }
+
+    /**
+     * JVM tests: pick RAW_SENSOR WxH matching active array from size pairs.
+     */
+    internal fun pickRawSensorWxHForActiveArray(
+        rawSensorSizes: List<Pair<Int, Int>>,
+        activeW: Int,
+        activeH: Int,
+    ): Pair<Int, Int>? {
+        if (rawSensorSizes.isEmpty() || activeW <= 0 || activeH <= 0) return null
+        rawSensorSizes.firstOrNull { it.first == activeW && it.second == activeH }?.let { return it }
+        return rawSensorSizes.maxByOrNull { it.first.toLong() * it.second }
     }
 
     /**

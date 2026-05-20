@@ -1,0 +1,40 @@
+---
+description: Locked DNG save/post-save pipeline — do not break file loadability in Lightroom/ACR
+globs:
+alwaysApply: true
+---
+
+# DNG save pipeline (locked — loadability)
+
+**Do not change without explicit maintainer request + USB proof** on **CPH2655** (`8bf09993`): install build, run **`scripts/pns_aux_dng_capture_analyze.ps1`**, confirm **`DNG INTEGRITY: PASS`**, and open pulled DNGs in **Lightroom or ACR**.
+
+## May 2026 regression — unreadable DNGs
+
+**Symptom:** DNGs ~25 MB on disk; **Lightroom / ACR refuse to open**; rawpy may still decode. User-reported on **`aux_dng_capture_analyze_20260518_143923`** class builds.
+
+**Root cause (confirmed):** After **`DngCreator.writeImage`**, **`StillCaptureMetadata.applyToDngUri`** called **`ExifInterface.saveAttributes()`** on the full row-strip DNG. That API rewrites TIFF for JPEG-style EXIF and **destroys per-row strip layout** (3072 × `StripOffsets` on this HAL).
+
+**Secondary risk (removed same fix):** **`LeafDngHalReconcile`** overwrote IFD0 **ColorMatrix / ForwardMatrix** from **`CameraCharacteristics`** — not required for loadability; forensics show ProShot does not matrix-patch (`docs/DNG_PS_ALIGNMENT_SPIKE.md`).
+
+## Shipped invariants
+
+1. **`StillCaptureMetadata.applyToDngUri`:** **Never** call **`ExifInterface.saveAttributes()`** (or any full-file EXIF rewrite) on DNG. Allowed: **in-place** IFD patches only — **`TiffIfd0Software305`**, **`TiffExifSubIfdCapturePatch`** — then write bytes back with **`contentResolver.openOutputStream(uri, "wt")`**.
+2. **`LeafDngHalReconcile`:** **AsShotNeutral only** (Bayer means pre-`writeImage`, or DNG strip fallback). **Do not** call **`TiffDngColorMatrixPatch.patchCalibrationTagsIfd0`** / **`patchForwardMatrix`** in the save path without maintainer sign-off + viewer proof.
+3. **`Dng12Saver`:** Bayer ASN estimate runs **before** **`DngCreator.writeImage`** when leaf reconcile is on (buffer may be invalid after write).
+4. **DNG automation:** **`pns_preview_jpeg_companion=false`** in **`scripts/pns_aux_dng_capture_analyze.ps1`** and related DNG-only scripts — do not add JPEG surfaces to RAW-only gates.
+5. **Gate:** **`scripts/dng_tiff_integrity_check.py`** must **PASS** on all pulled DNGs (strip table + rawpy). Wired in **`pns_aux_dng_capture_analyze.ps1`**.
+
+## Regression signatures
+
+| Observation | Likely cause |
+|-------------|----------------|
+| ACR/LR “cannot open”; file ~25 MB; rawpy OK | **`ExifInterface`** reintroduced on DNG in **`applyToDngUri`** |
+| File size collapsed (≪ 20 MB) | Same — strips truncated |
+| Log: `IFD0 CM/FM reconciled` on leaf save | **`patchCalibrationTagsIfd0`** re-enabled in **`LeafDngHalReconcile`** |
+| `AsShotNeutral` WB ≈ 1.0 on all channels | Wrong Bayer CFA pick only (color, not loadability) — see **`DngBayerAsShotNeutral`** |
+
+## References
+
+- **`AGENTS.md`** — **CRITICAL — DNG save pipeline (do not break loadability)**
+- **`docs/DNG_PS_ALIGNMENT_SPIKE.md`** — post-`DngCreator` policy
+- Verified run: **`hfr-runs/aux_dng_capture_analyze_20260519_014855`**

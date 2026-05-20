@@ -24,8 +24,11 @@ import kotlin.math.roundToInt
  * EXIF tags in the **EXIF SubIFD**; **the EXIF SubIFD location is preferred** for interoperability.
  * Gallery apps (Google Photos, OEM galleries) typically surface ISO / shutter / aperture from that
  * EXIF Photo block. We therefore patch IFD0 ASCII (Make/Model/DateTime/Software) **and** overwrite
- * existing EXIF IFD entries in-place ([TiffExifSubIfdCapturePatch]), then run [ExifInterface] for any
- * remaining tags.
+ * existing EXIF IFD entries in-place ([TiffExifSubIfdCapturePatch]).
+ *
+ * **DNG loadability (locked May 2026):** Do **not** call [ExifInterface.saveAttributes] on DNG — it
+ * corrupts CPH2655 row-strip TIFFs (Lightroom/ACR cannot open). See [applyToDngUri] and
+ * `.cursor/rules/dng-save-pipeline-lock.mdc`.
  */
 object StillCaptureMetadata {
     private const val TAG = "PNS.StillExif"
@@ -82,40 +85,22 @@ object StillCaptureMetadata {
                     dateStr,
                 )
 
-            val tmp = File.createTempFile("pns_dng_exif", ".dng", context.cacheDir)
-            try {
-                tmp.writeBytes(patchedBytes)
-                runCatching {
-                    val exif = ExifInterface(tmp.absolutePath)
-                    fillExifFields(
-                        exif,
-                        characteristics,
-                        result,
-                        location,
-                        setOrientation = false,
-                        stampSoftwareTag = false,
-                    )
-                    exif.saveAttributes()
-                    runCatching {
-                        val isoRead = exif.getAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY)
-                        val expRead = exif.getAttribute(ExifInterface.TAG_EXPOSURE_TIME)
-                        Log.d(TAG, "DNG post-save read-back iso=$isoRead exposure=$expRead")
-                    }
-                }.onFailure { e ->
-                    Log.w(TAG, "DNG ExifInterface pass skipped/err uri=$uri err=${e.message}")
-                    tmp.writeBytes(patchedBytes)
-                }
-                context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
-                    tmp.inputStream().use { ins -> ins.copyTo(outs) }
-                }
-                location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
-                Log.i(
-                    TAG,
-                    "apply DNG metadata ok uri=$uri iso=${result.get(CaptureResult.SENSOR_SENSITIVITY) ?: "?"} geo=${location != null}",
-                )
-            } finally {
-                tmp.delete()
+            // Do NOT run [ExifInterface.saveAttributes] on DNG: it rewrites the TIFF for JPEG-style
+            // EXIF and destroys CPH2655 row-strip payloads (Lightroom/ACR "cannot load"; rawpy may
+            // still decode). In-place IFD patches above preserve strip offsets from [DngCreator].
+            context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
+                outs.write(patchedBytes)
+                outs.flush()
             }
+                ?: run {
+                    Log.w(TAG, "DNG write failed uri=$uri")
+                    return@runCatching
+                }
+            location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+            Log.i(
+                TAG,
+                "apply DNG metadata ok uri=$uri iso=${result.get(CaptureResult.SENSOR_SENSITIVITY) ?: "?"} geo=${location != null}",
+            )
         }.onFailure { e ->
             Log.w(TAG, "apply DNG metadata failed uri=$uri err=${e.message}")
         }

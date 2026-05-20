@@ -1,6 +1,6 @@
 ﻿# BUILD_PLAN — completed milestones & sprints
 
-Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog, **Milestone 10** sprints **10.1–10.13** / **10.15** (2026-05-15); **Milestone 11** sprints **11.1**, **11.2**, **11.4** (2026-05-15+); **Milestone 12** sprints **12.1**, **12.6** (2026-05-16). Active roadmap continues in the root **BUILD_PLAN.md**.
+Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
 
 ---
 ## Milestone 0 — Baseline quality bar (always on)
@@ -672,5 +672,194 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 - [x] **[HOST]** Research `imagemagick` or `opencv-python` for dE2000 color accuracy and MTF50 slanted-edge sharpness measurement. **Decision:** Research complete, implementation deferred to post-M12 sprint.
 
 **Sprint check:** All 8 scripts exist and documented; 6+ scripts tested with device evidence in `hfr-runs/`; Milestone H human checklist reduced to truly subjective items only.
+
+---
+
+## Milestone 10 — Post–Milestone 9 product expansion (gate passed 2026-05-17)
+
+**Completed sprints:** **10.1–10.13**, **10.15**, **10.16**. Camera app integration verified on **8bf09993** (`STILL_IMAGE_CAMERA`, `VIDEO_CAMERA` intent filters). **Human sign-off** items → **Milestone H** in active plan.
+
+**Milestone 10 gate — PASSED 2026-05-17**
+
+---
+
+## Milestone 11 — Capture UX fixes (gate passed 2026-05-17)
+
+**Completed sprints:** **11.1** (WB menu), **11.2** (dodge tele routing), **11.3** (face meter probe; overlay sign-off → **H.6**), **11.4** (in-app video + RES).
+
+**Milestone 11 gate — PASSED 2026-05-17**
+
+---
+
+## Milestone 12 — Post-audit capture completeness (gate criteria met 2026-05-17)
+
+**Completed sprints:** **12.1–12.6** (audio, HFR research, native encoder, `VideoRecordingController` refactor, audio guardrail, automation scripts).
+
+**Milestone 12 gate** — host/automation criteria met; device evidence in §5.
+
+---
+
+## Milestone 13 — Fleet RAW parity (OnePlus 13 anchor)
+
+**Objective:** Aux DNG color on **CPH2655**; **Standard** ProShot still default; optional **ZSL** / **HDR still**; fleet profiles; **DCG** session + encoded HDR10; **RAW video** lane on OP13.
+
+**Still modes:** **Standard** (ProShot `DngCreator`) default; **ZSL** / **HDR** optional — same DNG writer, no MotionCam native SDK.
+
+**Key references:** `docs/FLEET_ONEPLUS13_RAW_POLICY.md`, `docs/DNG_OPENABILITY_REGRESSIONS.md`, `docs/MOTIONCAM_APK_FLEET_ANALYSIS.md`, `docs/M13_4_DCG_SESSION.md`, `docs/M13_6_RAW_VIDEO.md`, `docs/M13_8D_STILL_MODE_BENCHMARK.md`, `AGENTS.md` CRITICAL locks.
+
+### Sprint 13.1 — Reference APK decompile (ProShot + MotionCam Pro)
+
+- [x] **[MIXED]** `scripts/pns_motioncam_apk_decompile.ps1`; **`docs/MOTIONCAM_APK_FLEET_ANALYSIS.md`**; **`docs/RAW_REFERENCE_APP_MATRIX.md`**
+
+**Sprint check (May 2026, `8bf09993`):** `libnative-camera-host.so` + `.mcraw`; no `EnableHDRDCGMode` in MotionCam APK — P&S DCG follows Qualcomm probe.
+
+### Sprint 13.2 — Fleet model: `FleetCameraProfile` + OnePlus 13 policy
+
+- [x] **[HOST]** `dev.pointandshoot.fleet` — profiles, `OnePlus13FleetPolicy`, probe export, focal wiring, **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`**, JVM tests
+
+### Sprint 13.3 — Still DNG parity (OnePlus 13)
+
+**ProShot layer contract** on leaf ids **3/2/4** — see archived **`BUILD_PLAN.md`** git history for full table.
+
+#### 13.3a–c — Leaf metadata, IQ, RAW order
+
+- [x] Leaf `DngMetadataResolver`; `StillCaptureIqPolicy`; `LEAF_RAW_FORMAT_ORDER` **32→37→38→36**
+
+### Sprint 13.3g — ProShot pipeline fidelity + DNG openability (P0)
+
+- [x] **[HOST]** `docs/DNG_OPENABILITY_REGRESSIONS.md`; **`ProShotPipelineContract`**; pure `DngCreator` on OP13 leaf (wide-cal / reconcile off by default)
+- [x] **[HOST]** `dng_desktop_open_gate.py`, `pns_m13_3g2_gate.ps1`, wired into `pns_aux_dng_capture_analyze.ps1`
+- [x] **[ADB]** USB **`8bf09993`**: capture **3/3** + openability **PASS** (`hfr-runs/aux_dng_capture_analyze_20260519_235745/`)
+
+**Human ACR sign-off** → **Milestone H** (Sprint **H.7**).
+
+### Sprint 13.3h — OEM wide-cal bisect (optional)
+
+- [x] H1–H3 **do not ship** `useWideLeafCalibrationForAuxDng`; evidence `hfr-runs/m13_3h_wide_cal_bisect_20260520_003542/`
+
+### Sprint 13.3e — Lock bisect ladder
+
+- [x] E1–E6; **no lock promoted**; `hfr-runs/m13_3e_lock_bisect_20260520_005414/report.md`
+
+### Sprint 13.3f — Daylight USB gates
+
+- [x] `pns_m13_3f_gate.ps1`, `pns_aux_dng_capture_analyze` **3/3**, ProShot parity rawpy **FAIL** on UW/tele (documented HAL issue)
+
+**Human visual ACR** → **Milestone H** (Sprint **H.7**).
+
+### Sprint 13.8 — Optional still modes (ZSL + HDR)
+
+#### 13.8a–d
+
+- [x] `StillCaptureMode`; HUD cycle; `ZslStillFrameRing`; HDR bracket **3× DNG**; `pns_still_mode_benchmark.ps1` v2; `pns_m13_8d_gate.ps1` USB **PASS** (`hfr-runs/m13_8d_gate_20260520_020059/`)
+
+**Human `STILL_MODE_COMPARE.md`** → **Milestone H** (Sprint **H.7**).
+
+### Sprint 13.4 — DCG session alignment (encoded HDR video)
+
+- [x] `DcgSessionParameters` + `resolveInAppVideoFormat()`; USB `pns_video_hdr10_metadata_verify.ps1` **PASS** (`hfr-runs/hdr10_meta_verify_20260519_222210/`)
+
+### Sprint 13.5 — Fleet catalog
+
+- [x] `FleetCameraCatalog`, `FleetOemOverrides`, probe export, CI `pns_fixture_dng_gates.ps1`
+
+### Sprint 13.6 — RAW video path (MCRAW-class)
+
+- [x] `RawVideoWriter` (`PNMRAWV1`); `RawVideoRecordingController`; HUD RAW lane; ADB `pns_preview_video_raw_sec`; USB **PASS** 145 frames (`hfr-runs/raw_video_verify_20260519_225113/`)
+
+**Scope:** OP13 leaf cameras only for RAW video MVP.
+
+---
+
+## Milestone 13V — Video product expansion (2026-05-17)
+
+**Objective:** Power-button quick-launch, HFR / 10-bit encoded video, DCG + HDR10 metadata, unified format picker, macro mode, recording overlays, RGB histogram. **Sprint IDs** use **13V.** prefix to distinguish from **Milestone 13** fleet RAW (**13.1–13.8**).
+
+### Sprint 13V.1 — Power button quick-launch (P1)
+
+- [x] `clearTaskOnLaunch`, `STILL_IMAGE_CAMERA_SECURE`, Quick Settings tiles; `pns_power_button_gate.ps1`
+
+### Sprint 13V.2 — YUV+10-bit "RAW-like" video (P1)
+
+- [x] HEVC Main10 / YUVP010 via `MediaCodecVideoRecorder`; `pns_mediacodec_hfr_verify.ps1` TenBit cases PASS (`hfr-runs/mediacodec_verify_20260517_100346`)
+
+### Sprint 13V.3 — HFR 1080p@120 / 240 (P1)
+
+- [x] MediaCodec path; ADB `pns_preview_video_fps` / `pns_preview_video_10bit`; 120/240 PASS same verify run
+
+### Sprint 13V.4 — Unified video format picker (P1)
+
+- [x] `VideoFormatPickerSheet`, `VideoFormatPresets`, 4K tiers; 7/7 `pns_mediacodec_hfr_verify.ps1` (`hfr-runs/mediacodec_verify_20260517_114216`)
+
+### Sprint 13V.5 — DCG + HDR10 SEI (P2)
+
+- [x] `DcgModeSupport`, HDR10 static info on MediaCodec; `pns_video_hdr10_metadata_verify.ps1` PASS (`hfr-runs/hdr10_meta_verify_20260517_120333`)
+
+### Sprint 13V.6 — Macro shooting mode (P2)
+
+- [x] `CommandDialMode.Macro`, UW auto-switch, vendor keys; `pns_macro_focus_verify.ps1` PASS
+
+### Sprint 13V.7 — Multi-camera pipeline research (P3)
+
+- [x] Documented in `docs/RAW_CAPTURE_DEVICE_MATRIX.md`
+
+### Sprint 13V.8 — Recording overlays (timer + audio meters) (P2)
+
+- [x] `TimecodeOverlay`, `AudioLevelMeter`; `pns_recording_overlays_verify.ps1` PASS
+
+### Sprint 13V.9 — RGB histogram for video (P3)
+
+- [x] `PreviewLumaHistogram.reduceRgb()`, HUD toggle; `pns_rgb_histogram_verify.ps1` PASS
+
+### Sprint 13V.10 — Focus peaking for video (P3)
+
+- [x] GLES peaking + M dial manual focus; `pns_focus_peaking_verify.ps1`; **`docs/M13V_10_FOCUS_PEAKING.md`**
+
+### Sprint 13V.11 — LUT preview for video (P3)
+
+- [x] `PreviewLutSelection` + `PNS.LutPreview`; `pns_video_lut_preview_verify.ps1`; **`docs/M13V_11_VIDEO_LUT_PREVIEW.md`**
+
+### Sprint 13V.12 — Battery / thermal monitoring (P3)
+
+- [x] `PreviewPowerThermalOverlay`; `pns_power_thermal_verify.ps1`; **`docs/M13V_12_POWER_THERMAL.md`**
+
+### Sprint 13V.13 — Storage remaining indicator (P3)
+
+- [x] `PreviewStorageRemainingOverlay`; `pns_storage_remaining_verify.ps1`; **`docs/M13V_13_STORAGE_REMAINING.md`**
+
+### Sprint 13V.14 — README update (P2)
+
+- [x] README audit **M10–13V** shipped features, status table, verify-script index (May 2026)
+
+### Sprint 13V.15 — MediaCodec capability probe (P1)
+
+- [x] `MediaCodecCapabilityProbe` + `PNS.VideoCapProbe`; `pns_video_capability_probe.ps1` **PASS** on **`8bf09993`** (`has4k120=true`, `c2.qti.hevc.encoder` **3840x2160@120fps**); **`docs/M13V_15_VIDEO_CAP_PROBE.md`**
+
+### Sprint 13V.16 — 4K@120 unlock (P1)
+
+- [x] Chrome encode prefs → `setInAppVideoEncodeSize` + `pickHighSpeedVideoTarget` (4K pref before 1080p/720p HS fallbacks); HFR record size follows constrained session (OP13: **720p@120** capture, encoder advertises **4K@120**).
+- [x] MediaCodec path at **120+ fps** (no 60 fps cap); `peekInAppVideoRecorderStarted` waits for muxer-ready; muxer lifecycle fix (no pre-muxer discard on stop).
+- [x] ADB `--ei pns_preview_video_encode_w/h`; `pns_mediacodec_hfr_verify.ps1` **7/7 PASS** on **`8bf09993`** (`hfr-runs/mediacodec_verify_20260520_011851/`).
+- [x] **`docs/M13V_16_4K120_UNLOCK.md`**
+
+### Sprint 13V.17 — AI features backlog (P3)
+
+- [x] **[HOST]** `SmileStillCapturePolicy` + ML Kit smile on YUV when HUD enabled; tray still capture ref; cooldown **4.5 s**.
+- [x] **[HOST]** `SceneVendorHintProbe` at app start → **`PNS.SceneHint`**; HUD **Scene vendor hints (log)**.
+- [x] **[HOST]** `videoBitrateScalePercent` (**50–150%**) in `VideoRecordingController.bitrateForSize()`; HUD slider.
+- [x] **[HOST]** `pns_ai_features_verify.ps1 -HostOnly`; JVM **`SmileStillCapturePolicyTest`**, **`SceneVendorHintProbeTest`**.
+- [x] **`docs/M13V_17_AI_FEATURES.md`**
+- [x] **[ADB]** `pns_ai_features_verify.ps1` **USB_PASS** on **`8bf09993`** (`hfr-runs/ai_features_verify_20260520_075142/`) — scene probe, bitrate **24883200 → 31104000** (**100% < 125%**), smile synthetic + DNG save.
+- [ ] **[DEVICE][optional]** Manual smile at camera (ML Kit path); synthetic hook covers automation gate.
+
+### Sprint 13V.18 — CameraX OEM extension probe (P2)
+
+- [x] **[HOST]** `CameraXExtensionProbe`; Night/Bokeh dial filtered when unavailable; **`CameraXExtensionProbeTest`**.
+- [x] **[HOST]** `pns_camerax_extension_probe.ps1` (`-HostOnly` + USB path); **`force-stop`** after run.
+- [x] **`androidx.camera:camera-camera2`** dependency (required for `ProcessCameraProvider`; was missing → probe logged `IllegalStateException` only).
+- [x] **[ADB]** `probe.json` with `probeComplete=true` on USB **`8bf09993`**: **`PROBE_OK_NO_EXTENSIONS`** (`hfr-runs/camerax_ext_probe_20260520_072853/`).
+- [x] **[DEVICE]** Night/Bokeh absent from preview a11y tree / shooting-mode menu (no `NIGHT`/`BOKEH` in `uiautomator` dump after cold preview launch).
+
+**Milestone 13V gate:** **13V.1–13V.18** automated/USB-verified on reference fleet **`8bf09993`** (May 2026).
 
 ---

@@ -251,3 +251,50 @@ Automated runs: **`pns_capture_pipeline_verify.ps1`**, **`pns_raw_capture_matrix
 | 2026-05-13 | Bisect **#2**: default **`RawStreamPreference.Default`** order **RAW12 → RAW_SENSOR → RAW10**; **`pns_raw_regression_bisect`** “wrong” variant flipped to **RAW12 → RAW10 → RAW_SENSOR**. |
 | 2026-05-13 | Bisect **#3** (partial): imaging profile **`remember`** without **`runCatching`** / **`StandardPro` fallback**; **`SideEffect`** → **`setImagingProfileForStreams`** retained. Bisect **#5**: **`PreviewPostRawSensitivity`** removed from RAW still + bracket still templates. **`pns_capture_bisect_device.ps1`** T3 no longer strips **`SideEffect`**. |
 | 2026-05-13 | **§8** incremental restore matrix on **`8bf09993`**: **§5**/**§1** green; **§4a**/**§2** ship-order red; **`pns_capture_bisect_device`** T3 **`fromLegacy`** switched to single-quoted here-string so **`Apply-T3`** matches Kotlin backticks. |
+
+---
+
+## §9 — Milestone 13 lock ladder (L2–L9)
+
+**Purpose:** Record **USB-proven** still-DNG policy flips for **CPH2655**. Full runbook: **`docs/M13_3E_LOCK_BISECT_RUNBOOK.md`**. Openability ledger: **`docs/DNG_OPENABILITY_REGRESSIONS.md`**.
+
+| Lock | Shipped default (May 2026) | Status | Notes |
+|------|----------------------------|--------|-------|
+| **L9** | **OFF** — no `LeafDngHalReconcile` / `useWideLeafCalibrationForAuxDng` on leaf | **SHIPPED (13.3g)** | Pure `DngCreator`; `ProShotPipelineContract`; gate **`dng_desktop_open_gate.py`**. Wide-cal only in **13.3h** bisect. |
+| **L2** | `allowPhysicalTotalResultPairing=false` at save call sites | **KEEP (13.3e)** | E1: pairing **true** — open OK, parity FAIL; unused on leaf. |
+| **L3** | `useOp13AsnReconcileOnly=false` | **SHIPPED** | E2: **true** no-op under pure ProShot save. |
+| **L6** | `useHalColorCalibrationReconcile=false` | **SHIPPED** | E3: **true** no-op under pure ProShot save. |
+| **L4** | `streamHints=false` (§4a) | **KEEP bisect** | E4: **true** — RAW still **timeout** 0/3 (§8). |
+| **L5** | Default RAW **RAW12→RAW_SENSOR→RAW10** | **KEEP bisect** | E5: RAW10-first ineffective on leaf (`rawFmt=32` still). |
+| **L7** | Preview JPEG hints **on** RAW still | **SHIPPED** | E6: skip hints — open OK, parity **worse**. |
+
+**13.3g automated evidence (2026-05-19, `8bf09993`):** `hfr-runs/aux_dng_capture_analyze_20260519_155213/` — capture **3/3**, desktop open gate **PASS**, logcat `reconcile=false wideCal=false` per cam **3/2/4**. Human ACR **3/3** still required for gate close.
+
+### 13.3h wide-cal bisect (H1–H3, `8bf09993`, 2026-05-20)
+
+**Artifacts:** `hfr-runs/m13_3h_wide_cal_bisect_20260520_003542/` — orchestrator **`scripts/pns_m13_3h_wide_cal_bisect.ps1`**.
+
+| Step | Flags | Capture 3/3 | Open gate | wide-cal reconcile (logcat) | Ship? |
+|------|-------|-------------|-----------|-----------------------------|-------|
+| **H1** | `useWideLeafCalibrationForAuxDng=true` | yes | **FAIL** — CM2[0,0]=1.4337 on UW+tele matches wide (R2 leak) | **no** |
+| **H2** | H1 + `useOp13AsnReconcileOnly=true` | yes | **FAIL** (same leak) | **no** |
+| **H3** | H2 + exposure latch (auto when wideCal) | yes | **FAIL** (same leak) | **no** |
+
+**Conclusion:** Wide CM/FM on aux RAW **reproduces R2** on CPH2655 — automated open gate fails before ACR color scoring. **Keep L9 shipped:** `useWideLeafCalibrationForAuxDng=false`. Human ACR on H1–H3 DNGs optional (expected reject per May 2026 regression doc); do not promote without open gate **PASS**.
+
+**H1 log needles (example):** `PNS.LeafDng: wide-cal reconcile auxCam=3 cm2_before=1.8549 cm2_after=1.4337`; tele `cm2_before=1.4253 cm2_after=1.4337`.
+
+### 13.3e lock ladder bisect (E1–E6, `8bf09993`, 2026-05-20)
+
+**Artifacts:** `hfr-runs/m13_3e_lock_bisect_20260520_005414/report.md` (consolidated); **`scripts/pns_m13_3e_lock_bisect.ps1`**.
+
+| Step | Lock | Open gate | Capture | Ship? |
+|------|------|-----------|---------|-------|
+| E1 | L2 physical pairing **true** | PASS | 3/3 | **no** (unused on leaf; parity FAIL) |
+| E2 | L3 ASN reconcile only | PASS | 3/3 | **no** (no-op under pure ProShot save) |
+| E3 | L6 HAL cal reconcile | PASS | 3/3 | **no** (no-op under pure ProShot save) |
+| E4 | L4 `streamHints=true` | — | **0/3** timeout | **no** (§4a regression) |
+| E5 | L5 RAW10 before RAW_SENSOR on Default | PASS | 3/3 | **no** (leaf still `rawFmt=32`) |
+| E6 | L7 skip JPEG hints on RAW still | PASS | 3/3 | **no** (parity worse) |
+
+**Conclusion:** No **L2–L7** flip fixes aux color on CPH2655 without breaking capture or openability. **Shipped:** **13.3g** table (L9 off, L4/L5 bisect defaults, pairing **false** at call sites).

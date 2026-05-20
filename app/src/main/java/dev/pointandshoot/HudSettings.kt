@@ -27,6 +27,10 @@ import androidx.lifecycle.LifecycleEventObserver
 data class HudSettings(
     val showCommandDial: Boolean = true,
     val showTimecode: Boolean = true,
+    /** Sprint **13V.12**: battery drain + thermal chip on HFR / DCG video preview. */
+    val showPowerThermalOverlay: Boolean = true,
+    /** Sprint **13V.13**: minutes of video remaining at current encode bitrate on video preview. */
+    val showStorageRemainingOverlay: Boolean = true,
     val showVideoTally: Boolean = true,
     val showFpsReadout: Boolean = true,
     val showIsoShutterReadout: Boolean = true,
@@ -37,6 +41,14 @@ data class HudSettings(
     val showHighlightClipZebra: Boolean = false,
     val showHighlightWeightedMeter: Boolean = true,
     val showEyeAfOverlay: Boolean = true,
+    /** Sprint **13V.17**: auto still when ML Kit smile probability exceeds threshold (photo mode). */
+    val enableSmileTriggeredStill: Boolean = false,
+    /** Sprint **13V.17**: show OEM scene/quality vendor keys in readout when probed. */
+    val showSceneVendorHints: Boolean = false,
+    /**
+     * Sprint **13V.17**: manual video bitrate scale (**50–150%** of probe table). **100** = default.
+     */
+    val videoBitrateScalePercent: Int = 100,
     /** Sony-style horizon line on the preview (accelerometer). */
     val showHorizonLevel: Boolean = true,
     /**
@@ -156,6 +168,16 @@ data class HudSettings(
      * Software re-encode quality for RAW companion JPEG path ([Bitmap.compress]); clamped 70–100 in engine.
      */
     val softwareJpegCompanionQuality: Int = 92,
+    /**
+     * Milestone **13.8** still path: **Standard** (default), **ZslStill** (13.8b), **HdrStill** (13.8c bracket burst).
+     * ADB `pns_preview_still_mode` overrides when set on cold preview launch.
+     */
+    val stillCaptureMode: StillCaptureMode = StillCaptureMode.Standard,
+    /**
+     * Milestone **13.6** video encode lane. **Raw** is OP13-only via fleet policy; mutually exclusive
+     * with research DCG HDR session in UI.
+     */
+    val videoEncodeLane: VideoEncodeLane = VideoEncodeLane.Encoded,
 ) {
     /** Resolve the currently-active stills LUT, falling back to None on rename / removal. */
     fun stillsLut(): LutCatalog = resolveLut(selectedLutForStills)
@@ -171,6 +193,8 @@ data class HudSettings(
 
         private const val KEY_DIAL = "show_command_dial"
         private const val KEY_TIMECODE = "show_timecode"
+        private const val KEY_POWER_THERMAL = "show_power_thermal_overlay"
+        private const val KEY_STORAGE_REMAINING = "show_storage_remaining_overlay"
         private const val KEY_TALLY = "show_video_tally"
         private const val KEY_FPS = "show_fps_readout"
         private const val KEY_ISO_SHUTTER = "show_iso_shutter_readout"
@@ -202,6 +226,14 @@ data class HudSettings(
         private const val KEY_HARDWARE_JPEG_ISP_BIAS = "hardware_jpeg_isp_bias"
         private const val KEY_SOFTWARE_JPEG_QUALITY = "software_jpeg_companion_quality"
         private const val KEY_BRACKET_PATTERN = "bracket_pattern_last"
+        private const val KEY_STILL_CAPTURE_MODE = "still_capture_mode"
+        private const val KEY_VIDEO_ENCODE_LANE = "video_encode_lane"
+        private const val KEY_SMILE_STILL = "enable_smile_triggered_still"
+        private const val KEY_SCENE_VENDOR_HINTS = "show_scene_vendor_hints"
+        private const val KEY_VIDEO_BITRATE_SCALE = "video_bitrate_scale_percent"
+
+        const val VIDEO_BITRATE_SCALE_MIN = 50
+        const val VIDEO_BITRATE_SCALE_MAX = 150
 
         private const val HARDWARE_JPEG_ISP_BIAS_MIN = -2
         private const val HARDWARE_JPEG_ISP_BIAS_MAX = 2
@@ -299,12 +331,29 @@ data class HudSettings(
                 .apply()
         }
 
+        fun loadStillCaptureMode(context: Context): StillCaptureMode {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val name = prefs.getString(KEY_STILL_CAPTURE_MODE, null) ?: return StillCaptureMode.Standard
+            return StillCaptureMode.entries.firstOrNull { it.name == name } ?: StillCaptureMode.Standard
+        }
+
+        fun saveStillCaptureMode(context: Context, mode: StillCaptureMode) {
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_STILL_CAPTURE_MODE, mode.name)
+                .apply()
+        }
+
         fun load(context: Context): HudSettings {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val defaults = HudSettings()
             return HudSettings(
                 showCommandDial = prefs.getBoolean(KEY_DIAL, defaults.showCommandDial),
                 showTimecode = prefs.getBoolean(KEY_TIMECODE, defaults.showTimecode),
+                showPowerThermalOverlay =
+                    prefs.getBoolean(KEY_POWER_THERMAL, defaults.showPowerThermalOverlay),
+                showStorageRemainingOverlay =
+                    prefs.getBoolean(KEY_STORAGE_REMAINING, defaults.showStorageRemainingOverlay),
                 showVideoTally = prefs.getBoolean(KEY_TALLY, defaults.showVideoTally),
                 showFpsReadout = prefs.getBoolean(KEY_FPS, defaults.showFpsReadout),
                 showIsoShutterReadout = prefs.getBoolean(KEY_ISO_SHUTTER, defaults.showIsoShutterReadout),
@@ -313,6 +362,11 @@ data class HudSettings(
                 showHighlightClipZebra = prefs.getBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, defaults.showHighlightClipZebra),
                 showHighlightWeightedMeter = prefs.getBoolean(KEY_HIGHLIGHT_METER, defaults.showHighlightWeightedMeter),
                 showEyeAfOverlay = prefs.getBoolean(KEY_EYE_AF, defaults.showEyeAfOverlay),
+                enableSmileTriggeredStill = prefs.getBoolean(KEY_SMILE_STILL, defaults.enableSmileTriggeredStill),
+                showSceneVendorHints = prefs.getBoolean(KEY_SCENE_VENDOR_HINTS, defaults.showSceneVendorHints),
+                videoBitrateScalePercent =
+                    prefs.getInt(KEY_VIDEO_BITRATE_SCALE, defaults.videoBitrateScalePercent)
+                        .coerceIn(VIDEO_BITRATE_SCALE_MIN, VIDEO_BITRATE_SCALE_MAX),
                 showHorizonLevel = prefs.getBoolean(KEY_HORIZON, defaults.showHorizonLevel),
                 focusPeakingColor = loadFocusPeakingColor(prefs, defaults),
                 focusPeakingStrength = loadFocusPeakingStrength(prefs, defaults),
@@ -345,6 +399,8 @@ data class HudSettings(
                 softwareJpegCompanionQuality =
                     prefs.getInt(KEY_SOFTWARE_JPEG_QUALITY, defaults.softwareJpegCompanionQuality)
                         .coerceIn(SOFTWARE_JPEG_COMPANION_QUALITY_MIN, SOFTWARE_JPEG_COMPANION_QUALITY_MAX),
+                stillCaptureMode = loadStillCaptureMode(context),
+                videoEncodeLane = loadVideoEncodeLane(context),
             )
         }
 
@@ -354,6 +410,8 @@ data class HudSettings(
             prefs.edit()
                 .putBoolean(KEY_DIAL, settings.showCommandDial)
                 .putBoolean(KEY_TIMECODE, settings.showTimecode)
+                .putBoolean(KEY_POWER_THERMAL, settings.showPowerThermalOverlay)
+                .putBoolean(KEY_STORAGE_REMAINING, settings.showStorageRemainingOverlay)
                 .putBoolean(KEY_TALLY, settings.showVideoTally)
                 .putBoolean(KEY_FPS, settings.showFpsReadout)
                 .putBoolean(KEY_ISO_SHUTTER, settings.showIsoShutterReadout)
@@ -362,6 +420,12 @@ data class HudSettings(
                 .putBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, settings.showHighlightClipZebra)
                 .putBoolean(KEY_HIGHLIGHT_METER, settings.showHighlightWeightedMeter)
                 .putBoolean(KEY_EYE_AF, settings.showEyeAfOverlay)
+                .putBoolean(KEY_SMILE_STILL, settings.enableSmileTriggeredStill)
+                .putBoolean(KEY_SCENE_VENDOR_HINTS, settings.showSceneVendorHints)
+                .putInt(
+                    KEY_VIDEO_BITRATE_SCALE,
+                    settings.videoBitrateScalePercent.coerceIn(VIDEO_BITRATE_SCALE_MIN, VIDEO_BITRATE_SCALE_MAX),
+                )
                 .putBoolean(KEY_HORIZON, settings.showHorizonLevel)
                 .putBoolean(KEY_FOCUS_PEAKING, settings.focusPeakingEnabled())
                 .putString(KEY_FOCUS_PEAKING_COLOR, settings.focusPeakingColor.name)
@@ -393,7 +457,15 @@ data class HudSettings(
                         SOFTWARE_JPEG_COMPANION_QUALITY_MAX,
                     ),
                 )
+                .putString(KEY_STILL_CAPTURE_MODE, settings.stillCaptureMode.name)
+                .putString(KEY_VIDEO_ENCODE_LANE, settings.videoEncodeLane.name)
                 .commit()
+        }
+
+        fun loadVideoEncodeLane(context: Context): VideoEncodeLane {
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val name = prefs.getString(KEY_VIDEO_ENCODE_LANE, null) ?: return VideoEncodeLane.Encoded
+            return VideoEncodeLane.entries.firstOrNull { it.name == name } ?: VideoEncodeLane.Encoded
         }
 
         private fun resolveLut(name: String): LutCatalog =

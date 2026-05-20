@@ -48,6 +48,34 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 
 ---
 
+## CRITICAL — DNG save pipeline (do not break loadability)
+
+**May 2026 (CPH2655 / USB-verified):** DNGs were **unopenable in Lightroom and ACR** while host tools (rawpy) could still decode. Cause was **not** `DngCreator` pairing alone — it was **post-save file corruption**.
+
+### What broke
+
+| Step | Problem |
+|------|---------|
+| **`StillCaptureMetadata.applyToDngUri`** | Called **`ExifInterface.saveAttributes()`** on the full ~25 MB row-strip DNG after in-place TIFF patches. That rewrites the file like JPEG EXIF and **destroys** CPH2655 **3072-row `StripOffsets`** layout. |
+| **`LeafDngHalReconcile` (removed)** | **`TiffDngColorMatrixPatch.patchCalibrationTagsIfd0`** rewrote CM/FM in IFD0 — not needed for ProShot parity; risks Adobe validation failures. |
+
+**Symptom:** “Broken” DNGs, won’t load in viewers; **`dng_tiff_integrity_check.py`** may still PASS if strips were not truncated on the pulled copy.
+
+### Shipped fix (do not revert without maintainer sign-off + USB proof)
+
+1. **`applyToDngUri`:** **In-place** metadata only (`TiffIfd0Software305`, `TiffExifSubIfdCapturePatch`) → write bytes to MediaStore. **No `ExifInterface` on DNG.**
+2. **`LeafDngHalReconcile`:** Patch **`AsShotNeutral` only** from Bayer means (estimate **before** `DngCreator.writeImage`). No IFD0 CM/FM overwrite.
+3. **DNG test scripts:** `pns_preview_jpeg_companion=false` in `pns_aux_dng_capture_analyze.ps1` and related aux DNG scripts.
+4. **Gate:** `scripts/dng_tiff_integrity_check.py` — run via capture-analyze; must print **`DNG INTEGRITY: PASS`** before treating capture as valid.
+
+**Verified on device:** `hfr-runs/aux_dng_capture_analyze_20260519_014855` (`8bf09993`) — 3/3 captures, integrity PASS, log shows `apply DNG metadata ok` without ExifInterface rewrite.
+
+**Rule:** `.cursor/rules/dng-save-pipeline-lock.mdc`
+
+**Lock L9 (Milestone 13):** No post-save TIFF on leaf (`LeafDngHalReconcile`, `useWideLeafCalibrationForAuxDng`) until **13.3h** bisect with **ACR open 3/3**. Regression ledger: **`docs/DNG_OPENABILITY_REGRESSIONS.md`**. Gate: **`scripts/dng_desktop_open_gate.py`** (wired in `pns_aux_dng_capture_analyze.ps1`).
+
+---
+
 ## CRITICAL — GLES preview aspect (do not reapply reverted fixes)
 
 **May 2026 (CPH2655 / user-verified):** Multiple attempts to fix **gallery-return** or **resume** preview stretch **broke default preview** (distorted / stretched) and were **reverted**. **Do not reintroduce** these patterns without maintainer sign-off, a **new** design, and USB proof on a real device:
@@ -199,6 +227,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_capture_still_forensics.ps1` | Cold **preview** + **`pns_preview_dial=H`** + **`pns_preview_raw_count`**: install (optional), pull pid + ring logcat into **`hfr-runs/capture_still_forensics_*`** (use after DNG save failures; see **`PNS.CaptureStill`**). **`-Fast`** passes **`pns_preview_raw_still_fast`** for shorter in-app ADB settle and a shorter default wait. |
 | `pns_photo_capture_verify.ps1` | Loop **assembleDebug** (optional) → install → cold preview + one scripted RAW still; retries until **`PNS.AdbValidation`** shows **`captureRawStill 1/1 ok=true saved=`** or **`-MaxAttempts`**. Optional **`-SweepCameraIds`** tries **`pns_preview_camera_id`** **`(default),0,1,2,3`** in one artifact folder. Uses timeout-wrapped **adb**; artifacts **`hfr-runs/photo_capture_verify_*`** (logcat + **`run-as`** `files/PNS_CAPTURE_PIPELINE_DIAGNOSTICS.txt` when present). Logcat filter includes **`PNS.Cam:I`** for **`PNS.PreviewSessionCtx`**. Prefer **`pns_capture_pipeline_verify.ps1`** for **`docs/CAPTURE_PIPELINE_VERIFY_*.json`** (BUILD_PLAN item **11**). |
 | `pns_in_app_video_verify.ps1` | Cold **preview** with **`pns_preview_primary_photo=false`** + **`pns_preview_automation_in_app_video_sec`**: install (optional), **`assembleDebug`** (optional), assert **`PNS.AdbValidation`** **`inAppVideoSaved ok=true`** and **`bytes ≥ MinBytes`**; artifacts **`hfr-runs/in_app_video_verify_*`**. Uses **`adb exec-out logcat -s …`** for OEM-stable tag dumps. Gate after in-app **`MediaRecorder`** / **`PreviewEngineScreen`** session changes alongside **`pns_capture_pipeline_verify.ps1`** when RAW session wiring moves. |
+| `pns_video_hdr10_metadata_verify.ps1` | Sprint **13.4** DCG session + HDR10 encode: **`pns_preview_video_dcg`** @ 60 fps, 8 s in-app record; asserts **`dcgSessionTemplate=EnableHDRDCGMode`**, **`inAppVideoFormat=DCG`**, MediaCodec path, **ffprobe** bt2020 + smpte2084 + MaxCLL; artifacts **`hfr-runs/hdr10_meta_verify_*`**. Requires **ffprobe** on PATH. |
 | `pns_capture_pipeline_verify.ps1` | Wraps **`pns_photo_capture_verify.ps1`** in a child process; writes **`hfr-runs/capture_pipeline_gate_*/gate.json`**, **`docs/CAPTURE_PIPELINE_VERIFY_LATEST.json`**, appends **`docs/CAPTURE_PIPELINE_VERIFY_HISTORY.jsonl`**. Optional **`-BisectStep`**, **`-Notes`**, **`-NoHistoryAppend`**. |
 | `pns_capture_bisect_device.ps1` | **USB:** cumulative bisect steps **1..N** on **`PreviewEngineScreen.kt`** + **`RawCaptureSupport.kt`** (see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**), **`assembleDebug`**, **`pns_capture_pipeline_verify`** per step; **`hfr-runs/capture_bisect_device_*/report.md`**. **`-DryRun`**, **`-Fast`**, **`-FromStep`**, **`-NoRestore`**, **`-WriteDocHistory`**. |
 | `pns_capture_restore_verified.ps1` | **`assembleDebug`** + USB **`pns_capture_pipeline_verify.ps1`** after capture restores — gate **`captureRawStill 1/1 ok=true saved=`** before merge. **Do not** treat as “ship full Milestone §1–§5”; **§4a** / **§2** are fleet-sensitive — see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8. |
@@ -212,6 +241,24 @@ Use these from repo root unless a script documents otherwise.
 | `pns_milestone3_gate.ps1` | **Milestone 3** mapping gate: JVM tests (`SensorCropGeometryTest`, `CropPlanTest`, `DngDefaultUserCropRatiosTest`, `BackCameraRoleResolverTest`) + optional **`-RunDeviceSmoke`** (sideload preview + `PNS.ChromeUx` **`seedOk slot=M23`** log grep). |
 | `pns_automation_smoke.ps1` | Automation smoke; optional **`-RunAeHighlightProbe`** chains **`pns_ae_highlight_probe_adb.ps1`** (debug APK + `run-as` pull). |
 | `pns_chrome_ux_gate.ps1` | Chrome UX gate; optional **`-FocalMmSlot`** (`14`…`150`, default **`85`**) appends **`pns_preview_focal_mm_slot`** for **`focalSlotTap=`** tele proof (**`teleFocalSlotOk`**). |
+| `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_proshot_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
+| `dng_desktop_open_gate.py` / `pns_dng_desktop_open_gate.ps1` | Host-only: integrity + ASN bounds + wide-cal CM2 leak check on pulled DNGs. |
+| `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/proshot_cph2655/` (toolchain-verify workflow). |
+| `pns_m13_3g2_gate.ps1` | **13.3g-2:** open gate + logcat diag on `aux_dng_capture_analyze_*`; **`-RecordAcrPass`** for Milestone H ACR sign-off. |
+| `pns_m13_3h_wide_cal_bisect.ps1` | **13.3h:** USB H1–H3 wide-cal bisect (patches `OnePlus13FleetPolicy.kt`, restores after); artifacts `hfr-runs/m13_3h_wide_cal_bisect_*`. |
+| `pns_m13_3e_lock_bisect.ps1` | **13.3e:** USB E1–E6 lock ladder (L2,L3,L6,L4,L5,L7); patches policy + PreviewEngineScreen + RawCaptureSupport, restores after. |
+| `pns_m13_3f_gate.ps1` | **13.3f:** daylight gates (pipeline verify, capture analyze, openability, ProShot parity, optional session); `-RecordAcrPass` for human color sign-off. |
+| `pns_m13_3g4_fixture_refresh.ps1` | **13.3g-4:** ProShot live forensics (15/23/73 mm) + `pns_proshot_reference_sync.ps1 -FromForensicsDir` + parity gate. |
+| `pns_dng_proshot_pns_session.ps1 -HostOnly` | Host-only: runs fixture gates without USB (full session needs device + ProShot captures). |
+| `pns_still_mode_benchmark.ps1` | **13.8d** — `-Mode standard\|zsl\|hdr\|all`; `results.json` + `report.md` (timing, openability, ZSL/HDR notes). |
+| `pns_m13_8d_gate.ps1` | **13.8d** — pipeline verify (`stillMode=standard`) + benchmark all; optional `-PnsStillModes` session via `pns_dng_proshot_pns_session.ps1`; `-RecordHumanPass`. |
+| `pns_raw_video_verify.ps1` | Sprint **13.6** RAW video: **`pns_preview_video_raw_sec`** @ 30 fps, wide **`camera_id=2`**; asserts **`rawVideoSaved ok=true`**, frame count, **`PNMRAWV1`** header (`xxd` on device, no full pull by default); artifacts **`hfr-runs/raw_video_verify_*`**. Optional **`-PullMcraw`** (multi-GB). |
+| `pns_m13_lock_bisect_host.ps1` | Host template for **13.3e** lock bisect report. |
+| `pns_proshot_parity_gate.ps1` | One-shot: capture + pull + ProShot color/luminance parity (fails if DNGs not loadable or not close to reference). |
+| `pns_proshot_live_forensics.ps1` | **Live** ProShot session: stream logcat, detect `CameraService::connect … camera ID`, pull DCIM DNGs per lens; **`-TryUiAutomation`** or manual (see **`docs/PROSHOT_LIVE_FORENSICS.md`**). |
+| `pns_proshot_adb_forensics.ps1` | Post-hoc logcat + dumpsys after **manual** ProShot captures (no per-lens automation). |
+| `pns_proshot_reference_sync.ps1` | Refresh **`tests/fixtures/proshot_cph2655/`** from newest 3 non–P&S DCIM DNGs. |
+| `dng_tiff_integrity_check.py` | Host: row-strip TIFF + rawpy load check. Exit **1** if DNG structure broken (e.g. post-save **`ExifInterface`** regression). |
 | `pns_failure_matrix_smoke.ps1` | Failure-matrix smoke. |
 | `pns_hfr_autorun.ps1` | HFR autorun (`-PerfReport`, **`-PerfReportApkVariant Release`**, etc.). |
 | `pns_cold_start_capture.ps1` | **`pns_hfr_autorun.ps1 -PerfReport`** → **`perf-runs/perf_*.md`** (or **`-Release`** → **`perf_release_*.md`** + assemble/install Release); optional **`-Serial`**, **`-SkipGradleBuild`**. |
@@ -275,7 +322,8 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 |------|---------|
 | `.cursor/rules/adb-device-env.mdc` | ADB env file, `PNS_ADB_SERIAL` (USB), script entry points. |
 | `.cursor/rules/dodge-tele-focal-routing.mdc` | **Locked** dodge tele **73/85/150 mm** routing + crop gates — no fleet policy; physical tele preferred when enumerated; see **`AGENTS.md`** CRITICAL section. |
-| `.cursor/rules/dng-logical-multicam-metadata-lock.mdc` | **Locked** **`DngMetadataResolver`** (**`allowPhysicalTotalResultPairing=false`**), **`RawCaptureSupport.pickRawOutputForPreviewSession`** (**`usePhysicalChildRawStreamMap=false`**, logical-map **`RAW_SENSOR`** when **`shouldPreferRawSensorForAuxPhysicalPreviewPin`** — do not rely on **`Default`**/RAW12 alone on logical), **`PNS.CaptureStill`** **`dng save diag`**; see **`AGENTS.md`** CRITICAL — DNG metadata pairing. |
+| `.cursor/rules/dng-logical-multicam-metadata-lock.mdc` | **Locked** **`DngMetadataResolver`** (**`allowPhysicalTotalResultPairing=false`**), **`RawCaptureSupport.pickRawOutputForPreviewSession`** (**`usePhysicalChildRawStreamMap=false`**, logical-map **`RAW_SENSOR`** when **`shouldPreferRawSensorForAuxPhysicalPreviewPin`** — do not rely on **`Default`**/RAW12 alone on logical), **`PNS.CaptureStill`** **`dng save diag`**; see **`AGENTS.md`** DNG metadata pairing. |
+| `.cursor/rules/dng-save-pipeline-lock.mdc` | **Locked** post-save DNG path — **no `ExifInterface.saveAttributes` on DNG**; leaf reconcile **AsShotNeutral only**; **`dng_tiff_integrity_check.py`** gate; see **`AGENTS.md`** CRITICAL — DNG save pipeline. |
 | `.cursor/rules/preview-chrome-ui-lock.mdc` | **Frozen** preview chrome layout — behavioral fixes only unless the user explicitly changes UI. |
 | `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |
 

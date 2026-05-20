@@ -1,4 +1,4 @@
-# One-off triage: M14 / M23 / M150 scripted RAW still + logcat + DCIM pull (Experiment 1).
+# One-off triage: M14 / M23 / M73 scripted RAW still + logcat + DCIM pull (native tele, not M150 crop).
 # Do not wire into CI; run manually: .\scripts\pns_aux_dng_triage_focal_slots.ps1 -Serial 8bf09993
 param(
     [string]$Serial = "8bf09993"
@@ -29,7 +29,7 @@ adb -s $Serial shell logcat -G 64M 2>$null | Out-Null
 $slots = @(
     @{ mm = "14";  n = "M14_uw" },
     @{ mm = "23";  n = "M23_wide" },
-    @{ mm = "150"; n = "M150_tele" }
+    @{ mm = "73";  n = "M73_tele" }
 )
 
 foreach ($slot in $slots) {
@@ -48,7 +48,7 @@ foreach ($slot in $slots) {
         --es pns_preview_camera_id 0 `
         --es pns_preview_focal_mm_slot $mm `
         --ez pns_preview_raw_still_fast true `
-        --ez pns_preview_jpeg_companion true | Out-Host
+        --ez pns_preview_jpeg_companion false | Out-Host
     Start-Sleep -Seconds 52
     $pidStr = ([string](adb -s $Serial shell pidof -s $pkg)).Trim()
     $outLog = Join-Path $dir "${label}_logcat.txt"

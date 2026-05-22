@@ -81,7 +81,7 @@ jobs:
       - name: Gradle wrapper executable (Unix)
         run: chmod +x ./gradlew
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Host DNG fixture gates (13.3g openability)
         shell: pwsh

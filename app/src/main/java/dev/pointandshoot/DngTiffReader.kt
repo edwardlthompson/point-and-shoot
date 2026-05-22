@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import androidx.exifinterface.media.ExifInterface
 import android.util.Log
 import java.io.InputStream
 import java.nio.ByteBuffer
@@ -18,7 +19,9 @@ class DngTiffReader {
         val exposureTime: Double?,
         val focalLength: Double?,
         val make: String?,
-        val model: String?
+        val model: String?,
+        /** [ExifInterface] orientation constant from TIFF tag 274 when present. */
+        val exifOrientation: Int = ExifInterface.ORIENTATION_NORMAL,
     )
     
     companion object {
@@ -31,6 +34,7 @@ class DngTiffReader {
         private const val TIFF_ISO = 34855
         private const val TIFF_EXPOSURE_TIME = 33434
         private const val TIFF_FOCAL_LENGTH = 37386
+        private const val TIFF_ORIENTATION = 274
         
         // EXIF IFD pointer tag - points to EXIF subdirectory
         private const val EXIF_IFD_POINTER = 34665
@@ -71,13 +75,13 @@ class DngTiffReader {
             
             if (magic != 42) {
                 Log.d(TAG, "Not a valid TIFF file - magic number is $magic, expected 42")
-                return TiffMetadata(null, null, null, null, null, null)
+                return TiffMetadata(null, null, null, null, null, null, ExifInterface.ORIENTATION_NORMAL)
             }
             
             val firstIfdOffset = buffer.int
             Log.d(TAG, "TIFF header valid, first IFD offset: $firstIfdOffset")
             
-            var metadata = TiffMetadata(null, null, null, null, null, null)
+            var metadata = TiffMetadata(null, null, null, null, null, null, ExifInterface.ORIENTATION_NORMAL)
             
             // Follow IFD chain starting from first IFD
             var currentIfdOffset = firstIfdOffset
@@ -111,7 +115,7 @@ class DngTiffReader {
             
         } catch (e: Exception) {
             Log.e(TAG, "Error reading TIFF metadata", e)
-            TiffMetadata(null, null, null, null, null, null)
+            TiffMetadata(null, null, null, null, null, null, ExifInterface.ORIENTATION_NORMAL)
         }
     }
     
@@ -126,6 +130,7 @@ class DngTiffReader {
         var focalLength = currentMetadata.focalLength
         var make = currentMetadata.make
         var model = currentMetadata.model
+        var exifOrientation = currentMetadata.exifOrientation
         var nextIfdOffset = 0
         var exifIfdOffset: Int? = null
         
@@ -171,6 +176,13 @@ class DngTiffReader {
                 TIFF_FOCAL_LENGTH -> {
                     focalLength = readRationalValue(buffer, type, count, valueOffset)
                     Log.d(TAG, "Found FOCAL_LENGTH: $focalLength")
+                }
+                TIFF_ORIENTATION -> {
+                    val raw = readShortValue(buffer, type, count, valueOffset)
+                    if (raw != null && raw in 1..8) {
+                        exifOrientation = DngGalleryOrientation.tiffOrientationToExif(raw)
+                        Log.d(TAG, "Found ORIENTATION tiff=$raw exif=$exifOrientation")
+                    }
                 }
                 EXIF_IFD_POINTER -> {
                     exifIfdOffset = valueOffset
@@ -297,7 +309,8 @@ class DngTiffReader {
         // Read next IFD offset (last 4 bytes of IFD)
         nextIfdOffset = buffer.int
         
-        val newMetadata = TiffMetadata(aperture, iso, exposureTime, focalLength, make, model)
+        val newMetadata =
+            TiffMetadata(aperture, iso, exposureTime, focalLength, make, model, exifOrientation)
         return Triple(newMetadata, nextIfdOffset, exifIfdOffset)
     }
     

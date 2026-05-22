@@ -33,9 +33,11 @@ class MemoryProfiler private constructor(
     )
     
     companion object {
+        const val TAG = "PNS.MemoryProfiler"
+
         @Volatile
         private var INSTANCE: MemoryProfiler? = null
-        
+
         fun getInstance(context: Context, scope: CoroutineScope): MemoryProfiler {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: MemoryProfiler(context.applicationContext, scope).also { INSTANCE = it }
@@ -48,11 +50,11 @@ class MemoryProfiler private constructor(
      */
     fun startProfiling(intervalMs: Long = 5000L) {
         if (isProfiling) {
-            Log.w("MemoryProfiler", "Profiling already started")
+            Log.w(TAG, "Profiling already started")
             return
         }
         
-        Log.i("MemoryProfiler", "Starting memory profiling with ${intervalMs}ms interval")
+        Log.i(TAG, "Starting memory profiling with ${intervalMs}ms interval")
         isProfiling = true
         memorySnapshots.clear()
         
@@ -63,22 +65,22 @@ class MemoryProfiler private constructor(
                     memorySnapshots.add(snapshot)
                     
                     // Log memory status
-                    Log.d("MemoryProfiler", snapshot.toString())
+                    Log.d(TAG, snapshot.toString())
                     
                     // Check for memory pressure
                     if (snapshot.memoryPressure > 0.8f) {
-                        Log.w("MemoryProfiler", "High memory pressure detected: ${snapshot.memoryPressure}")
+                        Log.w(TAG, "High memory pressure detected: ${snapshot.memoryPressure}")
                         onMemoryPressureHigh(snapshot)
                     }
                     
                     if (snapshot.memoryPressure > 0.9f) {
-                        Log.e("MemoryProfiler", "Critical memory pressure: ${snapshot.memoryPressure}")
+                        Log.e(TAG, "Critical memory pressure: ${snapshot.memoryPressure}")
                         onMemoryPressureCritical(snapshot)
                     }
                     
                     delay(intervalMs)
                 } catch (e: Exception) {
-                    Log.e("MemoryProfiler", "Error during memory profiling", e)
+                    Log.e(TAG, "Error during memory profiling", e)
                     delay(intervalMs)
                 }
             }
@@ -90,16 +92,16 @@ class MemoryProfiler private constructor(
      */
     fun stopProfiling(): MemoryReport {
         if (!isProfiling) {
-            Log.w("MemoryProfiler", "Profiling not started")
+            Log.w(TAG, "Profiling not started")
             return MemoryReport(emptyList())
         }
         
-        Log.i("MemoryProfiler", "Stopping memory profiling")
+        Log.i(TAG, "Stopping memory profiling")
         isProfiling = false
         profilingJob?.cancel()
         
         val report = generateReport()
-        Log.i("MemoryProfiler", "Memory profiling completed: ${report}")
+        Log.i(TAG, "Memory profiling completed: ${report}")
         
         return report
     }
@@ -110,7 +112,7 @@ class MemoryProfiler private constructor(
     fun logEvent(event: String) {
         val snapshot = captureMemorySnapshot(event)
         memorySnapshots.add(snapshot)
-        Log.d("MemoryProfiler", "Event logged: $event - ${snapshot}")
+        Log.d(TAG, "Event logged: $event - ${snapshot}")
     }
     
     private fun captureMemorySnapshot(event: String? = null): MemorySnapshot {
@@ -140,7 +142,7 @@ class MemoryProfiler private constructor(
         
         // Log detailed memory info
         val runtime = Runtime.getRuntime()
-        Log.w("MemoryProfiler", "Memory pressure response - " +
+        Log.w(TAG, "Memory pressure response - " +
                 "Used: ${snapshot.usedMemoryMB}MB, " +
                 "Total: ${runtime.totalMemory() / (1024 * 1024)}MB, " +
                 "Free: ${runtime.freeMemory() / (1024 * 1024)}MB")
@@ -148,7 +150,7 @@ class MemoryProfiler private constructor(
     
     private fun onMemoryPressureCritical(snapshot: MemorySnapshot) {
         // Emergency memory cleanup
-        Log.e("MemoryProfiler", "CRITICAL: Emergency memory cleanup triggered")
+        Log.e(TAG, "CRITICAL: Emergency memory cleanup triggered")
         
         // Force multiple garbage collections
         repeat(3) {
@@ -220,11 +222,11 @@ class MemoryProfiler private constructor(
                 writer.appendLine("Critical Pressure Events,${report.criticalPressureEvents}")
             }
             
-            Log.i("MemoryProfiler", "Memory report saved to: ${reportFile.absolutePath}")
+            Log.i(TAG, "Memory report saved to: ${reportFile.absolutePath}")
             return reportFile.absolutePath
             
         } catch (e: Exception) {
-            Log.e("MemoryProfiler", "Error saving memory report", e)
+            Log.e(TAG, "Error saving memory report", e)
             throw e
         }
     }

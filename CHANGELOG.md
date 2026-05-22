@@ -4,7 +4,19 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
-_No user-visible changes since **0.14.0-beta.2**._
+### Added
+
+- **Bespoke Gallery — Sprint BG.3 closed** — In-app gallery: EXIF/metadata panel, delete, share, pinch-zoom/pan. **Maintainer UX/UI sign-off 2026-05-22** (sprint archived in [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)).
+- **Tray surface restore** — `PreviewLastSurfacePrefs` remembers last **Photo**, **Video**, or in-app **Gallery** across cold start (`docs/PNS_TECHNICAL_SETTINGS.md`).
+- **Sprint PO.1 — Memory & performance** — `PnsBitmapGuard` (bitmap alloc/recycle/leak check), `PnsMediaStoreGallery` (indexed DCIM-only MediaStore index + lazy EXIF), preview `MemoryProfiler` session logs (`PNS.MemoryProfiler`), script `pns_memory_profiler.ps1`.
+- **Sprint PO.2 — Battery & thermal** — `PreviewAdaptiveFpsPolicy` (battery/thermal FPS cap, `PNS.PowerThermal adaptiveFpsCap`), `PreviewLongRunningPause` (lifecycle YUV pause + FPS sweep wait-on-resume), ADB overrides `pns_preview_adaptive_battery_pct` / `pns_preview_adaptive_thermal_status`, script `pns_battery_life_test.ps1`, combined gate `pns_po_optimization_gate.ps1`.
+- **Selfie DNG gallery orientation** — DNG decodes without `loadThumbnail` EXIF bake-in; apply TIFF tag 274 once (`DngGalleryOrientation`); JPEG unchanged.
+
+### Fixed
+
+- **Selfie JPEG + DNG orientation in bespoke gallery** — JPEG companions no longer double-rotate (`loadThumbnail` already applies EXIF). DNG decodes without thumbnail EXIF bake-in; applies TIFF tag **274** once (removed erroneous 270°→90° remap and mistaken +180° save tweak).
+- **QR scan (photo programs)** — Restored preview-engine YUV decode + `PreviewQrScanOverlay` for **QR** dial mode (`pns_qr_scan_verify.ps1` path).
+- **Gallery forced on launch** — Removed debug default that opened bespoke gallery every cold start.
 
 ## [0.14.0-beta.2] - 2026-05-21
 

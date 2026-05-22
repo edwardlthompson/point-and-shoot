@@ -22,9 +22,24 @@ Extras:
 - `pns_preview_video_fps=120`
 - `pns_preview_force_power_thermal=true` (shows HUD without waiting for user FPS pick)
 
+## Sprint PO.2 — adaptive FPS + background pause
+
+- **Adaptive FPS:** [PreviewAdaptiveFpsPolicy] polls every 3 s; clamps preview FPS when battery ≤30% or thermal ≥ MODERATE. User intent stored in `userSelectedFps`; effective `selectedFps` restores when conditions improve. Log: `PNS.PowerThermal adaptiveFpsCap userFps=… effective=…`.
+- **Background pause:** `ON_PAUSE` sets [PreviewLongRunningPause] + `PreviewController.lifecycleBackgroundPaused` (skips optional YUV). FPS sweep waits in place and resumes after `ON_RESUME` (`kickPreviewPipelineRestart` reattaches analysis). Log: `longRunningPaused=true/false`.
+
+### PO.2 ADB gate
+
+```powershell
+.\scripts\pns_battery_life_test.ps1
+```
+
+Extras (phase 1): `pns_preview_adaptive_battery_pct=15`, `pns_preview_video_fps=120`, video-primary.
+
 ## Log needles
 
 | Tag | Needle |
 |-----|--------|
 | `PNS.AdbValidation` | `preview forcePowerThermalOverlay=true` |
 | `PNS.PowerThermal` | `battery=… highDrain=true fps=120` |
+| `PNS.PowerThermal` | `adaptiveFpsCap … effective=60` (PO.2 gate) |
+| `PNS.PowerThermal` | `longRunningPaused=true` / `longRunningPaused=false` |

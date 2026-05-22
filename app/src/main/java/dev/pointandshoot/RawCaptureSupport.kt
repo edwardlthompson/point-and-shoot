@@ -440,13 +440,11 @@ object RawCaptureSupport {
                 else -> 0
             }
         val facing = characteristics.get(CameraCharacteristics.LENS_FACING)
-        val degrees =
-            if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
-                (sensorOrientation + deviceOrientationDegrees + 360) % 360
-            } else {
-                (sensorOrientation - deviceOrientationDegrees + 360) % 360
-            }
-        return degrees
+        return if (facing == CameraCharacteristics.LENS_FACING_FRONT) {
+            (sensorOrientation + deviceOrientationDegrees + 360) % 360
+        } else {
+            (sensorOrientation - deviceOrientationDegrees + 360) % 360
+        }
     }
 
     /**

@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-21 (Sprint **14.7** readout chase + RAW still darken; verify against `ReadoutExposureChase.kt` if unsure).
+**Last synced with tree:** 2026-05-22 (Sprint **PO.2** adaptive FPS + background pause).
 
 **Related deep dives (not duplicated here):**
 
@@ -375,10 +375,36 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_imaging_profile` | Imaging profile override |
 | `pns_preview_raw_stream` | `RawStreamPreference` name |
 | `pns_screen=preview` | Cold-start preview route |
+| `pns_preview_adaptive_battery_pct` | PO.2 gate: override battery % for [PreviewAdaptiveFpsPolicy] |
+| `pns_preview_adaptive_thermal_status` | PO.2 gate: override [PowerManager] thermal status int |
 
 Full list: `CameraCapabilitiesProbe` / `MainActivity` extras; automation hub **`AGENTS.md`**.
 
 **Default preview FPS before UI sync:** `DESIRED_FPS_DEFAULT_BEFORE_UI_SYNC` — typically **120**; H YUV requires **`desiredFps < 120`**.
+
+### PO.2 — adaptive preview FPS (battery + thermal)
+
+**Code:** `PreviewAdaptiveFpsPolicy.kt`, polled every **3 s** in `PreviewEngineScreen` (`userSelectedFps` vs effective `selectedFps`).
+
+| Condition | Max preview FPS |
+|-----------|-----------------|
+| Battery ≤ **10%** | **30** |
+| Battery ≤ **20%** | **60** |
+| Battery ≤ **30%** | **90** |
+| Thermal ≥ **MODERATE** | **90** |
+| Thermal ≥ **SEVERE** | **60** |
+| Thermal ≥ **CRITICAL** | **30** |
+
+Log: `PNS.PowerThermal adaptiveFpsCap userFps=… effective=…`. Skipped while FPS **sweep** job is active.
+
+### PO.2 — background pause (long-running preview work)
+
+**Code:** `PreviewLongRunningPause`, `PreviewController.lifecycleBackgroundPaused`.
+
+- **`ON_PAUSE`:** pause optional YUV analysis; FPS sweep **waits** (does not advance) until resume.
+- **`ON_RESUME`:** clear pause, `kickPreviewPipelineRestart()` to reattach analysis surfaces.
+
+Log: `PNS.PowerThermal longRunningPaused=true/false`.
 
 ---
 
@@ -394,6 +420,12 @@ Full list: `CameraCapabilitiesProbe` / `MainActivity` extras; automation hub **`
 - `GLSurfaceView.setPreserveEGLContextOnPause(true)` on CPH2655 (abandoned surface)
 
 **Gallery return:** `restartMainActivityCold` when tray opens external viewer successfully; else `kickPreviewPipelineRestart()` + optional `GLSurfaceView.post { requestLayout() }`.
+
+**Tray surface restore:** `PreviewLastSurfacePrefs` (`pns_preview_last_surface.xml`) stores the last **Photo** / **Video** / in-app **Gallery** tray surface. Cold start restores it unless ADB `pns_preview_primary_photo`, `MediaStore` video capture intents, or still/video return contracts override. Saved on tray changes and `ON_STOP` via `LaunchedEffect` in `PreviewEngineScreen`.
+
+**PO.1 memory (Sprint PO.1):** `PnsBitmapGuard` (`PNS.Bitmap`) tracks gallery/tray bitmap recycle; `PnsMediaStoreGallery` (`PNS.GalleryIndex`) indexes `DCIM/Point & Shoot` via `RELATIVE_PATH` + `QUERY_ARG_LIMIT` (lazy EXIF on selection); preview session logs `PNS.MemoryProfiler` (10 s interval, CSV under app external `memory_profiles/`). Gate: `scripts/pns_memory_profiler.ps1`.
+
+**PO.2 battery (Sprint PO.2):** `PreviewAdaptiveFpsPolicy` + `PreviewLongRunningPause`; logs `PNS.PowerThermal adaptiveFpsCap` / `longRunningPaused`. Gate: `scripts/pns_battery_life_test.ps1`. See also `docs/M13V_12_POWER_THERMAL.md`.
 
 Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 

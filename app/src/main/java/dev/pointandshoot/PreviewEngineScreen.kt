@@ -179,6 +179,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -696,6 +697,10 @@ fun PreviewEngineScreen(
     adbSeedVideoLutName: String? = null,
     /** `pns_preview_force_power_thermal` — Sprint **13V.12** gate: show power HUD without HFR FPS. */
     adbForcePowerThermalOverlay: Boolean = false,
+    /** `pns_preview_adaptive_battery_pct` — Sprint **PO.2** gate: battery % override for adaptive FPS. */
+    adbAdaptiveBatteryPctOverride: Int? = null,
+    /** `pns_preview_adaptive_thermal_status` — Sprint **PO.2** gate: thermal status override for adaptive FPS. */
+    adbAdaptiveThermalStatusOverride: Int? = null,
     /** `pns_preview_storage_available_bytes` — Sprint **13V.13** gate: StatFs override for estimate math. */
     adbStorageAvailableBytes: Long? = null,
     /** `pns_preview_smile_still` — Sprint **13V.17**: enable smile-triggered still. */
@@ -710,6 +715,26 @@ fun PreviewEngineScreen(
     adbShowAboutOverlay: Boolean = false,
 ) {
     val context = LocalContext.current
+    val appContext = context.applicationContext
+    val hostActivity = context.findHostActivity()
+    val intentOverridesTrayRestore =
+        hostActivity?.intent?.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) == true ||
+            hostActivity?.intent?.action == MediaStore.INTENT_ACTION_VIDEO_CAMERA ||
+            hostActivity?.intent?.action == MediaStore.ACTION_VIDEO_CAPTURE ||
+            imageCaptureReturn != null ||
+            videoCaptureReturn != null
+    val restoredTraySurface =
+        remember(intentOverridesTrayRestore) {
+            if (intentOverridesTrayRestore) null else PreviewLastSurfacePrefs.load(appContext)
+        }
+    val resolvedInitialPrimaryPhoto =
+        when {
+            restoredTraySurface == PreviewLastSurface.Video -> false
+            intentOverridesTrayRestore -> initialPrimaryPhoto
+            else -> true
+        }
+    val resolvedInitialGallery =
+        restoredTraySurface == PreviewLastSurface.Gallery && !intentOverridesTrayRestore
     val adbSelfTimerSecSanitized =
         adbInitialSelfTimerSec?.coerceIn(0, 60)?.also { v ->
             if (v != adbInitialSelfTimerSec) {
@@ -885,28 +910,52 @@ fun PreviewEngineScreen(
     }
 
     var selectedCameraId by remember { mutableStateOf<String?>(null) }
-    var primaryPhoto by rememberSaveable(initialPrimaryPhoto) { mutableStateOf(initialPrimaryPhoto) }
+    var primaryPhoto by rememberSaveable(resolvedInitialPrimaryPhoto) {
+        mutableStateOf(resolvedInitialPrimaryPhoto)
+    }
     val rawOrBracketAutomation = adbSequentialRawStills > 0 || adbBracketPattern != null
     // Photo-primary: stay below 120 so [createSession] can attach RAW ([canCaptureRawStill]). Use **60** for
     // ADB sequential RAW / bracket runs: **90** preview targets still saw HAL timeouts on some devices
     // (CPH2655) while controller [DESIRED_FPS_DEFAULT_BEFORE_UI_SYNC] starts at 60 until UI sync.
-    var selectedFps by remember(initialPrimaryPhoto, rawOrBracketAutomation) {
+    var selectedFps by remember(resolvedInitialPrimaryPhoto, rawOrBracketAutomation) {
         mutableStateOf(
             when {
                 rawOrBracketAutomation -> 60
-                initialPrimaryPhoto -> 90
+                resolvedInitialPrimaryPhoto -> 90
                 // Video-primary default; HFR (≥120) uses MediaCodec + constrained high-speed session (13V.16).
                 else -> 60
             },
         )
     }
+    val powerThermalMonitor = remember { PreviewPowerThermalMonitor(context) }
+    var userSelectedFps by remember(resolvedInitialPrimaryPhoto, rawOrBracketAutomation) {
+        mutableStateOf(
+            when {
+                rawOrBracketAutomation -> 60
+                resolvedInitialPrimaryPhoto -> 90
+                else -> 60
+            },
+        )
+    }
+
+    LaunchedEffect(adbAdaptiveBatteryPctOverride, adbAdaptiveThermalStatusOverride) {
+        adbAdaptiveBatteryPctOverride?.let {
+            PnsAdbLog.i(context, "preview adaptiveBatteryPctOverride=$it")
+        }
+        adbAdaptiveThermalStatusOverride?.let {
+            PnsAdbLog.i(context, "preview adaptiveThermalStatusOverride=$it")
+        }
+    }
+
     LaunchedEffect(adbAutomationVideoFps) {
         val fps = adbAutomationVideoFps
         if (fps != null && fps > 0) {
             selectedFps = fps.coerceIn(15, 240)
+            userSelectedFps = selectedFps
             PnsAdbLog.i(context, "preview seeded videoFps=$fps (adb)")
         }
     }
+
     LaunchedEffect(selectedFps, primaryPhoto, adbAutomationVideoTenBit, adbAutomationVideoDcg) {
         val wantsMc =
             !primaryPhoto &&
@@ -929,6 +978,35 @@ fun PreviewEngineScreen(
     var sweepJob by remember { mutableStateOf<Job?>(null) }
     var sweepRunId by remember { mutableStateOf<String?>(null) }
     val autoSweepConsumed = remember { AtomicBoolean(false) }
+
+    LaunchedEffect(
+        userSelectedFps,
+        sweepJob,
+        adbAdaptiveBatteryPctOverride,
+        adbAdaptiveThermalStatusOverride,
+    ) {
+        while (true) {
+            if (sweepJob != null) {
+                delay(3_000L)
+                continue
+            }
+            val snap = powerThermalMonitor.sample()
+            val batteryPct = adbAdaptiveBatteryPctOverride ?: snap.batteryPct
+            val thermal = adbAdaptiveThermalStatusOverride ?: snap.thermalStatus
+            val decision = PreviewAdaptiveFpsPolicy.decide(userSelectedFps, batteryPct, thermal)
+            if (decision.capFps != null && selectedFps != decision.effectiveFps) {
+                Log.i(
+                    "PNS.PowerThermal",
+                    "adaptiveFpsCap userFps=$userSelectedFps effective=${decision.effectiveFps} " +
+                        "battery=$batteryPct thermal=$thermal reason=${decision.reason}",
+                )
+                selectedFps = decision.effectiveFps
+            } else if (decision.capFps == null && selectedFps != userSelectedFps) {
+                selectedFps = userSelectedFps
+            }
+            delay(3_000L)
+        }
+    }
 
     LaunchedEffect(
         adbSequentialRawStills,
@@ -1038,11 +1116,15 @@ fun PreviewEngineScreen(
             Log.d("PNS.Preview", "SWEEP cameras=${sweepCameras.joinToString(",")} allIds=${allIds.joinToString(",")}")
             Log.i(SWEEP_SIGNAL_TAG, "SWEEP_START runId=$runId cameras=${sweepCameras.joinToString(",")} sequence=${sequence.joinToString(",")}")
             for (cam in sweepCameras) {
+                while (!PreviewLongRunningPause.shouldContinueSweep()) delay(500)
+                if (!isActive) return@launch
                 selectedCameraId = cam
                 Log.d("PNS.Preview", "SWEEP select cameraId=$cam")
                 delay(700)
 
                 for (fps in sequence) {
+                    while (!PreviewLongRunningPause.shouldContinueSweep()) delay(500)
+                    if (!isActive) return@launch
                     selectedFps = fps
                     Log.d("PNS.Preview", "SWEEP start cameraId=$cam fps=$fps")
                     delay(3000)
@@ -1200,6 +1282,33 @@ fun PreviewEngineScreen(
         }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, captureScope) {
+        val profiler = MemoryProfiler.getInstance(context.applicationContext, captureScope)
+        var stopped = false
+        fun stopProfilerOnce() {
+            if (stopped) return
+            stopped = true
+            profiler.logEvent("preview_session_stop")
+            val report = profiler.stopProfiling()
+            runCatching {
+                profiler.saveReportToFile(report, "preview_engine_last.csv")
+            }
+            PnsBitmapGuard.logLeakCheck("PreviewEngine")
+        }
+        profiler.startProfiling(intervalMs = 10_000L)
+        profiler.logEvent("preview_session_start")
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) {
+                    stopProfilerOnce()
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            stopProfilerOnce()
+        }
+    }
     var previewNeedsResumeKick by remember { mutableStateOf(false) }
     val pendingHardRestartAfterExternalGallery = remember { AtomicBoolean(false) }
     DisposableEffect(lifecycleOwner, controller, previewHostSlot, context) {
@@ -1208,9 +1317,22 @@ fun PreviewEngineScreen(
                 when (event) {
                     Lifecycle.Event.ON_PAUSE -> {
                         previewNeedsResumeKick = true
+                        PreviewLongRunningPause.setPaused(true)
+                        controller.lifecycleBackgroundPaused = true
+                        Log.i(
+                            "PNS.PowerThermal",
+                            "longRunningPaused=true backgroundYuv=false sweepContinuesOnResume=true",
+                        )
                         controller.drainCompanionJpegExecutor(timeoutMs = 2000L)
                     }
                     Lifecycle.Event.ON_RESUME -> {
+                        val wasLongRunningPaused = PreviewLongRunningPause.paused
+                        PreviewLongRunningPause.setPaused(false)
+                        controller.lifecycleBackgroundPaused = false
+                        if (wasLongRunningPaused) {
+                            Log.i("PNS.PowerThermal", "longRunningPaused=false")
+                            controller.kickPreviewPipelineRestart()
+                        }
                         if (pendingHardRestartAfterExternalGallery.compareAndSet(true, false)) {
                             previewNeedsResumeKick = false
                             val act = context.findHostActivity()
@@ -1289,8 +1411,20 @@ fun PreviewEngineScreen(
     val trayStillCaptureRef = remember { mutableStateOf<(() -> Unit)?>(null) }
     /** Latest indexed capture for gallery thumb + open-in-viewer (typically DNG URI). */
     var lastGalleryUri by remember { mutableStateOf<Uri?>(null) }
-    /** Controls bespoke gallery visibility */
-    var showBespokeGallery by remember { mutableStateOf(true) } // Force open for testing
+    /** Controls bespoke gallery visibility (restored from [PreviewLastSurfacePrefs] on cold start). */
+    var showBespokeGallery by rememberSaveable(resolvedInitialGallery) {
+        mutableStateOf(resolvedInitialGallery)
+    }
+
+    LaunchedEffect(primaryPhoto, showBespokeGallery) {
+        val surface =
+            when {
+                showBespokeGallery -> PreviewLastSurface.Gallery
+                primaryPhoto -> PreviewLastSurface.Photo
+                else -> PreviewLastSurface.Video
+            }
+        PreviewLastSurfacePrefs.save(appContext, surface)
+    }
 
     LaunchedEffect(hudState.current.enableSmileTriggeredStill, primaryPhoto, isRecording, sweepJob) {
         controller.setSmileStillEnabled(hudState.current.enableSmileTriggeredStill)
@@ -2261,7 +2395,10 @@ fun PreviewEngineScreen(
                 )
             }
         },
-        onSetFps = { selectedFps = it },
+        onSetFps = {
+            userSelectedFps = it
+            selectedFps = it
+        },
         onStartSweep = {
             if (sweepJob != null) return@PreviewEngineContent
             sweepJob = CoroutineScope(Dispatchers.Main).launch {
@@ -2281,12 +2418,16 @@ fun PreviewEngineScreen(
                 val sequence = listOf(60, 120, 240, 480)
                 Log.d("PNS.Preview", "SWEEP cameras=${sweepCameras.joinToString(",")} allIds=${allIds.joinToString(",")}")
                 for (cam in sweepCameras) {
+                    while (!PreviewLongRunningPause.shouldContinueSweep()) delay(500)
+                    if (!isActive) return@launch
                     selectedCameraId = cam
                     Log.d("PNS.Preview", "SWEEP select cameraId=$cam")
                     // Give the UI/controller a moment to propagate camera id change + surface resize.
                     delay(700)
 
                     for (fps in sequence) {
+                        while (!PreviewLongRunningPause.shouldContinueSweep()) delay(500)
+                        if (!isActive) return@launch
                         selectedFps = fps
                         Log.d("PNS.Preview", "SWEEP start cameraId=$cam fps=$fps")
                         // Allow surface sizing + camera open + session start.
@@ -2791,6 +2932,53 @@ private fun PreviewEngineContent(
             onSetFps(cap)
             Log.i("PNS.Preview", "Highlight (H): preview fps set to $cap for YUV metering (was $prev)")
         }
+    }
+    // QR dial needs a REGULAR (non-HFR) session so the YUV analysis reader is attached.
+    LaunchedEffect(commandDialMode, selectedFps, fpsOptions) {
+        if (commandDialMode != CommandDialMode.Qr) return@LaunchedEffect
+        if (selectedFps < 120) return@LaunchedEffect
+        val cap = fpsOptions.asSequence().map { it.targetFps }.filter { it < 120 }.maxOrNull()
+        if (cap == null) {
+            Log.w("PNS.Preview", "QR scan: no fps ladder entry below 120; YUV decode unavailable")
+            return@LaunchedEffect
+        }
+        val prev = selectedFps
+        if (cap != prev) {
+            onSetFps(cap)
+            Log.i("PNS.Preview", "QR scan: preview fps set to $cap for YUV decode (was $prev)")
+        }
+    }
+    var qrDecodedText by remember { mutableStateOf<String?>(null) }
+    var qrDecodedFormat by remember { mutableStateOf<String?>(null) }
+    var qrAction by remember { mutableStateOf<QrScanAction?>(null) }
+    var lastQrPresentedText by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(commandDialMode) {
+        if (commandDialMode == CommandDialMode.Qr) {
+            Log.i("PNS.ChromeUx", "qrScanMode=active")
+        } else {
+            qrDecodedText = null
+            qrDecodedFormat = null
+            qrAction = null
+            lastQrPresentedText = null
+        }
+    }
+    LaunchedEffect(qrDecodedText, qrDecodedFormat) {
+        val text = qrDecodedText ?: return@LaunchedEffect
+        if (text == lastQrPresentedText) return@LaunchedEffect
+        lastQrPresentedText = text
+        val format = qrDecodedFormat
+        qrAction = QrScanResultActions.resolve(text, format)
+        QrScanResultActions.present(captureScope, snackbarHostState, context.applicationContext, text, format)
+    }
+    DisposableEffect(controller) {
+        controller.setQrScanListener { text, format ->
+            qrDecodedText = text
+            qrDecodedFormat = format
+            if (text == null) {
+                qrAction = null
+            }
+        }
+        onDispose { controller.setQrScanListener(null) }
     }
     var eyeMarksBuffer by remember { mutableStateOf<List<EyeMark>>(emptyList()) }
     var faceTrackBoxesBuffer by remember { mutableStateOf<List<FaceTrackBoxBuffer>>(emptyList()) }
@@ -3324,6 +3512,36 @@ private fun PreviewEngineContent(
                                 settings.videoEncodeLane == VideoEncodeLane.Raw ||
                                     adbAutomationVideoRawSec > 0,
                         )
+                        if (commandDialMode == CommandDialMode.Qr) {
+                            PreviewQrScanOverlay(
+                                decodedText = qrDecodedText,
+                                action = qrAction,
+                                onOpen = {
+                                    val viewUri = qrAction as? QrScanAction.ViewUri ?: return@PreviewQrScanOverlay
+                                    val text = qrDecodedText
+                                    val ok = QrScanResultActions.launchViewUri(context, viewUri.uri)
+                                    Log.i(
+                                        QrCodeAnalyzer.TAG,
+                                        "open userInitiated=true uri=${viewUri.uri.take(120)} ok=$ok",
+                                    )
+                                    if (!ok && text != null) {
+                                        captureScope.pnsShowSnackbar(
+                                            snackbarHostState,
+                                            "No app to open this",
+                                            clipboardDetail = text,
+                                            clipboardAppContext = context.applicationContext,
+                                        )
+                                    }
+                                },
+                                onCopy = {
+                                    qrDecodedText?.let {
+                                        QrScanResultActions.copyToClipboard(context.applicationContext, it)
+                                        captureScope.pnsShowSnackbar(snackbarHostState, "Copied")
+                                    }
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                         if (selfTimerRemaining > 0) {
                             Box(
                                 modifier =
@@ -4272,7 +4490,7 @@ private fun PreviewBottomCaptureTray(
     }
 
     LaunchedEffect(lastGalleryUri) {
-        thumbBitmap?.recycle()
+        PnsBitmapGuard.safeRecycle(thumbBitmap, "PreviewTray.thumb")
         thumbBitmap = null
         val u = lastGalleryUri ?: return@LaunchedEffect
         thumbBitmap = loadGalleryThumbnail(context.applicationContext, u)
@@ -4280,7 +4498,7 @@ private fun PreviewBottomCaptureTray(
 
     DisposableEffect(Unit) {
         onDispose {
-            thumbBitmap?.recycle()
+            PnsBitmapGuard.safeRecycle(thumbBitmap, "PreviewTray.thumb")
         }
     }
 
@@ -6542,6 +6760,10 @@ private class PreviewController(
     @Volatile
     var automationSuppressFacePipeline: Boolean = false
 
+    /** Sprint **PO.2**: app in background — skip optional YUV analysis until [ON_RESUME]. */
+    @Volatile
+    var lifecycleBackgroundPaused: Boolean = false
+
     /** Scripted Super Macro vendor close-up request (`EXTRA_PNS_PREVIEW_SUPER_MACRO_PROBE`). */
     @Volatile
     var superMacroAdbProbe: Boolean = false
@@ -6795,6 +7017,18 @@ private class PreviewController(
     private var previewHistogramListener: ((IntArray?) -> Unit)? = null
 
     private var highlightClipZebraListener: ((HighlightClipZebraFrame?) -> Unit)? = null
+
+    /** Sprint **14.4** — live ZXing decode on preview YUV when dial is [CommandDialMode.Qr]. */
+    private var qrScanListener: ((text: String?, format: String?) -> Unit)? = null
+
+    private var lastQrDecodeWallMs: Long = 0L
+
+    fun setQrScanListener(listener: ((text: String?, format: String?) -> Unit)?) {
+        qrScanListener = listener
+    }
+
+    private fun wantsQrScan(): Boolean =
+        commandDialMode == CommandDialMode.Qr && !automationSuppressFacePipeline
 
     fun setPreviewHistogramListener(listener: ((IntArray?) -> Unit)?) {
         previewHistogramListener = listener
@@ -7134,6 +7368,9 @@ private class PreviewController(
             manualFocusDiopters = null
         }
         resetHighlightMeterPipelineState()
+        if (mode != CommandDialMode.Qr) {
+            handler?.post { qrScanListener?.invoke(null, null) }
+        }
         Log.d(tag, "setCommandDialMode mode=$mode")
         maybeRestart()
     }
@@ -11148,11 +11385,15 @@ private class PreviewController(
             // surfaces unless the face HUD still needs them — extra YUV + H dial forced session churn and
             // RAW still HAL timeouts on some devices (e.g. CPH2655 with wantYuv=true while suppressFace=true).
             val wantYuv =
-                (commandDialMode == CommandDialMode.H && desiredFps < 120 && !automationSuppressFacePipeline) ||
-                    (!automationSuppressFacePipeline && previewHistogramEnabled) ||
-                    (!automationSuppressFacePipeline && highlightClipZebraEnabled) ||
-                    (hudFaceOverlayEnabled && !automationSuppressFacePipeline) ||
-                    (smileStillEnabled && !automationSuppressFacePipeline)
+                !lifecycleBackgroundPaused &&
+                    (
+                        (commandDialMode == CommandDialMode.H && desiredFps < 120 && !automationSuppressFacePipeline) ||
+                            (commandDialMode == CommandDialMode.Qr && !automationSuppressFacePipeline) ||
+                            (!automationSuppressFacePipeline && previewHistogramEnabled) ||
+                            (!automationSuppressFacePipeline && highlightClipZebraEnabled) ||
+                            (hudFaceOverlayEnabled && !automationSuppressFacePipeline) ||
+                            (smileStillEnabled && !automationSuppressFacePipeline)
+                    )
             if (wantYuv) {
                 val yuvPick = desiredSurfaceSize ?: currentSurfaceSize
                 val yuvSize = HighlightMeterSupport.pickYuv420AnalysisSize(map, yuvPick)
@@ -12731,7 +12972,8 @@ private class PreviewController(
         val wantFaceHud = hudFaceOverlayEnabled && !automationSuppressFacePipeline
         val wantSmileStill = smileStillEnabled && !automationSuppressFacePipeline
         val wantFace = wantFaceHud || wantSmileStill
-        if (!wantHighlight && !wantHist && !wantFace && !wantZebra) {
+        val wantQr = wantsQrScan()
+        if (!wantHighlight && !wantHist && !wantFace && !wantZebra && !wantQr) {
             reader.acquireLatestImage()?.close()
             return
         }
@@ -12758,7 +13000,10 @@ private class PreviewController(
             !wantFace ||
                 skipMlBecauseCameraFaces ||
                 (now - lastMlFaceProcessWallMs >= mlIntervalMs)
-        if (!histOk && !faceOk) {
+        val qrOk =
+            !wantQr ||
+                (now - lastQrDecodeWallMs >= QR_SCAN_DECODE_MIN_INTERVAL_MS)
+        if (!histOk && !faceOk && !qrOk) {
             reader.acquireLatestImage()?.close()
             return
         }
@@ -12888,6 +13133,23 @@ private class PreviewController(
                     }
                 }
 
+                fun runQrScanIfNeeded() {
+                    if (!wantQr) return
+                    val nowQr = SystemClock.elapsedRealtime()
+                    if (nowQr - lastQrDecodeWallMs < QR_SCAN_DECODE_MIN_INTERVAL_MS) return
+                    lastQrDecodeWallMs = nowQr
+                    val decoded = QrCodeAnalyzer.tryDecodeFromImage(image) ?: return
+                    Log.i(
+                        QrCodeAnalyzer.TAG,
+                        "decode ok format=${decoded.format} len=${decoded.text.length}",
+                    )
+                    val camHandler = handler ?: return
+                    camHandler.post {
+                        if (!wantsQrScan()) return@post
+                        qrScanListener?.invoke(decoded.text, decoded.format)
+                    }
+                }
+
                 fun runHistogramAndHighlightIfNeeded() {
                     if (!wantHighlight && !wantHist && !wantZebra) return
 
@@ -13010,9 +13272,10 @@ private class PreviewController(
                     runMlFaceHudIfNeeded()
                 } else {
                     runMlFaceHudIfNeeded()
-                    if (!wantHighlight && !wantHist) return@execute
+                    if (!wantHighlight && !wantHist && !wantQr) return@execute
                     runHistogramAndHighlightIfNeeded()
                 }
+                runQrScanIfNeeded()
             } finally {
                 image.close()
                 yuvAnalysisInFlight.set(false)

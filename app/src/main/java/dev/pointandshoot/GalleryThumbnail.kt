@@ -12,15 +12,25 @@ import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** True when [uri] is an Adobe DNG (gallery must decode without [ContentResolver.loadThumbnail] EXIF bake-in). */
+fun isDngMediaUri(context: Context, uri: Uri): Boolean {
+    val path = uri.toString().lowercase()
+    if (path.endsWith(".dng")) return true
+    return context.contentResolver.getType(uri) == "image/x-adobe-dng"
+}
+
 /**
  * Loads a small bitmap for gallery thumbnails. Prefer [android.content.ContentResolver.loadThumbnail]
- * on Q+; fall back to [ImageDecoder] when DNG / exotic MIME types fail.
+ * on Q+ for JPEG/HEIC; **DNG** always uses [decodeScaledBitmap] so orientation is applied once in
+ * [DngGalleryOrientation.applyGalleryDisplayRotation].
  */
 suspend fun loadGalleryThumbnail(context: Context, uri: Uri, sizePx: Int = 160): Bitmap? =
     withContext(Dispatchers.IO) {
         val cr = context.contentResolver
         runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (isDngMediaUri(context, uri)) {
+                decodeScaledBitmap(cr, uri, sizePx)
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 try {
                     cr.loadThumbnail(uri, Size(sizePx, sizePx), null)
                 } catch (_: Throwable) {
@@ -29,7 +39,9 @@ suspend fun loadGalleryThumbnail(context: Context, uri: Uri, sizePx: Int = 160):
             } else {
                 decodeScaledBitmap(cr, uri, sizePx)
             }
-        }.getOrNull()
+        }.getOrNull()?.also { bmp ->
+            PnsBitmapGuard.onAllocated("GalleryThumbnail", bmp)
+        }
     }
 
 private fun decodeScaledBitmap(cr: android.content.ContentResolver, uri: Uri, maxPx: Int): Bitmap? {

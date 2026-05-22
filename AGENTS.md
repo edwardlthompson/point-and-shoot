@@ -251,6 +251,9 @@ Use these from repo root unless a script documents otherwise.
 | `pns_dual_video_verify.ps1` | Sprint **14.12**: design doc + JVM scaffold tests; **`-HostOnly`** default; USB scaffold log when device online. |
 | `pns_release_packaging.ps1` | Sprint **14.13**: **`assembleRelease`**, rename **`Point-and-Shoot_<versionName>.apk`**, **`zipalign -c -v 4`** (no `gh`). |
 | `pns_qr_scan_verify.ps1` | Sprint **14.4**: cold preview **`pns_preview_dial=QR`** + photo-primary; asserts **`qrScanMode=active`** and **`PNS.PreviewSessionCtx`** **`dial=Qr wantYuv=true`**. Artifacts **`hfr-runs/qr_scan_verify_*`**. |
+| `pns_memory_profiler.ps1` | Sprint **PO.1**: one-session preview + **`pns_preview_raw_count=1`**; greps **`PNS.MemoryProfiler`**, RAW capture ok, **`dumpsys meminfo`**. Artifacts **`hfr-runs/memory_profiler_*`**. |
+| `pns_battery_life_test.ps1` | Sprint **PO.2**: JVM **`PreviewAdaptiveFpsPolicyTest`** + USB adaptive FPS cap (`pns_preview_adaptive_battery_pct`) + lifecycle **`longRunningPaused`**. Artifacts **`hfr-runs/battery_life_test_*`**. |
+| `pns_po_optimization_gate.ps1` | **PO optimization gate:** **`pns_memory_profiler.ps1`** + **`pns_battery_life_test.ps1`** → **`hfr-runs/po_optimization_gate_*`**. |
 | `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_proshot_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
 | `dng_desktop_open_gate.py` / `pns_dng_desktop_open_gate.ps1` | Host-only: integrity + ASN bounds + wide-cal CM2 leak check on pulled DNGs. |
 | `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/proshot_cph2655/` (toolchain-verify workflow). |

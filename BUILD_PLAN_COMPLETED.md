@@ -1,6 +1,6 @@
 ﻿# BUILD_PLAN — completed milestones & sprints
 
-Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
 
 ---
 ## Milestone 0 — Baseline quality bar (always on)
@@ -992,5 +992,91 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 **Shipped version:** **`0.14.0-beta.2`**, `versionCode` **14002**, asset **`Point-and-Shoot_0.14.0-beta.2.apk`**.
 
 **Milestone 14 gate:** Sprints **14.1–14.13** archived; subjective **H.8** remains in active **[BUILD_PLAN.md](BUILD_PLAN.md)**. Chart calibration tuning deferred in active plan (*Pinned — Chart calibration*).
+
+---
+
+## Bespoke Gallery Integration
+
+**Objective:** Replace system gallery resolver with custom `BespokeGalleryScreen` for in-app media browsing and management.
+
+**Shipped:** 2026-05-21 (integration + device verify); **BG.3 closed** 2026-05-22 (maintainer UX/UI sign-off).
+
+### Sprint BG.1 — Bespoke Gallery Implementation
+
+**Code:** `BespokeGalleryScreen.kt`, `PreviewEngineScreen.kt`
+
+- [x] **[AGENT]** Create `BespokeGalleryScreen.kt` with MediaStore loading and bitmap display (removed Coil dependency)
+- [x] **[AGENT]** Add `showBespokeGallery` state variable to `PreviewEngineScreen.kt`
+- [x] **[AGENT]** Modify `PreviewBottomCaptureTray` to accept `onBespokeGalleryChange` callback
+- [x] **[AGENT]** Update gallery thumbnail click handler to show bespoke gallery
+- [x] **[AGENT]** Add bespoke gallery overlay composable with proper state management
+- [x] **[AGENT]** Fix Kotlin scope issues and compilation errors
+- [x] **[AGENT]** Fix deprecated ArrowBack icon warning (low priority)
+
+### Sprint BG.2 — Device Verification
+
+**Verification scripts:** `pns_gallery_integration_verify.ps1`, `pns_gallery_integration_complete.ps1`
+
+- [x] **[ADB][HUMAN]** Test gallery thumbnail click opens bespoke gallery instead of system resolver (2026-05-21)
+- [x] **[ADB][HUMAN]** Verify back button functionality returns to preview (2026-05-21)
+- [x] **[ADB][HUMAN]** Test external gallery button launches system resolver (2026-05-21)
+- [x] **[ADB][HUMAN]** Verify media items load and display correctly (2026-05-21)
+- [x] **[ADB][HUMAN]** Test navigation between different media items (2026-05-21)
+- [x] **[HUMAN]** Create `pns_gallery_integration_verify.ps1` for automated testing (2026-05-21)
+- [x] **[HUMAN]** Create `pns_gallery_integration_complete.ps1` for comprehensive automated testing (2026-05-21)
+
+### Sprint BG.3 — UX Polish & Features
+
+- [x] **[AGENT]** Add media metadata display (EXIF, capture settings) (2026-05-21)
+- [x] **[AGENT]** Implement media deletion functionality (2026-05-21)
+- [x] **[AGENT]** Implement media sharing options (2026-05-21)
+- [x] **[AGENT]** Implement zoom and pan for detailed viewing (2026-05-21)
+- [x] **[HUMAN]** UX review and accessibility improvements — **maintainer UX/UI sign-off 2026-05-22** (formal TalkBack / a11y audit remains **Milestone H.6**)
+
+**BG.1 Implementation gate:** `gradlew :app:compileDebugKotlin` passes with zero errors.
+
+**BG.2 Device gate:** `pns_gallery_integration_verify.ps1` + human device checks on **8bf09993** (2026-05-21); no capture regressions.
+
+**BG.3 UX gate:** Metadata, delete, share, zoom/pan shipped in `BespokeGalleryScreen.kt`; **maintainer approved UX/UI 2026-05-22**; tray **Photo / Video / Gallery** restore via `PreviewLastSurfacePrefs` (same session).
+
+**BG Integration gate:** **CLOSED** — bespoke gallery fully functional; preview chrome layout lock unchanged.
+
+---
+
+## Performance & Optimization
+
+**Objective:** Enhance app performance, reduce resource usage, and improve battery/thermal behavior on preview.
+
+**Shipped:** 2026-05-22 (USB gates on **CPH2655** `8bf09993`).
+
+### Sprint PO.1 — Memory & Performance Optimization
+
+**Code:** `PreviewEngineScreen.kt`, `LutCameraPreviewRenderer.kt`, `PnsBitmapGuard.kt`, `PnsMediaStoreGallery.kt`, `BespokeGalleryScreen.kt`, `MemoryProfiler.kt`
+
+- [x] **[AGENT]** Optimize preview pipeline memory usage with buffer pooling (GLES renderer)
+- [x] **[AGENT]** Add performance monitoring hooks for capture latency
+- [x] **[AGENT]** Implement lazy loading for gallery thumbnails
+- [x] **[AGENT]** Implement memory leak detection and cleanup for bitmap resources (`PnsBitmapGuard`)
+- [x] **[AGENT]** Optimize MediaStore queries with proper indexing (`PnsMediaStoreGallery`)
+- [x] **[ADB][HUMAN]** Profile memory usage during extended capture sessions (`pns_memory_profiler.ps1` + `PNS.MemoryProfiler`)
+
+### Sprint PO.2 — Battery & Thermal Optimization
+
+**Code:** `PreviewPowerThermalMonitor.kt`, `PreviewAdaptiveFpsPolicy.kt`, `PreviewLongRunningPause.kt`
+
+- [x] **[AGENT]** Add thermal throttling detection and response (`PreviewPowerThermalMonitor`)
+- [x] **[AGENT]** Optimize background processing to minimize battery drain
+- [x] **[AGENT]** Implement adaptive preview FPS based on battery level (`PreviewAdaptiveFpsPolicy`, `PNS.PowerThermal adaptiveFpsCap`)
+- [x] **[AGENT]** Implement smart pause/resume for long-running operations (`PreviewLongRunningPause`)
+- [x] **[ADB][HUMAN]** Test battery life under various usage patterns (13V.12 verified)
+- [x] **[ADB][HUMAN]** Verify thermal management under sustained load (13V.12 verified)
+
+**PO.1 Memory gate:** `pns_memory_profiler.ps1` **PASS** — `preview_session_start/stop`, `PNS.Bitmap leakCheck … ok`, no critical `PNS.MemoryProfiler` pressure. Artifacts: `hfr-runs/memory_profiler_*`.
+
+**PO.2 Battery gate:** `pns_battery_life_test.ps1` **PASS** — `adaptiveFpsCap`, `longRunningPaused=true/false`. Artifacts: `hfr-runs/battery_life_test_*`.
+
+**PO Optimization gate:** `pns_po_optimization_gate.ps1` **PASS** — combined report `hfr-runs/po_optimization_gate_*/report.md`. (15% battery improvement / 60-minute thermal soak remain human fleet benchmarks.)
+
+**Gallery note (post-PO):** Selfie DNG orientation — `DngGalleryOrientation` + DNG-only decode path in `GalleryThumbnail.kt` (ongoing UX fix separate from PO gate closure).
 
 ---

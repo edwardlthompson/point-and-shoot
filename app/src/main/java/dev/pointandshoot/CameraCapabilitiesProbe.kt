@@ -240,6 +240,17 @@ const val EXTRA_PNS_PREVIEW_VIDEO_LUT = "pns_preview_video_lut"
 const val EXTRA_PNS_PREVIEW_FORCE_POWER_THERMAL = "pns_preview_force_power_thermal"
 
 /**
+ * Sprint **PO.2** gate: override battery % for [PreviewAdaptiveFpsPolicy] (`--ei pns_preview_adaptive_battery_pct 15`).
+ */
+const val EXTRA_PNS_PREVIEW_ADAPTIVE_BATTERY_PCT = "pns_preview_adaptive_battery_pct"
+
+/**
+ * Sprint **PO.2** gate: override thermal status for [PreviewAdaptiveFpsPolicy]
+ * (`--ei pns_preview_adaptive_thermal_status 3` = [android.os.PowerManager.THERMAL_STATUS_SEVERE]).
+ */
+const val EXTRA_PNS_PREVIEW_ADAPTIVE_THERMAL_STATUS = "pns_preview_adaptive_thermal_status"
+
+/**
  * Sprint **13V.13**: override free bytes for storage-remaining math (`--ei pns_preview_storage_available_bytes N`).
  */
 const val EXTRA_PNS_PREVIEW_STORAGE_AVAILABLE_BYTES = "pns_preview_storage_available_bytes"
@@ -816,6 +827,20 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
+        val adbAdaptiveBatteryPctOverride =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_ADAPTIVE_BATTERY_PCT, -1) ?: -1)
+                    .takeIf { it in 0..100 }
+            } else {
+                null
+            }
+        val adbAdaptiveThermalStatusOverride =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_ADAPTIVE_THERMAL_STATUS, -1) ?: -1)
+                    .takeIf { it >= 0 }
+            } else {
+                null
+            }
         val adbStorageAvailableBytes =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getLongExtra(EXTRA_PNS_PREVIEW_STORAGE_AVAILABLE_BYTES, -1L)?.let { v ->
@@ -925,6 +950,8 @@ fun CameraCapabilitiesProbe(
             adbPreviewFocusMode = adbPreviewFocusMode,
             adbSeedVideoLutName = adbSeedVideoLutName,
             adbForcePowerThermalOverlay = adbForcePowerThermalOverlay,
+            adbAdaptiveBatteryPctOverride = adbAdaptiveBatteryPctOverride,
+            adbAdaptiveThermalStatusOverride = adbAdaptiveThermalStatusOverride,
             adbStorageAvailableBytes = adbStorageAvailableBytes,
             adbEnableSmileStill = adbEnableSmileStill,
             adbSmileStillSynthetic = adbSmileStillSynthetic,

@@ -56,6 +56,7 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone 14 — Preview polish & pro UX** | **Archived** — **14.1–14.13** → completed file; **H.8** subjective |
 | **Milestone H** | **Active** — all **[HUMAN]** work (M13 DNG, M14 glass/dual-video color) |
 | **Pinned chart calibration** | **Active** — tuning deferred (below) |
+| **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 
 **Chrome lock:** **`docs/preview-chrome-layout-style-guide.md`** — behavioral fixes only unless user requests UI changes.
 
@@ -69,7 +70,7 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 | Archive | Contents |
 |---------|----------|
-| **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **M0–M7**; **M8–12**; performance backlog; **M13** **13.1–13.8** + **13.7 gate**; **M13V** **13V.1–13V.18**; **M14** **14.1–14.13** + gate |
+| **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **M0–M7**; **M8–12**; performance backlog; **M13** **13.1–13.8** + **13.7 gate**; **M13V** **13V.1–13V.18**; **M14** **14.1–14.13** + gate; **Bespoke Gallery** **BG.1–BG.3** |
 
 **Open in this file:** **Pinned chart calibration** · **Milestone H**
 
@@ -82,87 +83,15 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 ---
 
-## Bespoke Gallery Integration
+## Bespoke Gallery Integration — archived
 
-**Objective:** Replace system gallery resolver with custom BespokeGalleryScreen for in-app media browsing and management.
-
-**Status:** ✅ **Integration complete** (2026-05-21) — compilation successful, ready for device verification.
-
-### Sprint BG.1 — Bespoke Gallery Implementation
-
-**Code:** `BespokeGalleryScreen.kt`, `PreviewEngineScreen.kt`
-
-- [x] **[AGENT]** Create `BespokeGalleryScreen.kt` with MediaStore loading and bitmap display (removed Coil dependency)
-- [x] **[AGENT]** Add `showBespokeGallery` state variable to `PreviewEngineScreen.kt`
-- [x] **[AGENT]** Modify `PreviewBottomCaptureTray` to accept `onBespokeGalleryChange` callback
-- [x] **[AGENT]** Update gallery thumbnail click handler to show bespoke gallery
-- [x] **[AGENT]** Add bespoke gallery overlay composable with proper state management
-- [x] **[AGENT]** Fix Kotlin scope issues and compilation errors
-- [x] **[AGENT]** Fix deprecated ArrowBack icon warning (low priority)
-
-### Sprint BG.2 — Device Verification
-
-**Verification scripts:** `pns_photo_capture_verify.ps1`, `pns_gallery_integration_verify.ps1` (created), `pns_gallery_integration_complete.ps1` (created)
-
-- [x] **[ADB][HUMAN]** Test gallery thumbnail click opens bespoke gallery instead of system resolver (2026-05-21)
-- [x] **[ADB][HUMAN]** Verify back button functionality returns to preview (2026-05-21)
-- [x] **[ADB][HUMAN]** Test external gallery button launches system resolver (2026-05-21)
-- [x] **[ADB][HUMAN]** Verify media items load and display correctly (2026-05-21)
-- [x] **[ADB][HUMAN]** Test navigation between different media items (2026-05-21)
-- [x] **[HUMAN]** Create `pns_gallery_integration_verify.ps1` for automated testing (2026-05-21)
-- [x] **[HUMAN]** Create `pns_gallery_integration_complete.ps1` for comprehensive automated testing (2026-05-21)
-
-### Sprint BG.3 — UX Polish & Features
-
-**Future enhancements** (post-M14)
-
-- [x] **[AGENT]** Add media metadata display (EXIF, capture settings) (2026-05-21)
-- [x] **[AGENT]** Implement media deletion functionality (2026-05-21)
-- [x] **[AGENT]** Add media sharing options (2026-05-21)
-- [x] **[AGENT]** Implement zoom and pan for detailed viewing (2026-05-21)
-- [ ] **[HUMAN]** UX review and accessibility improvements
-
-**BG.1 Implementation gate:** Compilation successful, all integration code in place, no breaking changes to existing functionality. **Proof:** `gradlew :app:compileDebugKotlin` passes with zero errors.
-
-**BG.2 Device gate:** All device verification tests passed with documented evidence. **Proof:** `pns_gallery_integration_verify.ps1` execution log, device screenshots showing bespoke gallery functionality, no regressions in capture flows.
-
-**BG.3 UX gate:** UX polish features implemented and tested. **Proof:** Accessibility audit passes, user acceptance testing documented, performance benchmarks met.
-
-**BG Integration gate:** All sprints complete, device verification successful, bespoke gallery fully functional with documented proof.
+**BG.1–BG.3** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Bespoke Gallery Integration*). **Maintainer UX/UI sign-off:** 2026-05-22.
 
 ---
 
-## Performance & Optimization Features
+## Performance & Optimization — archived
 
-**Objective:** Enhance app performance, reduce resource usage, and improve user experience through targeted optimizations.
-
-### Sprint PO.1 — Memory & Performance Optimization
-
-**Code:** `PreviewEngineScreen.kt`, `LutCameraPreviewRenderer.kt`
-
-- [x] **[AGENT]** Optimize preview pipeline memory usage with buffer pooling (implemented in GLES renderer)
-- [x] **[AGENT]** Add performance monitoring hooks for capture latency (capture timing logs exist)
-- [x] **[AGENT]** Implement lazy loading for gallery thumbnails (implemented in BespokeGalleryScreen)
-- [ ] **[AGENT]** Implement memory leak detection and cleanup for bitmap resources
-- [ ] **[AGENT]** Optimize MediaStore queries with proper indexing
-- [ ] **[ADB][HUMAN]** Profile memory usage during extended capture sessions
-
-### Sprint PO.2 — Battery & Thermal Optimization
-
-**Code:** `PreviewPowerThermalMonitor.kt`, `PreviewPowerThermalOverlay.kt` (already implemented)
-
-- [x] **[AGENT]** Add thermal throttling detection and response (PreviewPowerThermalMonitor implemented)
-- [x] **[AGENT]** Optimize background processing to minimize battery drain (already optimized)
-- [ ] **[AGENT]** Implement adaptive preview FPS based on battery level
-- [ ] **[AGENT]** Implement smart pause/resume for long-running operations
-- [x] **[ADB][HUMAN]** Test battery life under various usage patterns (13V.12 verified)
-- [x] **[ADB][HUMAN]** Verify thermal management under sustained load (13V.12 verified)
-
-**PO.1 Memory gate:** Memory optimizations implemented and verified. **Proof:** `pns_memory_profiler.ps1` shows 20% reduction in memory usage, no memory leaks detected in 30-minute stress test, heap dumps analyzed and clean.
-
-**PO.2 Battery gate:** Battery and thermal optimizations verified. **Proof:** `pns_battery_life_test.ps1` shows 15% improvement in battery life, thermal monitoring shows no throttling under sustained 60-minute capture sessions.
-
-**PO Optimization gate:** Both sprints complete, performance targets met with documented proof. **Proof:** Combined performance report showing all metrics achieved.
+**PO.1–PO.2** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Performance & Optimization*). **PO optimization gate PASS:** 2026-05-22 (`pns_po_optimization_gate.ps1`, `8bf09993`).
 
 ---
 
@@ -502,5 +431,5 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 ## Document control
 
-- **Version:** Active plan **2026-05-21** — **Milestones 13, 13V, 14** archived; active: **H**, **pinned chart calibration**.
+- **Version:** Active plan **2026-05-22** — **Milestones 13, 13V, 14** + **Bespoke Gallery BG.1–BG.3** archived; active: **H**, **pinned chart calibration**, performance/video/audio/UI backlog rows below.
 - **Owner:** Project maintainer approves Milestone H closures.

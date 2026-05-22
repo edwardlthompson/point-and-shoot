@@ -8,7 +8,6 @@ import android.provider.MediaStore
 import android.media.ExifInterface
 import android.graphics.Matrix
 import android.graphics.Bitmap
-import android.app.ActivityManager
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.pager.HorizontalPager
@@ -101,9 +100,37 @@ fun GridItem(
 ) {
     val context = LocalContext.current
     var thumbnail by remember { mutableStateOf<Bitmap?>(null) }
+    var displayThumbnail by remember { mutableStateOf<Bitmap?>(null) }
     
     LaunchedEffect(media.uri) {
-        thumbnail = loadGalleryThumbnail(context, media.uri, 120)
+        PnsBitmapGuard.safeRecycle(thumbnail, "GridItem.thumb")
+        PnsBitmapGuard.safeRecycle(displayThumbnail, "GridItem.thumbRotated")
+        thumbnail = null
+        displayThumbnail = null
+        val loaded = loadGalleryThumbnail(context, media.uri, 120)
+        thumbnail = loaded
+        PnsBitmapGuard.onAllocated("GridItem.thumb", loaded)
+        if (loaded != null) {
+            val isDng = media.displayName.lowercase().endsWith(".dng")
+            val exifOrient =
+                withContext(Dispatchers.IO) {
+                    extractExifMetadata(context, media.uri).orientation
+                }
+            val rotated =
+                DngGalleryOrientation.applyGalleryDisplayRotation(loaded, isDng, exifOrient)
+            displayThumbnail = rotated
+            if (rotated !== loaded) {
+                PnsBitmapGuard.onAllocated("GridItem.thumbRotated", rotated)
+            }
+        }
+    }
+    DisposableEffect(media.uri) {
+        onDispose {
+            PnsBitmapGuard.safeRecycle(thumbnail, "GridItem.dispose")
+            PnsBitmapGuard.safeRecycle(displayThumbnail, "GridItem.disposeRotated")
+            thumbnail = null
+            displayThumbnail = null
+        }
     }
     
     Card(
@@ -113,7 +140,7 @@ fun GridItem(
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.DarkGray)
     ) {
-        val currentThumbnail = thumbnail
+        val currentThumbnail = displayThumbnail ?: thumbnail
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -152,38 +179,6 @@ fun GridItem(
     }
 }
 
-// Memory monitoring and bitmap cleanup utilities
-private fun logMemoryUsage(context: Context, tag: String = "BespokeGallery") {
-    val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    val memoryInfo = ActivityManager.MemoryInfo()
-    activityManager.getMemoryInfo(memoryInfo)
-    
-    val usedMemory = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024)
-    val maxMemory = Runtime.getRuntime().maxMemory() / (1024 * 1024)
-    val availableMemory = memoryInfo.availMem / (1024 * 1024)
-    
-    Log.d(tag, "Memory - Used: ${usedMemory}MB, Max: ${maxMemory}MB, Available: ${availableMemory}MB")
-    
-    if (usedMemory > maxMemory * 0.8) {
-        Log.w(tag, "High memory usage detected: ${usedMemory}MB / ${maxMemory}MB")
-    }
-}
-
-private fun safeRecycleBitmap(bitmap: Bitmap?, tag: String = "BespokeGallery"): Boolean {
-    return try {
-        if (bitmap != null && !bitmap.isRecycled) {
-            Log.d(tag, "Recycling bitmap: ${bitmap.width}x${bitmap.height}, size: ${bitmap.byteCount / 1024}KB")
-            bitmap.recycle()
-            true
-        } else {
-            false
-        }
-    } catch (e: Exception) {
-        Log.e(tag, "Error recycling bitmap", e)
-        false
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BespokeGalleryScreen(
@@ -206,28 +201,43 @@ fun BespokeGalleryScreen(
     // Initialize memory profiler
     val memoryProfiler = remember { MemoryProfiler.getInstance(context, lifecycleScope) }
     
-    // Memory monitoring on screen entry
+    var selectedDetail by remember { mutableStateOf<MediaItem?>(null) }
+
     LaunchedEffect(Unit) {
-        logMemoryUsage(context, "BespokeGallery.Entry")
         memoryProfiler.startProfiling(5000L)
         memoryProfiler.logEvent("Gallery screen opened")
     }
-    
-    // Cleanup on screen exit
+
+    LaunchedEffect(selectedMedia) {
+        val media = selectedMedia ?: run {
+            selectedDetail = null
+            return@LaunchedEffect
+        }
+        val exif = withContext(Dispatchers.IO) { extractExifMetadata(context, media.uri) }
+        selectedDetail =
+            media.copy(
+                cameraId = exif.cameraId,
+                lens = exif.lens,
+                focalLength = exif.focalLength,
+                aperture = exif.aperture,
+                iso = exif.iso,
+                shutterSpeed = exif.shutterSpeed,
+                whiteBalance = exif.whiteBalance,
+            )
+        memoryProfiler.logEvent("Lazy EXIF loaded: ${media.displayName}")
+    }
+
     DisposableEffect(Unit) {
         onDispose {
-            Log.d("BespokeGallery", "Cleaning up gallery resources")
-            selectedBitmap?.let { safeRecycleBitmap(it, "BespokeGallery.Cleanup") }
+            PnsBitmapGuard.safeRecycle(selectedBitmap, "BespokeGallery.Cleanup")
             selectedBitmap = null
-            logMemoryUsage(context, "BespokeGallery.Exit")
-            
-            // Stop memory profiling and save report
+            PnsBitmapGuard.logLeakCheck("BespokeGallery")
             memoryProfiler.logEvent("Gallery screen closed")
             val report = memoryProfiler.stopProfiling()
-            try {
+            runCatching {
                 val reportPath = memoryProfiler.saveReportToFile(report)
                 Log.i("BespokeGallery", "Memory profiling report saved: $reportPath")
-            } catch (e: Exception) {
+            }.onFailure { e ->
                 Log.e("BespokeGallery", "Failed to save memory report", e)
             }
         }
@@ -251,7 +261,7 @@ fun BespokeGalleryScreen(
         isLoading = true
         lifecycleScope.launch {
             try {
-                mediaItems = loadMediaItems(context)
+                mediaItems = PnsMediaStoreGallery.loadIndex(context)
                 Log.d("BespokeGallery", "Loaded ${mediaItems.size} media items")
                 memoryProfiler.logEvent("Loaded ${mediaItems.size} media items")
                 selectedMedia = initialUri?.let { uri ->
@@ -270,23 +280,17 @@ fun BespokeGalleryScreen(
     LaunchedEffect(selectedMedia) {
         selectedMedia?.let { media ->
             lifecycleScope.launch {
-                selectedBitmap?.let { oldBitmap ->
-                    safeRecycleBitmap(oldBitmap, "BespokeGallery.BitmapChange")
-                    memoryProfiler.logEvent("Recycled previous bitmap")
-                }
-                
-                Log.d("BespokeGallery", "Loading bitmap for: ${media.displayName}")
+                PnsBitmapGuard.safeRecycle(selectedBitmap, "BespokeGallery.BitmapChange")
+                selectedBitmap = null
                 memoryProfiler.logEvent("Loading bitmap: ${media.displayName}")
-                logMemoryUsage(context, "BespokeGallery.BeforeLoad")
-                
-                selectedBitmap = loadGalleryThumbnail(context, media.uri, 800)
-                
-                selectedBitmap?.let { bitmap ->
-                    Log.d("BespokeGallery", "Loaded bitmap: ${bitmap.width}x${bitmap.height}, size: ${bitmap.byteCount / 1024}KB")
-                    memoryProfiler.logEvent("Loaded bitmap: ${bitmap.width}x${bitmap.height}, ${bitmap.byteCount / 1024}KB")
+                val loaded = loadGalleryThumbnail(context, media.uri, 800)
+                selectedBitmap = loaded
+                PnsBitmapGuard.onAllocated("BespokeGallery.preview", loaded)
+                loaded?.let { bitmap ->
+                    memoryProfiler.logEvent(
+                        "Loaded bitmap: ${bitmap.width}x${bitmap.height}, ${bitmap.byteCount / 1024}KB",
+                    )
                 }
-                
-                logMemoryUsage(context, "BespokeGallery.AfterLoad")
             }
         }
     }
@@ -413,17 +417,20 @@ fun BespokeGalleryScreen(
                     val media = mediaItems[pageIndex]
                     
                     Column {
-                        // Preview at top with zoom and pan
-                        val exifMetadata = extractExifMetadata(context, media.uri)
-                        val needsRotation = exifMetadata.orientation in listOf(
-                            ExifInterface.ORIENTATION_ROTATE_90, 
-                            ExifInterface.ORIENTATION_ROTATE_270
-                        )
+                        var pageExif by remember(media.uri) { mutableStateOf<ExifMetadata?>(null) }
+                        LaunchedEffect(media.uri) {
+                            pageExif =
+                                withContext(Dispatchers.IO) {
+                                    extractExifMetadata(context, media.uri)
+                                }
+                        }
+                        val exifMetadata = pageExif ?: ExifMetadata()
                         val isDng = media.displayName.lowercase().endsWith(".dng")
-                        val needsDngRotation = isDng
-                        val totalRotationNeeded = needsRotation || needsDngRotation
+                        val swapAspect =
+                            isDng &&
+                                DngGalleryOrientation.needsSwapWidthHeight(exifMetadata.orientation)
                         
-                        val aspectRatio = if (totalRotationNeeded) {
+                        val aspectRatio = if (swapAspect) {
                             media.height.toFloat() / media.width.toFloat()
                         } else {
                             media.width.toFloat() / media.height.toFloat()
@@ -437,17 +444,12 @@ fun BespokeGalleryScreen(
                         ) {
                             val bmp = if (selectedMedia?.uri == media.uri) selectedBitmap else null
                             if (bmp != null && !bmp.isRecycled) {
-                                val matrix = Matrix()
-                                when (exifMetadata.orientation) {
-                                    ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                                    ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                                    ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                                }
-                                
-                                if (media.displayName.lowercase().endsWith(".dng")) {
-                                    matrix.postRotate(90f)
-                                }
-                                val rotatedBitmap = android.graphics.Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
+                                val rotatedBitmap =
+                                    DngGalleryOrientation.applyGalleryDisplayRotation(
+                                        bmp,
+                                        isDng,
+                                        exifMetadata.orientation,
+                                    )
                                 
                                 Box(
                                     modifier = Modifier
@@ -501,7 +503,7 @@ fun BespokeGalleryScreen(
                                 // Clean up rotated bitmap
                                 LaunchedEffect(Unit) {
                                     if (rotatedBitmap != bmp) {
-                                        safeRecycleBitmap(rotatedBitmap, "BespokeGallery.RotatedBitmap")
+                                        PnsBitmapGuard.safeRecycle(rotatedBitmap, "BespokeGallery.RotatedBitmap")
                                     }
                                 }
                             } else {
@@ -551,8 +553,15 @@ fun BespokeGalleryScreen(
                             
                             Spacer(modifier = Modifier.height(8.dp))
                             
-                            // Camera metadata for images
-                            if (!media.isVideo) {
+                            val detail =
+                                if (selectedMedia?.uri == media.uri) {
+                                    selectedDetail ?: media
+                                } else {
+                                    media
+                                }
+
+                            // Camera metadata for images (lazy EXIF for current item)
+                            if (!detail.isVideo) {
                                 Text(
                                     "=== Camera Metadata ===",
                                     color = Color.Cyan,
@@ -560,21 +569,21 @@ fun BespokeGalleryScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 
-                                media.cameraId?.let { camera ->
+                                detail.cameraId?.let { camera ->
                                     Text(
                                         "Camera: $camera",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.lens?.let { lens ->
+                                detail.lens?.let { lens ->
                                     Text(
                                         "Lens: $lens",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.focalLength?.let { focal ->
+                                detail.focalLength?.let { focal ->
                                     val formattedFocal = formatFocalLength(focal)
                                     Text(
                                         "Focal Length: $formattedFocal",
@@ -582,28 +591,28 @@ fun BespokeGalleryScreen(
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.aperture?.let { aperture ->
+                                detail.aperture?.let { aperture ->
                                     Text(
                                         "Aperture: f/$aperture",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.iso?.let { iso ->
+                                detail.iso?.let { iso ->
                                     Text(
                                         "ISO: $iso",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.shutterSpeed?.let { shutter ->
+                                detail.shutterSpeed?.let { shutter ->
                                     Text(
                                         "Shutter Speed: $shutter sec",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.whiteBalance?.let { wb ->
+                                detail.whiteBalance?.let { wb ->
                                     Text(
                                         "White Balance: $wb",
                                         color = Color.White,
@@ -704,7 +713,7 @@ fun BespokeGalleryScreen(
                             deleteMedia(context, media.uri) {
                                 showDeleteConfirmation = false
                                 lifecycleScope.launch {
-                                    mediaItems = loadMediaItems(context)
+                                    mediaItems = PnsMediaStoreGallery.loadIndex(context)
                                     selectedMedia = mediaItems.firstOrNull()
                                 }
                             }
@@ -760,112 +769,6 @@ data class ExifMetadata(
     val orientation: Int = ExifInterface.ORIENTATION_NORMAL
 )
 
-private suspend fun loadMediaItems(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
-    val mediaItems = mutableListOf<MediaItem>()
-    
-    val startTime = System.currentTimeMillis()
-    try {
-        Log.d("BespokeGallery", "=== Loading media items ===")
-        
-        val projection = arrayOf(
-            android.provider.MediaStore.MediaColumns._ID,
-            android.provider.MediaStore.MediaColumns.DISPLAY_NAME,
-            android.provider.MediaStore.MediaColumns.MIME_TYPE,
-            android.provider.MediaStore.MediaColumns.SIZE,
-            android.provider.MediaStore.MediaColumns.DATE_MODIFIED,
-            android.provider.MediaStore.MediaColumns.WIDTH,
-            android.provider.MediaStore.MediaColumns.HEIGHT
-        )
-        
-        val selection = "${android.provider.MediaStore.MediaColumns.MIME_TYPE} IS NOT NULL AND " +
-                        "${android.provider.MediaStore.MediaColumns.SIZE} > 0 AND (" +
-                        "${android.provider.MediaStore.MediaColumns.MIME_TYPE} LIKE 'image/%' OR " +
-                        "${android.provider.MediaStore.MediaColumns.MIME_TYPE} LIKE 'video/%'" +
-                        ")"
-        
-        val sortOrder = "${android.provider.MediaStore.MediaColumns.DATE_MODIFIED} DESC"
-        
-        context.contentResolver.query(
-            android.provider.MediaStore.Files.getContentUri("external"),
-            projection,
-            selection,
-            null,
-            sortOrder
-        )?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns._ID)
-            val nameColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
-            val mimeColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.MIME_TYPE)
-            val sizeColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.SIZE)
-            val dateColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.DATE_MODIFIED)
-            val widthColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.WIDTH)
-            val heightColumn = cursor.getColumnIndexOrThrow(android.provider.MediaStore.MediaColumns.HEIGHT)
-            
-            Log.d("BespokeGallery", "Query returned ${cursor.count} results")
-            
-            var itemCount = 0
-            val maxItems = 500
-            while (cursor.moveToNext() && itemCount < maxItems) {
-                val id = cursor.getLong(idColumn)
-                val uri = Uri.withAppendedPath(android.provider.MediaStore.Files.getContentUri("external"), id.toString())
-                val displayName = cursor.getString(nameColumn)
-                val mimeType = cursor.getString(mimeColumn)
-                val size = cursor.getLong(sizeColumn)
-                val date = cursor.getLong(dateColumn)
-                val width = cursor.getInt(widthColumn).takeIf { it > 0 } ?: 1920
-                val height = cursor.getInt(heightColumn).takeIf { it > 0 } ?: 1080
-                
-                if (mediaItems.size < 5) {
-                    Log.d("BespokeGallery", "Found file: $displayName, MIME: $mimeType, Size: ${size / 1024}KB")
-                }
-                
-                val isVideo = mimeType?.startsWith("video/") == true
-                val isRaw = displayName.lowercase().endsWith(".dng") || 
-                           displayName.lowercase().endsWith(".raw") ||
-                           displayName.lowercase().endsWith(".cr2") ||
-                           displayName.lowercase().endsWith(".nef")
-                
-                val exifMetadata = if (!isVideo) extractExifMetadata(context, uri) else ExifMetadata()
-                
-                val mediaItem = MediaItem(
-                    uri = uri,
-                    displayName = displayName,
-                    mimeType = mimeType,
-                    size = size,
-                    date = date,
-                    width = width,
-                    height = height,
-                    isVideo = isVideo,
-                    isRaw = isRaw,
-                    isHdr = false,
-                    hasLocation = false,
-                    cameraId = exifMetadata.cameraId,
-                    lens = exifMetadata.lens,
-                    focalLength = exifMetadata.focalLength,
-                    aperture = exifMetadata.aperture,
-                    iso = exifMetadata.iso,
-                    shutterSpeed = exifMetadata.shutterSpeed,
-                    whiteBalance = exifMetadata.whiteBalance,
-                    frameRate = null,
-                    bitRate = null,
-                    duration = null,
-                    codec = null,
-                    colorSpace = if (isRaw) "ProPhoto RGB" else "sRGB"
-                )
-                
-                mediaItems.add(mediaItem)
-                itemCount++
-            }
-        }
-    } catch (e: Exception) {
-        Log.e("BespokeGallery", "Error loading media items", e)
-    }
-    
-    val loadTime = System.currentTimeMillis() - startTime
-    Log.d("BespokeGallery", "Loaded ${mediaItems.size} media items in ${loadTime}ms")
-    
-    mediaItems
-}
-
 private fun extractExifMetadata(context: Context, uri: Uri): ExifMetadata {
     return try {
         val isDng = uri.toString().lowercase().contains(".dng") || 
@@ -886,7 +789,7 @@ private fun extractExifMetadata(context: Context, uri: Uri): ExifMetadata {
                         iso = tiffMetadata.iso?.toInt(),
                         focalLength = tiffMetadata.focalLength?.toString(),
                         shutterSpeed = tiffMetadata.exposureTime?.toString(),
-                        orientation = ExifInterface.ORIENTATION_NORMAL
+                        orientation = tiffMetadata.exifOrientation,
                     )
                 } ?: ExifMetadata()
             } catch (e: Exception) {

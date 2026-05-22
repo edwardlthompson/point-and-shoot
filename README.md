@@ -47,6 +47,7 @@ A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (A
   - JSON artifacts that survive on-device runs and a Markdown export for review.
   - **Milestone 10.1:** the Markdown export also lists **RAW12 / RAW10 / RAW_SENSOR** stream sizes (with min frame duration), **`rawPickEffective=`** (aligned with `RawCaptureSupport.pickRawOutput`), **HFR rollup** lines, and a versioned **shallow fleet JSON** block — treat those exports plus **`hfr-runs/`** pulls as canonical per-device numbers, not chat-only summaries.
 - **Portrait preview engine (locked chrome)** — **7×3** quick grid, **3:4** finder, dodge tele **73 / 85 / 150 mm** on physical mid-tele when enumerated; GLES external-OES preview with per-mode LUTs, optional focus peaking (M dial + video), horizon line, histogram / zebra aids. Layout contract: [`docs/preview-chrome-layout-style-guide.md`](docs/preview-chrome-layout-style-guide.md).
+- **Bespoke in-app gallery** — Tray **Gallery** opens [`BespokeGalleryScreen`](app/src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt) (grid/single view, EXIF panel, share/delete, zoom/pan). **Photo / Video / Gallery** last surface restores on cold start via [`PreviewLastSurfacePrefs`](app/src/main/java/dev/pointandshoot/PreviewLastSurfacePrefs.kt). DNG previews read TIFF orientation tag **274** once ([`DngGalleryOrientation`](app/src/main/java/dev/pointandshoot/DngGalleryOrientation.kt)); JPEG uses system thumbnail EXIF without double-rotation.
 - **Stills (M13)** — ProShot-style **DNG** via framework `DngCreator` on OP13 leaf cameras; optional **ZSL** / **HDR still** (3× DNG bracket); fleet **`FleetCameraProfile`** + openability gates; aux UW/tele color still under human ACR review (**[`BUILD_PLAN.md`](BUILD_PLAN.md)** **H.7**).
 - **Encoded video (M12 + 13V)** — In-app **MP4** (`MediaRecorder` ≤60 fps, **MediaCodec** for HFR / 10-bit / DCG); unified **format picker**; DCG + HDR10 metadata path; power-button quick-launch; macro dial; timecode + audio meters; RGB histogram; focus peaking; GLES **video LUT** preview; battery/thermal + **storage-remaining** HUD on video modes.
 - **RAW video lane (M13.6)** — MCRAW-class **`.mcraw`** (`PNMRAWV1`) on OP13 leaf cameras when HUD **RAW** lane is enabled — not a gallery-playable MP4.
@@ -79,6 +80,8 @@ Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BU
 | **M13** (fleet RAW) | ✅ Automated gate | USB **PASS** on `8bf09993`; human **ACR 3/3** + aux color → **H.7** |
 | **M13V** (video expansion) | ✅ USB-verified | **13V.1–13V.18** — see table below |
 | **M14** (preview polish) | ✅ Shipped (beta) | Readout/HUD, QR, ISO coupling, focus picker, stacked **dual video**, About heritage — **H.8** subjective |
+| **BG** (bespoke gallery) | ✅ Closed | In-app gallery + tray surface restore — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
+| **PO** (performance) | ✅ Gate passed | Memory profiler, adaptive FPS, lifecycle pause — `pns_po_optimization_gate.ps1` on **8bf09993** |
 
 **Latest pre-release:** [`v0.14.0-beta.2`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.2) — APK `Point-and-Shoot_0.14.0-beta.2.apk` · notes [`RELEASE_NOTES_v0.14.0-beta.2.md`](RELEASE_NOTES_v0.14.0-beta.2.md)
 
@@ -122,6 +125,17 @@ Sprint docs: [`docs/M13V_10_FOCUS_PEAKING.md`](docs/M13V_10_FOCUS_PEAKING.md) �
 | **14.12** | Stacked dual video (one MP4) | `pns_dual_video_verify.ps1` |
 
 Docs: [`docs/M14_12_DUAL_VIDEO.md`](docs/M14_12_DUAL_VIDEO.md), [`docs/M14_READOUT_STATUS_BAR.md`](docs/M14_READOUT_STATUS_BAR.md).
+
+### Performance & gallery (PO + BG)
+
+| Sprint | Feature | Verify script (USB) |
+|--------|---------|---------------------|
+| **PO.1** | Memory profiler + bitmap guard + indexed gallery load | `pns_memory_profiler.ps1` |
+| **PO.2** | Adaptive preview FPS + background pause for YUV/sweep | `pns_battery_life_test.ps1` |
+| **PO gate** | Combined PO.1 + PO.2 | `pns_po_optimization_gate.ps1` |
+| **BG.1–3** | Bespoke gallery + UX polish | `pns_gallery_integration_verify.ps1` (device) |
+
+Docs: [`docs/M13V_12_POWER_THERMAL.md`](docs/M13V_12_POWER_THERMAL.md) (PO.2 adaptive FPS + pause needles).
 
 ### Core capture gates (still regression)
 
@@ -225,7 +239,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
   - `app/src/test/java/dev/pointandshoot/` — pure-JVM unit tests (`BracketPlanTest`, `BracketSchedulerTest`, `HighlightMeterTest`, `TimecodeFormatTest`, `CaptureStorageFilenameTest`, `CropPlanTest`, `FaceDetectAdapterTest`, `TrackerStateTest`, `CapabilityGateTest`, `EncoderResultAggregatorTest`, `EncoderAttemptJsonAdapterTest`, `EncoderRecipeBuilderTest`, `PerfBudgetTest`, `PnsLogTest`, `Lut3DTest`, `LutPipelineTest`, `LutShaderProgramSourceTest`, `LutPreviewRendererQuadTest`, `TestPatternTest`, `NativeEncodersFallbackTest`, `EncoderRouteTest`, `LensInfoSummaryTest`, `PreviewLumaHistogramTest`, `Dl3ParserTest`, `Spi3dParserTest`, `DngLutMetadataTest`, `RootCapabilityTest`, `RootCapabilityProbeTest`, `HdrCurvesTest`, `ColorSpaceMatrixTest`, `WorkingSpaceTest`, `AvifColrPayloadTest`, `HdrStaticMetadataTest`, `IsobmffSampleAspectTest`, `AvifAuxiliaryBoxesTest`, `IsobmffBoxTest`, `ItemPropertyAssociationTest`, `IsobmffItemPropertiesTest`, `PrimaryItemBoxTest`, `ItemInfoEntryTest`, `ItemInfoBoxTest`, `HandlerReferenceBoxTest`, `ItemLocationBoxTest`, `MetaBoxTest`, `FileTypeBoxTest`, `MediaDataBoxTest`, `ImageSpatialExtentsTest`, `AvifStillMuxerTest`, `Av1CodecConfigurationTest`, `ItemReferenceBoxTest`, `AvifAuxiliaryTypePropertyTest`, `AvifImageGridTest`, `AvifImageOverlayTest`, `LutImportValidatorTest`, `BuiltInLutsTest`, `LutCatalogTest`, `LutSidecarTest`, `LutSidecarWriterTest`, `HudSettingsLutResolutionTest`, `ImportedLutStoreTest`, `BitmapRgbPlaneTest`, `CalibrationMathTest`, `CalibrationToLutTest`, `CalibrationProfileJsonAdapterTest`, `CalibrationProfileStorageTest`, `CalibrationCcmAccuracyTest`, `DngColorTagsTest`, `ReferenceTargetTest`, `CalibrationSamplerTest`, `SlantedEdgeMtfTest`, `ColorMathTest`, `LutCreditsBuilderTest`, `LutDiagnosticsBuilderTest`, `MetadataSerializationGoldenTest`)
 - `native/` — NDK / JNI stubs + CMake skeleton + license matrix for the planned libavif / libjxl pipeline (`pns_native.cpp` JNI stubs matching `NativeEncoders`; `CMakeLists.txt` with commented `FetchContent_Declare` blocks; `THIRD_PARTY.md` license matrix; `README.md` Phase-0 layout)
 - `metadata/` — F-Droid compliance placeholders
-- `scripts/` — PowerShell automation: **`pns_verify_toolchain.ps1`**, **`pns_hfr_autorun.ps1`**, capture gates (**`pns_capture_pipeline_verify.ps1`**, **`pns_photo_capture_verify.ps1`**, **`pns_aux_dng_capture_analyze.ps1`**), video gates (**`pns_mediacodec_hfr_verify.ps1`**, **`pns_in_app_video_verify.ps1`**, **`pns_video_hdr10_metadata_verify.ps1`**, **`pns_raw_video_verify.ps1`**, **`pns_focus_peaking_verify.ps1`**, **`pns_video_lut_preview_verify.ps1`**, **`pns_power_thermal_verify.ps1`**, **`pns_storage_remaining_verify.ps1`**, …), **`pns_sideload_and_launch.ps1`**, **`pns_chrome_ux_gate.ps1`**. Full index: [`AGENTS.md`](AGENTS.md).
+- `scripts/` — PowerShell automation: **`pns_verify_toolchain.ps1`**, **`pns_hfr_autorun.ps1`**, capture gates (**`pns_capture_pipeline_verify.ps1`**, **`pns_photo_capture_verify.ps1`**, **`pns_aux_dng_capture_analyze.ps1`**), video gates (**`pns_mediacodec_hfr_verify.ps1`**, **`pns_in_app_video_verify.ps1`**, …), performance gates (**`pns_memory_profiler.ps1`**, **`pns_battery_life_test.ps1`**, **`pns_po_optimization_gate.ps1`**), **`pns_sideload_and_launch.ps1`**, **`pns_chrome_ux_gate.ps1`**, **`pns_qr_scan_verify.ps1`**. Full index: [`AGENTS.md`](AGENTS.md).
 - `hfr-runs/` — pulled probe artifacts (gitignored)
 - `.github/workflows/` — CI: toolchain verify + unit tests + debug-APK artifact (Ubuntu), plan-doc verify, signed-build (manual / `v*` tag)
 

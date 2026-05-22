@@ -187,6 +187,23 @@ class Dng12Saver(
         destination.flush()
 
         val elapsedNs = SystemClock.elapsedRealtimeNanos() - started
+        // Save capture result metadata to sidecar file for gallery reading
+        try {
+            val metadataFile = File(destination.toString().replace(".dng", ".pns-metadata.json"))
+            val metadata = mapOf(
+                "fNumber" to captureResult.get(CaptureResult.LENS_APERTURE),
+                "iso" to captureResult.get(CaptureResult.SENSOR_SENSITIVITY),
+                "exposureTime" to captureResult.get(CaptureResult.SENSOR_EXPOSURE_TIME),
+                "focalLength" to captureResult.get(CaptureResult.LENS_FOCAL_LENGTH),
+                "aperture" to captureResult.get(CaptureResult.LENS_APERTURE)
+            )
+            val jsonString = metadata.entries.joinToString(",", "{", "}") { "${it.key}:${it.value}" }
+            metadataFile.writeText(jsonString)
+            Log.d("Dng12Saver", "Saved metadata sidecar: ${metadataFile.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("Dng12Saver", "Failed to save metadata sidecar", e)
+        }
+
         return SaveStats(elapsedNs = elapsedNs, profileId = profile.id, rawMode = profile.rawMode)
     }
 

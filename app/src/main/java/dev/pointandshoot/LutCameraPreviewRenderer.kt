@@ -57,6 +57,9 @@ class LutCameraPreviewRenderer(
         AtomicReference<((SurfaceTexture, Int, Int) -> Unit)?>(null)
     private val frontBufferSize = AtomicReference(intArrayOf(0, 0))
     private var recordDrawCounter: Int = 0
+    @Volatile private var frontTextureInitialized: Boolean = false
+    @Volatile private var frontFrameCount: Int = 0
+    private val maxFrontFrameErrors: Int = 10
 
     private var glSurfaceViewRef: GLSurfaceView? = null
 
@@ -223,11 +226,27 @@ class LutCameraPreviewRenderer(
         val dual = dualSplitEnabled.get()
         if (dual) {
             val fst = frontSurfaceTexture
-            if (fst != null) {
-                runCatching { fst.updateTexImage() }
-                fst.getTransformMatrix(frontStMatrix)
+            var frontValid = false
+            if (fst != null && frontTextureInitialized) {
+                try {
+                    fst.updateTexImage()
+                    fst.getTransformMatrix(frontStMatrix)
+                    frontValid = true
+                    frontFrameCount++
+                    // Reset error count on successful frame
+                    if (frontFrameCount > 0) {
+                        frontFrameCount = 0
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Front texture update failed: ${e.message}")
+                    frontFrameCount++
+                    if (frontFrameCount > maxFrontFrameErrors) {
+                        Log.e(TAG, "Too many front texture errors, marking as unhealthy")
+                        frontTextureInitialized = false
+                    }
+                }
             }
-            drawStackedComposite(prog, g, frontReady = dual && fst != null)
+            drawStackedComposite(prog, g, frontReady = dual && frontValid)
         } else {
             drawOesToViewport(
                 prog = prog,
@@ -368,39 +387,69 @@ class LutCameraPreviewRenderer(
     }
 
     private fun ensureFrontOesTextureOnGlThread() {
-        if (frontOesTextureId != 0) return
-        val texIds = IntArray(1)
-        GLES20.glGenTextures(1, texIds, 0)
-        frontOesTextureId = texIds[0]
-        if (frontOesTextureId == 0) return
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, frontOesTextureId)
-        GLES20.glTexParameteri(
-            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-            GLES20.GL_TEXTURE_MIN_FILTER,
-            GLES20.GL_LINEAR,
-        )
-        GLES20.glTexParameteri(
-            GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
-            GLES20.GL_TEXTURE_MAG_FILTER,
-            GLES20.GL_LINEAR,
-        )
-        val fst = SurfaceTexture(frontOesTextureId)
-        frontSurfaceTexture = fst
-        val w = 960
-        val h = 540
-        fst.setDefaultBufferSize(w, h)
-        fst.setOnFrameAvailableListener { glSurfaceViewRef?.requestRender() }
-        onDualFrontReady.get()?.let { cb -> mainHandler.post { cb(fst, w, h) } }
-        Log.i(TAG, "dual front OES texture ready ${w}x$h")
+        if (frontOesTextureId != 0) {
+            Log.d(TAG, "Front OES texture already exists")
+            return
+        }
+        
+        try {
+            val texIds = IntArray(1)
+            GLES20.glGenTextures(1, texIds, 0)
+            frontOesTextureId = texIds[0]
+            if (frontOesTextureId == 0) {
+                Log.e(TAG, "Failed to generate front OES texture")
+                return
+            }
+            
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, frontOesTextureId)
+            GLES20.glTexParameteri(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MIN_FILTER,
+                GLES20.GL_LINEAR,
+            )
+            GLES20.glTexParameteri(
+                GLES11Ext.GL_TEXTURE_EXTERNAL_OES,
+                GLES20.GL_TEXTURE_MAG_FILTER,
+                GLES20.GL_LINEAR,
+            )
+            
+            val fst = SurfaceTexture(frontOesTextureId)
+            frontSurfaceTexture = fst
+            frontTextureInitialized = false
+            frontFrameCount = 0
+            
+            val w = 960
+            val h = 540
+            fst.setDefaultBufferSize(w, h)
+            fst.setOnFrameAvailableListener { 
+                frontTextureInitialized = true
+                glSurfaceViewRef?.requestRender() 
+            }
+            
+            onDualFrontReady.get()?.let { cb -> mainHandler.post { cb(fst, w, h) } }
+            Log.i(TAG, "dual front OES texture ready ${w}x$h, textureId=$frontOesTextureId")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating front OES texture: ${e.message}", e)
+            // Clean up on failure
+            if (frontOesTextureId != 0) {
+                GLES20.glDeleteTextures(1, intArrayOf(frontOesTextureId), 0)
+                frontOesTextureId = 0
+            }
+        }
     }
 
     private fun releaseFrontOesOnGlThread() {
+        Log.i(TAG, "Releasing front OES texture")
         val fst = frontSurfaceTexture
         frontSurfaceTexture = null
+        frontTextureInitialized = false
+        frontFrameCount = 0
+        
         if (fst != null) {
             runCatching { fst.setOnFrameAvailableListener(null) }
             runCatching { fst.release() }
         }
+        
         if (frontOesTextureId != 0) {
             GLES20.glDeleteTextures(1, intArrayOf(frontOesTextureId), 0)
             frontOesTextureId = 0

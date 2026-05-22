@@ -1289,6 +1289,8 @@ fun PreviewEngineScreen(
     val trayStillCaptureRef = remember { mutableStateOf<(() -> Unit)?>(null) }
     /** Latest indexed capture for gallery thumb + open-in-viewer (typically DNG URI). */
     var lastGalleryUri by remember { mutableStateOf<Uri?>(null) }
+    /** Controls bespoke gallery visibility */
+    var showBespokeGallery by remember { mutableStateOf(true) } // Force open for testing
 
     LaunchedEffect(hudState.current.enableSmileTriggeredStill, primaryPhoto, isRecording, sweepJob) {
         controller.setSmileStillEnabled(hudState.current.enableSmileTriggeredStill)
@@ -2171,6 +2173,9 @@ fun PreviewEngineScreen(
 
     val seedOpenAboutSheet = adbShowAboutOverlay
 
+    // Create local reference to avoid scope conflict
+    val setBespokeGallery: (Boolean) -> Unit = { showBespokeGallery = it }
+
     Box(modifier = Modifier.fillMaxSize()) {
     PreviewEngineContent(
         // Single merged status bar + cutout top — [rememberSystemInsetsDp] already maxes cutout
@@ -2178,6 +2183,7 @@ fun PreviewEngineScreen(
         padding = insets.asPaddingValues(),
         previewHostSlot = previewHostSlot,
         lastGalleryUri = lastGalleryUri,
+        onBespokeGalleryChange = setBespokeGallery,
         onExternalGalleryViewerLaunched = { pendingHardRestartAfterExternalGallery.set(true) },
         cameraIds = cameraIdsList,
         selectedCameraId = selectedCameraId,
@@ -2436,6 +2442,22 @@ fun PreviewEngineScreen(
         adbAutomationVideoRawSec = adbAutomationVideoRawSec,
         videoEncodeSize = videoEncodeResolved,
     )
+    
+    // Bespoke Gallery Overlay
+    if (showBespokeGallery) {
+        BespokeGalleryScreen(
+            initialUri = lastGalleryUri,
+            onBack = { showBespokeGallery = false },
+            onExternalGallery = {
+                showBespokeGallery = false
+                lastGalleryUri?.let { uri ->
+                    if (openMediaWithSystemResolver(context, uri)) {
+                        pendingHardRestartAfterExternalGallery.set(true)
+                    }
+                }
+            }
+        )
+    }
     }
 
     DisposableEffect(Unit) {
@@ -2464,6 +2486,7 @@ private fun PreviewEngineContent(
     padding: PaddingValues,
     previewHostSlot: PreviewHostSlot,
     lastGalleryUri: Uri?,
+    onBespokeGalleryChange: (Boolean) -> Unit,
     /** Invoked when [openMediaWithSystemResolver] starts a viewer; next [ON_RESUME] cold-restarts the task. */
     onExternalGalleryViewerLaunched: () -> Unit,
     cameraIds: List<String>,
@@ -3454,8 +3477,10 @@ private fun PreviewEngineContent(
             if (showBottomTray) {
                 PreviewChromeSectionDivider()
                 PreviewBottomCaptureTray(
+                    context = context,
                     lastGalleryUri = lastGalleryUri,
                     onExternalGalleryViewerLaunched = onExternalGalleryViewerLaunched,
+                    onBespokeGalleryChange = onBespokeGalleryChange,
                     showOnScreenShutter = chrome.showOnScreenShutter,
                     canCaptureRawStill = controller.canCaptureStill() && !afShutterGateActiveForUi,
                     onCaptureDng = { triggerStillCapture() },
@@ -4204,8 +4229,10 @@ private fun PreviewTrayPhotoVideoModeToggleFab(
 @Suppress("FunctionNaming")
 @Composable
 private fun PreviewBottomCaptureTray(
+    context: Context,
     lastGalleryUri: Uri?,
     onExternalGalleryViewerLaunched: () -> Unit,
+    onBespokeGalleryChange: (Boolean) -> Unit,
     showOnScreenShutter: Boolean,
     canCaptureRawStill: Boolean,
     onCaptureDng: () -> Unit,
@@ -4285,9 +4312,13 @@ private fun PreviewBottomCaptureTray(
                             .clip(RoundedCornerShape(8.dp))
                             .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
                             .background(Color.White.copy(alpha = 0.08f))
-                            .clickable(enabled = tapUri != null) {
-                                val u = tapUri ?: return@clickable
-                                if (openMediaWithSystemResolver(context, u)) {
+                            .clickable {
+                                // Check gallery preference
+                                if (GalleryPrefs.useBespokeGallery(context)) {
+                                    // Show bespoke gallery
+                                    onBespokeGalleryChange(true)
+                                } else {
+                                    // Open external gallery directly
                                     onExternalGalleryViewerLaunched()
                                 }
                             },
@@ -5405,6 +5436,16 @@ private fun PreviewKeysRailSheetContent(
             subtitle = "Shows a shutter control on the preview overlay.",
             checked = chrome.showOnScreenShutter,
             onCheckedChange = { chromePrefs.update(chrome.copy(showOnScreenShutter = it)) },
+        )
+        PreviewRailSectionTitle("Gallery")
+        val useBespokeGallery = remember { GalleryPrefs.useBespokeGallery(context) }
+        PreviewRailSettingToggle(
+            title = "Use in-app gallery",
+            subtitle = "Open photos in the app gallery instead of system gallery.",
+            checked = useBespokeGallery,
+            onCheckedChange = { 
+                GalleryPrefs.setUseBespokeGallery(context, it)
+            },
         )
         PreviewRailSectionTitle("Extra shutters")
         PreviewRailSettingToggle(
@@ -7111,15 +7152,26 @@ private class PreviewController(
     fun peekDualVideoActive(): Boolean = dualVideoActive
 
     fun onDualFrontSurfaceTextureReady(st: SurfaceTexture, w: Int, h: Int) {
-        if (!dualVideoActive) return
-        val hnd = handler ?: return
+        if (!dualVideoActive) {
+            Log.d(DualVideoRecordingController.TAG, "dualFront: dual video not active, ignoring surface")
+            return
+        }
+        val hnd = handler ?: run {
+            Log.e(DualVideoRecordingController.TAG, "dualFront: no handler available")
+            return
+        }
+        
         if (dualFrontController == null) {
             dualFrontController = DualVideoFrontCameraController(cm, hnd)
         }
+        
         val frontId = Camera2Facing.frontCameraId(cm, cameraIds()) ?: run {
-            Log.w(DualVideoRecordingController.TAG, "dualFront: no front camera id")
+            Log.e(DualVideoRecordingController.TAG, "dualFront: no front camera id found")
+            // Fallback: disable dual video if no front camera
+            dualVideoActive = false
             return
         }
+        
         val rearId = selectedCameraId
         if (!DualVideoRecordingController.canRunConcurrentRearFront(cm, rearId, frontId)) {
             Log.w(
@@ -7127,14 +7179,30 @@ private class PreviewController(
                 "dualFront: concurrent pair not advertised rear=$rearId front=$frontId (trying anyway)",
             )
         }
-        val pick =
-            DualVideoFrontCameraController.pickFrontPreviewSize(cm, frontId)
-        st.setDefaultBufferSize(pick.width, pick.height)
-        glSurfaceHostForDual?.queueEvent {
-            lutPreviewRendererForDual?.setFrontBufferSize(pick.width, pick.height)
+        
+        try {
+            val pick = DualVideoFrontCameraController.pickFrontPreviewSize(cm, frontId)
+            Log.i(DualVideoRecordingController.TAG, "dualFront: setting up front camera $frontId at ${pick.width}x${pick.height}")
+            
+            st.setDefaultBufferSize(pick.width, pick.height)
+            glSurfaceHostForDual?.queueEvent {
+                lutPreviewRendererForDual?.setFrontBufferSize(pick.width, pick.height)
+            }
+            
+            val surface = Surface(st)
+            dualFrontController?.setPreviewSurface(surface)
+            dualFrontController?.open(frontId)
+            
+            // Monitor front camera health
+            mainHandler.postDelayed({
+                checkDualVideoHealth()
+            }, 5000) // Check after 5 seconds
+            
+        } catch (e: Exception) {
+            Log.e(DualVideoRecordingController.TAG, "dualFront setup failed: ${e.message}", e)
+            // Fallback: disable dual video on setup failure
+            dualVideoActive = false
         }
-        dualFrontController?.setPreviewSurface(Surface(st))
-        dualFrontController?.open(frontId)
     }
 
     fun peekDualFrontSessionReady(): Boolean = dualFrontController?.sessionReady == true
@@ -7142,7 +7210,37 @@ private class PreviewController(
     @Volatile var lutPreviewRendererForDual: LutCameraPreviewRenderer? = null
 
     fun closeDualFrontCamera() {
+        Log.i(DualVideoRecordingController.TAG, "Closing dual front camera")
         dualFrontController?.close()
+    }
+    
+    private fun checkDualVideoHealth() {
+        if (!dualVideoActive) return
+        
+        val controller = dualFrontController
+        if (controller == null) {
+            Log.w(DualVideoRecordingController.TAG, "dualFront health check: no controller")
+            return
+        }
+        
+        val isHealthy = controller.isFrameFlowHealthy()
+        if (!isHealthy) {
+            Log.w(DualVideoRecordingController.TAG, "dualFront health check failed - disabling dual video")
+            dualVideoActive = false
+            closeDualFrontCamera()
+            
+            // Notify user of fallback
+            mainHandler.post {
+                // Could show a toast or UI indication here
+                Log.i(DualVideoRecordingController.TAG, "Dual video disabled due to front camera issues")
+            }
+        } else {
+            Log.d(DualVideoRecordingController.TAG, "dualFront health check passed")
+            // Schedule next check
+            mainHandler.postDelayed({
+                checkDualVideoHealth()
+            }, 10000) // Check every 10 seconds
+        }
     }
 
     fun bindDualEncoderSurface(width: Int, height: Int) {

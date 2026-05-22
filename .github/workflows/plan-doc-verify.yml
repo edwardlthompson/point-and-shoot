@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: SkipGradle (scripts + Kotlin UTF-8 scan)
         shell: pwsh

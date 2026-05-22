@@ -4,6 +4,58 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
+_No user-visible changes since **0.14.0-beta.2**._
+
+## [0.14.0-beta.2] - 2026-05-21
+
+Pre-release for **Milestone 14** (preview polish, pro controls, stacked dual video) on OnePlus 13 **`8bf09993`**. Milestones **13**, **13V**, and **14** sprint bodies archived to [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md); human **H.7** / **H.8** remain in [`BUILD_PLAN.md`](BUILD_PLAN.md).
+
+**Release notes:** [`RELEASE_NOTES_v0.14.0-beta.2.md`](RELEASE_NOTES_v0.14.0-beta.2.md) · **APK:** `Point-and-Shoot_0.14.0-beta.2.apk`
+
+### Added
+
+- **Sprint 14.12 — Dual video (stacked, single MP4)** — Rear (top) + front (bottom) GLES composite → **MediaCodec** **1920×1080** @ **30 fps**; front `CameraDevice` session; LG dual-recording heritage nod in About. [`docs/M14_12_DUAL_VIDEO.md`](docs/M14_12_DUAL_VIDEO.md). Gate: `pns_dual_video_verify.ps1 -RecordSec 5` (**USB_PASS** on **8bf09993**).
+- **Sprint 14.5 (host) — Face alignment debug** — HUD toggle **Face alignment crosshair** + [`FaceAlignmentDebugCrosshairOverlay`](app/src/main/java/dev/pointandshoot/FaceAlignmentDebugCrosshairOverlay.kt); `pns_eye_af_alignment_probe.ps1` (**HOST_PASS**). Glass sign-off (**H.8.1**) still open.
+- **Sprint 14.13 (host) — Release packaging** — [`pns_release_packaging.ps1`](scripts/pns_release_packaging.ps1): `assembleRelease`, `Point-and-Shoot_<versionName>.apk`, `zipalign -c`.
+- **Sprint 14.11 — Heritage, donation, LG nod** — [`AboutScreen`](app/src/main/java/dev/pointandshoot/AboutScreen.kt): **LG dual-camera** heritage blurb (14.12 dual-video inspiration); **Support development** opens locked Venmo URL in the system browser ([`PNS_VENMO_DONATION_URL`](app/src/main/java/dev/pointandshoot/PnsExternalUrl.kt)). Preview **Settings → About & heritage** opens an in-preview overlay (`settingsAbout=open`). Gate: `pns_about_links_verify.ps1`.
+- **Sprint 14.9 — Selfie ring + smile under Eye AF** — [`PreviewSelfieRingIndicator`](app/src/main/java/dev/pointandshoot/PreviewSelfieRingIndicator.kt): continuously rotating orange arc in the **top inset** (cutout-safe, trailing edge) while the front camera is active; hides on rear. Logs `PNS.ChromeUx selfieRing=visible|hidden`. Eye AF quick-action menu adds **Smile to capture** On/Off (`enableSmileTriggeredStill`, `PNS.SmileStill smileStillEnabled=… (eyeAfMenu)`). Gate: `pns_ai_features_verify.ps1`.
+
+- **Sprint 14.8 — Focus mode picker** — Readout **AF** chip + [`PreviewFocusModePickerDialog`](app/src/main/java/dev/pointandshoot/PreviewFocusModePickerDialog.kt): HAL-filtered AF modes; **manual distance** adjusted with **horizontal** finder drag (vertical swipes disabled while manual — avoids front/rear camera). No slider in the dialog (preview stays visible). **Macro program** ([`PreviewMacroProgram`](app/src/main/java/dev/pointandshoot/PreviewMacroProgram.kt)): dial **MACRO** or picker **Macro AF** → ultra-wide lock, `CONTROL_AF_MODE_MACRO`, OPLUS close-up when available (`macroMode autoSwitchUW`). Logs `PNS.ChromeUx focusMode=`. Gates: `pns_focus_peaking_verify.ps1`, `pns_macro_focus_verify.ps1`.
+
+- **`docs/PNS_TECHNICAL_SETTINGS.md`** — Source of truth for command dial modes, **H** highlight metering, readout AE coupling, YUV chase targets (`TARGET_MEDIAN_BIN`, `RAW_STILL_EXTRA_DARKEN_STOPS`), RAW/DNG session locks, HUD defaults, and code pointers. Wired into **`BUILD_PLAN.md`**, **`PROBE_BUILD_PLAN.md`**, **`AGENTS.md`**, and **`.cursor/rules/pns-technical-settings.mdc`** (mandatory sync on settings changes).
+
+### Fixed
+
+- **USB automation gates (CPH2655 `8bf09993`, 2026-05-21)** — `pns_photo_capture_verify.ps1` host-side logcat polling + default wide `camera_id=3`; `pns_in_app_video_verify.ps1` polling; `VideoRecordingController` emits `PNS.AdbValidation` `inAppVideoSaved ok=true bytes=…`. Verified: RAW still, capture pipeline, in-app video, chrome UX (incl. `focalSlotTap`), About overlay.
+- **Settings → About & heritage (no UI)** — About now opens as an in-preview overlay with `BackHandler` dismiss instead of routing through `CameraCapabilitiesProbe` (which could leave preview without showing About).
+
+- **Sprint 14.10 — DND restore on exit / toggle off** — [`PreviewForegroundDndEffect`](app/src/main/java/dev/pointandshoot/PreviewWindowEffects.kt): preview/recording ref tracking; **`releaseAllPreviewHolds`** on toggle-off; **immediate** restore when persisting `dndWhileInPreview=false` ([`PreviewChromePreferencesState.update`](app/src/main/java/dev/pointandshoot/PreviewChromePreferences.kt)). Logs `dndPreview=disabled_restored` / `disabled_restored immediate`. Gate: `pns_dnd_restore_verify.ps1`.
+- **Video format → tray FAB** — `PreviewTrayVideoFormatFab` (52dp, left of shutter) opens `VideoFormatPickerSheet`; removed from readout chip row (too wide). Log `trayVideoFormatFab=visible`.
+- **Video readout + status bar regression (14.1 / 14.2)** — Restored `PreviewReadoutStrip(primaryPhoto)` and `PreviewTopStatusBar` in the top inset (timer, audio meters, pipeline status). Video mode no longer shows Still LUT / IMG; photo mode unchanged. Canonical spec: **`docs/M14_READOUT_STATUS_BAR.md`** + **`PreviewReadoutChipMode`** JVM tests + `.cursor/rules/preview-readout-video-mode-lock.mdc`.
+- **Smile to capture reliability** — Continuous YUV scan while enabled (photo mode); fixed Eye-AF path skipping smile; threshold **0.70**; diagnostic `smileScan prob=` logs every ~3s.
+- **Selfie ring placement** — Orange front-camera ring centered in the top inset band.
+- **Smile to capture accuracy** — ML Kit smile path uses ACCURATE classification, largest-face selection, 250 ms budget, threshold **0.70** (`SmileStillCapturePolicy`).
+- **Smile gallery thumb** — Smile/auto stills now call `applyStillResultToGalleryThumb` so the tray thumbnail updates (`PNS.ChromeUx galleryThumbUpdated`).
+- **Sticky ADB video automation** — `pns_preview_automation_in_app_video_sec` no longer replays on normal preview open; only honored on cold `pns_screen=preview` launches; stripped when entering preview from the engineering hub.
+
+- **Readout locked-ISO JPEG/DNG exposure parity** — Removed **RAW-only** `RAW_STILL_EXTRA_DARKEN_STOPS` (was splitting DNG vs tonal JPEG by ~3.5 stops). One knob: **`ReadoutExposureChase.TARGET_MEDIAN_BIN = 34`** for preview, DNG, and independent tonal still. USB composed-still metric on **8bf09993**: matched pair **~0.3 EV** mean-luma gap (`scripts/pns_readout_jpeg_dng_parity.ps1`, `scripts/readout_jpeg_dng_luminance_compare.py`).
+
+- **Sprint 14.7 — ISO band + AE coupling (functional)** — Readout picks drive the HAL: preview uses **`CONTROL_AE_MODE_OFF`** + YUV [`ReadoutExposureChase`](app/src/main/java/dev/pointandshoot/ReadoutExposureChase.kt) (Highlight **H** dial uses highlight-meter EV on the free axis when `desiredFps < 120`). **RAW still** uses preview-parity AE OFF + chase exposure; ProShot HAL remetering skipped when chase is active. **ISO bands** enforce live ceiling/floor when not full range. Documented in **`docs/PNS_TECHNICAL_SETTINGS.md`** §3–§4. Logs `PNS.ChromeUx readoutAeApplied`. Gate: `pns_capture_pipeline_verify.ps1` / `pns_readout_iso_verify.ps1`.
+
+- **Sprint 14.6 — HFR HEVC color (vs H.264)** — 8-bit HEVC Main on [`MediaCodecVideoRecorder`](app/src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt) now sets **BT.709 limited** VUI (`COLOR_STANDARD_BT709`, `COLOR_TRANSFER_SDR_VIDEO`, `COLOR_RANGE_LIMITED`); logs `PNS.MCVideoRec colorVui=bt709`. 10-bit / HDR10 keep BT.2020 tags. Script: `pns_video_codec_color_compare.ps1` (H.264 @ 60 vs HEVC @ 120 + ffprobe).
+
+- **Sprint 14.4 — QR scan photo mode** — [`CommandDialMode.Qr`](app/src/main/java/dev/pointandshoot/CommandDial.kt) (photo programs only): ZXing on preview YUV via [`QrCodeAnalyzer`](app/src/main/java/dev/pointandshoot/QrCodeAnalyzer.kt), finder overlay [`PreviewQrScanOverlay`](app/src/main/java/dev/pointandshoot/PreviewQrScanOverlay.kt), snackbar + `PNS.QrScan` on decode. **Confirm-then-open** for links/phone/email (`QrScanResultActions` — no auto-launch; snackbar **Open** + finder **Open**/**Copy**). Debug route `pns_screen=qrscan` unchanged. Script: `pns_qr_scan_verify.ps1`.
+
+- **Sprint 14.3 — Mode selector UX** — Shooting-mode dropdown uses **Photo programs** / **Video programs** section headers ([`CaptureMediaFamily.commandDialMenuSectionTitle`](app/src/main/java/dev/pointandshoot/CaptureMediaFamily.kt)); selected row text + check in [`PnsColors.PhotoOrange`](app/src/main/java/dev/pointandshoot/PnsColors.kt) via [`PreviewCommandDialDropdownMenu`](app/src/main/java/dev/pointandshoot/PreviewCommandDialDropdownMenu.kt). Tray mode FAB unchanged (chrome lock). Logs `modeDialPopout=menuSections`.
+
+- **Sprint 14.2 — Status bar HUD** — [`PreviewTopStatusBar`](app/src/main/java/dev/pointandshoot/PreviewTopStatusBar.kt) in the top inset band: timecode + audio meters (video record) + orange status line (capture hints / session status). Cutout-safe horizontal insets; hints moved off the readout strip. Script: `pns_video_status_bar_verify.ps1`.
+
+- **Sprint 14.1 — Video readout regression** — `PreviewReadoutStrip` now receives `primaryPhoto` and a `VideoFormatChip` slot (opens `VideoFormatPickerSheet`); video mode shows Video LUT + unified format chip instead of Still LUT + IMG. Selection persists via `PreviewChromePreferences` and flows into `resolveInAppVideoFormat` through [`InAppVideoFormatSelection`](app/src/main/java/dev/pointandshoot/InAppVideoFormatSelection.kt). Logs `PNS.ChromeUx readoutMode=` / `videoFormatPick=`.
+
+### Added (planning)
+
+- **Milestone 14** archived — see **[0.14.0-beta.2]** above; subjective rows **H.8** in active plan.
+
 ## [0.13.0-beta.1] - 2026-05-20
 
 Pre-release aggregating **Milestone 13** (fleet RAW) automated gates and **Milestone 13V** (video expansion) through **13V.18**, validated on OnePlus 13 **`8bf09993`**. Human ACR / aux color sign-off (**H.7**) remains open.

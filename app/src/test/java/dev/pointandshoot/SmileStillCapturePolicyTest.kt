@@ -10,7 +10,7 @@ class SmileStillCapturePolicyTest {
     fun shouldTrigger_respectsThresholdAndCooldown() {
         SmileStillCapturePolicy.resetCooldown()
         assertFalse(SmileStillCapturePolicy.shouldTrigger(0.5f))
-        assertTrue(SmileStillCapturePolicy.shouldTrigger(0.9f))
+        assertTrue(SmileStillCapturePolicy.shouldTrigger(0.75f))
         assertFalse(SmileStillCapturePolicy.shouldTrigger(0.95f))
     }
 }

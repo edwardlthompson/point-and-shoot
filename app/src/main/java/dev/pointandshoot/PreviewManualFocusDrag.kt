@@ -1,17 +1,17 @@
 package dev.pointandshoot
 
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 
-/** Vertical drag on the finder to adjust manual focus distance (M dial). */
+/** Horizontal drag on the finder to adjust manual focus distance (M dial / manual AF). */
 fun Modifier.previewManualFocusDrag(
     enabled: Boolean,
     onDragPixels: (Float) -> Unit,
 ): Modifier {
     if (!enabled) return this
     return pointerInput(enabled) {
-        detectVerticalDragGestures { change, dragAmount ->
+        detectHorizontalDragGestures { change, dragAmount ->
             change.consume()
             onDragPixels(dragAmount)
         }

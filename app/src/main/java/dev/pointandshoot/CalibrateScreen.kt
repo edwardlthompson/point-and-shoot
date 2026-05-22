@@ -66,6 +66,10 @@ fun CalibrateScreen(
     /** Optional chart supplied by the caller (e.g. live preview grab); adopted into local state once. */
     initialChartBitmap: Bitmap? = null,
     onInitialChartBitmapConsumed: () -> Unit = {},
+    /** Active camera id for the saved profile (preview session). */
+    cameraIdForProfile: String = "host-calibrate",
+    /** After Save profile: apply WB/exposure + natural ISP defaults in preview. */
+    onProfileSaved: ((CalibrationProfile, Double) -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
@@ -73,11 +77,12 @@ fun CalibrateScreen(
         PnsAdbLog.i(context, "calibrate screen compose active")
     }
 
-    var target by remember { mutableStateOf<ReferenceTarget>(BundledReferenceTargets.Generic24) }
+    var target by remember { mutableStateOf<ReferenceTarget>(BundledReferenceTargets.ColorCheckerClassic24) }
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var corners by remember { mutableStateOf<List<Offset>>(emptyList()) }
     var displayedSize by remember { mutableStateOf(IntSize.Zero) }
     var profile by remember { mutableStateOf<CalibrationProfile?>(null) }
+    var lastExposureStops by remember { mutableStateOf(0.0) }
     var status by remember { mutableStateOf("Pick a chart photo and tap the four corners (TL \u2192 TR \u2192 BR \u2192 BL).") }
     var statusIsError by remember { mutableStateOf(false) }
     var savedPath by remember { mutableStateOf<String?>(null) }
@@ -280,48 +285,32 @@ fun CalibrateScreen(
                     // so a single per-axis ratio suffices.
                     val toPlaneX = plane.width.toFloat() / box.width.toFloat()
                     val toPlaneY = plane.height.toFloat() / box.height.toFloat()
-                    val scaledCorners = ChartCorners(
-                        tl = Point2(pickedCorners[0].x * toPlaneX, pickedCorners[0].y * toPlaneY),
-                        tr = Point2(pickedCorners[1].x * toPlaneX, pickedCorners[1].y * toPlaneY),
-                        br = Point2(pickedCorners[2].x * toPlaneX, pickedCorners[2].y * toPlaneY),
-                        bl = Point2(pickedCorners[3].x * toPlaneX, pickedCorners[3].y * toPlaneY),
-                    )
-                    runCatching {
-                        val samples = CalibrationSampler.sample(plane, target, scaledCorners)
-                        val accepted = samples.filter { !it.rejected && it.patchRef != null }
-                        require(accepted.size >= 6) {
-                            "Only ${accepted.size} of ${samples.size} patches passed variance check; reframe the chart."
-                        }
-                        val neutralSamples = accepted
-                            .filter { it.patchRef!!.role == ReferenceTarget.PatchRole.Neutral }
-                            .map { it.mean }
-                        val wb = CalibrationMath.computeWbGains(
-                            neutralPatches = neutralSamples.ifEmpty { accepted.map { it.mean } },
+                    val scaledCorners =
+                        CalibrationWorkflow.chartCornersForPlane(
+                            corners = pickedCorners,
+                            layoutWidth = box.width,
+                            layoutHeight = box.height,
+                            planeWidth = plane.width,
+                            planeHeight = plane.height,
                         )
-                        val measuredAfterWb = accepted.map { sample ->
-                            floatArrayOf(
-                                (sample.mean[0] * wb.r).coerceIn(0f, 1f),
-                                (sample.mean[1] * wb.g).coerceIn(0f, 1f),
-                                (sample.mean[2] * wb.b).coerceIn(0f, 1f),
-                            )
-                        }
-                        val targetRgb = accepted.map { it.patchRef!!.referenceRgb }
-                        val ccm = CalibrationMath.computeCcm(measuredAfterWb, targetRgb)
-                        CalibrationProfile(
-                            wbGains = wb,
-                            ccm = ccm,
-                            bias = CalibrationProfile.Bias.Zero,
-                            mtf50Lpph = null,
-                            illuminant = target.illuminant,
-                            capturedAtMs = System.currentTimeMillis(),
-                            cameraId = "host-calibrate",
-                            targetId = target.id,
+                    runCatching {
+                        CalibrationWorkflow.computeFromPlane(
+                            plane = plane,
+                            target = target,
+                            corners = scaledCorners,
+                            cameraId = cameraIdForProfile,
                         )
                     }.fold(
-                        onSuccess = { p ->
-                            profile = p
+                        onSuccess = { result ->
+                            profile = result.profile
+                            lastExposureStops = result.exposureStops
                             statusIsError = false
-                            status = "Profile computed: WB=(${"%.3f".format(p.wbGains.r)}, ${"%.3f".format(p.wbGains.g)}, ${"%.3f".format(p.wbGains.b)})  illum=${p.illuminant}"
+                            val p = result.profile
+                            status =
+                                "Profile computed (${result.acceptedPatchCount} patches): " +
+                                    "WB=(${"%.3f".format(p.wbGains.r)}, ${"%.3f".format(p.wbGains.g)}, " +
+                                    "${"%.3f".format(p.wbGains.b)})  " +
+                                    "exp=${"%.2f".format(result.exposureStops)} EV  illum=${p.illuminant}"
                         },
                         onFailure = { ex ->
                             profile = null
@@ -344,6 +333,7 @@ fun CalibrateScreen(
                         savedPath = saved.absolutePath
                         statusIsError = false
                         status = "Saved profile to ${saved.name}"
+                        onProfileSaved?.invoke(p, lastExposureStops)
                     }
                 },
             ) { Text("Save profile") }

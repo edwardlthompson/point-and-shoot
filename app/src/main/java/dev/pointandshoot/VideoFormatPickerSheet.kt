@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -33,6 +35,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -427,8 +431,38 @@ private fun PickerOptionRow(
 }
 
 /**
- * Compact chip shown in the bottom video tray to open [VideoFormatPickerSheet].
- * Displays the currently-selected format codec + fps.
+ * Bottom-tray FAB (left of shutter) to open [VideoFormatPickerSheet]. Same 52dp chrome as
+ * [dev.pointandshoot.PreviewTrayPhotoVideoModeToggleFab] in `PreviewEngineScreen.kt`.
+ */
+@Composable
+fun PreviewTrayVideoFormatFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ring = Color.White.copy(alpha = 0.88f)
+    androidx.compose.material3.FloatingActionButton(
+        onClick = onClick,
+        modifier =
+            modifier
+                .size(52.dp)
+                .border(2.dp, ring, CircleShape)
+                .semantics {
+                    contentDescription = "Video format settings. Tap to change resolution, fps, and codec."
+                },
+        containerColor = PnsColors.RecordRed.copy(alpha = 0.88f),
+        contentColor = Color.White.copy(alpha = 0.92f),
+        shape = CircleShape,
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Tune,
+            contentDescription = null,
+            modifier = Modifier.size(26.dp),
+        )
+    }
+}
+
+/**
+ * Legacy compact chip (readout row) — prefer [PreviewTrayVideoFormatFab] on the shutter tray.
  */
 @Composable
 fun VideoFormatChip(

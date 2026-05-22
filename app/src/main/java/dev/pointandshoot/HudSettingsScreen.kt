@@ -52,18 +52,9 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
     val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, onUpdate) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = "Granular toggles for HUD elements. Persists across launches.",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.65f),
-        )
+        ChromeSettingsIntroText("Granular toggles for HUD elements. Persists across launches.")
 
-        Text(
-            text = "Capability gate (rear camera)",
-            style = MaterialTheme.typography.titleSmall,
-            color = PnsColors.PhotoOrange,
-            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
-        )
+        PreviewRailSectionTitle("Capability gate (rear camera)")
         if (!cameraGranted) {
             Text(
                 text = "Grant camera permission to see which HUD-related features are supported on this device.",
@@ -92,7 +83,10 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
             }
         }
 
-        OutlinedButton(
+        FpsQuickChip(
+            label = "Rescan cameras (shallow cache)",
+            selected = false,
+            requiresRoot = false,
             onClick = {
                 ShallowCapabilityCacheStore.requestShallowScanRescan(ctx.applicationContext)
                 Toast.makeText(
@@ -102,21 +96,14 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
                 ).show()
             },
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Rescan cameras (shallow cache)")
-        }
+        )
         Text(
             text = ShallowCapabilityCacheStore.lastScanSummaryLine(ctx),
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.52f),
         )
 
-        Text(
-            text = "HUD elements",
-            style = MaterialTheme.typography.titleSmall,
-            color = PnsColors.PhotoOrange,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-        )
+        PreviewRailSectionTitle("HUD elements")
         HudStillCaptureModeRow(
             mode = settings.stillCaptureMode,
             onModeChange = { mode -> onUpdate(settings.copy(stillCaptureMode = mode)) },
@@ -465,6 +452,13 @@ private fun hudToggleRows(
             description = "Sony-style green pupil rectangles when face detect is FULL.",
             enabled = settings.showEyeAfOverlay,
             onChange = { onUpdate(settings.copy(showEyeAfOverlay = it)) },
+        ),
+        HudToggleRow(
+            title = "Face alignment crosshair (14.5 debug)",
+            description =
+                "Center crosshair on the preview tile — compare with face/eye boxes after cover-crop mapping.",
+            enabled = settings.showFaceAlignmentDebugCrosshair,
+            onChange = { onUpdate(settings.copy(showFaceAlignmentDebugCrosshair = it)) },
         ),
         HudToggleRow(
             title = "Smile-triggered still (13V.17)",

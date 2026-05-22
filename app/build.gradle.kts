@@ -68,8 +68,8 @@ android {
         applicationId = "dev.pointandshoot"
         minSdk = 28
         targetSdk = 36
-        versionCode = 13001
-        versionName = "0.13.0-beta.1"
+        versionCode = 14002
+        versionName = "0.14.0-beta.2"
 
         ndk {
             // Device (arm64) + emulator (x86_64). Omit 32-bit ABIs to keep CI/APK lean.

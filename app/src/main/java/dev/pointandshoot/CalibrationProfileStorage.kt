@@ -122,6 +122,12 @@ object CalibrationProfileStorage {
      * filesystem mtime. Returns an empty list when the directory does not
      * exist (storage unavailable, or no profile has been saved yet).
      */
+    /** Newest saved profile, or null when none or decode fails. */
+    fun loadNewest(context: Context): CalibrationProfile? {
+        val newest = list(context).firstOrNull() ?: return null
+        return runCatching { load(newest) }.getOrNull()
+    }
+
     fun list(context: Context): List<File> {
         val dir = directory(context) ?: return emptyList()
         val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }

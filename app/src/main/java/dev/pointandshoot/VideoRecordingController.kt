@@ -167,6 +167,8 @@ internal class VideoRecordingController(
         supportsHighSpeed: Boolean = false,
         videoFormat: VideoFormat = VideoFormatPresets.getAvailableFormats(size, desiredFps.coerceAtMost(60)).first(),
         onEvent: (Event) -> Unit,
+        /** Dual video feeds encoder via [DualVideoGlEncoderSink] — use MediaCodec Surface input. */
+        forceMediaCodecGlComposite: Boolean = false,
     ): PrepareResult {
         val h = handler
         if (h == null) {
@@ -179,11 +181,33 @@ internal class VideoRecordingController(
         }
 
         return if (Thread.currentThread() === h.looper.thread) {
-            applyShellLocked(wantRecord, profile, desiredFps, size, orientationHintDegrees, wantHighSpeed, supportsHighSpeed, videoFormat, onEvent)
+            applyShellLocked(
+                wantRecord,
+                profile,
+                desiredFps,
+                size,
+                orientationHintDegrees,
+                wantHighSpeed,
+                supportsHighSpeed,
+                videoFormat,
+                onEvent,
+                forceMediaCodecGlComposite,
+            )
         } else {
             var result: PrepareResult = PrepareResult.NoAction
             h.post {
-                result = applyShellLocked(wantRecord, profile, desiredFps, size, orientationHintDegrees, wantHighSpeed, supportsHighSpeed, videoFormat, onEvent)
+                result = applyShellLocked(
+                    wantRecord,
+                    profile,
+                    desiredFps,
+                    size,
+                    orientationHintDegrees,
+                    wantHighSpeed,
+                    supportsHighSpeed,
+                    videoFormat,
+                    onEvent,
+                    forceMediaCodecGlComposite,
+                )
             }
             // Note: This is a synchronous return - the actual result will be set after post executes
             // For correct behavior, this should be called from handler thread
@@ -201,6 +225,7 @@ internal class VideoRecordingController(
         supportsHighSpeed: Boolean,
         videoFormat: VideoFormat,
         onEvent: (Event) -> Unit,
+        forceMediaCodecGlComposite: Boolean,
     ): PrepareResult {
         // Debounce duplicate states
         if (lastShellWant == wantRecord && !startFailureHold) {
@@ -231,9 +256,13 @@ internal class VideoRecordingController(
 
         // HFR check - MediaCodec path handles fps > 60 natively; no rejection needed for that path
         val isHfr = desiredFps >= HFR_THRESHOLD_FPS
-        val useMediaCodecPath = isHfr || videoFormat.isTenBit || videoFormat.isDcg
+        val useMediaCodecPath =
+            forceMediaCodecGlComposite || isHfr || videoFormat.isTenBit || videoFormat.isDcg
         // Signal immediately so createSession can skip useHighSpeed before recorder is prepared
         wantsMediaCodecPath = useMediaCodecPath
+        if (forceMediaCodecGlComposite) {
+            Log.i(TAG, "dualVideo: MediaCodec GL composite encoder path")
+        }
         if (isHfr && !useMediaCodecPath && !(wantHighSpeed && supportsHighSpeed)) {
             Log.w(TAG, "HFR video rejected: fps=$desiredFps, wantHighSpeed=$wantHighSpeed, supportsHighSpeed=$supportsHighSpeed")
             startFailureHold = true
@@ -436,6 +465,7 @@ internal class VideoRecordingController(
                 recorderStarted = false
                 audioEnabled = false
                 lastShellWant = false
+                logAdbInAppVideoSaved(savedUri)
                 onEvent(Event.Stopped(savedUri, wasAudioEnabled))
             }
             return null
@@ -469,10 +499,14 @@ internal class VideoRecordingController(
                 CaptureStorage.finalizePendingVideoInsert(appContext, uri)
                 out = uri
                 Log.i(TAG, "inAppVideoSaved uri=$uri")
+                logAdbInAppVideoSaved(uri)
             }.onFailure { e ->
                 Log.w(TAG, "finalize video failed", e)
                 runCatching { CaptureStorage.discardPendingVideo(appContext, uri) }
+                logAdbInAppVideoSaved(null)
             }
+        } else {
+            logAdbInAppVideoSaved(null)
         }
 
         return out
@@ -541,5 +575,17 @@ internal class VideoRecordingController(
                 HudSettings.VIDEO_BITRATE_SCALE_MAX,
             )
         return (base.toLong() * scale / 100L).toInt().coerceAtLeast(2_000_000)
+    }
+
+    private fun logAdbInAppVideoSaved(uri: Uri?) {
+        if (uri == null) {
+            PnsAdbLog.i(appContext, "inAppVideoSaved ok=false bytes=-1")
+            return
+        }
+        val bytes =
+            runCatching {
+                appContext.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+            }.getOrElse { -1L }
+        PnsAdbLog.i(appContext, "inAppVideoSaved ok=true bytes=$bytes saved=$uri")
     }
 }

@@ -5,7 +5,7 @@
 .DESCRIPTION
   Uses the same **`captureRawStill`** path as preview **H** mode / ADB **`pns_preview_raw_count`** (not UI coordinate taps).
   Each cold start passes **`pns_preview_imaging_profile=standard_pro`** so a user-persisted **Ultra-Max** HUD choice cannot break the default scripted gate (Ultra-Max remains testable via **`pns_adb_preview_validate.ps1`** scenarios / explicit extras).
-  Also passes **`pns_preview_camera_id=0`** so the M23 focal-slot default (which may resolve to a tele / no-RAW logical id on some OEM stacks) cannot strand scripted RAW on a non-RAW camera; use **`-SweepCameraIds`** when you need a wider id sweep.
+  Default cold start passes **`pns_preview_camera_id=3`** (wide on CPH2655-class stacks); **`0`** can strand scripted RAW on tele / no-RAW logical ids. Use **`-SweepCameraIds`** for a wider id sweep.
   After each cold start, pulls filtered **logcat** and checks for **`PNS.AdbValidation`** `captureRawStill 1/1 ok=true saved=`.
   Treats **`PNS.CaptureStill`** `ok=false`, **`save ok=false`**, **`No RAW buffer`**, and **`FATAL EXCEPTION`** as hard failures for that attempt, then retries.
 
@@ -124,6 +124,65 @@ function Invoke-AdbExe([string]$adbExe, [string[]]$PrefixArgs, [string[]]$CmdArg
     return [pscustomobject]@{ ExitCode = $exitCode; StdOut = $out; StdErr = $err }
 }
 
+function Invoke-AdbShellDirect([string]$ShellCommand) {
+    $adbExe = Get-AdbPath
+    $argv = @()
+    if ($Serial) { $argv += "-s", $Serial }
+    $argv += "shell", $ShellCommand
+    & $adbExe @argv
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb shell exit=$LASTEXITCODE cmd=$ShellCommand"
+    }
+}
+
+function Invoke-AdbExecOutDirect([string[]]$CmdArgs) {
+    $adbExe = Get-AdbPath
+    $argv = @()
+    if ($Serial) { $argv += "-s", $Serial }
+    $argv += "exec-out"
+    $argv += $CmdArgs
+    $out = & $adbExe @argv 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb exec-out exit=$LASTEXITCODE args=$($CmdArgs -join ' ')"
+    }
+    if ($null -eq $out) { return "" }
+    if ($out -is [System.Array]) { return ($out -join "`n") }
+    return [string]$out
+}
+
+function Get-PnsValidationLogcatSnippet() {
+    # Host-side `adb logcat -d` (not `adb shell logcat -t …`, which returns empty on some Windows/OEM combos).
+    $adbExe = Get-AdbPath
+    $argv = @()
+    if ($Serial) { $argv += "-s", $Serial }
+    $argv += "logcat", "-d", "-v", "threadtime", "-s", "PNS.AdbValidation:I"
+    $lines = & $adbExe @argv 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb logcat snippet exit=$LASTEXITCODE"
+    }
+    if ($null -eq $lines) { return "" }
+    if ($lines -is [System.Array]) { return ($lines -join "`n") }
+    return [string]$lines
+}
+
+function Invoke-AdbLogcatDumpDirect([string[]]$LogcatArgs, [string]$OutFile) {
+    $adbExe = Get-AdbPath
+    $argv = @()
+    if ($Serial) { $argv += "-s", $Serial }
+    $argv += "logcat"
+    $argv += $LogcatArgs
+    $lines = & $adbExe @argv 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb shell logcat exit=$LASTEXITCODE"
+    }
+    if ($null -eq $lines) {
+        [System.IO.File]::WriteAllText($OutFile, "", [System.Text.UTF8Encoding]::new($false))
+        return
+    }
+    $text = if ($lines -is [System.Array]) { $lines -join "`n" } else { [string]$lines }
+    [System.IO.File]::WriteAllText($OutFile, $text, [System.Text.UTF8Encoding]::new($false))
+}
+
 function Invoke-AdbTimed([string[]]$CmdArgs, [int]$TimeoutMs = 120000) {
     $adbExe = Get-AdbPath
     $prefix = @()
@@ -236,6 +295,26 @@ if (-not $SkipInstall) {
 }
 Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA") 60000 | Out-Null
 Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_IMAGES") 60000 | Out-Null
+Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.RECORD_AUDIO") 60000 | Out-Null
+# Cold gates must reach preview automation (not the permission welcome sheet).
+$welcomeTmp = Join-Path $env:TEMP ("pns_welcome_flow_{0}.xml" -f [Guid]::NewGuid().ToString("N"))
+@'
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<map>
+  <int name="permission_onboarding_version" value="4" />
+</map>
+'@ | Set-Content -LiteralPath $welcomeTmp -Encoding UTF8
+try {
+    Invoke-AdbTimed @("push", $welcomeTmp, "/data/local/tmp/pns_welcome_flow.xml") 120000 | Out-Null
+    Invoke-AdbTimedIgnore @(
+        "shell", "run-as", $pkg, "sh", "-c",
+        "mkdir -p shared_prefs && cp /data/local/tmp/pns_welcome_flow.xml shared_prefs/pns_welcome_flow.xml"
+    ) 60000 | Out-Null
+} catch {
+    Write-Warning "[photo_capture_verify] welcome pref seed failed (preview may stay on welcome UI): $_"
+} finally {
+    Remove-Item -LiteralPath $welcomeTmp -ErrorAction SilentlyContinue
+}
 # Default ring buffers are tiny (256 KiB) on some OEM builds; HAL spam evicts app lines before we pull logcat.
 Invoke-AdbTimedIgnore @("shell", "logcat", "-G", "64M") 15000 | Out-Null
 
@@ -266,32 +345,27 @@ foreach ($camSeed in $seedList) {
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         Write-Host ""
         Write-Host "[photo_capture_verify] === attempt $attempt / $MaxAttempts (seed=$seedLabel) ==="
+        $bad = $false
 
         Invoke-AdbTimedIgnore @("shell", "logcat", "-c") 20000 | Out-Null
         Invoke-AdbTimedIgnore @("shell", "logcat", "-G", "64M") 15000 | Out-Null
         Invoke-AdbTimedIgnore @("shell", "am", "force-stop", $pkg) 30000 | Out-Null
         Start-Sleep -Milliseconds 800
 
-        $amArgs = @(
-            "shell", "am", "start", "-W", "-n", "${pkg}/.MainActivity",
-            "--activity-clear-task",
-            "--es", "pns_screen", "preview",
-            "--es", "pns_preview_dial", "H",
-            "--ei", "pns_preview_raw_count", "1",
-            "--es", "pns_preview_imaging_profile", "standard_pro",
-            "--es", "pns_preview_camera_id", "0"
-        )
+        $camId = if ([string]::IsNullOrWhiteSpace($camSeed)) { "3" } else { $camSeed }
+        $amShell =
+            "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
+            "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 1 " +
+            "--es pns_preview_imaging_profile standard_pro --es pns_preview_camera_id $camId"
         if ($Fast) {
-            $amArgs += @("--ez", "pns_preview_raw_still_fast", "true")
-        }
-        if (-not [string]::IsNullOrWhiteSpace($camSeed)) {
-            $amArgs += @("--es", "pns_preview_camera_id", $camSeed)
+            $amShell += " --ez pns_preview_raw_still_fast true"
         }
         if (-not [string]::IsNullOrWhiteSpace($PreviewStillMode)) {
-            $amArgs += @("--es", "pns_preview_still_mode", $PreviewStillMode.Trim().ToLower())
+            $amShell += " --es pns_preview_still_mode $($PreviewStillMode.Trim().ToLower())"
         }
         try {
-            Invoke-AdbTimed $amArgs 120000 | Out-Null
+            # Direct `adb shell "<am …>"` — avoids job argv corruption that drops `--es` / `--ei` extras on Windows.
+            Invoke-AdbShellDirect $amShell
         }
         catch {
             Write-Warning "[photo_capture_verify] am start failed: $_ (retrying)"
@@ -299,8 +373,38 @@ foreach ($camSeed in $seedList) {
             continue
         }
 
-        Write-Host "[photo_capture_verify] waiting ${WaitSec}s for scripted RAW still + save..."
-        Start-Sleep -Seconds $WaitSec
+        Write-Host "[photo_capture_verify] polling up to ${WaitSec}s for scripted RAW still + save..."
+        $deadline = (Get-Date).AddSeconds($WaitSec)
+        $pollHaystack = ""
+        $capturedEarly = $false
+        Start-Sleep -Seconds 8
+        while ((Get-Date) -lt $deadline) {
+            try {
+                $pollHaystack = Get-PnsValidationLogcatSnippet
+            }
+            catch {
+                Write-Warning "[photo_capture_verify] poll logcat failed: $_"
+                $pollHaystack = ""
+            }
+            if ($pollHaystack.Contains($successNeedle)) {
+                $capturedEarly = $true
+                Write-Host "[photo_capture_verify] success needle seen during poll"
+                break
+            }
+            foreach ($n in $failNeedles) {
+                if ($pollHaystack.Contains($n)) {
+                    Write-Host "[photo_capture_verify] saw failure signal during poll: $n"
+                    $bad = $true
+                    break
+                }
+            }
+            if ($bad) { break }
+            Start-Sleep -Seconds 3
+        }
+        if (-not $capturedEarly -and (Get-Date) -lt $deadline) {
+            $remain = [Math]::Max(0, [int](($deadline - (Get-Date)).TotalSeconds))
+            if ($remain -gt 0) { Start-Sleep -Seconds $remain }
+        }
 
         $rawPath = Join-Path $seedDir ("attempt_{0:D2}_logcat_raw.txt" -f $attempt)
         $logText = ""
@@ -332,17 +436,22 @@ foreach ($camSeed in $seedList) {
                 }
             }
         }
-        if (-not (Test-Path -LiteralPath $rawPath) -or ((Get-Item -LiteralPath $rawPath).Length -eq 0)) {
-            $tagArgs = @(
-                "shell", "logcat", "-d", "-v", "threadtime", "-t", "40000", "*:S",
-                "PNS.AdbValidation:I", "PNS.CaptureStill:W", "PNS.StillBoundary:I", "PNS.Cam:W", "PNS.Cam:I", "PNS.Reader:W", "PNS.Dng:W",
-                "AndroidRuntime:E"
-            )
+        $needTagFallback = (-not (Test-Path -LiteralPath $rawPath)) -or ((Get-Item -LiteralPath $rawPath).Length -eq 0)
+        if (-not $needTagFallback -and (Test-Path -LiteralPath $rawPath)) {
+            $snip = [System.IO.File]::ReadAllText($rawPath, [System.Text.UTF8Encoding]::new($false))
+            if ($snip -notmatch [regex]::Escape($successNeedle)) {
+                Write-Warning "[photo_capture_verify] pid log missing success needle; tag-filter fallback"
+                $needTagFallback = $true
+                Remove-Item -LiteralPath $rawPath -ErrorAction SilentlyContinue
+            }
+        }
+        if ($needTagFallback) {
             try {
-                $ec2 = Invoke-AdbRedirectStdoutToFile $tagArgs $rawPath 180000
-                if ($ec2 -ne 0) {
-                    Write-Warning "[photo_capture_verify] logcat tag-filter dump exit=$ec2"
-                }
+                Invoke-AdbLogcatDumpDirect @(
+                    "-d", "-v", "threadtime", "-t", "4000",
+                    "PNS.AdbValidation:I", "PNS.Preview:I", "PNS.CaptureStill:W", "PNS.StillBoundary:I",
+                    "PNS.Cam:W", "PNS.Cam:I", "PNS.Reader:W", "PNS.Dng:W", "AndroidRuntime:E"
+                ) $rawPath
             }
             catch {
                 Write-Warning "[photo_capture_verify] logcat tag filter failed: $_"
@@ -350,10 +459,7 @@ foreach ($camSeed in $seedList) {
         }
         if (-not (Test-Path -LiteralPath $rawPath) -or ((Get-Item -LiteralPath $rawPath).Length -eq 0)) {
             try {
-                $ec3 = Invoke-AdbRedirectStdoutToFile @("shell", "logcat", "-d", "-v", "threadtime", "-t", "100000") $rawPath 180000
-                if ($ec3 -ne 0) {
-                    Write-Warning "[photo_capture_verify] logcat full dump exit=$ec3"
-                }
+                Invoke-AdbLogcatDumpDirect @("-d", "-v", "threadtime", "-t", "8000") $rawPath
             }
             catch {
                 Write-Warning "[photo_capture_verify] logcat full dump failed: $_"
@@ -387,6 +493,16 @@ foreach ($camSeed in $seedList) {
         }
 
         $haystack = if ($fullText.Length -gt 0) { $fullText } else { $logText }
+        if ($capturedEarly -and $pollHaystack.Length -gt 0 -and -not $haystack.Contains($successNeedle)) {
+            $haystack = $pollHaystack + "`n" + $haystack
+            if ($logText.Length -gt 0) {
+                $logText = $pollHaystack + "`n" + $logText
+            }
+            else {
+                $logText = $pollHaystack
+            }
+            [System.IO.File]::WriteAllText($attemptPath, $logText, [System.Text.UTF8Encoding]::new($false))
+        }
         $ok = $haystack.Contains($successNeedle)
         $bad = $false
         foreach ($n in $failNeedles) {

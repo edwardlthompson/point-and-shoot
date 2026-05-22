@@ -76,10 +76,11 @@ Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BU
 | **M10** (product expansion) | ✅ Gate passed | Shallow cache, focal strip, JPEG-only profile, Photo\|Video tray, 7×3 grid, QR scan, … → [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
 | **M11** (capture UX) | ✅ Gate passed | WB menu order, dodge tele crops, in-app video + RES selector |
 | **M12** (video completeness) | ✅ Gate passed | Audio policy, `VideoRecordingController`, MediaCodec HFR path |
-| **M13** (fleet RAW) | 🚧 **13.7** (automated ✅) | USB gates **PASS** on `8bf09993`; human **ACR 3/3** + visual aux parity → **H.7** |
-| **M13V** (video expansion) | ✅ USB-verified | **13V.1–13V.18** incl. 4K@120, AI features, CameraX probe — see table below |
+| **M13** (fleet RAW) | ✅ Automated gate | USB **PASS** on `8bf09993`; human **ACR 3/3** + aux color → **H.7** |
+| **M13V** (video expansion) | ✅ USB-verified | **13V.1–13V.18** — see table below |
+| **M14** (preview polish) | ✅ Shipped (beta) | Readout/HUD, QR, ISO coupling, focus picker, stacked **dual video**, About heritage — **H.8** subjective |
 
-**Latest pre-release:** [`v0.13.0-beta.1`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.13.0-beta.1) — APK `Point-and-Shoot_0.13.0-beta.1.apk` · notes [`RELEASE_NOTES_v0.13.0-beta.1.md`](RELEASE_NOTES_v0.13.0-beta.1.md)
+**Latest pre-release:** [`v0.14.0-beta.2`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.2) — APK `Point-and-Shoot_0.14.0-beta.2.apk` · notes [`RELEASE_NOTES_v0.14.0-beta.2.md`](RELEASE_NOTES_v0.14.0-beta.2.md)
 
 **Active roadmap:** [`BUILD_PLAN.md`](BUILD_PLAN.md) · **Archive:** [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -103,6 +104,24 @@ Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BU
 | **13V.18** | CameraX OEM extension probe | `pns_camerax_extension_probe.ps1` |
 
 Sprint docs: [`docs/M13V_10_FOCUS_PEAKING.md`](docs/M13V_10_FOCUS_PEAKING.md) … [`docs/M13V_18_CAMERAX_EXTENSIONS.md`](docs/M13V_18_CAMERAX_EXTENSIONS.md). Agent automation index: [`AGENTS.md`](AGENTS.md).
+
+### Shipped Milestone 14 (preview polish)
+
+| Sprint | Feature | Verify script (USB) |
+|--------|---------|---------------------|
+| **14.1** | Video readout + format chip | `pns_chrome_ux_gate.ps1` |
+| **14.2** | Status-bar HUD (timecode, audio) | `pns_video_status_bar_verify.ps1` |
+| **14.3** | Mode dial Photo/Video sections | `pns_chrome_ux_gate.ps1` |
+| **14.4** | QR scan (photo mode) | `pns_qr_scan_verify.ps1` |
+| **14.6** | HFR HEVC BT.709 VUI | `pns_video_codec_color_compare.ps1` |
+| **14.7** | ISO band + readout AE coupling | `pns_capture_pipeline_verify.ps1` |
+| **14.8** | Focus mode picker | `pns_focus_peaking_verify.ps1` |
+| **14.9** | Selfie ring + smile (Eye AF menu) | `pns_ai_features_verify.ps1` |
+| **14.10** | DND restore | `pns_dnd_restore_verify.ps1` |
+| **14.11** | Heritage + Venmo About | `pns_about_links_verify.ps1` |
+| **14.12** | Stacked dual video (one MP4) | `pns_dual_video_verify.ps1` |
+
+Docs: [`docs/M14_12_DUAL_VIDEO.md`](docs/M14_12_DUAL_VIDEO.md), [`docs/M14_READOUT_STATUS_BAR.md`](docs/M14_READOUT_STATUS_BAR.md).
 
 ### Core capture gates (still regression)
 
@@ -152,6 +171,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 ## Documentation
 
 ### Product
+- **Technical settings (source of truth)** — [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) — command dial modes, H metering, readout/YUV chase, RAW/DNG locks, HUD defaults; **update whenever those settings change**
 - **Product roadmap & V&V gates** — [`BUILD_PLAN.md`](BUILD_PLAN.md) · completed milestones — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)
 - **Probe automation plan** — [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md)
 - **OnePlus 13 hardware-to-software mapping** — [`DODGE_PROFILE.md`](DODGE_PROFILE.md)
@@ -171,10 +191,11 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 - **CLI build / sideload** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
 
 ### Releases
-- **Latest beta** — [`v0.13.0-beta.1`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.13.0-beta.1) · [`RELEASE_NOTES_v0.13.0-beta.1.md`](RELEASE_NOTES_v0.13.0-beta.1.md)
+- **Latest beta** — [`v0.14.0-beta.2`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.2) · [`RELEASE_NOTES_v0.14.0-beta.2.md`](RELEASE_NOTES_v0.14.0-beta.2.md)
 - **Changelog** — [`CHANGELOG.md`](CHANGELOG.md)
 - **Release-notes template** — [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)
-- **Local release-signing config** — [`keystore.properties.example`](keystore.properties.example)
+- **Local release-signing config** — [`keystore.properties.example`](keystore.properties.example) (copy to gitignored `keystore.properties` at repo root, or set `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` in CI).
+- **Host release APK packaging** — [`scripts/pns_release_packaging.ps1`](scripts/pns_release_packaging.ps1) (`assembleRelease` → `dist/Point-and-Shoot_<versionName>.apk` + `zipalign -c -v 4`). GitHub upload remains [`scripts/pns_release_automation.ps1`](scripts/pns_release_automation.ps1) (`gh` CLI).
 - **CLI signed builds** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
 
 #### Updates without Google Play (users)

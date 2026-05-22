@@ -33,10 +33,12 @@ object MlKitFaceTrackSupport {
 
     private val smileOptions =
         FaceDetectorOptions.Builder()
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            // Accurate classification improves smile probability stability vs FAST.
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
             .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
             .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
             .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+            .setMinFaceSize(0.12f)
             .build()
 
     private val smileDetector: FaceDetector by lazy { FaceDetection.getClient(smileOptions) }
@@ -45,7 +47,7 @@ object MlKitFaceTrackSupport {
     fun maxSmilingProbability(
         image: Image,
         rotationDegrees: Int,
-        timeoutMs: Long = 120L,
+        timeoutMs: Long = 250L,
     ): Float? {
         if (image.width <= 0 || image.height <= 0) return null
         val input = InputImage.fromMediaImage(image, rotationDegrees)
@@ -53,12 +55,17 @@ object MlKitFaceTrackSupport {
             runCatching {
                 Tasks.await(smileDetector.process(input), timeoutMs, TimeUnit.MILLISECONDS)
             }.getOrDefault(emptyList())
-        var max: Float? = null
+        var bestFace: Face? = null
+        var bestArea = 0
         for (face in faces) {
-            val p = face.smilingProbability ?: continue
-            if (max == null || p > max) max = p
+            val box = face.boundingBox
+            val area = box.width() * box.height()
+            if (area > bestArea) {
+                bestArea = area
+                bestFace = face
+            }
         }
-        return max
+        return bestFace?.smilingProbability
     }
 
     fun detectFacesToBufferBoxes(

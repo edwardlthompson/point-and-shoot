@@ -2,6 +2,7 @@ package dev.pointandshoot
 
 import android.content.Context
 import android.hardware.camera2.CameraManager
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -213,30 +214,54 @@ data class PreviewChromePreferences(
 
 @Composable
 fun rememberPreviewChromePreferences(): PreviewChromePreferencesState {
-    val context = LocalContext.current
-    var current by remember { mutableStateOf(PreviewChromePreferences.load(context)) }
+    val context = LocalContext.current.applicationContext
+    val holder =
+        remember {
+            mutableStateOf(
+                runCatching { PreviewChromePreferences.load(context) }
+                    .getOrElse { PreviewChromePreferences() },
+            )
+        }
 
     LaunchedEffect(Unit) {
-        current = PreviewChromePreferences.load(context)
+        holder.value =
+            runCatching { PreviewChromePreferences.load(context) }
+                .getOrElse { holder.value }
     }
 
-    return remember(current) {
+    // Stable holder — do not key [remember] on prefs: that recreated [PreviewChromePreferencesState]
+    // each change and could expose a stale snapshot to [PreviewEngineContent] mid-frame.
+    return remember {
         PreviewChromePreferencesState(
-            current = current,
+            liveCurrent = {
+                holder.value ?: PreviewChromePreferences().also {
+                    Log.w("PNS.ChromeUx", "previewChromePrefs holder was null; using defaults")
+                }
+            },
             update = { next ->
+                val prev = holder.value ?: PreviewChromePreferences()
+                if (prev.dndWhileInPreview && !next.dndWhileInPreview) {
+                    restoreSystemInterruptionFilterAfterPreviewDndDisabled(context)
+                }
                 PreviewChromePreferences.save(context, next)
-                current = next
+                holder.value = next
             },
             /** ADB / automation seeds (e.g. self-timer) must not overwrite disk prefs — see [PreviewEngineScreen]. */
             applySessionOnly = { next ->
-                current = next
+                holder.value = next
             },
         )
     }
 }
 
 class PreviewChromePreferencesState(
-    val current: PreviewChromePreferences,
+    private val liveCurrent: () -> PreviewChromePreferences,
     val update: (PreviewChromePreferences) -> Unit,
     val applySessionOnly: (PreviewChromePreferences) -> Unit,
-)
+) {
+    val current: PreviewChromePreferences
+        get() =
+            liveCurrent() ?: PreviewChromePreferences().also {
+                Log.w("PNS.ChromeUx", "previewChromePrefs liveCurrent returned null; using defaults")
+            }
+}

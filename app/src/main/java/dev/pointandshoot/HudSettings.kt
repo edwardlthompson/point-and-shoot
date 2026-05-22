@@ -41,6 +41,11 @@ data class HudSettings(
     val showHighlightClipZebra: Boolean = false,
     val showHighlightWeightedMeter: Boolean = true,
     val showEyeAfOverlay: Boolean = true,
+    /**
+     * Sprint **14.5**: center crosshair on the preview tile for buffer↔view alignment vs face/eye overlays.
+     * Off by default (developer HUD).
+     */
+    val showFaceAlignmentDebugCrosshair: Boolean = false,
     /** Sprint **13V.17**: auto still when ML Kit smile probability exceeds threshold (photo mode). */
     val enableSmileTriggeredStill: Boolean = false,
     /** Sprint **13V.17**: show OEM scene/quality vendor keys in readout when probed. */
@@ -203,6 +208,7 @@ data class HudSettings(
         private const val KEY_HIGHLIGHT_CLIP_ZEBRA = "show_highlight_clip_zebra"
         private const val KEY_HIGHLIGHT_METER = "show_highlight_meter"
         private const val KEY_EYE_AF = "show_eye_af_overlay"
+        private const val KEY_FACE_ALIGN_CROSSHAIR = "show_face_alignment_debug_crosshair"
         private const val KEY_HORIZON = "show_horizon_level"
         private const val KEY_FOCUS_PEAKING = "show_focus_peaking"
         private const val KEY_FOCUS_PEAKING_COLOR = "focus_peaking_color"
@@ -362,6 +368,8 @@ data class HudSettings(
                 showHighlightClipZebra = prefs.getBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, defaults.showHighlightClipZebra),
                 showHighlightWeightedMeter = prefs.getBoolean(KEY_HIGHLIGHT_METER, defaults.showHighlightWeightedMeter),
                 showEyeAfOverlay = prefs.getBoolean(KEY_EYE_AF, defaults.showEyeAfOverlay),
+                showFaceAlignmentDebugCrosshair =
+                    prefs.getBoolean(KEY_FACE_ALIGN_CROSSHAIR, defaults.showFaceAlignmentDebugCrosshair),
                 enableSmileTriggeredStill = prefs.getBoolean(KEY_SMILE_STILL, defaults.enableSmileTriggeredStill),
                 showSceneVendorHints = prefs.getBoolean(KEY_SCENE_VENDOR_HINTS, defaults.showSceneVendorHints),
                 videoBitrateScalePercent =
@@ -420,6 +428,7 @@ data class HudSettings(
                 .putBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, settings.showHighlightClipZebra)
                 .putBoolean(KEY_HIGHLIGHT_METER, settings.showHighlightWeightedMeter)
                 .putBoolean(KEY_EYE_AF, settings.showEyeAfOverlay)
+                .putBoolean(KEY_FACE_ALIGN_CROSSHAIR, settings.showFaceAlignmentDebugCrosshair)
                 .putBoolean(KEY_SMILE_STILL, settings.enableSmileTriggeredStill)
                 .putBoolean(KEY_SCENE_VENDOR_HINTS, settings.showSceneVendorHints)
                 .putInt(

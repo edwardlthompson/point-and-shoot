@@ -6,6 +6,7 @@ on:
     paths:
       - 'PROBE_BUILD_PLAN.md'
       - 'BUILD_PLAN.md'
+      - 'docs/PNS_TECHNICAL_SETTINGS.md'
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'PROBE_BUILD_PLAN.md'
       - 'BUILD_PLAN.md'
+      - 'docs/PNS_TECHNICAL_SETTINGS.md'
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'

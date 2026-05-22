@@ -58,6 +58,7 @@ import android.view.WindowManager
 import android.widget.Toast
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -689,6 +690,8 @@ fun PreviewEngineScreen(
     adbStillCaptureMode: StillCaptureMode? = null,
     /** `pns_preview_focus_peaking` — seeds HUD peaking color (e.g. `Red`) for Sprint **13V.10** gates. */
     adbSeedFocusPeakingColor: FocusPeakingColor? = null,
+    /** `pns_preview_focus_mode` — Sprint **14.8** (`auto`, `manual`, `macro`, …). */
+    adbPreviewFocusMode: PreviewFocusSelection? = null,
     /** `pns_preview_video_lut` — seeds [HudSettings.selectedLutForVideo] for Sprint **13V.11** gates. */
     adbSeedVideoLutName: String? = null,
     /** `pns_preview_force_power_thermal` — Sprint **13V.12** gate: show power HUD without HFR FPS. */
@@ -703,6 +706,8 @@ fun PreviewEngineScreen(
     adbVideoBitrateScalePercent: Int? = null,
     /** `pns_preview_scene_vendor_hints` — Sprint **13V.17**: scene vendor hint log toggle. */
     adbSceneVendorHints: Boolean = false,
+    /** `--ez pns_preview_show_about true` — Sprint **14.11** gate: in-preview About overlay. */
+    adbShowAboutOverlay: Boolean = false,
 ) {
     val context = LocalContext.current
     val adbSelfTimerSecSanitized =
@@ -755,6 +760,7 @@ fun PreviewEngineScreen(
             adbAutomationInAppVideoSec > 0 ||
             adbAutomationVideoRawSec > 0 ||
             adbSeedFocusPeakingColor != null ||
+            adbPreviewFocusMode != null ||
             !adbSeedVideoLutName.isNullOrBlank() ||
             adbEnableSmileStill ||
             adbSmileStillSynthetic ||
@@ -812,6 +818,17 @@ fun PreviewEngineScreen(
             hudState.update(cur.copy(focusPeakingColor = color))
         }
         PnsAdbLog.i(context, "preview seeded focusPeakingColor=${color.name}")
+    }
+
+    LaunchedEffect(adbPreviewFocusMode) {
+        val mode = adbPreviewFocusMode ?: return@LaunchedEffect
+        controller.setPreviewFocusSelection(mode)
+        PnsAdbLog.i(context, "preview seeded focusMode=${PreviewFocusMode.chromeUxLogValue(mode, null)}")
+    }
+
+    LaunchedEffect(adbPreviewFocusMode, adbInitialDial) {
+        if (adbPreviewFocusMode != null || adbInitialDial != CommandDialMode.M) return@LaunchedEffect
+        controller.ensureManualFocusForDialM()
     }
 
     LaunchedEffect(adbSeedVideoLutName) {
@@ -1474,15 +1491,112 @@ fun PreviewEngineScreen(
     }
     val selectedCameraIdState = rememberUpdatedState(selectedCameraId)
     val haptics = remember { CaptureHaptics(context.applicationContext) }
+    val composedStillIntentState = rememberUpdatedState(composedStillIntent)
+    val stillsLutState = rememberUpdatedState(hudState.current.stillsLut())
+    val imageCaptureReturnState = rememberUpdatedState(imageCaptureReturn)
+
+    fun applyStillResultToGalleryThumb(result: Result<RawStillSaveSuccess>) {
+        result.fold(
+            onSuccess = { out ->
+                val pick =
+                    out.tonalUriString?.let { Uri.parse(it) }
+                        ?: runCatching { Uri.parse(out.dngUriString) }.getOrNull()
+                if (pick != null) {
+                    lastGalleryUri = pick
+                    Log.i("PNS.ChromeUx", "galleryThumbUpdated path=${pick.lastPathSegment}")
+                }
+            },
+            onFailure = { },
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        lateinit var runTrayStillCaptureImpl: () -> Unit
+        fun scheduleTrayStillCapture() {
+            controller.runAfterAfShutterGateIfNeeded(
+                onTimeoutOnMain = {
+                    captureScope.pnsShowSnackbar(
+                        snackbarHostState,
+                        "Focus wait timed out — photo not taken.",
+                        longDuration = false,
+                    )
+                },
+                runCaptureOnMain = { runTrayStillCaptureImpl() },
+            )
+        }
+        runTrayStillCaptureImpl = {
+            val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
+            val plan = composedStillIntentState.value.resolveCapturePlan()
+            controller.setComposedCapturePlan(plan)
+            val blocked = controller.composedCaptureBlockedReason(plan)
+            if (blocked != null) {
+                captureScope.pnsShowSnackbar(
+                    snackbarHostState,
+                    blocked,
+                    longDuration = true,
+                )
+            } else {
+                val ic = imageCaptureReturnState.value
+                controller.captureComposedStill(
+                    appContext = context.applicationContext,
+                    plan = plan,
+                    haptics = haptics,
+                    surfaceRotation = rot,
+                    dngSoftwareDescription =
+                        formatDngSoftwareLine(context, stillsLutState.value),
+                    stillsLut = stillsLutState.value,
+                    onTonalReady =
+                        ic?.let { returnContract ->
+                            { tonalUri ->
+                                captureScope.launch {
+                                    deliverImageCaptureToCaller(returnContract, tonalUri)
+                                }
+                            }
+                        },
+                    onResult = { result ->
+                        applyStillResultToGalleryThumb(result)
+                        result.onFailure { e ->
+                            val retryable = PnsUserFacingErrors.shouldOfferRetryAfterStillFailure(e)
+                            captureScope.pnsShowSnackbar(
+                                snackbarHostState,
+                                PnsUserFacingErrors.stillCaptureFailure(e),
+                                clipboardDetail =
+                                    if (retryable) {
+                                        null
+                                    } else {
+                                        PnsUserFacingErrors.technicalDetailForCopy(e)
+                                    },
+                                clipboardAppContext =
+                                    if (retryable) null else context.applicationContext,
+                                onRetry =
+                                    if (retryable) {
+                                        { scheduleTrayStillCapture() }
+                                    } else {
+                                        null
+                                    },
+                            )
+                            if (!retryable) {
+                                ic?.let { contract ->
+                                    contract.host.setResult(Activity.RESULT_CANCELED)
+                                    contract.host.finish()
+                                }
+                            }
+                        }
+                    },
+                )
+            }
+        }
+        trayStillCaptureRef.value = { scheduleTrayStillCapture() }
+    }
 
     fun invokeSmileTriggeredStillCapture() {
-        if (!primaryPhoto || isRecording || sweepJob != null) return
-        trayStillCaptureRef.value?.let {
-            it.invoke()
+        if (!primaryPhoto) {
+            Log.i("PNS.SmileStill", "smileCapture skipped: video mode (photo only)")
             return
         }
+        if (isRecording || sweepJob != null) return
         val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
-        val plan = composedStillIntent.resolveCapturePlan()
+        val plan = composedStillIntentState.value.resolveCapturePlan()
         controller.setComposedCapturePlan(plan)
         val blocked = controller.composedCaptureBlockedReason(plan)
         if (blocked != null) {
@@ -1494,10 +1608,16 @@ fun PreviewEngineScreen(
             plan = plan,
             haptics = haptics,
             surfaceRotation = rot,
-            dngSoftwareDescription = formatDngSoftwareLine(context, hudState.current.stillsLut()),
-            stillsLut = hudState.current.stillsLut(),
+            dngSoftwareDescription = formatDngSoftwareLine(context, stillsLutState.value),
+            stillsLut = stillsLutState.value,
             onTonalReady = null,
-        ) { _ -> }
+            onResult = { result ->
+                applyStillResultToGalleryThumb(result)
+                result.onFailure { e ->
+                    Log.w("PNS.SmileStill", "smileCapture failed: ${e.message}")
+                }
+            },
+        )
     }
 
     LaunchedEffect(primaryPhoto, isRecording, sweepJob, composedStillIntent) {
@@ -2049,6 +2169,9 @@ fun PreviewEngineScreen(
         }
     }
 
+    val seedOpenAboutSheet = adbShowAboutOverlay
+
+    Box(modifier = Modifier.fillMaxSize()) {
     PreviewEngineContent(
         // Single merged status bar + cutout top — [rememberSystemInsetsDp] already maxes cutout
         // with system bars; avoid [asPaddingValuesWithExtraTopBarBand] (2× top) for the chrome band.
@@ -2093,6 +2216,7 @@ fun PreviewEngineScreen(
             sweepJob?.cancel()
             onOpenDeveloperMenu()
         },
+        seedOpenAboutSheet = seedOpenAboutSheet,
         onPickFirstCamera = {
             val ids = controller.cameraIds()
             val m23 = resolveFocalMmSlot(context.applicationContext, FocalMmSlot.M23, ids)
@@ -2109,6 +2233,7 @@ fun PreviewEngineScreen(
             }
         },
         onSwitchToRearCamera = {
+            if (controller.wantsMacroProgram()) return@PreviewEngineContent
             val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val appCtx = context.applicationContext
             val ids = controller.cameraIds()
@@ -2201,6 +2326,24 @@ fun PreviewEngineScreen(
                 }
             }
         },
+        onEnsureMacroUltraWide = {
+            val appCtx = context.applicationContext
+            val ids = controller.cameraIds()
+            val cm = appCtx.getSystemService(CameraManager::class.java) as CameraManager
+            val uw = PreviewMacroProgram.ultraWideCameraId(cm, ids)
+            if (uw != null) {
+                val pair = resolveFocalMmSlot(appCtx, FocalMmSlot.M14, ids)
+                if (pair != null) {
+                    schedulePreviewPhysicalForFocalSlot(appCtx, controller, FocalMmSlot.M14, pair, ids)
+                    selectedCameraId = pair.first
+                    focalCrop = pair.second
+                } else {
+                    selectedCameraId = uw
+                    focalCrop = null
+                }
+                Log.i("PNS.ChromeUx", "macroMode autoSwitchUW cameraId=$uw")
+            }
+        },
         composedStillIntent = composedStillIntent,
         onComposedStillIntentChange = { intent ->
             composedStillIntent = intent
@@ -2208,83 +2351,7 @@ fun PreviewEngineScreen(
             controller.setComposedCapturePlan(intent.resolveCapturePlan())
         },
         onCaptureDng = {
-            lateinit var runTrayStillCaptureImpl: () -> Unit
-            fun scheduleTrayStillCapture() {
-                controller.runAfterAfShutterGateIfNeeded(
-                    onTimeoutOnMain = {
-                        captureScope.pnsShowSnackbar(
-                            snackbarHostState,
-                            "Focus wait timed out — photo not taken.",
-                            longDuration = false,
-                        )
-                    },
-                    runCaptureOnMain = { runTrayStillCaptureImpl() },
-                )
-            }
-            trayStillCaptureRef.value = { scheduleTrayStillCapture() }
-            runTrayStillCaptureImpl = {
-                val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
-                val plan = composedStillIntent.resolveCapturePlan()
-                controller.setComposedCapturePlan(plan)
-                val blocked = controller.composedCaptureBlockedReason(plan)
-                if (blocked != null) {
-                    captureScope.pnsShowSnackbar(
-                        snackbarHostState,
-                        blocked,
-                        longDuration = true,
-                    )
-                } else {
-                    controller.captureComposedStill(
-                        appContext = context.applicationContext,
-                        plan = plan,
-                        haptics = haptics,
-                        surfaceRotation = rot,
-                        dngSoftwareDescription = formatDngSoftwareLine(context, hudState.current.stillsLut()),
-                        stillsLut = hudState.current.stillsLut(),
-                        onTonalReady =
-                            imageCaptureReturn?.let { ic ->
-                                { tonalUri ->
-                                    captureScope.launch {
-                                        deliverImageCaptureToCaller(ic, tonalUri)
-                                    }
-                                }
-                            },
-                    ) { result ->
-                        result.fold(
-                            onSuccess = { out ->
-                                val pick =
-                                    out.tonalUriString?.let { Uri.parse(it) }
-                                        ?: runCatching { Uri.parse(out.dngUriString) }.getOrNull()
-                                if (pick != null) {
-                                    lastGalleryUri = pick
-                                }
-                            },
-                            onFailure = { e ->
-                                val retryable = PnsUserFacingErrors.shouldOfferRetryAfterStillFailure(e)
-                                captureScope.pnsShowSnackbar(
-                                    snackbarHostState,
-                                    PnsUserFacingErrors.stillCaptureFailure(e),
-                                    clipboardDetail =
-                                        if (retryable) null else PnsUserFacingErrors.technicalDetailForCopy(e),
-                                    clipboardAppContext = if (retryable) null else context.applicationContext,
-                                    onRetry = if (retryable) {
-                                        { scheduleTrayStillCapture() }
-                                    } else {
-                                        null
-                                    },
-                                )
-                                if (!retryable) {
-                                    imageCaptureReturn?.let { ic ->
-                                        ic.host.setResult(Activity.RESULT_CANCELED)
-                                        ic.host.finish()
-                                    }
-                                }
-                            },
-                        )
-                    }
-                }
-            }
-            scheduleTrayStillCapture()
+            trayStillCaptureRef.value?.invoke()
         },
         onBracketBurst = { pattern ->
             HudSettings.saveBracketPattern(context.applicationContext, pattern)
@@ -2369,6 +2436,7 @@ fun PreviewEngineScreen(
         adbAutomationVideoRawSec = adbAutomationVideoRawSec,
         videoEncodeSize = videoEncodeResolved,
     )
+    }
 
     DisposableEffect(Unit) {
         onDispose { controller.stop() }
@@ -2380,6 +2448,16 @@ fun PreviewEngineScreen(
 // longer needs to "twist with the screen". Per-element UI rotation now comes from
 // [rememberDeviceUiRotationDegrees] (DeviceUiRotation.kt) — chrome rotates around the
 // preview, not with it (Sony Photography Pro behavior).
+
+@Composable
+private fun PreviewEngineChromeShell(
+    modifier: Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier) {
+        content()
+    }
+}
 
 @Composable
 private fun PreviewEngineContent(
@@ -2416,6 +2494,7 @@ private fun PreviewEngineContent(
     isRecording: Boolean,
     onRecordingChange: (Boolean) -> Unit,
     onOpenDeveloperMenu: () -> Unit,
+    seedOpenAboutSheet: Boolean = false,
     onPickFirstCamera: () -> Unit,
     onSwitchToFrontCamera: () -> Unit,
     onSwitchToRearCamera: () -> Unit,
@@ -2424,6 +2503,7 @@ private fun PreviewEngineContent(
     onStopSweep: () -> Unit,
     focalCrop: FocalMode?,
     onApplyFocalMmSlot: (FocalMmSlot) -> Unit,
+    onEnsureMacroUltraWide: () -> Unit,
     composedStillIntent: ComposedStillIntent,
     onComposedStillIntentChange: (ComposedStillIntent) -> Unit,
     onCaptureDng: () -> Unit,
@@ -2444,6 +2524,10 @@ private fun PreviewEngineContent(
     val snackbarHostState = LocalPnsSnackbarHostState.current
     val settings = hudState.current
     val chrome = chromePrefs.current
+    val cameraManager =
+        remember(context) {
+            context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        }
     val imagingProfile = composedStillIntent.storageProfile()
     val focalMapCalibratingHint = rememberFocalMapCalibratingHintVisible()
     val fpsTargetEditable =
@@ -2463,12 +2547,73 @@ private fun PreviewEngineContent(
             HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
         }
     }
+    LaunchedEffect(primaryPhoto, commandDialMode, selectedCameraId, cameraIds) {
+        val dual = !primaryPhoto && commandDialMode == CommandDialMode.Dual
+        controller.setDualVideoActive(dual)
+        if (dual) {
+            val rear = selectedCameraId
+            val front = Camera2Facing.frontCameraId(
+                context.getSystemService(Context.CAMERA_SERVICE) as CameraManager,
+                cameraIds,
+            )
+            DualVideoRecordingController.logStatus(
+                active = true,
+                rearId = rear,
+                frontId = front,
+            )
+            if (selectedFps > DualVideoRecordingController.V1_TARGET_FPS) {
+                onSetFps(DualVideoRecordingController.V1_TARGET_FPS)
+            }
+        }
+    }
     LaunchedEffect(commandDialMode, selectedCameraId) {
         if (commandDialMode == CommandDialMode.M) {
             controller.ensureManualFocusForDialM()
         } else {
             controller.clearManualFocusDistance()
         }
+    }
+    var focusModePickerOpen by remember { mutableStateOf(false) }
+    val previewFocusSelection = controller.previewFocusSelection()
+    val macroLensLocked =
+        PreviewMacroProgram.wantsMacroProgram(commandDialMode, previewFocusSelection)
+    val macroFocusDialCoupling = rememberMacroFocusDialCouplingState()
+    val manualFocusUi =
+        rememberPreviewManualFocusUiState(
+            commandDialMode = commandDialMode,
+            previewFocusSelection = previewFocusSelection,
+            selectedCameraId = selectedCameraId,
+            controller = controller,
+            chromePrefs = chromePrefs,
+            chromeTapPreviewToCapture = chrome.tapPreviewToCapture,
+        )
+    val focusChipValue =
+        PreviewFocusMode.chipValue(previewFocusSelection, manualFocusUi.focusChipDiopters)
+    val effectiveTapPreviewToCapture = manualFocusUi.effectiveTapPreviewToCapture
+    val onApplyFocalMmSlotGuarded: (FocalMmSlot) -> Unit = { slot ->
+        if (macroLensLocked && slot != FocalMmSlot.M14) {
+            captureScope.pnsShowSnackbar(
+                snackbarHostState,
+                "Macro mode locks the ultra-wide lens (14 mm).",
+                longDuration = false,
+            )
+        } else {
+            onApplyFocalMmSlot(slot)
+        }
+    }
+    LaunchedEffect(macroLensLocked, commandDialMode, selectedCameraId, cameraIds) {
+        if (!macroLensLocked) return@LaunchedEffect
+        if (selectedCameraId == null || cameraIds.isEmpty()) return@LaunchedEffect
+        if (commandDialMode == CommandDialMode.Macro) {
+            val macroFocus =
+                PreviewMacroProgram.preferredFocusSelectionForDialMacro(
+                    controller.previewFocusMenuSelections(),
+                )
+            if (macroFocus != null && controller.previewFocusSelection() != macroFocus) {
+                controller.setPreviewFocusSelection(macroFocus)
+            }
+        }
+        onEnsureMacroUltraWide()
     }
     var selfTimerRemaining by remember { mutableIntStateOf(0) }
     var selfTimerCountdownActive by remember { mutableStateOf(false) }
@@ -2556,6 +2701,58 @@ private fun PreviewEngineContent(
     TrackModeTransition("focal_crop", focalCrop?.name ?: "null")
     TrackModeTransition("command_dial", commandDialMode.name)
     TrackModeTransition("primary_photo", primaryPhoto.toString())
+    LaunchedEffect(primaryPhoto) {
+        Log.i(
+            "PNS.ChromeUx",
+            "readoutMode=${PreviewReadoutChipMode.readoutModeLogValue(primaryPhoto)}",
+        )
+        if (PreviewTrayVideoChrome.showVideoFormatFab(primaryPhoto)) {
+            Log.i("PNS.ChromeUx", "trayVideoFormatFab=visible anchor=galleryThumb")
+        }
+    }
+    var showVideoFormatPicker by remember { mutableStateOf(false) }
+    val supportsInAppVideoDcg =
+        remember(selectedCameraId, settings.enableResearchDcgHDR, adbAutomationVideoDcg) {
+            val halDcg =
+                selectedCameraId?.let { id ->
+                    runCatching {
+                        DcgModeSupport.supportsDcgMode(
+                            cameraManager.getCameraCharacteristics(id),
+                        )
+                    }.getOrDefault(false)
+                } ?: false
+            halDcg || settings.enableResearchDcgHDR || adbAutomationVideoDcg
+        }
+    val videoFormatCatalog =
+        remember(supportsInAppVideoDcg) {
+            InAppVideoFormatSelection.loadCatalog(supportsInAppVideoDcg)
+        }
+    val selectedInAppVideoFormat =
+        remember(videoFormatCatalog, chrome, videoEncodeSize, selectedFps) {
+            InAppVideoFormatSelection.resolveSelected(
+                catalog = videoFormatCatalog,
+                chrome = chrome,
+                fallbackWidth = videoEncodeSize.width,
+                fallbackHeight = videoEncodeSize.height,
+                fallbackFps = selectedFps,
+            )
+        }
+    var recordStartElapsedMs by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            if (recordStartElapsedMs == null) {
+                recordStartElapsedMs = SystemClock.elapsedRealtime()
+            }
+        } else {
+            recordStartElapsedMs = null
+        }
+    }
+    val previewStatusLine =
+        previewStatusBarLine(
+            capturePipelineHint = capturePipelineHint,
+            focalMapCalibratingHint = focalMapCalibratingHint,
+            sessionStatus = status,
+        )
     // Highlight (H) metering + hardware highlight AE need a non-HFR preview session: [createSession] only
     // attaches YUV when `desiredFps < 120` under `!useHighSpeed`. Default fps is 120, so H at 120 skips YUV.
     LaunchedEffect(commandDialMode, selectedFps, fpsOptions) {
@@ -2899,7 +3096,7 @@ private fun PreviewEngineContent(
             }
 
     // Preview tile: **3:4** width:height (4:3 sensor upright — long edge vertical). Chrome scroll stack fills remaining height.
-    Box(modifier = previewChromeModifier) {
+    PreviewEngineChromeShell(modifier = previewChromeModifier) {
         var frontRearSpotlightStep by remember { mutableIntStateOf(-1) }
         val spotlightCtx = context.applicationContext
         LaunchedEffect(Unit) {
@@ -2980,13 +3177,32 @@ private fun PreviewEngineContent(
             // Top → bottom: inset band, finder, readout chips, 7×3 quick settings (+ focal row), shutter tray.
             // Canonical spec: docs/preview-chrome-layout-style-guide.md + .cursor/rules/preview-chrome-ui-lock.mdc
             val topInsetBand = padding.calculateTopPadding()
+            val frontCameraActive =
+                remember(selectedCameraId) {
+                    isPreviewFrontCameraActive(cameraManager, selectedCameraId)
+                }
             Box(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .height(topInsetBand)
                         .background(PnsColors.Charcoal),
-            )
+            ) {
+                PreviewTopStatusBar(
+                    statusLine = previewStatusLine,
+                    showTimecode = settings.showTimecode,
+                    videoPrimary = !primaryPhoto,
+                    isRecording = isRecording,
+                    selectedFps = selectedFps,
+                    recordStartElapsedMs = recordStartElapsedMs,
+                    sampleAudioAmplitude = { controller.peekInAppVideoAudioAmplitude() },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                PreviewSelfieRingIndicator(
+                    visible = frontCameraActive,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             PreviewChromeSectionDivider()
             // Share vertical space with the chrome rail ([PreviewChromeFinderFlexWeight] : rail).
             // Target **width / height = 3 / 4**; when the slot is tall enough, use full width and
@@ -3051,7 +3267,12 @@ private fun PreviewEngineContent(
                             faceTrackBoxes = faceTrackBoxesView,
                             focusRequester = focusRequester,
                             previewTextureCoverCrop = chrome.previewTextureCoverCrop,
-                            tapPreviewToCapture = chrome.tapPreviewToCapture,
+                            tapPreviewToCapture = effectiveTapPreviewToCapture,
+                            manualFocusRackEnabled = manualFocusUi.rackActive,
+                            manualFocusRackDiopters = manualFocusUi.rackDiopters,
+                            manualFocusRackMaxDiopters = manualFocusUi.rackMaxDiopters,
+                            onManualFocusRackDiopters = manualFocusUi.onRackDiopters,
+                            macroLocksCameraSwipe = macroLensLocked,
                             liveChartCornerOverlay = chrome.liveChartCornerOverlay,
                             chartCorners = chartCorners,
                             onChartCornersChange = { chartCorners = it },
@@ -3143,11 +3364,53 @@ private fun PreviewEngineContent(
                 focalMapCalibratingHint = focalMapCalibratingHint,
                 capturePipelineHint = capturePipelineHint,
                 lastStillPostReadout = lastStillPostReadout,
+                primaryPhoto = primaryPhoto,
+                focusChipValue = focusChipValue,
+                onFocusChipClick = { focusModePickerOpen = true },
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .clip(RectangleShape),
             )
+            if (showVideoFormatPicker) {
+                VideoFormatPickerSheet(
+                    formats = videoFormatCatalog,
+                    selectedFormat = selectedInAppVideoFormat,
+                    onSelect = { format ->
+                        val nextChrome = InAppVideoFormatSelection.chromeAfterSelect(chrome, format)
+                        chromePrefs.update(nextChrome)
+                        if (format.frameRate != selectedFps) {
+                            onSetFps(format.frameRate)
+                        }
+                        val size = format.resolution
+                        if (size.width > 0 && size.height > 0) {
+                            onPickVideoEncodeSize(size)
+                        }
+                        Log.i(
+                            "PNS.ChromeUx",
+                            "videoFormatPick=${format.getLabel()} ${size.width}x${size.height}@${format.frameRate}",
+                        )
+                        showVideoFormatPicker = false
+                    },
+                    onDismiss = { showVideoFormatPicker = false },
+                )
+            }
+            if (focusModePickerOpen) {
+                PreviewFocusModePickerDialog(
+                    onDismiss = { focusModePickerOpen = false },
+                    menuSelections = controller.previewFocusMenuSelections(),
+                    current = previewFocusSelection,
+                    onPick = { pick ->
+                        commandDialMode =
+                            macroFocusDialCoupling.applyFocusPick(
+                                pick = pick,
+                                currentDial = commandDialMode,
+                                setFocus = { controller.setPreviewFocusSelection(it) },
+                            )
+                        HudSettings.saveCommandDialMode(context, commandDialMode)
+                    },
+                )
+            }
             PreviewChromeSectionDivider()
             PreviewRightRail(
                 modifier =
@@ -3157,8 +3420,9 @@ private fun PreviewEngineContent(
                         .clip(RectangleShape),
                 uiRotationDeg = uiRotationDeg,
                 cameraIds = cameraIds,
-                onApplyFocalMmSlot = onApplyFocalMmSlot,
+                onApplyFocalMmSlot = onApplyFocalMmSlotGuarded,
                 onOpenDeveloperMenu = onOpenDeveloperMenu,
+                seedOpenAboutSheet = seedOpenAboutSheet,
                 fpsOptions = fpsOptions,
                 selectedFps = selectedFps,
                 onSetFps = onSetFps,
@@ -3183,6 +3447,7 @@ private fun PreviewEngineContent(
                 onRequestLocationForGeotag = onRequestLocationForGeotag,
                 fpsTargetEditable = fpsTargetEditable,
                 onKickPreviewPipeline = { controller.kickPreviewPipelineRestart() },
+                onOpenFocusModePicker = { focusModePickerOpen = true },
             )
             val showBottomTray =
                 chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial
@@ -3200,6 +3465,8 @@ private fun PreviewEngineContent(
                     selectedCameraId = selectedCameraId,
                     primaryPhoto = primaryPhoto,
                     onPrimaryPhotoChange = onPrimaryPhotoChange,
+                    showVideoFormatFab = PreviewTrayVideoChrome.showVideoFormatFab(primaryPhoto),
+                    onOpenVideoFormat = { showVideoFormatPicker = true },
                     selectedFps = selectedFps,
                     shootingModesSlot =
                         if (settings.showCommandDial) {
@@ -3235,58 +3502,31 @@ private fun PreviewEngineContent(
                                             maxLines = 1,
                                         )
                                     }
-                                    DropdownMenu(
+                                    PreviewCommandDialDropdownMenu(
                                         expanded = modeMenuExpanded,
                                         onDismissRequest = { modeMenuExpanded = false },
-                                        modifier = Modifier.widthIn(min = 288.dp),
-                                    ) {
-                                        Text(
-                                            text = "Shooting mode",
-                                            modifier =
-                                                Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                            style = MaterialTheme.typography.titleSmall,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        HorizontalDivider()
-                                        val dialModes =
-                                            CaptureMediaFamily.commandDialModesFor(
-                                                CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto),
+                                        primaryPhoto = primaryPhoto,
+                                        selectedMode = commandDialMode,
+                                        onModeSelected = { mode ->
+                                            commandDialMode =
+                                                macroFocusDialCoupling.applyDialChange(
+                                                    previousDial = commandDialMode,
+                                                    newDial = mode,
+                                                    currentFocus = previewFocusSelection,
+                                                    menuSelections =
+                                                        controller.previewFocusMenuSelections(),
+                                                    setFocus = {
+                                                        controller.setPreviewFocusSelection(it)
+                                                    },
+                                                )
+                                            HudSettings.saveCommandDialMode(context, commandDialMode)
+                                            modeMenuExpanded = false
+                                            Log.i(
+                                                "PNS.ChromeUx",
+                                                "modeDialPopout=menuSelect mode=${mode.name}",
                                             )
-                                        dialModes.forEach { mode ->
-                                            DropdownMenuItem(
-                                                text = {
-                                                    Text("${mode.label} — ${mode.description}")
-                                                },
-                                                leadingIcon = {
-                                                    Box(
-                                                        modifier =
-                                                            Modifier
-                                                                .width(28.dp)
-                                                                .height(24.dp),
-                                                        contentAlignment = Alignment.Center,
-                                                    ) {
-                                                        if (mode == commandDialMode) {
-                                                            Icon(
-                                                                imageVector = Icons.Outlined.Check,
-                                                                contentDescription = null,
-                                                                tint = PnsColors.PhotoOrange,
-                                                                modifier = Modifier.size(20.dp),
-                                                            )
-                                                        }
-                                                    }
-                                                },
-                                                onClick = {
-                                                    commandDialMode = mode
-                                                    HudSettings.saveCommandDialMode(context, mode)
-                                                    modeMenuExpanded = false
-                                                    Log.i(
-                                                        "PNS.ChromeUx",
-                                                        "modeDialPopout=menuSelect mode=${mode.name}",
-                                                    )
-                                                },
-                                            )
-                                        }
-                                    }
+                                        },
+                                    )
                                 }
                             }
                         } else {
@@ -3393,6 +3633,12 @@ private fun PreviewMainViewport(
     /** When true, tap-to-shoot must not fire (matches tray shutter disabled during AF gate). */
     afShutterGateBlocksTapCapture: Boolean,
     commandDialMode: CommandDialMode,
+    manualFocusRackEnabled: Boolean = false,
+    manualFocusRackDiopters: Float = 0f,
+    manualFocusRackMaxDiopters: Float = 8f,
+    onManualFocusRackDiopters: (Float) -> Unit = {},
+    /** Disables vertical finder swipes (front/rear) while macro mode locks ultra-wide. */
+    macroLocksCameraSwipe: Boolean = false,
     /** When true, GLES preview uses [HudSettings.videoLut] even before record starts. */
     videoPrimaryPreview: Boolean,
     selectedFps: Int,
@@ -3454,9 +3700,7 @@ private fun PreviewMainViewport(
         val forcePeakingForManualVideo = remember { mutableStateOf(false) }
         SideEffect {
             forcePeakingForManualVideo.value =
-                commandDialMode == CommandDialMode.M &&
-                    isRecording &&
-                    controller.peekManualFocusActive()
+                isRecording && controller.peekManualFocusActive()
         }
         val lutPreviewRenderer =
             remember(mainHandler, controller) {
@@ -3485,6 +3729,59 @@ private fun PreviewMainViewport(
                 )
             }
         var glSurfaceHost by remember { mutableStateOf<GLSurfaceView?>(null) }
+        SideEffect {
+            controller.glSurfaceHostForDual = glSurfaceHost
+            controller.lutPreviewRendererForDual = lutPreviewRenderer
+        }
+        LaunchedEffect(commandDialMode, videoPrimaryPreview, glSurfaceHost, lutPreviewRenderer) {
+            val dual = videoPrimaryPreview && commandDialMode == CommandDialMode.Dual
+            val host = glSurfaceHost ?: return@LaunchedEffect
+            host.queueEvent {
+                lutPreviewRenderer.setDualSplitEnabled(dual) { fst, w, h ->
+                    mainHandler.post { controller.onDualFrontSurfaceTextureReady(fst, w, h) }
+                }
+            }
+            if (!dual) {
+                host.queueEvent {
+                    lutPreviewRenderer.setEncoderCompositeSink(null, record = false)
+                }
+                controller.closeDualFrontCamera()
+            }
+        }
+        LaunchedEffect(isRecording, commandDialMode, videoPrimaryPreview, glSurfaceHost, lutPreviewRenderer) {
+            val dual = videoPrimaryPreview && commandDialMode == CommandDialMode.Dual
+            val host = glSurfaceHost ?: return@LaunchedEffect
+            if (!isRecording || !dual) {
+                host.queueEvent {
+                    lutPreviewRenderer.setEncoderCompositeSink(controller.dualVideoEncoderSink, false)
+                }
+                return@LaunchedEffect
+            }
+            var wait = 0
+            while (
+                (!controller.peekDualFrontSessionReady() ||
+                    !controller.peekInAppVideoRecorderStarted() ||
+                    controller.getInAppVideoRecordingSurface() == null) &&
+                    wait < 120
+            ) {
+                delay(50)
+                wait++
+            }
+            val size = DualVideoRecordingController.compositeRecordSize()
+            controller.bindDualEncoderSurface(size.width, size.height)
+            delay(200)
+            host.queueEvent {
+                lutPreviewRenderer.setEncoderCompositeSink(
+                    controller.dualVideoEncoderSink,
+                    record = true,
+                )
+            }
+            Log.i(
+                DualVideoRecordingController.TAG,
+                "dualGlRecordArmed frontReady=${controller.peekDualFrontSessionReady()} " +
+                    "recorder=${controller.peekInAppVideoRecorderStarted()} waitMs=${wait * 50}",
+            )
+        }
         val hudForPreviewLut = rememberUpdatedState(hudState.current)
         val previewLutCatalog =
             PreviewLutSelection.activeCatalog(
@@ -3739,8 +4036,12 @@ private fun PreviewMainViewport(
                     uiRotationDeg = uiRotationDeg,
                     tapToShootEnabled = tapToShootEnabled,
                     tapShootCallbacks = tapShootCallbacks,
-                    manualFocusDragEnabled = commandDialMode == CommandDialMode.M && knownBuf,
+                    manualFocusDragEnabled = false,
                     onManualFocusDragPixels = { controller.nudgeManualFocusFromDrag(it) },
+                    manualFocusRackEnabled = manualFocusRackEnabled,
+                    manualFocusRackDiopters = manualFocusRackDiopters,
+                    manualFocusRackMaxDiopters = manualFocusRackMaxDiopters,
+                    onManualFocusRackDiopters = onManualFocusRackDiopters,
                     onRequestVolumeKeyFocus = { focusRequester.requestFocus() },
                     showHorizonLevel = false, // drawn outside the rotated box (gravity-locked)
                     showVideoTallyPip = false, // tally pip is chrome; drawn outside the rotated box
@@ -3751,6 +4052,7 @@ private fun PreviewMainViewport(
                     previewMirrorHorizontally = previewMirrorHorizontally,
                     previewCoverCrop = previewTextureCoverCrop,
                     liveChartCornerOverlay = liveChartCornerOverlay,
+                    macroLocksCameraSwipe = macroLocksCameraSwipe,
                     onSwitchToFrontCamera = onSwitchToFrontCamera,
                     onSwitchToRearCamera = onSwitchToRearCamera,
                 )
@@ -3898,7 +4200,7 @@ private fun PreviewTrayPhotoVideoModeToggleFab(
     }
 }
 
-/** Bottom tray: gallery (start), shutter **geometric center**, Photo/Video FABs + mode dial (end). */
+/** Bottom tray: gallery (+ video format FAB), centered shutter, Photo/Video + mode dial (end). */
 @Suppress("FunctionNaming")
 @Composable
 private fun PreviewBottomCaptureTray(
@@ -3915,6 +4217,8 @@ private fun PreviewBottomCaptureTray(
     /** Photo vs video intent — sibling FABs + center shutter ([CaptureMediaFamily]). */
     primaryPhoto: Boolean,
     onPrimaryPhotoChange: (Boolean) -> Unit,
+    showVideoFormatFab: Boolean,
+    onOpenVideoFormat: () -> Unit,
     /** Preview FPS target — video record blocked at HFR (≥120). */
     selectedFps: Int,
     modifier: Modifier = Modifier,
@@ -3926,7 +4230,7 @@ private fun PreviewBottomCaptureTray(
     val traySnackbarScope = rememberCoroutineScope()
     var thumbBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(showOnScreenShutter, primaryPhoto) {
+    LaunchedEffect(showOnScreenShutter, primaryPhoto, showVideoFormatFab) {
         if (showOnScreenShutter) {
             Log.i("PNS.ChromeUx", "dualShutter=visible")
             Log.i("PNS.ChromeUx", "trayShutter=centerOfBar photoVideoToggle=combinedToggleFab")
@@ -3934,6 +4238,9 @@ private fun PreviewBottomCaptureTray(
                 "PNS.ChromeUx",
                 "trayMediaFamily=${CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto).name}",
             )
+            if (showVideoFormatFab) {
+                Log.i("PNS.ChromeUx", "trayVideoFormatFab=visible anchor=galleryThumb")
+            }
         }
     }
 
@@ -3965,15 +4272,16 @@ private fun PreviewBottomCaptureTray(
                     .align(Alignment.CenterStart)
                     .padding(start = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Box(
-                modifier = Modifier.width(edgeSlotWidth),
-                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier.size(PreviewGalleryThumbSize),
+                contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier =
                         Modifier
-                            .size(PreviewGalleryThumbSize)
+                            .fillMaxSize()
                             .clip(RoundedCornerShape(8.dp))
                             .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
                             .background(Color.White.copy(alpha = 0.08f))
@@ -4009,6 +4317,9 @@ private fun PreviewBottomCaptureTray(
                         )
                     }
                 }
+            }
+            if (showVideoFormatFab) {
+                PreviewTrayVideoFormatFab(onClick = onOpenVideoFormat)
             }
         }
 
@@ -4312,6 +4623,27 @@ private fun ChromeGridQuickActionPopup(
                     selected = hud.showEyeAfOverlay,
                     onClick = {
                         hudState.update(hudState.current.copy(showEyeAfOverlay = true))
+                        onDismissRequest()
+                    },
+                )
+                androidx.compose.material3.HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.18f),
+                )
+                PnsChromeMenuItem(
+                    label = "Smile to capture — Off",
+                    selected = !hud.enableSmileTriggeredStill,
+                    onClick = {
+                        hudState.update(hudState.current.copy(enableSmileTriggeredStill = false))
+                        Log.i("PNS.SmileStill", "smileStillEnabled=false (eyeAfMenu)")
+                        onDismissRequest()
+                    },
+                )
+                PnsChromeMenuItem(
+                    label = "Smile to capture — On",
+                    selected = hud.enableSmileTriggeredStill,
+                    onClick = {
+                        hudState.update(hudState.current.copy(enableSmileTriggeredStill = true))
+                        Log.i("PNS.SmileStill", "smileStillEnabled=true (eyeAfMenu)")
                         onDismissRequest()
                     },
                 )
@@ -4765,85 +5097,6 @@ private fun PreviewChromeGrid7x3(
     }
 }
 
-@Composable
-private fun PreviewRailSettingToggle(
-    title: String,
-    subtitle: String?,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = Color.White)
-            if (subtitle != null) {
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.62f),
-                )
-            }
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun PreviewRailSectionTitle(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.titleSmall,
-        color = PnsColors.PhotoOrange,
-        modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
-    )
-}
-
-@Composable
-private fun RailSettingsMenuEntryCard(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)),
-        shape = RoundedCornerShape(12.dp),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = Color.White)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.65f),
-                )
-            }
-            Icon(
-                Icons.AutoMirrored.Outlined.ArrowForward,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.45f),
-            )
-        }
-    }
-}
-
-@Composable
-private fun ChromeSettingsIntroText(text: String) {
-    Text(
-        text = text,
-        modifier = Modifier.fillMaxWidth(),
-        style = MaterialTheme.typography.bodySmall,
-        color = Color.White.copy(alpha = 0.65f),
-    )
-}
-
 /**
  * Guides & framing: home lists crop + grid; [pane] selects which preset list to show (same pattern as Settings ▸ Guides).
  */
@@ -4923,12 +5176,13 @@ private fun TargetFpsRailSheetContent(
         )
         val maxStock = PreviewFpsSupport.maxStockTargetFromOptions(fpsOptions)
         if (maxStock != null) {
-            OutlinedButton(
+            FpsQuickChip(
+                label = "Max HFR (stock): ${maxStock} fps",
+                selected = selectedFps == maxStock,
+                requiresRoot = false,
                 onClick = { onSetFps(maxStock) },
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Max HFR for this lens (stock): ${maxStock} fps")
-            }
+            )
         }
         for (opt in fpsOptions) {
             FpsQuickChip(
@@ -4964,6 +5218,7 @@ private fun RailSettingsHomeContent(
     onHud: () -> Unit,
     onPreview: () -> Unit,
     onCapture: () -> Unit,
+    onAbout: () -> Unit,
     onTargetFps: () -> Unit,
     fpsTargetEditable: Boolean,
 ) {
@@ -4990,6 +5245,11 @@ private fun RailSettingsHomeContent(
             title = "Capture & stills",
             subtitle = "Imaging profile, RAW / JPEG, brackets, default camera.",
             onClick = onCapture,
+        )
+        RailSettingsMenuEntryCard(
+            title = "About & heritage",
+            subtitle = "Credits, LG dual-camera nod, support development (Venmo).",
+            onClick = onAbout,
         )
         if (fpsTargetEditable) {
             RailSettingsMenuEntryCard(
@@ -5133,6 +5393,7 @@ private fun PreviewKeysRailSheetContent(
     onCalibrateFromPreviewFrame: () -> Unit,
     hudState: HudSettingsState,
     onKickPreviewPipeline: () -> Unit,
+    onOpenFocusModePicker: () -> Unit,
 ) {
     val context = LocalContext.current
     var focusPeakingDialogOpen by remember { mutableStateOf(false) }
@@ -5188,6 +5449,11 @@ private fun PreviewKeysRailSheetContent(
                 Log.i("PNS.ChromeUx", "hdr10LivePreviewToggle=$on")
                 onKickPreviewPipeline()
             },
+        )
+        RailSettingsMenuEntryCard(
+            title = "Focus mode",
+            subtitle = "HAL AF modes, manual distance rack, Auto restores CAF",
+            onClick = onOpenFocusModePicker,
         )
         RailSettingsMenuEntryCard(
             title = "Focus peaking",
@@ -5404,6 +5670,7 @@ private fun PreviewRightRail(
     cameraIds: List<String>,
     onApplyFocalMmSlot: (FocalMmSlot) -> Unit,
     onOpenDeveloperMenu: () -> Unit,
+    seedOpenAboutSheet: Boolean = false,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     selectedFps: Int,
     onSetFps: (Int) -> Unit,
@@ -5429,15 +5696,25 @@ private fun PreviewRightRail(
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
     onKickPreviewPipeline: () -> Unit,
+    onOpenFocusModePicker: () -> Unit,
 ) {
     val context = LocalContext.current
     val chrome = chromePrefs.current
+    var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
+    var aboutHalHfrMaxByCameraId by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
     /** Nested pane for the Guides tile dialog ("crop" / "grid"). */
     var guidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     /** Settings ▸ Guides & framing nested pane. */
     var settingsGuidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubPage by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(seedOpenAboutSheet) {
+        if (seedOpenAboutSheet) {
+            Log.i("PNS.ChromeUx", "settingsAbout=open adbSeed=true")
+            expandedKey = "Settings"
+            settingsSubPage = "about"
+        }
+    }
     LaunchedEffect(fpsTargetEditable) {
         if (!fpsTargetEditable && settingsSubPage == "fps") {
             settingsSubPage = null
@@ -5461,11 +5738,19 @@ private fun PreviewRightRail(
         if (settingsSubPage != "guides") {
             settingsGuidesPane = null
         }
+        if (settingsSubPage == "about") {
+            aboutLiveSummary =
+                EncoderAttemptJsonAdapter.loadLatest(context)?.let { result ->
+                    EncoderResultAggregator.summarize(result.attempts)
+                }
+            aboutHalHfrMaxByCameraId =
+                DeviceCameraCapabilityCache.halHighSpeedMaxFpsByCameraId(context.applicationContext)
+        }
     }
     LaunchedEffect(expandedKey, settingsSubPage) {
         if (expandedKey == "Settings" &&
             settingsSubPage != null &&
-            settingsSubPage !in setOf("preview", "capture", "guides", "fps", "hud")
+            settingsSubPage !in setOf("preview", "capture", "guides", "fps", "hud", "about")
         ) {
             settingsSubPage = null
         }
@@ -5520,6 +5805,7 @@ private fun PreviewRightRail(
                         }
                     key == "Settings" && settingsSubPage == "fps" -> "Target frame rate"
                     key == "Settings" && settingsSubPage == "hud" -> "HUD & readouts"
+                    key == "Settings" && settingsSubPage == "about" -> "About & heritage"
                     key == "Guides" ->
                         when (guidesPane) {
                             "crop" -> "Crop guide"
@@ -5538,7 +5824,7 @@ private fun PreviewRightRail(
             ) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF1A1A1A),
+                    color = PreviewChromeMenuColors.dialogSurface,
                     tonalElevation = 6.dp,
                 ) {
                     Column(
@@ -5595,7 +5881,7 @@ private fun PreviewRightRail(
                                 Text("Close", color = Color.White.copy(alpha = 0.85f))
                             }
                         }
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                        HorizontalDivider(color = PreviewChromeMenuColors.divider)
                         when (key) {
                             "Settings" -> {
                                 when (settingsSubPage) {
@@ -5605,6 +5891,10 @@ private fun PreviewRightRail(
                                             onHud = { settingsSubPage = "hud" },
                                             onPreview = { settingsSubPage = "preview" },
                                             onCapture = { settingsSubPage = "capture" },
+                                            onAbout = {
+                                                Log.i("PNS.ChromeUx", "settingsAbout=open")
+                                                settingsSubPage = "about"
+                                            },
                                             onTargetFps = { settingsSubPage = "fps" },
                                             fpsTargetEditable = fpsTargetEditable,
                                         )
@@ -5630,6 +5920,7 @@ private fun PreviewRightRail(
                                             onCalibrateFromPreviewFrame = onCalibrateFromPreviewFrame,
                                             hudState = hudState,
                                             onKickPreviewPipeline = onKickPreviewPipeline,
+                                            onOpenFocusModePicker = onOpenFocusModePicker,
                                         )
                                     "capture" ->
                                         CaptureToolsRailSheetContent(
@@ -5645,6 +5936,11 @@ private fun PreviewRightRail(
                                             onPickFirstCamera = onPickFirstCamera,
                                             onSwitchToFrontCamera = onSwitchToFrontCamera,
                                             onSwitchToRearCamera = onSwitchToRearCamera,
+                                        )
+                                    "about" ->
+                                        AboutRailSheetContent(
+                                            liveSummary = aboutLiveSummary,
+                                            liveHalHfrMaxByCameraId = aboutHalHfrMaxByCameraId,
                                         )
                                     else -> Unit
                                 }
@@ -5662,6 +5958,7 @@ private fun PreviewRightRail(
                                     onCalibrateFromPreviewFrame = onCalibrateFromPreviewFrame,
                                     hudState = hudState,
                                     onKickPreviewPipeline = onKickPreviewPipeline,
+                                    onOpenFocusModePicker = onOpenFocusModePicker,
                                 )
                             }
                             "Capture & tools" -> {
@@ -5711,6 +6008,10 @@ private fun PreviewCenterOverlay(
     tapShootCallbacks: TapToShootCallbacks,
     manualFocusDragEnabled: Boolean = false,
     onManualFocusDragPixels: (Float) -> Unit = {},
+    manualFocusRackEnabled: Boolean = false,
+    manualFocusRackDiopters: Float = 0f,
+    manualFocusRackMaxDiopters: Float = 8f,
+    onManualFocusRackDiopters: (Float) -> Unit = {},
     onRequestVolumeKeyFocus: () -> Unit,
     showHorizonLevel: Boolean = true,
     showVideoTallyPip: Boolean = true,
@@ -5721,6 +6022,7 @@ private fun PreviewCenterOverlay(
     previewMirrorHorizontally: Boolean = false,
     previewCoverCrop: Boolean = true,
     liveChartCornerOverlay: Boolean = false,
+    macroLocksCameraSwipe: Boolean = false,
     onSwitchToFrontCamera: () -> Unit = {},
     onSwitchToRearCamera: () -> Unit = {},
 ) {
@@ -5728,28 +6030,33 @@ private fun PreviewCenterOverlay(
     val guides = compositionGuide.current
     val focusTap = remember { MutableInteractionSource() }
     val swipeThresholdPx = with(LocalDensity.current) { 100.dp.toPx() }
-    val cameraSwipeActive = !isRecording && !liveChartCornerOverlay
+    val cameraSwipeActive = !isRecording && !liveChartCornerOverlay && !macroLocksCameraSwipe
     val pointerModifier =
-        if (cameraSwipeActive) {
-            Modifier.previewFinderPointer(
-                swipeEnabled = true,
-                swipeThresholdPx = swipeThresholdPx,
-                tapToShootEnabled = tapToShootEnabled,
-                tapCallbacks = tapShootCallbacks,
-                onSwipeUpToFront = onSwitchToFrontCamera,
-                onSwipeDownToRear = onSwitchToRearCamera,
-                onTapFallbackFocus = onRequestVolumeKeyFocus,
-            )
-        } else if (tapToShootEnabled) {
-            Modifier.tapToShoot(tapShootCallbacks)
-        } else {
-            Modifier.clickable(
-                interactionSource = focusTap,
-                indication = null,
-            ) {
-                onRequestVolumeKeyFocus()
-            }
-        }
+        Modifier.previewManualFocusDrag(
+            enabled = manualFocusDragEnabled,
+            onDragPixels = onManualFocusDragPixels,
+        ).then(
+            if (cameraSwipeActive) {
+                Modifier.previewFinderPointer(
+                    swipeEnabled = !manualFocusDragEnabled,
+                    swipeThresholdPx = swipeThresholdPx,
+                    tapToShootEnabled = tapToShootEnabled,
+                    tapCallbacks = tapShootCallbacks,
+                    onSwipeUpToFront = onSwitchToFrontCamera,
+                    onSwipeDownToRear = onSwitchToRearCamera,
+                    onTapFallbackFocus = onRequestVolumeKeyFocus,
+                )
+            } else if (tapToShootEnabled) {
+                Modifier.tapToShoot(tapShootCallbacks)
+            } else {
+                Modifier.clickable(
+                    interactionSource = focusTap,
+                    indication = null,
+                ) {
+                    onRequestVolumeKeyFocus()
+                }
+            },
+        )
     val finderSemantics =
         Modifier.semantics(mergeDescendants = false) {
             contentDescription =
@@ -5804,6 +6111,9 @@ private fun PreviewCenterOverlay(
             FaceTrackOverlay(faceBoxes = faceTrackBoxes, modifier = Modifier.fillMaxSize())
             EyeAfOverlay(eyes = eyeMarks, modifier = Modifier.fillMaxSize())
         }
+        if (settings.showFaceAlignmentDebugCrosshair) {
+            FaceAlignmentDebugCrosshairOverlay(modifier = Modifier.fillMaxSize())
+        }
         if (showVideoTallyPip && settings.showVideoTally && isRecording) {
             VideoTallyOverlay(
                 modifier = Modifier
@@ -5839,78 +6149,16 @@ private fun PreviewCenterOverlay(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun FpsQuickChip(
-    label: String,
-    selected: Boolean,
-    requiresRoot: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    /** Fill square chrome tiles (same footprint as [IconCubeVectorButton] with [fillMaxTile]). */
-    fillMaxTile: Boolean = false,
-    /** Optional second line (e.g. native focal length on the focal strip). */
-    subLabel: String? = null,
-    contentDescription: String? = null,
-) {
-    val borderColor =
-        when {
-            !enabled -> Color.White.copy(alpha = 0.12f)
-            selected -> PnsColors.PhotoOrange
-            requiresRoot -> PnsColors.RootAccentBlue
-            else -> Color.White.copy(alpha = 0.35f)
-        }
-    val bg =
-        when {
-            !enabled -> Color.Black.copy(alpha = 0.25f)
-            selected -> PnsColors.PhotoOrange
-            else -> Color.Black.copy(alpha = 0.45f)
-        }
-    val fg =
-        when {
-            !enabled -> Color.White.copy(alpha = 0.35f)
-            selected -> Color.Black
-            requiresRoot && !selected -> PnsColors.RootAccentBlue
-            else -> Color.White.copy(alpha = 0.92f)
-        }
-    Box(
-        modifier =
-            modifier
-                .then(
-                    if (fillMaxTile) {
-                        Modifier.fillMaxSize()
-                    } else {
-                        Modifier.height(44.dp).widthIn(min = PnsDimens.quickSettingsChipMinWidth)
-                    },
-                )
-                .then(
-                    if (contentDescription != null) {
-                        Modifier.semantics { this.contentDescription = contentDescription }
-                    } else {
-                        Modifier
-                    },
-                )
-                .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, borderColor, RoundedCornerShape(10.dp))
-                .background(bg)
-                .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (subLabel != null) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                Text(
-                    subLabel,
-                    color = fg.copy(alpha = 0.78f),
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                )
-            }
-        } else {
-            Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
+        if (manualFocusRackEnabled && manualFocusRackMaxDiopters > 0f) {
+            ManualFocusRackBar(
+                diopters = manualFocusRackDiopters,
+                maxDiopters = manualFocusRackMaxDiopters,
+                onDioptersChange = onManualFocusRackDiopters,
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth(),
+            )
         }
     }
 }
@@ -6083,6 +6331,11 @@ private class PreviewController(
         VideoRecordingController(appContext, handler, mainHandler)
     }
 
+    /** Sprint **14.12** — front camera + GL composite into encoder. */
+    val dualVideoEncoderSink = DualVideoGlEncoderSink()
+    private var dualFrontController: DualVideoFrontCameraController? = null
+    @Volatile private var dualVideoActive: Boolean = false
+
     private val rawVideoController = RawVideoRecordingController(appContext)
 
     /**
@@ -6165,8 +6418,11 @@ private class PreviewController(
 
     @Volatile private var manualAwbModeOverride: Int? = null
 
-    /** Manual focus distance (diopters) when [commandDialMode] is [CommandDialMode.M]; null otherwise. */
+    /** Manual focus distance (diopters) when [commandDialMode] is [CommandDialMode.M] or [previewFocusSelection] is manual. */
     @Volatile private var manualFocusDiopters: Float? = null
+
+    /** Sprint **14.8** — readout / settings focus picker (dial **S** / **M** still override in [applyScalerCropAndMetering]). */
+    @Volatile private var previewFocusSelection: PreviewFocusSelection = PreviewFocusSelection.Auto
 
     @Volatile private var lastFocusPeakingDiagSig: Int = Int.MIN_VALUE
 
@@ -6463,6 +6719,9 @@ private class PreviewController(
     private var faceHudMlSmoothedMeteringPrimary: FaceTrackBoxBuffer? = null
 
     private var lastMlFaceProcessWallMs: Long = 0L
+    private var lastSmileProcessWallMs: Long = 0L
+    private var lastSmileDiagLogWallMs: Long = 0L
+    private val smileMinIntervalMs: Long = 80L
 
     /** Cap only how often we *start* ML work (~120 Hz); HAL + ML Kit still bound real FPS. */
     private val mlFaceMinIntervalMs: Long = 8L
@@ -6763,10 +7022,74 @@ private class PreviewController(
     }
 
     /** BUILD_PLAN §4: highlight metering uses a YUV analysis surface when dial is [CommandDialMode.H]. */
+    fun previewFocusSelection(): PreviewFocusSelection = previewFocusSelection
+
+    fun wantsMacroProgram(): Boolean =
+        PreviewMacroProgram.wantsMacroProgram(commandDialMode, previewFocusSelection)
+
+    fun previewFocusMenuSelections(): List<PreviewFocusSelection> {
+        val camId = selectedCameraId ?: return listOf(PreviewFocusSelection.Auto)
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return listOf(PreviewFocusSelection.Auto)
+        return PreviewFocusMode.menuSelections(PreviewFocusMode.availableAfModes(chars))
+    }
+
+    fun setPreviewFocusSelection(selection: PreviewFocusSelection) {
+        if (previewFocusSelection == selection && selection != PreviewFocusSelection.ManualDistance) return
+        previewFocusSelection = selection
+        val camId = selectedCameraId
+        val chars =
+            camId?.let { runCatching { cm.getCameraCharacteristics(it) }.getOrNull() }
+        when (selection) {
+            PreviewFocusSelection.Auto -> {
+                manualFocusDiopters = null
+            }
+            PreviewFocusSelection.ManualDistance -> {
+                if (chars != null && manualFocusDiopters == null) {
+                    manualFocusDiopters = ManualFocusDistance.defaultForLens(chars)
+                }
+                chars?.let { logManualFocusPeakingDiag(it, selectedCameraId ?: "?") }
+            }
+            is PreviewFocusSelection.HalAf -> {
+                manualFocusDiopters = null
+            }
+        }
+        Log.i(
+            "PNS.ChromeUx",
+            "focusMode=${PreviewFocusMode.chromeUxLogValue(selection, manualFocusDiopters)}",
+        )
+        refreshRepeatingPreviewOnly()
+        maybeRestart()
+    }
+
+    fun setPreviewFocusManualDiopters(diopters: Float) {
+        val camId = selectedCameraId ?: return
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
+        val range = ManualFocusDistance.focusRange(chars)
+        if (!range.sliderEnabled) {
+            Log.w(
+                "PNS.FocusPeaking",
+                "manualFocus rack ignored cameraId=$camId fixedAtInfinity=${range.fixedAtInfinity}",
+            )
+            return
+        }
+        previewFocusSelection = PreviewFocusSelection.ManualDistance
+        manualFocusDiopters = ManualFocusDistance.clamp(diopters, range.maxDiopters)
+        logManualFocusPeakingDiag(chars, camId, range)
+        Log.i(
+            "PNS.ChromeUx",
+            "focusMode=${PreviewFocusMode.chromeUxLogValue(previewFocusSelection, manualFocusDiopters)} " +
+                "rack=${"%.3f".format(manualFocusDiopters)}/${"%.3f".format(range.maxDiopters)}",
+        )
+        refreshRepeatingPreviewOnly()
+    }
+
     fun setCommandDialMode(mode: CommandDialMode) {
         if (commandDialMode == mode) return
         commandDialMode = mode
-        if (mode != CommandDialMode.M) {
+        if (mode != CommandDialMode.Dual) {
+            setDualVideoActive(false)
+        }
+        if (mode != CommandDialMode.M && previewFocusSelection != PreviewFocusSelection.ManualDistance) {
             manualFocusDiopters = null
         }
         resetHighlightMeterPipelineState()
@@ -6774,23 +7097,87 @@ private class PreviewController(
         maybeRestart()
     }
 
+    fun setDualVideoActive(active: Boolean) {
+        if (dualVideoActive == active) return
+        dualVideoActive = active
+        if (!active) {
+            closeDualFrontCamera()
+            dualVideoEncoderSink.release()
+        }
+        Log.i(DualVideoRecordingController.TAG, "setDualVideoActive=$active")
+        maybeRestart()
+    }
+
+    fun peekDualVideoActive(): Boolean = dualVideoActive
+
+    fun onDualFrontSurfaceTextureReady(st: SurfaceTexture, w: Int, h: Int) {
+        if (!dualVideoActive) return
+        val hnd = handler ?: return
+        if (dualFrontController == null) {
+            dualFrontController = DualVideoFrontCameraController(cm, hnd)
+        }
+        val frontId = Camera2Facing.frontCameraId(cm, cameraIds()) ?: run {
+            Log.w(DualVideoRecordingController.TAG, "dualFront: no front camera id")
+            return
+        }
+        val rearId = selectedCameraId
+        if (!DualVideoRecordingController.canRunConcurrentRearFront(cm, rearId, frontId)) {
+            Log.w(
+                DualVideoRecordingController.TAG,
+                "dualFront: concurrent pair not advertised rear=$rearId front=$frontId (trying anyway)",
+            )
+        }
+        val pick =
+            DualVideoFrontCameraController.pickFrontPreviewSize(cm, frontId)
+        st.setDefaultBufferSize(pick.width, pick.height)
+        glSurfaceHostForDual?.queueEvent {
+            lutPreviewRendererForDual?.setFrontBufferSize(pick.width, pick.height)
+        }
+        dualFrontController?.setPreviewSurface(Surface(st))
+        dualFrontController?.open(frontId)
+    }
+
+    fun peekDualFrontSessionReady(): Boolean = dualFrontController?.sessionReady == true
+
+    @Volatile var lutPreviewRendererForDual: LutCameraPreviewRenderer? = null
+
+    fun closeDualFrontCamera() {
+        dualFrontController?.close()
+    }
+
+    fun bindDualEncoderSurface(width: Int, height: Int) {
+        val surf = videoController.getRecordingSurface() ?: return
+        glSurfaceHostForDual?.queueEvent {
+            dualVideoEncoderSink.setEncoderTarget(surf, width, height)
+        } ?: dualVideoEncoderSink.setEncoderTarget(surf, width, height)
+    }
+
+    /** Set from [PreviewMainViewport] so encoder bind can run on the GL thread. */
+    @Volatile var glSurfaceHostForDual: GLSurfaceView? = null
+
     fun ensureManualFocusForDialM() {
         if (commandDialMode != CommandDialMode.M) return
+        previewFocusSelection = PreviewFocusSelection.ManualDistance
         val camId = selectedCameraId ?: return
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
+        val range = ManualFocusDistance.focusRange(chars)
+        ManualFocusDistance.logFocusRange(camId, chars)
         if (manualFocusDiopters == null) {
             manualFocusDiopters = ManualFocusDistance.defaultForLens(chars)
+        } else {
+            manualFocusDiopters = ManualFocusDistance.clamp(manualFocusDiopters!!, range.maxDiopters)
         }
-        logManualFocusPeakingDiag(chars)
+        logManualFocusPeakingDiag(chars, camId, range)
         refreshRepeatingPreviewOnly()
     }
 
     fun clearManualFocusDistance() {
+        if (previewFocusSelection == PreviewFocusSelection.ManualDistance) return
         manualFocusDiopters = null
     }
 
     fun nudgeManualFocusFromDrag(dragPixels: Float) {
-        if (commandDialMode != CommandDialMode.M) return
+        if (!wantsManualFocusDistance()) return
         val camId = selectedCameraId ?: return
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
         val current = manualFocusDiopters ?: ManualFocusDistance.defaultForLens(chars)
@@ -6799,10 +7186,27 @@ private class PreviewController(
         refreshRepeatingPreviewOnly()
     }
 
-    fun peekManualFocusActive(): Boolean =
-        commandDialMode == CommandDialMode.M && manualFocusDiopters != null
+    private fun wantsManualFocusDistance(): Boolean =
+        commandDialMode == CommandDialMode.M ||
+            previewFocusSelection == PreviewFocusSelection.ManualDistance
+
+    fun peekManualFocusActive(): Boolean = wantsManualFocusDistance() && manualFocusDiopters != null
 
     fun peekManualFocusDiopters(): Float? = manualFocusDiopters
+
+    fun peekManualFocusMaxDiopters(): Float {
+        val camId = selectedCameraId ?: return ManualFocusDistance.maxDioptersFromHalMinimumFocus(null)
+        val chars =
+            runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+                ?: return ManualFocusDistance.maxDioptersFromHalMinimumFocus(null)
+        return ManualFocusDistance.maxDiopters(chars)
+    }
+
+    fun peekManualFocusRange(): ManualFocusDistance.FocusRange? {
+        val camId = selectedCameraId ?: return null
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return null
+        return ManualFocusDistance.focusRange(chars)
+    }
 
     fun setPreviewTextureCoverCrop(coverCrop: Boolean) {
         if (previewTextureCoverCrop == coverCrop) return
@@ -6821,7 +7225,17 @@ private class PreviewController(
     fun setSmileStillEnabled(enabled: Boolean) {
         if (smileStillEnabled == enabled) return
         smileStillEnabled = enabled
-        if (!enabled) SmileStillCapturePolicy.resetCooldown()
+        if (!enabled) {
+            SmileStillCapturePolicy.resetCooldown()
+        } else {
+            lastSmileProcessWallMs = 0L
+            lastSmileDiagLogWallMs = 0L
+        }
+        Log.i(
+            "PNS.SmileStill",
+            "smileStillEnabled=$enabled photoOnly=true yuvOnNextSession=$enabled " +
+                "(scans YUV while photo mode; toggle off in Eye AF menu)",
+        )
         maybeRestart()
     }
 
@@ -7302,11 +7716,16 @@ private class PreviewController(
         }.getOrDefault(false)
 
         h.post {
-            val recordSize = resolveInAppVideoRecordSize()
+            val recordSize =
+                if (dualVideoActive) {
+                    DualVideoRecordingController.compositeRecordSize()
+                } else {
+                    resolveInAppVideoRecordSize()
+                }
             val sessionSize = desiredSurfaceSize ?: currentSurfaceSize
             Log.i(
                 "PNS.VideoEncode",
-                "videoRecordShell session=${sessionSize?.width ?: 0}x${sessionSize?.height ?: 0} " +
+                "videoRecordShell dual=$dualVideoActive session=${sessionSize?.width ?: 0}x${sessionSize?.height ?: 0} " +
                     "encodePref=${inAppVideoEncodeSizePref?.width ?: 0}x${inAppVideoEncodeSizePref?.height ?: 0} " +
                     "record=${recordSize.width}x${recordSize.height} fps=$desiredFps " +
                     "sessionMatchesRecord=${sessionSize?.width == recordSize.width && sessionSize?.height == recordSize.height}",
@@ -7318,10 +7737,11 @@ private class PreviewController(
                 desiredFps = desiredFps,
                 size = recordSize,
                 orientationHintDegrees = 0,
-                wantHighSpeed = wantHighSpeed,
+                wantHighSpeed = wantHighSpeed && !dualVideoActive,
                 supportsHighSpeed = supportsHighSpeed,
                 videoFormat = videoFormat,
                 onEvent = onEvent,
+                forceMediaCodecGlComposite = dualVideoActive,
             )
 
             // If recording prepared successfully, mark that we need session rebuild
@@ -9732,6 +10152,9 @@ private class PreviewController(
     fun peekInAppVideoRecorderStarted(): Boolean =
         videoController.isRecorderStarted() && videoController.isMuxerReadyForRecord()
 
+    /** Sprint **14.2** — live audio meters in [PreviewTopStatusBar] while in-app video records. */
+    fun peekInAppVideoAudioAmplitude(): Int = videoController.peekAudioAmplitude()
+
     fun hintInAppVideoMediaCodecPath(wants: Boolean) {
         videoController.hintMediaCodecPath(wants)
     }
@@ -10023,6 +10446,8 @@ private class PreviewController(
      * session. Full teardown paths ([stop], texture destroyed, errors) pass true (default).
      */
     private fun closeCamera(teardownPreparedMediaRecorder: Boolean = true) {
+        closeDualFrontCamera()
+        dualVideoEncoderSink.release()
         PreviewLogicalPhysicalDebugBridge.clear()
         captureSessionAsyncConfigurePending = false
         cameraDeviceOpenPending = false
@@ -10378,7 +10803,7 @@ private class PreviewController(
      * probe targets ultra-wide; [VendorKeyGuard] decides whether a setter sticks.
      */
     private fun shouldUseMacroSessionParameters(camId: String): Boolean {
-        if (!superMacroAdbProbe) return false
+        if (!wantsMacroProgram() && !superMacroAdbProbe) return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val uw =
             runCatching {
@@ -10572,7 +10997,9 @@ private class PreviewController(
         yuvImageReader = null
 
         val surfaces = mutableListOf(surf)
-        videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { surfaces.add(it) }
+        if (!dualVideoActive) {
+            videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { surfaces.add(it) }
+        }
         if (!useHighSpeed) {
             if (!videoController.isRecorderPresent()) {
             val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
@@ -11144,7 +11571,7 @@ private class PreviewController(
             addTarget(surf)
             // Only add recording surface if session rebuild is complete
             // (videoRecordingSessionRebuildPending is set when prepared, cleared when session created)
-            if (!videoRecordingSessionRebuildPending) {
+            if (!videoRecordingSessionRebuildPending && !dualVideoActive) {
                 videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { addTarget(it) }
             }
             yuvImageReader?.let { addTarget(it.surface) }
@@ -11163,7 +11590,7 @@ private class PreviewController(
                     if (manualSensor) null else aeHighlightCompensationValue(),
                 )
                 applyFaceDetectMode(this, chars)
-                applySuperMacroVendorProbe(this, chars, camId)
+                applyMacroVendorCloseupOnRequest(this, chars, camId)
                 applyReadoutManualExposureAndWb(this, chars, camId)
                 PreviewFlashPolicy.applyPreviewFlashHardwareKeys(
                     this,
@@ -11405,21 +11832,20 @@ private class PreviewController(
     }
 
     /**
-     * Sprint 5.3: when ADB passes [superMacroAdbProbe] and preview targets ultra-wide, set OPLUS
-     * close-up enable on the repeating request if the key is advertised — proof for §5 / Super Macro gate.
+     * OPLUS close-up macro on ultra-wide when [wantsMacroProgram] or [superMacroAdbProbe].
      */
-    private fun applySuperMacroVendorProbe(
+    private fun applyMacroVendorCloseupOnRequest(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
         camId: String,
     ) {
-        if (!superMacroAdbProbe) return
+        if (!wantsMacroProgram() && !superMacroAdbProbe) return
         val uw =
             runCatching {
                 BackCameraRoleResolver.resolve(cm, cameraIds()).ultraWide
             }.getOrNull()
         if (uw != camId) {
-            if (!loggedSuperMacroProbeWrongCam) {
+            if (superMacroAdbProbe && !loggedSuperMacroProbeWrongCam) {
                 loggedSuperMacroProbeWrongCam = true
                 PnsAdbLog.i(
                     appContext,
@@ -11428,27 +11854,37 @@ private class PreviewController(
             }
             return
         }
-        if (superMacroSessionConfigured) return
-        if (loggedSuperMacroProbeUw) return
-        loggedSuperMacroProbeUw = true
+        if (superMacroAdbProbe) {
+            if (superMacroSessionConfigured) return
+            if (loggedSuperMacroProbeUw) return
+            loggedSuperMacroProbeUw = true
+        }
         val macroName = HardwareCapsSnapshot.VENDOR_MACRO_CLOSEUP_REQUEST
-        val lookup = VendorKeyGuard.captureRequestKey(chars, macroName)
-        val reqAvail = VendorKeyGuard.isRequestKeyAvailable(chars, macroName)
-        val sessAvail = VendorKeyGuard.isSessionKeyAvailable(chars, macroName)
-        PnsAdbLog.i(
-            appContext,
-            "superMacroCloseup keyLookup requestKeyObject=${lookup != null} requestEnum=$reqAvail sessionEnum=$sessAvail",
-        )
         val appliedKind =
             VendorKeyGuard.trySetVendorRequestEnable(
                 req,
                 chars,
                 macroName,
             )
-        PnsAdbLog.i(
-            appContext,
-            "superMacroCloseup probe cameraId=$camId vendorKeyApplied=${appliedKind != null} type=${appliedKind ?: "none"}",
-        )
+        if (wantsMacroProgram()) {
+            Log.i(
+                "PNS.ChromeUx",
+                "macroMode vendorCloseup cameraId=$camId applied=${appliedKind != null}",
+            )
+        }
+        if (superMacroAdbProbe) {
+            val lookup = VendorKeyGuard.captureRequestKey(chars, macroName)
+            val reqAvail = VendorKeyGuard.isRequestKeyAvailable(chars, macroName)
+            val sessAvail = VendorKeyGuard.isSessionKeyAvailable(chars, macroName)
+            PnsAdbLog.i(
+                appContext,
+                "superMacroCloseup keyLookup requestKeyObject=${lookup != null} requestEnum=$reqAvail sessionEnum=$sessAvail",
+            )
+            PnsAdbLog.i(
+                appContext,
+                "superMacroCloseup probe cameraId=$camId vendorKeyApplied=${appliedKind != null} type=${appliedKind ?: "none"}",
+            )
+        }
     }
 
     private fun clearFaceHudOverlayState() {
@@ -11539,13 +11975,16 @@ private class PreviewController(
     }
 
     /** Drive CAF/AE-weighted regions toward the primary face (Auto / H / BKT); tap always wins. */
-    private fun allowsFacePriorityMetering(): Boolean =
-        when (commandDialMode) {
+    private fun allowsFacePriorityMetering(): Boolean {
+        if (wantsManualFocusDistance()) return false
+        return when (commandDialMode) {
             CommandDialMode.Auto, CommandDialMode.H, CommandDialMode.BKT -> true
             CommandDialMode.M, CommandDialMode.S,
             CommandDialMode.Macro, CommandDialMode.Night, CommandDialMode.Bokeh,
+            CommandDialMode.Qr, CommandDialMode.Dual,
             -> false
         }
+    }
 
     private fun scheduleFacePriorityMeteringSync(primary: FaceTrackBoxBuffer?) {
         ensureThread()
@@ -12246,13 +12685,23 @@ private class PreviewController(
 
                 fun runSmileStillIfNeeded() {
                     if (!wantSmileStill) return
+                    val nowSmile = SystemClock.elapsedRealtime()
+                    if (nowSmile - lastSmileProcessWallMs < smileMinIntervalMs) return
+                    lastSmileProcessWallMs = nowSmile
                     val faceCamId = selectedCameraId
                     val faceChars =
                         if (faceCamId != null) {
                             runCatching { cm.getCameraCharacteristics(faceCamId) }.getOrNull()
                         } else {
                             null
-                        } ?: return
+                        }
+                    if (faceChars == null) {
+                        if (nowSmile - lastSmileDiagLogWallMs >= 5_000L) {
+                            lastSmileDiagLogWallMs = nowSmile
+                            Log.i("PNS.SmileStill", "smileScan skipped: no camera characteristics")
+                        }
+                        return
+                    }
                     val rot = mlInputImageRotationDegrees(faceChars)
                     val camHandler = handler ?: return
                     val smileProb =
@@ -12260,7 +12709,24 @@ private class PreviewController(
                             image = image,
                             rotationDegrees = rot,
                         )
-                    if (smileProb != null && SmileStillCapturePolicy.shouldTrigger(smileProb)) {
+                    if (smileProb == null) {
+                        if (nowSmile - lastSmileDiagLogWallMs >= 5_000L) {
+                            lastSmileDiagLogWallMs = nowSmile
+                            Log.i(
+                                "PNS.SmileStill",
+                                "smileScan noFaceOrTimeout (enable Eye AF overlay if face is visible)",
+                            )
+                        }
+                        return
+                    }
+                    if (nowSmile - lastSmileDiagLogWallMs >= 3_000L) {
+                        lastSmileDiagLogWallMs = nowSmile
+                        Log.i(
+                            "PNS.SmileStill",
+                            "smileScan prob=$smileProb threshold=${SmileStillCapturePolicy.SMILE_PROBABILITY_THRESHOLD}",
+                        )
+                    }
+                    if (SmileStillCapturePolicy.shouldTrigger(smileProb)) {
                         Log.i("PNS.SmileStill", "smileTrigger prob=$smileProb")
                         val listener = smileStillCaptureListener
                         if (listener != null) {
@@ -12271,11 +12737,9 @@ private class PreviewController(
 
                 fun runMlFaceHudIfNeeded() {
                     if (!wantFaceHud) {
-                        runSmileStillIfNeeded()
                         return
                     }
                     if (skipCameraFacesForMlHud) {
-                        runSmileStillIfNeeded()
                         return
                     }
                     val faceCamId = selectedCameraId
@@ -12313,7 +12777,6 @@ private class PreviewController(
                         mlConsecutiveEmptyMlDetections = 0
                     }
                     val camHandler = handler ?: return
-                    runSmileStillIfNeeded()
                     camHandler.post {
                         if (!hudFaceOverlayEnabled || yuvImageReader == null) return@post
                         publishMlFaceHud(hud)
@@ -12441,6 +12904,9 @@ private class PreviewController(
                     }
                 }
 
+                if (wantSmileStill) {
+                    runSmileStillIfNeeded()
+                }
                 if (prioritizeHMetering) {
                     runHistogramAndHighlightIfNeeded()
                     runMlFaceHudIfNeeded()
@@ -12493,7 +12959,8 @@ private class PreviewController(
             )
         }
         val tap = tapMeteringRect
-        val faceMeter =
+        val manualFocusLocksAf = tap == null && wantsManualFocusDistance()
+        val faceMeterForAe =
             if (tap == null &&
                 facePriorityMeteringRect != null &&
                 hudFaceOverlayEnabled &&
@@ -12504,6 +12971,8 @@ private class PreviewController(
             } else {
                 null
             }
+        // Manual distance needs AF OFF; do not drive face CAF over the rack.
+        val faceMeter = if (manualFocusLocksAf) null else faceMeterForAe
         when {
             tap != null -> {
                 req.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(tap))
@@ -12519,6 +12988,18 @@ private class PreviewController(
                         else -> CaptureRequest.CONTROL_AF_MODE_OFF
                     }
                 req.set(CaptureRequest.CONTROL_AF_MODE, afMode)
+            }
+            faceMeterForAe != null && manualFocusLocksAf -> {
+                req.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(faceMeterForAe))
+                if (manualAwbModeOverride == null) {
+                    val maxAwb =
+                        (chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB) as? IntArray)
+                            ?.firstOrNull()
+                            ?: 0
+                    if (maxAwb > 0) {
+                        req.set(CaptureRequest.CONTROL_AWB_REGIONS, arrayOf(faceMeterForAe))
+                    }
+                }
             }
             faceMeter != null -> {
                 // Exposure + focus both weighted to the tracked face (max metering weight).
@@ -12555,16 +13036,19 @@ private class PreviewController(
                 }
             }
         }
-        if (tap == null && faceMeter == null && commandDialMode == CommandDialMode.S) {
-            applyStreetSnapAf(req, chars)
-        }
-        if (tap == null && faceMeter == null && commandDialMode == CommandDialMode.M) {
+        if (tap == null && manualFocusLocksAf) {
             applyManualDialFocus(req, chars)
+        } else if (tap == null && faceMeter == null && wantsMacroProgram()) {
+            applyMacroProgramAf(req, chars, camId)
+        } else if (tap == null && faceMeter == null && commandDialMode == CommandDialMode.S) {
+            applyStreetSnapAf(req, chars)
+        } else if (tap == null && faceMeter == null && commandDialMode != CommandDialMode.S) {
+            applyPreviewFocusSelection(req, chars)
         }
         // Highlight (H): same continuous AE + AF program as Auto; metering differs via
         // [CONTROL_AE_EXPOSURE_COMPENSATION] from [processYuvForHighlight].
         if (tap == null && (commandDialMode == CommandDialMode.Auto || commandDialMode == CommandDialMode.H)) {
-            if (faceMeter == null) {
+            if (faceMeter == null && !wantsManualFocusDistance()) {
                 applyAutoProgramAf(req, chars)
             }
             applyAutoProgramAeOn(req, chars)
@@ -12578,37 +13062,105 @@ private class PreviewController(
         }
     }
 
+    @Volatile private var lastMacroAfDiagSig: Int = Int.MIN_VALUE
+
+    private fun applyMacroProgramAf(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        camId: String,
+    ) {
+        val afModes = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
+        val mode =
+            when {
+                afModes.contains(CaptureRequest.CONTROL_AF_MODE_MACRO) ->
+                    CaptureRequest.CONTROL_AF_MODE_MACRO
+                afModes.contains(CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE) ->
+                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+                afModes.contains(CaptureRequest.CONTROL_AF_MODE_AUTO) ->
+                    CaptureRequest.CONTROL_AF_MODE_AUTO
+                else -> null
+            }
+        if (mode != null) {
+            req.set(CaptureRequest.CONTROL_AF_MODE, mode)
+        }
+        val sig = (mode ?: -1) xor camId.hashCode()
+        if (sig != lastMacroAfDiagSig) {
+            lastMacroAfDiagSig = sig
+            val modeLabel =
+                when (mode) {
+                    CaptureRequest.CONTROL_AF_MODE_MACRO -> "MACRO"
+                    CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE -> "CONTINUOUS_PICTURE"
+                    CaptureRequest.CONTROL_AF_MODE_AUTO -> "AUTO"
+                    else -> "none"
+                }
+            Log.i(
+                "PNS.ChromeUx",
+                "macroMode afMode=$modeLabel cameraId=$camId hardwareMacro=${mode == CaptureRequest.CONTROL_AF_MODE_MACRO}",
+            )
+        }
+        applyMacroVendorCloseupOnRequest(req, chars, camId)
+    }
+
+    private fun applyPreviewFocusSelection(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
+        val afModes = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
+        when (val sel = previewFocusSelection) {
+            PreviewFocusSelection.Auto -> applyAutoProgramAf(req, chars)
+            PreviewFocusSelection.ManualDistance -> applyManualDialFocus(req, chars)
+            is PreviewFocusSelection.HalAf ->
+                if (afModes.contains(sel.mode)) {
+                    req.set(CaptureRequest.CONTROL_AF_MODE, sel.mode)
+                } else {
+                    applyAutoProgramAf(req, chars)
+                }
+        }
+    }
+
     /**
-     * M dial: fixed [LENS_FOCUS_DISTANCE] with AF off so GLES focus peaking is meaningful during video.
+     * M dial / manual distance: fixed [LENS_FOCUS_DISTANCE] with AF off so GLES focus peaking is meaningful.
      * Tap / face metering branches above take precedence when active.
      */
     private fun applyManualDialFocus(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
+        val range = ManualFocusDistance.focusRange(chars)
+        if (!range.sliderEnabled) {
+            applyAutoProgramAf(req, chars)
+            return
+        }
         val afModes = chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
         if (!afModes.contains(CaptureRequest.CONTROL_AF_MODE_OFF)) {
             applyAutoProgramAf(req, chars)
             return
         }
-        val diopters = manualFocusDiopters ?: ManualFocusDistance.defaultForLens(chars).also {
-            manualFocusDiopters = it
-        }
+        val diopters =
+            ManualFocusDistance.clamp(
+                manualFocusDiopters ?: ManualFocusDistance.defaultForLens(chars).also {
+                    manualFocusDiopters = it
+                },
+                range.maxDiopters,
+            )
         req.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
         req.set(CaptureRequest.LENS_FOCUS_DISTANCE, diopters)
-        logManualFocusPeakingDiag(chars)
+        logManualFocusPeakingDiag(chars, cameraId = selectedCameraId ?: "?")
     }
 
-    private fun logManualFocusPeakingDiag(chars: CameraCharacteristics) {
+    private fun logManualFocusPeakingDiag(
+        chars: CameraCharacteristics,
+        cameraId: String = selectedCameraId ?: "?",
+        range: ManualFocusDistance.FocusRange = ManualFocusDistance.focusRange(chars),
+    ) {
         val diopters = manualFocusDiopters ?: return
         val recording = videoController.isRecorderPresent() || rawVideoController.isRecording
         val sig =
             (diopters * 1000f).toInt() xor
+                (range.maxDiopters * 10f).toInt() xor
+                cameraId.hashCode() xor
                 (if (recording) 1 else 0) xor
                 (commandDialMode.ordinal shl 4)
         if (sig == lastFocusPeakingDiagSig) return
         lastFocusPeakingDiagSig = sig
         Log.i(
             "PNS.FocusPeaking",
-            "manualFocus active=true diopters=${"%.3f".format(diopters)} " +
-                "maxDiopters=${"%.3f".format(ManualFocusDistance.maxDiopters(chars))} " +
+            "manualFocus active=true cameraId=$cameraId diopters=${"%.3f".format(diopters)} " +
+                "rackMax=${"%.3f".format(range.maxDiopters)} halMin=${range.halMinimumFocusDiopters} " +
                 "recording=$recording afMode=OFF peakingShader=edge",
         )
     }
@@ -12959,6 +13511,88 @@ private class PreviewController(
         return pick ?: sizes.maxByOrNull { it.width.toLong() * it.height.toLong() }
     }
 
+}
+
+/** Manual-focus rack + tap-to-shoot suspend (separate composable shrinks [PreviewEngineContent] DEX). */
+private data class PreviewManualFocusUiState(
+    val rackActive: Boolean,
+    val rackDiopters: Float,
+    val rackMaxDiopters: Float,
+    val focusChipDiopters: Float?,
+    val effectiveTapPreviewToCapture: Boolean,
+    val onRackDiopters: (Float) -> Unit,
+)
+
+@Composable
+private fun rememberPreviewManualFocusUiState(
+    commandDialMode: CommandDialMode,
+    previewFocusSelection: PreviewFocusSelection,
+    selectedCameraId: String?,
+    controller: PreviewController,
+    chromePrefs: PreviewChromePreferencesState,
+    chromeTapPreviewToCapture: Boolean,
+): PreviewManualFocusUiState {
+    val manualFocusRackActive =
+        commandDialMode == CommandDialMode.M ||
+            previewFocusSelection == PreviewFocusSelection.ManualDistance
+    var manualRackUiDiopters by remember { mutableStateOf(0f) }
+    var manualRackUiMax by remember { mutableStateOf(8f) }
+    var manualRackEnabled by remember { mutableStateOf(true) }
+    LaunchedEffect(manualFocusRackActive, previewFocusSelection, selectedCameraId) {
+        if (!manualFocusRackActive) return@LaunchedEffect
+        val range = controller.peekManualFocusRange()
+        manualRackEnabled = range?.sliderEnabled != false
+        manualRackUiMax = range?.maxDiopters ?: controller.peekManualFocusMaxDiopters()
+        if (manualRackUiMax <= 0f) {
+            manualRackEnabled = false
+            return@LaunchedEffect
+        }
+        if (commandDialMode == CommandDialMode.M) {
+            controller.ensureManualFocusForDialM()
+        }
+        manualRackUiDiopters =
+            controller.peekManualFocusDiopters()
+                ?: (manualRackUiMax * 0.35f).coerceIn(0f, manualRackUiMax)
+    }
+    var tapPreviewSavedForManualFocus by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(manualFocusRackActive, chromeTapPreviewToCapture) {
+        if (manualFocusRackActive) {
+            if (tapPreviewSavedForManualFocus == null) {
+                tapPreviewSavedForManualFocus = chromeTapPreviewToCapture
+                if (chromeTapPreviewToCapture) {
+                    val cur = chromePrefs.current
+                    chromePrefs.update(cur.copy(tapPreviewToCapture = false))
+                    Log.i("PNS.ChromeUx", "tapToShoot=suspendedForManualFocus")
+                }
+            }
+        } else {
+            tapPreviewSavedForManualFocus?.let { prior ->
+                val cur = chromePrefs.current
+                if (cur.tapPreviewToCapture != prior) {
+                    chromePrefs.update(cur.copy(tapPreviewToCapture = prior))
+                }
+                Log.i("PNS.ChromeUx", "tapToShoot=restoredAfterManualFocus prior=$prior")
+                tapPreviewSavedForManualFocus = null
+            }
+        }
+    }
+    val focusChipDiopters =
+        if (manualFocusRackActive) {
+            manualRackUiDiopters
+        } else {
+            controller.peekManualFocusDiopters()
+        }
+    return PreviewManualFocusUiState(
+        rackActive = manualFocusRackActive && manualRackEnabled,
+        rackDiopters = manualRackUiDiopters,
+        rackMaxDiopters = manualRackUiMax,
+        focusChipDiopters = focusChipDiopters,
+        effectiveTapPreviewToCapture = chromeTapPreviewToCapture && !manualFocusRackActive,
+        onRackDiopters = { value ->
+            manualRackUiDiopters = value
+            controller.setPreviewFocusManualDiopters(value)
+        },
+    )
 }
 
 // Marker shim (kept to avoid accidental imports/edits later).

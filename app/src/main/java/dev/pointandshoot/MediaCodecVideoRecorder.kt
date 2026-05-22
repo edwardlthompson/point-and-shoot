@@ -134,6 +134,73 @@ class MediaCodecVideoRecorder(
             buf.rewind()
             return buf
         }
+
+        /**
+         * Log tag for [TAG] `colorVui=` (JVM-testable; no [MediaFormat] side effects).
+         */
+        internal fun colorVuiTagForConfig(config: Config): String {
+            val isHdr10Profile =
+                config.isHdr10 ||
+                    config.hdrProfile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10 ||
+                    config.hdrProfile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
+            return when {
+                isHdr10Profile -> "bt2020-pq"
+                config.isTenBit -> "bt2020-hlg"
+                else -> "bt709"
+            }
+        }
+
+        /**
+         * HEVC encoder color VUI for [MediaFormat] (API 29+).
+         *
+         * **Sprint 14.6:** 8-bit Main uses **BT.709 limited** so HFR HEVC matches the H.264
+         * [MediaRecorder] SDR path; 10-bit / HDR keep BT.2020 family tags.
+         */
+        internal fun applyHevcColorMetadata(format: MediaFormat, config: Config): String {
+            val tag = colorVuiTagForConfig(config)
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return tag
+
+            val profile =
+                when {
+                    config.hdrProfile != 0 -> config.hdrProfile
+                    config.isTenBit -> MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10
+                    else -> MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
+                }
+            format.setInteger(MediaFormat.KEY_PROFILE, profile)
+
+            when (tag) {
+                "bt2020-pq" -> {
+                    runCatching {
+                        format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT2020)
+                        format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_ST2084)
+                        format.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
+                    }
+                    if (config.isHdr10 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                        runCatching {
+                            format.setByteBuffer(
+                                MediaFormat.KEY_HDR_STATIC_INFO,
+                                buildHdrStaticInfo(config.maxCll, config.maxFall),
+                            )
+                        }
+                    }
+                }
+                "bt2020-hlg" -> {
+                    runCatching {
+                        format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT2020)
+                        format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_HLG)
+                        format.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
+                    }
+                }
+                "bt709" -> {
+                    runCatching {
+                        format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT709)
+                        format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO)
+                        format.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
+                    }
+                }
+            }
+            return tag
+        }
     }
 
     /**
@@ -229,7 +296,6 @@ class MediaCodecVideoRecorder(
         stopping.set(false)
 
         val codecName = config.effectiveEncoder
-        Log.i(TAG, "prepare codec=$codecName size=${config.width}x${config.height} fps=${config.fps} 10bit=${config.isTenBit} hdrProfile=${config.hdrProfile}")
 
         val hasAudioPerm = ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         if (hasAudioPerm) startAudioCapture(uri)
@@ -241,33 +307,14 @@ class MediaCodecVideoRecorder(
                 setInteger(MediaFormat.KEY_FRAME_RATE, config.fps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-
-                if (config.isTenBit || config.hdrProfile != 0) {
-                    val profile = when {
-                        config.hdrProfile != 0 -> config.hdrProfile
-                        config.isTenBit -> MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10
-                        else -> MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
-                    }
-                    setInteger(MediaFormat.KEY_PROFILE, profile)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && config.isTenBit) {
-                        runCatching {
-                            setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT2020)
-                            // HDR10 uses ST2084 (PQ); HLG10/standard 10-bit uses HLG
-                            val transfer = if (config.isHdr10) {
-                                MediaFormat.COLOR_TRANSFER_ST2084
-                            } else {
-                                MediaFormat.COLOR_TRANSFER_HLG
-                            }
-                            setInteger(MediaFormat.KEY_COLOR_TRANSFER, transfer)
-                            setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
-                        }
-                        // HDR10 SEI: MaxCLL / MaxFALL static metadata (fixes QC2GrallocUtils warning)
-                        if (config.isHdr10 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            runCatching { setByteBuffer(MediaFormat.KEY_HDR_STATIC_INFO, buildHdrStaticInfo(config.maxCll, config.maxFall)) }
-                        }
-                    }
-                }
-
+            }
+            val colorVui = applyHevcColorMetadata(format, config)
+            Log.i(
+                TAG,
+                "prepare codec=$codecName size=${config.width}x${config.height} fps=${config.fps} " +
+                    "10bit=${config.isTenBit} hdrProfile=${config.hdrProfile} colorVui=$colorVui",
+            )
+            format.apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     runCatching { setFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, config.fps.toFloat()) }
                 }

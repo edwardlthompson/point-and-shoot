@@ -49,11 +49,12 @@ try {
     Start-Sleep -Milliseconds 600
     Invoke-AdbCmd logcat -c 2>$null
 
-    Write-Host "Launch: video-primary, M dial, Red peaking, ${RecordSec}s record..."
+    Write-Host "Launch: video-primary, M dial, manual focus, Red peaking, ${RecordSec}s record..."
     Invoke-AdbCmd shell am start -n "dev.pointandshoot/.MainActivity" `
         --es pns_screen preview `
         --ez pns_preview_primary_photo false `
         --es pns_preview_dial M `
+        --es pns_preview_focus_mode manual `
         --es pns_preview_focus_peaking Red `
         --ei pns_preview_automation_in_app_video_sec $RecordSec 2>&1 | Out-Null
 
@@ -65,17 +66,19 @@ try {
     $logLines | Set-Content "$outDir\logcat.txt" -Encoding UTF8
 
     $peakingDiag = $logLines -match "PNS\.FocusPeaking:.*manualFocus active=true"
+    $focusModeLog = $logLines -match "PNS\.ChromeUx.*focusMode=.*manual"
     $recordingStart = $logLines -match "start in-app video automation"
     $recordingDone = $logLines -match "finished in-app video automation"
     $recorderPresent = $logLines -match "inAppVideoPrepared|MediaRecorder started"
     $camErrors = $logLines -match "CAMERA_DISCONNECTED|onError.*cameraId"
     $seedPeaking = $logLines -match "preview seeded focusPeakingColor=Red"
 
-    $overallPass = $peakingDiag -and $recordingStart -and $recordingDone -and $recorderPresent -and $seedPeaking -and -not $camErrors
+    $overallPass = $peakingDiag -and $focusModeLog -and $recordingStart -and $recordingDone -and $recorderPresent -and $seedPeaking -and -not $camErrors
 
     $result = [ordered]@{
         timestamp       = $stamp
         passed          = $overallPass
+        focusModeLog    = [bool]$focusModeLog
         focusPeakingDiag = [bool]$peakingDiag
         recordingStart  = [bool]$recordingStart
         recordingDone   = [bool]$recordingDone
@@ -89,6 +92,7 @@ try {
         Write-Host "GATE: PASS" -ForegroundColor Green
     } else {
         Write-Host "GATE: FAIL" -ForegroundColor Red
+        if (-not $focusModeLog) { Write-Host "  FAIL: missing PNS.ChromeUx focusMode=manual" -ForegroundColor Red }
         if (-not $peakingDiag) { Write-Host "  FAIL: missing PNS.FocusPeaking manualFocus diag" -ForegroundColor Red }
         if (-not $recordingStart) { Write-Host "  FAIL: recording did not start" -ForegroundColor Red }
         if (-not $recordingDone) { Write-Host "  FAIL: recording did not finish" -ForegroundColor Red }

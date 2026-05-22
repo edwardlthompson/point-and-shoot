@@ -214,10 +214,18 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
         $slot = $FocalMmSlot.Trim()
         $shellCmd += " --es pns_preview_focal_mm_slot $slot"
     }
-    $null = Invoke-Adb @("shell", $shellCmd)
-    # Cold-start preview + ChromeUx seed lines; `-W` waits for activity idle (avoids empty logcat when
-    # the process is slow to attach under memory pressure). 35s allows repeating + readout=fallback.
-    Start-Sleep -Seconds 35
+    if ($Serial) {
+        & adb -s $Serial shell $shellCmd
+    }
+    else {
+        & adb shell $shellCmd
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "adb shell am start failed exit=$LASTEXITCODE"
+    }
+    # Focal-slot ADB probe can take ~36s (canCaptureStill + post-switch settle); default chrome seed ~35s.
+    $deviceWaitSec = if ([string]::IsNullOrWhiteSpace($FocalMmSlot)) { 35 } else { 52 }
+    Start-Sleep -Seconds $deviceWaitSec
 
     $logPath = Join-Path $OutDir "logcat_chrome_seed.txt"
     Save-LogcatTail $logPath
@@ -264,7 +272,7 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx grid7x3=layout (or legacy grid7=layout) in logcat."
     }
-    if ($logText -match 'PNS\.ChromeUx.*modeDialPopout=(anchorVisible|expanded|skipped_no_dial|menuSelect)') {
+    if ($logText -match 'PNS\.ChromeUx.*modeDialPopout=(anchorVisible|expanded|skipped_no_dial|menuSelect|menuSections)') {
         $modeDialPopoutOk = $true
     }
     else {

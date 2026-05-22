@@ -1,0 +1,27 @@
+---
+description: Locked photo vs video readout chips and top status bar wiring (M14.1 / 14.2)
+globs:
+  - app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt
+  - app/src/main/java/dev/pointandshoot/PreviewReadoutStrip.kt
+  - app/src/main/java/dev/pointandshoot/PreviewReadoutChipMode.kt
+  - app/src/main/java/dev/pointandshoot/PreviewTopStatusBar.kt
+---
+
+# Readout + status bar (locked)
+
+**Canonical spec:** [`docs/M14_READOUT_STATUS_BAR.md`](docs/M14_READOUT_STATUS_BAR.md)
+
+## Invariants
+
+1. **`PreviewReadoutStrip` call site** in `PreviewEngineContent` must pass **`primaryPhoto = primaryPhoto`** (never rely on default `true`).
+2. **Video mode** (`!primaryPhoto`): show **Video LUT** only in readout; **hide** Still LUT and IMG. **Video format** = [`PreviewTrayVideoFormatFab`](app/src/main/java/dev/pointandshoot/VideoFormatPickerSheet.kt) on the **shutter tray** beside **gallery thumb** (shutter stays tray-center), **not** in the readout row.
+3. **Photo mode:** inverse — Still LUT + IMG; no video format FAB.
+4. Use [`PreviewReadoutChipMode`](app/src/main/java/dev/pointandshoot/PreviewReadoutChipMode.kt) for gating; update its JVM test when changing rules.
+5. **Top inset band** must compose **`PreviewTopStatusBar`** (timecode, audio meters, `previewStatusBarLine`) + **`recordStartElapsedMs`** on record start. Pipeline hints do **not** belong on the readout row.
+6. Log **`PNS.ChromeUx readoutMode=photo|video`** on `primaryPhoto` changes.
+7. **Selfie ring** (`PreviewSelfieRingIndicator`) stays **centered** in the top inset when front camera is active — do not move to trailing edge without user request.
+
+## Before merge (USB when device available)
+
+- `scripts/pns_video_status_bar_verify.ps1` after touching readout or status bar.
+- Do **not** run in parallel with `pns_chrome_ux_gate` on the same device.

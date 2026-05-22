@@ -11,6 +11,8 @@ data class FocusPeakingGlUniforms(
     val sensitivity: Float,
 ) {
     companion object {
+        fun disabled(): FocusPeakingGlUniforms = FocusPeakingGlUniforms(false, 0f, 0f, 0f, 0f)
+
         /**
          * @param forceForManualVideo When true (M dial + in-app recording), peaking is drawn even if
          * the HUD color is Off — uses [FocusPeakingColor.Red] so manual-focus video is visible without

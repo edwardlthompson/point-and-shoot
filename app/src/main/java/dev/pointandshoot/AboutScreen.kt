@@ -1,5 +1,7 @@
 package dev.pointandshoot
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,29 +9,44 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
- * Heritage / About screen per BUILD_PLAN §6 (Phase 3 / Part 4).
+ * Heritage / About content per BUILD_PLAN §6 (Phase 3 / Part 4).
  *
- *   * Top block: tribute text from the spec, monospaced verbatim.
- *   * Bottom block: developer-facing "What works on OnePlus 13 (dodge)"
- *     summary so other contributors can find the known-good capture recipes
- *     and the canonical failure modes without re-running the full probe suite.
- *
- * The "what works" block is currently sourced from the probe runs recorded in
- * `PROBE_BUILD_PLAN.md` §5. Future work will hydrate it from the latest pulled
- * JSON artifacts at runtime so it stays current with the device under test.
+ * **Preview route:** [AboutRailSheetContent] inside the Settings modal ([docs/preview-chrome-settings-style-guide.md]).
+ * **Probe hub:** [AboutScreen] full-page shell with the same chrome tokens for engineering entry.
+ */
+@Composable
+fun AboutRailSheetContent(
+    liveSummary: EncoderSummary? = null,
+    liveHalHfrMaxByCameraId: Map<String, Int?> = emptyMap(),
+) {
+    // Parent Settings [Dialog] already applies [Modifier.verticalScroll] — do not nest another scroll here.
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        AboutHeritageBody(
+            liveSummary = liveSummary,
+            liveHalHfrMaxByCameraId = liveHalHfrMaxByCameraId,
+        )
+    }
+}
+
+/**
+ * Full-page About (probe hub / legacy entry) — same blocks as the rail sheet, charcoal shell.
  */
 @Composable
 fun AboutScreen(
@@ -38,182 +55,161 @@ fun AboutScreen(
     liveHalHfrMaxByCameraId: Map<String, Int?> = emptyMap(),
 ) {
     val insets = rememberSystemInsetsDp()
-    AboutScreenContent(
-        padding = insets.asPaddingValues(extra = 16.dp),
-        onBack = onBack,
-        liveSummary = liveSummary,
-        liveHalHfrMaxByCameraId = liveHalHfrMaxByCameraId,
-    )
-}
-
-@Composable
-private fun AboutScreenContent(
-    padding: PaddingValues,
-    onBack: () -> Unit,
-    liveSummary: EncoderSummary? = null,
-    liveHalHfrMaxByCameraId: Map<String, Int?> = emptyMap(),
-) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .background(PreviewChromeMenuColors.dialogSurface)
+                .padding(insets.asPaddingValues(extra = 16.dp)),
     ) {
-        item {
-            OutlinedButton(onClick = onBack) { Text("Back") }
-        }
-
-        item {
-            Text("About Point & Shoot", style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = "FOSS pro camera for OnePlus 13 (dodge) on LineageOS 23 (Android 16 / API 36).",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                text = "Apache-2.0. No proprietary blobs. No Google Play Services.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-            Text(
-                text =
-                    "Imaging profiles: Standard Pro and Ultra-Max write DNG; JPEG only uses the " +
-                        "hardware JPEG still path (no RAW) when selected from the HUD or Settings.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.75f),
-            )
-        }
-
-        item {
-            SectionTitle("Heritage")
-        }
-        item {
-            MonospaceBlock(text = TRIBUTE_TEXT)
-        }
-
-        item {
-            SectionTitle("Command dial — Snap (street)")
-            Text(
-                text =
-                    "Heritage block credits Ricoh for Snap Focus: on the live preview, dial S runs that idea — " +
-                        "with no tap metering, focus stays at an infinity-style snap so you can lift-and-fire; " +
-                        "tap the finder when you need to refocus.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
-        item {
-            SectionTitle("What works on OnePlus 13 (dodge)")
-            Text(
-                text = "Validated by the on-device probe suite (PROBE_BUILD_PLAN.md §5). " +
-                    "Use these as the known-good starting points for new capture pipelines.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-        }
-        items(KNOWN_GOOD_RECIPES) { recipe -> RecipeCard(recipe) }
-
-        val liveCounts = EncoderRecipeBuilder.headlineCounts(liveSummary)
-        if (liveCounts != null && liveSummary != null) {
-            item {
-                SectionTitle("From the latest probe (live)")
-                Text(
-                    text = "${liveCounts.totalAttempts} attempts across ${liveCounts.cameraCount} " +
-                        "cameras — ${liveCounts.totalOk} ok / ${liveCounts.totalFail} fail " +
-                        "(${liveCounts.okPercent}% pass).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.7f),
-                )
-            }
-            items(EncoderRecipeBuilder.recipesFromSummary(liveSummary, liveHalHfrMaxByCameraId)) { row ->
-                LiveRecipeCard(row)
-            }
-            val errorRows = EncoderRecipeBuilder.errorRowsFromSummary(liveSummary, maxRows = 5)
-            if (errorRows.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Top failure modes (canonical errors, most-frequent first):",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.7f),
-                    )
-                }
-                items(errorRows) { row -> LiveErrorCard(row) }
-            }
-        }
-
-        item {
-            SectionTitle("Known-bad paths")
-            Text(
-                text = "Combinations the probe has confirmed do NOT work on this device.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-        }
-        items(KNOWN_BAD_PATHS) { row ->
-            MonospaceBlock(
-                text = "x  ${row.path}\n   error: ${row.canonicalError}\n   workaround: ${row.workaround}",
-            )
-        }
-
-        item {
-            SectionTitle("Color & LUT credits")
-            Text(
-                text = "Bundled FOSS LUTs (auto-derived from LutCatalog.kt - this list cannot drift). " +
-                    "User-imported .cube files are not credited here; the user owns their own license compliance.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.7f),
-            )
-        }
-        items(LutCreditsBuilder.creditsFromCatalog()) { row -> LutCreditCard(row) }
-
-        item {
-            SectionTitle("Source of truth")
-            Text(
-                text = "PROBE_RESULTS.md (Markdown export) + hfr-runs/*.json (machine-readable). " +
-                    "Re-run scripts/pns_hfr_autorun.ps1 -RunFullSuite to refresh.",
-                style = MaterialTheme.typography.bodySmall,
+        FpsQuickChip(
+            label = "Back",
+            selected = false,
+            requiresRoot = false,
+            onClick = onBack,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Column(
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            AboutHeritageBody(
+                liveSummary = liveSummary,
+                liveHalHfrMaxByCameraId = liveHalHfrMaxByCameraId,
             )
         }
     }
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(text = text, style = MaterialTheme.typography.titleMedium)
-}
+private fun AboutHeritageBody(
+    liveSummary: EncoderSummary?,
+    liveHalHfrMaxByCameraId: Map<String, Int?>,
+) {
+    ChromeSettingsIntroText(
+        "FOSS pro camera for OnePlus 13 (dodge) on LineageOS 23 (Android 16 / API 36). " +
+            "Apache-2.0 — no proprietary blobs, no Google Play Services.",
+    )
+    ChromeSettingsIntroText(
+        "Imaging profiles: Standard Pro and Ultra-Max write DNG; JPEG only uses the " +
+            "hardware JPEG still path (no RAW) when selected from the HUD or Settings.",
+    )
 
-@Composable
-private fun MonospaceBlock(text: String) {
+    PreviewRailSectionTitle("Heritage")
+    HeritageCreditsBlock()
+
+    PreviewRailSectionTitle("Support development")
+    ChromeSettingsIntroText(
+        "Optional tips help cover device testing and release time — opens Venmo in your browser, not inside the app.",
+    )
+    val context = LocalContext.current
+    FpsQuickChip(
+        label = "Support development (Venmo)",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_VENMO_DONATION_URL)
+            if (!ok) {
+                Toast.makeText(context, "No browser found to open Venmo.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutVenmo=opened")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = "Open Venmo donation page",
+    )
+
+    PreviewRailSectionTitle("Command dial — Snap (street)")
     Text(
-        text = text,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .padding(12.dp),
-        style = MaterialTheme.typography.bodySmall,
+        text =
+            "Heritage block credits Ricoh for Snap Focus: on the live preview, dial S runs that idea — " +
+                "with no tap metering, focus stays at an infinity-style snap so you can lift-and-fire; " +
+                "tap the finder when you need to refocus.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.White.copy(alpha = 0.88f),
+    )
+
+    PreviewRailSectionTitle("What works on OnePlus 13 (dodge)")
+    ChromeSettingsIntroText(
+        "Validated by the on-device probe suite (PROBE_BUILD_PLAN.md §5). " +
+            "Known-good starting points for new capture pipelines.",
+    )
+    KNOWN_GOOD_RECIPES.forEach { recipe -> AboutRecipePanel(recipe) }
+
+    val liveCounts = EncoderRecipeBuilder.headlineCounts(liveSummary)
+    if (liveCounts != null && liveSummary != null) {
+        PreviewRailSectionTitle("From the latest probe (live)")
+        ChromeSettingsIntroText(
+            "${liveCounts.totalAttempts} attempts across ${liveCounts.cameraCount} " +
+                "cameras — ${liveCounts.totalOk} ok / ${liveCounts.totalFail} fail " +
+                "(${liveCounts.okPercent}% pass).",
+        )
+        EncoderRecipeBuilder.recipesFromSummary(liveSummary, liveHalHfrMaxByCameraId).forEach { row ->
+            AboutLiveRecipePanel(row)
+        }
+        val errorRows = EncoderRecipeBuilder.errorRowsFromSummary(liveSummary, maxRows = 5)
+        if (errorRows.isNotEmpty()) {
+            ChromeSettingsIntroText("Top failure modes (canonical errors, most-frequent first):")
+            errorRows.forEach { row -> AboutLiveErrorPanel(row) }
+        }
+    }
+
+    PreviewRailSectionTitle("Known-bad paths")
+    ChromeSettingsIntroText("Combinations the probe has confirmed do NOT work on this device.")
+    KNOWN_BAD_PATHS.forEach { row ->
+        ChromeMonospaceBlock(
+            text = "x  ${row.path}\n   error: ${row.canonicalError}\n   workaround: ${row.workaround}",
+        )
+    }
+
+    PreviewRailSectionTitle("Color & LUT credits")
+    ChromeSettingsIntroText(
+        "Bundled FOSS LUTs (auto-derived from LutCatalog.kt). User-imported .cube files are not listed here.",
+    )
+    LutCreditsBuilder.creditsFromCatalog().forEach { row -> AboutLutCreditPanel(row) }
+
+    PreviewRailSectionTitle("Source of truth")
+    ChromeSettingsIntroText(
+        "PROBE_RESULTS.md + hfr-runs/*.json. Re-run scripts/pns_hfr_autorun.ps1 -RunFullSuite to refresh.",
     )
 }
 
 @Composable
-private fun RecipeCard(recipe: KnownGoodRecipe) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(text = recipe.title, style = MaterialTheme.typography.labelLarge, color = PnsColors.PhotoOrange)
-        Text(text = "cameraId : ${recipe.cameraId}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "size     : ${recipe.size}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "fpsRange : ${recipe.fpsRange}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "mime     : ${recipe.mime}", style = MaterialTheme.typography.bodySmall)
+private fun AboutRecipePanel(recipe: KnownGoodRecipe) {
+    ChromeInsetPanel {
+        Text(recipe.title, style = MaterialTheme.typography.labelLarge, color = PnsColors.PhotoOrange)
+        Text(
+            "cameraId : ${recipe.cameraId}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "size     : ${recipe.size}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "fpsRange : ${recipe.fpsRange}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "mime     : ${recipe.mime}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
         if (recipe.requestNotes.isNotBlank()) {
-            Text(text = "request  : ${recipe.requestNotes}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                "request  : ${recipe.requestNotes}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.85f),
+            )
         }
         Text(
-            text = recipe.evidence,
+            recipe.evidence,
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.6f),
         )
@@ -221,30 +217,38 @@ private fun RecipeCard(recipe: KnownGoodRecipe) {
 }
 
 @Composable
-private fun LiveRecipeCard(row: EncoderRecipeBuilder.Row) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(text = row.title, style = MaterialTheme.typography.labelLarge, color = PnsColors.PhotoOrange)
-        Text(text = "session  : ${row.sessionKind.name}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "size     : ${row.sizeLabel}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "fpsRange : ${row.fpsLabel}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "mime     : ${row.mime}", style = MaterialTheme.typography.bodySmall)
+private fun AboutLiveRecipePanel(row: EncoderRecipeBuilder.Row) {
+    ChromeInsetPanel {
+        Text(row.title, style = MaterialTheme.typography.labelLarge, color = PnsColors.PhotoOrange)
+        Text(
+            "session  : ${row.sessionKind.name}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "size     : ${row.sizeLabel}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "fpsRange : ${row.fpsLabel}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "mime     : ${row.mime}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
         row.halAdvertisedHfrMaxFps?.let { halMax ->
             Text(
-                text = "HAL HFR max (catalog) : $halMax fps — StreamConfigurationMap high-speed " +
-                    "upper bound for this cameraId; encoder row is measured encode success.",
+                "HAL HFR max (catalog) : $halMax fps",
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.55f),
             )
         }
         Text(
-            text = "measured : ${"%.1f".format(row.measuredFps)} fps",
+            "measured : ${"%.1f".format(row.measuredFps)} fps",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.6f),
         )
@@ -252,37 +256,39 @@ private fun LiveRecipeCard(row: EncoderRecipeBuilder.Row) {
 }
 
 @Composable
-private fun LiveErrorCard(row: EncoderRecipeBuilder.ErrorRow) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(text = row.canonicalError, style = MaterialTheme.typography.labelLarge, color = PnsColors.RecordRed)
-        Text(text = "count    : ${row.count}", style = MaterialTheme.typography.bodySmall)
+private fun AboutLiveErrorPanel(row: EncoderRecipeBuilder.ErrorRow) {
+    ChromeInsetPanel {
+        Text(row.canonicalError, style = MaterialTheme.typography.labelLarge, color = PnsColors.RecordRed)
+        Text(
+            "count    : ${row.count}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
     }
 }
 
 @Composable
-private fun LutCreditCard(row: LutCreditsBuilder.LutCreditRow) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color.Black.copy(alpha = 0.45f))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Text(text = row.displayName, style = MaterialTheme.typography.labelLarge, color = PnsColors.PhotoOrange)
-        Text(text = "spdx     : ${row.spdx}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "scope    : ${row.scope}", style = MaterialTheme.typography.bodySmall)
-        Text(text = "source   : ${row.source}", style = MaterialTheme.typography.bodySmall)
+private fun AboutLutCreditPanel(row: LutCreditsBuilder.LutCreditRow) {
+    ChromeInsetPanel {
+        Text(row.displayName, style = MaterialTheme.typography.labelLarge, color = PnsColors.PhotoOrange)
+        Text(
+            "spdx     : ${row.spdx}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "scope    : ${row.scope}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
+        Text(
+            "source   : ${row.source}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.85f),
+        )
         if (row.description.isNotBlank()) {
             Text(
-                text = row.description,
+                row.description,
                 style = MaterialTheme.typography.bodySmall,
                 color = Color.White.copy(alpha = 0.6f),
             )
@@ -290,19 +296,46 @@ private fun LutCreditCard(row: LutCreditsBuilder.LutCreditRow) {
     }
 }
 
-/** Exact heritage tribute text from BUILD_PLAN §6 Part 4. Intentionally not localized. */
-private val TRIBUTE_TEXT: String = """
-    SONY: For the relentless pursuit of speed and the intelligence of the "sticky" Eye-AF.
-    RICOH: For the "Snap Focus" philosophy and the courage to protect the highlights.
-    OLYMPUS: For the pioneering "Super Macro" and the soul of the compact professional tool.
-    HASSELBLAD: For the legendary Natural Colour Solution and the iconic Orange shutter.
-    CANON & NIKON: For the gold standard of focus bracketing, 3D tracking, and the unwavering reliability of the professional instrument.
-""".trimIndent()
+@Composable
+private fun HeritageCreditsBlock() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HERITAGE_CREDITS.forEach { credit ->
+            HeritageCreditLine(brand = credit.brand, line = credit.line)
+        }
+    }
+}
 
-/**
- * Known-good capture recipes extracted from the probe artifacts. Update this
- * list whenever a new combination is validated end-to-end on the OnePlus 13.
- */
+@Composable
+private fun HeritageCreditLine(brand: String, line: String) {
+    Text(
+        text =
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = PnsColors.PhotoOrange)) {
+                    append(brand)
+                }
+                append(": ")
+                append(line)
+            },
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.White.copy(alpha = 0.88f),
+    )
+}
+
+private data class HeritageCredit(val brand: String, val line: String)
+
+private val HERITAGE_CREDITS: List<HeritageCredit> =
+    listOf(
+        HeritageCredit("SONY", "Speed and sticky Eye-AF."),
+        HeritageCredit("RICOH", "Snap Focus and highlight discipline."),
+        HeritageCredit("OLYMPUS", "Super Macro and the compact pro tool."),
+        HeritageCredit("HASSELBLAD", "Natural Colour and the orange shutter."),
+        HeritageCredit("CANON & NIKON", "Focus bracketing, 3D tracking, pro reliability."),
+        HeritageCredit(
+            "LG",
+            "Dual recording: rear + front in one clip (stacked preview). Not affiliated.",
+        ),
+    )
+
 private data class KnownGoodRecipe(
     val title: String,
     val cameraId: String,
@@ -374,8 +407,8 @@ private val KNOWN_GOOD_RECIPES: List<KnownGoodRecipe> = listOf(
         size = "session-configuration probe only",
         fpsRange = "n/a",
         mime = "JPEG output",
-        requestNotes = "API 35+ uses SessionConfiguration(sessionType, outputs) + setInputConfiguration; Builder reflection not available on Android 16/CPH2655",
-        evidence = "PROBE_BUILD_PLAN.md §5: PH5 device validation row (capture_latency_*.json reprocessInputToJpegSessionSupported=true).",
+        requestNotes = "API 35+ uses SessionConfiguration(sessionType, outputs) + setInputConfiguration",
+        evidence = "PROBE_BUILD_PLAN.md §5: PH5 device validation row.",
     ),
 )
 
@@ -385,16 +418,16 @@ private val KNOWN_BAD_PATHS: List<KnownBadPath> = listOf(
     KnownBadPath(
         path = "exhaustive HEVC/HFR encoder configurations on certain size/fps combos",
         canonicalError = "Function not implemented (-38) from MediaCodec configure",
-        workaround = "Filter by `enc_probe_*.json` results before attempting the combo at runtime; prefer AVC where -38 occurs.",
+        workaround = "Filter by enc_probe_*.json before runtime; prefer AVC where -38 occurs.",
     ),
     KnownBadPath(
         path = "headless probe runs that leave Compose mid-navigation",
         canonicalError = "LeftCompositionCancellationException in coroutine scopes tied to composition",
-        workaround = "Use an application/work CoroutineScope (SupervisorJob + Dispatchers.IO) for long probes; cancel via DisposableEffect on dispose.",
+        workaround = "Use application/work CoroutineScope for long probes; cancel via DisposableEffect.",
     ),
     KnownBadPath(
         path = "marking BUILD_PLAN items [x] without a verification gate",
         canonicalError = "Drift between docs and reality",
-        workaround = "Follow PROBE_BUILD_PLAN.md §3 verification-before-tick protocol; append to §5 Progress log.",
+        workaround = "Follow PROBE_BUILD_PLAN.md §3; append to §5 Progress log.",
     ),
 )

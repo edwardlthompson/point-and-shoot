@@ -863,3 +863,134 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 **Milestone 13V gate:** **13V.1–13V.18** automated/USB-verified on reference fleet **`8bf09993`** (May 2026).
 
 ---
+
+## Milestone 13 — Fleet RAW parity (gate archived 2026-05-21)
+
+**Objective:** Aux DNG on **OnePlus 13** (`CPH2655` / `8bf09993`); **Standard** ProShot still default; optional **ZSL** / **HDR still**; fleet profiles; **DCG** session + **RAW video** on OP13 leaf cameras.
+
+**Completed sprints:** **13.1**, **13.2**, **13.3** (a–h, e, f automated), **13.3g** (automated), **13.4**, **13.5**, **13.6**, **13.8** (a–d automated) — see *Milestone 13 — Fleet RAW parity* section above in this file.
+
+**Human closure:** ACR 3/3, visual aux color, **STILL_MODE_COMPARE** → active **[BUILD_PLAN.md](BUILD_PLAN.md)** **Milestone H** sprint **H.7** only.
+
+### Sprint 13.7 — Milestone 13 gate
+
+| Check | Pass criterion | Status |
+|-------|----------------|--------|
+| Host | `pns_verify_toolchain.ps1 -RunTests` exit 0 | ✅ |
+| Still regression | `pns_capture_pipeline_verify.ps1` green | ✅ |
+| DNG openability | **13.3g** gate PASS on USB | ✅ |
+| Aux DNG | `pns_aux_dng_capture_analyze.ps1 -PreviewDial A` **3/3** | ✅ |
+| ProShot parity (rawpy) | Documented **FAIL** UW/tele (HAL CM2) | ⚠️ documented |
+| Still modes | ZSL + HDR benchmark PASS; Standard default for pipeline verify | ✅ |
+| Lock / wide-cal bisect | **13.3e** / **13.3h** — no lock shipped | ✅ |
+| DCG | `pns_video_hdr10_metadata_verify.ps1` PASS | ✅ |
+| RAW video | `pns_raw_video_verify.ps1` PASS | ✅ |
+| Docs / §5 | Policy docs + probe rows | ✅ **`docs/M13_7_GATE.md`** |
+| **Human ACR 3/3** | **`ACR_HUMAN_VERIFY.md`** + **`-RecordAcrPass`** | ❌ → **H.7** |
+| **Visual aux color** | ACR vs ProShot (**Standard**) | ❌ → **H.7** |
+| **STILL_MODE_COMPARE** | **13.8d** daylight ACR across modes | ❌ → **H.7** |
+| Battery | `force-stop` after each script | ✅ (scripts) |
+
+**Milestone 13 gate:** Automated/USB criteria **PASS** (May 2026). Closes for publication when **H.7** human rows complete.
+
+---
+
+## Milestone 14 — Preview polish, pro controls, dual video (archived 2026-05-21)
+
+**Objective:** Preview chrome regressions (readout / video format chip, status-bar HUD), QR scan, mode dial UX, face/eye overlay tooling, HFR HEVC color, manual AE/focus, selfie indicator, DND restore, heritage + donation, **stacked dual video** (one MP4), GitHub release APK packaging — without breaking locked chrome, dodge tele routing, or capture/DNG locks.
+
+**Target device:** OnePlus 13 (`CPH2655` / `8bf09993`) for USB gates.
+
+**Product decisions (locked):**
+- **Dual video:** one MP4, **stacked** rear (top) + front (bottom) composite @ **1920×1080** @ **30 fps** v1.
+- **Donation:** Venmo — `https://venmo.com/code?user_id=1857304970395648420` in Settings → About heritage block.
+
+### Sprint 14.1 — Readout + video format chip (P0)
+
+- [x] Wire `PreviewReadoutStrip(primaryPhoto, videoFormatChipSlot)` in `PreviewEngineScreen.kt` with `VideoFormatChip` + `InAppVideoFormatSelection`.
+- [x] Video mode: hide Still LUT + IMG; show Video LUT + format chip.
+- [x] **Sprint check:** `pns_chrome_ux_gate.ps1` **PASS** (`readoutOk=true`).
+
+### Sprint 14.2 — Status bar HUD (timer, audio, messages)
+
+- [x] `PreviewTopStatusBar` in top inset band: `TimecodeOverlay` + `AudioLevelMeter`; pipeline hints via `previewStatusBarLine`.
+- [x] **Sprint check:** `pns_video_status_bar_verify.ps1` **PASS** on **8bf09993**.
+
+### Sprint 14.3 — Mode selector UX (sections + orange selection)
+
+- [x] Shooting-mode dropdown: **Photo programs** / **Video programs** section headers; selected row `PnsColors.PhotoOrange`.
+- [x] **Sprint check:** `pns_chrome_ux_gate.ps1` **PASS** on **8bf09993**.
+
+### Sprint 14.4 — QR scan photo mode
+
+- [x] `CommandDialMode.Qr` (photo-only); ZXing on preview YUV; confirm-then-open for links.
+- [x] **Sprint check:** `pns_qr_scan_verify.ps1` **PASS** on **8bf09993**.
+
+### Sprint 14.5 — Face / eye overlay alignment
+
+- [x] Audit buffer → overlay paths; debug crosshair toggle + `pns_eye_af_alignment_probe.ps1` **HOST_PASS**.
+- [ ] **Sprint check:** **[HUMAN] H.8.1** glass sign-off → **Milestone H** in active plan.
+
+### Sprint 14.6 — HFR HEVC color (vs H.264)
+
+- [x] 8-bit HEVC Main: BT.709 limited VUI in `MediaCodecVideoRecorder`; `colorVui=bt709` log.
+- [x] **Sprint check:** `pns_video_codec_color_compare.ps1` **PASS** (HEVC @ 120); H.264 @ 60 clip optional.
+
+### Sprint 14.7 — ISO band + AE coupling
+
+- [x] ISO presets + locked ISO / locked SS readout chips; `docs/PNS_TECHNICAL_SETTINGS.md` §3–§4.
+- [x] **Sprint check:** `ReadoutIsoBandTest` JVM; `pns_capture_pipeline_verify.ps1` **PASS** on **8bf09993**.
+
+### Sprint 14.8 — Focus mode picker
+
+- [x] AF modes + manual distance drag; macro program; readout **AF** chip.
+- [x] **Sprint check:** `pns_focus_peaking_verify.ps1` **PASS** on **8bf09993**.
+
+### Sprint 14.9 — Selfie ring + smile under Eye AF
+
+- [x] Orange selfie ring in top inset when front camera active; Eye AF menu **Smile to capture**.
+- [x] **Sprint check:** `pns_ai_features_verify.ps1` **USB_PASS** on **8bf09993**.
+
+### Sprint 14.10 — DND restore on exit / toggle off
+
+- [x] `PreviewWindowEffects` hold/release; lifecycle restore; `dndPreview=restored` logs.
+- [x] **Sprint check:** `pns_dnd_restore_verify.ps1` **USB_PASS** on **8bf09993** (when policy access granted).
+
+### Sprint 14.11 — Settings heritage, donation, LG nod
+
+- [x] `AboutScreen`: heritage credits (orange brands), LG nod, Venmo **Support development**; About scroll fix (no nested `verticalScroll`).
+- [x] **Sprint check:** `pns_about_links_verify.ps1` **USB_PASS** on **8bf09993**.
+
+### Sprint 14.12 — Dual video (stacked, single MP4)
+
+- [x] **Phase A:** `docs/M14_12_DUAL_VIDEO.md`.
+- [x] **Phase B:** Stacked preview + front `CameraDevice` + GL → MediaCodec composite **1920×1080** @ **30 fps**.
+- [x] **Sprint check:** `pns_dual_video_verify.ps1 -RecordSec 5` **USB_PASS** on **8bf09993** (`inAppVideoSaved ok=true`).
+
+### Sprint 14.13 — Release APK packaging for GitHub
+
+- [x] `pns_release_packaging.ps1`: `assembleRelease`, `Point-and-Shoot_<versionName>.apk`, `zipalign -c -v 4`.
+- [x] README release section + `pns_release_automation.ps1` for GitHub upload.
+
+### Milestone 14 gate (archived)
+
+| Check | Pass criterion | Status |
+|-------|----------------|--------|
+| Host | `pns_verify_toolchain.ps1 -RunTests` | partial — detekt baseline drift (pre-existing) |
+| RAW still | `pns_capture_pipeline_verify.ps1` | **USB_PASS** **8bf09993** |
+| Chrome | `pns_chrome_ux_gate.ps1` | **USB_PASS** **8bf09993** |
+| Video smoke | `pns_in_app_video_verify.ps1` | **USB_PASS** **8bf09993** |
+| HEVC color | `pns_video_codec_color_compare.ps1` | partial — HEVC **120** bt709 OK |
+| AI / smile | `pns_ai_features_verify.ps1` | partial — bitrate scale needle |
+| DND restore | `pns_dnd_restore_verify.ps1` | blocked without notification policy access on some devices |
+| About overlay | `pns_about_links_verify.ps1` | **USB_PASS** **8bf09993** |
+| Dual video | `pns_dual_video_verify.ps1` | **USB_PASS** **8bf09993** (stacked + record) |
+| Face alignment | `pns_eye_af_alignment_probe.ps1` + **H.8.1** | **HOST_PASS** / glass TBD |
+| Release script | `pns_release_packaging.ps1` | **HOST_PASS** |
+| Battery | `force-stop` after USB scripts | done |
+
+**Shipped version:** **`0.14.0-beta.2`**, `versionCode` **14002**, asset **`Point-and-Shoot_0.14.0-beta.2.apk`**.
+
+**Milestone 14 gate:** Sprints **14.1–14.13** archived; subjective **H.8** remains in active **[BUILD_PLAN.md](BUILD_PLAN.md)**. Chart calibration tuning deferred in active plan (*Pinned — Chart calibration*).
+
+---

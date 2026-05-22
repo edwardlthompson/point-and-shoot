@@ -97,9 +97,7 @@ object IndependentTonalStillSaver {
         }
         val rgb = bitmapToRgb888(oriented)
         oriented.recycle()
-        if (stillsLut != LutCatalog.None) {
-            StillRgbLut.applyToRgb888InPlace(rgb, w, h, stillsLut.load(BuiltInLuts.DEFAULT_SIZE))
-        }
+        StillCaptureColorApply.applyToRgb888InPlace(appContext, rgb, w, h, stillsLut)
         val loc = null
         return when {
             decision.tonalWritten == TonalContainer.JpegXl12Bit && !decision.fallbackJpeg ->

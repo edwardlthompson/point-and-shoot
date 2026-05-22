@@ -37,13 +37,17 @@ import androidx.compose.ui.unit.sp
  */
 enum class CommandDialMode(val label: String, val description: String) {
     Auto("A", "Auto: continuous AE/AF — standard point-and-shoot behavior"),
-    M("M", "Manual: full ISO / shutter / focus control"),
+    M("M", "Manual focus distance on preview (drag); ISO/shutter use readout chips, not dial M"),
     H("H", "Highlight: underexpose for bright peaks (sky / sun disk) — save-the-highlights"),
     S("S", "Snap: street preset — AF at infinity (tap preview to refocus)"),
     BKT("BKT", "Bracket: 3 / 5 / 7 RAW12 sequence with GroupingID"),
     Macro("MACRO", "Macro: close-up focus for subjects <10cm"),
     Night("NIGHT", "Night: OEM multi-frame stacking for low light (requires OEM extension support)"),
     Bokeh("BOKEH", "Bokeh: OEM portrait with hardware background blur (requires OEM extension support)"),
+    /** Sprint **14.4** — live QR / barcode scan on the preview finder (photo programs only). */
+    Qr("QR", "QR: scan codes on the live preview (ZXing)"),
+    /** Sprint **14.12** — dual rear+front side-by-side video (scaffold; see [DualVideoRecordingController]). */
+    Dual("DUAL", "Dual: rear + front side-by-side into one MP4 (video only)"),
 }
 
 /**
@@ -68,6 +72,7 @@ fun CommandDial(
 ) {
     val visibleModes = CommandDialMode.entries.filter { mode ->
         when (mode) {
+            CommandDialMode.Qr, CommandDialMode.Dual -> false
             CommandDialMode.Night ->
                 CameraXExtensionProbe.isAvailable(
                     selectedCameraId ?: "0",

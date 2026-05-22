@@ -13,6 +13,7 @@ data class ReadoutMenuSnapshot(
     val exposureChoices: List<Long?>,
     /** HAL AWB modes only (no implicit “program default”); see [ReadoutExposureCatalog.awbChoices]. */
     val awbChoices: List<Int>,
+    val isoBand: ReadoutIsoBand = ReadoutIsoBand.FULL,
 ) {
     companion object {
         val EMPTY =
@@ -20,13 +21,14 @@ data class ReadoutMenuSnapshot(
                 listOf(null),
                 listOf(null),
                 emptyList(),
+                ReadoutIsoBand.FULL,
             )
     }
 }
 
 object ReadoutExposureCatalog {
     /** ISO stops commonly advertised; filtered to [SENSOR_INFO_SENSITIVITY_RANGE]. */
-    private val isoTable =
+    internal val ISO_STOP_TABLE =
         intArrayOf(
             50,
             64,
@@ -62,19 +64,29 @@ object ReadoutExposureCatalog {
             102400,
         )
 
-    fun isoChoices(chars: CameraCharacteristics): List<Int?> {
+    fun isoChoices(
+        chars: CameraCharacteristics,
+        band: ReadoutIsoBand = ReadoutIsoBand.FULL,
+    ): List<Int?> {
         val range = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE) ?: return listOf(null)
         val list = ArrayList<Int?>()
         list.add(null)
-        for (iso in isoTable) {
-            if (iso in range.lower..range.upper) {
-                list.add(iso)
-            }
+        for (iso in band.filterStops(range)) {
+            list.add(iso)
         }
         if (list.size == 1) {
-            list.add(range.lower)
-            if (range.upper != range.lower) {
-                list.add(range.upper)
+            val lo = if (range != null) maxOf(band.minIso, range.lower) else band.minIso
+            val hi =
+                if (range != null) {
+                    minOf(band.maxIso, range.upper)
+                } else {
+                    band.maxIso
+                }
+            if (lo <= hi) {
+                list.add(lo)
+                if (hi != lo) {
+                    list.add(hi)
+                }
             }
         }
         return list

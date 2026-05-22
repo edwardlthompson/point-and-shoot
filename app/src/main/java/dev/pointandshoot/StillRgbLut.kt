@@ -15,6 +15,20 @@ object StillRgbLut {
      *
      * @param rgb888 at least `width * height * 3` bytes.
      */
+    /**
+     * Applies a saved chart [CalibrationProfile] (WB + CCM) as a corrective 3D LUT.
+     * Used when [LutCatalog.None] so JPEG companions stay natural, not stylized.
+     */
+    fun applyCalibrationProfileInPlace(
+        rgb888: ByteArray,
+        width: Int,
+        height: Int,
+        profile: CalibrationProfile,
+    ) {
+        val lut = CalibrationToLut.toLut3D(profile, BuiltInLuts.DEFAULT_SIZE)
+        applyToRgb888InPlace(rgb888, width, height, lut)
+    }
+
     fun applyToRgb888InPlace(rgb888: ByteArray, width: Int, height: Int, lut: Lut3D) {
         require(width > 0 && height > 0) { "width and height must be positive" }
         val need = width * height * 3

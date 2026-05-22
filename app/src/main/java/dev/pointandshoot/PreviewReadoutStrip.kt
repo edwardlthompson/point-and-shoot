@@ -129,6 +129,7 @@ private fun computeReadoutFontScale(
     menu: ReadoutMenuSnapshot,
     stillLutIndex: String,
     videoLutIndex: String,
+    primaryPhoto: Boolean,
     includeVideoRes: Boolean,
 ): Float {
     if (maxWidthPx <= 0) return 1f
@@ -147,13 +148,24 @@ private fun computeReadoutFontScale(
                 0.dp
             }
         val lutStillMin =
-            maxReadoutValueWidthDp(textMeasurer, vs, listOf(stillLutIndex, "999"), density)
+            if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
+                maxReadoutValueWidthDp(textMeasurer, vs, listOf(stillLutIndex, "999"), density)
+            } else {
+                0.dp
+            }
         val lutVideoMin =
-            maxReadoutValueWidthDp(textMeasurer, vs, listOf(videoLutIndex, "999"), density)
-        // Reserve width for IMG chip value (DNG / DNG+ / JPG).
+            if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
+                maxReadoutValueWidthDp(textMeasurer, vs, listOf(videoLutIndex, "999"), density)
+            } else {
+                0.dp
+            }
         val imgStrings = listOf("DNG", "DNG+", "JPG")
-        val imgMin = maxReadoutValueWidthDp(textMeasurer, vs, imgStrings, density)
-
+        val imgMin =
+            if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
+                maxReadoutValueWidthDp(textMeasurer, vs, imgStrings, density)
+            } else {
+                0.dp
+            }
         val gapPx = with(density) { ReadoutChipGap.roundToPx() }
         var rowPx =
             chipOuterWidthPx(textMeasurer, density, "ISO", ls, isoMin) +
@@ -164,11 +176,21 @@ private fun computeReadoutFontScale(
                     chipOuterWidthPx(textMeasurer, density, "RES", ls, resMin)
                 } else {
                     0
-                } +
-                chipOuterWidthPx(textMeasurer, density, "Still", ls, lutStillMin) +
-                chipOuterWidthPx(textMeasurer, density, "Video", ls, lutVideoMin) +
-                chipOuterWidthPx(textMeasurer, density, "IMG", ls, imgMin)
-        val chipCount = if (includeVideoRes) 8 else 7
+                }
+        if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
+            rowPx += chipOuterWidthPx(textMeasurer, density, "Still", ls, lutStillMin)
+        }
+        if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
+            rowPx += chipOuterWidthPx(textMeasurer, density, "Video", ls, lutVideoMin)
+        }
+        if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
+            rowPx += chipOuterWidthPx(textMeasurer, density, "IMG", ls, imgMin)
+        }
+        var chipCount = 5 // ISO, Ss, WB, FPS, AF
+        if (includeVideoRes) chipCount++
+        if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) chipCount++
+        if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) chipCount++
+        if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) chipCount++
         rowPx += gapPx * (chipCount - 1)
         return rowPx
     }
@@ -246,6 +268,8 @@ fun PreviewReadoutStrip(
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     /** When false, FPS readout stays visible but the target FPS menu is disabled (photo-primary tray). */
     fpsTargetEditable: Boolean = true,
+    readoutAeCoupling: ReadoutAeCoupling = ReadoutAeCoupling.AUTO,
+    onPickIsoBand: (ReadoutIsoBand) -> Unit = {},
     onPickIso: (Int?) -> Unit,
     onPickShutter: (Long?) -> Unit,
     onPickAwb: (Int) -> Unit,
@@ -271,13 +295,27 @@ fun PreviewReadoutStrip(
     onPickVideoEncodeSize: (Size) -> Unit = {},
     /** Hide wrong-mode LUT chip and IMG chip: true = photo, false = video. */
     primaryPhoto: Boolean = true,
-    /** In video mode, slot for the unified VideoFormatChip (replaces FPS+RES chips). Null = not shown. */
-    videoFormatChipSlot: (@Composable () -> Unit)? = null,
+    /** Sprint **14.8** — tap opens HAL focus-mode picker (CAF / manual distance / …). */
+    focusChipValue: String = "CAF",
+    onFocusChipClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val isVideoMode = !primaryPhoto
-    val isoText = iso?.toString() ?: "—"
-    val ss = PreviewReadoutFormat.formatShutter(exposureNs)
+    val isVideoMode = PreviewReadoutChipMode.isVideoMode(primaryPhoto)
+    val isoText =
+        when {
+            iso == null -> "—"
+            readoutAeCoupling == ReadoutAeCoupling.LOCKED_ISO_AUTO_SS ||
+                readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH -> "$iso·L"
+            else -> iso.toString()
+        }
+    val ss =
+        when {
+            exposureNs == null -> "—"
+            readoutAeCoupling == ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ||
+                readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH ->
+                "${PreviewReadoutFormat.formatShutter(exposureNs)}·L"
+            else -> PreviewReadoutFormat.formatShutter(exposureNs)
+        }
     val awb = PreviewReadoutFormat.awbModeLabel(awbMode)
     val fpsDisplay =
         if (measuredFps > 0.05) {
@@ -329,6 +367,7 @@ fun PreviewReadoutStrip(
                     stillLutIndex,
                     videoLutIndex,
                     baseLabelTypography,
+                    primaryPhoto,
                     includeVideoRes,
                 ) {
                     computeReadoutFontScale(
@@ -339,6 +378,7 @@ fun PreviewReadoutStrip(
                         menu,
                         stillLutIndex,
                         videoLutIndex,
+                        primaryPhoto,
                         includeVideoRes,
                     )
                 }
@@ -401,6 +441,15 @@ fun PreviewReadoutStrip(
                 remember(scale, rawChipValue, textMeasurer, valueStyle, density) {
                     maxReadoutValueWidthDp(textMeasurer, valueStyle, imgValueStrings, density)
                 }
+            val focusValueMinWidth =
+                remember(scale, focusChipValue, textMeasurer, valueStyle, density) {
+                    maxReadoutValueWidthDp(
+                        textMeasurer,
+                        valueStyle,
+                        listOf(focusChipValue, "CAF-P", "CAF-V", "MAC", "EDOF", "∞"),
+                        density,
+                    )
+                }
 
             Row(
                 modifier =
@@ -418,18 +467,51 @@ fun PreviewReadoutStrip(
                     labelStyle = labelStyle,
                     valueStyle = valueStyle,
                     onClick = { isoMenu = true },
-                    accessibilityLabel = "ISO. Current $isoText. Opens ISO menu.",
+                    accessibilityLabel =
+                        when (readoutAeCoupling) {
+                            ReadoutAeCoupling.LOCKED_ISO_AUTO_SS ->
+                                "ISO locked at $isoText, shutter automatic. Opens ISO menu."
+                            ReadoutAeCoupling.MANUAL_BOTH ->
+                                "ISO locked at $isoText. Opens ISO menu."
+                            else -> "ISO. Current $isoText. Opens ISO menu."
+                        },
                 )
                 PnsChromeDropdownMenu(expanded = isoMenu, onDismissRequest = { isoMenu = false }) {
-                    for (choice in menu.isoChoices) {
-                        val label = if (choice == null) "Auto" else choice.toString()
+                    Text(
+                        text = "ISO band (${menu.isoBand.menuLabel})",
+                        style = labelStyle,
+                        color = Color.White.copy(alpha = 0.65f),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                    for (band in ReadoutIsoBand.entries) {
                         PnsChromePlainMenuItem(
-                            label = label,
+                            label = band.menuLabel,
                             onClick = {
-                                onPickIso(choice)
+                                onPickIsoBand(band)
                                 isoMenu = false
                             },
                         )
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+                    for (choice in menu.isoChoices) {
+                        if (choice == null) {
+                            PnsChromePlainMenuItem(
+                                label = "Auto",
+                                onClick = {
+                                    onPickIso(null)
+                                    isoMenu = false
+                                },
+                            )
+                        } else {
+                            PnsChromeDetailMenuItem(
+                                title = choice.toString(),
+                                subtitle = "Lock ISO · auto shutter",
+                                onClick = {
+                                    onPickIso(choice)
+                                    isoMenu = false
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -441,23 +523,36 @@ fun PreviewReadoutStrip(
                     labelStyle = labelStyle,
                     valueStyle = valueStyle,
                     onClick = { ssMenu = true },
-                    accessibilityLabel = "Shutter speed. Current $ss. Opens shutter menu.",
+                    accessibilityLabel =
+                        when (readoutAeCoupling) {
+                            ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ->
+                                "Shutter locked at $ss, ISO automatic. Opens shutter menu."
+                            ReadoutAeCoupling.MANUAL_BOTH ->
+                                "Shutter locked at $ss. Opens shutter menu."
+                            else -> "Shutter speed. Current $ss. Opens shutter menu."
+                        },
                 )
                 PnsChromeDropdownMenu(expanded = ssMenu, onDismissRequest = { ssMenu = false }) {
                     for (choice in menu.exposureChoices) {
-                        val label =
-                            if (choice == null) {
-                                "Auto"
-                            } else {
-                                PreviewReadoutFormat.formatShutter(choice)
-                            }
-                        PnsChromePlainMenuItem(
-                            label = label,
-                            onClick = {
-                                onPickShutter(choice)
-                                ssMenu = false
-                            },
-                        )
+                        if (choice == null) {
+                            PnsChromePlainMenuItem(
+                                label = "Auto",
+                                onClick = {
+                                    onPickShutter(null)
+                                    ssMenu = false
+                                },
+                            )
+                        } else {
+                            val title = PreviewReadoutFormat.formatShutter(choice)
+                            PnsChromeDetailMenuItem(
+                                title = title,
+                                subtitle = "Lock shutter · auto ISO",
+                                onClick = {
+                                    onPickShutter(choice)
+                                    ssMenu = false
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -505,8 +600,16 @@ fun PreviewReadoutStrip(
                     )
                 }
             }
-            // Video LUT shown before the unified picker chip in video mode
-            if (isVideoMode) {
+            ReadoutMetricChip(
+                label = "AF",
+                value = focusChipValue,
+                valueMinWidth = focusValueMinWidth,
+                labelStyle = labelStyle,
+                valueStyle = valueStyle,
+                onClick = onFocusChipClick,
+                accessibilityLabel = "Focus mode. Current $focusChipValue. Opens focus mode picker.",
+            )
+            if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
             Box {
                 ReadoutLutChip(
                     label = "Video",
@@ -530,11 +633,8 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            } // end isVideoMode Video LUT (early, before unified picker)
-            if (isVideoMode && videoFormatChipSlot != null) {
-                videoFormatChipSlot()
             }
-            if (false /* RES chip superseded by unified VideoFormatChip tray picker */ && includeVideoRes) {
+            if (false /* RES chip superseded by tray VideoFormat FAB */ && includeVideoRes) {
                 Box {
                     ReadoutMetricChip(
                         label = "RES",
@@ -562,7 +662,7 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            if (!isVideoMode) {
+            if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
             Box {
                 ReadoutLutChip(
                     label = "Still",
@@ -586,9 +686,8 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            } // end !isVideoMode Still LUT
-            // Video LUT already rendered above (before unified picker chip)
-            if (!isVideoMode) {
+            }
+            if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
                 Box {
                     ReadoutMetricChip(
                         label = "IMG",
@@ -731,24 +830,7 @@ fun PreviewReadoutStrip(
                         }
                     }
                 }
-            } // end !isVideoMode IMG
-                if (!capturePipelineHint.isNullOrBlank()) {
-                    Text(
-                        text = capturePipelineHint,
-                        style = labelStyle,
-                        color = PnsColors.PhotoOrange.copy(alpha = 0.95f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                } else if (focalMapCalibratingHint) {
-                    Text(
-                        text = "Calibrating focal map…",
-                        style = labelStyle,
-                        color = PnsColors.WarnAmber,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            }
             }
         }
     }

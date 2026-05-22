@@ -11,6 +11,8 @@ This document is the **source of truth** for the approved **portrait** preview-e
 On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), the main column is always, in order:
 
 1. **Top inset band** — Clears **status bar** and **display cutout** using merged window insets from `rememberSystemInsetsDp()` (system bars ∪ cutout). Padding passed into chrome is **`SystemInsetsDp.asPaddingValues()`** — **single** top value, not doubled. Implemented as its own charcoal **`Box`** with `height = padding.calculateTopPadding()`; **not** part of the finder clip rect. Horizontal and bottom insets stay on the outer `Modifier.padding(...)` of the chrome root (`start` / `end` / `bottom`; top is **0** there so the band is a real layout slot).
+   - **`PreviewTopStatusBar`** — timecode + audio meters (video record) + orange status line (`previewStatusBarLine`). See **`docs/M14_READOUT_STATUS_BAR.md`**.
+   - **`PreviewSelfieRingIndicator`** (front camera) — centered rotating orange arc in this band; not over the finder.
 
 2. **Section divider** — `PreviewChromeSectionDivider()` (faint horizontal rule).
 
@@ -28,13 +30,13 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 
 4. **Section divider** — `PreviewChromeSectionDivider()`.
 
-5. **Readout chips** — `PreviewReadoutStrip` (ISO, shutter, WB, FPS, LUT, RAW pipeline). Own height; **clipped** to its lane.
+5. **Readout chips** — `PreviewReadoutStrip` (ISO, shutter, WB, AF, mode-specific LUT). **Photo:** Still LUT + IMG. **Video:** Video LUT only (no IMG / Still LUT). Requires `primaryPhoto` at the call site — **`docs/M14_READOUT_STATUS_BAR.md`**. Own height; **clipped** to its lane.
 
 6. **Section divider** — `PreviewChromeSectionDivider()`.
 
 7. **Quick settings** — `PreviewRightRail` / `PreviewChromeGrid7x3` (focal row + **two** logical shortcut icon rows + shortcut dialogs). **`Modifier.weight(PreviewChromeRailFlexWeight)`** (baseline **1f**); **clipped** to its lane. **Settings** expand tile at **row 2, column 6** (`settingsAt=r2c6` in **`PNS.ChromeUx`**). Total **physical** grid rows in the rail = **3** (focal + two shortcut rows).
 
-8. **Shutter bar** — `PreviewBottomCaptureTray` when gallery thumb, on-screen shutter, or command dial is shown. Fixed height; **clipped** to its lane. **Tray:** gallery thumb (start), **center-weighted** shutter column, **Photo/Video** segmented toggle immediately **left of** the mode-dial slot (end). Divider above when present follows the same divider component.
+8. **Shutter bar** — `PreviewBottomCaptureTray` when gallery thumb, on-screen shutter, or command dial is shown. Fixed height; **clipped** to its lane. **Tray:** gallery thumb + **video format FAB** (start row, video mode), **geometric-center** shutter (breathing room vs left/right clusters), **Photo/Video** toggle + mode dial (end). Divider above when present follows the same divider component.
 
 ---
 
@@ -55,6 +57,12 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 
 ---
 
+## Settings popups (menus)
+
+In-preview **Settings**, **Guides**, and related modal sheets use **`docs/preview-chrome-settings-style-guide.md`** and **`PreviewChromeMenuUi.kt`** (not this layout guide).
+
+---
+
 ## Related code (pointers)
 
 | Piece | Location |
@@ -63,9 +71,11 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 | Insets → padding for preview route | `PreviewEngineScreen.kt` — `insets.asPaddingValues()` into `PreviewEngineContent` |
 | Merged system-bar + cutout insets | `SystemInsets.kt` — `rememberSystemInsetsDp()`, `asPaddingValues()` |
 | Optional **2×** top helper (not used by preview route) | `SystemInsets.kt` — `asPaddingValuesWithExtraTopBarBand()` |
-| Readout strip | `PreviewReadoutStrip.kt` |
+| Readout strip + photo/video chip policy | `PreviewReadoutStrip.kt`, `PreviewReadoutChipMode.kt`, **`docs/M14_READOUT_STATUS_BAR.md`** |
+| Top status bar + selfie ring | `PreviewTopStatusBar.kt`, `PreviewSelfieRingIndicator.kt` |
 | Quick grid (7 cols × focal row + **two** shortcut rows; **Settings** at **r2c6**) | `PreviewEngineScreen.kt` — `previewChromeGridSlots`, `PreviewChromeGrid7x3` |
 | Section divider | `PreviewChromeSectionDivider` in `PreviewEngineScreen.kt` |
+| Settings popup chrome | `PreviewChromeMenuUi.kt`, **`docs/preview-chrome-settings-style-guide.md`** |
 
 ---
 

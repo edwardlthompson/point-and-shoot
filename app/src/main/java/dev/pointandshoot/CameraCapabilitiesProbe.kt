@@ -152,6 +152,12 @@ const val EXTRA_PNS_PREVIEW_SELF_TIMER_SEC = "pns_preview_self_timer_sec"
 const val EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT = "pns_preview_focal_mm_slot"
 
 /**
+ * Optional **`--ei pns_preview_readout_iso N`** with [PNS_SCREEN_PREVIEW]: after preview session is ready,
+ * locks readout ISO (Sprint **14.7** gate) and logs **`PNS.ChromeUx readoutAeApplied`**.
+ */
+const val EXTRA_PNS_PREVIEW_READOUT_ISO = "pns_preview_readout_iso"
+
+/**
  * Optional **`--ez pns_preview_primary_photo false`** with [PNS_SCREEN_PREVIEW]: cold-start **video-primary**
  * tray (vs photo-primary default).
  */
@@ -162,6 +168,9 @@ const val EXTRA_PNS_PREVIEW_PRIMARY_PHOTO = "pns_preview_primary_photo"
  * [android.media.MediaRecorder] automation (**`scripts/pns_in_app_video_verify.ps1`**). Values clamp to **[0, 120]**.
  */
 const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC = "pns_preview_automation_in_app_video_sec"
+
+/** Sprint **14.11** gate: open in-preview [AboutScreen] overlay on cold preview (`pns_about_links_verify.ps1`). */
+const val EXTRA_PNS_PREVIEW_SHOW_ABOUT = "pns_preview_show_about"
 
 /**
  * Debug APK + [PNS_SCREEN_PREVIEW]: target FPS for in-app video automation.
@@ -212,6 +221,12 @@ const val EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC = "pns_preview_video_raw_sec"
  * Typical ADB: `--es pns_preview_focus_peaking Red`
  */
 const val EXTRA_PNS_PREVIEW_FOCUS_PEAKING = "pns_preview_focus_peaking"
+
+/**
+ * Sprint **14.8**: seed preview focus program (`auto`, `manual`, `caf_video`, …).
+ * Typical ADB: `--es pns_preview_focus_mode manual` with dial **M** for peaking gates.
+ */
+const val EXTRA_PNS_PREVIEW_FOCUS_MODE = "pns_preview_focus_mode"
 
 /**
  * Sprint **13V.11**: seed [HudSettings.selectedLutForVideo] for GLES preview during video
@@ -350,6 +365,7 @@ fun CameraCapabilitiesProbe(
     var showLogicalPhysical by remember { mutableStateOf(false) }
     var showExhaustive by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var aboutOpenedFromPreview by remember { mutableStateOf(false) }
     var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
     var aboutHalHfrMaxByCameraId by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     var showProHud by remember { mutableStateOf(false) }
@@ -394,6 +410,8 @@ fun CameraCapabilitiesProbe(
             "Dodge lens mapping" -> showMapping = true
             "Live preview (engine)" -> {
                 previewLaunchedFromDebug = true
+                activity?.intent?.removeExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC)
+                activity?.intent?.removeExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC)
                 showPreviewEngine = true
             }
             "QR / barcode scan" -> showQrScan = true
@@ -636,6 +654,7 @@ fun CameraCapabilitiesProbe(
                                         (inz.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false)) ||
                                         inz.hasExtra(EXTRA_PNS_PREVIEW_SELF_TIMER_SEC) ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT).isNullOrBlank() ||
+                                        inz.hasExtra(EXTRA_PNS_PREVIEW_READOUT_ISO) ||
                                         inz.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) ||
                                         ((inz.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0) > 0) ||
                                         inz.hasExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW) ||
@@ -670,6 +689,7 @@ fun CameraCapabilitiesProbe(
             activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CALIBRATE_GRAB_SMOKE, false) ?: false
         val adbSelfTimerSec = activity?.intent.previewSelfTimerSecExtra()
         val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
+        val adbReadoutIsoProbe = activity?.intent.previewReadoutIsoProbeExtra()
         val intentPrimaryPhotoSeed =
             activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) }
                 ?.getBooleanExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, true)
@@ -697,25 +717,33 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
+        val intentInAppVideoAutomationSec =
+            activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC) }
+                ?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0)
+                ?.coerceIn(0, 120) ?: 0
+        val intentRawVideoAutomationSec =
+            activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC) }
+                ?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0)
+                ?.coerceIn(0, 120) ?: 0
         val automationWantsIntentPipeline =
             adbRawCountRaw > 0 ||
                 adbBracketRaw != null ||
                 launchScreen == PNS_SCREEN_PREVIEW ||
                 !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank()) ||
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0) > 0 ||
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0) ?: 0) > 0 ||
+                (launchScreen == PNS_SCREEN_PREVIEW && intentInAppVideoAutomationSec > 0) ||
+                (launchScreen == PNS_SCREEN_PREVIEW && intentRawVideoAutomationSec > 0) ||
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SMILE_STILL, false) == true ||
                 (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_BITRATE_SCALE, 0) ?: 0) > 0
         val useIntentAutomationPipeline = trustIntentForPreviewPipeline && automationWantsIntentPipeline
         val adbAutomationVideoRawSec =
-            if (trustIntentForPreviewPipeline) {
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0) ?: 0).coerceIn(0, 120)
+            if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
+                intentRawVideoAutomationSec
             } else {
                 0
             }
         val adbAutomationInAppVideoSec =
-            if (trustIntentForPreviewPipeline) {
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
+            if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
+                intentInAppVideoAutomationSec
             } else {
                 0
             }
@@ -770,6 +798,12 @@ fun CameraCapabilitiesProbe(
             } else {
                 null
             }
+        val adbPreviewFocusMode =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent.previewFocusModeExtra()
+            } else {
+                null
+            }
         val adbSeedVideoLutName =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent.previewVideoLutNameExtra()
@@ -812,6 +846,12 @@ fun CameraCapabilitiesProbe(
         val adbSceneVendorHints =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SCENE_VENDOR_HINTS, false) ?: false
+            } else {
+                false
+            }
+        val adbShowAboutOverlay =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SHOW_ABOUT, false) ?: false
             } else {
                 false
             }
@@ -882,6 +922,7 @@ fun CameraCapabilitiesProbe(
             adbDngBisectActive = adbDngBisectActive,
             adbStillCaptureMode = adbStillCaptureMode,
             adbSeedFocusPeakingColor = adbSeedFocusPeakingColor,
+            adbPreviewFocusMode = adbPreviewFocusMode,
             adbSeedVideoLutName = adbSeedVideoLutName,
             adbForcePowerThermalOverlay = adbForcePowerThermalOverlay,
             adbStorageAvailableBytes = adbStorageAvailableBytes,
@@ -889,6 +930,7 @@ fun CameraCapabilitiesProbe(
             adbSmileStillSynthetic = adbSmileStillSynthetic,
             adbVideoBitrateScalePercent = adbVideoBitrateScalePercent,
             adbSceneVendorHints = adbSceneVendorHints,
+            adbShowAboutOverlay = adbShowAboutOverlay,
         )
         return
     }
@@ -989,7 +1031,13 @@ fun CameraCapabilitiesProbe(
     if (showAbout) {
         // BUILD_PLAN §2 Phase 0 V&V + §6: reload latest exhaustive_probe JSON each time About opens.
         AboutScreen(
-            onBack = { showAbout = false },
+            onBack = {
+                showAbout = false
+                if (aboutOpenedFromPreview) {
+                    showPreviewEngine = true
+                    aboutOpenedFromPreview = false
+                }
+            },
             liveSummary = aboutLiveSummary,
             liveHalHfrMaxByCameraId = aboutHalHfrMaxByCameraId,
         )
@@ -1225,14 +1273,12 @@ fun CameraCapabilitiesProbe(
                 activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA &&
                     activity?.intent?.action != MediaStore.ACTION_VIDEO_CAPTURE
             )
-        val adbAutomationInAppVideoSec =
-            (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
         PreviewEngineScreen(
             onBack = { activity?.finish() },
             onOpenDeveloperMenu = { showDebugMenu = true },
             startAutoSweep = autoSweep,
             initialPrimaryPhoto = previewSeedPrimaryPhoto,
-            adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
+            adbAutomationInAppVideoSec = 0,
         )
         return
     }
@@ -1806,6 +1852,8 @@ private fun Intent?.previewDialModeExtra(): CommandDialMode? {
         "S" -> CommandDialMode.S
         "BKT" -> CommandDialMode.BKT
         "MACRO" -> CommandDialMode.Macro
+        "QR" -> CommandDialMode.Qr
+        "DUAL" -> CommandDialMode.Dual
         else -> null
     }
 }
@@ -1864,6 +1912,15 @@ internal fun Intent?.previewFocusPeakingColorExtra(): FocusPeakingColor? {
         }
 }
 
+internal fun Intent?.previewFocusModeExtra(): PreviewFocusSelection? {
+    val raw = this?.getStringExtra(EXTRA_PNS_PREVIEW_FOCUS_MODE) ?: return null
+    return PreviewFocusMode.parseAdbExtra(raw)
+        ?: run {
+            Log.w(TAG, "unknown pns_preview_focus_mode=$raw")
+            null
+        }
+}
+
 internal fun Intent?.previewVideoLutNameExtra(): String? =
     this?.getStringExtra(EXTRA_PNS_PREVIEW_VIDEO_LUT)?.trim()?.takeIf { it.isNotBlank() }
 
@@ -1878,4 +1935,11 @@ internal fun Intent?.previewFocalMmSlotExtra(): FocalMmSlot? {
     val raw = this?.getStringExtra(EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT)?.trim()?.takeIf { it.isNotBlank() } ?: return null
     return FocalMmSlot.entries.find { it.labelMm == raw }
 }
+
+internal fun Intent?.previewReadoutIsoProbeExtra(): Int? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_READOUT_ISO)) {
+        getIntExtra(EXTRA_PNS_PREVIEW_READOUT_ISO, 0).takeIf { it > 0 }
+    } else {
+        null
+    }
 

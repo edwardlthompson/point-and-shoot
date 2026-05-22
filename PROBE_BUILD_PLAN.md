@@ -3,7 +3,7 @@
 **Audience:** Engineers and **automated coding agents** maintaining `point-and-shoot`.
 **Primary orchestration:** `scripts/pns_hfr_autorun.ps1` (ADB, `PNS.SWEEP_SIGNAL`, pulled JSON).
 
-**Product roadmap:** Feature milestones and sprints live in **`BUILD_PLAN.md`** (**M0–M9**, **Milestone 10** post-M9 backlog, **Milestone H** for human-only work). This file tracks **probe automation**, **CI/toolchain infra**, and the **§5 audit trail** that evidences device and host gates.
+**Product roadmap:** Feature milestones and sprints live in **`BUILD_PLAN.md`** (**M0–M9**, **Milestone 10** post-M9 backlog, **Milestone H** for human-only work). **App settings & mode behavior:** **`docs/PNS_TECHNICAL_SETTINGS.md`** (update whenever constants or pipeline behavior change). This file tracks **probe automation**, **CI/toolchain infra**, and the **§5 audit trail** that evidences device and host gates.
 
 **Fleet vs deep probes:** Shallow **metadata-only** camera discovery (seconds budget, no `createCaptureSession`) is specified under **`BUILD_PLAN.md` → Milestone 10 → Sprint 10.1**. **Probe-to-product Phases A–E** (export parity → runtime policy → features → quality → fleet docs) are ordered in **Milestone 10** Sprints **10.1** (Phase A overlap), **10.5–10.8**, etc. **§5** evidence for *that* product path is cold-start timing + cache JSON / log lines — not the same as **`pns_hfr_autorun`** exhaustive / session-matrix JSON; do not tick deep-probe checklist rows when only the shallow scan shipped.
 
@@ -22,6 +22,7 @@ These rules reduce drift ("slipping") between documentation and reality.
 7. **Start-of-list audit:** Before trusting existing `- [x]` rows (after merging branches, long sessions, or when progress feels inconsistent), walk **Section 6 from PH0 down through Infrastructure** in order. For each `- [x]`, confirm **Section 9** *Status* matches the claimed scope, **Section 5** contains matching evidence (or add an audit row), and if Kotlin or `scripts/*.ps1` changed since that evidence, re-run the gate from **Section 2** before building on that assumption.
 8. **BUILD_PLAN alignment:** When closing **§6** probe/infra rows or appending **§5**, cross-check the relevant **`BUILD_PLAN.md` milestone** (see **§6** mapping table) so product scope and probe evidence stay consistent.
 9. **UI / preview chrome:** Any change to finder layout, rotation, or the **7×3** quick grid / focal row must follow **`BUILD_PLAN.md` → Milestone 9 → Sprint 9.13** (Preview finder acceptance + screenshot queue; device PNGs, not chat-only “looks right”).
+10. **Technical settings:** When probe findings change **shipped defaults** (RAW tier, stream hints, DNG pairing, chase targets, H-mode thresholds, etc.), update **`docs/PNS_TECHNICAL_SETTINGS.md`** in the same change — do not leave probe-only knowledge in §5 alone.
 
 ---
 
@@ -314,6 +315,9 @@ The **master product checklist** is **`BUILD_PLAN.md`** (M0–M9, **Milestone 10
 | **M8** CI/CD automation | §6 **INFRA-3–6**; §7 CI bullets |
 | **M9** Preview chrome / HUD | §5 **`chrome_ux_gate.json`** / **`pns_chrome_ux_gate.ps1`**; Sprint **9.13** finder screenshots |
 | **M10** Post–M9 backlog | §5 per sprint (fleet, video, QR, chrome-unlock); not a single PH row |
+| **M13** Fleet RAW | §5 aux DNG / openability / still-mode gates; `pns_aux_dng_capture_analyze.ps1`, `pns_m13_*_gate.ps1` |
+| **M13V** Video expansion | §5 HFR / HDR10 / AI / CameraX; `pns_mediacodec_hfr_verify.ps1`, `pns_ai_features_verify.ps1`, `pns_camerax_extension_probe.ps1` |
+| **M14** Preview polish & pro UX | §5 chrome / QR / dual-video / codec-color gates; **`docs/PNS_TECHNICAL_SETTINGS.md`** (readout/H/RAW locks — sync on change); `pns_chrome_ux_gate.ps1`, `pns_video_codec_color_compare.ps1`, `pns_dual_video_verify.ps1` (*planned*), `pns_qr_scan_verify.ps1` |
 | **Milestone H** (human) | **§5** only — humans close items in `BUILD_PLAN.md`; no §6 checkbox |
 
 **Note:** **PH5–PH8** names match legacy probe tranches (ZSL latency, RAW/HDR exclusivity, burst, logical/physical). They are **not** the same as **`BUILD_PLAN` Milestones 5–8**.

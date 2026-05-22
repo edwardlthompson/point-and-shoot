@@ -16,8 +16,29 @@ enum class CaptureMediaFamily {
         /** Modes shown in the Mode dial when the tray is in video capture (no RAW bracket / highlight metering). */
         fun commandDialModesFor(family: CaptureMediaFamily): List<CommandDialMode> =
             when (family) {
-                Photo -> CommandDialMode.entries
-                Video -> listOf(CommandDialMode.Auto, CommandDialMode.M, CommandDialMode.S)
+                Photo ->
+                    buildList {
+                        addAll(
+                            CommandDialMode.entries.filter {
+                                it != CommandDialMode.Qr && it != CommandDialMode.Dual
+                            },
+                        )
+                        add(CommandDialMode.Qr)
+                    }
+                Video ->
+                    listOf(
+                        CommandDialMode.Auto,
+                        CommandDialMode.M,
+                        CommandDialMode.S,
+                        CommandDialMode.Dual,
+                    )
+            }
+
+        /** Sprint **14.3** — section title for the shooting-mode dropdown ([PreviewCommandDialDropdownMenu]). */
+        fun commandDialMenuSectionTitle(family: CaptureMediaFamily): String =
+            when (family) {
+                Photo -> "Photo programs"
+                Video -> "Video programs"
             }
     }
 }

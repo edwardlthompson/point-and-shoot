@@ -253,29 +253,48 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         continue
     }
 
-    Write-Host "[in_app_video_verify] waiting ${WaitSec}s for automation clip..."
-    Start-Sleep -Seconds $WaitSec
+    Write-Host "[in_app_video_verify] polling up to ${WaitSec}s for inAppVideoSaved..."
+    $deadline = (Get-Date).AddSeconds($WaitSec)
+    $pollHaystack = ""
+    $capturedEarly = $false
+    Start-Sleep -Seconds 10
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $adbExe = (Get-Command adb -ErrorAction Stop).Source
+            $argv = @()
+            if ($Serial) { $argv += "-s", $Serial }
+            $argv += "logcat", "-d", "-v", "threadtime", "-s", "PNS.AdbValidation:I"
+            $lines = & $adbExe @argv 2>&1
+            $pollHaystack = if ($lines -is [System.Array]) { $lines -join "`n" } else { [string]$lines }
+        }
+        catch {
+            Write-Warning "[in_app_video_verify] poll logcat failed: $_"
+            $pollHaystack = ""
+        }
+        if ($pollHaystack.Contains($successNeedle)) {
+            $capturedEarly = $true
+            Write-Host "[in_app_video_verify] success needle seen during poll"
+            break
+        }
+        Start-Sleep -Seconds 3
+    }
 
     $rawPath = Join-Path $outDir ("attempt_{0:D2}_logcat_raw.txt" -f $attempt)
     $fullText = ""
-    # Prefer exec-out (host parses stream); some devices return nearly empty dumps for `shell logcat *:S …`.
-    $tagArgs = @(
-        "exec-out", "logcat", "-d", "-v", "threadtime", "-t", "80000",
-        "-s", "PNS.AdbValidation:I", "PNS.ChromeUx:I", "PNS.Cam:I", "PNS.Cam:W", "AndroidRuntime:E"
-    )
-    try {
-        $fullText = [string](Invoke-AdbTimed $tagArgs 180000)
+    if ($capturedEarly -and $pollHaystack.Length -gt 0) {
+        $fullText = $pollHaystack
     }
-    catch {
-        Write-Warning "[in_app_video_verify] tag logcat pull failed: $_"
-        $fullText = ""
-    }
-    if ([string]::IsNullOrWhiteSpace($fullText)) {
+    else {
         try {
-            $fullText = [string](Invoke-AdbTimed @("exec-out", "logcat", "-d", "-v", "threadtime", "-t", "120000") 240000)
+            $adbExe = (Get-Command adb -ErrorAction Stop).Source
+            $argv = @()
+            if ($Serial) { $argv += "-s", $Serial }
+            $argv += "logcat", "-d", "-v", "threadtime", "-s", "PNS.AdbValidation:I", "PNS.ChromeUx:I", "AndroidRuntime:E"
+            $lines = & $adbExe @argv 2>&1
+            $fullText = if ($lines -is [System.Array]) { $lines -join "`n" } else { [string]$lines }
         }
         catch {
-            Write-Warning "[in_app_video_verify] broad logcat pull failed: $_"
+            Write-Warning "[in_app_video_verify] tag logcat pull failed: $_"
             $fullText = ""
         }
     }

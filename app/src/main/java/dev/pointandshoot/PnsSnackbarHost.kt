@@ -28,10 +28,21 @@ fun CoroutineScope.pnsShowSnackbar(
      * transient pipeline failures prefer Retry; use Copy for errors where retry is unlikely to help.
      */
     onRetry: (() -> Unit)? = null,
+    /** Optional primary action (e.g. QR **Open link**). Takes precedence over Copy, not over Retry. */
+    primaryActionLabel: String? = null,
+    onPrimaryAction: (() -> Unit)? = null,
 ) {
     if (host == null) return
     val wantRetry = onRetry != null
-    val wantCopy = !wantRetry && !clipboardDetail.isNullOrBlank() && clipboardAppContext != null
+    val wantPrimary =
+        !wantRetry &&
+            onPrimaryAction != null &&
+            !primaryActionLabel.isNullOrBlank()
+    val wantCopy =
+        !wantRetry &&
+            !wantPrimary &&
+            !clipboardDetail.isNullOrBlank() &&
+            clipboardAppContext != null
     launch {
         val result =
             host.showSnackbar(
@@ -39,14 +50,17 @@ fun CoroutineScope.pnsShowSnackbar(
                 actionLabel =
                     when {
                         wantRetry -> "Retry"
+                        wantPrimary -> primaryActionLabel
                         wantCopy -> "Copy"
                         else -> null
                     },
                 duration = if (longDuration) SnackbarDuration.Long else SnackbarDuration.Short,
-                withDismissAction = wantCopy || wantRetry,
+                // Only Retry uses the X dismiss; QR **Open link** / **Copy** need a clear action chip.
+                withDismissAction = wantRetry,
             )
         when {
             wantRetry && result == SnackbarResult.ActionPerformed -> onRetry?.invoke()
+            wantPrimary && result == SnackbarResult.ActionPerformed -> onPrimaryAction?.invoke()
             wantCopy && result == SnackbarResult.ActionPerformed -> {
                 val detail = clipboardDetail ?: return@launch
                 val app = clipboardAppContext ?: return@launch

@@ -1,0 +1,19 @@
+# Technical settings source of truth
+
+**Canonical doc:** `docs/PNS_TECHNICAL_SETTINGS.md`
+
+## When to update (mandatory)
+
+Any change that adds, removes, or alters **numeric defaults**, **mode behavior**, **pipeline locks**, **timing constants**, **HUD defaults**, or **fleet capture policy** must update **`docs/PNS_TECHNICAL_SETTINGS.md` in the same change** (same PR / commit).
+
+Examples: `ReadoutExposureChase` targets, H-mode thresholds, `streamHints` / DNG pairing flags, RAW tier order, chrome flex weights, `HudSettings` defaults, ProShot/fleet gates.
+
+## Plan alignment
+
+- New milestones/sprints in **`BUILD_PLAN.md`** should link this doc in the sprint body or gate table.
+- **`PROBE_BUILD_PLAN.md`** §1 rules and **`AGENTS.md`** living-docs list reference it.
+- User-visible releases: one line in **`CHANGELOG.md`** when settings doc changes materially.
+
+## Do not duplicate
+
+Preview chrome **layout** stays in **`docs/preview-chrome-layout-style-guide.md`**. Capture bisect history stays in **`docs/REVERTED_FEATURES_RESTORE_LIST.md`**. Fleet tables stay in **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`** / **`DODGE_PROFILE.md`** — link from the settings doc, do not fork tables.

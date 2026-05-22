@@ -40,7 +40,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$script:tag = "PNS.ReleaseAutomation"
+$script:logTag = "PNS.ReleaseAutomation"
 
 function Write-Log {
     param([string]$Message)

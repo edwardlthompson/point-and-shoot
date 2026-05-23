@@ -36,6 +36,7 @@ try {
         $batParams["SkipInstall"] = $true
     }
     if ($SkipAssemble) {
+        $memParams["SkipAssemble"] = $true
         $batParams["SkipAssemble"] = $true
     }
     if (-not $SkipAssemble) {

@@ -151,6 +151,7 @@ object InAppVideoRecordingSupport {
         fun fpsRangeFor(size: Size): Range<Int>? {
             val ranges = runCatching { map.getHighSpeedVideoFpsRangesFor(size) }.getOrNull() ?: return null
             return ranges.firstOrNull { it.lower == desiredFps && it.upper == desiredFps }
+                ?: ranges.firstOrNull { it.lower == it.upper && it.upper >= desiredFps }
                 ?: ranges.firstOrNull { it.upper == desiredFps }
         }
 
@@ -160,10 +161,17 @@ object InAppVideoRecordingSupport {
         }
 
         if (pref != null && pref.width >= 3840) {
-            sizes
-                .mapNotNull { s -> fpsRangeFor(s)?.let { range -> s to range } }
+            val atFps =
+                sizes.mapNotNull { s -> fpsRangeFor(s)?.let { range -> s to range } }
+            atFps
+                .filter { it.first.width >= 3840 && it.first.height >= 2160 }
                 .maxByOrNull { it.first.width.toLong() * it.first.height }
                 ?.let { return it }
+            atFps
+                .filter { it.first.width >= 1920 && it.first.height >= 1080 }
+                .maxByOrNull { it.first.width.toLong() * it.first.height }
+                ?.let { return it }
+            atFps.maxByOrNull { it.first.width.toLong() * it.first.height }?.let { return it }
         }
 
         val preferredOrder = listOf(Size(1920, 1080), Size(1280, 720))
@@ -175,4 +183,11 @@ object InAppVideoRecordingSupport {
         }
         return null
     }
+
+    /** HS AE for interleaved preview+record — same [recordFps] fixed range as the file. */
+    fun pickInterleavedHighSpeedVideoTarget(
+        map: StreamConfigurationMap?,
+        recordFps: Int,
+        preferredEncodeSize: Size? = null,
+    ): Pair<Size, Range<Int>>? = pickHighSpeedVideoTarget(map, recordFps, preferredEncodeSize)
 }

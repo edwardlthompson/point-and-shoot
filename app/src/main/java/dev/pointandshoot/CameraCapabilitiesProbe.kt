@@ -211,6 +211,22 @@ const val EXTRA_PNS_PREVIEW_VIDEO_TENBIT = "pns_preview_video_10bit"
 const val EXTRA_PNS_PREVIEW_VIDEO_DCG = "pns_preview_video_dcg"
 
 /**
+ * Sprint **VF.1**: seed AV1 in-app encode (`VideoCodec.AV1` + MediaCodec path).
+ * Typical ADB: `--ez pns_preview_video_av1 true` with `--ei pns_preview_video_codec_ordinal 4`.
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_AV1 = "pns_preview_video_av1"
+
+/**
+ * Sprint **VF.1**: override [PreviewChromePreferences.inAppVideoCodecOrdinal] (e.g. AV1 = 4).
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL = "pns_preview_video_codec_ordinal"
+
+/**
+ * Sprint **VF.2**: enable preview OIS + EIS for automation (`pns_video_stabilization_test.ps1`).
+ */
+const val EXTRA_PNS_PREVIEW_VIDEO_STABILIZATION = "pns_preview_video_stabilization"
+
+/**
  * Sprint **13.6**: scripted RAW video record (**`scripts/pns_raw_video_verify.ps1`**).
  * Clamped to **[0, 120]** seconds; uses [RawVideoRecordingController] (no MediaRecorder).
  */
@@ -788,6 +804,25 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
+        val adbAutomationVideoAv1 =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_AV1, false) ?: false
+            } else {
+                false
+            }
+        val adbAutomationVideoCodecOrdinal =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL, -1) ?: -1)
+                    .takeIf { it >= 0 }
+            } else {
+                null
+            }
+        val adbAutomationVideoStabilization =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_STABILIZATION, false) ?: false
+            } else {
+                false
+            }
         val adbDngBisectActive =
             if (trustIntentForPreviewPipeline) {
                 DngSaveBisectState.applyFromPreviewIntent(activity?.intent)
@@ -943,6 +978,9 @@ fun CameraCapabilitiesProbe(
             adbAutomationVideoEncodeH = adbAutomationVideoEncodeH,
             adbAutomationVideoTenBit = adbAutomationVideoTenBit,
             adbAutomationVideoDcg = adbAutomationVideoDcg,
+            adbAutomationVideoAv1 = adbAutomationVideoAv1,
+            adbAutomationVideoCodecOrdinal = adbAutomationVideoCodecOrdinal,
+            adbAutomationVideoStabilization = adbAutomationVideoStabilization,
             adbAutomationVideoRawSec = adbAutomationVideoRawSec,
             adbDngBisectActive = adbDngBisectActive,
             adbStillCaptureMode = adbStillCaptureMode,

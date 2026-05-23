@@ -24,9 +24,9 @@ class MediaCodecVideoRecorderColorVuiTest {
     }
 
     @Test
-    fun colorVuiTag_tenBit_isBt2020Hlg() {
+    fun colorVuiTag_tenBit_surfaceSdr_isBt709() {
         assertEquals(
-            "bt2020-hlg",
+            "bt709",
             MediaCodecVideoRecorder.colorVuiTagForConfig(
                 MediaCodecVideoRecorder.Config(
                     width = 1920,

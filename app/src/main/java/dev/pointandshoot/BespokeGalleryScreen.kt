@@ -8,6 +8,8 @@ import android.provider.MediaStore
 import android.media.ExifInterface
 import android.graphics.Matrix
 import android.graphics.Bitmap
+import android.widget.VideoView
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.pager.HorizontalPager
@@ -213,18 +215,31 @@ fun BespokeGalleryScreen(
             selectedDetail = null
             return@LaunchedEffect
         }
-        val exif = withContext(Dispatchers.IO) { extractExifMetadata(context, media.uri) }
         selectedDetail =
-            media.copy(
-                cameraId = exif.cameraId,
-                lens = exif.lens,
-                focalLength = exif.focalLength,
-                aperture = exif.aperture,
-                iso = exif.iso,
-                shutterSpeed = exif.shutterSpeed,
-                whiteBalance = exif.whiteBalance,
-            )
-        memoryProfiler.logEvent("Lazy EXIF loaded: ${media.displayName}")
+            if (media.isVideo) {
+                val videoMeta =
+                    withContext(Dispatchers.IO) {
+                        VideoCaptureMetadata.readFromUri(context, media.uri)
+                    }
+                media.copy(
+                    frameRate = VideoCaptureMetadata.formatFrameRate(videoMeta.frameRate),
+                    duration = VideoCaptureMetadata.formatDuration(videoMeta.durationMs),
+                    bitRate = videoMeta.bitRate,
+                    codec = videoMeta.codec,
+                )
+            } else {
+                val exif = withContext(Dispatchers.IO) { extractExifMetadata(context, media.uri) }
+                media.copy(
+                    cameraId = exif.cameraId,
+                    lens = exif.lens,
+                    focalLength = exif.focalLength,
+                    aperture = exif.aperture,
+                    iso = exif.iso,
+                    shutterSpeed = exif.shutterSpeed,
+                    whiteBalance = exif.whiteBalance,
+                )
+            }
+        memoryProfiler.logEvent("Lazy metadata loaded: ${media.displayName}")
     }
 
     DisposableEffect(Unit) {
@@ -279,6 +294,11 @@ fun BespokeGalleryScreen(
     // Load bitmap for selected media
     LaunchedEffect(selectedMedia) {
         selectedMedia?.let { media ->
+            if (media.isVideo) {
+                PnsBitmapGuard.safeRecycle(selectedBitmap, "BespokeGallery.VideoSelected")
+                selectedBitmap = null
+                return@let
+            }
             lifecycleScope.launch {
                 PnsBitmapGuard.safeRecycle(selectedBitmap, "BespokeGallery.BitmapChange")
                 selectedBitmap = null
@@ -418,17 +438,29 @@ fun BespokeGalleryScreen(
                     
                     Column {
                         var pageExif by remember(media.uri) { mutableStateOf<ExifMetadata?>(null) }
+                        var pageVideoMeta by remember(media.uri) { mutableStateOf<VideoCaptureMetadata.ReadInfo?>(null) }
                         LaunchedEffect(media.uri) {
-                            pageExif =
-                                withContext(Dispatchers.IO) {
-                                    extractExifMetadata(context, media.uri)
-                                }
+                            if (media.isVideo) {
+                                pageExif = null
+                                pageVideoMeta =
+                                    withContext(Dispatchers.IO) {
+                                        VideoCaptureMetadata.readFromUri(context, media.uri)
+                                    }
+                            } else {
+                                pageVideoMeta = null
+                                pageExif =
+                                    withContext(Dispatchers.IO) {
+                                        extractExifMetadata(context, media.uri)
+                                    }
+                            }
                         }
                         val exifMetadata = pageExif ?: ExifMetadata()
                         val isDng = media.displayName.lowercase().endsWith(".dng")
+                        val videoRot = pageVideoMeta?.rotationDegrees ?: 0
                         val swapAspect =
-                            isDng &&
-                                DngGalleryOrientation.needsSwapWidthHeight(exifMetadata.orientation)
+                            (isDng &&
+                                DngGalleryOrientation.needsSwapWidthHeight(exifMetadata.orientation)) ||
+                            (media.isVideo && (videoRot == 90 || videoRot == 270))
                         
                         val aspectRatio = if (swapAspect) {
                             media.height.toFloat() / media.width.toFloat()
@@ -442,6 +474,12 @@ fun BespokeGalleryScreen(
                                 .aspectRatio(aspectRatio)
                                 .background(Color.DarkGray)
                         ) {
+                            if (media.isVideo) {
+                                GalleryInlineVideoPlayer(
+                                    uri = media.uri,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
                             val bmp = if (selectedMedia?.uri == media.uri) selectedBitmap else null
                             if (bmp != null && !bmp.isRecycled) {
                                 val rotatedBitmap =
@@ -513,6 +551,7 @@ fun BespokeGalleryScreen(
                                 ) {
                                     CircularProgressIndicator(color = Color.White)
                                 }
+                            }
                             }
                         }
                         
@@ -648,33 +687,53 @@ fun BespokeGalleryScreen(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                
-                                media.duration?.let { duration ->
+                                val videoMeta: MediaItem =
+                                    when {
+                                        selectedMedia?.uri == media.uri ->
+                                            selectedDetail ?: detail
+                                        else ->
+                                            pageVideoMeta?.let { v ->
+                                                detail.copy(
+                                                    frameRate = VideoCaptureMetadata.formatFrameRate(v.frameRate),
+                                                    duration = VideoCaptureMetadata.formatDuration(v.durationMs),
+                                                    bitRate = v.bitRate,
+                                                    codec = v.codec,
+                                                )
+                                            } ?: detail
+                                    }
+                                videoMeta.frameRate?.let { fps ->
+                                    Text(
+                                        "Frame Rate: $fps",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                    )
+                                }
+                                videoMeta.duration?.let { duration ->
                                     Text(
                                         "Duration: $duration",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.frameRate?.let { fps ->
-                                    Text(
-                                        "Frame Rate: $fps fps",
-                                        color = Color.White,
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                media.bitRate?.let { bitrate ->
+                                videoMeta.bitRate?.let { bitrate ->
                                     Text(
                                         "Bit Rate: ${String.format("%.1f", bitrate / 1000000.0)} Mbps",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
                                 }
-                                media.codec?.let { codec ->
+                                videoMeta.codec?.let { codec ->
                                     Text(
                                         "Codec: $codec",
                                         color = Color.White,
                                         fontSize = 12.sp
+                                    )
+                                }
+                                if (videoRot != 0) {
+                                    Text(
+                                        "Rotation: ${videoRot}°",
+                                        color = Color.Gray,
+                                        fontSize = 11.sp,
                                     )
                                 }
                             }
@@ -768,6 +827,32 @@ data class ExifMetadata(
     val whiteBalance: String? = null,
     val orientation: Int = ExifInterface.ORIENTATION_NORMAL
 )
+
+@Composable
+private fun GalleryInlineVideoPlayer(uri: Uri, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx ->
+            VideoView(ctx).apply {
+                tag = uri
+                setVideoURI(uri)
+                setOnPreparedListener { mp ->
+                    mp.isLooping = true
+                    start()
+                }
+            }
+        },
+        modifier = modifier,
+        update = { view ->
+            if (view.tag != uri) {
+                view.tag = uri
+                view.setVideoURI(uri)
+            }
+        },
+        onRelease = { view ->
+            view.stopPlayback()
+        },
+    )
+}
 
 private fun extractExifMetadata(context: Context, uri: Uri): ExifMetadata {
     return try {

@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.content.Context
+import android.hardware.camera2.params.StreamConfigurationMap
 import android.util.Log
 import android.util.Size
 
@@ -11,8 +12,46 @@ import android.util.Size
 object InAppVideoFormatSelection {
     private const val TAG = "PNS.ChromeUx"
 
-    fun loadCatalog(supportsDcg: Boolean): List<VideoFormat> =
-        VideoFormatPresets.getHardwareTiers(supportsDcg = supportsDcg)
+    fun loadCatalog(
+        supportsDcg: Boolean,
+        supportsAv1: Boolean = false,
+        highSpeedMap: StreamConfigurationMap? = null,
+    ): List<VideoFormat> {
+        val tiers = VideoFormatPresets.getHardwareTiers(supportsDcg = supportsDcg, supportsAv1 = supportsAv1)
+        return filterCatalogToCaptureCapabilities(tiers, highSpeedMap)
+    }
+
+    /**
+     * HFR rows must exist on the **camera** constrained HS table, not encoder performance-points alone.
+     * Hides e.g. **4K @ 120** when only **1080p @ 120** is HS-capable.
+     */
+    fun filterCatalogToCaptureCapabilities(
+        catalog: List<VideoFormat>,
+        highSpeedMap: StreamConfigurationMap?,
+    ): List<VideoFormat> {
+        if (highSpeedMap == null) {
+            return catalog.filter { format ->
+                !(format.frameRate >= 120 && format.resolution.width >= 3840)
+            }
+        }
+        val filtered =
+            catalog.filter { format ->
+                if (format.frameRate < 120) {
+                    true
+                } else {
+                    InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
+                        highSpeedMap,
+                        format.frameRate,
+                        format.resolution,
+                    ) != null
+                }
+            }
+        val dropped = catalog.size - filtered.size
+        if (dropped > 0) {
+            Log.i(TAG, "videoFormatCatalog filtered hsDropped=$dropped remaining=${filtered.size}")
+        }
+        return filtered
+    }
 
     /**
      * Best-effort match for the readout chip label from chrome prefs + live encode size / fps.
@@ -73,8 +112,48 @@ object InAppVideoFormatSelection {
         wantDcg: Boolean,
         adbAutomationVideoTenBit: Boolean,
         chrome: PreviewChromePreferences,
+        supportsAv1: Boolean = MediaCodecCapabilityProbe.supportsAv1Encoder(),
+        adbForceAv1: Boolean = false,
+        highSpeedMap: StreamConfigurationMap? = null,
     ): VideoFormat {
-        val catalog = loadCatalog(supportsDcg)
+        val catalog = loadCatalog(supportsDcg, supportsAv1, highSpeedMap)
+        val forcedCodec =
+            when {
+                adbForceAv1 && supportsAv1 -> VideoCodec.AV1
+                chrome.inAppVideoCodecOrdinal >= 0 ->
+                    VideoCodec.entries.getOrNull(chrome.inAppVideoCodecOrdinal)
+                else -> null
+            }
+        if (forcedCodec != null) {
+            fun resolutionDistancePx(format: VideoFormat): Long {
+                val dw = (format.resolution.width - recordSize.width).toLong()
+                val dh = (format.resolution.height - recordSize.height).toLong()
+                return dw * dw + dh * dh
+            }
+            catalog
+                .filter { it.codec == forcedCodec && it.frameRate == targetFps }
+                .minByOrNull { resolutionDistancePx(it) }
+                ?.let { forced ->
+                    Log.i(
+                        TAG,
+                        "inAppVideoFormat=forcedCodec=${forced.codec} label=${forced.getLabel()} " +
+                            "${forced.resolution.width}x${forced.resolution.height}@${forced.frameRate} " +
+                            "hsRecord=${recordSize.width}x${recordSize.height}",
+                    )
+                    return forced
+                }
+            catalog
+                .filter { it.codec == forcedCodec }
+                .minByOrNull { kotlin.math.abs(it.frameRate - targetFps) }
+                ?.let { forced ->
+                    Log.i(
+                        TAG,
+                        "inAppVideoFormat=forcedCodecNearest label=${forced.getLabel()} " +
+                            "wantedFps=$targetFps actualFps=${forced.frameRate}",
+                    )
+                    return forced
+                }
+        }
         val pinned =
             resolveSelected(
                 catalog,
@@ -103,7 +182,7 @@ object InAppVideoFormatSelection {
 
         val fps =
             if (targetFps >= 120) {
-                targetFps.coerceIn(15, 240)
+                targetFps.coerceIn(15, 480)
             } else {
                 targetFps.coerceIn(15, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
             }
@@ -112,6 +191,7 @@ object InAppVideoFormatSelection {
                 resolution = recordSize,
                 fps = fps,
                 supportsDcg = supportsDcg,
+                supportsAv1 = supportsAv1,
             )
         val picked =
             when {

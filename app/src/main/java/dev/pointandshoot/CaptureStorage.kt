@@ -57,6 +57,8 @@ object CaptureStorage {
         Avif10BitHdr("image/avif", "avif"),
         JpegXl12Bit("image/jxl", "jxl"),
         Mp4("video/mp4", "mp4"),
+        /** AV1 in-app clips (API 34+ [MediaMuxer] WebM). */
+        WebM("video/webm", "webm"),
         /**
          * MCRAW-class RAW video (P&S `PNMRAWV1` container, Sprint **13.6**).
          * MediaStore row uses `video/mp4` MIME; file extension remains `.mcraw`.
@@ -314,8 +316,8 @@ object CaptureStorage {
         context: Context,
         profile: ImagingProfile,
         sequence: Long? = null,
+        kind: CaptureKind = CaptureKind.Mp4,
     ): Pair<Uri, ParcelFileDescriptor> {
-        val kind = CaptureKind.Mp4
         val resolver = context.applicationContext.contentResolver
         val seq = sequence ?: seqCounter.incrementAndGet()
         val displayName = filename(profile, kind, seq)
@@ -347,7 +349,11 @@ object CaptureStorage {
         return uri to pfd
     }
 
-    fun finalizePendingVideoInsert(context: Context, uri: Uri) {
+    fun finalizePendingVideoInsert(
+        context: Context,
+        uri: Uri,
+        captureMetadata: VideoCaptureMetadata.CaptureInfo? = null,
+    ) {
         val app = context.applicationContext
         val fix = CaptureLocationBridge.snapshot()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -357,6 +363,9 @@ object CaptureStorage {
         }
         if (fix != null) {
             MediaGeotag.applyToVideoUri(app, uri, fix)
+        }
+        if (captureMetadata != null) {
+            VideoCaptureMetadata.applyAfterFinalize(app, uri, captureMetadata)
         }
         Log.d(TAG, "finalizePendingVideoInsert uri=$uri")
     }

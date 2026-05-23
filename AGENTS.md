@@ -254,6 +254,10 @@ Use these from repo root unless a script documents otherwise.
 | `pns_memory_profiler.ps1` | Sprint **PO.1**: one-session preview + **`pns_preview_raw_count=1`**; greps **`PNS.MemoryProfiler`**, RAW capture ok, **`dumpsys meminfo`**. Artifacts **`hfr-runs/memory_profiler_*`**. |
 | `pns_battery_life_test.ps1` | Sprint **PO.2**: JVM **`PreviewAdaptiveFpsPolicyTest`** + USB adaptive FPS cap (`pns_preview_adaptive_battery_pct`) + lifecycle **`longRunningPaused`**. Artifacts **`hfr-runs/battery_life_test_*`**. |
 | `pns_po_optimization_gate.ps1` | **PO optimization gate:** **`pns_memory_profiler.ps1`** + **`pns_battery_life_test.ps1`** → **`hfr-runs/po_optimization_gate_*`**. |
+| `pns_video_format_test.ps1` | **VF.1** — **`PNS.VideoCapProbe`** `av1=` probe; optional **`-RunAv1Record`** (`pns_preview_video_av1`). Artifacts **`hfr-runs/video_format_test_*`**. |
+| `pns_video_stabilization_test.ps1` | **VF.2** — video-primary preview + **`pns_preview_video_stabilization`**; greps **`PNS.VideoEffects videoStabilization`**. Artifacts **`hfr-runs/video_stabilization_test_*`**. |
+| `pns_video_quality_gate.ps1` | **VF** gate: JVM + **`pns_mediacodec_hfr_verify.ps1 -GateProfile vf`** (H.264/H.265 @ 60, HEVC **120/240/480** @ 1080p, **ffprobe** audio+video on pulled MP4) + AV1 probe + stabilization. Requires **ffprobe** on PATH. Artifacts **`hfr-runs/video_quality_gate_*`**. |
+| `pns_mediacodec_hfr_verify.ps1` | HFR/codec matrix; **`-GateProfile vf`** = VF subset; **`-RequireFfprobeAv`** = fail without audio+video streams in MP4. |
 | `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_proshot_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
 | `dng_desktop_open_gate.py` / `pns_dng_desktop_open_gate.ps1` | Host-only: integrity + ASN bounds + wide-cal CM2 leak check on pulled DNGs. |
 | `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/proshot_cph2655/` (toolchain-verify workflow). |

@@ -57,6 +57,7 @@ internal class VideoRecordingController(
     private var recordingSurface: Surface? = null
     private var recordingUri: Uri? = null
     private var recordingPfd: ParcelFileDescriptor? = null
+    private var recordingCaptureInfo: VideoCaptureMetadata.CaptureInfo? = null
     @Volatile private var recorderStarted: Boolean = false
     private var audioEnabled: Boolean = false
 
@@ -104,7 +105,8 @@ internal class VideoRecordingController(
     /**
      * Query current recorder presence (for UI/automation polls).
      */
-    fun isRecorderPresent(): Boolean = mediaRecorder != null || mcRecorder?.isActive == true
+    /** True while a recorder exists (including MediaCodec stop/finalize in flight). */
+    fun isRecorderPresent(): Boolean = mediaRecorder != null || mcRecorder != null
 
     /** True after [maybeStartRecorder] / MediaRecorder.start (not merely prepared). */
     fun isRecorderStarted(): Boolean = recorderStarted
@@ -133,6 +135,10 @@ internal class VideoRecordingController(
      * Resets the internal peak counter on each call, matching [MediaRecorder.getMaxAmplitude] semantics.
      */
     fun peekAudioAmplitude(): Int = mcRecorder?.peekAmplitude() ?: mediaRecorder?.maxAmplitude ?: 0
+
+    fun peekMcVideoSamplesWritten(): Long = mcRecorder?.peekVideoSamplesWritten() ?: 0L
+
+    private fun targetFpsForMcWait(): Int = recordingCaptureInfo?.captureFps ?: 0
 
     /**
      * Get the recording surface if currently preparing/recording.
@@ -236,7 +242,7 @@ internal class VideoRecordingController(
         if (!wantRecord) {
             // Stop recording
             startFailureHold = false
-            wantsMediaCodecPath = false
+            // Keep [wantsMediaCodecPath] — Compose [hintInAppVideoMediaCodecPath] owns the HFR hint.
             val hadMc = mcRecorder != null
             val hadMr = mediaRecorder != null
             if (hadMc || hadMr) {
@@ -257,7 +263,11 @@ internal class VideoRecordingController(
         // HFR check - MediaCodec path handles fps > 60 natively; no rejection needed for that path
         val isHfr = desiredFps >= HFR_THRESHOLD_FPS
         val useMediaCodecPath =
-            forceMediaCodecGlComposite || isHfr || videoFormat.isTenBit || videoFormat.isDcg
+            forceMediaCodecGlComposite ||
+                isHfr ||
+                videoFormat.isTenBit ||
+                videoFormat.isDcg ||
+                videoFormat.codec == VideoCodec.AV1
         // Signal immediately so createSession can skip useHighSpeed before recorder is prepared
         wantsMediaCodecPath = useMediaCodecPath
         if (forceMediaCodecGlComposite) {
@@ -295,9 +305,22 @@ internal class VideoRecordingController(
                 "size=${size.width}x${size.height} fps=$targetFps codec=${videoFormat.codec}",
         )
 
+        val videoKind =
+            if (videoFormat.codec == VideoCodec.AV1) {
+                CaptureStorage.CaptureKind.WebM
+            } else {
+                CaptureStorage.CaptureKind.Mp4
+            }
+        recordingCaptureInfo =
+            VideoCaptureMetadata.CaptureInfo(
+                captureFps = targetFps,
+                codecLabel = videoFormat.getLabel(),
+                mimeType = videoKind.mimeType,
+            )
+
         // Open video output
         val pair = runCatching {
-            CaptureStorage.openVideoOutputReadWritePfd(appContext, profile)
+            CaptureStorage.openVideoOutputReadWritePfd(appContext, profile, kind = videoKind)
         }.getOrElse {
             Log.w(TAG, "video output unavailable: ${it.message}")
             startFailureHold = true
@@ -315,7 +338,14 @@ internal class VideoRecordingController(
         // MediaCodec path for HFR (>60fps) and 10-bit — bypasses ro.media.recorder-max-base-layer-fps=60
         if (useMediaCodecPath) {
             return prepareMediaCodecPath(
-                uri, pfd, videoFormat, targetFps, size, hasAudio, onEvent,
+                uri,
+                pfd,
+                videoFormat,
+                targetFps,
+                size,
+                hasAudio,
+                orientationHintDegrees,
+                onEvent,
             )
         }
 
@@ -388,6 +418,7 @@ internal class VideoRecordingController(
         targetFps: Int,
         size: android.util.Size,
         hasAudio: Boolean,
+        orientationHintDegrees: Int,
         onEvent: (Event) -> Unit,
     ): PrepareResult {
         val hdrProfile = when {
@@ -397,19 +428,49 @@ internal class VideoRecordingController(
         }
         val isHdr10 = videoFormat.isDcg ||
             hdrProfile == android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10
+        val encoderKind =
+            when (videoFormat.codec) {
+                VideoCodec.AV1 -> MediaCodecVideoRecorder.VideoEncoderKind.AV1
+                VideoCodec.H264 -> MediaCodecVideoRecorder.VideoEncoderKind.H264
+                else -> MediaCodecVideoRecorder.VideoEncoderKind.HEVC
+            }
+        // Encoder input must match constrained HS capture size ([size]), not chrome/catalog alone.
+        val encodeW = size.width
+        val encodeH = size.height
+        val encodeBitrate = bitrateForSize(encodeW, encodeH, targetFps, videoFormat.codec)
+        if (videoFormat.resolution.width != encodeW || videoFormat.resolution.height != encodeH) {
+            Log.i(
+                TAG,
+                "mcEncoderSize aligned catalog=${videoFormat.resolution.width}x${videoFormat.resolution.height} " +
+                    "hsSession=${encodeW}x$encodeH fps=$targetFps",
+            )
+        }
+        // CPH2655-class HS interleaved feeds TP10_UBWC to the encoder surface even when the UI
+        // format is 8-bit HEVC; Main10 encoder input avoids QC2 "unsupported TP10 vs NV12" stalls.
+        val mcTenBitSurfaceInput =
+            targetFps >= 120 &&
+                !videoFormat.isTenBit &&
+                !videoFormat.isDcg &&
+                videoFormat.codec != VideoCodec.H264 &&
+                videoFormat.codec != VideoCodec.AV1
+        if (mcTenBitSurfaceInput) {
+            Log.i(TAG, "HFR: Main10 encoder surface input (HAL TP10_UBWC on interleaved HS)")
+        }
         val config = MediaCodecVideoRecorder.Config(
-            width = videoFormat.resolution.width,
-            height = videoFormat.resolution.height,
+            width = encodeW,
+            height = encodeH,
             fps = targetFps,
-            bitrate = videoFormat.bitrate,
-            isTenBit = videoFormat.isTenBit,
+            bitrate = encodeBitrate,
+            isTenBit = videoFormat.isTenBit || mcTenBitSurfaceInput,
             hdrProfile = hdrProfile,
             isHdr10 = isHdr10,
             maxCll = 1000,
             maxFall = 400,
+            encoderKind = encoderKind,
+            orientationHintDegrees = orientationHintDegrees,
         )
         val rec = MediaCodecVideoRecorder(appContext, mainHandler)
-        val surface = rec.prepare(config, uri, pfd)
+        val surface = rec.prepare(config, uri, pfd, recordingCaptureInfo)
         if (surface == null) {
             Log.e(TAG, "MediaCodecVideoRecorder.prepare returned null surface")
             startFailureHold = true
@@ -422,8 +483,8 @@ internal class VideoRecordingController(
         recorderStarted = false
         Log.i(
             TAG,
-            "mcVideoPrepared audioEnabled=$hasAudio size=${size.width}x${size.height} fps=$targetFps " +
-                "bitrate=${videoFormat.bitrate} codec=${videoFormat.getLabel()} tenBit=${videoFormat.isTenBit}",
+            "mcVideoPrepared audioEnabled=$hasAudio size=${encodeW}x$encodeH fps=$targetFps " +
+                "bitrate=$encodeBitrate codec=${videoFormat.getLabel()} tenBit=${videoFormat.isTenBit}",
         )
         return PrepareResult.Ready(surface)
     }
@@ -437,7 +498,27 @@ internal class VideoRecordingController(
         if (mc != null) {
             recorderStarted = true
             mc.start()
-            Log.i(TAG, "MediaCodecVideoRecorder started")
+            val hfrMc = wantsMediaCodecPath && targetFpsForMcWait() >= 120
+            val muxReady =
+                if (hfrMc) {
+                    // HS burst starts after [maybeStartRecorder]; do not block the session callback.
+                    mainHandler.post {
+                        val ready = mc.awaitMuxerReady(20_000L)
+                        Log.i(TAG, "MediaCodec HFR muxReady(deferred)=$ready")
+                    }
+                    false
+                } else {
+                    mc.awaitMuxerReady(5_000L).also { ready ->
+                        if (!ready) {
+                            Log.w(TAG, "MediaCodec muxer not ready within 5s after start")
+                        }
+                    }
+                }
+            Log.i(TAG, "MediaCodecVideoRecorder started muxReady=$muxReady hfrDeferred=$hfrMc")
+            Log.i(
+                "PNS.ChromeUx",
+                "videoRecordMcHfr interleavedPreviewRecord=true livePreview=hfrInterleaved muxReady=$muxReady",
+            )
             return
         }
         if (mediaRecorder == null) return
@@ -464,6 +545,7 @@ internal class VideoRecordingController(
                 recordingUri = null
                 recorderStarted = false
                 audioEnabled = false
+                recordingCaptureInfo = null
                 lastShellWant = false
                 logAdbInAppVideoSaved(savedUri)
                 onEvent(Event.Stopped(savedUri, wasAudioEnabled))
@@ -496,7 +578,8 @@ internal class VideoRecordingController(
         var out: Uri? = null
         if (uri != null) {
             runCatching {
-                CaptureStorage.finalizePendingVideoInsert(appContext, uri)
+                CaptureStorage.finalizePendingVideoInsert(appContext, uri, recordingCaptureInfo)
+                recordingCaptureInfo = null
                 out = uri
                 Log.i(TAG, "inAppVideoSaved uri=$uri")
                 logAdbInAppVideoSaved(uri)
@@ -582,10 +665,26 @@ internal class VideoRecordingController(
             PnsAdbLog.i(appContext, "inAppVideoSaved ok=false bytes=-1")
             return
         }
-        val bytes =
-            runCatching {
-                appContext.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
-            }.getOrElse { -1L }
+        val bytes = resolveSavedVideoBytes(uri)
         PnsAdbLog.i(appContext, "inAppVideoSaved ok=true bytes=$bytes saved=$uri")
+    }
+
+    private fun resolveSavedVideoBytes(uri: Uri): Long {
+        runCatching {
+            appContext.contentResolver.query(
+                uri,
+                arrayOf(android.provider.MediaStore.Video.Media.SIZE),
+                null,
+                null,
+                null,
+            )?.use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) return c.getLong(0)
+            }
+        }
+        return runCatching {
+            appContext.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
+                if (pfd.statSize > 0L) pfd.statSize else null
+            }
+        }.getOrNull() ?: -1L
     }
 }

@@ -60,6 +60,12 @@ class MediaCodecVideoRecorder(
     private val mainHandler: Handler = Handler(Looper.getMainLooper()),
 ) {
 
+    enum class VideoEncoderKind {
+        H264,
+        HEVC,
+        AV1,
+    }
+
     companion object {
         private const val TAG = "PNS.MCVideoRec"
 
@@ -72,14 +78,53 @@ class MediaCodecVideoRecorder(
         /** Fallback SW HEVC encoder — 8-bit Main only, low performance. */
         private const val ANDROID_HEVC_ENCODER = "c2.android.hevc.encoder"
 
+        /** Qualcomm HW AVC encoder — HFR performance-points on OP13-class devices. */
+        private const val QTI_AVC_ENCODER = "c2.qti.avc.encoder"
+
+        /** Fallback SW AVC encoder. */
+        private const val ANDROID_AVC_ENCODER = "c2.android.avc.encoder"
+
+        /** Qualcomm HW AV1 encoder (Sprint **VF.1**). */
+        private const val QTI_AV1_ENCODER = "c2.qti.av1.encoder"
+
+        /** AOSP SW AV1 encoder fallback. */
+        private const val ANDROID_AV1_ENCODER = "c2.android.av1.encoder"
+
         /**
-         * Pick the best available HEVC encoder for [config].
-         * Priority: QTI main (480 fps, 10-bit) > QTI HDR (120 fps, 10-bit) > AOSP SW.
+         * Pick the best available encoder for [config].
+         * HEVC priority: QTI main (480 fps, 10-bit) > QTI HDR (120 fps, 10-bit) > AOSP SW.
+         * AV1: QTI HW > AOSP SW (first MIME_AV1 match).
          */
         fun pickEncoder(config: Config): String {
             val list = MediaCodecList(MediaCodecList.ALL_CODECS)
             val all = list.codecInfos.filter { it.isEncoder && !it.isAlias }
                 .map { it.name }
+            if (config.encoderKind == VideoEncoderKind.AV1) {
+                val av1Names =
+                    list.codecInfos
+                        .filter { it.isEncoder && !it.isAlias && MediaFormat.MIMETYPE_VIDEO_AV1 in it.supportedTypes }
+                        .map { it.name }
+                val qti = av1Names.firstOrNull { it.contains("qti", ignoreCase = true) }
+                if (config.fps >= 120) {
+                    return qti ?: QTI_AV1_ENCODER
+                }
+                return qti
+                    ?: av1Names.firstOrNull { it == QTI_AV1_ENCODER }
+                    ?: av1Names.firstOrNull { it == ANDROID_AV1_ENCODER }
+                    ?: av1Names.firstOrNull()
+                    ?: QTI_AV1_ENCODER
+            }
+            if (config.encoderKind == VideoEncoderKind.H264) {
+                val avcNames =
+                    list.codecInfos
+                        .filter { it.isEncoder && !it.isAlias && MediaFormat.MIMETYPE_VIDEO_AVC in it.supportedTypes }
+                        .map { it.name }
+                return avcNames.firstOrNull { it.contains("qti", ignoreCase = true) }
+                    ?: avcNames.firstOrNull { it == QTI_AVC_ENCODER }
+                    ?: avcNames.firstOrNull { it == ANDROID_AVC_ENCODER }
+                    ?: avcNames.firstOrNull()
+                    ?: QTI_AVC_ENCODER
+            }
             return when {
                 config.isTenBit || config.fps > 60 -> when {
                     QTI_HEVC_ENCODER in all -> QTI_HEVC_ENCODER
@@ -89,6 +134,13 @@ class MediaCodecVideoRecorder(
                 else -> if (QTI_HEVC_ENCODER in all) QTI_HEVC_ENCODER else ANDROID_HEVC_ENCODER
             }
         }
+
+        fun videoMimeForConfig(config: Config): String =
+            when (config.encoderKind) {
+                VideoEncoderKind.H264 -> MediaFormat.MIMETYPE_VIDEO_AVC
+                VideoEncoderKind.AV1 -> MediaFormat.MIMETYPE_VIDEO_AV1
+                VideoEncoderKind.HEVC -> MediaFormat.MIMETYPE_VIDEO_HEVC
+            }
 
         /**
          * Build the 25-byte [MediaFormat.KEY_HDR_STATIC_INFO] ByteBuffer.
@@ -145,9 +197,21 @@ class MediaCodecVideoRecorder(
                     config.hdrProfile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
             return when {
                 isHdr10Profile -> "bt2020-pq"
-                config.isTenBit -> "bt2020-hlg"
+                // Surface-input HFR is Camera2 SDR 8-bit; HLG tags on Main10 look wrong in players.
+                config.isTenBit -> "bt709"
                 else -> "bt709"
             }
+        }
+
+        /** AV1 requires WebM mux on API 34+; HEVC/H.264 stay MP4. */
+        fun muxerOutputFormatFor(config: Config): Int {
+            if (config.encoderKind == VideoEncoderKind.AV1) {
+                require(Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    "AV1 in-app recording requires API 34+ WebM muxer"
+                }
+                return MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
+            }
+            return MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
         }
 
         /**
@@ -229,6 +293,9 @@ class MediaCodecVideoRecorder(
         val maxCll: Int = 1000,
         val maxFall: Int = 400,
         val encoderName: String? = null,
+        val encoderKind: VideoEncoderKind = VideoEncoderKind.HEVC,
+        /** Clockwise rotation for gallery players ([MediaMuxer.setOrientationHint]). */
+        val orientationHintDegrees: Int = 0,
     ) {
         val effectiveEncoder: String get() = encoderName ?: pickEncoder(this)
     }
@@ -254,6 +321,13 @@ class MediaCodecVideoRecorder(
     private val encoderThread = HandlerThread("PNS.MCEnc").also { it.start() }
     private val encoderHandler = Handler(encoderThread.looper)
     private val stopping = AtomicBoolean(false)
+    private val muxerFinalized = AtomicBoolean(false)
+    private val muxerLock = Any()
+    private val videoSamplesWritten = java.util.concurrent.atomic.AtomicLong(0)
+    private var targetFpsForPts: Int = 30
+    private var videoFrameIndex: Long = 0L
+    private var audioMuxFrameIndex: Long = 0L
+    private var finalizeCaptureInfo: VideoCaptureMetadata.CaptureInfo? = null
 
     // Audio track fields
     private var audioRecord: AudioRecord? = null
@@ -262,12 +336,15 @@ class MediaCodecVideoRecorder(
     private var audioThread: Thread? = null
     private val peakAmplitude = AtomicInteger(0)
     @Volatile private var pendingAudioFormat: MediaFormat? = null
+    @Volatile private var audioCaptureStarted = false
 
     /** Peak amplitude since last call (0..32767), resets on read. */
     fun peekAmplitude(): Int = peakAmplitude.getAndSet(0)
 
     /** True after [MediaMuxer.start] and the video track is registered (first encoded frame path). */
     fun isMuxerReady(): Boolean = muxerStarted
+
+    fun peekVideoSamplesWritten(): Long = videoSamplesWritten.get()
 
     /**
      * Block until the muxer has started or [timeoutMs] elapses. Call after [start] once the
@@ -287,13 +364,25 @@ class MediaCodecVideoRecorder(
      * Prepare the encoder. Returns the [Surface] that must be added to the Camera2 session.
      * Returns null if the codec failed to configure.
      */
-    fun prepare(config: Config, uri: Uri, pfd: ParcelFileDescriptor): Surface? {
+    fun prepare(
+        config: Config,
+        uri: Uri,
+        pfd: ParcelFileDescriptor,
+        captureInfo: VideoCaptureMetadata.CaptureInfo? = null,
+    ): Surface? {
         check(state == State.Idle) { "prepare called in state $state" }
         this.pfd = pfd
         this.pendingUri = uri
+        this.finalizeCaptureInfo = captureInfo
         muxerReadyLatch = CountDownLatch(1)
         muxerStarted = false
+        muxerFinalized.set(false)
         stopping.set(false)
+        videoSamplesWritten.set(0)
+        targetFpsForPts = config.fps.coerceAtLeast(1)
+        videoFrameIndex = 0L
+        audioMuxFrameIndex = 0L
+        audioCaptureStarted = false
 
         val codecName = config.effectiveEncoder
 
@@ -301,18 +390,47 @@ class MediaCodecVideoRecorder(
         if (hasAudioPerm) startAudioCapture(uri)
 
         return runCatching {
+            if (config.encoderKind == VideoEncoderKind.AV1 &&
+                config.fps >= 120 &&
+                !codecName.contains("qti", ignoreCase = true)
+            ) {
+                error("AV1 HFR requires hardware encoder (qti); got $codecName")
+            }
             val encoder = MediaCodec.createByCodecName(codecName)
-            val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_HEVC, config.width, config.height).apply {
+            val mime = videoMimeForConfig(config)
+            val format = MediaFormat.createVideoFormat(mime, config.width, config.height).apply {
                 setInteger(MediaFormat.KEY_BIT_RATE, config.bitrate)
                 setInteger(MediaFormat.KEY_FRAME_RATE, config.fps)
                 setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
                 setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             }
-            val colorVui = applyHevcColorMetadata(format, config)
+            val colorVui =
+                when (config.encoderKind) {
+                    VideoEncoderKind.AV1, VideoEncoderKind.H264 -> {
+                        runCatching {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT709)
+                                format.setInteger(MediaFormat.KEY_COLOR_TRANSFER, MediaFormat.COLOR_TRANSFER_SDR_VIDEO)
+                                format.setInteger(MediaFormat.KEY_COLOR_RANGE, MediaFormat.COLOR_RANGE_LIMITED)
+                            }
+                            if (config.encoderKind == VideoEncoderKind.H264 &&
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                            ) {
+                                format.setInteger(
+                                    MediaFormat.KEY_PROFILE,
+                                    MediaCodecInfo.CodecProfileLevel.AVCProfileHigh,
+                                )
+                            }
+                        }
+                        "bt709"
+                    }
+                    VideoEncoderKind.HEVC -> applyHevcColorMetadata(format, config)
+                }
             Log.i(
                 TAG,
-                "prepare codec=$codecName size=${config.width}x${config.height} fps=${config.fps} " +
-                    "10bit=${config.isTenBit} hdrProfile=${config.hdrProfile} colorVui=$colorVui",
+                "prepare codec=$codecName mime=$mime size=${config.width}x${config.height} fps=${config.fps} " +
+                    "10bit=${config.isTenBit} hdrProfile=${config.hdrProfile} colorVui=$colorVui " +
+                    "encoderKind=${config.encoderKind}",
             )
             format.apply {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -342,10 +460,24 @@ class MediaCodecVideoRecorder(
                         return
                     }
                     val buf = mc.getOutputBuffer(index)
+                    // Start audio on first encoded frame even if muxer is not ready yet (HS prep delay).
+                    maybeStartAudioCapture()
                     if (buf != null && muxerStarted && videoTrack >= 0 && info.size > 0) {
                         buf.position(info.offset)
                         buf.limit(info.offset + info.size)
-                        runCatching { muxer?.writeSampleData(videoTrack, buf, info) }
+                        val framePeriodUs = 1_000_000L / targetFpsForPts.coerceAtLeast(1)
+                        val muxPtsUs = videoFrameIndex * framePeriodUs
+                        videoFrameIndex++
+                        val muxInfo = MediaCodec.BufferInfo()
+                        muxInfo.set(info.offset, info.size, muxPtsUs, info.flags)
+                        runCatching { muxer?.writeSampleData(videoTrack, buf, muxInfo) }
+                        val n = videoSamplesWritten.incrementAndGet()
+                        if (n == 1L || n % 120L == 0L) {
+                            Log.i(
+                                TAG,
+                                "mcVideoSample n=$n muxPtsUs=$muxPtsUs rawPtsUs=${info.presentationTimeUs}",
+                            )
+                        }
                     }
                     mc.releaseOutputBuffer(index, false)
                     if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
@@ -358,29 +490,41 @@ class MediaCodecVideoRecorder(
                 }
 
                 override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
-                    if (!muxerStarted) {
-                        videoTrack = muxer?.addTrack(format) ?: -1
-                        // Add audio track now if audio format is already known
-                        val af = pendingAudioFormat
-                        if (af != null && audioTrack < 0) {
-                            audioTrack = muxer?.addTrack(af) ?: -1
-                            Log.i(TAG, "audio track added at muxer-start idx=$audioTrack")
+                    synchronized(muxerLock) {
+                        if (muxerFinalized.get() || muxer == null || muxerStarted) return
+                        if (videoTrack >= 0) return
+                        videoTrack =
+                            runCatching { muxer?.addTrack(format) ?: -1 }.getOrElse { -1 }
+                        if (videoTrack >= 0) {
+                            Log.i(TAG, "video track added idx=$videoTrack format=$format")
                         }
-                        muxer?.start()
-                        muxerStarted = true
-                        muxerReadyLatch.countDown()
-                        Log.i(TAG, "muxer started videoTrack=$videoTrack format=$format")
                     }
+                    tryStartMuxerIfReady()
                 }
             }, encoderHandler)
 
             this.codec = encoder
-            this.muxer = MediaMuxer(pfd.fileDescriptor, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val muxFormat = muxerOutputFormatFor(config)
+            this.muxer = MediaMuxer(pfd.fileDescriptor, muxFormat).also { mux ->
+                if (config.orientationHintDegrees != 0) {
+                    mux.setOrientationHint(config.orientationHintDegrees)
+                }
+            }
+            Log.i(
+                TAG,
+                "muxer format=$muxFormat mime=${videoMimeForConfig(config)} " +
+                    "orientationHint=${config.orientationHintDegrees}",
+            )
             this.encoderSurface = surface
             state = State.Prepared(surface)
             surface
         }.onFailure { e ->
-            Log.e(TAG, "prepare failed: ${e.message}", e)
+            Log.e(
+                TAG,
+                "prepare failed codec=${config.effectiveEncoder} mime=${videoMimeForConfig(config)} " +
+                    "kind=${config.encoderKind}: ${e.message}",
+                e,
+            )
         }.getOrNull()
     }
 
@@ -390,11 +534,9 @@ class MediaCodecVideoRecorder(
         check(s is State.Prepared) { "start called in state $state" }
         stopping.set(false)
         codec?.start()
-        audioCodec?.start()
-        audioRecord?.startRecording()
-        startAudioFeedThread()
+        // Defer audio encoder + AudioRecord until the first video frame (HS prep can take many seconds).
         state = State.Recording
-        Log.i(TAG, "recording started")
+        Log.i(TAG, "recording started (audio deferred until first video frame)")
     }
 
     /**
@@ -410,13 +552,67 @@ class MediaCodecVideoRecorder(
         Log.i(TAG, "stopping recorder — signaling EOS to encoder surface")
         runCatching { encoderSurface?.let { codec?.signalEndOfInputStream() } }
         this.pendingOnSaved = onSaved
+        // If the codec never delivers EOS (configure race / empty HS feed), finalize anyway.
+        mainHandler.postDelayed({
+            if (pendingOnSaved != null && !muxerFinalized.get()) {
+                Log.w(TAG, "finalizeMuxer timeout — forcing teardown")
+                finalizeMuxer()
+            }
+        }, 8_000L)
     }
 
     /** Hard abort — no finalization. Safe to call from any state. */
     fun abort() {
         stopping.set(true)
         state = State.Stopped
+        if (!muxerFinalized.get()) {
+            runCatching { if (muxerStarted) muxer?.stop() }
+            runCatching { muxer?.release() }
+            muxer = null
+            muxerStarted = false
+            muxerFinalized.set(true)
+        }
+        pendingUri?.let { runCatching { CaptureStorage.discardPendingVideo(appContext, it) } }
+        pendingUri = null
         releaseResources(finalize = false)
+    }
+
+    private fun maybeStartAudioCapture() {
+        if (audioCaptureStarted) return
+        if (audioRecord == null || audioCodec == null) return
+        audioCaptureStarted = true
+        runCatching { audioCodec?.start() }
+        runCatching { audioRecord?.startRecording() }
+        startAudioFeedThread()
+        Log.i(TAG, "audio capture started with first video frame")
+    }
+
+    /**
+     * [MediaMuxer.addTrack] for all tracks, then [MediaMuxer.start]. Never add tracks after start.
+     * Starts video-only when audio format is not ready yet (audio is optional for a valid clip).
+     */
+    private fun tryStartMuxerIfReady() {
+        synchronized(muxerLock) {
+            if (muxerFinalized.get() || muxerStarted) return
+            val m = muxer ?: return
+            if (videoTrack < 0) return
+            val af = pendingAudioFormat
+            if (audioCodec != null && audioTrack < 0 && af != null) {
+                audioTrack = runCatching { m.addTrack(af) }.getOrElse { -1 }
+                if (audioTrack >= 0) {
+                    Log.i(TAG, "audio track added idx=$audioTrack")
+                }
+            }
+            if (videoTrack < 0) return
+            runCatching { m.start() }
+                .onFailure { e ->
+                    Log.e(TAG, "muxer.start failed: ${e.message}", e)
+                    return
+                }
+            muxerStarted = true
+            muxerReadyLatch.countDown()
+            Log.i(TAG, "muxer started videoTrack=$videoTrack audioTrack=$audioTrack")
+        }
     }
 
     private fun startAudioCapture(uri: Uri) {
@@ -485,13 +681,12 @@ class MediaCodecVideoRecorder(
             val outIdx = runCatching { ac.dequeueOutputBuffer(info, 0L) }.getOrDefault(-1)
             when {
                 outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                    // Store the format; the muxer may not be started yet (video track not ready)
-                    pendingAudioFormat = ac.outputFormat
-                    if (audioTrack < 0 && muxerStarted) {
-                        // Muxer already running — add audio track now
-                        audioTrack = muxer?.addTrack(ac.outputFormat) ?: -1
-                        Log.i(TAG, "audio track added late idx=$audioTrack")
+                    synchronized(muxerLock) {
+                        if (!muxerFinalized.get() && muxer != null && !muxerStarted && audioTrack < 0) {
+                            pendingAudioFormat = ac.outputFormat
+                        }
                     }
+                    tryStartMuxerIfReady()
                 }
                 outIdx >= 0 -> {
                     val buf = ac.getOutputBuffer(outIdx)
@@ -499,7 +694,12 @@ class MediaCodecVideoRecorder(
                         (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
                     ) {
                         buf.position(info.offset); buf.limit(info.offset + info.size)
-                        runCatching { muxer?.writeSampleData(audioTrack, buf, info) }
+                        val samplesPerAacFrame = 1024L
+                        val muxPtsUs = audioMuxFrameIndex * samplesPerAacFrame * 1_000_000L / 44100L
+                        audioMuxFrameIndex++
+                        val muxInfo = MediaCodec.BufferInfo()
+                        muxInfo.set(info.offset, info.size, muxPtsUs, info.flags)
+                        runCatching { muxer?.writeSampleData(audioTrack, buf, muxInfo) }
                     }
                     ac.releaseOutputBuffer(outIdx, false)
                     if ((info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) return
@@ -512,22 +712,53 @@ class MediaCodecVideoRecorder(
     private var pendingOnSaved: ((Uri?) -> Unit)? = null
 
     private fun finalizeMuxer() {
-        val savedUri = runCatching {
-            if (muxerStarted) {
-                muxer?.stop()
+        if (!muxerFinalized.compareAndSet(false, true)) {
+            Log.w(TAG, "finalizeMuxer ignored (already finalized)")
+            return
+        }
+        val frames = videoSamplesWritten.get()
+        val durationUs =
+            if (frames > 0L && targetFpsForPts > 0) {
+                (frames - 1) * 1_000_000L / targetFpsForPts.coerceAtLeast(1)
+            } else {
+                0L
             }
-            muxer?.release()
-            muxerStarted = false
-            muxer = null
-            val uri = pendingUri
-            if (uri != null) {
-                CaptureStorage.finalizePendingVideoInsert(appContext, uri)
+        var savedUri: Uri? = null
+        val mux = muxer
+        val uri = pendingUri
+        val captureInfo = finalizeCaptureInfo
+        finalizeCaptureInfo = null
+        pendingUri = null
+
+        Log.i(TAG, "mcVideoFramesWritten=$frames muxDurationSec=${durationUs / 1_000_000.0}")
+        PnsAdbLog.i(
+            appContext,
+            "mcVideoFramesWritten=$frames muxDurationSec=${"%.2f".format(durationUs / 1_000_000.0)}",
+        )
+
+        if (frames > 0L && muxerStarted && mux != null) {
+            runCatching { mux.stop() }
+                .onFailure { e -> Log.w(TAG, "muxer.stop failed: ${e.message}") }
+        } else if (uri != null) {
+            Log.w(TAG, "discarding empty video (frames=$frames muxerStarted=$muxerStarted)")
+            runCatching { CaptureStorage.discardPendingVideo(appContext, uri) }
+        }
+
+        runCatching { mux?.release() }
+            .onFailure { e -> Log.w(TAG, "muxer.release failed: ${e.message}") }
+        muxer = null
+        muxerStarted = false
+
+        if (uri != null && frames > 0L) {
+            runCatching {
+                CaptureStorage.finalizePendingVideoInsert(appContext, uri, captureInfo)
                 Log.i(TAG, "inAppVideoSaved uri=$uri")
+                savedUri = uri
+            }.onFailure { e ->
+                Log.w(TAG, "finalizePendingVideoInsert failed: ${e.message}")
+                runCatching { CaptureStorage.discardPendingVideo(appContext, uri) }
             }
-            uri
-        }.onFailure { e ->
-            Log.w(TAG, "finalizeMuxer failed: ${e.message}")
-        }.getOrNull()
+        }
 
         releaseResources(finalize = false)
 
@@ -547,9 +778,11 @@ class MediaCodecVideoRecorder(
         audioCodec = null
         audioTrack = -1
         pendingAudioFormat = null
+        runCatching { codec?.setCallback(null, null) }
         runCatching { codec?.stop() }
         runCatching { codec?.release() }
         codec = null
+        runCatching { audioCodec?.setCallback(null, null) }
         runCatching { encoderSurface?.release() }
         encoderSurface = null
         if (finalize) {

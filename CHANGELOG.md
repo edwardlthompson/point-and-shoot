@@ -4,18 +4,30 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
+## [0.14.0-beta.3] - 2026-05-23
+
+Pre-release for **120 fps HFR in-app video** live finder + focal-matched monitor crop on OnePlus 13 **`8bf09993`**.
+
+**Release notes:** [`RELEASE_NOTES_v0.14.0-beta.3.md`](RELEASE_NOTES_v0.14.0-beta.3.md) · **APK:** `Point-and-Shoot_0.14.0-beta.3.apk`
+
 ### Added
 
+- **HFR record live finder (MediaCodec @ 120 fps)** — Encoder-only constrained high-speed on the record camera plus a **second rear camera** (~30 fps YUV → GLES) so the portrait finder stays smooth during **1080p120** record. Shaders: `hfr_yuv_monitor.vert/frag.glsl`, [`HfrRecordMonitorSupport`](app/src/main/java/dev/pointandshoot/HfrRecordMonitorSupport.kt), [`HfrMonitorPreviewCrop`](app/src/main/java/dev/pointandshoot/HfrMonitorPreviewCrop.kt).
+- **Focal-matched monitor framing** — Wide monitor while tele/UW records; UW fallback while wide records; center UV crop from role-equivalent focal lengths (14 / 23 / 73 mm + digital-eq slots when applicable). Logs `PNS.HfrMonitor cropSpan=…`.
 - **Bespoke Gallery — Sprint BG.3 closed** — In-app gallery: EXIF/metadata panel, delete, share, pinch-zoom/pan. **Maintainer UX/UI sign-off 2026-05-22** (sprint archived in [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)).
 - **Tray surface restore** — `PreviewLastSurfacePrefs` remembers last **Photo**, **Video**, or in-app **Gallery** across cold start (`docs/PNS_TECHNICAL_SETTINGS.md`).
-- **Sprint PO.1 — Memory & performance** — `PnsBitmapGuard` (bitmap alloc/recycle/leak check), `PnsMediaStoreGallery` (indexed DCIM-only MediaStore index + lazy EXIF), preview `MemoryProfiler` session logs (`PNS.MemoryProfiler`), script `pns_memory_profiler.ps1`.
-- **Sprint PO.2 — Battery & thermal** — `PreviewAdaptiveFpsPolicy` (battery/thermal FPS cap, `PNS.PowerThermal adaptiveFpsCap`), `PreviewLongRunningPause` (lifecycle YUV pause + FPS sweep wait-on-resume), ADB overrides `pns_preview_adaptive_battery_pct` / `pns_preview_adaptive_thermal_status`, script `pns_battery_life_test.ps1`, combined gate `pns_po_optimization_gate.ps1`.
-- **Selfie DNG gallery orientation** — DNG decodes without `loadThumbnail` EXIF bake-in; apply TIFF tag 274 once (`DngGalleryOrientation`); JPEG unchanged.
+- **Sprint PO.1 / PO.2** — Memory profiler + adaptive FPS / long-running YUV pause (`pns_po_optimization_gate.ps1`).
+- **Video format docs + gates** — [`docs/VIDEO_MODE_MATRIX.md`](docs/VIDEO_MODE_MATRIX.md), [`docs/VIDEO_FORMAT_RECOMMENDATIONS.md`](docs/VIDEO_FORMAT_RECOMMENDATIONS.md); scripts `pns_video_format_test.ps1`, `pns_video_quality_gate.ps1`, `pns_video_stabilization_test.ps1`.
 
 ### Fixed
 
-- **Selfie JPEG + DNG orientation in bespoke gallery** — JPEG companions no longer double-rotate (`loadThumbnail` already applies EXIF). DNG decodes without thumbnail EXIF bake-in; applies TIFF tag **274** once (removed erroneous 270°→90° remap and mistaken +180° save tweak).
-- **QR scan (photo programs)** — Restored preview-engine YUV decode + `PreviewQrScanOverlay` for **QR** dial mode (`pns_qr_scan_verify.ps1` path).
+- **HFR monitor orientation + mirroring** — Texture rotation from `mlInputImageRotationDegrees`; V-axis mirror so rear finder matches main preview after portrait rotation.
+- **HFR monitor crop wiring** — `HfrYuvImageCopier.copy(…, textureCrop)` was omitted (always full-frame); role-based focal fallback when HAL reports identical focal lengths per camera id.
+- **HFR monitor lifecycle** — Ordered teardown (listener → camera → `ImageReader`) fixes second-record crash (`buffer is inaccessible` / abandoned `BufferQueue`).
+- **HFR preview strobing** — `RENDERMODE_WHEN_DIRTY`, last-frame hold, no duplicate `CONTINUOUSLY` toggles.
+- **MediaCodec HFR encode** — Encoder-only HS burst order, SDR NV12 on single-surface HS, deferred mux finalize; `pns_mediacodec_hfr_verify.ps1` gate updates.
+- **Selfie JPEG + DNG orientation in bespoke gallery** — DNG TIFF **274** once; JPEG no double-rotate.
+- **QR scan (photo programs)** — Restored YUV + `PreviewQrScanOverlay` for **QR** dial mode.
 - **Gallery forced on launch** — Removed debug default that opened bespoke gallery every cold start.
 
 ## [0.14.0-beta.2] - 2026-05-21

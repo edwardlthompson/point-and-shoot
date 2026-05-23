@@ -683,6 +683,12 @@ fun PreviewEngineScreen(
     adbAutomationVideoTenBit: Boolean = false,
     /** DCG HDR10 for ADB video automation (`--ez pns_preview_video_dcg`). */
     adbAutomationVideoDcg: Boolean = false,
+    /** AV1 encode for ADB (`--ez pns_preview_video_av1`, Sprint **VF.1**). */
+    adbAutomationVideoAv1: Boolean = false,
+    /** Codec ordinal override (`--ei pns_preview_video_codec_ordinal`, Sprint **VF.1**). */
+    adbAutomationVideoCodecOrdinal: Int? = null,
+    /** OIS+EIS for ADB (`--ez pns_preview_video_stabilization`, Sprint **VF.2**). */
+    adbAutomationVideoStabilization: Boolean = false,
     /** RAW video automation (`--ei pns_preview_video_raw_sec N`, Sprint **13.6**). */
     adbAutomationVideoRawSec: Int = 0,
     /** DNG matrix bisect — see [DngSaveBisectState] and `EXTRA_PNS_PREVIEW_DNG_*`. */
@@ -950,18 +956,12 @@ fun PreviewEngineScreen(
     LaunchedEffect(adbAutomationVideoFps) {
         val fps = adbAutomationVideoFps
         if (fps != null && fps > 0) {
-            selectedFps = fps.coerceIn(15, 240)
+            selectedFps = fps.coerceIn(15, 480)
             userSelectedFps = selectedFps
             PnsAdbLog.i(context, "preview seeded videoFps=$fps (adb)")
         }
     }
 
-    LaunchedEffect(selectedFps, primaryPhoto, adbAutomationVideoTenBit, adbAutomationVideoDcg) {
-        val wantsMc =
-            !primaryPhoto &&
-                (selectedFps >= 120 || adbAutomationVideoTenBit || adbAutomationVideoDcg)
-        controller.hintInAppVideoMediaCodecPath(wantsMc)
-    }
     val previewState by produceState(
         initialValue = PreviewEnginePollState.idle(),
         key1 = controller,
@@ -984,9 +984,19 @@ fun PreviewEngineScreen(
         sweepJob,
         adbAdaptiveBatteryPctOverride,
         adbAdaptiveThermalStatusOverride,
+        adbAutomationInAppVideoSec,
+        adbAutomationVideoFps,
     ) {
         while (true) {
             if (sweepJob != null) {
+                delay(3_000L)
+                continue
+            }
+            // USB HFR gates: do not cap 120–480 fps mid-run when the device heats up after prior cases.
+            if (adbAutomationInAppVideoSec > 0 && (adbAutomationVideoFps ?: 0) >= 120) {
+                if (selectedFps != userSelectedFps) {
+                    selectedFps = userSelectedFps
+                }
                 delay(3_000L)
                 continue
             }
@@ -1224,6 +1234,53 @@ fun PreviewEngineScreen(
         }
     }
     val chromePrefs = rememberPreviewChromePreferences()
+    LaunchedEffect(adbAutomationVideoAv1, adbAutomationVideoCodecOrdinal) {
+        if (adbAutomationVideoAv1 || adbAutomationVideoCodecOrdinal == VideoCodec.AV1.ordinal) {
+            val c = chromePrefs.current
+            chromePrefs.update(
+                c.copy(
+                    inAppVideoCodecOrdinal = VideoCodec.AV1.ordinal,
+                    inAppVideoEncodeWidth = if (c.inAppVideoEncodeWidth > 0) c.inAppVideoEncodeWidth else 1920,
+                    inAppVideoEncodeHeight = if (c.inAppVideoEncodeHeight > 0) c.inAppVideoEncodeHeight else 1080,
+                    inAppVideoFps = if (c.inAppVideoFps > 0) c.inAppVideoFps else 60,
+                ),
+            )
+            PnsAdbLog.i(context, "preview seeded videoCodec=AV1 (adb)")
+        }
+        adbAutomationVideoCodecOrdinal?.let { ord ->
+            if (VideoCodec.entries.getOrNull(ord) != null) {
+                chromePrefs.update(chromePrefs.current.copy(inAppVideoCodecOrdinal = ord))
+            }
+        }
+    }
+    LaunchedEffect(adbAutomationVideoStabilization) {
+        controller.adbAutomationVideoStabilization = adbAutomationVideoStabilization
+        if (adbAutomationVideoStabilization) {
+            PnsAdbLog.i(context, "preview seeded videoStabilization=true (adb)")
+        }
+    }
+    LaunchedEffect(adbAutomationVideoAv1) {
+        controller.adbAutomationVideoAv1 = adbAutomationVideoAv1
+    }
+    LaunchedEffect(
+        selectedFps,
+        primaryPhoto,
+        adbAutomationVideoTenBit,
+        adbAutomationVideoDcg,
+        adbAutomationVideoFps,
+        chromePrefs.current.inAppVideoCodecOrdinal,
+        adbAutomationVideoAv1,
+    ) {
+        val wantsAv1 =
+            adbAutomationVideoAv1 ||
+                chromePrefs.current.inAppVideoCodecOrdinal == VideoCodec.AV1.ordinal
+        val automationHfrFps = adbAutomationVideoFps?.takeIf { it >= 120 } ?: 0
+        val mcHintFps = maxOf(selectedFps, automationHfrFps)
+        val wantsMc =
+            !primaryPhoto &&
+                (mcHintFps >= 120 || adbAutomationVideoTenBit || adbAutomationVideoDcg || wantsAv1)
+        controller.hintInAppVideoMediaCodecPath(wantsMc)
+    }
     LaunchedEffect(adbAutomationVideoEncodeW, adbAutomationVideoEncodeH) {
         val w = adbAutomationVideoEncodeW ?: return@LaunchedEffect
         val h = adbAutomationVideoEncodeH ?: return@LaunchedEffect
@@ -1856,6 +1913,12 @@ fun PreviewEngineScreen(
                         isRecording = false
                         if (ev.uri != null) {
                             lastGalleryUri = ev.uri
+                        } else {
+                            captureScope.pnsShowSnackbar(
+                                snackbarHostState,
+                                "Video not saved — no frames were encoded. Try 60 fps or a lower resolution.",
+                                longDuration = true,
+                            )
                         }
                         val vc = videoCaptureReturn
                         if (vc != null && ev.uri != null) {
@@ -1946,10 +2009,11 @@ fun PreviewEngineScreen(
         }
         delay(2500)
         adbAutomationVideoFps?.takeIf { it >= 120 }?.let { targetFps ->
-            selectedFps = targetFps.coerceIn(15, 240)
+            selectedFps = targetFps.coerceIn(15, 480)
             controller.setDesired(selectedCameraIdState.value, targetFps)
             PnsAdbLog.i(context, "inAppVideoAutomation hfrSettle fps=$targetFps")
             delay(4000)
+            if (targetFps >= 480) delay(6000)
         }
         var waited = 0
         while (selectedCameraIdState.value.isNullOrBlank() && waited < 200) {
@@ -1965,17 +2029,23 @@ fun PreviewEngineScreen(
             pumpWait++
         }
         isRecording = true
-        val prepCap = if (adbAutomationVideoFps != null && adbAutomationVideoFps >= 120) 900 else 400
+        val prepCap =
+            when {
+                adbAutomationVideoFps != null && adbAutomationVideoFps >= 480 -> 4800
+                adbAutomationVideoFps != null && adbAutomationVideoFps >= 240 -> 2800
+                adbAutomationVideoFps != null && adbAutomationVideoFps >= 120 -> 2800
+                else -> 400
+            }
         var prepWait = 0
         while (
-            !controller.peekInAppVideoRecorderStarted() &&
+            !controller.peekInAppVideoAutomationRecordReady() &&
                 !controller.peekInAppVideoShellStartFailureHold() &&
                 prepWait < prepCap
         ) {
             delay(25)
             prepWait++
         }
-        if (controller.peekInAppVideoShellStartFailureHold() || !controller.peekInAppVideoRecorderStarted()) {
+        if (controller.peekInAppVideoShellStartFailureHold() || !controller.peekInAppVideoAutomationRecordReady()) {
             PnsAdbLog.i(
                 context,
                 "inAppVideoAutomation recorderMissingOrFailed prepWaitMs=${prepWait * 25} hold=${controller.peekInAppVideoShellStartFailureHold()}",
@@ -1988,7 +2058,11 @@ fun PreviewEngineScreen(
             delay(3000)
         }
         isRecording = false
-        PnsAdbLog.i(context, "finished in-app video automation recordSec=$sec")
+        PnsAdbLog.i(
+            context,
+            "finished in-app video automation recordSec=$sec previewFps=${"%.1f".format(controller.peekPreviewSmoothedFps())} " +
+                "targetFps=${adbAutomationVideoFps ?: selectedFps}",
+        )
     }
 
     var pendingEnableGeotag by remember { mutableStateOf(false) }
@@ -2581,6 +2655,7 @@ fun PreviewEngineScreen(
         adbStorageAvailableBytes = adbStorageAvailableBytes,
         adbAutomationVideoTenBit = adbAutomationVideoTenBit,
         adbAutomationVideoRawSec = adbAutomationVideoRawSec,
+        adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
         videoEncodeSize = videoEncodeResolved,
     )
     
@@ -2682,6 +2757,7 @@ private fun PreviewEngineContent(
     adbStorageAvailableBytes: Long? = null,
     adbAutomationVideoTenBit: Boolean = false,
     adbAutomationVideoRawSec: Int = 0,
+    adbAutomationInAppVideoSec: Int = 0,
     videoEncodeSize: Size,
 ) {
     val context = LocalContext.current
@@ -2887,9 +2963,24 @@ private fun PreviewEngineContent(
                 } ?: false
             halDcg || settings.enableResearchDcgHDR || adbAutomationVideoDcg
         }
+    var supportsInAppVideoAv1 by remember { mutableStateOf(MediaCodecCapabilityProbe.supportsAv1Encoder()) }
+    LaunchedEffect(Unit) {
+        supportsInAppVideoAv1 = MediaCodecCapabilityProbe.probe().supportsAv1
+    }
     val videoFormatCatalog =
-        remember(supportsInAppVideoDcg) {
-            InAppVideoFormatSelection.loadCatalog(supportsInAppVideoDcg)
+        remember(selectedCameraId, supportsInAppVideoDcg, supportsInAppVideoAv1) {
+            val hsMap =
+                selectedCameraId?.let { id ->
+                    runCatching {
+                        cameraManager.getCameraCharacteristics(id)
+                            .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    }.getOrNull()
+                }
+            InAppVideoFormatSelection.loadCatalog(
+                supportsDcg = supportsInAppVideoDcg,
+                supportsAv1 = supportsInAppVideoAv1,
+                highSpeedMap = hsMap,
+            )
         }
     val selectedInAppVideoFormat =
         remember(videoFormatCatalog, chrome, videoEncodeSize, selectedFps) {
@@ -2901,6 +2992,30 @@ private fun PreviewEngineContent(
                 fallbackFps = selectedFps,
             )
         }
+    LaunchedEffect(videoFormatCatalog, primaryPhoto, chrome, adbAutomationInAppVideoSec) {
+        if (adbAutomationInAppVideoSec > 0) return@LaunchedEffect
+        if (primaryPhoto || videoFormatCatalog.isEmpty()) return@LaunchedEffect
+        val resolved =
+            InAppVideoFormatSelection.resolveSelected(
+                catalog = videoFormatCatalog,
+                chrome = chrome,
+                fallbackWidth = chrome.inAppVideoEncodeWidth,
+                fallbackHeight = chrome.inAppVideoEncodeHeight,
+                fallbackFps = chrome.inAppVideoFps,
+            )
+        if (resolved != null) return@LaunchedEffect
+        val fallback = videoFormatCatalog.firstOrNull() ?: return@LaunchedEffect
+        Log.i(
+            "PNS.ChromeUx",
+            "videoFormatCatalogMigrate stalePref -> ${fallback.getLabel()} " +
+                "${fallback.resolution.width}x${fallback.resolution.height}@${fallback.frameRate}",
+        )
+        chromePrefs.update(InAppVideoFormatSelection.chromeAfterSelect(chrome, fallback))
+        if (fallback.frameRate != selectedFps) {
+            onSetFps(fallback.frameRate)
+        }
+        onPickVideoEncodeSize(fallback.resolution)
+    }
     var recordStartElapsedMs by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(isRecording) {
         if (isRecording) {
@@ -4026,12 +4141,37 @@ private fun PreviewMainViewport(
             )
         }
         val hudForPreviewLut = rememberUpdatedState(hudState.current)
+        // HFR record: skip heavy video LUT on GLES so preview keeps up with HS preview frames.
         val previewLutCatalog =
-            PreviewLutSelection.activeCatalog(
-                isRecording = isRecording,
-                videoPrimary = videoPrimaryPreview,
-                hud = hudForPreviewLut.value,
-            )
+            if (isRecording && videoPrimaryPreview && selectedFps >= 120) {
+                LutCatalog.None
+            } else {
+                PreviewLutSelection.activeCatalog(
+                    isRecording = isRecording,
+                    videoPrimary = videoPrimaryPreview,
+                    hud = hudForPreviewLut.value,
+                )
+            }
+        // HFR finder: WHEN_DIRTY + requestRender per monitor frame (avoid CONTINUOUSLY strobing).
+        LaunchedEffect(isRecording, videoPrimaryPreview, selectedFps, glSurfaceHost) {
+            val glv = glSurfaceHost ?: return@LaunchedEffect
+            glv.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
+            glv.requestRender()
+        }
+        LaunchedEffect(isRecording, videoPrimaryPreview, selectedFps, glSurfaceHost, lutPreviewRenderer) {
+            val host = glSurfaceHost ?: return@LaunchedEffect
+            val hfrRec =
+                isRecording &&
+                    videoPrimaryPreview &&
+                    selectedFps >= 120 &&
+                    controller.peekWantsMediaCodecVideoRecord()
+            controller.onHfrInterleavedComposeRecordState(recording = hfrRec)
+            // Enable as soon as HFR record starts — monitor camera opens later during HS
+            // session configure; waiting on peekHfrEncoderOnlyMonitorActive() left the finder
+            // on a starved primary SurfaceTexture (frozen frame) for H.264/HEVC @ 120.
+            host.queueEvent { lutPreviewRenderer.setHfrYuvMonitorEnabled(hfrRec) }
+            host.requestRender()
+        }
         LaunchedEffect(
             previewLutCatalog.name,
             isRecording,
@@ -6595,6 +6735,46 @@ private class PreviewController(
     private var dualFrontController: DualVideoFrontCameraController? = null
     @Volatile private var dualVideoActive: Boolean = false
 
+    /** True only between successful record prepare ([applyInAppVideoRecordingShell] wantRecord) and stop. */
+    @Volatile private var inAppVideoRecordingArmed: Boolean = false
+    @Volatile private var hfrInterleavedRecordActive: Boolean = false
+    @Volatile private var hfrInterleavedEncodeRetryDone: Boolean = false
+    @Volatile private var deferMcStartUntilPreviewFrame: Boolean = false
+    private var hfrInterleavedWatchdogToken: Int = 0
+    private val hfrInterleavedEncodeWatchdog =
+        Runnable {
+            if (!useHfrInterleavedMcPreview()) return@Runnable
+            if (!hfrInterleavedRecordActive && !hfrEncoderOnlyRecordActive) return@Runnable
+            if (videoController.peekMcVideoSamplesWritten() > 0L) return@Runnable
+            Log.e(
+                HfrInterleavedPreviewSupport.TAG,
+                "encoder stalled on encoder-only HS — rebuild session",
+            )
+            requestSessionRebuildHfr()
+            scheduleHfrInterleavedWatchdogs()
+        }
+    private fun lastPreviewActivityNs(): Long =
+        if (hfrInterleavedRecordActive) {
+            maxOf(lastFrameNs, lastTimestampNs)
+        } else {
+            lastFrameNs
+        }
+
+    private val hfrInterleavedPreviewWatchdog =
+        Runnable {
+            if (!hfrInterleavedRecordActive || !useHfrInterleavedMcPreview()) return@Runnable
+            if (videoController.peekMcVideoSamplesWritten() <= 0L) return@Runnable
+            val last = lastPreviewActivityNs()
+            if (last <= 0L) return@Runnable
+            val stallNs = SystemClock.elapsedRealtimeNanos() - last
+            if (stallNs < 1_500_000_000L) return@Runnable
+            Log.w(
+                HfrInterleavedPreviewSupport.TAG,
+                "preview stalled ${stallNs / 1_000_000}ms with encode active; rebuild interleaved session",
+            )
+            requestSessionRebuildHfr()
+        }
+
     private val rawVideoController = RawVideoRecordingController(appContext)
 
     /**
@@ -6776,6 +6956,12 @@ private class PreviewController(
 
     @Volatile
     var adbAutomationVideoTenBit: Boolean = false
+
+    @Volatile
+    var adbAutomationVideoStabilization: Boolean = false
+
+    @Volatile
+    var adbAutomationVideoAv1: Boolean = false
 
     @Volatile
     var adbForceRawVideoLane: Boolean = false
@@ -7272,9 +7458,19 @@ private class PreviewController(
             "PNS.VideoEncode",
             "encodePrefSet ${next?.width ?: 0}x${next?.height ?: 0} fps=$desiredFps",
         )
-        // Avoid tearing down an active HFR session when chrome prefs settle after record start.
-        if (desiredFps >= 120 && !videoController.isRecorderStarted() && !videoController.isRecorderPresent()) {
-            maybeRestart()
+        handler?.post {
+            if (!inAppVideoRecordingArmed) {
+                if (videoController.isRecorderPresent() && !videoController.isRecorderStarted()) {
+                    Log.i(
+                        tag,
+                        "encodePrefSet: discarding idle prepared recorder (format/res change before record)",
+                    )
+                    videoController.tearDownForCloseCamera()
+                }
+                if (desiredFps >= 120) {
+                    maybeRestartBody()
+                }
+            }
         }
     }
 
@@ -7450,6 +7646,199 @@ private class PreviewController(
         Log.i(DualVideoRecordingController.TAG, "Closing dual front camera")
         dualFrontController?.close()
     }
+
+    private fun useHfrInterleavedMcPreview(): Boolean =
+        HfrInterleavedPreviewSupport.wantsInterleavedSession(
+            desiredFps = desiredFps,
+            wantsMediaCodecPath = videoController.wantsMediaCodecPath,
+            dualVideoActive = dualVideoActive,
+        )
+
+    fun onHfrInterleavedComposeRecordState(recording: Boolean) {
+        if (hfrInterleavedRecordActive == recording) return
+        hfrInterleavedRecordActive = recording
+        if (recording) {
+            hfrInterleavedEncodeRetryDone = false
+            clearHfrYuvMonitor()
+        } else {
+            cancelHfrInterleavedWatchdogs()
+            clearHfrYuvMonitor()
+            hfrInterleavedEncodeRetryDone = false
+        }
+    }
+
+    private fun scheduleHfrInterleavedWatchdogs() {
+        if (!useHfrInterleavedMcPreview()) return
+        if (!hfrInterleavedRecordActive && !hfrEncoderOnlyRecordActive) return
+        cancelHfrInterleavedWatchdogs()
+        hfrInterleavedWatchdogToken++
+        val token = hfrInterleavedWatchdogToken
+        mainHandler.postDelayed({ if (token == hfrInterleavedWatchdogToken) hfrInterleavedEncodeWatchdog.run() }, 2_500L)
+        mainHandler.postDelayed({ if (token == hfrInterleavedWatchdogToken) hfrInterleavedPreviewWatchdog.run() }, 2_000L)
+    }
+
+    private fun cancelHfrInterleavedWatchdogs() {
+        hfrInterleavedWatchdogToken++
+        mainHandler.removeCallbacks(hfrInterleavedEncodeWatchdog)
+        mainHandler.removeCallbacks(hfrInterleavedPreviewWatchdog)
+    }
+
+    fun peekWantsMediaCodecVideoRecord(): Boolean = videoController.wantsMediaCodecPath
+
+    fun requestSessionRebuildHfr() {
+        handler?.post { maybeRestart() }
+    }
+
+    @Volatile private var hfrEncoderOnlyRecordActive: Boolean = false
+    @Volatile private var hfrMonitorYuvCaptureActive: Boolean = false
+    @Volatile private var hfrMonitorTextureRotationDeg: Int = 0
+    private var hfrMonitorController: HfrRecordMonitorCameraController? = null
+
+    fun peekHfrEncoderOnlyMonitorActive(): Boolean = hfrEncoderOnlyRecordActive
+
+    fun clearHfrYuvMonitor() {
+        runCatching { hfrYuvMonitorImageReader?.close() }
+        hfrYuvMonitorImageReader = null
+    }
+
+    private fun stopHfrRecordMonitor() {
+        hfrEncoderOnlyRecordActive = false
+        hfrMonitorYuvCaptureActive = false
+        val mon = hfrMonitorController
+        hfrMonitorController = null
+        val ir = hfrYuvMonitorImageReader
+        hfrYuvMonitorImageReader = null
+        val h = handler
+        if (h != null) {
+            if (android.os.Looper.myLooper() == h.looper) {
+                tearDownHfrMonitorOnHandler(mon, ir)
+            } else {
+                val latch = java.util.concurrent.CountDownLatch(1)
+                h.post {
+                    tearDownHfrMonitorOnHandler(mon, ir)
+                    latch.countDown()
+                }
+                if (!latch.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                    Log.w(HfrRecordMonitorSupport.TAG, "stopHfrRecordMonitor teardown timed out")
+                }
+            }
+        } else {
+            runCatching { ir?.close() }
+        }
+        notifyHfrFinderMonitorGl(false)
+    }
+
+    private fun tearDownHfrMonitorOnHandler(
+        mon: HfrRecordMonitorCameraController?,
+        ir: android.media.ImageReader?,
+    ) {
+        runCatching { ir?.setOnImageAvailableListener(null, null) }
+        mon?.closeImmediateOnHandler()
+        runCatching { ir?.close() }
+    }
+
+    private fun hfrMonitorTextureRotationDegrees(monitorId: String): Int {
+        val chars = runCatching { cm.getCameraCharacteristics(monitorId) }.getOrNull() ?: return 0
+        return mlInputImageRotationDegrees(chars)
+    }
+
+    /** Keep GLES drawing YUV monitor frames (not the starved record-camera SurfaceTexture). */
+    private fun notifyHfrFinderMonitorGl(enabled: Boolean) {
+        mainHandler.post {
+            glSurfaceHostForDual?.queueEvent {
+                lutPreviewRendererForDual?.setHfrYuvMonitorEnabled(enabled)
+            }
+            glSurfaceHostForDual?.requestRender()
+        }
+    }
+
+    /** @return true when encoder-only HS + monitor camera are active; false → caller should fall back. */
+    private fun startHfrRecordMonitor(): Boolean {
+        stopHfrRecordMonitor()
+        val recordId = selectedCameraId ?: return false
+        val monitorId =
+            HfrRecordMonitorSupport.pickMonitorCameraId(cm, recordId, cameraIds()) ?: run {
+                Log.w(HfrRecordMonitorSupport.TAG, "no monitor camera for recordId=$recordId")
+                return false
+            }
+        if (!HfrRecordMonitorSupport.canRunConcurrent(cm, recordId, monitorId)) {
+            Log.w(
+                HfrRecordMonitorSupport.TAG,
+                "concurrent set missing record=$recordId monitor=$monitorId — opening monitor anyway",
+            )
+        }
+        val h = handler ?: return false
+        hfrMonitorTextureRotationDeg = hfrMonitorTextureRotationDegrees(monitorId)
+        val roles = BackCameraRoleResolver.resolve(cm, cameraIds())
+        val applyRecordDigitalCrop = focalCropMode != null && desiredFps < 120
+        val hfrMonitorTextureCrop =
+            HfrMonitorPreviewCrop.computeTextureCrop(
+                cm,
+                roles,
+                recordId,
+                monitorId,
+                focalCropMode,
+                applyRecordDigitalCrop,
+            )
+        val size = HfrRecordMonitorSupport.pickMonitorPreviewSize(cm, monitorId)
+        val ir =
+            ImageReader.newInstance(
+                size.width,
+                size.height,
+                ImageFormat.YUV_420_888,
+                PerfBudget.Defaults.YUV_ANALYSIS_READER_MAX_IMAGES,
+            )
+        hfrYuvMonitorImageReader = ir
+        ir.setOnImageAvailableListener(
+            { reader ->
+                if (!hfrMonitorYuvCaptureActive) {
+                    runCatching { reader.acquireLatestImage()?.close() }
+                    return@setOnImageAvailableListener
+                }
+                val image = runCatching { reader.acquireLatestImage() }.getOrNull()
+                    ?: return@setOnImageAvailableListener
+                try {
+                    if (!hfrMonitorYuvCaptureActive) return@setOnImageAvailableListener
+                    val frame =
+                        runCatching {
+                            HfrYuvImageCopier.copy(
+                                image,
+                                hfrMonitorTextureRotationDeg,
+                                hfrMonitorTextureCrop,
+                            )
+                        }.getOrNull() ?: return@setOnImageAvailableListener
+                    mainHandler.post { lutPreviewRendererForDual?.deliverHfrYuvFrame(frame) }
+                } finally {
+                    image.close()
+                }
+            },
+            h,
+        )
+        hfrMonitorYuvCaptureActive = true
+        hfrMonitorController =
+            HfrRecordMonitorCameraController(cm, h).also { mon ->
+                mon.setPreviewSurface(ir.surface)
+                mon.open(monitorId, size)
+            }
+        hfrEncoderOnlyRecordActive = true
+        val cropSpan = hfrMonitorTextureCrop.u1 - hfrMonitorTextureCrop.u0
+        Log.i(
+            HfrRecordMonitorSupport.TAG,
+            "monitor finder active record=$recordId monitor=$monitorId ${size.width}x${size.height} " +
+                "cropU=${"%.3f".format(hfrMonitorTextureCrop.u0)}-${"%.3f".format(hfrMonitorTextureCrop.u1)} " +
+                "cropSpan=${"%.3f".format(cropSpan)} digitalCropOnRecord=$applyRecordDigitalCrop " +
+                "focal=${focalCropMode?.name ?: "none"}",
+        )
+        PnsAdbLog.i(
+            appContext,
+            "hfrEncoderOnlyMonitor=true record=$recordId monitor=$monitorId " +
+                "cropU=${hfrMonitorTextureCrop.u0}-${hfrMonitorTextureCrop.u1}",
+        )
+        notifyHfrFinderMonitorGl(true)
+        return true
+    }
+
+    private var hfrYuvMonitorImageReader: ImageReader? = null
     
     private fun checkDualVideoHealth() {
         if (!dualVideoActive) return
@@ -7965,7 +8354,7 @@ private class PreviewController(
         val camId = selectedCameraId
         val fps =
             if (targetFps >= 120) {
-                targetFps.coerceIn(15, 240)
+                targetFps.coerceIn(15, 480)
             } else {
                 targetFps.coerceIn(15, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
             }
@@ -7978,30 +8367,32 @@ private class PreviewController(
                 enableResearchDcgHdr = prefs.enableResearchDcgHDR,
                 adbPreviewVideoDcg = adbAutomationVideoDcg,
             )
-        val formats =
-            VideoFormatPresets.getAvailableFormats(
-                resolution = size,
-                fps = fps,
-                supportsDcg = supportsDcg,
-            )
+        val chrome = PreviewChromePreferences.load(appContext)
+        val supportsAv1 = MediaCodecCapabilityProbe.supportsAv1Encoder()
+        val hsMap =
+            chars?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
         val picked =
-            when {
-                wantDcg ->
-                    formats.firstOrNull { it.isDcg }
-                        ?: formats.firstOrNull { it.isTenBit }
-                        ?: formats.first()
-                adbAutomationVideoTenBit ->
-                    formats.firstOrNull { it.isTenBit && !it.isDcg }
-                        ?: formats.first()
-                else -> formats.first()
-            }
+            InAppVideoFormatSelection.pickForRecording(
+                recordSize = size,
+                targetFps = fps,
+                supportsDcg = supportsDcg,
+                wantDcg = wantDcg,
+                adbAutomationVideoTenBit = adbAutomationVideoTenBit,
+                chrome = chrome,
+                supportsAv1 = supportsAv1,
+                adbForceAv1 = adbAutomationVideoAv1,
+                highSpeedMap = hsMap,
+            )
         Log.i(
             tag,
-            "inAppVideoFormat label=${picked.getLabel()} dcg=${picked.isDcg} tenBit=${picked.isTenBit} " +
-                "fps=${picked.frameRate} wantDcg=$wantDcg adbDcg=$adbAutomationVideoDcg",
+            "inAppVideoFormat label=${picked.getLabel()} codec=${picked.codec} dcg=${picked.isDcg} " +
+                "tenBit=${picked.isTenBit} fps=${picked.frameRate} av1Probe=$supportsAv1 wantDcg=$wantDcg",
         )
         if (wantDcg && picked.isDcg) {
             PnsAdbLog.i(appContext, "inAppVideoFormat=DCG fps=${picked.frameRate}")
+        }
+        if (picked.codec == VideoCodec.AV1) {
+            PnsAdbLog.i(appContext, "inAppVideoFormat=AV1 fps=${picked.frameRate}")
         }
         return picked
     }
@@ -8025,6 +8416,7 @@ private class PreviewController(
         val onEvent: (VideoRecordingController.Event) -> Unit = { event ->
             when (event) {
                 is VideoRecordingController.Event.StartFailed -> {
+                    inAppVideoRecordingArmed = false
                     mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
                 }
                 is VideoRecordingController.Event.Stopped -> {
@@ -8051,6 +8443,17 @@ private class PreviewController(
         }.getOrDefault(false)
 
         h.post {
+            val stopNeedsPreviewSessionRebuild =
+                !wantRecord &&
+                    (
+                        videoController.isRecorderPresent() ||
+                            videoController.isRecorderStarted() ||
+                            inAppVideoRecordingArmed
+                        )
+            if (!wantRecord) {
+                inAppVideoRecordingArmed = false
+                deferMcStartUntilPreviewFrame = false
+            }
             val recordSize =
                 if (dualVideoActive) {
                     DualVideoRecordingController.compositeRecordSize()
@@ -8066,12 +8469,14 @@ private class PreviewController(
                     "sessionMatchesRecord=${sessionSize?.width == recordSize.width && sessionSize?.height == recordSize.height}",
             )
             val videoFormat = resolveInAppVideoFormat(recordSize, desiredFps)
+            val orientHint =
+                selectedCameraId?.let { videoOrientationHintDegrees(it) } ?: 0
             val result = videoController.applyShell(
                 wantRecord = wantRecord,
                 profile = profile,
                 desiredFps = desiredFps,
                 size = recordSize,
-                orientationHintDegrees = 0,
+                orientationHintDegrees = orientHint,
                 wantHighSpeed = wantHighSpeed && !dualVideoActive,
                 supportsHighSpeed = supportsHighSpeed,
                 videoFormat = videoFormat,
@@ -8079,10 +8484,24 @@ private class PreviewController(
                 forceMediaCodecGlComposite = dualVideoActive,
             )
 
-            // If recording prepared successfully, mark that we need session rebuild
-            if (result is VideoRecordingController.PrepareResult.Ready) {
-                Log.i("PNS.Cam", "Video prepared, marking session rebuild needed")
-                videoRecordingSessionRebuildPending = true
+            when (result) {
+                is VideoRecordingController.PrepareResult.Ready -> {
+                    if (wantRecord) {
+                        inAppVideoRecordingArmed = true
+                        Log.i("PNS.Cam", "Video prepared, marking session rebuild needed (armed)")
+                    }
+                    videoRecordingSessionRebuildPending = true
+                    maybeRestartBody()
+                }
+                is VideoRecordingController.PrepareResult.Rejected -> {
+                    inAppVideoRecordingArmed = false
+                }
+                VideoRecordingController.PrepareResult.NoAction -> Unit
+            }
+            if (stopNeedsPreviewSessionRebuild) {
+                stopHfrRecordMonitor()
+                videoRecordingSessionRebuildPending = false
+                Log.i("PNS.Cam", "Video stopped — rebuilding preview-only session")
                 maybeRestartBody()
             }
         }
@@ -10484,8 +10903,19 @@ private class PreviewController(
     /** Preview frames delivered to [TextureView] since last [closeCamera]; ADB RAW settle gate. */
     fun peekInAppVideoRecorderPresent(): Boolean = videoController.isRecorderPresent()
 
+    /** ADB / gates — preview pipeline FPS EMA from capture timestamps. */
+    fun peekPreviewSmoothedFps(): Double = smoothedFps
+
     fun peekInAppVideoRecorderStarted(): Boolean =
         videoController.isRecorderStarted() && videoController.isMuxerReadyForRecord()
+
+    /** ADB in-app video: MC HFR may need several seconds after [maybeStartInAppVideoRecorder] for the first encoded frame. */
+    fun peekInAppVideoAutomationRecordReady(): Boolean {
+        if (videoController.isStartFailureHold()) return false
+        if (!videoController.isRecorderPresent()) return false
+        if (!videoController.isRecorderStarted()) return false
+        return videoController.isMuxerReadyForRecord()
+    }
 
     /** Sprint **14.2** — live audio meters in [PreviewTopStatusBar] while in-app video records. */
     fun peekInAppVideoAudioAmplitude(): Int = videoController.peekAudioAmplitude()
@@ -10782,6 +11212,11 @@ private class PreviewController(
      */
     private fun closeCamera(teardownPreparedMediaRecorder: Boolean = true) {
         closeDualFrontCamera()
+        if (teardownPreparedMediaRecorder) {
+            stopHfrRecordMonitor()
+            hfrInterleavedRecordActive = false
+            inAppVideoRecordingArmed = false
+        }
         dualVideoEncoderSink.release()
         PreviewLogicalPhysicalDebugBridge.clear()
         captureSessionAsyncConfigurePending = false
@@ -11318,10 +11753,11 @@ private class PreviewController(
         val map = runCatching { cm.getCameraCharacteristics(camId).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) }.getOrNull()
         val target = pickHighSpeedTarget(map, desiredFps)
 
+        // Constrained HS + aligned record/preview sizes ([resolveInAppVideoRecordSize], [desiredHighSpeedSize])
+        // are required for true HFR frame delivery; regular sessions cap AE near 60 fps.
         val useHighSpeed =
             target != null &&
-                desiredFps >= 120 &&
-                (!videoController.isRecorderPresent() || videoController.wantsMediaCodecPath)
+                desiredFps >= 120
         Log.d(tag, "createSession camId=$camId desiredFps=$desiredFps useHighSpeed=$useHighSpeed target=${target?.first?.width}x${target?.first?.height} ${target?.second}")
 
         runCatching { rawImageReader?.close() }
@@ -11494,13 +11930,12 @@ private class PreviewController(
                     if (sessionApplied != null) {
                         val macroKind = sessionApplied
                         PreviewAeAntibanding.applyToRequest(sessionReqBuilder, sessionChars)
-                        PreviewStabilization.applyToRequest(
+                        VideoEffectsProcessor.applyToVideoPreviewRequest(
                             sessionReqBuilder,
                             sessionChars,
                             readHudCapturePrefs(),
                             previewFpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession()),
                             manualSensor = false,
-                            isStillCapture = false,
                         )
                         val sessionParams = sessionReqBuilder.build()
                         // Vendor session-parameter probing runs on [h] while the main thread may still be
@@ -11747,12 +12182,23 @@ private class PreviewController(
             ),
         )
 
-        Log.d(tag, "Creating HFR session fps=$desiredFps size=${target.first.width}x${target.first.height} range=${target.second}")
+        val hfrOutputs = hfrSessionOutputSurfaces(surfaces, surf)
+        Log.d(
+            tag,
+            "Creating HFR session fps=$desiredFps size=${target.first.width}x${target.first.height} " +
+                "range=${target.second} outputs=${hfrOutputs.size} mcHfrDual=" +
+                "${videoController.wantsMediaCodecPath && videoController.isRecorderPresent() && hfrOutputs.size >= 2}",
+        )
         // Constrained high-speed session — same TOCTOU protection as the normal path.
         captureSessionAsyncConfigurePending = true
+        val forceEncoderSdr =
+            inAppVideoRecordingArmed &&
+                videoController.isRecorderPresent() &&
+                videoController.wantsMediaCodecPath &&
+                (hfrOutputs.size >= 2 || hfrEncoderOnlyRecordActive)
         val hfrResult = runCatching {
             camera.createCaptureSessionHighSpeedOutputs(
-                listOf(surf),
+                hfrOutputs,
                 h,
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(sess: CameraCaptureSession) {
@@ -11770,8 +12216,20 @@ private class PreviewController(
                             session = sess
                             sessionCommittedGeneration = generation
                             sessionPreviewDynamicRangeShort = null
+                            videoRecordingSessionRebuildPending = false
                             val fpsRange = target!!.second
-                            startRepeating(sess, camera, surf, fpsRange = fpsRange, camId = camId)
+                            // Start MediaCodec before HS repeating — otherwise GraphicBufferSource
+                            // queues pre-start buffers that are flushed when the codec starts.
+                            if (hfrEncoderOnlyRecordActive && inAppVideoRecordingArmed) {
+                                startInAppVideoRecorderNow()
+                            }
+                            startRepeating(
+                                sess,
+                                camera,
+                                surf,
+                                fpsRange = fpsRange,
+                                camId = camId,
+                            )
                         } finally {
                             captureSessionAsyncConfigurePending = false
                         }
@@ -11793,6 +12251,13 @@ private class PreviewController(
                         }
                     }
                 },
+                forceEncoderOutputSdr = forceEncoderSdr,
+            )
+        }
+        if (forceEncoderSdr) {
+            Log.i(
+                HfrInterleavedPreviewSupport.TAG,
+                "HS session encoder output: STANDARD dynamic range (8-bit MediaCodec)",
             )
         }
         hfrResult.exceptionOrNull()?.let { e ->
@@ -11901,7 +12366,7 @@ private class PreviewController(
     ): CaptureRequest.Builder {
         val template =
             when {
-                videoController.isRecorderPresent() -> CameraDevice.TEMPLATE_RECORD
+                inAppVideoRecordingArmed && videoController.isRecorderPresent() -> CameraDevice.TEMPLATE_RECORD
                 fpsRange != null && fpsRange.lower >= 120 -> CameraDevice.TEMPLATE_RECORD
                 else -> CameraDevice.TEMPLATE_PREVIEW
             }
@@ -11910,15 +12375,31 @@ private class PreviewController(
             addTarget(surf)
             // Only add recording surface if session rebuild is complete
             // (videoRecordingSessionRebuildPending is set when prepared, cleared when session created)
-            if (!videoRecordingSessionRebuildPending && !dualVideoActive) {
-                videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { addTarget(it) }
+            if (inAppVideoRecordingArmed &&
+                !videoRecordingSessionRebuildPending &&
+                !dualVideoActive &&
+                !hfrEncoderOnlyRecordActive
+            ) {
+                val rec = videoController.getRecordingSurface()?.takeIf { it.isValid }
+                if (rec != null && rec != surf) addTarget(rec)
             }
             yuvImageReader?.let { addTarget(it.surface) }
             if (rawVideoController.isRecording) {
                 rawImageReader?.let { addTarget(it.surface) }
             }
             if (fpsRange != null) {
-                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange)
+                val aeFps =
+                    when {
+                        hfrEncoderOnlyRecordActive ||
+                            (
+                                useHfrInterleavedMcPreview() && inAppVideoRecordingArmed &&
+                                    videoController.isRecorderPresent() &&
+                                    fpsRange.lower != fpsRange.upper
+                                ) ->
+                            Range(fpsRange.upper, fpsRange.upper)
+                        else -> fpsRange
+                    }
+                set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, aeFps)
             }
             if (chars != null) {
                 val manualSensor = manualIsoOverride != null || manualExposureNsOverride != null
@@ -11947,13 +12428,12 @@ private class PreviewController(
                     )
                 }
                 PreviewAeAntibanding.applyToRequest(this, chars)
-                PreviewStabilization.applyToRequest(
+                VideoEffectsProcessor.applyToVideoPreviewRequest(
                     this,
                     chars,
                     readHudCapturePrefs(),
                     previewFpsRange = fpsRange,
                     manualSensor = manualSensor,
-                    isStillCapture = false,
                 )
                 PreviewAutoFraming.applyIfAvailable(this, chars, readHudCapturePrefs())
                 PreviewJpegProcessingHints.applyToCaptureRequest(
@@ -12011,7 +12491,14 @@ private class PreviewController(
         }
     }
 
-    private fun readHudCapturePrefs(): HudSettings = HudSettings.load(appContext)
+    private fun readHudCapturePrefs(): HudSettings {
+        val base = HudSettings.load(appContext)
+        if (!adbAutomationVideoStabilization) return base
+        return base.copy(
+            enableVideoStabilizationPreview = true,
+            enableLensOpticalStabilization = true,
+        )
+    }
 
     private fun buildPreviewCaptureRequest(
         camera: CameraDevice,
@@ -12455,21 +12942,29 @@ private class PreviewController(
         dispatchFaceHudOverlay()
     }
 
+    private fun currentDisplaySurfaceRotation(): Int {
+        val dm = appContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+        return dm.getDisplay(Display.DEFAULT_DISPLAY)?.rotation
+            ?: @Suppress("DEPRECATION")
+            (appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
+    }
+
     private fun defaultDisplayRotationDegrees(): Int {
         // Do not use Context.getDisplay() / appContext.display from background threads: Application
         // context is not a "visual" context on API 30+ (throws UnsupportedOperationException).
-        val dm = appContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-        val rotation =
-            dm.getDisplay(Display.DEFAULT_DISPLAY)?.rotation
-                ?: @Suppress("DEPRECATION")
-                (appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
-        return when (rotation) {
+        return when (currentDisplaySurfaceRotation()) {
             Surface.ROTATION_0 -> 0
             Surface.ROTATION_90 -> 90
             Surface.ROTATION_180 -> 180
             Surface.ROTATION_270 -> 270
             else -> 0
         }
+    }
+
+    /** [MediaRecorder.setOrientationHint] / [MediaMuxer.setOrientationHint] for in-app video. */
+    private fun videoOrientationHintDegrees(camId: String): Int {
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return 0
+        return RawCaptureSupport.orientationClockwiseDegForDng(chars, currentDisplaySurfaceRotation())
     }
 
     private fun mlInputImageRotationDegrees(chars: CameraCharacteristics): Int {
@@ -13595,7 +14090,46 @@ private class PreviewController(
      * Sprint 12.4: Delegates to VideoRecordingController.
      */
     private fun maybeStartInAppVideoRecorderAfterPreview() {
+        if (!inAppVideoRecordingArmed || !videoController.isRecorderPresent()) return
+        if (hfrEncoderOnlyRecordActive) {
+            scheduleHfrInterleavedWatchdogs()
+            // MediaCodec + HS burst are started from HFR onConfigured (codec before burst).
+            return
+        }
+        if (useHfrInterleavedMcPreview() && !videoController.isRecorderStarted()) {
+            deferMcStartUntilPreviewFrame = true
+            Log.i(
+                HfrInterleavedPreviewSupport.TAG,
+                "defer MediaCodec start until first HS preview frame",
+            )
+            mainHandler.postDelayed({
+                if (deferMcStartUntilPreviewFrame && inAppVideoRecordingArmed) {
+                    Log.w(
+                        HfrInterleavedPreviewSupport.TAG,
+                        "deferred MediaCodec start timeout — starting encoder",
+                    )
+                    deferMcStartUntilPreviewFrame = false
+                    startInAppVideoRecorderNow()
+                }
+            }, 2_500L)
+            return
+        }
+        startInAppVideoRecorderNow()
+    }
+
+    private fun startInAppVideoRecorderNow() {
+        if (!inAppVideoRecordingArmed || !videoController.isRecorderPresent()) return
+        if (videoController.isRecorderStarted()) return
         videoController.maybeStartRecorder()
+        if (useHfrInterleavedMcPreview()) {
+            scheduleHfrInterleavedWatchdogs()
+        }
+    }
+
+    private fun onDeferredMcStartPreviewFrame() {
+        if (!deferMcStartUntilPreviewFrame || !inAppVideoRecordingArmed) return
+        deferMcStartUntilPreviewFrame = false
+        handler?.post { startInAppVideoRecorderNow() }
     }
 
     private fun startRepeating(
@@ -13605,7 +14139,13 @@ private class PreviewController(
         fpsRange: Range<Int>?,
         camId: String,
     ) {
-        val req = buildPreviewCaptureRequest(camera, surf, fpsRange, camId)
+        val requestSurf =
+            if (hfrEncoderOnlyRecordActive) {
+                videoController.getRecordingSurface()?.takeIf { it.isValid } ?: surf
+            } else {
+                surf
+            }
+        val req = buildPreviewCaptureRequest(camera, requestSurf, fpsRange, camId)
 
         try {
             if (sess is CameraConstrainedHighSpeedSessionShim && fpsRange != null) {
@@ -13622,12 +14162,48 @@ private class PreviewController(
                 .exceptionOrNull()
                 ?.let { Log.w(tag, "startRepeating stopRepeating: ${it.message}") }
             if (constrained) {
-                val list = (sess as? android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession)
-                    ?.createHighSpeedRequestList(req)
+                val hs = sess as? android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession
+                if (hfrEncoderOnlyRecordActive) {
+                    // Single HS output (encoder). CPH2655: setRepeatingRequest throws
+                    // UnsupportedOperationException — use HS burst list. MediaCodec must already be
+                    // running (started from HFR onConfigured before we get here).
+                    val startBurst = Runnable {
+                        val encList = hs?.createHighSpeedRequestList(req)
+                        if (!encList.isNullOrEmpty()) {
+                            runCatching { sess.setRepeatingBurst(encList, fpsMeasuringCallback(), handler) }
+                                .onSuccess {
+                                    lastStatus = "Preview running (HFR ${fpsRange?.upper ?: "?"}fps)"
+                                    Log.i(
+                                        tag,
+                                        "HFR repeatingBurst encoder-only n=${encList.size} " +
+                                            "fps=${fpsRange?.upper ?: "?"}",
+                                    )
+                                    scheduleReadoutChromeUxFallback()
+                                }
+                                .onFailure { e ->
+                                    lastStatus = "Repeating failed: ${e::class.java.simpleName}"
+                                    Log.e(tag, "HFR encoder-only setRepeatingBurst failed", e)
+                                }
+                        } else {
+                            Log.w(tag, "HFR encoder-only createHighSpeedRequestList returned empty")
+                        }
+                    }
+                    if (videoController.isRecorderStarted()) {
+                        startBurst.run()
+                    } else {
+                        handler?.post(startBurst)
+                    }
+                    return
+                }
+                val list = hs?.createHighSpeedRequestList(req)
                 if (list != null) {
                     sess.setRepeatingBurst(list, fpsMeasuringCallback(), handler)
                     lastStatus = "Preview running (HFR ${fpsRange?.upper ?: "?"}fps)"
-                    Log.d(tag, "HFR repeatingBurst started (n=${list.size})")
+                    Log.i(
+                        tag,
+                        "HFR repeatingBurst started (n=${list.size}) fps=${fpsRange?.upper ?: "?"} " +
+                            "interleaved=${useHfrInterleavedMcPreview() && inAppVideoRecordingArmed && videoController.isRecorderPresent()}",
+                    )
                     scheduleReadoutChromeUxFallback()
                     maybeStartInAppVideoRecorderAfterPreview()
                     return
@@ -13761,6 +14337,9 @@ private class PreviewController(
             }
 
             private fun onTimestamp(tsNs: Long) {
+                if (deferMcStartUntilPreviewFrame && inAppVideoRecordingArmed) {
+                    onDeferredMcStartPreviewFrame()
+                }
                 val prev = lastTimestampNs
                 lastTimestampNs = tsNs
                 if (prev <= 0L) return
@@ -13777,17 +14356,83 @@ private class PreviewController(
         }
 
     private fun pickHighSpeedTarget(map: StreamConfigurationMap?, desiredFps: Int): Pair<Size, Range<Int>>? =
-        InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
-            map,
-            desiredFps,
-            inAppVideoEncodeSizePref,
-        )
+        if (useHfrInterleavedMcPreview() && inAppVideoRecordingArmed && videoController.isRecorderPresent()) {
+            InAppVideoRecordingSupport.pickInterleavedHighSpeedVideoTarget(
+                map,
+                desiredFps,
+                inAppVideoEncodeSizePref,
+            ) ?: InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
+                map,
+                desiredFps,
+                inAppVideoEncodeSizePref,
+            )
+        } else {
+            InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
+                map,
+                desiredFps,
+                inAppVideoEncodeSizePref,
+            )
+        }
+
+    /**
+     * MediaCodec HFR: **encoder-only** constrained HS on the record camera plus a **second**
+     * rear camera (~30 fps YUV) for the live finder ([startHfrRecordMonitor]).
+     *
+     * Interleaved preview+encoder on one HS session does not deliver encoder buffers on
+     * CPH2655-class devices; encoder-only does (~120 fps file) while the monitor avoids a
+     * frozen finder.
+     */
+    private fun hfrSessionOutputSurfaces(surfaces: List<Surface>, previewSurf: Surface): List<Surface> {
+        if (useHfrInterleavedMcPreview() && inAppVideoRecordingArmed && videoController.isRecorderPresent()) {
+            val enc = videoController.getRecordingSurface()?.takeIf { it.isValid } ?: return surfaces.filter { it.isValid }
+            val hs = desiredHighSpeedSize
+            if (startHfrRecordMonitor()) {
+                Log.i(
+                    HfrInterleavedPreviewSupport.TAG,
+                    "HFR encoder-only HS encodeFps=$desiredFps buffer=${hs?.width ?: 0}x${hs?.height ?: 0}",
+                )
+                Log.i(
+                    "PNS.ChromeUx",
+                    "hfrEncoderOnly active=true encodeFps=$desiredFps monitorFinder=yuv",
+                )
+                return listOf(enc)
+            }
+            val prev = previewSurf.takeIf { it.isValid }
+            if (prev != null) {
+                Log.w(
+                    HfrInterleavedPreviewSupport.TAG,
+                    "HFR monitor camera unavailable — interleaved preview+encoder fallback " +
+                        "encodeFps=$desiredFps",
+                )
+                Log.i(
+                    "PNS.ChromeUx",
+                    "hfrEncoderOnly active=false encodeFps=$desiredFps monitorFinder=interleaved",
+                )
+                notifyHfrFinderMonitorGl(false)
+                return listOf(prev, enc)
+            }
+            Log.e(HfrInterleavedPreviewSupport.TAG, "HFR record: no monitor and no preview surface")
+            return listOf(enc)
+        }
+        return surfaces.filter { it.isValid }
+    }
 
     private fun resolveInAppVideoRecordSize(): Size {
         val session = desiredSurfaceSize ?: currentSurfaceSize
         val pref = inAppVideoEncodeSizePref?.takeIf { it.width > 0 && it.height > 0 }
+        if (desiredFps >= 120 && videoController.wantsMediaCodecPath) {
+            val camId = selectedCameraId
+            val map =
+                camId?.let {
+                    runCatching {
+                        cm.getCameraCharacteristics(it).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    }.getOrNull()
+                }
+            InAppVideoRecordingSupport.pickHighSpeedVideoTarget(map, desiredFps, pref ?: session)
+                ?.first
+                ?.let { return it }
+        }
         return when {
-            // Constrained HFR capture size must match the encoder surface (HAL may omit 4K HS).
             desiredFps >= 120 -> session ?: pref ?: Size(1920, 1080)
             else -> pref ?: session ?: Size(1920, 1080)
         }

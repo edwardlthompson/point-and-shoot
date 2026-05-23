@@ -26,6 +26,7 @@ object MediaCodecCapabilityProbe {
 
     private const val TAG = "PNS.VideoCapProbe"
     private const val MIME_HEVC = MediaFormat.MIMETYPE_VIDEO_HEVC
+    private const val MIME_AV1 = MediaFormat.MIMETYPE_VIDEO_AV1
 
     @Volatile private var cached: CapabilityMatrix? = null
 
@@ -56,11 +57,14 @@ object MediaCodecCapabilityProbe {
         val maxFps8k: Int,
         val supports4k: Boolean,
         val supports8k: Boolean,
+        /** Sprint **VF.1** — at least one hardware [MIME_AV1] encoder (e.g. `c2.qti.av1.encoder`). */
+        val supportsAv1: Boolean = false,
+        val av1EncoderNames: List<String> = emptyList(),
     ) {
         fun summary(): String = buildString {
             append("encoders=${encoders.size} ")
             append("main10=$supportsMain10 hdr10=$supportsHdr10 hdr10plus=$supportsHdr10Plus ")
-            append("yuvp010=$supportsYuvP010 ")
+            append("yuvp010=$supportsYuvP010 av1=$supportsAv1 ")
             append("1080p_max=${maxFps1080p}fps 4k_max=${maxFps4k}fps 8k_max=${maxFps8k}fps ")
             append("perf_points=${performancePoints.size}")
         }
@@ -199,6 +203,14 @@ object MediaCodecCapabilityProbe {
             )
         }
 
+        val av1EncoderNames =
+            list.codecInfos
+                .filter { it.isEncoder && !it.isAlias && MIME_AV1 in it.supportedTypes }
+                .map { it.name }
+                .distinct()
+                .sorted()
+        val supportsAv1 = av1EncoderNames.isNotEmpty()
+
         val matrix = CapabilityMatrix(
             encoders = encoderInfos,
             performancePoints = allPerformancePoints.distinctBy { "${it.width}x${it.height}@${it.fps}" },
@@ -211,9 +223,14 @@ object MediaCodecCapabilityProbe {
             maxFps8k = maxFps8k,
             supports4k = maxFps4k > 0,
             supports8k = maxFps8k > 0,
+            supportsAv1 = supportsAv1,
+            av1EncoderNames = av1EncoderNames,
         )
 
         Log.i(TAG, "capProbeResult ${matrix.summary()}")
+        if (supportsAv1) {
+            Log.i(TAG, "av1Encoders=${av1EncoderNames.joinToString(",")}")
+        }
         for (enc in matrix.encoders) {
             Log.i(TAG, "encoder name=${enc.name} maxRes=${enc.maxWidth}x${enc.maxHeight} " +
                 "profiles=${enc.profiles.size} yuvp010=${enc.supportsYuvP010} " +
@@ -253,4 +270,11 @@ object MediaCodecCapabilityProbe {
         val matrix = cached ?: return false
         return matrix.performancePoints.any { it.width >= width && it.height >= height && it.fps >= fps }
     }
+
+    /** Sprint **VF.1** — hardware AV1 encoder advertised in [MediaCodecList]. */
+    fun supportsAv1Encoder(): Boolean = cached?.supportsAv1 == true
+
+    /** QTI HW AV1 (e.g. `c2.qti.av1.encoder`) — required for HFR AV1; SW encoder cannot sustain 120fps. */
+    fun supportsHardwareAv1Encoder(): Boolean =
+        cached?.av1EncoderNames?.any { it.contains("qti", ignoreCase = true) } == true
 }

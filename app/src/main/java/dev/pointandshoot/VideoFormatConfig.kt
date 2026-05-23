@@ -59,9 +59,13 @@ data class VideoFormat(
         VideoCodec.AV1 -> "Next-gen — best compression"
     }
 
-    /** True when this format requires the MediaCodec path (HFR or 10-bit). */
+    /** True when this format requires the MediaCodec path (HFR, 10-bit, DCG, or AV1). */
     val requiresMediaCodec: Boolean
-        get() = isTenBit || isDcg || frameRate > VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS
+        get() =
+            codec == VideoCodec.AV1 ||
+                isTenBit ||
+                isDcg ||
+                frameRate > VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS
 }
 
 object VideoFormatPresets {
@@ -180,13 +184,18 @@ object VideoFormatPresets {
             }
         }
 
-        if (supportsAv1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            formats.add(VideoFormat(
-                codec = VideoCodec.AV1,
-                resolution = resolution,
-                frameRate = fps,
-                bitrate = calculateBitrate(resolution.width, resolution.height, fps, VideoCodec.AV1),
-            ))
+        if (supportsAv1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val av1HfrOk = fps < 120 || MediaCodecCapabilityProbe.supportsHardwareAv1Encoder()
+            if (av1HfrOk) {
+                formats.add(
+                    VideoFormat(
+                        codec = VideoCodec.AV1,
+                        resolution = resolution,
+                        frameRate = fps,
+                        bitrate = calculateBitrate(resolution.width, resolution.height, fps, VideoCodec.AV1),
+                    ),
+                )
+            }
         }
 
         return formats

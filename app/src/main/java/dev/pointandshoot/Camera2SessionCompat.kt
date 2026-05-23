@@ -4,6 +4,7 @@ import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.params.DynamicRangeProfiles
 import android.hardware.camera2.params.OutputConfiguration
 import android.hardware.camera2.params.SessionConfiguration
 import android.os.Build
@@ -128,14 +129,37 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
 /**
  * High-speed constrained session: [SessionConfiguration.SESSION_HIGH_SPEED] from API 33; older
  * releases use [CameraDevice.createConstrainedHighSpeedCaptureSession].
+ *
+ * @param forceEncoderOutputSdr When true (API 33+), non-preview outputs use
+ * [DynamicRangeProfiles.STANDARD] + video-record stream use case so Qualcomm HALs deliver
+ * NV12 to [MediaCodec] instead of TP10_UBWC (which breaks 8-bit HEVC encoders on CPH2655-class).
  */
 internal fun CameraDevice.createCaptureSessionHighSpeedOutputs(
     surfaces: List<Surface>,
     handler: Handler,
     callback: CameraCaptureSession.StateCallback,
+    forceEncoderOutputSdr: Boolean = false,
 ) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        val outputConfigs = surfaces.map { OutputConfiguration(it) }
+        val outputConfigs =
+            surfaces.mapIndexed { index, surface ->
+                OutputConfiguration(surface).apply {
+                    // Interleaved: index 0 = preview, index 1+ = encoder. Encoder-only: sole surface is encoder.
+                    if (forceEncoderOutputSdr && (surfaces.size == 1 || index >= 1)) {
+                        runCatching { setDynamicRangeProfile(DynamicRangeProfiles.STANDARD) }
+                            .onFailure { e ->
+                                Log.w(TAG, "HS encoder setDynamicRangeProfile STANDARD: ${e.message}")
+                            }
+                        runCatching {
+                            setStreamUseCase(
+                                CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD.toLong(),
+                            )
+                        }.onFailure { e ->
+                            Log.w(TAG, "HS encoder setStreamUseCase VIDEO_RECORD: ${e.message}")
+                        }
+                    }
+                }
+            }
         val sessionConfig =
             SessionConfiguration(
                 SessionConfiguration.SESSION_HIGH_SPEED,

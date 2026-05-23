@@ -1,6 +1,6 @@
 ﻿# BUILD_PLAN — completed milestones & sprints
 
-Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22); **Video Format & Quality** **VF.1–VF.3** (2026-05-22). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
 
 ---
 ## Milestone 0 — Baseline quality bar (always on)
@@ -1078,5 +1078,48 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 **PO Optimization gate:** `pns_po_optimization_gate.ps1` **PASS** — combined report `hfr-runs/po_optimization_gate_*/report.md`. (15% battery improvement / 60-minute thermal soak remain human fleet benchmarks.)
 
 **Gallery note (post-PO):** Selfie DNG orientation — `DngGalleryOrientation` + DNG-only decode path in `GalleryThumbnail.kt` (ongoing UX fix separate from PO gate closure).
+
+---
+
+## Video Format & Quality Enhancements
+
+**Objective:** Expand video format support, improve quality, and add advanced video features.
+
+**Shipped:** 2026-05-22. **Docs:** [`docs/VIDEO_FORMAT_RECOMMENDATIONS.md`](docs/VIDEO_FORMAT_RECOMMENDATIONS.md).
+
+### Sprint VF.1 — Video Format Expansion
+
+**Code:** `MediaCodecCapabilityProbe.kt`, `MediaCodecVideoRecorder.kt`, `VideoRecordingController.kt`, `InAppVideoFormatSelection.kt`
+
+- [x] **[AGENT]** HEVC (H.265) for all camera modes (13V.15)
+- [x] **[AGENT]** AV1 encoding when HW `video/av01` encoder exists (`VideoCodec.AV1` + MediaCodec path)
+- [x] **[AGENT]** 10-bit HDR / DCG (13V.5)
+- [x] **[AGENT]** Variable bitrate + scale (13V.17)
+- [x] **[AGENT]** 4K @ 60/120 fps (13V.16)
+- [x] **[ADB][HUMAN]** Format matrix via `pns_mediacodec_hfr_verify.ps1` / M13V history
+
+### Sprint VF.2 — Advanced Video Features
+
+**Code:** `VideoEffectsProcessor.kt`, `PreviewStabilization.kt`, `VideoRecordingController.kt`
+
+- [x] **[AGENT]** Real-time video stabilization (OIS + preview EIS via `VideoEffectsProcessor` → `PreviewStabilization`)
+- [x] **[AGENT]** LUT color grading (13V.11)
+- [x] **[AGENT]** Slow-motion / HFR MediaCodec (13V.16)
+- [x] **[AGENT]** Audio meters (13V.8)
+- [x] **[AGENT]** Bitrate compression options (13V.17)
+- [x] **[ADB][HUMAN]** Stabilization log gate `pns_video_stabilization_test.ps1`
+- [x] **[ADB][HUMAN]** A/V sync (M13V)
+
+### Sprint VF.3 — Video Format Testing Suite
+
+- [x] **[AGENT]** `pns_video_format_test.ps1`, `pns_video_stabilization_test.ps1`, `pns_video_quality_gate.ps1`
+- [x] **[HUMAN]** Format recommendations doc (player compatibility notes)
+- [x] **[ADB][HUMAN]** Host gate orchestrates in-app video + probe + stabilization
+
+**VF.1 gate:** `PNS.VideoCapProbe` reports `av1=`; optional AV1 clip (`mime=video/av01`, `inAppVideoFormat=AV1`) when HW present.
+
+**VF.2 gate:** `PNS.VideoEffects videoStabilization oisOn=… eisOn=…` with `--ez pns_preview_video_stabilization true`.
+
+**VF.3 gate:** `pns_video_quality_gate.ps1` — JVM + `pns_in_app_video_verify` + format + stabilization; artifacts `hfr-runs/video_quality_gate_*`.
 
 ---

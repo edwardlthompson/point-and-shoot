@@ -95,50 +95,9 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 ---
 
-## Video Format & Quality Enhancements
+## Video Format & Quality Enhancements — archived
 
-**Objective:** Expand video format support, improve quality, and add advanced video features.
-
-### Sprint VF.1 — Video Format Expansion
-
-**Code:** `VideoEncodeSupport.kt`, `DualVideoFrontCameraController.kt`, `VideoRecordingController.kt`
-
-- [x] **[AGENT]** Add HEVC (H.265) support for all camera modes (13V.15 implemented)
-- [ ] **[AGENT]** Implement AV1 encoding where hardware support exists
-- [x] **[AGENT]** Add 10-bit HDR video capture for compatible devices (13V.5 implemented)
-- [x] **[AGENT]** Implement variable bitrate encoding for optimal quality/size (13V.17 implemented)
-- [x] **[AGENT]** Add support for 4K video at higher frame rates (60/120fps) (13V.16 implemented)
-- [x] **[ADB][HUMAN]** Test video quality across all formats and resolutions (M13V verified)
-
-### Sprint VF.2 — Advanced Video Features
-
-**Code:** `VideoEffectsProcessor.kt` (to be created), `VideoRecordingController.kt`
-
-- [ ] **[AGENT]** Implement real-time video stabilization (EIS/OIS hybrid)
-- [x] **[AGENT]** Add video filters and effects (LUT-based color grading) (13V.11 implemented)
-- [x] **[AGENT]** Implement slow-motion and timelapse video modes (HFR MediaCodec implemented)
-- [x] **[AGENT]** Add audio level monitoring and control during recording (13V.8 implemented)
-- [x] **[AGENT]** Implement video compression options for sharing (bitrate scale 13V.17)
-- [ ] **[ADB][HUMAN]** Test video stabilization effectiveness
-- [x] **[ADB][HUMAN]** Verify audio/video sync in all formats (M13V verified)
-
-### Sprint VF.3 — Video Format Testing Suite
-
-**Verification scripts:** `pns_video_format_test.ps1` (to be created), `pns_video_quality_gate.ps1` (to be created)
-
-- [ ] **[HUMAN]** Create comprehensive video format test suite
-- [ ] **[AGENT]** Implement automated quality assessment tools
-- [ ] **[ADB][HUMAN]** Test compatibility with popular video players
-- [ ] **[ADB][HUMAN]** Verify file size vs quality trade-offs
-- [ ] **[HUMAN]** Document format recommendations for different use cases
-
-**VF.1 Format gate:** Video format expansion implemented and verified. **Proof:** `pns_video_format_test.ps1` shows HEVC/AV1 encoding working, 4K@60fps capture successful, HDR video output verified on compatible devices.
-
-**VF.2 Features gate:** Advanced video features implemented and verified. **Proof:** `pns_video_stabilization_test.ps1` shows EIS/OIS working, video filters applied correctly, slow-motion/timelapse modes functional, audio/video sync maintained.
-
-**VF.3 Testing gate:** Video testing suite created and executed. **Proof:** Comprehensive test suite passes, compatibility verified with VLC, MX Player, YouTube, quality assessment tools show improvements, format recommendations documented.
-
-**VF Video gate:** All video sprints complete, formats working, quality verified, compatibility tested with documented proof.
+**VF.1–VF.3** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Video Format & Quality Enhancements*). **Docs:** [`docs/VIDEO_FORMAT_RECOMMENDATIONS.md`](docs/VIDEO_FORMAT_RECOMMENDATIONS.md). **Gate:** `scripts/pns_video_quality_gate.ps1` (host + USB when device attached).
 
 ---
 

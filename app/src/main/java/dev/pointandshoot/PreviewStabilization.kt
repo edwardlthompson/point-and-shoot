@@ -21,7 +21,7 @@ object PreviewStabilization {
     private const val TAG = "PNS.Stabilization"
 
     /** AE target FPS upper bound at or above this value disables preview EIS (HFR path). */
-    private const val HFR_PREVIEW_EIS_DISABLE_FPS = 120
+    internal const val HFR_PREVIEW_EIS_DISABLE_FPS = 120
 
     internal fun pickOpticalStabilizationMode(avail: IntArray): Int? {
         if (avail.isEmpty()) return null

@@ -48,6 +48,17 @@ class LutCameraPreviewRenderer(
     private val lastLutRequested: AtomicReference<Lut3D?> = AtomicReference(null)
     private val geometry = AtomicReference(Geometry(1, 1, 0, 0, coverCrop = true))
     private val dualSplitEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val hfrYuvMonitorEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var hfrYuvProgram: HfrYuvMonitorShaderProgram? = null
+    private var hfrYuvQuadBuffer: FloatBuffer? = null
+    private var hfrYuvQuadCacheKey: Long = Long.MIN_VALUE
+    private var hfrYuvTexY: Int = 0
+    private var hfrYuvTexU: Int = 0
+    private var hfrYuvTexV: Int = 0
+    private var hfrYuvTexW: Int = 0
+    private var hfrYuvTexH: Int = 0
+    private val pendingHfrYuvFrame = AtomicReference<HfrYuvMonitorFrame?>(null)
+    @Volatile private var lastHfrYuvDrawFrame: HfrYuvMonitorFrame? = null
     private val recordCompositeToEncoder = java.util.concurrent.atomic.AtomicBoolean(false)
     private val encoderSinkRef = AtomicReference<DualVideoGlEncoderSink?>(null)
     private var frontOesTextureId: Int = 0
@@ -116,6 +127,28 @@ class LutCameraPreviewRenderer(
     }
 
     /**
+     * During HFR record, draw CPU-drained YUV planes from an HS [android.media.ImageReader]
+     * on the **same** camera (not the starved primary preview ST). LUT off.
+     */
+    fun setHfrYuvMonitorEnabled(enabled: Boolean) {
+        hfrYuvMonitorEnabled.set(enabled)
+        glSurfaceViewRef?.queueEvent {
+            if (enabled) {
+                ensureHfrYuvGlResourcesOnGlThread()
+            } else {
+                releaseHfrYuvGlResourcesOnGlThread()
+            }
+        }
+    }
+
+    /** Called after [HfrYuvImageCopier.copy] on the camera handler; uploads on next draw. */
+    fun deliverHfrYuvFrame(frame: HfrYuvMonitorFrame) {
+        if (!hfrYuvMonitorEnabled.get()) return
+        pendingHfrYuvFrame.set(frame)
+        glSurfaceViewRef?.requestRender()
+    }
+
+    /**
      * Run on the GL thread while the EGL context is still current (e.g. inside
      * [GLSurfaceView.queueEvent] before [GLSurfaceView.onPause]).
      */
@@ -128,6 +161,7 @@ class LutCameraPreviewRenderer(
             runCatching { st.release() }
         }
         releaseFrontOesOnGlThread()
+        releaseHfrYuvGlResourcesOnGlThread()
         if (oesTextureId != 0) {
             GLES20.glDeleteTextures(1, intArrayOf(oesTextureId), 0)
             oesTextureId = 0
@@ -215,10 +249,16 @@ class LutCameraPreviewRenderer(
 
     override fun onDrawFrame(gl: GL10?) {
         val prog = program ?: return
-        val st = surfaceTexture ?: return
         consumePendingLut()
-        runCatching { st.updateTexImage() }
-        st.getTransformMatrix(stMatrix)
+
+        val yuvMonitorMode = hfrYuvMonitorEnabled.get()
+        val yuvFrame = if (yuvMonitorMode) pendingHfrYuvFrame.getAndSet(null) else null
+
+        if (!yuvMonitorMode) {
+            val st = surfaceTexture ?: return
+            runCatching { st.updateTexImage() }
+            st.getTransformMatrix(stMatrix)
+        }
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
@@ -247,6 +287,17 @@ class LutCameraPreviewRenderer(
                 }
             }
             drawStackedComposite(prog, g, frontReady = dual && frontValid)
+        } else if (yuvMonitorMode) {
+            var frame = yuvFrame
+            if (frame != null) {
+                lastHfrYuvDrawFrame = frame
+            } else {
+                frame = lastHfrYuvDrawFrame
+            }
+            if (frame != null) {
+                drawHfrYuvFrame(frame, g)
+            }
+            // else: primary ST is starved during encoder-only HS — keep cleared until monitor YUV arrives
         } else {
             drawOesToViewport(
                 prog = prog,
@@ -436,6 +487,134 @@ class LutCameraPreviewRenderer(
                 frontOesTextureId = 0
             }
         }
+    }
+
+    private fun drawHfrYuvFrame(frame: HfrYuvMonitorFrame, g: Geometry) {
+        val yuvProg = hfrYuvProgram ?: return
+        val quad = hfrYuvQuadForFrame(frame) ?: return
+        ensureHfrYuvTexturesSized(frame.width, frame.height)
+        HfrYuvMonitorShaderProgram.uploadPlaneR8(hfrYuvTexY, frame.width, frame.height, frame.y)
+        val uvW = frame.width / 2
+        val uvH = frame.height / 2
+        HfrYuvMonitorShaderProgram.uploadPlaneR8(hfrYuvTexU, uvW, uvH, frame.u)
+        HfrYuvMonitorShaderProgram.uploadPlaneR8(hfrYuvTexV, uvW, uvH, frame.v)
+        val rot = ((frame.textureRotationDeg % 360) + 360) % 360
+        val crop = frame.textureCrop
+        val uvSpanU = crop.u1 - crop.u0
+        val uvSpanV = crop.v1 - crop.v0
+        val dispW =
+            ((if (rot == 90 || rot == 270) frame.height else frame.width) * uvSpanU).toInt()
+                .coerceAtLeast(1)
+        val dispH =
+            ((if (rot == 90 || rot == 270) frame.width else frame.height) * uvSpanV).toInt()
+                .coerceAtLeast(1)
+        val vp =
+            if (g.coverCrop) {
+                coverCropViewport(g.viewW, g.viewH, dispW, dispH)
+            } else {
+                intArrayOf(0, 0, g.viewW, g.viewH)
+            }
+        yuvProg.draw(
+            quad,
+            hfrYuvTexY,
+            hfrYuvTexU,
+            hfrYuvTexV,
+            vp[0],
+            vp[1],
+            vp[2],
+            vp[3],
+        )
+    }
+
+    private fun hfrYuvQuadForFrame(frame: HfrYuvMonitorFrame): FloatBuffer? {
+        val normalized = ((frame.textureRotationDeg % 360) + 360) % 360
+        val crop = frame.textureCrop
+        val key =
+            (normalized.toLong() shl 32) xor
+                (crop.u0.toBits().toLong() shl 16) xor
+                crop.v0.toBits().toLong() xor
+                crop.u1.toBits().toLong() xor
+                crop.v1.toBits().toLong()
+        if (key != hfrYuvQuadCacheKey) {
+            hfrYuvQuadCacheKey = key
+            hfrYuvQuadBuffer =
+                ByteBuffer.allocateDirect(LutShaderProgram.Source.FULL_SCREEN_QUAD.size * 4)
+                    .order(ByteOrder.nativeOrder())
+                    .asFloatBuffer()
+                    .apply {
+                        put(HfrYuvTexCoord.rotatedCroppedFullScreenQuad(normalized, crop))
+                        position(0)
+                    }
+        }
+        return hfrYuvQuadBuffer
+    }
+
+    /** Center-crop buffer aspect into the view (matches OES cover-crop intent). */
+    private fun coverCropViewport(viewW: Int, viewH: Int, bufW: Int, bufH: Int): IntArray {
+        if (bufW <= 0 || bufH <= 0) return intArrayOf(0, 0, viewW, viewH)
+        val viewAspect = viewW.toFloat() / viewH.coerceAtLeast(1)
+        val bufAspect = bufW.toFloat() / bufH
+        return if (bufAspect > viewAspect) {
+            val w = (viewH * bufAspect).toInt().coerceAtMost(viewW)
+            val x = (viewW - w) / 2
+            intArrayOf(x, 0, w, viewH)
+        } else {
+            val h = (viewW / bufAspect).toInt().coerceAtMost(viewH)
+            val y = (viewH - h) / 2
+            intArrayOf(0, y, viewW, h)
+        }
+    }
+
+    private fun ensureHfrYuvGlResourcesOnGlThread() {
+        if (hfrYuvProgram != null) return
+        runCatching {
+            val vert = assetLoader(HfrYuvMonitorShaderProgram.VERTEX_ASSET_PATH)
+            val frag = assetLoader(HfrYuvMonitorShaderProgram.FRAGMENT_ASSET_PATH)
+            hfrYuvProgram = HfrYuvMonitorShaderProgram.create(vert, frag)
+            hfrYuvQuadBuffer =
+                ByteBuffer.allocateDirect(LutShaderProgram.Source.FULL_SCREEN_QUAD.size * 4)
+                    .order(ByteOrder.nativeOrder())
+                    .asFloatBuffer()
+                    .apply {
+                        put(LutShaderProgram.Source.FULL_SCREEN_QUAD)
+                        position(0)
+                    }
+            Log.i(TAG, "HFR YUV monitor shader ready")
+        }.onFailure { e ->
+            Log.e(TAG, "HFR YUV shader setup failed: ${e.message}", e)
+        }
+    }
+
+    private fun ensureHfrYuvTexturesSized(w: Int, h: Int) {
+        if (hfrYuvTexY != 0 && hfrYuvTexW == w && hfrYuvTexH == h) return
+        releaseHfrYuvTextureIds()
+        val ids = IntArray(3)
+        GLES20.glGenTextures(3, ids, 0)
+        hfrYuvTexY = ids[0]
+        hfrYuvTexU = ids[1]
+        hfrYuvTexV = ids[2]
+        hfrYuvTexW = w
+        hfrYuvTexH = h
+    }
+
+    private fun releaseHfrYuvTextureIds() {
+        val toDelete = intArrayOf(hfrYuvTexY, hfrYuvTexU, hfrYuvTexV).filter { it != 0 }.toIntArray()
+        if (toDelete.isNotEmpty()) GLES20.glDeleteTextures(toDelete.size, toDelete, 0)
+        hfrYuvTexY = 0
+        hfrYuvTexU = 0
+        hfrYuvTexV = 0
+        hfrYuvTexW = 0
+        hfrYuvTexH = 0
+    }
+
+    private fun releaseHfrYuvGlResourcesOnGlThread() {
+        pendingHfrYuvFrame.set(null)
+        lastHfrYuvDrawFrame = null
+        hfrYuvProgram?.release()
+        hfrYuvProgram = null
+        hfrYuvQuadBuffer = null
+        hfrYuvQuadCacheKey = Long.MIN_VALUE
+        releaseHfrYuvTextureIds()
     }
 
     private fun releaseFrontOesOnGlThread() {

@@ -53,6 +53,15 @@ class CaptureHaptics(private val appContext: Context) {
         return true
     }
 
+    /** Sprint AS.2 — immediate tick when shutter sound + haptic are synchronized on fire. */
+    @MainThread
+    fun fireStillTickNow(): Boolean {
+        val v = vibrator ?: return false
+        if (!v.hasVibrator()) return false
+        runCatching { fireTick(v) }
+        return true
+    }
+
     /**
      * Cancel any pending still tick. Useful if the capture is aborted between
      * scheduling and firing. Safe to call when nothing is pending.

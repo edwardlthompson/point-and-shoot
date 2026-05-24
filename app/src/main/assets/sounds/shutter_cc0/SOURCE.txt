@@ -1,0 +1,19 @@
+Shutter sound effects bundled in res/raw/ (CC0 1.0)
+
+Upstream: BigSoundBank / Joseph SARDIN (La Sonothèque)
+License: CC0 — https://bigsoundbank.com/licenses.html
+
+res/raw assets (trimmed with ffmpeg):
+
+  shutter_mechanical.ogg — "Camera" #0011, Nikon D70s SLR flick (~0.58s)
+    https://bigsoundbank.com/camera-s0011.html
+
+  shutter_digital.ogg — "iPhone - Camera" #0448, capture tick (~0.42s)
+    https://bigsoundbank.com/iphone-camera-s0448.html
+
+  shutter_vintage.ogg — "Instamatic, Triggering #1" #2821
+    https://bigsoundbank.com/instamatic-triggering-1-s2821.html
+
+Pack mapping (app): Mechanical → shutter_digital.ogg; Digital → shutter_mechanical.ogg; Vintage → shutter_vintage.ogg
+
+Downloaded May 2026 for Point & Shoot sprint AS.2.

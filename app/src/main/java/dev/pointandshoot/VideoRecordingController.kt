@@ -48,7 +48,35 @@ internal class VideoRecordingController(
         private const val MAX_FPS = 480 // HFR support up to 480fps (OnePlus 13)
         
         /** HFR threshold - FPS above this requires CameraConstrainedHighSpeedCaptureSession. */
-        private const val HFR_THRESHOLD_FPS = 120
+        const val HFR_THRESHOLD_FPS = 120
+
+        /**
+         * True when the UI must not offer this codec at [fps] as honest HFR.
+         *
+         * **CPH2655-class (May 2026 USB):** Constrained HS + Qualcomm HEVC (`c2.qti.hevc.encoder`,
+         * including Main10 surface input for 8-bit HFR) delivers about **half** the target unique
+         * frame rate (e.g. ~60 unique/s at a 120 fps HS target). Container fps / mux PTS can still
+         * look correct — that is not the same as true HFR.
+         *
+         * **Honest HFR in-app today:** [VideoCodec.H264] via `c2.qti.avc.encoder` when the camera HS
+         * table supports the tier.
+         *
+         * **[VideoCodec.AV1]:** hide at HFR until a fleet device shows **hardware** AV1 (e.g.
+         * `c2.qti.av1.encoder`) that records at the target fps with verified unique frames. On
+         * CPH2655 (`8bf09993` May 2026) only `c2.android.av1.encoder` is listed; forcing 120 fps
+         * fails `MediaCodec.createByCodecName(c2.qti.av1.encoder)` with NAME_NOT_FOUND.
+         */
+        fun lacksTrueHfrUniqueFrames(fps: Int, codec: VideoCodec): Boolean {
+            if (fps < HFR_THRESHOLD_FPS) return false
+            return when (codec) {
+                VideoCodec.H264 -> false
+                VideoCodec.AV1 -> true
+                VideoCodec.H265,
+                VideoCodec.H265_10BIT,
+                VideoCodec.DCG,
+                -> true
+            }
+        }
     }
 
     // State assigned from [handler] thread only
@@ -311,12 +339,6 @@ internal class VideoRecordingController(
             } else {
                 CaptureStorage.CaptureKind.Mp4
             }
-        recordingCaptureInfo =
-            VideoCaptureMetadata.CaptureInfo(
-                captureFps = targetFps,
-                codecLabel = videoFormat.getLabel(),
-                mimeType = videoKind.mimeType,
-            )
 
         // Open video output
         val pair = runCatching {
@@ -334,6 +356,34 @@ internal class VideoRecordingController(
         // Check audio permission
         val hasAudio = hasAudioPermission()
         audioEnabled = hasAudio
+        val chrome = PreviewChromePreferences.load(appContext)
+        val audioProfile = PnsAudioCaptureSupport.resolve(appContext, chrome)
+        AudioEffects.lightCompressionEnabled = chrome.audioLightCompression
+        AudioEffects.voiceoverDuckingEnabled = chrome.audioVoiceoverDucking
+        val audioMetaSampleRateHz =
+            if (!hasAudio) {
+                null
+            } else if (audioProfile.hiFiMode) {
+                PnsAacEncoderSupport.maxHiFiMuxSampleRateHz(appContext)
+            } else {
+                audioProfile.sampleRateHz
+            }
+        if (hasAudio) {
+            PnsAudioCaptureSupport.logInputDevices(appContext)
+            Log.i(TAG, "videoAudioProfile ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
+            PnsAdbLog.i(appContext, "videoAudioProfile ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
+        }
+        recordingCaptureInfo =
+            VideoCaptureMetadata.CaptureInfo(
+                captureFps = targetFps,
+                codecLabel = videoFormat.getLabel(),
+                mimeType = videoKind.mimeType,
+                audioSampleRateHz = audioMetaSampleRateHz,
+                audioAacBitrateBps = if (hasAudio) audioProfile.aacBitrateBps else null,
+                audioChannelCount = if (hasAudio) audioProfile.channelCount else null,
+                audioHiFi = hasAudio && audioProfile.hiFiMode,
+                audioWindNoiseReduction = hasAudio && audioProfile.windNoiseSuppression,
+            )
 
         // MediaCodec path for HFR (>60fps) and 10-bit — bypasses ro.media.recorder-max-base-layer-fps=60
         if (useMediaCodecPath) {
@@ -374,8 +424,8 @@ internal class VideoRecordingController(
 
             if (hasAudio) {
                 mr.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-                mr.setAudioEncodingBitRate(128_000)
-                mr.setAudioSamplingRate(48_000)
+                mr.setAudioEncodingBitRate(audioProfile.aacBitrateBps)
+                mr.setAudioSamplingRate(audioProfile.sampleRateHz)
             }
 
             mr.prepare()
@@ -497,6 +547,11 @@ internal class VideoRecordingController(
         val mc = mcRecorder
         if (mc != null) {
             recorderStarted = true
+            if (audioEnabled) {
+                AudioEffects.requestVoiceoverDuck(appContext)
+                AudioEffects.logPostProcessState()
+                SpatialAudio.diag(appContext)
+            }
             mc.start()
             val hfrMc = wantsMediaCodecPath && targetFpsForMcWait() >= 120
             val muxReady =
@@ -523,6 +578,11 @@ internal class VideoRecordingController(
         }
         if (mediaRecorder == null) return
         recorderStarted = true
+        if (audioEnabled) {
+            AudioEffects.requestVoiceoverDuck(appContext)
+            AudioEffects.logPostProcessState()
+            SpatialAudio.diag(appContext)
+        }
         runCatching { mediaRecorder?.start() }.onFailure { e ->
             Log.e(TAG, "MediaRecorder start failed", e)
         }
@@ -540,6 +600,7 @@ internal class VideoRecordingController(
         if (mc != null) {
             val wasAudioEnabled = audioEnabled
             mc.stop { savedUri ->
+                AudioEffects.abandonVoiceoverDuck(appContext)
                 mcRecorder = null
                 recordingSurface = null
                 recordingUri = null
@@ -568,6 +629,7 @@ internal class VideoRecordingController(
         runCatching { mr.reset() }
         runCatching { mr.release() }
         runCatching { pfd?.close() }
+        AudioEffects.abandonVoiceoverDuck(appContext)
 
         mediaRecorder = null
         recordingSurface = null

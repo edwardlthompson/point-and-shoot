@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import android.hardware.camera2.params.StreamConfigurationMap
 import android.media.MediaRecorder
 import android.os.Build
 import android.util.Size
@@ -150,7 +151,9 @@ object VideoFormatPresets {
             bitrate = calculateBitrate(resolution.width, resolution.height, fps, VideoCodec.H264),
         ))
 
-        if (supportsHevc && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+        if (supportsHevc && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 &&
+            !VideoRecordingController.lacksTrueHfrUniqueFrames(fps, VideoCodec.H265)
+        ) {
             formats.add(VideoFormat(
                 codec = VideoCodec.H265,
                 resolution = resolution,
@@ -158,7 +161,9 @@ object VideoFormatPresets {
                 bitrate = calculateBitrate(resolution.width, resolution.height, fps, VideoCodec.H265),
             ))
 
-            if (supportsTenBit) {
+            if (supportsTenBit &&
+                !VideoRecordingController.lacksTrueHfrUniqueFrames(fps, VideoCodec.H265_10BIT)
+            ) {
                 formats.add(VideoFormat(
                     codec = VideoCodec.H265_10BIT,
                     resolution = resolution,
@@ -184,7 +189,10 @@ object VideoFormatPresets {
             }
         }
 
-        if (supportsAv1 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (supportsAv1 &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE &&
+            !VideoRecordingController.lacksTrueHfrUniqueFrames(fps, VideoCodec.AV1)
+        ) {
             val av1HfrOk = fps < 120 || MediaCodecCapabilityProbe.supportsHardwareAv1Encoder()
             if (av1HfrOk) {
                 formats.add(
@@ -202,16 +210,46 @@ object VideoFormatPresets {
     }
 
     /**
+     * Picker resolution tiers: HAL HS sizes + exact encoder perf sizes + MediaRecorder outputs,
+     * intersected with [ALL_TIERS] so odd HAL sizes do not flood the matrix.
+     */
+    fun catalogTierSizes(
+        highSpeedMap: StreamConfigurationMap?,
+        mediaRecorderSizes: List<Size>? = null,
+    ): List<Size> {
+        val probe = MediaCodecCapabilityProbe.probeSync()
+        val keys = HashSet<Long>()
+        fun add(w: Int, h: Int) {
+            if (w > 0 && h > 0) keys += w.toLong() * 1_000_000L + h
+        }
+        runCatching { highSpeedMap?.highSpeedVideoSizes?.forEach { add(it.width, it.height) } }
+        mediaRecorderSizes?.forEach { add(it.width, it.height) }
+        probe.performancePoints.forEach { add(it.width, it.height) }
+        probe.h264PerformancePoints.forEach { add(it.width, it.height) }
+        val tiers =
+            ALL_TIERS.filter { tier -> keys.contains(tier.width.toLong() * 1_000_000L + tier.height) }
+        if (tiers.isNotEmpty()) {
+            return tiers.sortedByDescending { it.width.toLong() * it.height }
+        }
+        return listOf(Size(1920, 1080), Size(1280, 720))
+    }
+
+    /**
      * Return all (resolution, fps) pairs supported as performance-points on this device.
      * Uses [MediaCodecCapabilityProbe] cache; falls back to conservative defaults if probe not run.
      * Results are sorted resolution-descending then fps-ascending for display.
      */
-    fun getHardwareTiers(supportsDcg: Boolean = false, supportsAv1: Boolean = false): List<VideoFormat> {
+    fun getHardwareTiers(
+        supportsDcg: Boolean = false,
+        supportsAv1: Boolean = false,
+        highSpeedMap: StreamConfigurationMap? = null,
+        mediaRecorderSizes: List<Size>? = null,
+    ): List<VideoFormat> {
         val probe = MediaCodecCapabilityProbe
         val result = mutableListOf<VideoFormat>()
 
-        for (tier in ALL_TIERS) {
-            val fpsOptions = probe.fpsOptionsForResolution(tier.width, tier.height)
+        for (tier in catalogTierSizes(highSpeedMap, mediaRecorderSizes)) {
+            val fpsOptions = probe.fpsOptionsForResolution(tier.width, tier.height, highSpeedMap)
             val tenBit = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 probe.probeSync().supportsMain10
             for (fps in fpsOptions) {

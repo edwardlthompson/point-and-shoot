@@ -95,6 +95,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.FloatingActionButton
@@ -645,6 +646,12 @@ fun PreviewEngineScreen(
     adbRawStreamPreference: RawStreamPreference? = null,
     /** When non-null, session-only seed for JPEG companion (`pns_preview_jpeg_companion`). */
     adbJpegCompanionSeed: Boolean? = null,
+    /** Sprint **AS.1** — `pns_preview_audio_hifi` (session-only). */
+    adbAudioHiFiSeed: Boolean? = null,
+    /** Sprint **AS.1** — `pns_preview_audio_wind` (session-only). */
+    adbAudioWindSeed: Boolean? = null,
+    /** Sprint **AS.2** — `pns_preview_shutter_sound_pack` (session-only). */
+    adbShutterSoundPackSeed: String? = null,
     /** `--ez pns_preview_composed_still true` — one IMG-matrix still via [PreviewController.captureComposedStill]. */
     adbComposedStillSmoke: Boolean = false,
     adbSeedCameraId: String? = null,
@@ -788,6 +795,9 @@ fun PreviewEngineScreen(
             adbFocalMmSlotProbe != null ||
             adbRawStreamPreference != null ||
             adbJpegCompanionSeed != null ||
+            adbAudioHiFiSeed != null ||
+            adbAudioWindSeed != null ||
+            adbShutterSoundPackSeed != null ||
             adbAutomationInAppVideoSec > 0 ||
             adbAutomationVideoRawSec > 0 ||
             adbSeedFocusPeakingColor != null ||
@@ -1322,6 +1332,33 @@ fun PreviewEngineScreen(
                         hdrWhenJpegOff = composedStillIntent.raw,
                     ).coerceNoOffOff()
         }
+    }
+    LaunchedEffect(adbAudioHiFiSeed, adbAudioWindSeed) {
+        if (adbAudioHiFiSeed == null && adbAudioWindSeed == null) return@LaunchedEffect
+        val cur = chromePrefs.current
+        var next = cur
+        adbAudioHiFiSeed?.let { want ->
+            if (cur.audioHiFiCapture != want) next = next.copy(audioHiFiCapture = want)
+        }
+        adbAudioWindSeed?.let { want ->
+            if (cur.audioWindNoiseReduction != want) next = next.copy(audioWindNoiseReduction = want)
+        }
+        if (next != cur) {
+            chromePrefs.applySessionOnly(next)
+        }
+        PnsAdbLog.i(
+            context,
+            "preview seeded audio hiFi=${next.audioHiFiCapture} windNs=${next.audioWindNoiseReduction} (session-only)",
+        )
+    }
+    LaunchedEffect(adbShutterSoundPackSeed) {
+        val packKey = adbShutterSoundPackSeed ?: return@LaunchedEffect
+        val resolved = ShutterSoundPack.fromStorageKey(packKey).storageKey
+        val cur = chromePrefs.current
+        if (cur.shutterSoundPackKey != resolved) {
+            chromePrefs.applySessionOnly(cur.copy(shutterSoundPackKey = resolved))
+        }
+        PnsAdbLog.i(context, "preview seeded shutterSoundPack=$resolved raw=$packKey (session-only)")
     }
     LaunchedEffect(imageCaptureReturn) {
         if (imageCaptureReturn != null) {
@@ -2677,7 +2714,10 @@ fun PreviewEngineScreen(
     }
 
     DisposableEffect(Unit) {
-        onDispose { controller.stop() }
+        onDispose {
+            PreviewChromePreferences.clearSessionSnapshot()
+            controller.stop()
+        }
     }
 }
 
@@ -2967,20 +3007,26 @@ private fun PreviewEngineContent(
     LaunchedEffect(Unit) {
         supportsInAppVideoAv1 = MediaCodecCapabilityProbe.probe().supportsAv1
     }
+    val videoFormatHighSpeedMap =
+        remember(selectedCameraId) {
+            selectedCameraId?.let { id ->
+                runCatching {
+                    cameraManager.getCameraCharacteristics(id)
+                        .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                }.getOrNull()
+            }
+        }
     val videoFormatCatalog =
-        remember(selectedCameraId, supportsInAppVideoDcg, supportsInAppVideoAv1) {
-            val hsMap =
-                selectedCameraId?.let { id ->
-                    runCatching {
-                        cameraManager.getCameraCharacteristics(id)
-                            .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                    }.getOrNull()
-                }
+        remember(selectedCameraId, supportsInAppVideoDcg, supportsInAppVideoAv1, videoFormatHighSpeedMap) {
             InAppVideoFormatSelection.loadCatalog(
                 supportsDcg = supportsInAppVideoDcg,
                 supportsAv1 = supportsInAppVideoAv1,
-                highSpeedMap = hsMap,
+                highSpeedMap = videoFormatHighSpeedMap,
             )
+        }
+    val videoFormatTruth =
+        remember(videoFormatHighSpeedMap) {
+            InAppVideoFormatSelection.buildVideoTruth(videoFormatHighSpeedMap)
         }
     val selectedInAppVideoFormat =
         remember(videoFormatCatalog, chrome, videoEncodeSize, selectedFps) {
@@ -3732,8 +3778,12 @@ private fun PreviewEngineContent(
                 VideoFormatPickerSheet(
                     formats = videoFormatCatalog,
                     selectedFormat = selectedInAppVideoFormat,
+                    videoTruth = videoFormatTruth,
+                    chrome = chromePrefs.current,
+                    patchChrome = { transform -> chromePrefs.update(transform(chromePrefs.current)) },
                     onSelect = { format ->
-                        val nextChrome = InAppVideoFormatSelection.chromeAfterSelect(chrome, format)
+                        val nextChrome =
+                            InAppVideoFormatSelection.chromeAfterSelect(chromePrefs.current, format)
                         chromePrefs.update(nextChrome)
                         if (format.frameRate != selectedFps) {
                             onSetFps(format.frameRate)
@@ -5632,7 +5682,7 @@ private fun RailSettingsHomeContent(
         )
         RailSettingsMenuEntryCard(
             title = "Capture & stills",
-            subtitle = "Imaging profile, RAW / JPEG, brackets, default camera.",
+            subtitle = "RAW / JPEG, brackets, shutter sound, flash, default camera.",
             onClick = onCapture,
         )
         RailSettingsMenuEntryCard(
@@ -5793,16 +5843,17 @@ private fun PreviewKeysRailSheetContent(
             title = "On-screen shutter button",
             subtitle = "Shows a shutter control on the preview overlay.",
             checked = chrome.showOnScreenShutter,
-            onCheckedChange = { chromePrefs.update(chrome.copy(showOnScreenShutter = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(showOnScreenShutter = checked) } },
         )
         PreviewRailSectionTitle("Gallery")
-        val useBespokeGallery = remember { GalleryPrefs.useBespokeGallery(context) }
+        var useBespokeGallery by remember { mutableStateOf(GalleryPrefs.useBespokeGallery(context)) }
         PreviewRailSettingToggle(
             title = "Use in-app gallery",
             subtitle = "Open photos in the app gallery instead of system gallery.",
             checked = useBespokeGallery,
-            onCheckedChange = { 
-                GalleryPrefs.setUseBespokeGallery(context, it)
+            onCheckedChange = { checked ->
+                useBespokeGallery = checked
+                GalleryPrefs.setUseBespokeGallery(context, checked)
             },
         )
         PreviewRailSectionTitle("Extra shutters")
@@ -5810,13 +5861,13 @@ private fun PreviewKeysRailSheetContent(
             title = "Tap preview to capture",
             subtitle = "Single tap on the live finder fires the still shutter.",
             checked = chrome.tapPreviewToCapture,
-            onCheckedChange = { chromePrefs.update(chrome.copy(tapPreviewToCapture = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(tapPreviewToCapture = checked) } },
         )
         PreviewRailSettingToggle(
             title = "Volume keys shutter",
             subtitle = "Hardware volume keys trigger capture when preview has focus.",
             checked = chrome.volumeKeysCapture,
-            onCheckedChange = { chromePrefs.update(chrome.copy(volumeKeysCapture = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(volumeKeysCapture = checked) } },
         )
         PreviewRailSectionTitle("Preview framing & overlays")
         PreviewRailSettingToggle(
@@ -5828,13 +5879,13 @@ private fun PreviewKeysRailSheetContent(
                     "Letterboxed preview matches still framing (entire crop visible)."
                 },
             checked = chrome.previewTextureCoverCrop,
-            onCheckedChange = { chromePrefs.update(chrome.copy(previewTextureCoverCrop = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(previewTextureCoverCrop = checked) } },
         )
         PreviewRailSettingToggle(
             title = "Corner test chart overlay",
             subtitle = "Small alignment grid overlay for display checks.",
             checked = chrome.liveChartCornerOverlay,
-            onCheckedChange = { chromePrefs.update(chrome.copy(liveChartCornerOverlay = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(liveChartCornerOverlay = checked) } },
         )
         PreviewRailSectionTitle("HDR / wide gamut (preview session)")
         PreviewRailSettingToggle(
@@ -5880,20 +5931,20 @@ private fun PreviewKeysRailSheetContent(
             title = "Max brightness in preview",
             subtitle = "Keeps the screen bright while the preview is open (uses more battery).",
             checked = chrome.maxBrightnessInPreview,
-            onCheckedChange = { chromePrefs.update(chrome.copy(maxBrightnessInPreview = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(maxBrightnessInPreview = checked) } },
         )
         PreviewRailSectionTitle("Do Not Disturb")
         PreviewRailSettingToggle(
             title = "Silence notifications (preview open)",
             subtitle = "Requires notification policy access on supported Android versions.",
             checked = chrome.dndWhileInPreview,
-            onCheckedChange = { chromePrefs.update(chrome.copy(dndWhileInPreview = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(dndWhileInPreview = checked) } },
         )
         PreviewRailSettingToggle(
             title = "Silence notifications (while recording)",
             subtitle = "Same policy gate as above; applies during video recording.",
             checked = chrome.dndWhileRecording,
-            onCheckedChange = { chromePrefs.update(chrome.copy(dndWhileRecording = it)) },
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(dndWhileRecording = checked) } },
         )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val nm = context.getSystemService(NotificationManager::class.java)
@@ -5933,6 +5984,12 @@ private fun CaptureToolsRailSheetContent(
     onSwitchToFrontCamera: () -> Unit,
     onSwitchToRearCamera: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val shutterSoundPreview = remember { ShutterSoundManager(context.applicationContext) }
+    DisposableEffect(Unit) {
+        onDispose { shutterSoundPreview.release() }
+    }
+    val shutterPack = ShutterSoundPack.fromStorageKey(chrome.shutterSoundPackKey)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         PreviewRailSectionTitle("Imaging")
         Text(
@@ -5948,6 +6005,48 @@ private fun CaptureToolsRailSheetContent(
         ) {
             Text("Save DNG now")
         }
+        PreviewRailSectionTitle("Shutter sound")
+        Text(
+            text = "Tone played when a still is captured (not during video record).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.62f),
+        )
+        for (pack in ShutterSoundPack.entries) {
+            FocusPeakingOptionRow(
+                label = pack.label,
+                selected = pack == shutterPack,
+                swatchColor = null,
+                onClick = {
+                    val next = chromePrefs.current.copy(shutterSoundPackKey = pack.storageKey)
+                    chromePrefs.update(next)
+                    Log.i("PNS.ChromeUx", "shutterSoundPack=${pack.storageKey}")
+                    shutterSoundPreview.playShutter(next, haptics = null)
+                },
+            )
+        }
+        if (shutterPack != ShutterSoundPack.Silent) {
+            Text(
+                text = "Volume ${(chrome.shutterSoundVolume * 100f).toInt()}%",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.88f),
+            )
+            Slider(
+                value = chromePrefs.current.shutterSoundVolume.coerceIn(0f, 1f),
+                onValueChange = { v ->
+                    chromePrefs.update(
+                        chromePrefs.current.copy(shutterSoundVolume = v.coerceIn(0f, 1f)),
+                    )
+                },
+                valueRange = 0f..1f,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        PreviewRailSettingToggle(
+            title = "Haptic with shutter",
+            subtitle = "Vibration tick when the shutter fires (instead of after readout only).",
+            checked = chrome.shutterHapticSync,
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(shutterHapticSync = checked) } },
+        )
         PreviewRailSectionTitle("Flash (rear)")
         Text(
             text = "Mode: ${chrome.previewFlashMode.name}",
@@ -5962,7 +6061,7 @@ private fun CaptureToolsRailSheetContent(
                 val sel = chrome.previewFlashMode == m
                 TextButton(
                     onClick = {
-                        chromePrefs.update(chrome.copy(previewFlashMode = m))
+                        chromePrefs.updateMutate { it.copy(previewFlashMode = m) }
                         Log.i("PNS.ChromeUx", "flashMode=${m.name}")
                     },
                     modifier = Modifier.weight(1f),
@@ -6579,6 +6678,20 @@ private object CaptureStillLog {
 private class PreviewController(
     private val appContext: Context,
 ) {
+    private val shutterSoundManager = ShutterSoundManager(appContext)
+
+    fun onStillShutterFired(haptics: CaptureHaptics) {
+        val chrome = PreviewChromePreferences.load(appContext)
+        shutterSoundManager.playShutter(chrome, haptics.takeIf { chrome.shutterHapticSync })
+    }
+
+    fun onStillCaptureReadoutComplete(haptics: CaptureHaptics) {
+        val chrome = PreviewChromePreferences.load(appContext)
+        if (!chrome.shutterHapticSync) {
+            haptics.scheduleStillTick()
+        }
+    }
+
     companion object {
         /** [Handler.postDelayed] before [maybeRestartBody] after macro OutputConfiguration abandon recovery. */
         private const val MACRO_OUTPUT_CONFIG_RETRY_DELAY_MS = 48L
@@ -6741,15 +6854,29 @@ private class PreviewController(
     @Volatile private var hfrInterleavedEncodeRetryDone: Boolean = false
     @Volatile private var deferMcStartUntilPreviewFrame: Boolean = false
     private var hfrInterleavedWatchdogToken: Int = 0
+    /** Wall clock when encode watchdogs were armed (muxer can lag HS burst start). */
+    private var hfrEncodeWatchdogArmedAtMs: Long = 0L
     private val hfrInterleavedEncodeWatchdog =
         Runnable {
             if (!useHfrInterleavedMcPreview()) return@Runnable
             if (!hfrInterleavedRecordActive && !hfrEncoderOnlyRecordActive) return@Runnable
             if (videoController.peekMcVideoSamplesWritten() > 0L) return@Runnable
-            Log.e(
-                HfrInterleavedPreviewSupport.TAG,
-                "encoder stalled on encoder-only HS — rebuild session",
-            )
+            if (!videoController.isMuxerReadyForRecord()) {
+                val elapsedMs = SystemClock.uptimeMillis() - hfrEncodeWatchdogArmedAtMs
+                if (elapsedMs < 20_000L) {
+                    scheduleHfrInterleavedWatchdogs()
+                    return@Runnable
+                }
+                Log.w(
+                    HfrInterleavedPreviewSupport.TAG,
+                    "muxer not ready after ${elapsedMs}ms with zero video samples — rebuild session",
+                )
+            } else {
+                Log.e(
+                    HfrInterleavedPreviewSupport.TAG,
+                    "encoder stalled on encoder-only HS — rebuild session",
+                )
+            }
             requestSessionRebuildHfr()
             scheduleHfrInterleavedWatchdogs()
         }
@@ -7671,6 +7798,7 @@ private class PreviewController(
         if (!useHfrInterleavedMcPreview()) return
         if (!hfrInterleavedRecordActive && !hfrEncoderOnlyRecordActive) return
         cancelHfrInterleavedWatchdogs()
+        hfrEncodeWatchdogArmedAtMs = SystemClock.uptimeMillis()
         hfrInterleavedWatchdogToken++
         val token = hfrInterleavedWatchdogToken
         mainHandler.postDelayed({ if (token == hfrInterleavedWatchdogToken) hfrInterleavedEncodeWatchdog.run() }, 2_500L)
@@ -7679,6 +7807,7 @@ private class PreviewController(
 
     private fun cancelHfrInterleavedWatchdogs() {
         hfrInterleavedWatchdogToken++
+        hfrEncodeWatchdogArmedAtMs = 0L
         mainHandler.removeCallbacks(hfrInterleavedEncodeWatchdog)
         mainHandler.removeCallbacks(hfrInterleavedPreviewWatchdog)
     }
@@ -7692,6 +7821,8 @@ private class PreviewController(
     @Volatile private var hfrEncoderOnlyRecordActive: Boolean = false
     @Volatile private var hfrMonitorYuvCaptureActive: Boolean = false
     @Volatile private var hfrMonitorTextureRotationDeg: Int = 0
+    private var hfrMonitorRecordCameraId: String? = null
+    private var hfrMonitorFinderCameraId: String? = null
     private var hfrMonitorController: HfrRecordMonitorCameraController? = null
 
     fun peekHfrEncoderOnlyMonitorActive(): Boolean = hfrEncoderOnlyRecordActive
@@ -7704,28 +7835,34 @@ private class PreviewController(
     private fun stopHfrRecordMonitor() {
         hfrEncoderOnlyRecordActive = false
         hfrMonitorYuvCaptureActive = false
+        val h = handler
+        if (h != null && android.os.Looper.myLooper() == h.looper) {
+            stopHfrRecordMonitorOnHandler()
+        } else {
+            val mon = hfrMonitorController
+            hfrMonitorController = null
+            val ir = hfrYuvMonitorImageReader
+            hfrYuvMonitorImageReader = null
+            if (h != null) {
+                h.post { tearDownHfrMonitorOnHandler(mon, ir) }
+            } else {
+                runCatching { ir?.close() }
+            }
+        }
+        notifyHfrFinderMonitorGl(false)
+    }
+
+    private fun stopHfrRecordMonitorOnHandler() {
+        check(handler != null && android.os.Looper.myLooper() == handler!!.looper)
+        hfrEncoderOnlyRecordActive = false
+        hfrMonitorYuvCaptureActive = false
+        hfrMonitorRecordCameraId = null
+        hfrMonitorFinderCameraId = null
         val mon = hfrMonitorController
         hfrMonitorController = null
         val ir = hfrYuvMonitorImageReader
         hfrYuvMonitorImageReader = null
-        val h = handler
-        if (h != null) {
-            if (android.os.Looper.myLooper() == h.looper) {
-                tearDownHfrMonitorOnHandler(mon, ir)
-            } else {
-                val latch = java.util.concurrent.CountDownLatch(1)
-                h.post {
-                    tearDownHfrMonitorOnHandler(mon, ir)
-                    latch.countDown()
-                }
-                if (!latch.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
-                    Log.w(HfrRecordMonitorSupport.TAG, "stopHfrRecordMonitor teardown timed out")
-                }
-            }
-        } else {
-            runCatching { ir?.close() }
-        }
-        notifyHfrFinderMonitorGl(false)
+        tearDownHfrMonitorOnHandler(mon, ir)
     }
 
     private fun tearDownHfrMonitorOnHandler(
@@ -7754,20 +7891,31 @@ private class PreviewController(
 
     /** @return true when encoder-only HS + monitor camera are active; false → caller should fall back. */
     private fun startHfrRecordMonitor(): Boolean {
-        stopHfrRecordMonitor()
+        val h = handler ?: return false
         val recordId = selectedCameraId ?: return false
         val monitorId =
             HfrRecordMonitorSupport.pickMonitorCameraId(cm, recordId, cameraIds()) ?: run {
                 Log.w(HfrRecordMonitorSupport.TAG, "no monitor camera for recordId=$recordId")
                 return false
             }
+        if (hfrEncoderOnlyRecordActive &&
+            hfrMonitorController != null &&
+            hfrMonitorRecordCameraId == recordId &&
+            hfrMonitorFinderCameraId == monitorId
+        ) {
+            return true
+        }
+        if (android.os.Looper.myLooper() == h.looper) {
+            stopHfrRecordMonitorOnHandler()
+        } else {
+            stopHfrRecordMonitor()
+        }
         if (!HfrRecordMonitorSupport.canRunConcurrent(cm, recordId, monitorId)) {
             Log.w(
                 HfrRecordMonitorSupport.TAG,
                 "concurrent set missing record=$recordId monitor=$monitorId — opening monitor anyway",
             )
         }
-        val h = handler ?: return false
         hfrMonitorTextureRotationDeg = hfrMonitorTextureRotationDegrees(monitorId)
         val roles = BackCameraRoleResolver.resolve(cm, cameraIds())
         val applyRecordDigitalCrop = focalCropMode != null && desiredFps < 120
@@ -7789,6 +7937,7 @@ private class PreviewController(
                 PerfBudget.Defaults.YUV_ANALYSIS_READER_MAX_IMAGES,
             )
         hfrYuvMonitorImageReader = ir
+        hfrMonitorYuvCaptureActive = true
         ir.setOnImageAvailableListener(
             { reader ->
                 if (!hfrMonitorYuvCaptureActive) {
@@ -7800,27 +7949,26 @@ private class PreviewController(
                 try {
                     if (!hfrMonitorYuvCaptureActive) return@setOnImageAvailableListener
                     val frame =
-                        runCatching {
-                            HfrYuvImageCopier.copy(
-                                image,
-                                hfrMonitorTextureRotationDeg,
-                                hfrMonitorTextureCrop,
-                            )
-                        }.getOrNull() ?: return@setOnImageAvailableListener
-                    mainHandler.post { lutPreviewRendererForDual?.deliverHfrYuvFrame(frame) }
+                        HfrYuvImageCopier.copy(
+                            image,
+                            hfrMonitorTextureRotationDeg,
+                            hfrMonitorTextureCrop,
+                        ) ?: return@setOnImageAvailableListener
+                    lutPreviewRendererForDual?.deliverHfrYuvFrame(frame)
                 } finally {
                     image.close()
                 }
             },
             h,
         )
-        hfrMonitorYuvCaptureActive = true
         hfrMonitorController =
             HfrRecordMonitorCameraController(cm, h).also { mon ->
                 mon.setPreviewSurface(ir.surface)
                 mon.open(monitorId, size)
             }
         hfrEncoderOnlyRecordActive = true
+        hfrMonitorRecordCameraId = recordId
+        hfrMonitorFinderCameraId = monitorId
         val cropSpan = hfrMonitorTextureCrop.u1 - hfrMonitorTextureCrop.u0
         Log.i(
             HfrRecordMonitorSupport.TAG,
@@ -8701,6 +8849,7 @@ private class PreviewController(
             mainHandler.post { onResult(Result.failure(IllegalStateException(blocked))) }
             return
         }
+        onStillShutterFired(haptics)
         val raw = plan.raw
         val tonal = plan.tonal
         when {
@@ -8862,6 +9011,7 @@ private class PreviewController(
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
         if (effectiveStillCaptureMode() == StillCaptureMode.HdrStill) {
+            onStillShutterFired(haptics)
             captureHdrStillBurst(
                 appContext,
                 haptics,
@@ -8873,6 +9023,7 @@ private class PreviewController(
             )
             return
         }
+        onStillShutterFired(haptics)
         val shotTag = adbValidationShotLabel
         if (!captureBusy.compareAndSet(false, true)) {
             Log.w(CaptureStillLog.TAG, "captureRawStill ok=false err=capture_busy label=${shotTag ?: "-"}")
@@ -9424,7 +9575,7 @@ private class PreviewController(
                                     result: TotalCaptureResult,
                                 ) {
                                     boundaryTimings.tOnCaptureCompletedNs = SystemClock.elapsedRealtimeNanos()
-                                    mainHandler.post { haptics.scheduleStillTick() }
+                                    onStillCaptureReadoutComplete(haptics)
                                     pendingResult.set(result)
                                     maybeProcess()
                                     val postCompleteWaitMs =
@@ -9532,7 +9683,7 @@ private class PreviewController(
                                             ) {
                                                 boundaryTimings.tOnCaptureCompletedNs =
                                                     SystemClock.elapsedRealtimeNanos()
-                                                mainHandler.post { haptics.scheduleStillTick() }
+                                                onStillCaptureReadoutComplete(haptics)
                                                 pendingResult.set(result)
                                                 maybeProcess()
                                                 val postCompleteWaitMs =
@@ -9998,7 +10149,7 @@ private class PreviewController(
                                     result: TotalCaptureResult,
                                 ) {
                                     boundaryTimings.tOnCaptureCompletedNs = SystemClock.elapsedRealtimeNanos()
-                                    mainHandler.post { haptics.scheduleStillTick() }
+                                    onStillCaptureReadoutComplete(haptics)
                                     pendingResult.set(result)
                                     maybeProcess()
                                     val postCompleteWaitMs = RAW_STILL_POST_COMPLETE_WAIT_MS_DEFAULT
@@ -10384,7 +10535,7 @@ private class PreviewController(
                                 if (finished.get()) return
                                 val idx = completionIndex.getAndIncrement()
                                 if (idx >= aeInts.size) return
-                                mainHandler.post { haptics.scheduleStillTick() }
+                                onStillCaptureReadoutComplete(haptics)
                                 mainHandler.post {
                                     lastStatus = "Bracket shot ${idx + 1}/${aeInts.size}…"
                                 }
@@ -10821,7 +10972,7 @@ private class PreviewController(
                                 request: CaptureRequest,
                                 result: TotalCaptureResult,
                             ) {
-                                mainHandler.post { haptics.scheduleStillTick() }
+                                onStillCaptureReadoutComplete(haptics)
                                 pendingResult.set(result)
                                 shotMaybeProcess()
                                 val postCompleteWaitMs =

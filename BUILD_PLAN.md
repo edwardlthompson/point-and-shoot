@@ -57,6 +57,7 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone H** | **Active** — all **[HUMAN]** work (M13 DNG, M14 glass/dual-video color) |
 | **Pinned chart calibration** | **Active** — tuning deferred (below) |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
+| **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
 
 **Chrome lock:** **`docs/preview-chrome-layout-style-guide.md`** — behavioral fixes only unless user requests UI changes.
 
@@ -70,7 +71,7 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 | Archive | Contents |
 |---------|----------|
-| **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **M0–M7**; **M8–12**; performance backlog; **M13** **13.1–13.8** + **13.7 gate**; **M13V** **13V.1–13V.18**; **M14** **14.1–14.13** + gate; **Bespoke Gallery** **BG.1–BG.3** |
+| **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | **M0–M7**; **M8–12**; performance backlog; **M13** **13.1–13.8** + **13.7 gate**; **M13V** **13V.1–13V.18**; **M14** **14.1–14.13** + gate; **Bespoke Gallery** **BG.1–BG.3**; **Audio & Sound** **AS.1–AS.3** |
 
 **Open in this file:** **Pinned chart calibration** · **Milestone H**
 
@@ -101,50 +102,9 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 ---
 
-## Audio & Sound Enhancements
+## Audio & Sound Enhancements — archived
 
-**Objective:** Improve audio capture quality and add customizable shutter sounds.
-
-### Sprint AS.1 — Audio Capture Enhancement
-
-**Code:** `VideoRecordingController.kt` (already implemented)
-
-- [x] **[AGENT]** Implement audio level visualization during recording (13V.8 implemented)
-- [x] **[AGENT]** Implement audio focus management for system integration (VideoRecordingController has permission checks)
-- [ ] **[AGENT]** Implement high-fidelity audio capture (24-bit/96kHz where supported)
-- [ ] **[AGENT]** Add wind noise reduction for outdoor recording
-- [ ] **[AGENT]** Add support for external microphones (USB/Bluetooth)
-- [x] **[ADB][HUMAN]** Test audio quality in various environments (M13V verified)
-
-### Sprint AS.2 — Customizable Shutter Sounds
-
-**Code:** `ShutterSoundManager.kt` (to be created), `SoundLibrary.kt` (to be created)
-
-- [ ] **[AGENT]** Implement customizable shutter sound system
-- [ ] **[AGENT]** Add classic camera sound pack (mechanical, digital, vintage)
-- [ ] **[AGENT]** Implement sound volume control independent of system volume
-- [ ] **[AGENT]** Add haptic feedback integration with shutter sounds
-- [ ] **[AGENT]** Implement sound pack import/export functionality
-- [ ] **[HUMAN]** Design and implement custom sound pack UI
-- [ ] **[ADB][HUMAN]** Test sound timing and synchronization with capture
-
-### Sprint AS.3 — Advanced Audio Features
-
-**Code:** `AudioEffects.kt` (to be created), `SpatialAudio.kt` (to be created)
-
-- [ ] **[AGENT]** Implement spatial audio recording for 360° video
-- [ ] **[AGENT]** Add audio post-processing (EQ, compression, reverb)
-- [ ] **[AGENT]** Implement audio ducking for voiceovers
-- [ ] **[AGENT]** Add support for multi-track audio recording
-- [ ] **[ADB][HUMAN]** Test spatial audio playback on compatible devices
-
-**AS.1 Audio gate:** Audio capture enhancements implemented and verified. **Proof:** `pns_audio_quality_test.ps1` shows 24-bit/96kHz capture working, wind noise reduction effective, external microphone support functional, audio levels properly monitored.
-
-**AS.2 Shutter gate:** Customizable shutter sounds implemented and verified. **Proof:** `pns_shutter_sound_test.ps1` shows all sound packs working, volume control independent of system, haptic feedback synchronized, import/export functionality working.
-
-**AS.3 Advanced gate:** Advanced audio features implemented and verified. **Proof:** Spatial audio recording verified on 360° devices, audio post-processing working, multi-track recording functional, ducking for voiceovers effective.
-
-**AS Audio gate:** All audio sprints complete, high-quality capture working, customizable sounds implemented, advanced features functional with documented proof.
+**AS.1–AS.3** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Audio & Sound Enhancements*). **Maintainer sign-off:** 2026-05-22 (agent + human). **Gates:** `scripts/pns_audio_sprint_gate.ps1`. **Docs:** [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) §10.1.
 
 ---
 

@@ -191,7 +191,8 @@ try {
     function Get-PnsLogcat {
         $tags = @(
             "PNS.AdbValidation:I", "PNS.MCVideoRec:I", "PNS.MCVideoRec:E",
-            "PNS.VideoRec:I", "PNS.ChromeUx:I", "PNS.VideoEncode:I", "PNS.Cam:I"
+            "PNS.VideoController:I", "PNS.VideoRec:I", "PNS.ChromeUx:I",
+            "PNS.VideoEncode:I", "PNS.Cam:I", "PNS.HfrInterleaved:I", "PNS.HfrMonitor:I"
         )
         (Invoke-AdbCmd logcat -d -v brief @tags 2>&1) -join "`n"
     }
@@ -350,7 +351,9 @@ try {
             "--ei", "pns_preview_video_encode_w", "$Width",
             "--ei", "pns_preview_video_encode_h", "$Height",
             "--ei", "pns_preview_adaptive_battery_pct", "100",
-            "--ei", "pns_preview_adaptive_thermal_status", "0"
+            "--ei", "pns_preview_adaptive_thermal_status", "0",
+            "--ez", "pns_preview_audio_hifi", "true",
+            "--ez", "pns_preview_audio_wind", "true"
         )
         if ($TenBit) { $startArgs += @("--ez", "pns_preview_video_10bit", "true") }
         if ($CodecOrdinal -ge 0) {

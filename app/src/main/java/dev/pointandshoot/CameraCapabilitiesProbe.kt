@@ -163,6 +163,15 @@ const val EXTRA_PNS_PREVIEW_READOUT_ISO = "pns_preview_readout_iso"
  */
 const val EXTRA_PNS_PREVIEW_PRIMARY_PHOTO = "pns_preview_primary_photo"
 
+/** Sprint **AS.1** — hi-fi video audio (96 kHz AAC when supported). */
+const val EXTRA_PNS_PREVIEW_AUDIO_HIFI = "pns_preview_audio_hifi"
+
+/** Sprint **AS.1** — wind noise suppression on video record path. */
+const val EXTRA_PNS_PREVIEW_AUDIO_WIND = "pns_preview_audio_wind"
+
+/** Sprint **AS.2** — shutter pack: `mechanical`, `digital`, `vintage`, `silent`. */
+const val EXTRA_PNS_PREVIEW_SHUTTER_SOUND_PACK = "pns_preview_shutter_sound_pack"
+
 /**
  * Debug APK + [PNS_SCREEN_PREVIEW]: after preview settles, record **N** seconds via in-app
  * [android.media.MediaRecorder] automation (**`scripts/pns_in_app_video_verify.ps1`**). Values clamp to **[0, 120]**.
@@ -738,6 +747,12 @@ fun CameraCapabilitiesProbe(
          */
         val trustIntentForPreviewPipeline =
             !previewLaunchedFromDebug || launchScreen == PNS_SCREEN_PREVIEW
+        val adbAudioHiFiSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewAudioHiFiExtra() else null
+        val adbAudioWindSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewAudioWindExtra() else null
+        val adbShutterSoundPackSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewShutterSoundPackExtra() else null
         val adbComposedStillSmoke =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_COMPOSED_STILL, false) ?: false
@@ -961,6 +976,9 @@ fun CameraCapabilitiesProbe(
             adbInitialImagingProfile = adbInitialImagingProfile,
             adbRawStreamPreference = adbRawStreamPreference,
             adbJpegCompanionSeed = adbJpegCompanionSeed,
+            adbAudioHiFiSeed = adbAudioHiFiSeed,
+            adbAudioWindSeed = adbAudioWindSeed,
+            adbShutterSoundPackSeed = adbShutterSoundPackSeed,
             adbComposedStillSmoke = adbComposedStillSmoke,
             adbSeedCameraId = adbSeedCameraId,
             adbSuperMacroProbe = adbSuperMacroProbe,
@@ -2007,4 +2025,21 @@ internal fun Intent?.previewReadoutIsoProbeExtra(): Int? =
     } else {
         null
     }
+
+internal fun Intent?.previewAudioHiFiExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_AUDIO_HIFI)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_AUDIO_HIFI, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewAudioWindExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_AUDIO_WIND)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_AUDIO_WIND, true)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewShutterSoundPackExtra(): String? =
+    this?.getStringExtra(EXTRA_PNS_PREVIEW_SHUTTER_SOUND_PACK)?.trim()?.takeIf { it.isNotBlank() }
 

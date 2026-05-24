@@ -131,6 +131,44 @@ object InAppVideoRecordingSupport {
     }
 
     /**
+     * HS fps values advertised for an exact encode size (e.g. 1280×720 @ 480).
+     * Used with encoder performance-points so the format picker is not limited to HEVC probe tiers.
+     */
+    fun highSpeedFpsForEncodeSize(
+        map: StreamConfigurationMap?,
+        width: Int,
+        height: Int,
+    ): List<Int> {
+        if (map == null || width <= 0 || height <= 0) return emptyList()
+        val sizes = runCatching { map.highSpeedVideoSizes?.toList() }.getOrNull().orEmpty()
+        val size = sizes.firstOrNull { it.width == width && it.height == height } ?: return emptyList()
+        val ranges = runCatching { map.getHighSpeedVideoFpsRangesFor(size) }.getOrNull().orEmpty()
+        return ranges.map { it.upper }.distinct().sorted()
+    }
+
+    /** True when [width]×[height] is listed at exactly [fps] in the camera constrained HS table. */
+    fun hasExactHighSpeedFps(
+        map: StreamConfigurationMap?,
+        width: Int,
+        height: Int,
+        fps: Int,
+    ): Boolean = fps in highSpeedFpsForEncodeSize(map, width, height)
+
+    /** [MediaRecorder] path: camera must advertise this exact output size. */
+    fun supportsMediaRecorderOutputSize(
+        map: StreamConfigurationMap?,
+        width: Int,
+        height: Int,
+    ): Boolean {
+        if (map == null || width <= 0 || height <= 0) return false
+        val sizes =
+            runCatching { map.getOutputSizes(MediaRecorder::class.java)?.toList() }
+                .getOrNull()
+                .orEmpty()
+        return sizes.any { it.width == width && it.height == height }
+    }
+
+    /**
      * Pick constrained high-speed preview + record size for [desiredFps] (Sprint **13V.16**).
      *
      * When [preferredEncodeSize] is **4K** (e.g. 3840×2160), prefer that tier if the HAL lists it

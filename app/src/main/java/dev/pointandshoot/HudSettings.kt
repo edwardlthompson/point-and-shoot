@@ -540,4 +540,8 @@ fun rememberHudSettings(): HudSettingsState {
 class HudSettingsState(
     val current: HudSettings,
     val update: (HudSettings) -> Unit,
-)
+) {
+    fun updateMutate(block: (HudSettings) -> HudSettings) {
+        update(block(current))
+    }
+}

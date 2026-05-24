@@ -90,6 +90,9 @@ class MediaCodecVideoRecorder(
         /** AOSP SW AV1 encoder fallback. */
         private const val ANDROID_AV1_ENCODER = "c2.android.av1.encoder"
 
+        /** AAC-LC samples per encoded access unit. */
+        private const val AAC_SAMPLES_PER_FRAME = 1024L
+
         /**
          * Pick the best available encoder for [config].
          * HEVC priority: QTI main (480 fps, 10-bit) > QTI HDR (120 fps, 10-bit) > AOSP SW.
@@ -106,7 +109,8 @@ class MediaCodecVideoRecorder(
                         .map { it.name }
                 val qti = av1Names.firstOrNull { it.contains("qti", ignoreCase = true) }
                 if (config.fps >= 120) {
-                    return qti ?: QTI_AV1_ENCODER
+                    // Do not fall back to a hardcoded QTI name — on many devices only SW AV1 exists.
+                    return qti ?: av1Names.firstOrNull() ?: ANDROID_AV1_ENCODER
                 }
                 return qti
                     ?: av1Names.firstOrNull { it == QTI_AV1_ENCODER }
@@ -326,7 +330,11 @@ class MediaCodecVideoRecorder(
     private val videoSamplesWritten = java.util.concurrent.atomic.AtomicLong(0)
     private var targetFpsForPts: Int = 30
     private var videoFrameIndex: Long = 0L
+    private var videoPtsOriginUs: Long = -1L
+    private var lastVideoMuxPtsUs: Long = 0L
+    private var recordingStartNano: Long = 0L
     private var audioMuxFrameIndex: Long = 0L
+    private var audioPtsOriginUs: Long = -1L
     private var finalizeCaptureInfo: VideoCaptureMetadata.CaptureInfo? = null
 
     // Audio track fields
@@ -337,6 +345,11 @@ class MediaCodecVideoRecorder(
     private val peakAmplitude = AtomicInteger(0)
     @Volatile private var pendingAudioFormat: MediaFormat? = null
     @Volatile private var audioCaptureStarted = false
+    /** PCM / AudioRecord rate (hi-fi may be 96 kHz). */
+    private var audioSampleRateHz: Int = 44_100
+    private var audioChannelCount: Int = 2
+    /** AAC encoder output rate from [MediaCodec] format (often 44.1 kHz when capture is 96 kHz). */
+    @Volatile private var audioEncoderSampleRateHz: Int = 0
 
     /** Peak amplitude since last call (0..32767), resets on read. */
     fun peekAmplitude(): Int = peakAmplitude.getAndSet(0)
@@ -381,13 +394,27 @@ class MediaCodecVideoRecorder(
         videoSamplesWritten.set(0)
         targetFpsForPts = config.fps.coerceAtLeast(1)
         videoFrameIndex = 0L
+        videoPtsOriginUs = -1L
+        lastVideoMuxPtsUs = 0L
+        recordingStartNano = 0L
         audioMuxFrameIndex = 0L
+        audioPtsOriginUs = -1L
         audioCaptureStarted = false
+        audioEncoderSampleRateHz = 0
 
         val codecName = config.effectiveEncoder
 
         val hasAudioPerm = ContextCompat.checkSelfPermission(appContext, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-        if (hasAudioPerm) startAudioCapture(uri)
+        if (hasAudioPerm) {
+            val chrome = PreviewChromePreferences.load(appContext)
+            AudioEffects.lightCompressionEnabled = chrome.audioLightCompression
+            AudioEffects.voiceoverDuckingEnabled = chrome.audioVoiceoverDucking
+            val profile = PnsAudioCaptureSupport.resolve(appContext, chrome)
+            PnsAudioCaptureSupport.logInputDevices(appContext)
+            Log.i(TAG, "audioCapturePrepare ${PnsAudioCaptureSupport.diagSummary(profile)}")
+            PnsAdbLog.i(appContext, "audioCapturePrepare ${PnsAudioCaptureSupport.diagSummary(profile)}")
+            startAudioCapture(profile)
+        }
 
         return runCatching {
             if (config.encoderKind == VideoEncoderKind.AV1 &&
@@ -465,8 +492,8 @@ class MediaCodecVideoRecorder(
                     if (buf != null && muxerStarted && videoTrack >= 0 && info.size > 0) {
                         buf.position(info.offset)
                         buf.limit(info.offset + info.size)
-                        val framePeriodUs = 1_000_000L / targetFpsForPts.coerceAtLeast(1)
-                        val muxPtsUs = videoFrameIndex * framePeriodUs
+                        val muxPtsUs = muxVideoPresentationUs(info.presentationTimeUs)
+                        lastVideoMuxPtsUs = muxPtsUs
                         videoFrameIndex++
                         val muxInfo = MediaCodec.BufferInfo()
                         muxInfo.set(info.offset, info.size, muxPtsUs, info.flags)
@@ -493,12 +520,17 @@ class MediaCodecVideoRecorder(
                     synchronized(muxerLock) {
                         if (muxerFinalized.get() || muxer == null || muxerStarted) return
                         if (videoTrack >= 0) return
+                        val muxFormat = MediaFormat(format).apply {
+                            setInteger(MediaFormat.KEY_FRAME_RATE, targetFpsForPts)
+                            runCatching { setInteger("capture-fps", targetFpsForPts) }
+                        }
                         videoTrack =
-                            runCatching { muxer?.addTrack(format) ?: -1 }.getOrElse { -1 }
+                            runCatching { muxer?.addTrack(muxFormat) ?: -1 }.getOrElse { -1 }
                         if (videoTrack >= 0) {
-                            Log.i(TAG, "video track added idx=$videoTrack format=$format")
+                            Log.i(TAG, "video track added idx=$videoTrack format=$muxFormat")
                         }
                     }
+                    nudgeAudioMuxerReady()
                     tryStartMuxerIfReady()
                 }
             }, encoderHandler)
@@ -533,6 +565,7 @@ class MediaCodecVideoRecorder(
         val s = state
         check(s is State.Prepared) { "start called in state $state" }
         stopping.set(false)
+        recordingStartNano = System.nanoTime()
         codec?.start()
         // Defer audio encoder + AudioRecord until the first video frame (HS prep can take many seconds).
         state = State.Recording
@@ -581,10 +614,18 @@ class MediaCodecVideoRecorder(
         if (audioCaptureStarted) return
         if (audioRecord == null || audioCodec == null) return
         audioCaptureStarted = true
-        runCatching { audioCodec?.start() }
         runCatching { audioRecord?.startRecording() }
         startAudioFeedThread()
-        Log.i(TAG, "audio capture started with first video frame")
+        nudgeAudioMuxerReady()
+        Log.i(TAG, "audio PCM capture started with first video frame")
+    }
+
+    private fun nudgeAudioMuxerReady() {
+        val ac = audioCodec ?: return
+        encoderHandler.post {
+            drainAudioEncoder(ac)
+            tryStartMuxerIfReady()
+        }
     }
 
     /**
@@ -596,14 +637,17 @@ class MediaCodecVideoRecorder(
             if (muxerFinalized.get() || muxerStarted) return
             val m = muxer ?: return
             if (videoTrack < 0) return
+            val wantsAudio = audioCodec != null
             val af = pendingAudioFormat
-            if (audioCodec != null && audioTrack < 0 && af != null) {
+            if (wantsAudio && audioTrack < 0 && af != null) {
                 audioTrack = runCatching { m.addTrack(af) }.getOrElse { -1 }
                 if (audioTrack >= 0) {
                     Log.i(TAG, "audio track added idx=$audioTrack")
                 }
             }
-            if (videoTrack < 0) return
+            // Never start muxer video-only when audio was prepared — HFR lost audio when video
+            // format arrived before AAC OUTPUT_FORMAT_CHANGED (tracks cannot be added after start).
+            if (wantsAudio && audioTrack < 0) return
             runCatching { m.start() }
                 .onFailure { e ->
                     Log.e(TAG, "muxer.start failed: ${e.message}", e)
@@ -615,66 +659,145 @@ class MediaCodecVideoRecorder(
         }
     }
 
-    private fun startAudioCapture(uri: Uri) {
-        val sampleRate = 44100
-        val channelConfig = AudioFormat.CHANNEL_IN_STEREO
-        val encoding = AudioFormat.ENCODING_PCM_16BIT
-        val minBuf = AudioRecord.getMinBufferSize(sampleRate, channelConfig, encoding)
-        if (minBuf == AudioRecord.ERROR_BAD_VALUE || minBuf == AudioRecord.ERROR) return
-        val bufSize = maxOf(minBuf, 4096)
-        val ar = runCatching {
-            AudioRecord(MediaRecorder.AudioSource.CAMCORDER, sampleRate, channelConfig, encoding, bufSize)
-        }.getOrNull() ?: return
-        if (ar.state != AudioRecord.STATE_INITIALIZED) { ar.release(); return }
-        audioRecord = ar
+    private fun startAudioCapture(profile: PnsAudioCaptureProfile) {
+        val minBufProbe =
+            AudioRecord.getMinBufferSize(
+                profile.sampleRateHz,
+                profile.channelConfig,
+                profile.pcmEncoding,
+            )
+        if (minBufProbe == AudioRecord.ERROR_BAD_VALUE || minBufProbe == AudioRecord.ERROR) return
+        val bufSize = maxOf(minBufProbe, 4096)
 
-        val aCodec = runCatching { MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC) }.getOrNull() ?: return
-        val aFmt = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, 2).apply {
-            setInteger(MediaFormat.KEY_BIT_RATE, 128_000)
-            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, bufSize)
+        val pick =
+            PnsAacEncoderSupport.openBestAacEncoder(profile, bufSize) ?: run {
+                Log.w(TAG, "audio encoder open failed — recording video-only")
+                return
+            }
+        audioCodec = pick.codec
+        audioEncoderSampleRateHz = pick.muxSampleRateHz
+        audioSampleRateHz = pick.captureSampleRateHz
+
+        val recordProfile =
+            if (pick.captureSampleRateHz == profile.sampleRateHz) {
+                profile
+            } else {
+                Log.w(
+                    TAG,
+                    "AAC mux=${pick.muxSampleRateHz}Hz — PCM capture aligned from " +
+                        "${profile.sampleRateHz}Hz (hiFi=${profile.hiFiMode})",
+                )
+                profile.copy(sampleRateHz = pick.captureSampleRateHz)
+            }
+        audioChannelCount = recordProfile.channelCount.coerceAtLeast(1)
+        val minBuf =
+            AudioRecord.getMinBufferSize(
+                recordProfile.sampleRateHz,
+                recordProfile.channelConfig,
+                recordProfile.pcmEncoding,
+            )
+        if (minBuf == AudioRecord.ERROR_BAD_VALUE || minBuf == AudioRecord.ERROR) {
+            runCatching { pick.codec.release() }
+            audioCodec = null
+            return
         }
-        runCatching { aCodec.configure(aFmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE) }.onFailure { aCodec.release(); return }
-        audioCodec = aCodec
-        Log.i(TAG, "audio capture prepared sampleRate=$sampleRate")
+        val ar =
+            PnsAudioCaptureSupport.createAudioRecord(appContext, recordProfile, maxOf(minBuf, 4096))
+                ?: run {
+                    runCatching { pick.codec.release() }
+                    audioCodec = null
+                    return
+                }
+        audioRecord = ar
+        Log.i(
+            TAG,
+            "audio capture prepared ${PnsAudioCaptureSupport.diagSummary(recordProfile)} " +
+                "encoder=${pick.codecName} muxRate=${pick.muxSampleRateHz}",
+        )
+        PnsAdbLog.i(
+            appContext,
+            "audioEncoderPick name=${pick.codecName} capture=${pick.captureSampleRateHz} " +
+                "mux=${pick.muxSampleRateHz} hiFi=${profile.hiFiMode}",
+        )
+        primeAudioEncoderForMuxer()
+    }
+
+    /** Start AAC encoder early so [tryStartMuxerIfReady] can add the audio track before muxer start (HFR). */
+    private fun primeAudioEncoderForMuxer() {
+        encoderHandler.post {
+            val ac = audioCodec ?: return@post
+            runCatching {
+                ac.start()
+                // One AAC-LC frame @ stereo 16-bit ≈ 4096 bytes; prime with a few frames.
+                repeat(6) {
+                    val idx = runCatching { ac.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
+                    if (idx < 0) return@repeat
+                    val ib = ac.getInputBuffer(idx) ?: return@repeat
+                    ib.clear()
+                    val silentBytes = ByteArray(4096)
+                    ib.put(silentBytes)
+                    ac.queueInputBuffer(idx, 0, silentBytes.size, 0L, 0)
+                    drainAudioEncoder(ac)
+                }
+                tryStartMuxerIfReady()
+                Log.i(TAG, "audio encoder primed for muxer (PCM deferred)")
+            }.onFailure { e ->
+                Log.w(TAG, "audio encoder prime failed: ${e.message}")
+            }
+        }
     }
 
     private fun startAudioFeedThread() {
         val ar = audioRecord ?: return
-        val ac = audioCodec ?: return
         audioThread = Thread({
             val buf = ShortArray(2048)
             var presentationUs = 0L
-            val sampleRate = 44100
+            val sampleRate = audioSampleRateHz
+            val channels = audioChannelCount.coerceAtLeast(1)
             while (!stopping.get()) {
                 val read = ar.read(buf, 0, buf.size)
                 if (read <= 0) continue
-                // Track peak amplitude for meter
+                AudioEffects.applyPcmProcessing(buf, read)
                 var peak = 0
                 for (i in 0 until read) { val v = kotlin.math.abs(buf[i].toInt()); if (v > peak) peak = v }
                 peakAmplitude.getAndUpdate { cur -> if (peak > cur) peak else cur }
-                // Feed into AAC encoder
-                val idx = runCatching { ac.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
-                if (idx >= 0) {
-                    val ib = ac.getInputBuffer(idx) ?: continue
-                    ib.clear()
-                    val byteCount = read * 2
-                    ib.asShortBuffer().put(buf, 0, read)
-                    ac.queueInputBuffer(idx, 0, byteCount, presentationUs, 0)
-                    // read = number of shorts; each short = 1 sample per channel; sampleRate = samples/sec
-                    presentationUs += (read.toLong() * 1_000_000L) / sampleRate
-                }
-                drainAudioEncoder(ac)
+                val pcm = buf.copyOf(read)
+                val ptsUs = presentationUs
+                // [AudioRecord.read] returns shorts; stereo = 2 shorts per frame — do not treat each short as a sample.
+                val framesRead = read / channels
+                presentationUs += framesRead * 1_000_000L / sampleRate
+                encoderHandler.post { queueAudioPcmToEncoder(pcm, ptsUs) }
             }
-            // Drain remaining
-            val idx = runCatching { ac.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
-            if (idx >= 0) ac.queueInputBuffer(idx, 0, 0, presentationUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-            drainAudioEncoder(ac)
+            val eosPts = presentationUs
+            encoderHandler.post { signalAudioEncoderEndOfStream(eosPts) }
         }, "PNS.MCAudio")
         audioThread?.isDaemon = true
         audioThread?.start()
     }
 
+    private fun queueAudioPcmToEncoder(pcm: ShortArray, presentationUs: Long) {
+        if (stopping.get()) return
+        val ac = audioCodec ?: return
+        val idx = runCatching { ac.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
+        if (idx < 0) return
+        val ib = ac.getInputBuffer(idx) ?: return
+        ib.clear()
+        val byteCount = pcm.size * 2
+        ib.asShortBuffer().put(pcm)
+        ac.queueInputBuffer(idx, 0, byteCount, presentationUs, 0)
+        drainAudioEncoder(ac)
+    }
+
+    private fun signalAudioEncoderEndOfStream(presentationUs: Long) {
+        val ac = audioCodec ?: return
+        val idx = runCatching { ac.dequeueInputBuffer(10_000L) }.getOrDefault(-1)
+        if (idx >= 0) {
+            ac.queueInputBuffer(idx, 0, 0, presentationUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+        }
+        drainAudioEncoder(ac)
+    }
+
+    /** Poll AAC encoder output; call only on [encoderHandler] (never with Callback on same codec). */
     private fun drainAudioEncoder(ac: MediaCodec) {
         val info = MediaCodec.BufferInfo()
         while (true) {
@@ -682,8 +805,23 @@ class MediaCodecVideoRecorder(
             when {
                 outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     synchronized(muxerLock) {
-                        if (!muxerFinalized.get() && muxer != null && !muxerStarted && audioTrack < 0) {
+                        if (!muxerFinalized.get() && !muxerStarted && audioTrack < 0) {
                             pendingAudioFormat = ac.outputFormat
+                            val encRate =
+                                runCatching {
+                                    ac.outputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                                }.getOrDefault(audioSampleRateHz)
+                            if (encRate > 0) {
+                                audioEncoderSampleRateHz = encRate
+                            }
+                            if (encRate > 0 && encRate != audioSampleRateHz) {
+                                Log.i(
+                                    TAG,
+                                    "AAC capture=${audioSampleRateHz}Hz encoderOutput=$encRate Hz " +
+                                        "(mux PTS uses encoder timestamps, not sample-rate scale)",
+                                )
+                            }
+                            Log.i(TAG, "audio output format ready ${ac.outputFormat}")
                         }
                     }
                     tryStartMuxerIfReady()
@@ -693,9 +831,9 @@ class MediaCodecVideoRecorder(
                     if (buf != null && audioTrack >= 0 && muxerStarted && info.size > 0 &&
                         (info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) == 0
                     ) {
-                        buf.position(info.offset); buf.limit(info.offset + info.size)
-                        val samplesPerAacFrame = 1024L
-                        val muxPtsUs = audioMuxFrameIndex * samplesPerAacFrame * 1_000_000L / 44100L
+                        buf.position(info.offset)
+                        buf.limit(info.offset + info.size)
+                        val muxPtsUs = audioMuxPresentationUs(info.presentationTimeUs)
                         audioMuxFrameIndex++
                         val muxInfo = MediaCodec.BufferInfo()
                         muxInfo.set(info.offset, info.size, muxPtsUs, info.flags)
@@ -711,6 +849,41 @@ class MediaCodecVideoRecorder(
 
     private var pendingOnSaved: ((Uri?) -> Unit)? = null
 
+    /**
+     * Video mux PTS for HFR: uniform capture-rate timeline so MP4 avg_fps / gallery match
+     * [targetFpsForPts] when the HAL delivers frames at that rate. Encoder surface timestamps
+     * often land on a 60 Hz grid on CPH2655-class devices even at a 120 fps HS target.
+     *
+     * ≤119 fps: keep encoder PTS for A/V alignment with [MediaRecorder]-class pacing.
+     */
+    private fun muxVideoPresentationUs(encoderPtsUs: Long): Long {
+        if (targetFpsForPts >= 120) {
+            val idx = videoSamplesWritten.get()
+            return idx * 1_000_000L / targetFpsForPts.coerceAtLeast(1)
+        }
+        if (encoderPtsUs > 0) {
+            if (videoPtsOriginUs < 0) videoPtsOriginUs = encoderPtsUs
+            return encoderPtsUs - videoPtsOriginUs
+        }
+        if (recordingStartNano <= 0L) recordingStartNano = System.nanoTime()
+        return (System.nanoTime() - recordingStartNano) / 1_000L
+    }
+
+    /**
+     * AAC output [MediaCodec.BufferInfo.presentationTimeUs] is already on the mux microsecond
+     * timeline (same as queued PCM timestamps). Do not rescale by sample rate — that broke Hi-Fi
+     * A/V sync after the 96→48 kHz encoder path landed.
+     */
+    private fun audioMuxPresentationUs(encoderPtsUs: Long): Long {
+        if (encoderPtsUs > 0) {
+            if (audioPtsOriginUs < 0) audioPtsOriginUs = encoderPtsUs
+            return encoderPtsUs - audioPtsOriginUs
+        }
+        val muxRate =
+            (audioEncoderSampleRateHz.takeIf { it > 0 } ?: audioSampleRateHz).coerceAtLeast(1)
+        return audioMuxFrameIndex * AAC_SAMPLES_PER_FRAME * 1_000_000L / muxRate
+    }
+
     private fun finalizeMuxer() {
         if (!muxerFinalized.compareAndSet(false, true)) {
             Log.w(TAG, "finalizeMuxer ignored (already finalized)")
@@ -718,22 +891,49 @@ class MediaCodecVideoRecorder(
         }
         val frames = videoSamplesWritten.get()
         val durationUs =
-            if (frames > 0L && targetFpsForPts > 0) {
-                (frames - 1) * 1_000_000L / targetFpsForPts.coerceAtLeast(1)
+            when {
+                lastVideoMuxPtsUs > 0L -> lastVideoMuxPtsUs
+                frames > 0L && targetFpsForPts > 0 ->
+                    (frames - 1) * 1_000_000L / targetFpsForPts.coerceAtLeast(1)
+                else -> 0L
+            }
+        val effectiveFps =
+            if (frames > 1L && durationUs > 0L) {
+                ((frames - 1) * 1_000_000L / durationUs).toInt().coerceIn(1, 480)
             } else {
-                0L
+                targetFpsForPts
             }
         var savedUri: Uri? = null
         val mux = muxer
         val uri = pendingUri
-        val captureInfo = finalizeCaptureInfo
+        val muxAudioRate = audioEncoderSampleRateHz.takeIf { it > 0 }
+        val captureInfo =
+            finalizeCaptureInfo?.let { info ->
+                var out = info
+                if (muxAudioRate != null && info.hasAudio) {
+                    out = out.copy(audioSampleRateHz = muxAudioRate)
+                }
+                if (effectiveFps > 0 && effectiveFps != info.captureFps) {
+                    Log.i(
+                        TAG,
+                        "captureFps metadata keeps target=${info.captureFps} muxEffective=$effectiveFps " +
+                            "frames=$frames durationUs=$durationUs",
+                    )
+                }
+                out
+            }
         finalizeCaptureInfo = null
         pendingUri = null
 
-        Log.i(TAG, "mcVideoFramesWritten=$frames muxDurationSec=${durationUs / 1_000_000.0}")
+        Log.i(
+            TAG,
+            "mcVideoFramesWritten=$frames muxDurationSec=${durationUs / 1_000_000.0} " +
+                "effectiveFps=$effectiveFps targetFps=$targetFpsForPts",
+        )
         PnsAdbLog.i(
             appContext,
-            "mcVideoFramesWritten=$frames muxDurationSec=${"%.2f".format(durationUs / 1_000_000.0)}",
+            "mcVideoFramesWritten=$frames muxDurationSec=${"%.2f".format(durationUs / 1_000_000.0)} " +
+                "effectiveFps=$effectiveFps targetFps=$targetFpsForPts",
         )
 
         if (frames > 0L && muxerStarted && mux != null) {
@@ -778,11 +978,11 @@ class MediaCodecVideoRecorder(
         audioCodec = null
         audioTrack = -1
         pendingAudioFormat = null
+        audioEncoderSampleRateHz = 0
         runCatching { codec?.setCallback(null, null) }
         runCatching { codec?.stop() }
         runCatching { codec?.release() }
         codec = null
-        runCatching { audioCodec?.setCallback(null, null) }
         runCatching { encoderSurface?.release() }
         encoderSurface = null
         if (finalize) {

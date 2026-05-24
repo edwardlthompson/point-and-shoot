@@ -13,4 +13,37 @@ class VideoCaptureMetadataTest {
         assertEquals(120, parsed.captureFps)
         assertEquals("H.264", parsed.codecLabel)
     }
+
+    @Test
+    fun parseDescription_extractsAudioFields() {
+        val parsed =
+            VideoCaptureMetadata.parseDescription(
+                "Point & Shoot · H.265 · 120fps · AAC 48kHz 256k 2ch Hi-Fi wind NS",
+            )
+        assertEquals(48_000, parsed.audioSampleRateHz)
+        assertEquals(256_000, parsed.audioAacBitrateBps)
+        assertEquals(2, parsed.audioChannelCount)
+        assertEquals(true, parsed.audioHiFi)
+        assertEquals(true, parsed.audioWindNoiseReduction)
+    }
+
+    @Test
+    fun mergeFrameRateForDisplay_prefersEmbedded120OverRetriever60() {
+        val merged =
+            VideoCaptureMetadata.mergeFrameRateForDisplay(
+                embeddedCaptureFps = 120,
+                retrieverFpsRaw = "60",
+            )
+        assertEquals("120", merged)
+    }
+
+    @Test
+    fun mergeFrameRateForDisplay_usesRetrieverWhenNoEmbedded() {
+        val merged =
+            VideoCaptureMetadata.mergeFrameRateForDisplay(
+                embeddedCaptureFps = null,
+                retrieverFpsRaw = "59.94",
+            )
+        assertEquals("59.9", merged)
+    }
 }

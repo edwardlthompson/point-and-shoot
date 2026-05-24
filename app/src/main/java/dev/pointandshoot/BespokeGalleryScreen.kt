@@ -729,6 +729,13 @@ fun BespokeGalleryScreen(
                                         fontSize = 12.sp
                                     )
                                 }
+                                pageVideoMeta?.audioSummaryLabel()?.let { audio ->
+                                    Text(
+                                        "Audio: $audio",
+                                        color = Color.White,
+                                        fontSize = 12.sp,
+                                    )
+                                }
                                 if (videoRot != 0) {
                                     Text(
                                         "Rotation: ${videoRot}°",

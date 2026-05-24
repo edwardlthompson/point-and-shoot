@@ -41,6 +41,9 @@ import kotlin.math.roundToInt
 fun HudRailSheetContent(hudState: HudSettingsState) {
     val settings = hudState.current
     val onUpdate: (HudSettings) -> Unit = { hudState.update(it) }
+    val patchHud: ((HudSettings) -> HudSettings) -> Unit = { transform ->
+        hudState.update(transform(hudState.current))
+    }
     val ctx = LocalContext.current
     val cameraGranted =
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
@@ -49,7 +52,7 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
     LaunchedEffect(cameraGranted, ctx) {
         gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
     }
-    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, onUpdate) }
+    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, patchHud) }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChromeSettingsIntroText("Granular toggles for HUD elements. Persists across launches.")
@@ -143,8 +146,7 @@ fun HudSettingsScreen(
     val insets = rememberSystemInsetsDp()
     HudSettingsScreenContent(
         padding = insets.asPaddingValues(extra = 16.dp),
-        settings = state.current,
-        onUpdate = state.update,
+        hudState = state,
         onBack = onBack,
         initialFocus = initialFocus,
         onReplayWelcomeTips = onReplayWelcomeTips,
@@ -154,12 +156,16 @@ fun HudSettingsScreen(
 @Composable
 private fun HudSettingsScreenContent(
     padding: PaddingValues,
-    settings: HudSettings,
-    onUpdate: (HudSettings) -> Unit,
+    hudState: HudSettingsState,
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus,
     onReplayWelcomeTips: (() -> Unit)?,
 ) {
+    val settings = hudState.current
+    val onUpdate: (HudSettings) -> Unit = { hudState.update(it) }
+    val patchHud: ((HudSettings) -> HudSettings) -> Unit = { transform ->
+        hudState.update(transform(hudState.current))
+    }
     val ctx = LocalContext.current
     val cameraGranted =
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) ==
@@ -169,7 +175,7 @@ private fun HudSettingsScreenContent(
         gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
     }
 
-    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, onUpdate) }
+    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, patchHud) }
 
     Column(
         modifier = Modifier
@@ -396,69 +402,69 @@ private fun CompositionGuideQuickControls() {
 
 private fun hudToggleRows(
     settings: HudSettings,
-    onUpdate: (HudSettings) -> Unit,
+    patch: ((HudSettings) -> HudSettings) -> Unit,
 ): List<HudToggleRow> =
     listOf(
         HudToggleRow(
             title = "Command dial (A / M / H / S / BKT)",
             description = "Rotary mode selector overlay (Hasselblad-orange selected segment).",
             enabled = settings.showCommandDial,
-            onChange = { onUpdate(settings.copy(showCommandDial = it)) },
+            onChange = { checked -> patch { it.copy(showCommandDial = checked) } },
         ),
         HudToggleRow(
             title = "Video tally border",
             description = "Solid record-red border while video is recording.",
             enabled = settings.showVideoTally,
-            onChange = { onUpdate(settings.copy(showVideoTally = it)) },
+            onChange = { checked -> patch { it.copy(showVideoTally = checked) } },
         ),
         HudToggleRow(
             title = "Timecode (HH:MM:SS:FF)",
             description = "Sony-style monospaced counter with rec / standby dot.",
             enabled = settings.showTimecode,
-            onChange = { onUpdate(settings.copy(showTimecode = it)) },
+            onChange = { checked -> patch { it.copy(showTimecode = checked) } },
         ),
         HudToggleRow(
             title = "Power + thermal (HFR / DCG)",
             description = "Battery % and drain rate on high-drain video preview; thermal warning when hot.",
             enabled = settings.showPowerThermalOverlay,
-            onChange = { onUpdate(settings.copy(showPowerThermalOverlay = it)) },
+            onChange = { checked -> patch { it.copy(showPowerThermalOverlay = checked) } },
         ),
         HudToggleRow(
             title = "Storage remaining (video)",
             description = "Estimated minutes left at the current encode bitrate; warns below 5 minutes.",
             enabled = settings.showStorageRemainingOverlay,
-            onChange = { onUpdate(settings.copy(showStorageRemainingOverlay = it)) },
+            onChange = { checked -> patch { it.copy(showStorageRemainingOverlay = checked) } },
         ),
         HudToggleRow(
             title = "FPS readout",
             description = "Live capture / preview frame rate, useful for HFR debugging.",
             enabled = settings.showFpsReadout,
-            onChange = { onUpdate(settings.copy(showFpsReadout = it)) },
+            onChange = { checked -> patch { it.copy(showFpsReadout = checked) } },
         ),
         HudToggleRow(
             title = "ISO + shutter readout",
             description = "Exposure values for the in-flight CaptureRequest.",
             enabled = settings.showIsoShutterReadout,
-            onChange = { onUpdate(settings.copy(showIsoShutterReadout = it)) },
+            onChange = { checked -> patch { it.copy(showIsoShutterReadout = checked) } },
         ),
         HudToggleRow(
             title = "Highlight-weighted meter",
             description = "Ricoh GR-style 95th-percentile-luma protection indicator.",
             enabled = settings.showHighlightWeightedMeter,
-            onChange = { onUpdate(settings.copy(showHighlightWeightedMeter = it)) },
+            onChange = { checked -> patch { it.copy(showHighlightWeightedMeter = checked) } },
         ),
         HudToggleRow(
             title = "Eye-AF overlay",
             description = "Sony-style green pupil rectangles when face detect is FULL.",
             enabled = settings.showEyeAfOverlay,
-            onChange = { onUpdate(settings.copy(showEyeAfOverlay = it)) },
+            onChange = { checked -> patch { it.copy(showEyeAfOverlay = checked) } },
         ),
         HudToggleRow(
             title = "Face alignment crosshair (14.5 debug)",
             description =
                 "Center crosshair on the preview tile — compare with face/eye boxes after cover-crop mapping.",
             enabled = settings.showFaceAlignmentDebugCrosshair,
-            onChange = { onUpdate(settings.copy(showFaceAlignmentDebugCrosshair = it)) },
+            onChange = { checked -> patch { it.copy(showFaceAlignmentDebugCrosshair = checked) } },
         ),
         HudToggleRow(
             title = "Smile-triggered still (13V.17)",
@@ -466,7 +472,7 @@ private fun hudToggleRows(
                 "Photo mode: ML Kit smile probability fires the tray still path (~4.5 s cooldown). " +
                     "Uses YUV analysis; enable Eye-AF or this toggle alone.",
             enabled = settings.enableSmileTriggeredStill,
-            onChange = { onUpdate(settings.copy(enableSmileTriggeredStill = it)) },
+            onChange = { checked -> patch { it.copy(enableSmileTriggeredStill = checked) } },
         ),
         HudToggleRow(
             title = "Scene vendor hints (read-only)",
@@ -474,26 +480,26 @@ private fun hudToggleRows(
                 "Logs OEM scene/quality Camera2 keys at startup (PNS.SceneHint). " +
                     "Often empty on LineageOS; no capture behavior yet.",
             enabled = settings.showSceneVendorHints,
-            onChange = { onUpdate(settings.copy(showSceneVendorHints = it)) },
+            onChange = { checked -> patch { it.copy(showSceneVendorHints = checked) } },
         ),
         HudToggleRow(
             title = "Horizon level",
             description = "Accelerometer line on the preview only (Sony Photography Pro style).",
             enabled = settings.showHorizonLevel,
-            onChange = { onUpdate(settings.copy(showHorizonLevel = it)) },
+            onChange = { checked -> patch { it.copy(showHorizonLevel = checked) } },
         ),
         HudToggleRow(
             title = "Histogram (experimental)",
             description = "RGB histogram overlay; off by default until perf is profiled.",
             enabled = settings.showHistogram,
-            onChange = { onUpdate(settings.copy(showHistogram = it)) },
+            onChange = { checked -> patch { it.copy(showHistogram = checked) } },
         ),
         HudToggleRow(
             title = "Highlight clip zebra (YUV)",
             description =
                 "Diagonal hatch where preview Y ≥ ~0.95 (near clip). Uses analysis stream; off by default.",
             enabled = settings.showHighlightClipZebra,
-            onChange = { onUpdate(settings.copy(showHighlightClipZebra = it)) },
+            onChange = { checked -> patch { it.copy(showHighlightClipZebra = checked) } },
         ),
         HudToggleRow(
             title = "Focus peaking (preview / video)",
@@ -504,20 +510,20 @@ private fun hudToggleRows(
                     "This switch is a quick on/off (on picks red if you had Off).",
             enabled = settings.focusPeakingEnabled(),
             onChange = { on ->
-                onUpdate(
-                    settings.copy(
+                patch {
+                    it.copy(
                         focusPeakingColor =
                             if (on) {
-                                if (settings.focusPeakingColor == FocusPeakingColor.Off) {
+                                if (it.focusPeakingColor == FocusPeakingColor.Off) {
                                     FocusPeakingColor.Red
                                 } else {
-                                    settings.focusPeakingColor
+                                    it.focusPeakingColor
                                 }
                             } else {
                                 FocusPeakingColor.Off
                             },
-                    ),
-                )
+                    )
+                }
             },
         ),
         HudToggleRow(
@@ -525,7 +531,7 @@ private fun hudToggleRows(
             description =
                 "When the HAL exposes OIS, request ON for preview + stills (Camera2).",
             enabled = settings.enableLensOpticalStabilization,
-            onChange = { onUpdate(settings.copy(enableLensOpticalStabilization = it)) },
+            onChange = { checked -> patch { it.copy(enableLensOpticalStabilization = checked) } },
         ),
         HudToggleRow(
             title = "Tripod / static: OIS off for stills only",
@@ -533,7 +539,7 @@ private fun hudToggleRows(
                 "When OIS is otherwise enabled, still captures can force optical stabilization OFF " +
                     "if the HAL lists OFF (preview unchanged). Try on a tripod if tele stills look smeared.",
             enabled = settings.disableOisForStillCapture,
-            onChange = { onUpdate(settings.copy(disableOisForStillCapture = it)) },
+            onChange = { checked -> patch { it.copy(disableOisForStillCapture = checked) } },
         ),
         HudToggleRow(
             title = "Preview video stabilization (EIS)",
@@ -541,14 +547,14 @@ private fun hudToggleRows(
                 "Electronic stabilization on the preview stream only; off by default. " +
                     "Skipped for HFR (≥120 fps target) and for still captures.",
             enabled = settings.enableVideoStabilizationPreview,
-            onChange = { onUpdate(settings.copy(enableVideoStabilizationPreview = it)) },
+            onChange = { checked -> patch { it.copy(enableVideoStabilizationPreview = checked) } },
         ),
         HudToggleRow(
             title = "Camera2 auto-framing (preview)",
             description =
                 "HAL auto-framing when supported (Android 15+ / API 35). Off by default; distinct from in-app face overlays.",
             enabled = settings.enableAutoFraming,
-            onChange = { onUpdate(settings.copy(enableAutoFraming = it)) },
+            onChange = { checked -> patch { it.copy(enableAutoFraming = checked) } },
         ),
         HudToggleRow(
             title = "HDR / 10-bit preview session",
@@ -557,7 +563,7 @@ private fun hudToggleRows(
                     "OutputConfiguration only if the full preview+RAW+analysis surface list passes " +
                     "isSessionConfigurationSupported. Off by default.",
             enabled = settings.enableHdr10LivePreview,
-            onChange = { onUpdate(settings.copy(enableHdr10LivePreview = it)) },
+            onChange = { checked -> patch { it.copy(enableHdr10LivePreview = checked) } },
         ),
         HudToggleRow(
             title = "Research: AF bracketing session vendor key",
@@ -565,7 +571,7 @@ private fun hudToggleRows(
                 "When advertised (Qualcomm `EnableAFBracketing` session key), attaches it to REGULAR " +
                     "preview session parameters. Off by default — HAL-specific; disable if preview fails to open.",
             enabled = settings.enableResearchAfBracketing,
-            onChange = { onUpdate(settings.copy(enableResearchAfBracketing = it)) },
+            onChange = { checked -> patch { it.copy(enableResearchAfBracketing = checked) } },
         ),
         HudToggleRow(
             title = "Research: HFR AI Camera HSR (120fps)",
@@ -574,7 +580,7 @@ private fun hudToggleRows(
                     "preview session parameters to enable AI Camera High Speed Recording. Off by default — " +
                     "HAL-specific; Milestone 13.3 research for 120fps video.",
             enabled = settings.enableResearchHfrAICameraHSR,
-            onChange = { onUpdate(settings.copy(enableResearchHfrAICameraHSR = it)) },
+            onChange = { checked -> patch { it.copy(enableResearchHfrAICameraHSR = checked) } },
         ),
         HudToggleRow(
             title = "Research: HFR VIULL (Ultra Low Latency)",
@@ -583,7 +589,7 @@ private fun hudToggleRows(
                     "preview session parameters to enable Video ISP Ultra Low Latency mode (critical for HFR). " +
                     "Off by default — HAL-specific; Milestone 13.3 research for 120fps video.",
             enabled = settings.enableResearchHfrVIULL,
-            onChange = { onUpdate(settings.copy(enableResearchHfrVIULL = it)) },
+            onChange = { checked -> patch { it.copy(enableResearchHfrVIULL = checked) } },
         ),
         HudToggleRow(
             title = "Research: HFR VSR (Video Stabilization Rotation)",
@@ -592,7 +598,7 @@ private fun hudToggleRows(
                     "preview session parameters to enable Video Stabilization Rotation (may be required for HFR). " +
                     "Off by default — HAL-specific; Milestone 13.3 research for 120fps video.",
             enabled = settings.enableResearchHfrVSR,
-            onChange = { onUpdate(settings.copy(enableResearchHfrVSR = it)) },
+            onChange = { checked -> patch { it.copy(enableResearchHfrVSR = checked) } },
         ),
         HudToggleRow(
             title = "Video: RAW lane (.mcraw, OP13)",
@@ -601,12 +607,12 @@ private fun hudToggleRows(
                     "OnePlus 13 leaf cameras only. Disables DCG HDR session while active.",
             enabled = settings.videoEncodeLane == VideoEncodeLane.Raw,
             onChange = { rawOn ->
-                onUpdate(
-                    settings.copy(
+                patch {
+                    it.copy(
                         videoEncodeLane = if (rawOn) VideoEncodeLane.Raw else VideoEncodeLane.Encoded,
-                        enableResearchDcgHDR = if (rawOn) false else settings.enableResearchDcgHDR,
-                    ),
-                )
+                        enableResearchDcgHDR = if (rawOn) false else it.enableResearchDcgHDR,
+                    )
+                }
             },
         ),
         HudToggleRow(
@@ -618,12 +624,12 @@ private fun hudToggleRows(
                     "Disabled while RAW video lane is on.",
             enabled = settings.enableResearchDcgHDR,
             onChange = { dcgOn ->
-                onUpdate(
-                    settings.copy(
+                patch {
+                    it.copy(
                         enableResearchDcgHDR = dcgOn,
-                        videoEncodeLane = if (dcgOn) VideoEncodeLane.Encoded else settings.videoEncodeLane,
-                    ),
-                )
+                        videoEncodeLane = if (dcgOn) VideoEncodeLane.Encoded else it.videoEncodeLane,
+                    )
+                }
             },
         ),
         HudToggleRow(
@@ -633,7 +639,7 @@ private fun hudToggleRows(
                     "preview session parameters to enable Qualcomm HDR mode for 10-bit video. " +
                     "Off by default — HAL-specific; Milestone 13.2 research for 10-bit video.",
             enabled = settings.enableResearchQHDR,
-            onChange = { onUpdate(settings.copy(enableResearchQHDR = it)) },
+            onChange = { checked -> patch { it.copy(enableResearchQHDR = checked) } },
         ),
         HudToggleRow(
             title = "Open Camera–style AF settle before RAW still",
@@ -641,7 +647,7 @@ private fun hudToggleRows(
                 "In-app only (not scripted ADB), flash off: after stopRepeating, run preview-only AF " +
                     "polling captures before the high-res still. Off by default — try for tele tripod softness.",
             enabled = settings.enableOpenCameraStyleAfSettleBeforeStill,
-            onChange = { onUpdate(settings.copy(enableOpenCameraStyleAfSettleBeforeStill = it)) },
+            onChange = { checked -> patch { it.copy(enableOpenCameraStyleAfSettleBeforeStill = checked) } },
         ),
         HudToggleRow(
             title = "Wait for AF before still (shutter gate)",
@@ -650,7 +656,7 @@ private fun hudToggleRows(
                     "reports passive focused or focused locked (or timeout). Skipped for manual ISO/shutter, " +
                     "S dial, flash Auto/On/Torch on back hardware, and HFR constrained preview. Peaking is still edge-based, not this signal.",
             enabled = settings.waitForAfFocusBeforeStill,
-            onChange = { onUpdate(settings.copy(waitForAfFocusBeforeStill = it)) },
+            onChange = { checked -> patch { it.copy(waitForAfFocusBeforeStill = checked) } },
         ),
     )
 

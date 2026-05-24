@@ -1,6 +1,6 @@
 ﻿# BUILD_PLAN — completed milestones & sprints
 
-Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22); **Video Format & Quality** **VF.1–VF.3** (2026-05-22). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22); **Video Format & Quality** **VF.1–VF.3** (2026-05-22); **Audio & Sound** **AS.1–AS.3** (2026-05-22). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
 
 ---
 ## Milestone 0 — Baseline quality bar (always on)
@@ -1121,5 +1121,41 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 **VF.2 gate:** `PNS.VideoEffects videoStabilization oisOn=… eisOn=…` with `--ez pns_preview_video_stabilization true`.
 
 **VF.3 gate:** `pns_video_quality_gate.ps1` — JVM + `pns_in_app_video_verify` + format + stabilization; artifacts `hfr-runs/video_quality_gate_*`.
+
+---
+
+## Audio & Sound Enhancements
+
+**Objective:** Improve audio capture quality and add customizable shutter sounds.
+
+**Shipped:** 2026-05-22. **Code:** `PnsAudioCaptureSupport.kt`, `ShutterSoundManager.kt`, `ShutterSoundLibrary.kt`, `AudioEffects.kt`, `SpatialAudio.kt`, `PreviewChromePreferences` (AS prefs), `VideoRecordingController` / `MediaCodecVideoRecorder`. **Docs:** [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) §10.1.
+
+### Sprint AS.1 — Audio Capture Enhancement
+
+- [x] **[AGENT]** Audio level visualization during recording (13V.8)
+- [x] **[AGENT]** Audio focus / record permission checks
+- [x] **[AGENT]** Hi-fi capture — 96 kHz / 48 kHz pick, 256 kbps AAC, PCM 16-bit stereo (`PnsAudioCaptureSupport`)
+- [x] **[AGENT]** Wind noise reduction (`NoiseSuppressor` when available)
+- [x] **[AGENT]** External mic preference (`setPreferredDevice` USB / wired / BT)
+- [x] **[ADB][HUMAN]** Subjective audio quality in varied environments
+
+### Sprint AS.2 — Customizable Shutter Sounds
+
+- [x] **[AGENT]** Shutter sound system (`ShutterSoundManager`, CC0 `SoundPool` samples + tone fallback)
+- [x] **[AGENT]** Packs: mechanical, digital, vintage, silent
+- [x] **[AGENT]** App shutter volume (`shutterSoundVolume`)
+- [x] **[AGENT]** Haptic sync option (`shutterHapticSync`)
+- [x] **[AGENT]** JSON import/export (`files/shutter_sound/shutter_sound_pack.json`)
+- [x] **[HUMAN]** Custom sound pack UI in Settings
+- [x] **[ADB][HUMAN]** Subjective timing vs capture on device
+
+### Sprint AS.3 — Advanced Audio Features
+
+- [x] **[AGENT]** Spatial capability probe (`SpatialAudio` — stereo record on phones)
+- [x] **[AGENT]** Light PCM compression + voiceover ducking (`AudioEffects`)
+- [x] **[AGENT]** Multi-track policy logged unsupported (v1 stereo AAC mux)
+- [x] **[ADB][HUMAN]** Spatial playback on 360° hardware (if applicable)
+
+**AS gates:** `scripts/pns_audio_quality_test.ps1` (AS.1), `scripts/pns_shutter_sound_test.ps1` (AS.2), `scripts/pns_audio_sprint_gate.ps1` (host unit tests + optional USB).
 
 ---

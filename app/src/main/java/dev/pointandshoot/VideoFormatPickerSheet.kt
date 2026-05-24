@@ -27,14 +27,18 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
@@ -46,6 +50,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Sprint 13.17 — Unified stepped video picker.
@@ -102,10 +108,25 @@ private fun resolutionShortLabel(w: Int, h: Int): String = when {
 fun VideoFormatPickerSheet(
     formats: List<VideoFormat>,
     selectedFormat: VideoFormat?,
+    videoTruth: InAppVideoFormatSelection.VideoTruth?,
+    chrome: PreviewChromePreferences,
+    patchChrome: ((PreviewChromePreferences) -> PreviewChromePreferences) -> Unit,
     onSelect: (VideoFormat) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val appContext = LocalContext.current.applicationContext
+    var hiFiMuxRateHz by remember { mutableIntStateOf(0) }
+    LaunchedEffect(appContext) {
+        hiFiMuxRateHz =
+            withContext(Dispatchers.Default) {
+                PnsAacEncoderSupport.maxHiFiMuxSampleRateHz(appContext)
+            }
+    }
+    val hiFiKhzLabel =
+        remember(hiFiMuxRateHz) {
+            if (hiFiMuxRateHz > 0) "${hiFiMuxRateHz / 1000} kHz" else "…"
+        }
 
     // Derive all distinct aspects, resolutions, fps, codecs from the full format list
     val allAspects = remember(formats) {
@@ -222,6 +243,35 @@ fun VideoFormatPickerSheet(
             }
             HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
 
+            videoTruth?.lines?.takeIf { it.isNotEmpty() }?.let { truthLines ->
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.06f))
+                            .border(1.dp, VideoFormatColors.HfrAmber.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    Text(
+                        text = "Video truth (this camera)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = VideoFormatColors.HfrAmber,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    truthLines.forEach { line ->
+                        Text(
+                            text = "· $line",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.78f),
+                            lineHeight = 18.sp,
+                        )
+                    }
+                }
+            }
+
             if (formats.isEmpty()) {
                 Text(
                     text = "No formats available for current settings.",
@@ -308,8 +358,99 @@ fun VideoFormatPickerSheet(
                         pickedCodec = codec
                     }
                 }
+
+                // ── Audio (Sprint AS) ─────────────────────────────────────────
+                item {
+                    PickerSectionHeader(
+                        step = "A",
+                        label = "Audio",
+                        selected =
+                            buildString {
+                                if (chrome.audioHiFiCapture) append("Hi-Fi $hiFiKhzLabel ")
+                                append("${if (chrome.audioWindNoiseReduction) "wind NS" else "wind off"}")
+                            }.trim(),
+                    )
+                }
+                item {
+                    VideoAudioSettingRow(
+                        title =
+                            if (hiFiMuxRateHz > 0) {
+                                "Hi-Fi capture (${hiFiMuxRateHz / 1000} kHz)"
+                            } else {
+                                "Hi-Fi capture"
+                            },
+                        subtitle = "$hiFiKhzLabel / 256 kbps AAC",
+                        checked = chrome.audioHiFiCapture,
+                        onCheckedChange = { checked -> patchChrome { it.copy(audioHiFiCapture = checked) } },
+                    )
+                }
+                item {
+                    VideoAudioSettingRow(
+                        title = "Wind noise reduction",
+                        subtitle = "Noise suppressor on record path",
+                        checked = chrome.audioWindNoiseReduction,
+                        onCheckedChange = { checked -> patchChrome { it.copy(audioWindNoiseReduction = checked) } },
+                    )
+                }
+                item {
+                    VideoAudioSettingRow(
+                        title = "Prefer external mic",
+                        subtitle = "USB / wired / Bluetooth when connected",
+                        checked = chrome.audioPreferExternalInput,
+                        onCheckedChange = { checked -> patchChrome { it.copy(audioPreferExternalInput = checked) } },
+                    )
+                }
+                item {
+                    VideoAudioSettingRow(
+                        title = "Light compression",
+                        subtitle = "Soft-knee PCM before AAC encode",
+                        checked = chrome.audioLightCompression,
+                        onCheckedChange = { checked -> patchChrome { it.copy(audioLightCompression = checked) } },
+                    )
+                }
+                item {
+                    VideoAudioSettingRow(
+                        title = "Duck other audio",
+                        subtitle = "Lower music while recording (voiceover)",
+                        checked = chrome.audioVoiceoverDucking,
+                        onCheckedChange = { checked -> patchChrome { it.copy(audioVoiceoverDucking = checked) } },
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun VideoAudioSettingRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onCheckedChange(!checked) }
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.92f),
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = 11.sp,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

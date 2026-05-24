@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-22 (Sprint **PO.2** adaptive FPS + background pause).
+**Last synced with tree:** 2026-05-23 (Sprint **AS** — 96 kHz AAC encoder pick + HFR mux PTS).
 
 **Related deep dives (not duplicated here):**
 
@@ -40,6 +40,7 @@
 8. [Preview chrome (behavioral constants)](#8-preview-chrome-behavioral-constants)
 9. [HudSettings defaults](#9-hudsettings-defaults)
 10. [Video encode (in-app)](#10-video-encode-in-app)
+10.1. [Audio capture & shutter (Sprint AS)](#101-audio-capture--shutter-sprint-as)
 11. [Automation & ADB intent extras](#11-automation--adb-intent-extras)
 12. [GLES preview geometry](#12-gles-preview-geometry)
 13. [Diagnostics log tags](#13-diagnostics-log-tags)
@@ -361,6 +362,43 @@ Command dial default on fresh install: **`CommandDialMode.M`** in probe/preview 
 
 Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / resolution prefs).
 
+### 10.1 Audio capture & shutter (Sprint AS)
+
+**Code:** `PnsAudioCaptureSupport.kt`, `ShutterSoundManager.kt`, `ShutterSoundLibrary.kt`, `AudioEffects.kt`, `SpatialAudio.kt` — prefs in `PreviewChromePreferences`.
+
+| Pref / behavior | Default | Notes |
+|-----------------|---------|-------|
+| `audioHiFiCapture` | **false** | When true: prefer **96 kHz** then 48 kHz; AAC **256 kbps**; PCM **16-bit** stereo |
+| `audioWindNoiseReduction` | **true** | `NoiseSuppressor` on `AudioRecord` session when available |
+| `audioPreferExternalInput` | **true** | `AudioRecord.setPreferredDevice` for USB / wired / BT SCO |
+| `shutterSoundPackKey` | **mechanical** | `mechanical`, `digital`, `vintage`, `silent` — CC0 samples via `SoundPool` (`res/raw/shutter_*.ogg`; see `assets/sounds/shutter_cc0/SOURCE.txt`) |
+
+**HFR + Hi-Fi mux (MediaCodec):** Stereo PCM timestamps use frame count (`shortsRead / channelCount`), not raw short count — fixes ~2× audio duration vs video. At **≥120 fps** video mux PTS is **uniform** (`frameIndex × 1e6 / targetFps`) so MP4 `avg_frame_rate` / system gallery match the capture target; encoder surface PTS often stays on a 60 Hz grid on CPH2655-class HS. ≤119 fps still uses encoder PTS for A/V alignment.
+
+**HFR honesty (≥120 fps):** On CPH2655-class devices, constrained HS + Qualcomm HEVC delivers about **half** the target unique frame rate (e.g. ~60 unique/s at 120 fps). **`VideoRecordingController.lacksTrueHfrUniqueFrames`** hides **HEVC-family** and **AV1** picker rows at **≥120 fps** until hardware + unique-frame proof exists. **H.264 @ 120/240/480** remains when the camera HS table supports it. **AV1 ≤60** when `MediaCodecCapabilityProbe` lists an encoder. No mux frame duplication. USB AV1@120 artifact: `hfr-runs/av1_hfr_verify_*`. See **`docs/VIDEO_MODE_MATRIX.md`**.
+
+**Format picker matrix (device-truth):** [`VideoFormatPresets.catalogTierSizes`] = HAL HS ∪ exact HEVC/H.264 perf sizes ∪ `MediaRecorder` outputs, ∩ canonical [`ALL_TIERS`]. [`fpsOptionsForResolution`] uses **exact** encoder points per size (no inherited 480 on 8K). [`InAppVideoFormatSelection.isFormatAvailableOnDevice`] keeps a row only when **labeled** WxH+fps+codec are all real: HFR = exact [`hasExactHighSpeedFps`] **and** exact H.264 encoder perf (no `pickHighSpeedVideoTarget` fallback); H.264 ≤60 = exact H.264 perf **and** [`supportsMediaRecorderOutputSize`]; HEVC/10-bit/DCG ≤60 = exact HEVC perf. Stale prefs migrate via `videoFormatCatalogMigrate`. **Video truth** banner in [`VideoFormatPickerSheet`] from [`buildVideoTruth`] (per active `cameraId` HS map). **CPH2655:** 480 only UW @ 1080p/720p; wide/tele max 240 HAL; **no 4K @ ≥120** in picker.
+| `shutterSoundVolume` | **0.85** | App shutter loudness (0…1), not system media volume |
+| `shutterHapticSync` | **false** | When true, haptic with shutter sound; else haptic at readout complete |
+| `audioLightCompression` | **false** | Soft-knee PCM compression in MediaCodec audio thread |
+| `audioVoiceoverDucking` | **false** | `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` while recording |
+
+**Still shutter:** `PreviewController.onStillShutterFired` → `ShutterSoundManager.playShutter` at capture start (`captureComposedStill` / `captureRawStill`).
+
+**Settings UI:** **Settings → Capture & stills → Shutter sound** — pack (Mechanical / Digital / Vintage / Silent; tap a row to preview), volume slider, haptic-with-shutter toggle. Persisted in `PreviewChromePreferences` (`shutter_sound_pack`, `shutter_sound_volume`, `shutter_haptic_sync`).
+
+**Spatial / multi-track:** `SpatialAudio` logs surround capability; in-app record stays stereo — `AudioEffects.multiTrackPolicy()` logs **unsupported**.
+
+**Gallery:** `VideoCaptureMetadata` embeds capture **fps** + audio in MediaStore **DESCRIPTION**; `readFromUri` prefers embedded **120fps** over retriever **60** when the container under-reports HFR. **Hi-Fi FAB:** `PnsAacEncoderSupport.maxHiFiMuxSampleRateHz` probes AAC encoders once per process — menu shows **48 kHz** / **96 kHz** etc. for this device, not a static “96 kHz when supported”.
+
+**Video format FAB:** `VideoFormatPickerSheet` step **A — Audio** (Hi-Fi, wind NS, external mic, compression, ducking) — persists via `PreviewChromePreferences`.
+
+**HFR audio:** `MediaCodecVideoRecorder` primes AAC before muxer start and waits for the audio track — avoids video-only muxer race at 120+ fps. Mux PTS use [audioEncoderSampleRateHz] from encoder output (not capture rate alone) so hi-fi does not sound half-speed when the HAL resamples.
+
+**96 kHz AAC:** `PnsAacEncoderSupport.openBestAacEncoder` probes ranked AAC encoders (QTI → Android → others) at **96 → 48 → 44.1 kHz** when `audioHiFiCapture` is on; keeps only picks whose **output** `KEY_SAMPLE_RATE` matches the target. PCM / [AudioRecord] rate is aligned to the winning mux rate. Gallery DESCRIPTION uses the mux rate after save.
+
+**Gates:** `scripts/pns_audio_quality_test.ps1`, `scripts/pns_shutter_sound_test.ps1`, `scripts/pns_audio_sprint_gate.ps1`.
+
 ---
 
 ## 11. Automation & ADB intent extras
@@ -377,6 +415,9 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_screen=preview` | Cold-start preview route |
 | `pns_preview_adaptive_battery_pct` | PO.2 gate: override battery % for [PreviewAdaptiveFpsPolicy] |
 | `pns_preview_adaptive_thermal_status` | PO.2 gate: override [PowerManager] thermal status int |
+| `pns_preview_audio_hifi` | AS.1 — session seed `audioHiFiCapture` |
+| `pns_preview_audio_wind` | AS.1 — session seed `audioWindNoiseReduction` |
+| `pns_preview_shutter_sound_pack` | AS.2 — session seed shutter pack key |
 
 Full list: `CameraCapabilitiesProbe` / `MainActivity` extras; automation hub **`AGENTS.md`**.
 

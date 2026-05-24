@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.media.MediaCodecInfo
+import android.hardware.camera2.params.StreamConfigurationMap
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Build
@@ -26,6 +27,7 @@ object MediaCodecCapabilityProbe {
 
     private const val TAG = "PNS.VideoCapProbe"
     private const val MIME_HEVC = MediaFormat.MIMETYPE_VIDEO_HEVC
+    private const val MIME_AVC = MediaFormat.MIMETYPE_VIDEO_AVC
     private const val MIME_AV1 = MediaFormat.MIMETYPE_VIDEO_AV1
 
     @Volatile private var cached: CapabilityMatrix? = null
@@ -48,6 +50,8 @@ object MediaCodecCapabilityProbe {
     data class CapabilityMatrix(
         val encoders: List<EncoderInfo>,
         val performancePoints: List<PerformancePoint>,
+        /** QTI / AOSP H.264 encoder performance-points (e.g. `c2.qti.avc.encoder`). */
+        val h264PerformancePoints: List<PerformancePoint> = emptyList(),
         val supportsMain10: Boolean,
         val supportsHdr10: Boolean,
         val supportsHdr10Plus: Boolean,
@@ -66,7 +70,7 @@ object MediaCodecCapabilityProbe {
             append("main10=$supportsMain10 hdr10=$supportsHdr10 hdr10plus=$supportsHdr10Plus ")
             append("yuvp010=$supportsYuvP010 av1=$supportsAv1 ")
             append("1080p_max=${maxFps1080p}fps 4k_max=${maxFps4k}fps 8k_max=${maxFps8k}fps ")
-            append("perf_points=${performancePoints.size}")
+            append("hevc_perf=${performancePoints.size} h264_perf=${h264PerformancePoints.size}")
         }
     }
 
@@ -101,6 +105,7 @@ object MediaCodecCapabilityProbe {
 
         val encoderInfos = mutableListOf<EncoderInfo>()
         val allPerformancePoints = mutableListOf<PerformancePoint>()
+        val allH264PerformancePoints = mutableListOf<PerformancePoint>()
 
         var supportsMain10 = false
         var supportsHdr10 = false
@@ -203,6 +208,45 @@ object MediaCodecCapabilityProbe {
             )
         }
 
+        val avcEncoders =
+            list.codecInfos
+                .filter { it.isEncoder && !it.isAlias && MIME_AVC in it.supportedTypes }
+                .filter { it.name.contains("qti", ignoreCase = true) || it.name.contains("android", ignoreCase = true) }
+        for (codec in avcEncoders) {
+            val caps =
+                try {
+                    codec.getCapabilitiesForType(MIME_AVC)
+                } catch (e: Exception) {
+                    Log.w(TAG, "getCapabilitiesForType AVC failed for ${codec.name}: ${e.message}")
+                    continue
+                }
+            val vidCaps = caps.videoCapabilities ?: continue
+            val maxW = vidCaps.supportedWidths.upper
+            val maxH = vidCaps.supportedHeights.upper
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    val perfPoints = vidCaps.supportedPerformancePoints ?: continue
+                    for ((w, h, fps) in probeTiers) {
+                        if (w > maxW || h > maxH) continue
+                        val covered =
+                            perfPoints.any { pp ->
+                                runCatching {
+                                    pp.covers(
+                                        MediaCodecInfo.VideoCapabilities.PerformancePoint(w, h, fps),
+                                    )
+                                }.getOrDefault(false)
+                            }
+                        if (covered) {
+                            allH264PerformancePoints +=
+                                PerformancePoint(w, h, fps, codec.name)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "AVC supportedPerformancePoints failed for ${codec.name}: ${e.message}")
+                }
+            }
+        }
+
         val av1EncoderNames =
             list.codecInfos
                 .filter { it.isEncoder && !it.isAlias && MIME_AV1 in it.supportedTypes }
@@ -214,6 +258,8 @@ object MediaCodecCapabilityProbe {
         val matrix = CapabilityMatrix(
             encoders = encoderInfos,
             performancePoints = allPerformancePoints.distinctBy { "${it.width}x${it.height}@${it.fps}" },
+            h264PerformancePoints =
+                allH264PerformancePoints.distinctBy { "${it.width}x${it.height}@${it.fps}" },
             supportsMain10 = supportsMain10,
             supportsHdr10 = supportsHdr10,
             supportsHdr10Plus = supportsHdr10Plus,
@@ -239,22 +285,46 @@ object MediaCodecCapabilityProbe {
         for (pp in matrix.performancePoints.sortedWith(compareByDescending<PerformancePoint> { it.width }.thenByDescending { it.fps })) {
             Log.i(TAG, "perfPoint ${pp.label} encoder=${pp.encoderName}")
         }
+        for (pp in matrix.h264PerformancePoints.sortedWith(compareByDescending<PerformancePoint> { it.width }.thenByDescending { it.fps })) {
+            Log.i(TAG, "h264PerfPoint ${pp.label} encoder=${pp.encoderName}")
+        }
 
         return matrix
     }
 
+    fun hasExactHevcPerformancePoint(width: Int, height: Int, fps: Int): Boolean {
+        val matrix = cached ?: return false
+        return matrix.performancePoints.any { it.width == width && it.height == height && it.fps == fps }
+    }
+
+    fun hasExactH264PerformancePoint(width: Int, height: Int, fps: Int): Boolean {
+        val matrix = cached ?: return false
+        return matrix.h264PerformancePoints.any { it.width == width && it.height == height && it.fps == fps }
+    }
+
     /**
-     * Return tier FPS options for [resolution] based on performance-point guarantees.
-     * Falls back to a conservative default if the probe has not been run yet.
+     * Return tier FPS options for [resolution] — **exact** encoder performance-points plus HAL HS
+     * fps for this size (no inherited 480 fps on 8K tiers from a 1080p point).
      */
-    fun fpsOptionsForResolution(width: Int, height: Int): List<Int> {
-        val matrix = cached ?: return defaultFpsOptions(width, height)
-        val matching = matrix.performancePoints
-            .filter { it.width >= width && it.height >= height }
-            .map { it.fps }
-            .distinct()
-            .sorted()
-        return matching.ifEmpty { defaultFpsOptions(width, height) }
+    fun fpsOptionsForResolution(
+        width: Int,
+        height: Int,
+        highSpeedMap: StreamConfigurationMap? = null,
+    ): List<Int> {
+        val matrix = cached
+        val fromHevc =
+            matrix?.performancePoints
+                ?.filter { it.width == width && it.height == height }
+                ?.map { it.fps }
+                .orEmpty()
+        val fromH264 =
+            matrix?.h264PerformancePoints
+                ?.filter { it.width == width && it.height == height }
+                ?.map { it.fps }
+                .orEmpty()
+        val fromHs = InAppVideoRecordingSupport.highSpeedFpsForEncodeSize(highSpeedMap, width, height)
+        val merged = (fromHevc + fromH264 + fromHs).distinct().sorted()
+        return merged.ifEmpty { defaultFpsOptions(width, height) }
     }
 
     private fun defaultFpsOptions(width: Int, height: Int): List<Int> = when {

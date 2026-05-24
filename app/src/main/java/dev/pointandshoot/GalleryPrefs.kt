@@ -18,6 +18,6 @@ object GalleryPrefs {
     fun setUseBespokeGallery(context: Context, useBespoke: Boolean) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_USE_BESPOKE_GALLERY, useBespoke)
-            .apply()
+            .commit()
     }
 }

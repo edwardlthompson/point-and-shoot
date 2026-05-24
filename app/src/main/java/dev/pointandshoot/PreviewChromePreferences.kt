@@ -4,12 +4,16 @@ import android.content.Context
 import android.hardware.camera2.CameraManager
 import android.util.Log
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /**
  * Capture / preview chrome that is not part of the HUD overlay (brightness, keys, DND).
@@ -81,9 +85,40 @@ data class PreviewChromePreferences(
     val inAppVideoCodecOrdinal: Int = -1,
     /** Last user-selected video frame rate; 0 = not set (use default). */
     val inAppVideoFps: Int = 0,
+    /** Sprint AS.1 — 96 kHz / float PCM + 256 kbps AAC when the device supports it. */
+    val audioHiFiCapture: Boolean = false,
+    /** Sprint AS.1 — [android.media.audiofx.NoiseSuppressor] on video record audio. */
+    val audioWindNoiseReduction: Boolean = true,
+    /** Sprint AS.1 — prefer USB / wired / BT input via [android.media.AudioRecord.setPreferredDevice]. */
+    val audioPreferExternalInput: Boolean = true,
+    /** Sprint AS.2 — [ShutterSoundPack.storageKey]. */
+    val shutterSoundPackKey: String = ShutterSoundPack.ClassicMechanical.storageKey,
+    /** Sprint AS.2 — 0…1 app shutter loudness (not system media volume). */
+    val shutterSoundVolume: Float = 0.85f,
+    /** When true, fire haptic tick with shutter sound instead of post-readout only. */
+    val shutterHapticSync: Boolean = false,
+    /** Sprint AS.3 — light PCM compression in MediaCodec audio path. */
+    val audioLightCompression: Boolean = false,
+    /** Sprint AS.3 — duck other audio while recording. */
+    val audioVoiceoverDucking: Boolean = false,
 ) {
     companion object {
         const val PREFS_NAME = "pns_preview_chrome"
+
+        /**
+         * In-memory preview session (ADB seeds, self-timer automation) read by [load] before disk.
+         * Cleared when the preview route disposes.
+         */
+        @Volatile
+        private var sessionSnapshot: PreviewChromePreferences? = null
+
+        fun setSessionSnapshot(value: PreviewChromePreferences?) {
+            sessionSnapshot = value
+        }
+
+        fun clearSessionSnapshot() {
+            sessionSnapshot = null
+        }
 
         private const val KEY_MAX_BRIGHTNESS = "max_brightness_preview"
         private const val KEY_DND_PREVIEW = "dnd_while_in_preview"
@@ -102,6 +137,14 @@ data class PreviewChromePreferences(
         private const val KEY_IN_APP_VIDEO_ENC_H = "in_app_video_encode_h"
         private const val KEY_IN_APP_VIDEO_CODEC = "in_app_video_codec_ordinal"
         private const val KEY_IN_APP_VIDEO_FPS = "in_app_video_fps"
+        private const val KEY_AUDIO_HIFI = "audio_hifi_capture"
+        private const val KEY_AUDIO_WIND_NS = "audio_wind_noise_reduction"
+        private const val KEY_AUDIO_EXT_MIC = "audio_prefer_external_input"
+        private const val KEY_SHUTTER_SOUND_PACK = "shutter_sound_pack"
+        private const val KEY_SHUTTER_SOUND_VOLUME = "shutter_sound_volume"
+        private const val KEY_SHUTTER_HAPTIC_SYNC = "shutter_haptic_sync"
+        private const val KEY_AUDIO_LIGHT_COMPRESSION = "audio_light_compression"
+        private const val KEY_AUDIO_VOICEOVER_DUCK = "audio_voiceover_ducking"
         private const val KEY_LAST_REAR_CAMERA_ID = "last_rear_camera_id"
 
         /** Last non-front preview `cameraId` (for Milestone **10.2** / future front→rear UX). */
@@ -128,6 +171,7 @@ data class PreviewChromePreferences(
         }
 
         fun load(context: Context): PreviewChromePreferences {
+            sessionSnapshot?.let { return it }
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val defaults = PreviewChromePreferences()
             return PreviewChromePreferences(
@@ -159,6 +203,18 @@ data class PreviewChromePreferences(
                     prefs.getInt(KEY_IN_APP_VIDEO_CODEC, defaults.inAppVideoCodecOrdinal),
                 inAppVideoFps =
                     prefs.getInt(KEY_IN_APP_VIDEO_FPS, defaults.inAppVideoFps).coerceAtLeast(0),
+                audioHiFiCapture = prefs.getBoolean(KEY_AUDIO_HIFI, defaults.audioHiFiCapture),
+                audioWindNoiseReduction = prefs.getBoolean(KEY_AUDIO_WIND_NS, defaults.audioWindNoiseReduction),
+                audioPreferExternalInput = prefs.getBoolean(KEY_AUDIO_EXT_MIC, defaults.audioPreferExternalInput),
+                shutterSoundPackKey =
+                    prefs.getString(KEY_SHUTTER_SOUND_PACK, defaults.shutterSoundPackKey)
+                        ?: defaults.shutterSoundPackKey,
+                shutterSoundVolume =
+                    prefs.getFloat(KEY_SHUTTER_SOUND_VOLUME, defaults.shutterSoundVolume)
+                        .coerceIn(0f, 1f),
+                shutterHapticSync = prefs.getBoolean(KEY_SHUTTER_HAPTIC_SYNC, defaults.shutterHapticSync),
+                audioLightCompression = prefs.getBoolean(KEY_AUDIO_LIGHT_COMPRESSION, defaults.audioLightCompression),
+                audioVoiceoverDucking = prefs.getBoolean(KEY_AUDIO_VOICEOVER_DUCK, defaults.audioVoiceoverDucking),
             )
         }
 
@@ -181,7 +237,15 @@ data class PreviewChromePreferences(
                 .putInt(KEY_IN_APP_VIDEO_ENC_H, value.inAppVideoEncodeHeight.coerceAtLeast(0))
                 .putInt(KEY_IN_APP_VIDEO_CODEC, value.inAppVideoCodecOrdinal)
                 .putInt(KEY_IN_APP_VIDEO_FPS, value.inAppVideoFps.coerceAtLeast(0))
-                .apply()
+                .putBoolean(KEY_AUDIO_HIFI, value.audioHiFiCapture)
+                .putBoolean(KEY_AUDIO_WIND_NS, value.audioWindNoiseReduction)
+                .putBoolean(KEY_AUDIO_EXT_MIC, value.audioPreferExternalInput)
+                .putString(KEY_SHUTTER_SOUND_PACK, value.shutterSoundPackKey)
+                .putFloat(KEY_SHUTTER_SOUND_VOLUME, value.shutterSoundVolume.coerceIn(0f, 1f))
+                .putBoolean(KEY_SHUTTER_HAPTIC_SYNC, value.shutterHapticSync)
+                .putBoolean(KEY_AUDIO_LIGHT_COMPRESSION, value.audioLightCompression)
+                .putBoolean(KEY_AUDIO_VOICEOVER_DUCK, value.audioVoiceoverDucking)
+                .commit()
         }
 
         /** Allowed self-timer values in UI order (cycle wraps). */
@@ -229,6 +293,20 @@ fun rememberPreviewChromePreferences(): PreviewChromePreferencesState {
                 .getOrElse { holder.value }
     }
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    holder.value =
+                        runCatching { PreviewChromePreferences.load(context) }
+                            .getOrElse { holder.value }
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // Stable holder — do not key [remember] on prefs: that recreated [PreviewChromePreferencesState]
     // each change and could expose a stale snapshot to [PreviewEngineContent] mid-frame.
     return remember {
@@ -248,6 +326,7 @@ fun rememberPreviewChromePreferences(): PreviewChromePreferencesState {
             },
             /** ADB / automation seeds (e.g. self-timer) must not overwrite disk prefs — see [PreviewEngineScreen]. */
             applySessionOnly = { next ->
+                PreviewChromePreferences.setSessionSnapshot(next)
                 holder.value = next
             },
         )
@@ -264,4 +343,9 @@ class PreviewChromePreferencesState(
             liveCurrent() ?: PreviewChromePreferences().also {
                 Log.w("PNS.ChromeUx", "previewChromePrefs liveCurrent returned null; using defaults")
             }
+
+    /** Persists from the latest in-memory chrome (avoids stale [PreviewChromePreferences] captures in UI handlers). */
+    fun updateMutate(block: (PreviewChromePreferences) -> PreviewChromePreferences) {
+        update(block(current))
+    }
 }

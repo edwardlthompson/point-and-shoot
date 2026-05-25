@@ -25,6 +25,10 @@
          and grants access in system Settings (Notification policy). -->
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
+    <!-- Sprint IP.2 — LAN media transfer + optional social webhook POST -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <application
         android:name=".PnsApplication"
         android:allowBackup="true"
@@ -80,7 +84,66 @@
                 <action android:name="android.media.action.IMAGE_CAPTURE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- Sprint IP.1 — deep links (e.g. pointandshoot://preview) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pointandshoot" android:host="preview" />
+                <data android:scheme="pointandshoot" android:host="camera" />
+                <data android:scheme="pointandshoot" android:host="video" />
+                <data android:scheme="pointandshoot" android:host="gallery" />
+                <data android:scheme="pointandshoot" android:host="share" />
+            </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ShareReceiveActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="dev.pointandshoot.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/pns_file_paths" />
+        </provider>
+
+        <receiver
+            android:name=".PnsCameraWidgetProvider"
+            android:exported="true"
+            android:label="@string/pns_widget_camera_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/pns_widget_camera_info" />
+        </receiver>
 
         <!-- Quick Settings tiles for one-tap camera access (Android 7.0+). -->
         <service

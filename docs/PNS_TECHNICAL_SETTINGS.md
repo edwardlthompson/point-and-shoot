@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-23 (Sprint **AS** — 96 kHz AAC encoder pick + HFR mux PTS).
+**Last synced with tree:** 2026-05-22 (Sprint **UX** — theme mode, nav UX telemetry, workflow presets).
 
 **Related deep dives (not duplicated here):**
 
@@ -229,7 +229,28 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 **Diagnostics:** `Log.i(PNS.CaptureStill, "dng save diag …")` with `DngMetadataResolution.toDiagSummary()`.
 
-### 5.3 Still capture timing
+### 5.3 Advanced capture modes (Sprint CC.1)
+
+| Setting | Storage | Behavior |
+|---------|---------|----------|
+| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` | Shutter runs [PreviewController.captureComposedStillBurst] (composed IMG path). |
+| Intervalometer | `intervalometerIntervalSec` + `intervalometerRunning` | Timed stills while preview is open (photo mode, not recording). |
+| Pre-capture buffer | `preCaptureBufferEnabled` | Enables [ZslStillFrameRing] on preview RAW; Standard stills use ZSL ring when on. |
+
+**ADB:** `--ei pns_preview_burst_count N` + `--ei pns_preview_burst_interval_ms MS`. Gate: `scripts/pns_capture_modes_test.ps1`.
+
+### 5.3.1 Pro capture (Sprint CC.3)
+
+| Setting | Storage | Behavior |
+|---------|---------|----------|
+| Picture profiles | `HudSettings.selectedPictureProfileId` + `ProPictureProfiles` | Presets apply stills/video LUT, JPEG ISP bias, optional `ImagingProfile` (e.g. Ultra RAW). |
+| Tethered capture | `tetheredCaptureEnabled` | Loopback HTTP on **127.0.0.1:28765** — `GET /status`, `POST /capture`, `POST /flash?mode=auto\|torch\|off`. |
+| Flash strength | `previewFlashStrengthPercent` (**25–100**) | Maps to `CaptureRequest.FLASH_STRENGTH_LEVEL` when HAL advertises (API 35+). |
+| Calibration I/O | `ColorCalibrationTools` | Export newest `CalibrationProfileStorage` profile to `files/color_calibration/`; SAF import JSON. Chart capture remains **Calibrate** screen (not a RAW editor). |
+
+**ADB:** `--ez pns_preview_tether true`, `--es pns_preview_picture_profile cinematic`, `--ei pns_preview_flash_strength 50`, `--ez pns_preview_cal_export true`. Host: `adb reverse tcp:28765 tcp:28765` (do **not** use 18765 — reverse binds that port on-device). Gate: `scripts/pns_pro_features_test.ps1`.
+
+### 5.4 Still capture timing
 
 | Constant | Value |
 |----------|-------|
@@ -237,7 +258,7 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 | `RAW_STILL_POST_COMPLETE_WAIT_MS_RAW12` | **6000** ms |
 | Scripted post-`stopRepeating` delay | **≥ 420 ms** (§4e revert doc) |
 
-### 5.4 Post-RAW sensitivity boost
+### 5.5 Post-RAW sensitivity boost
 
 | Rule | Behavior |
 |------|----------|
@@ -255,7 +276,7 @@ See `docs/FLEET_ONEPLUS13_RAW_POLICY.md`. Summary:
 
 **ProShot + readout chase:** HAL metering / AE lock from ProShot **disabled** when `wantsReadoutExposureChase()`.
 
-### 5.6 Stabilization on still
+### 5.7 Stabilization on still
 
 `PreviewStabilization.applyToRequest(..., isStillCapture = true)` — **restored** on RAW/bracket still (§1 revert doc). OIS-for-still can be disabled via `HudSettings.disableOisForStillCapture`.
 
@@ -418,6 +439,34 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_audio_hifi` | AS.1 — session seed `audioHiFiCapture` |
 | `pns_preview_audio_wind` | AS.1 — session seed `audioWindNoiseReduction` |
 | `pns_preview_shutter_sound_pack` | AS.2 — session seed shutter pack key |
+| `pns_preview_theme_mode` | **UX.1** — `System` / `Light` / `Dark` → `UxSettings` + `PnsTheme` |
+| `pns_preview_workflow_preset` | **UX.3** — built-in `street` / `portrait` / `video_log` (dial + imaging + photo/video tray + optional FPS) |
+| `pns_preview_open_gallery` | **UX.2/UX.3** — open bespoke gallery overlay on cold preview |
+| `pns_preview_gallery_batch_share` | **UX.3** — int ≥ 2: auto-select N indexed items and `ACTION_SEND_MULTIPLE` |
+| `pns_preview_platform_share_probe` | **IP.1** — [SharingManager] share probe on first indexed capture |
+| `pns_preview_platform_file_provider_probe` | **IP.1** — FileProvider authority probe |
+| `pns_preview_platform_widget_probe` | **IP.1** — log widget + installed external viewers |
+| `pns_preview_lan_transfer` | **IP.2** — enable LAN HTTP server (`PnsConnectivity`) |
+| `pns_preview_lan_transfer_probe` | **IP.2** — start LAN server + capability summary log |
+| `pns_preview_webdav_probe` | **IP.2** — log WebDAV URL configured |
+| `pns_preview_social_stream_probe` | **IP.2** — [SocialStreamHooks] skip/post probe |
+| `pns_preview_collaborative_probe` | **IP.2** — [CollaborativeCapture] client counter log |
+
+**Platform integration (IP.1):** Deep links `pointandshoot://preview|camera|video|gallery|share` → [PlatformIntegration.applyDeepLinkToIntent]. Share ingress: [ShareReceiveActivity] (`ACTION_SEND` / `SEND_MULTIPLE`). Home widget: [PnsCameraWidgetProvider]. Sharing: [SharingManager] + `dev.pointandshoot.fileprovider`. Quick Settings tiles unchanged (`quicksettings/*TileService`).
+
+**Connectivity (IP.2):** [LanMediaTransferServer] HTTP on Wi‑Fi (`0.0.0.0`, preferred **28766**, ephemeral fallback) — `GET /status`, `/files`, `/file?id=`. HUD: **LAN media transfer** toggle (`pns_connectivity.xml`). WebDAV PUT: [NetworkStorageClient] (user URL in prefs; no bundled FTP/SMB). Social: optional HTTPS webhook ([SocialStreamHooks]). Cloud: [CloudCaptureBackup] (UX.3). Collaborative: [CollaborativeCapture] + tether POST `/capture` (CC.3).
+
+**IP gates:** `scripts/pns_platform_integration_test.ps1`, `scripts/pns_connectivity_test.ps1` (LAN status via `adb reverse` + host `curl` fallback on device).
+
+**UX appearance prefs:** `UxSettings` (`pns_ux_settings`, key `theme_mode`). In-preview **Settings → HUD** rail: **Appearance** + **Workflow presets**. Photo chrome stays dark charcoal in all theme modes (layout lock).
+
+**UX navigation (UX.2):** `NavigationUx.detectNavigationMode` reads `config_navBarInteractionMode` (0 = 3-button, 2 = gesture). `rememberNavigationUxSnapshot` logs `PNS.NavUx` + `PNS.AdbValidation` `navUx …`. Bottom capture tray wrapped in `PnsGestureExclusionBottomBand` (~24% height, API 29+). Gallery `BackHandler` clears batch selection before exiting.
+
+**UX gallery batch share:** Grid **Select** → multi-tap → **Share** uses `ACTION_SEND_MULTIPLE`; log `PNS.Gallery` / `PNS.AdbValidation` `gallery batchShare count=N`.
+
+**Cloud backup (UX.3):** `CloudCaptureBackup` (`pns_cloud_backup.xml`) — user SAF folder + optional Wi‑Fi-only; copies DCIM captures + `pns_backup_manifest.json`. Hooks: still save (`applyStillResultToGalleryThumb`), in-app video finalize. HUD: **Settings → HUD → Cloud backup**. ADB: `pns_preview_cloud_backup`, `pns_preview_cloud_backup_sync`, `pns_preview_cloud_backup_probe` (debug probe dir under app external files). Gate: `scripts/pns_cloud_backup_test.ps1`.
+
+**Gates:** `scripts/pns_ui_modernization_test.ps1`, `scripts/pns_navigation_compatibility_test.ps1`, `scripts/pns_workflow_test.ps1` (`-AllPresets`), `scripts/pns_ux_gallery_batch_test.ps1`, `scripts/pns_cloud_backup_test.ps1`, combined `scripts/pns_ux_sprint_adb_gate.ps1`. Nav back smoke: `adb shell input keyevent KEYCODE_BACK` expects `navBack galleryExit` / `navBack previewGalleryClosed` in `PNS.AdbValidation`.
 
 Full list: `CameraCapabilitiesProbe` / `MainActivity` extras; automation hub **`AGENTS.md`**.
 
@@ -483,6 +532,10 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 | `PNS.PostRawBoost` | Post-RAW sensitivity |
 | `PNS.MCVideoRec` | Video encoder color VUI |
 | `PNS.AdbValidation` | Scripted capture verify needles |
+| `PNS.NavUx` | Navigation mode + inset snapshot; gesture exclusion debug |
+| `PNS.Workflow` | Workflow preset apply |
+| `PNS.Gallery` | In-app gallery batch share |
+| `PNS.CloudBackup` | SAF folder backup copies + sync |
 
 ---
 

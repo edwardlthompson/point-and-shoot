@@ -58,6 +58,7 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Pinned chart calibration** | **Active** — tuning deferred (below) |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 | **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
+| **User Interface & Experience (UX.1–UX.3)** | **Archived** — theme, nav, workflow, cloud backup **2026-05-25** |
 
 **Chrome lock:** **`docs/preview-chrome-layout-style-guide.md`** — behavioral fixes only unless user requests UI changes.
 
@@ -108,137 +109,28 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 ---
 
-## Camera & Capture Enhancements
+## Camera & Capture Enhancements — archived
 
-**Objective:** Expand camera capabilities and improve capture quality.
+**CC.1–CC.2** and **CC.3** (pro I/O: profiles, tether, flash strength, cal export/import) → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Camera & Capture Enhancements*). **Gates:** `scripts/pns_capture_modes_test.ps1`, `scripts/pns_pro_features_test.ps1`. **Docs:** [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) §5.3, §5.3.1.
 
-### Sprint CC.1 — Advanced Capture Modes
+### CC.3 follow-up — RAW/JPEG editor
 
-**Code:** `StillCaptureMetadata.kt`, `TapToShootHandler.kt` (already implemented)
-
-- [ ] **[AGENT]** Implement burst mode with variable speed and count
-- [ ] **[AGENT]** Add intervalometer for time-lapse photography
-- [ ] **[AGENT]** Implement pre-capture buffer for "moment before" shots
-- [x] **[AGENT]** Add smile detection with automatic capture (13V.17 implemented)
-- [x] **[AGENT]** Implement HDR bracketing with automatic alignment (M13 implemented)
-- [x] **[ADB][HUMAN]** Test all capture modes under various conditions (M13 verified)
-
-### Sprint CC.2 — Focus & Exposure Enhancements
-
-**Code:** `PreviewEngineScreen.kt`, `ReadoutExposureChase.kt` (already implemented)
-
-- [x] **[AGENT]** Implement advanced focus tracking (subject, face, eye) (Eye AF implemented 14.9)
-- [x] **[AGENT]** Add manual focus peaking and focus assist tools (14.8/14.10 implemented)
-- [x] **[AGENT]** Implement exposure bracketing with RAW+JPEG (M13 implemented)
-- [x] **[AGENT]** Add spot/matrix/center-weighted metering options (highlight-weighted metering implemented)
-- [x] **[AGENT]** Implement exposure compensation with fine control (ISO band coupling 14.7 implemented)
-- [x] **[ADB][HUMAN]** Test focus accuracy in various lighting conditions (M14 verified)
-
-### Sprint CC.3 — RAW & Pro Features
-
-**Code:** `RawProcessor.kt` (to be created), `ProCapture.kt` (to be created)
+**Code (planned):** `RawProcessor.kt` (in-app develop/edit path)
 
 - [ ] **[AGENT]** Implement in-app RAW development and editing
-- [ ] **[AGENT]** Add support for custom picture profiles and LUTs
-- [ ] **[AGENT]** Implement tethered shooting for desktop control
-- [ ] **[AGENT]** Add support for external flash control
-- [ ] **[AGENT]** Implement color calibration tools
-- [ ] **[ADB][HUMAN]** Test RAW workflow and image quality
-
-**CC.1 Capture gate:** Advanced capture modes implemented and verified. **Proof:** `pns_capture_modes_test.ps1` shows burst mode working at various speeds, intervalometer functional, pre-capture buffer effective, smile/blink detection accurate, HDR bracketing aligned properly.
-
-**CC.2 Focus gate:** Focus and exposure enhancements implemented and verified. **Proof:** `pns_focus_exposure_test.ps1` shows advanced tracking working, focus peaking accurate, exposure bracketing functional, metering modes working, compensation controls precise.
-
-**CC.3 Pro gate:** RAW and pro features implemented and verified. **Proof:** `pns_pro_features_test.ps1` shows RAW development working, custom profiles applied, tethered shooting functional, external flash control working, color calibration accurate.
-
-**CC Camera gate:** All camera sprints complete, capture modes working, focus/exposure improvements verified, pro features functional with documented proof.
+- [ ] **[ADB][HUMAN]** Test RAW workflow and image quality (after editor ships)
 
 ---
 
-## User Interface & Experience
+## User Interface & Experience — archived
 
-**Objective:** Enhance UI/UX with modern design patterns and improved usability.
-
-### Sprint UX.1 — Interface Modernization
-
-**Code:** `PreviewEngineScreen.kt`, `ProHudScreen.kt` (already implemented)
-
-- [x] **[AGENT]** Implement modern Material Design 3 components (Jetpack Compose implemented)
-- [ ] **[AGENT]** Add dark/light theme support with system integration
-- [x] **[AGENT]** Implement customizable UI layouts and button placement (locked chrome layout implemented)
-- [x] **[AGENT]** Add gesture-based controls and shortcuts (tap to shoot, command dial implemented)
-- [x] **[AGENT]** Implement adaptive UI for different screen sizes (responsive layout implemented)
-- [x] **[HUMAN]** Design new icon set and visual identity (app identity complete)
-- [ ] **[AGENT]** Ensure navigation compatibility for gesture and 3-button navigation
-- [x] **[ADB][HUMAN]** Test UI responsiveness and accessibility (M14 verified)
-
-### Sprint UX.2 — Navigation Compatibility
-
-**Code:** `PreviewEngineScreen.kt`, `BespokeGalleryScreen.kt`, `MainActivity.kt`
-
-- [ ] **[AGENT]** Implement proper system UI visibility handling for gesture navigation (edge-to-edge display)
-- [ ] **[AGENT]** Add system gesture exclusion zones where needed to prevent conflicts with camera controls
-- [ ] **[AGENT]** Ensure back button handling works correctly for both gesture and 3-button navigation
-- [ ] **[AGENT]** Implement proper inset handling for navigation bars and status bars
-- [ ] **[AGENT]** Add navigation mode detection and adaptive UI behavior
-- [ ] **[AGENT]** Test and fix any overlapping UI elements with system navigation areas
-- [ ] **[ADB][HUMAN]** Test navigation compatibility on devices with gesture navigation
-- [ ] **[ADB][HUMAN]** Test navigation compatibility on devices with 3-button navigation
-- [ ] **[ADB][HUMAN]** Verify system back button behavior in all screens
-- [ ] **[ADB][HUMAN]** Test edge swipe gestures don't interfere with camera controls
-
-### Sprint UX.3 — Workflow & Productivity
-
-**Code:** `BespokeGalleryScreen.kt` (already implemented), `PreviewEngineScreen.kt`
-
-- [x] **[AGENT]** Implement quick action presets for common scenarios (command dial modes implemented)
-- [ ] **[AGENT]** Add workflow automation and scripting support
-- [ ] **[AGENT]** Implement batch processing for multiple files
-- [x] **[AGENT]** Add project-based organization and management (gallery organization implemented)
-- [ ] **[AGENT]** Implement cloud sync and backup integration
-- [ ] **[ADB][HUMAN]** Test workflow efficiency and productivity gains
-
-**UX.1 Interface gate:** Interface modernization implemented and verified. **Proof:** `pns_ui_modernization_test.ps1` shows Material Design 3 components working, theme switching functional, gesture controls responsive, adaptive UI working on various screen sizes, accessibility audit passes.
-
-**UX.2 Navigation gate:** Navigation compatibility implemented and verified. **Proof:** `pns_navigation_compatibility_test.ps1` shows edge-to-edge display working, gesture exclusion zones functional, back button handling correct for both navigation modes, inset handling proper, no UI conflicts with system navigation.
-
-**UX.3 Workflow gate:** Workflow and productivity features implemented and verified. **Proof:** `pns_workflow_test.ps1` shows quick actions working, automation scripts functional, batch processing effective, project organization working, cloud sync operational.
-
-**UX Interface gate:** All UX sprints complete, modern UI implemented, navigation compatibility verified, workflows optimized, accessibility standards met with documented proof.
+**UX.1–UX.3** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*User Interface & Experience*). **Maintainer sign-off:** 2026-05-25 (agent + human spot-check). **Gates:** `scripts/pns_ux_sprint_adb_gate.ps1`, `scripts/pns_cloud_backup_test.ps1`. **Docs:** `docs/PNS_TECHNICAL_SETTINGS.md` (UX + cloud backup).
 
 ---
 
-## Integration & Platform Features
+## Integration & Platform Features — archived
 
-**Objective:** Enhance platform integration and add advanced connectivity features.
-
-### Sprint IP.1 — Platform Integration
-
-**Code:** `PlatformIntegration.kt` (to be created), `ExternalApps.kt` (to be created)
-
-- [ ] **[AGENT]** Implement deep linking for external app integration
-- [ ] **[AGENT]** Add support for Android ShareTarget and Intent handling
-- [ ] **[AGENT]** Implement widget support for quick camera access
-- [ ] **[AGENT]** Add support for Android Auto and Wear OS
-- [ ] **[AGENT]** Implement file provider integration for seamless sharing
-- [ ] **[ADB][HUMAN]** Test integration with popular photo/video apps
-
-### Sprint IP.2 — Connectivity & Sharing
-
-**Code:** `ConnectivityManager.kt` (to be created), `SharingManager.kt` (to be created)
-
-- [ ] **[AGENT]** Implement direct Wi-Fi transfer to desktop/laptop
-- [ ] **[AGENT]** Add support for network storage (FTP, SMB, WebDAV)
-- [ ] **[AGENT]** implement real-time streaming to social platforms
-- [ ] **[AGENT]** Add support for cloud storage integration
-- [ ] **[AGENT]** Implement collaborative shooting features
-- [ ] **[ADB][HUMAN]** Test connectivity reliability and transfer speeds
-
-**IP.1 Platform gate:** Platform integration implemented and verified. **Proof:** `pns_platform_integration_test.ps1` shows deep linking working, ShareTarget integration functional, widgets operational, Android Auto/Wear OS support working, file provider integration seamless.
-
-**IP.2 Connectivity gate:** Connectivity and sharing features implemented and verified. **Proof:** `pns_connectivity_test.ps1` shows Wi-Fi transfer working, network storage access functional, real-time streaming operational, cloud sync working, collaborative features effective.
-
-**IP Integration gate:** All integration sprints complete, platform integration working, connectivity features functional, sharing workflows optimized with documented proof.
+**IP.1–IP.2** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Integration & Platform Features*). **USB gates (2026-05-25):** `scripts/pns_platform_integration_test.ps1`, `scripts/pns_connectivity_test.ps1` on fleet **`8bf09993`**. **Docs:** `docs/PNS_TECHNICAL_SETTINGS.md` (IP extras, LAN/WebDAV/social). **Note:** FTP/SMB are not embedded (FOSS); use LAN HTTP pull, WebDAV PUT, or [CloudCaptureBackup] SAF folder.
 
 ---
 

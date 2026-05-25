@@ -70,6 +70,13 @@ class PreviewFlashPolicyTest {
     }
 
     @Test
+    fun flashStrengthLevelForPercent_scalesTowardMinimum() {
+        assertEquals(5, PreviewFlashPolicy.flashStrengthLevelForPercent(5, 5, 100))
+        assertEquals(2, PreviewFlashPolicy.flashStrengthLevelForPercent(5, 5, 50))
+        assertEquals(1, PreviewFlashPolicy.flashStrengthLevelForPercent(5, 5, 25))
+    }
+
+    @Test
     fun highlightDialSuppressesFlashAndTorch_onlyForH() {
         assertTrue(PreviewFlashPolicy.highlightDialSuppressesFlashAndTorch(CommandDialMode.H))
         assertFalse(PreviewFlashPolicy.highlightDialSuppressesFlashAndTorch(CommandDialMode.Auto))

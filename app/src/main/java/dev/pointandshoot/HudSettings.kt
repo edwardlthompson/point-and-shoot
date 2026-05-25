@@ -183,6 +183,24 @@ data class HudSettings(
      * with research DCG HDR session in UI.
      */
     val videoEncodeLane: VideoEncodeLane = VideoEncodeLane.Encoded,
+    /** Sprint **CC.1** — when true, shutter fires a burst ([burstShotCount] at [burstIntervalMs]). */
+    val burstModeEnabled: Boolean = false,
+    val burstShotCount: Int = 5,
+    val burstIntervalMs: Int = 350,
+    /** Sprint **CC.1** — 0 = off; paired with [intervalometerRunning] on preview. */
+    val intervalometerIntervalSec: Int = 0,
+    val intervalometerRunning: Boolean = false,
+    /** Sprint **CC.1** — preview RAW ring for ZSL / moment-before capture ([ZslStillFrameRing]). */
+    val preCaptureBufferEnabled: Boolean = false,
+    /** Sprint **CC.3** — last applied [ProPictureProfile.id] (null = custom LUT mix only). */
+    val selectedPictureProfileId: String? = null,
+    /** Sprint **CC.3** — loopback HTTP tether on port [TetheredCaptureServer.DEFAULT_PORT]. */
+    val tetheredCaptureEnabled: Boolean = false,
+    /**
+     * Sprint **CC.3** — scales [CaptureRequest.FLASH_STRENGTH_LEVEL] when HAL advertises strength (API 35+).
+     * **100** = HAL default clamped to max; **25** = minimum useful level.
+     */
+    val previewFlashStrengthPercent: Int = 100,
 ) {
     /** Resolve the currently-active stills LUT, falling back to None on rename / removal. */
     fun stillsLut(): LutCatalog = resolveLut(selectedLutForStills)
@@ -234,6 +252,15 @@ data class HudSettings(
         private const val KEY_BRACKET_PATTERN = "bracket_pattern_last"
         private const val KEY_STILL_CAPTURE_MODE = "still_capture_mode"
         private const val KEY_VIDEO_ENCODE_LANE = "video_encode_lane"
+        private const val KEY_BURST_MODE = "burst_mode_enabled"
+        private const val KEY_BURST_COUNT = "burst_shot_count"
+        private const val KEY_BURST_INTERVAL_MS = "burst_interval_ms"
+        private const val KEY_INTERVALOMETER_SEC = "intervalometer_interval_sec"
+        private const val KEY_INTERVALOMETER_RUNNING = "intervalometer_running"
+        private const val KEY_PRECAPTURE_BUFFER = "pre_capture_buffer_enabled"
+        private const val KEY_PICTURE_PROFILE = "selected_picture_profile_id"
+        private const val KEY_TETHERED_CAPTURE = "tethered_capture_enabled"
+        private const val KEY_PREVIEW_FLASH_STRENGTH = "preview_flash_strength_percent"
         private const val KEY_SMILE_STILL = "enable_smile_triggered_still"
         private const val KEY_SCENE_VENDOR_HINTS = "show_scene_vendor_hints"
         private const val KEY_VIDEO_BITRATE_SCALE = "video_bitrate_scale_percent"
@@ -241,10 +268,14 @@ data class HudSettings(
         const val VIDEO_BITRATE_SCALE_MIN = 50
         const val VIDEO_BITRATE_SCALE_MAX = 150
 
+        const val PREVIEW_FLASH_STRENGTH_MIN = 25
+        const val PREVIEW_FLASH_STRENGTH_MAX = 100
+
+        const val SOFTWARE_JPEG_COMPANION_QUALITY_MIN = 70
+        const val SOFTWARE_JPEG_COMPANION_QUALITY_MAX = 100
+
         private const val HARDWARE_JPEG_ISP_BIAS_MIN = -2
         private const val HARDWARE_JPEG_ISP_BIAS_MAX = 2
-        private const val SOFTWARE_JPEG_COMPANION_QUALITY_MIN = 70
-        private const val SOFTWARE_JPEG_COMPANION_QUALITY_MAX = 100
         private const val KEY_COMMAND_DIAL_MODE = "command_dial_mode"
         private const val KEY_IMAGING_PROFILE = "imaging_profile"
         private const val KEY_IMG_RAW_TIER = "img_menu_raw_tier"
@@ -409,6 +440,30 @@ data class HudSettings(
                         .coerceIn(SOFTWARE_JPEG_COMPANION_QUALITY_MIN, SOFTWARE_JPEG_COMPANION_QUALITY_MAX),
                 stillCaptureMode = loadStillCaptureMode(context),
                 videoEncodeLane = loadVideoEncodeLane(context),
+                burstModeEnabled = prefs.getBoolean(KEY_BURST_MODE, defaults.burstModeEnabled),
+                burstShotCount =
+                    AdvancedCaptureSettings.normalizeBurstCount(
+                        prefs.getInt(KEY_BURST_COUNT, defaults.burstShotCount),
+                    ),
+                burstIntervalMs =
+                    AdvancedCaptureSettings.normalizeBurstIntervalMs(
+                        prefs.getInt(KEY_BURST_INTERVAL_MS, defaults.burstIntervalMs),
+                    ),
+                intervalometerIntervalSec =
+                    AdvancedCaptureSettings.normalizeIntervalometerSec(
+                        prefs.getInt(KEY_INTERVALOMETER_SEC, defaults.intervalometerIntervalSec),
+                    ),
+                preCaptureBufferEnabled =
+                    prefs.getBoolean(KEY_PRECAPTURE_BUFFER, defaults.preCaptureBufferEnabled),
+                intervalometerRunning =
+                    prefs.getBoolean(KEY_INTERVALOMETER_RUNNING, defaults.intervalometerRunning),
+                selectedPictureProfileId =
+                    prefs.getString(KEY_PICTURE_PROFILE, defaults.selectedPictureProfileId),
+                tetheredCaptureEnabled =
+                    prefs.getBoolean(KEY_TETHERED_CAPTURE, defaults.tetheredCaptureEnabled),
+                previewFlashStrengthPercent =
+                    prefs.getInt(KEY_PREVIEW_FLASH_STRENGTH, defaults.previewFlashStrengthPercent)
+                        .coerceIn(PREVIEW_FLASH_STRENGTH_MIN, PREVIEW_FLASH_STRENGTH_MAX),
             )
         }
 
@@ -468,6 +523,21 @@ data class HudSettings(
                 )
                 .putString(KEY_STILL_CAPTURE_MODE, settings.stillCaptureMode.name)
                 .putString(KEY_VIDEO_ENCODE_LANE, settings.videoEncodeLane.name)
+                .putBoolean(KEY_BURST_MODE, settings.burstModeEnabled)
+                .putInt(KEY_BURST_COUNT, settings.burstShotCount)
+                .putInt(KEY_BURST_INTERVAL_MS, settings.burstIntervalMs)
+                .putInt(KEY_INTERVALOMETER_SEC, settings.intervalometerIntervalSec)
+                .putBoolean(KEY_INTERVALOMETER_RUNNING, settings.intervalometerRunning)
+                .putBoolean(KEY_PRECAPTURE_BUFFER, settings.preCaptureBufferEnabled)
+                .putString(KEY_PICTURE_PROFILE, settings.selectedPictureProfileId)
+                .putBoolean(KEY_TETHERED_CAPTURE, settings.tetheredCaptureEnabled)
+                .putInt(
+                    KEY_PREVIEW_FLASH_STRENGTH,
+                    settings.previewFlashStrengthPercent.coerceIn(
+                        PREVIEW_FLASH_STRENGTH_MIN,
+                        PREVIEW_FLASH_STRENGTH_MAX,
+                    ),
+                )
                 .commit()
         }
 

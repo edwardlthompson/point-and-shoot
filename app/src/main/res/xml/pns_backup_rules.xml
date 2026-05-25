@@ -11,4 +11,8 @@
     <include domain="sharedpref" path="pns_ui_hints.xml" />
     <include domain="sharedpref" path="pns_probehub_nav.xml" />
     <include domain="sharedpref" path="pns_preview_last_surface.xml" />
+    <include domain="sharedpref" path="pns_cloud_backup.xml" />
+    <include domain="sharedpref" path="pns_ux_settings.xml" />
+    <include domain="sharedpref" path="pns_workflow_presets.xml" />
+    <include domain="sharedpref" path="pns_connectivity.xml" />
 </full-backup-content>

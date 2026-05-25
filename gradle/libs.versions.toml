@@ -18,6 +18,7 @@ baselineProfilePlugin = "1.4.0"
 detekt = "1.23.7"
 orgJson = "20240303"
 exifInterface = "1.4.0"
+documentfile = "1.1.0"
 mlkitFaceDetection = "16.1.7"
 
 [libraries]
@@ -42,6 +43,7 @@ androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "
 google-zxing-core = { module = "com.google.zxing:core", version.ref = "zxingCore" }
 androidx-graphics-core = { module = "androidx.graphics:graphics-core", version.ref = "graphicsCore" }
 androidx-exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifInterface" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
 org-json = { module = "org.json:json", version.ref = "orgJson" }

@@ -14,7 +14,7 @@ Rationale and the constraints behind each row are below.
 
 ## Constraints
 
-1. **FOSS-only.** No Play Services, no proprietary backup providers, no Google Photos / Drive integration.
+1. **FOSS-only.** No Play Services SDKs. Optional **UX.3 cloud backup** copies captures to a **user-chosen SAF folder** (Syncthing / Nextcloud / Drive app, etc.) — see `CloudCaptureBackup.kt`. Android Auto Backup still restores HUD/chrome prefs only (not DCIM blobs).
 2. **OnePlus 13 / LineageOS 23 / Android 16 / API 36.** All scoped-storage rules apply (`READ_MEDIA_IMAGES`, `MANAGE_EXTERNAL_STORAGE` deliberately not requested).
 3. **No `READ_EXTERNAL_STORAGE` legacy fallback.** `minSdk = 28` already implies scoped storage; we keep the permission set minimal.
 4. **Outputs must be openable in desktop tooling** (`darktable`, `RawTherapee`, `dcraw`, `libavif`, `libjxl` reference decoder).

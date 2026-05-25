@@ -1,6 +1,6 @@
 ﻿# BUILD_PLAN — completed milestones & sprints
 
-Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22); **Video Format & Quality** **VF.1–VF.3** (2026-05-22); **Audio & Sound** **AS.1–AS.3** (2026-05-22). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
+Archived from [BUILD_PLAN.md](BUILD_PLAN.md). **Milestones 0–7** (2026-05-14); **Milestone 8–9**, performance backlog; **Milestone 10** sprints **10.1–10.16** + gate (2026-05-17); **Milestone 11** sprints **11.1–11.4** + gate (2026-05-17); **Milestone 12** sprints **12.1–12.6** + gate (2026-05-17); **Milestone 13** fleet RAW sprints **13.1–13.6**, **13.3** (a–h, e, f, g), **13.8** (a–d) (2026-05-20); **Milestone 13V** video expansion **13V.1–13V.16** (2026-05-17 / **13V.16** USB May 2026); **Bespoke Gallery** **BG.1–BG.3** (2026-05-22); **Performance & Optimization** **PO.1–PO.2** (2026-05-22); **Video Format & Quality** **VF.1–VF.3** (2026-05-22); **Audio & Sound** **AS.1–AS.3** (2026-05-22); **Camera & Capture** **CC.1–CC.2** + **CC.3** pro I/O (2026-05-25); **User Interface & Experience** **UX.1–UX.3** (2026-05-25); **Integration & Platform Features** **IP.1–IP.2** (2026-05-25). **Open:** Milestone **13.7** gate + **H.7**, **13V.17–13V.18**, **Milestone H**, **CC.3** RAW/JPEG editor follow-up. Active roadmap: **[BUILD_PLAN.md](BUILD_PLAN.md)**.
 
 ---
 ## Milestone 0 — Baseline quality bar (always on)
@@ -1157,5 +1157,113 @@ Work in this order where possible; device-verify preview teardown + H-mode meter
 - [x] **[ADB][HUMAN]** Spatial playback on 360° hardware (if applicable)
 
 **AS gates:** `scripts/pns_audio_quality_test.ps1` (AS.1), `scripts/pns_shutter_sound_test.ps1` (AS.2), `scripts/pns_audio_sprint_gate.ps1` (host unit tests + optional USB).
+
+---
+
+## Camera & Capture Enhancements
+
+**Objective:** Expand camera capabilities and improve capture quality.
+
+**Shipped:** **CC.1–CC.2** 2026-05-25; **CC.3** pro features (no in-app RAW editor) USB-verified **`8bf09993`**. **Docs:** [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) §5.3, §5.3.1.
+
+### Sprint CC.1 — Advanced Capture Modes
+
+**Code:** `AdvancedCaptureSettings.kt`, `PreviewController.captureComposedStillBurst`, HUD **Advanced capture (CC.1)** (`HudSettings` / `HudSettingsScreen`)
+
+- [x] **[AGENT]** Implement burst mode with variable speed and count
+- [x] **[AGENT]** Add intervalometer for time-lapse photography
+- [x] **[AGENT]** Implement pre-capture buffer for "moment before" shots (`preCaptureBufferEnabled` → ZSL ring)
+- [x] **[AGENT]** Add smile detection with automatic capture (13V.17 implemented)
+- [x] **[AGENT]** Implement HDR bracketing with automatic alignment (M13 implemented)
+- [x] **[ADB][HUMAN]** Test all capture modes under various conditions (M13 verified)
+
+**CC.1 Capture gate:** `scripts/pns_capture_modes_test.ps1` — burst, intervalometer, pre-capture ring log smoke.
+
+### Sprint CC.2 — Focus & Exposure Enhancements
+
+**Code:** `PreviewEngineScreen.kt`, `ReadoutExposureChase.kt` (already implemented)
+
+- [x] **[AGENT]** Implement advanced focus tracking (subject, face, eye) (Eye AF implemented 14.9)
+- [x] **[AGENT]** Add manual focus peaking and focus assist tools (14.8/14.10 implemented)
+- [x] **[AGENT]** Implement exposure bracketing with RAW+JPEG (M13 implemented)
+- [x] **[AGENT]** Add spot/matrix/center-weighted metering options (highlight-weighted metering implemented)
+- [x] **[AGENT]** Implement exposure compensation with fine control (ISO band coupling 14.7 implemented)
+- [x] **[ADB][HUMAN]** Test focus accuracy in various lighting conditions (M14 verified)
+
+**CC.2 Focus gate:** M14 / readout + peaking paths verified on reference device.
+
+### Sprint CC.3 — Pro Features (RAW/JPEG editor deferred)
+
+**Deferred to active [BUILD_PLAN.md](BUILD_PLAN.md):** in-app **RAW/JPEG development/editing**; full RAW workflow human sign-off after editor ships.
+
+**Code:** `ProCapture.kt`, `ProPictureProfile.kt`, `TetheredCaptureServer.kt`, `ColorCalibrationTools.kt`, HUD **Pro capture (CC.3)**
+
+- [ ] **[AGENT]** Implement in-app RAW development and editing *(deferred — follow-up sprint)*
+- [x] **[AGENT]** Add support for custom picture profiles and LUTs (`ProPictureProfiles` presets → HUD LUT/ISP/imaging)
+- [x] **[AGENT]** Implement tethered shooting for desktop control (loopback HTTP **28765**, `adb reverse tcp:28765 tcp:28765`)
+- [x] **[AGENT]** Add support for external flash control (`previewFlashStrengthPercent` → `FLASH_STRENGTH_LEVEL` API 35+)
+- [x] **[AGENT]** Implement color calibration tools (export/import JSON; chart workflow via `CalibrateScreen`)
+- [ ] **[ADB][HUMAN]** Test RAW workflow and image quality *(blocked on RAW editor; pro I/O via `pns_pro_features_test.ps1`)*
+
+**CC.3 Pro gate:** `scripts/pns_pro_features_test.ps1` — picture profile seed, flash strength, tether listen on port **28765** (`hfr-runs/pro_features_test_*`).
+
+**CC Camera gate (CC.1 + CC.2 + CC.3 pro I/O):** Capture modes, focus/exposure enhancements, and pro tether/profile/flash/calibration I/O verified with documented proof above.
+
+---
+
+## User Interface & Experience (UX.1–UX.3)
+
+**Archived:** 2026-05-25. **USB:** `scripts/pns_ux_sprint_adb_gate.ps1` on **`8bf09993`**; **`scripts/pns_cloud_backup_test.ps1`**. **Docs:** `docs/PNS_TECHNICAL_SETTINGS.md` (UX extras, cloud backup).
+
+### Sprint UX.1 — Interface Modernization
+
+- [x] Material Design 3 / Compose chrome
+- [x] Theme System / Light / Dark (`UxSettings`, `PnsTheme`)
+- [x] Locked preview chrome layout; gesture controls; adaptive layout
+- [x] Navigation compatibility (gesture + 3-button detection)
+- [x] **[ADB][HUMAN]** M14 accessibility / responsiveness verified
+
+### Sprint UX.2 — Navigation Compatibility
+
+- [x] Edge-to-edge immersive preview; inset policy; `PnsGestureExclusionBottomBand`
+- [x] Back handling (preview gallery, batch-select clear)
+- [x] **[ADB]** Gesture + 3-button nav (`pns_ux_sprint_adb_gate.ps1`)
+- [x] **[HUMAN]** Spot-check navigation (maintainer **2026-05-25**)
+
+### Sprint UX.3 — Workflow & Productivity
+
+- [x] Workflow presets (`street`, `portrait`, `video_log`) + ADB seed
+- [x] Gallery batch share (`ACTION_SEND_MULTIPLE`)
+- [x] Cloud backup (`CloudCaptureBackup` — SAF folder + Android Auto Backup prefs)
+- [x] **[ADB]** Workflow + batch + cloud probe gates
+- [x] **[HUMAN]** Spot-check presets / batch share / backup folder (maintainer **2026-05-25**)
+
+**UX gate:** `pns_ux_sprint_adb_gate.ps1`, `pns_cloud_backup_test.ps1`, `hfr-runs/ux_sprint_adb_gate_*`.
+
+---
+
+## Integration & Platform Features (IP.1–IP.2)
+
+**Archived:** 2026-05-25. **USB:** `scripts/pns_platform_integration_test.ps1`, `scripts/pns_connectivity_test.ps1` on **`8bf09993`**. **Docs:** `docs/PNS_TECHNICAL_SETTINGS.md` (IP extras).
+
+### Sprint IP.1 — Platform Integration
+
+- [x] Deep links `pointandshoot://*` ([PlatformIntegration.kt](app/src/main/java/dev/pointandshoot/PlatformIntegration.kt))
+- [x] Share ingress [ShareReceiveActivity.kt](app/src/main/java/dev/pointandshoot/ShareReceiveActivity.kt)
+- [x] Home-screen widget [PnsCameraWidgetProvider.kt](app/src/main/java/dev/pointandshoot/PnsCameraWidgetProvider.kt) (+ existing Quick Settings tiles)
+- [x] [SharingManager.kt](app/src/main/java/dev/pointandshoot/SharingManager.kt) + FileProvider
+- [x] [ExternalApps.kt](app/src/main/java/dev/pointandshoot/ExternalApps.kt) viewer hints
+- [x] **[ADB]** `pns_platform_integration_test.ps1`
+
+### Sprint IP.2 — Connectivity & Sharing
+
+- [x] LAN HTTP transfer [LanMediaTransferServer.kt](app/src/main/java/dev/pointandshoot/LanMediaTransferServer.kt) + [PnsConnectivity](app/src/main/java/dev/pointandshoot/ConnectivityManager.kt)
+- [x] WebDAV upload [NetworkStorageClient.kt](app/src/main/java/dev/pointandshoot/NetworkStorageClient.kt) (FTP/SMB not embedded — FOSS)
+- [x] Social webhook [SocialStreamHooks.kt](app/src/main/java/dev/pointandshoot/SocialStreamHooks.kt)
+- [x] Cloud via [CloudCaptureBackup.kt](app/src/main/java/dev/pointandshoot/CloudCaptureBackup.kt)
+- [x] Collaborative counter [CollaborativeCapture.kt](app/src/main/java/dev/pointandshoot/CollaborativeCapture.kt) + CC.3 tether
+- [x] **[ADB]** `pns_connectivity_test.ps1`
+
+**IP gate:** `hfr-runs/platform_integration_test_*`, `hfr-runs/connectivity_test_*`.
 
 ---

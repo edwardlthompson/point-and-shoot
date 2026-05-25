@@ -247,6 +247,14 @@ Use these from repo root unless a script documents otherwise.
 | `pns_milestone3_gate.ps1` | **Milestone 3** mapping gate: JVM tests (`SensorCropGeometryTest`, `CropPlanTest`, `DngDefaultUserCropRatiosTest`, `BackCameraRoleResolverTest`) + optional **`-RunDeviceSmoke`** (sideload preview + `PNS.ChromeUx` **`seedOk slot=M23`** log grep). |
 | `pns_automation_smoke.ps1` | Automation smoke; optional **`-RunAeHighlightProbe`** chains **`pns_ae_highlight_probe_adb.ps1`** (debug APK + `run-as` pull). |
 | `pns_chrome_ux_gate.ps1` | Chrome UX gate; optional **`-FocalMmSlot`** (`14`…`150`, default **`85`**) appends **`pns_preview_focal_mm_slot`** for **`focalSlotTap=`** tele proof (**`teleFocalSlotOk`**). |
+| `pns_ux_sprint_adb_gate.ps1` | Sprint **UX** one-shot: theme Dark/Light, nav mode matrix (`settings secure navigation_mode` 0/2), gallery batch share, `KEYCODE_BACK`, workflow presets. Artifacts **`hfr-runs/ux_sprint_adb_gate_*`**. |
+| `pns_ui_modernization_test.ps1` | UX.1 theme ADB (`pns_preview_theme_mode`). |
+| `pns_navigation_compatibility_test.ps1` | UX.2 nav telemetry + gallery BACK smoke. |
+| `pns_workflow_test.ps1` | UX.3 presets; **`-AllPresets`** for street/portrait/video_log. |
+| `pns_ux_gallery_batch_test.ps1` | UX.3 gallery **`pns_preview_open_gallery`** + **`pns_preview_gallery_batch_share`**. |
+| `pns_cloud_backup_test.ps1` | UX.3 cloud backup probe sync (`pns_preview_cloud_backup_probe`). |
+| `pns_platform_integration_test.ps1` | **IP.1** — deep link, FileProvider, widget, share probe extras. |
+| `pns_connectivity_test.ps1` | **IP.2** — LAN HTTP `/status`, WebDAV/social/collab/cloud probes. |
 | `pns_video_status_bar_verify.ps1` | Sprint **14.2**: cold video-primary preview + **`pns_preview_automation_in_app_video_sec`**; asserts **`PNS.ChromeUx`** **`statusBar=visible`**, **`readoutMode=video`**, **`audioMeters=true`** while recording. Artifacts **`hfr-runs/video_status_bar_verify_*`**. |
 | `pns_dnd_restore_verify.ps1` | Sprint **14.10**: preview DND **`dndPreview=applied`** → HOME **`restored`** → relaunch **`applied`**; **`dumpsys notification`** head; JVM **`InterruptionFilterHoldTest`**. Artifacts **`hfr-runs/dnd_restore_verify_*`**. |
 | `pns_about_links_verify.ps1` | Sprint **14.11**: JVM **`PnsExternalUrlTest`** + HTTP HEAD/GET on locked Venmo donation URL. |

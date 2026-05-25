@@ -2,6 +2,8 @@ package dev.pointandshoot
 
 import android.Manifest
 import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,13 +25,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import android.widget.Toast
 import kotlin.math.roundToInt
@@ -38,7 +45,13 @@ import kotlin.math.roundToInt
  * HUD toggles + extras for the in-preview **Settings** popup (same data as [HudSettingsScreen], chrome styling).
  */
 @Composable
-fun HudRailSheetContent(hudState: HudSettingsState) {
+fun HudRailSheetContent(
+    hudState: HudSettingsState,
+    themeMode: PnsThemeMode = PnsThemeMode.System,
+    onThemeModeChange: (PnsThemeMode) -> Unit = {},
+    onPictureProfileImaging: ((ImagingProfile) -> Unit)? = null,
+    onApplyWorkflowPreset: ((WorkflowPreset) -> Unit)? = null,
+) {
     val settings = hudState.current
     val onUpdate: (HudSettings) -> Unit = { hudState.update(it) }
     val patchHud: ((HudSettings) -> HudSettings) -> Unit = { transform ->
@@ -56,6 +69,16 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChromeSettingsIntroText("Granular toggles for HUD elements. Persists across launches.")
+
+        UxAppearanceSection(
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
+        )
+        WorkflowPresetsHudSection(
+            context = ctx,
+            onApplyPreset = onApplyWorkflowPreset,
+        )
+        CloudBackupHudSection(context = ctx)
 
         PreviewRailSectionTitle("Capability gate (rear camera)")
         if (!cameraGranted) {
@@ -111,6 +134,15 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
             mode = settings.stillCaptureMode,
             onModeChange = { mode -> onUpdate(settings.copy(stillCaptureMode = mode)) },
         )
+        AdvancedCaptureHudSection(
+            settings = settings,
+            onUpdate = onUpdate,
+        )
+        ProFeaturesHudSection(
+            settings = settings,
+            hudState = hudState,
+            onImagingProfile = onPictureProfileImaging,
+        )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             rows.forEach { row -> HudToggle(row) }
         }
@@ -138,6 +170,8 @@ fun HudRailSheetContent(hudState: HudSettingsState) {
  */
 @Composable
 fun HudSettingsScreen(
+    themeMode: PnsThemeMode = PnsThemeMode.System,
+    onThemeModeChange: (PnsThemeMode) -> Unit = {},
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus = HudSettingsFocus.None,
     onReplayWelcomeTips: (() -> Unit)? = null,
@@ -147,6 +181,8 @@ fun HudSettingsScreen(
     HudSettingsScreenContent(
         padding = insets.asPaddingValues(extra = 16.dp),
         hudState = state,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange,
         onBack = onBack,
         initialFocus = initialFocus,
         onReplayWelcomeTips = onReplayWelcomeTips,
@@ -157,6 +193,8 @@ fun HudSettingsScreen(
 private fun HudSettingsScreenContent(
     padding: PaddingValues,
     hudState: HudSettingsState,
+    themeMode: PnsThemeMode,
+    onThemeModeChange: (PnsThemeMode) -> Unit,
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus,
     onReplayWelcomeTips: (() -> Unit)?,
@@ -283,10 +321,29 @@ private fun HudSettingsScreenContent(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            item(key = "ux_appearance") {
+                UxAppearanceSection(
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
+                )
+            }
+            item(key = "cloud_backup") {
+                CloudBackupHudSection(context = LocalContext.current)
+            }
             item(key = "still_capture_mode") {
                 HudStillCaptureModeRow(
                     mode = settings.stillCaptureMode,
                     onModeChange = { mode -> onUpdate(settings.copy(stillCaptureMode = mode)) },
+                )
+            }
+            item(key = "advanced_capture") {
+                AdvancedCaptureHudSection(settings = settings, onUpdate = onUpdate)
+            }
+            item(key = "pro_features_cc3") {
+                ProFeaturesHudSection(
+                    settings = settings,
+                    hudState = hudState,
+                    onImagingProfile = null,
                 )
             }
             item(key = "video_bitrate_scale") {
@@ -666,6 +723,367 @@ private data class HudToggleRow(
     val enabled: Boolean,
     val onChange: (Boolean) -> Unit,
 )
+
+@Composable
+private fun AdvancedCaptureHudSection(
+    settings: HudSettings,
+    onUpdate: (HudSettings) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Advanced capture (CC.1)")
+        HudToggle(
+            HudToggleRow(
+                title = "Burst mode",
+                description = "Shutter captures ${settings.burstShotCount} stills, ${settings.burstIntervalMs}ms apart.",
+                enabled = settings.burstModeEnabled,
+                onChange = { onUpdate(settings.copy(burstModeEnabled = it)) },
+            ),
+        )
+        Text("Burst count", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AdvancedCaptureSettings.burstCountOptions.forEach { n ->
+                val sel = settings.burstShotCount == n
+                OutlinedButton(
+                    onClick = { onUpdate(settings.copy(burstShotCount = n)) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        "$n",
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
+        Text("Burst pace", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Fast" to 150, "Normal" to 350, "Slow" to 800).forEach { (label, ms) ->
+                val sel = settings.burstIntervalMs == ms
+                OutlinedButton(
+                    onClick = { onUpdate(settings.copy(burstIntervalMs = ms)) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        label,
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
+        Text("Intervalometer", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AdvancedCaptureSettings.intervalometerSecOptions.forEach { sec ->
+                val label = if (sec == 0) "Off" else "${sec}s"
+                val sel = settings.intervalometerIntervalSec == sec
+                OutlinedButton(
+                    onClick = {
+                        onUpdate(
+                            settings.copy(
+                                intervalometerIntervalSec = sec,
+                                intervalometerRunning = if (sec == 0) false else settings.intervalometerRunning,
+                            ),
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        label,
+                        fontSize = 11.sp,
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
+        HudToggle(
+            HudToggleRow(
+                title = "Intervalometer running",
+                description = "Timed stills while preview is open (photo mode, not recording).",
+                enabled = settings.intervalometerRunning && settings.intervalometerIntervalSec > 0,
+                onChange = { run ->
+                    onUpdate(
+                        settings.copy(
+                            intervalometerRunning = run,
+                        ),
+                    )
+                },
+            ),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Pre-capture buffer",
+                description = "Keeps a ZSL RAW ring so the still can use the frame before shutter (pairs with ZSL mode).",
+                enabled = settings.preCaptureBufferEnabled,
+                onChange = { onUpdate(settings.copy(preCaptureBufferEnabled = it)) },
+            ),
+        )
+    }
+}
+
+@Composable
+private fun UxAppearanceSection(
+    themeMode: PnsThemeMode,
+    onThemeModeChange: (PnsThemeMode) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Appearance (UX.1)")
+        Text(
+            "Theme follows system by default. Photo chrome stays dark charcoal in all modes.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PnsThemeMode.entries.forEach { mode ->
+                FpsQuickChip(
+                    label = mode.name,
+                    selected = themeMode == mode,
+                    requiresRoot = false,
+                    onClick = { onThemeModeChange(mode) },
+                    modifier = Modifier.weight(1f),
+                    fillMaxTile = true,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CloudBackupHudSection(context: android.content.Context) {
+    val scope = rememberCoroutineScope()
+    var enabled by remember { mutableStateOf(CloudCaptureBackup.isEnabled(context)) }
+    var wifiOnly by remember { mutableStateOf(CloudCaptureBackup.isWifiOnly(context)) }
+    var folderUri by remember { mutableStateOf(CloudCaptureBackup.loadTreeUri(context)) }
+    val folderLabel = folderUri?.lastPathSegment ?: "Not set"
+    val folderPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            CloudCaptureBackup.persistTreePermission(context, uri)
+            folderUri = uri
+            Toast.makeText(context, "Backup folder set", Toast.LENGTH_SHORT).show()
+        }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Cloud backup (UX.3)")
+        Text(
+            "Copies new P&S captures to a folder you choose (Syncthing, Nextcloud, Drive, etc.). " +
+                "Does not upload by itself — your sync app handles the cloud.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Backup captures",
+                description = "After each still/video save, copy into $folderLabel/Point-and-Shoot/",
+                enabled = enabled,
+                onChange = { on ->
+                    enabled = on
+                    CloudCaptureBackup.setEnabled(context, on)
+                },
+            ),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Wi‑Fi only",
+                description = "Skip backup copies on mobile data (saves data; retry on next Wi‑Fi)",
+                enabled = wifiOnly,
+                onChange = { on ->
+                    wifiOnly = on
+                    CloudCaptureBackup.setWifiOnly(context, on)
+                },
+            ),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FpsQuickChip(
+                label = "Choose folder",
+                selected = false,
+                requiresRoot = false,
+                onClick = { folderPicker.launch(null) },
+                modifier = Modifier.weight(1f),
+                fillMaxTile = true,
+            )
+            FpsQuickChip(
+                label = "Sync now",
+                selected = false,
+                requiresRoot = false,
+                onClick = {
+                    scope.launch {
+                        withContext(Dispatchers.IO) {
+                            CloudCaptureBackup.syncRecentCaptures(context, maxItems = 40)
+                        }
+                        Toast.makeText(context, "Backup sync finished", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.weight(1f),
+                fillMaxTile = true,
+                enabled = enabled && folderUri != null,
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkflowPresetsHudSection(
+    context: android.content.Context,
+    onApplyPreset: ((WorkflowPreset) -> Unit)?,
+) {
+    val presets = remember(context) { WorkflowPresets.all(context) }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Workflow presets (UX.3)")
+        Text(
+            "One-tap dial + imaging folder + photo/video tray. ADB: pns_preview_workflow_preset=street",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            presets.forEach { preset ->
+                OutlinedButton(
+                    onClick = { onApplyPreset?.invoke(preset) },
+                    modifier = Modifier.weight(1f),
+                    enabled = onApplyPreset != null,
+                ) {
+                    Text(preset.label, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProFeaturesHudSection(
+    settings: HudSettings,
+    hudState: HudSettingsState,
+    onImagingProfile: ((ImagingProfile) -> Unit)?,
+) {
+    val ctx = LocalContext.current
+    val importLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val profile = ColorCalibrationTools.importProfileFromUri(ctx, uri)
+            if (profile != null) {
+                Toast.makeText(
+                    ctx,
+                    "Imported ${profile.targetId}",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                Toast.makeText(ctx, "Import failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Pro capture (CC.3)")
+        Text(
+            "Named looks (LUT + ISP). Chart calibration uses Calibrate screen; export/import profiles here.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Text("Picture profile", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ProPictureProfiles.presets.forEach { profile ->
+                val sel = settings.selectedPictureProfileId == profile.id
+                OutlinedButton(
+                    onClick = {
+                        ProCapture.applyPictureProfile(
+                            ctx,
+                            profile,
+                            hudState,
+                            onImagingProfile = onImagingProfile,
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        profile.label,
+                        fontSize = 10.sp,
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
+        HudToggle(
+            HudToggleRow(
+                title = "Tethered capture (HTTP)",
+                description =
+                    "127.0.0.1:${TetheredCaptureServer.DEFAULT_PORT} — " +
+                    "adb reverse tcp:${TetheredCaptureServer.DEFAULT_PORT} tcp:${TetheredCaptureServer.DEFAULT_PORT}",
+                enabled = settings.tetheredCaptureEnabled,
+                onChange = { on ->
+                    val next = settings.copy(tetheredCaptureEnabled = on)
+                    hudState.update(next)
+                    HudSettings.save(ctx.applicationContext, next)
+                },
+            ),
+        )
+        var lanTransfer by remember { mutableStateOf(PnsConnectivity.isLanTransferEnabled(ctx)) }
+        HudToggle(
+            HudToggleRow(
+                title = "LAN media transfer",
+                description =
+                    "Wi‑Fi HTTP :${LanMediaTransferServer.DEFAULT_PORT} — GET /files, /file?id= (desktop pull)",
+                enabled = lanTransfer,
+                onChange = { on ->
+                    lanTransfer = on
+                    PnsConnectivity.setLanTransferEnabled(ctx, on)
+                },
+            ),
+        )
+        Text("Flash strength", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(25, 50, 75, 100).forEach { pct ->
+                val sel = settings.previewFlashStrengthPercent == pct
+                OutlinedButton(
+                    onClick = {
+                        val next = settings.copy(previewFlashStrengthPercent = pct)
+                        hudState.update(next)
+                        HudSettings.save(ctx.applicationContext, next)
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        "$pct%",
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = {
+                    val r = ColorCalibrationTools.exportLatestProfile(ctx)
+                    if (r != null) {
+                        Toast.makeText(
+                            ctx,
+                            "Exported ${r.file.name}",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    } else {
+                        Toast.makeText(ctx, "No saved profile to export", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Export cal JSON")
+            }
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("application/json", "text/*")) },
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Import cal JSON")
+            }
+        }
+    }
+}
 
 @Composable
 private fun HudStillCaptureModeRow(

@@ -190,6 +190,7 @@ dependencies {
     implementation(libs.google.zxing.core)
     implementation(libs.androidx.graphics.core)
     implementation(libs.androidx.exifinterface)
+    implementation("androidx.documentfile:documentfile:1.1.0")
     // Face HUD fallback when Camera2 STATISTICS_FACES is empty (common on some OEM preview streams).
     implementation(libs.google.mlkit.face.detection)
 

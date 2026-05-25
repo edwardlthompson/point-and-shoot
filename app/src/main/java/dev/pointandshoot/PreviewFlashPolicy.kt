@@ -71,14 +71,36 @@ object PreviewFlashPolicy {
         return base.coerceIn(1, maxLevel)
     }
 
-    private fun tryApplyFlashStrengthLevel(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
+    /**
+     * Maps user **25–100%** to a HAL strength level. **100** uses [flashStrengthLevelForHardware];
+     * lower values linearly scale toward **1**.
+     */
+    internal fun flashStrengthLevelForPercent(
+        defaultLevel: Int?,
+        maxLevel: Int,
+        strengthPercent: Int,
+    ): Int? {
+        val full = flashStrengthLevelForHardware(defaultLevel, maxLevel) ?: return null
+        val pct = strengthPercent.coerceIn(HudSettings.PREVIEW_FLASH_STRENGTH_MIN, HudSettings.PREVIEW_FLASH_STRENGTH_MAX)
+        if (pct >= HudSettings.PREVIEW_FLASH_STRENGTH_MAX) return full
+        if (maxLevel < 1) return null
+        val scaled = (full * pct / 100.0).toInt().coerceAtLeast(1)
+        return scaled.coerceIn(1, maxLevel)
+    }
+
+    private fun tryApplyFlashStrengthLevel(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        strengthPercent: Int = HudSettings.PREVIEW_FLASH_STRENGTH_MAX,
+    ) {
         // FLASH_STRENGTH_LEVEL is lint-gated to API 35+ despite related FLASH_INFO_STRENGTH_* keys on 33+.
         if (Build.VERSION.SDK_INT < FLASH_STRENGTH_LEVEL_MIN_API) return
         if (!flashHardwareAvailable(chars) || !isBackCamera(chars)) return
         if (chars.availableCaptureRequestKeys?.contains(CaptureRequest.FLASH_STRENGTH_LEVEL) != true) return
         val maxLevel = chars.get(CameraCharacteristics.FLASH_INFO_STRENGTH_MAXIMUM_LEVEL) ?: return
         val defaultLevel = chars.get(CameraCharacteristics.FLASH_INFO_STRENGTH_DEFAULT_LEVEL)
-        val level = flashStrengthLevelForHardware(defaultLevel, maxLevel) ?: return
+        val level =
+            flashStrengthLevelForPercent(defaultLevel, maxLevel, strengthPercent) ?: return
         runCatching {
             req.set(CaptureRequest.FLASH_STRENGTH_LEVEL, level)
         }.onFailure { Log.w(TAG, "FLASH_STRENGTH_LEVEL: ${it.message}") }
@@ -122,6 +144,7 @@ object PreviewFlashPolicy {
         flashMode: PreviewFlashMode,
         commandDialMode: CommandDialMode,
         manualSensor: Boolean,
+        flashStrengthPercent: Int = HudSettings.PREVIEW_FLASH_STRENGTH_MAX,
     ) {
         if (manualSensor || !hasFlashModeKey(chars)) {
             if (hasFlashModeKey(chars)) safeFlashOff(req, chars)
@@ -166,6 +189,7 @@ object PreviewFlashPolicy {
         flashMode: PreviewFlashMode,
         manualSensorStill: Boolean,
         commandDialMode: CommandDialMode,
+        flashStrengthPercent: Int = HudSettings.PREVIEW_FLASH_STRENGTH_MAX,
     ) {
         if (manualSensorStill || !hasFlashModeKey(chars)) {
             if (hasFlashModeKey(chars)) safeFlashOff(req, chars)
@@ -184,7 +208,7 @@ object PreviewFlashPolicy {
             PreviewFlashMode.Auto, PreviewFlashMode.On, PreviewFlashMode.Torch -> {
                 runCatching { req.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_SINGLE) }
                     .onFailure { Log.w(TAG, "still SINGLE: ${it.message}") }
-                tryApplyFlashStrengthLevel(req, chars)
+                tryApplyFlashStrengthLevel(req, chars, flashStrengthPercent)
             }
         }
     }

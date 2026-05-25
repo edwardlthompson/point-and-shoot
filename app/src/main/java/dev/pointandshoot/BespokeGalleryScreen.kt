@@ -24,7 +24,9 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.activity.compose.BackHandler
@@ -98,7 +100,9 @@ private fun formatFocalLength(focalLength: String?): String {
 fun GridItem(
     media: MediaItem,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    selectionMode: Boolean = false,
+    selected: Boolean = false,
 ) {
     val context = LocalContext.current
     var thumbnail by remember { mutableStateOf<Bitmap?>(null) }
@@ -171,6 +175,19 @@ fun GridItem(
                         modifier = Modifier.padding(2.dp)
                     )
                 }
+                if (selectionMode) {
+                    Icon(
+                        imageVector =
+                            if (selected) Icons.Filled.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                        contentDescription = if (selected) "Selected" else "Not selected",
+                        tint = if (selected) Color(0xFFFF9800) else Color.White.copy(alpha = 0.55f),
+                        modifier =
+                            Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(6.dp)
+                                .size(22.dp),
+                    )
+                }
             } else {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
@@ -185,8 +202,9 @@ fun GridItem(
 @Composable
 fun BespokeGalleryScreen(
     initialUri: Uri? = null,
+    adbBatchShareCount: Int? = null,
     onBack: () -> Unit,
-    onExternalGallery: () -> Unit
+    onExternalGallery: () -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleScope = LocalLifecycleOwner.current.lifecycleScope
@@ -199,7 +217,10 @@ fun BespokeGalleryScreen(
     var offsetY by remember { mutableStateOf(0f) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var isGridView by remember { mutableStateOf(false) }
-    
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedUris by remember { mutableStateOf(setOf<Uri>()) }
+    var adbBatchShareDone by remember { mutableStateOf(false) }
+
     // Initialize memory profiler
     val memoryProfiler = remember { MemoryProfiler.getInstance(context, lifecycleScope) }
     
@@ -266,7 +287,31 @@ fun BespokeGalleryScreen(
     }
     
     BackHandler {
-        onBack()
+        if (selectionMode) {
+            selectionMode = false
+            selectedUris = emptySet()
+            PnsAdbLog.i(context, "navBack gallerySelectionCleared")
+        } else {
+            PnsAdbLog.i(context, "navBack galleryExit")
+            onBack()
+        }
+    }
+
+    LaunchedEffect(adbBatchShareCount, mediaItems, isLoading, adbBatchShareDone) {
+        val want = adbBatchShareCount ?: return@LaunchedEffect
+        if (adbBatchShareDone || isLoading) return@LaunchedEffect
+        if (mediaItems.size < want) {
+            PnsAdbLog.e(context, "gallery batchShare skipped items=${mediaItems.size} want=$want")
+            adbBatchShareDone = true
+            return@LaunchedEffect
+        }
+        adbBatchShareDone = true
+        isGridView = true
+        selectionMode = true
+        selectedUris = mediaItems.take(want).map { it.uri }.toSet()
+        shareMediaBatch(context, selectedUris.toList())
+        selectionMode = false
+        selectedUris = emptySet()
     }
     
     // Load media items
@@ -349,11 +394,16 @@ fun BespokeGalleryScreen(
                         tint = Color.White
                     )
                 }
-                IconButton(onClick = { 
-                    selectedMedia?.let { media ->
-                        shareMedia(context, media.uri)
-                    }
-                }) {
+                IconButton(
+                    onClick = {
+                        if (selectionMode && selectedUris.isNotEmpty()) {
+                            shareMediaBatch(context, selectedUris.toList())
+                        } else {
+                            selectedMedia?.let { media -> shareMedia(context, media.uri) }
+                        }
+                    },
+                    enabled = !selectionMode || selectedUris.isNotEmpty() || selectedMedia != null,
+                ) {
                     Icon(
                         Icons.Default.Share,
                         contentDescription = "Share",
@@ -912,13 +962,14 @@ private fun extractExifMetadata(context: Context, uri: Uri): ExifMetadata {
 }
 
 private fun shareMedia(context: Context, uri: Uri) {
-    val shareIntent = Intent().apply {
-        action = Intent.ACTION_SEND
-        putExtra(Intent.EXTRA_STREAM, uri)
-        type = context.contentResolver.getType(uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(shareIntent, "Share media"))
+    SharingManager.shareSingle(context, uri, "Share media")
+}
+
+private fun shareMediaBatch(context: Context, uris: List<Uri>) {
+    if (uris.isEmpty()) return
+    Log.i("PNS.Gallery", "batchShare count=${uris.size}")
+    PnsAdbLog.i(context, "gallery batchShare count=${uris.size}")
+    SharingManager.shareUris(context, uris, "Share ${uris.size} items")
 }
 
 private fun deleteMedia(context: Context, uri: Uri, onSuccess: () -> Unit) {

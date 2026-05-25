@@ -105,6 +105,72 @@ const val EXTRA_PNS_PREVIEW_STILL_DNG_BACKEND = "pns_preview_still_dng_backend"
 /** Sprint 13.8: `standard` | `zsl` | `hdr` — seeds [StillCaptureMode] for automation. */
 const val EXTRA_PNS_PREVIEW_STILL_MODE = "pns_preview_still_mode"
 
+/** Sprint **CC.1** — composed still burst count (`pns_preview_burst_count`, e.g. 3). */
+const val EXTRA_PNS_PREVIEW_BURST_COUNT = "pns_preview_burst_count"
+
+/** Sprint **CC.1** — ms between burst stills (`pns_preview_burst_interval_ms`, default 350). */
+const val EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS = "pns_preview_burst_interval_ms"
+
+/** Sprint **CC.3** — loopback tether (`pns_preview_tether`). */
+const val EXTRA_PNS_PREVIEW_TETHER = "pns_preview_tether"
+
+/** Sprint **CC.3** — picture profile id (`pns_preview_picture_profile`, e.g. `cinematic`). */
+const val EXTRA_PNS_PREVIEW_PICTURE_PROFILE = "pns_preview_picture_profile"
+
+/** Sprint **CC.3** — flash strength percent 25–100 (`pns_preview_flash_strength`). */
+const val EXTRA_PNS_PREVIEW_FLASH_STRENGTH = "pns_preview_flash_strength"
+
+/** Sprint **CC.3** — export newest calibration profile once (`pns_preview_cal_export`). */
+const val EXTRA_PNS_PREVIEW_CAL_EXPORT = "pns_preview_cal_export"
+
+/** Sprint **UX.1** — `system` | `light` | `dark` (`pns_preview_theme_mode`). */
+const val EXTRA_PNS_PREVIEW_THEME_MODE = "pns_preview_theme_mode"
+
+/** Sprint **UX.3** — apply [WorkflowPresets] id on cold preview (`pns_preview_workflow_preset`). */
+const val EXTRA_PNS_PREVIEW_WORKFLOW_PRESET = "pns_preview_workflow_preset"
+
+/** Sprint **UX.2/UX.3** — open in-app gallery on cold preview (`pns_preview_open_gallery`). */
+const val EXTRA_PNS_PREVIEW_OPEN_GALLERY = "pns_preview_open_gallery"
+
+/**
+ * Sprint **UX.3** — after gallery index loads, auto-select N items and fire batch share (N ≥ 2).
+ * (`pns_preview_gallery_batch_share`).
+ */
+const val EXTRA_PNS_PREVIEW_GALLERY_BATCH_SHARE = "pns_preview_gallery_batch_share"
+
+/** Sprint **UX.3** — enable cloud backup prefs on cold preview (`pns_preview_cloud_backup`). */
+const val EXTRA_PNS_PREVIEW_CLOUD_BACKUP = "pns_preview_cloud_backup"
+
+/** Sprint **UX.3** — run [CloudCaptureBackup.syncRecentCaptures] once (`pns_preview_cloud_backup_sync`). */
+const val EXTRA_PNS_PREVIEW_CLOUD_BACKUP_SYNC = "pns_preview_cloud_backup_sync"
+
+/** Debug gate: backup to app external `ux_cloud_backup_probe/` when no SAF folder (`pns_preview_cloud_backup_probe`). */
+const val EXTRA_PNS_PREVIEW_CLOUD_BACKUP_PROBE = "pns_preview_cloud_backup_probe"
+
+/** Sprint **IP.1** — [SharingManager] probe on first gallery item (`pns_preview_platform_share_probe`). */
+const val EXTRA_PNS_PREVIEW_PLATFORM_SHARE_PROBE = "pns_preview_platform_share_probe"
+
+/** Sprint **IP.1** — FileProvider probe (`pns_preview_platform_file_provider_probe`). */
+const val EXTRA_PNS_PREVIEW_PLATFORM_FILE_PROVIDER_PROBE = "pns_preview_platform_file_provider_probe"
+
+/** Sprint **IP.1** — log widget provider (`pns_preview_platform_widget_probe`). */
+const val EXTRA_PNS_PREVIEW_PLATFORM_WIDGET_PROBE = "pns_preview_platform_widget_probe"
+
+/** Sprint **IP.2** — enable LAN HTTP transfer server (`pns_preview_lan_transfer`). */
+const val EXTRA_PNS_PREVIEW_LAN_TRANSFER = "pns_preview_lan_transfer"
+
+/** Sprint **IP.2** — log LAN server + hit /status via automation (`pns_preview_lan_transfer_probe`). */
+const val EXTRA_PNS_PREVIEW_LAN_TRANSFER_PROBE = "pns_preview_lan_transfer_probe"
+
+/** Sprint **IP.2** — log WebDAV configured (`pns_preview_webdav_probe`). */
+const val EXTRA_PNS_PREVIEW_WEBDAV_PROBE = "pns_preview_webdav_probe"
+
+/** Sprint **IP.2** — exercise [SocialStreamHooks] skip path (`pns_preview_social_stream_probe`). */
+const val EXTRA_PNS_PREVIEW_SOCIAL_STREAM_PROBE = "pns_preview_social_stream_probe"
+
+/** Sprint **IP.2** — log [CollaborativeCapture] (`pns_preview_collaborative_probe`). */
+const val EXTRA_PNS_PREVIEW_COLLABORATIVE_PROBE = "pns_preview_collaborative_probe"
+
 /** Skip DNG tag 50708 ([Dng12Saver] unique camera model buffer rewrite). */
 const val EXTRA_PNS_PREVIEW_DNG_SKIP_UNIQUE_CAMERA_MODEL = "pns_preview_dng_skip_unique_camera_model"
 
@@ -358,6 +424,8 @@ const val SWEEP_SIGNAL_TAG = "PNS.SWEEP_SIGNAL"
 
 @Composable
 fun CameraCapabilitiesProbe(
+    themeMode: PnsThemeMode = PnsThemeMode.System,
+    onThemeModeChange: (PnsThemeMode) -> Unit = {},
     launchScreen: String? = null,
     imageCaptureReturn: ImageCaptureReturnContract? = null,
     videoCaptureReturn: VideoCaptureReturnContract? = null,
@@ -853,6 +921,138 @@ fun CameraCapabilitiesProbe(
             } else {
                 null
             }
+        val adbBurstStillCount =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_BURST_COUNT, 0) ?: 0).coerceAtLeast(0)
+            } else {
+                0
+            }
+        val adbBurstIntervalMs =
+            if (trustIntentForPreviewPipeline) {
+                val raw = activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS, 0) ?: 0
+                if (raw > 0) raw else 350
+            } else {
+                0
+            }
+        val adbTetherEnabled =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_TETHER, false) ?: false
+            } else {
+                false
+            }
+        val adbPictureProfileId =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_PICTURE_PROFILE)?.trim()?.takeIf { it.isNotEmpty() }
+            } else {
+                null
+            }
+        val adbFlashStrengthPercent =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_FLASH_STRENGTH, 0) ?: 0)
+                    .takeIf {
+                        it in HudSettings.PREVIEW_FLASH_STRENGTH_MIN..HudSettings.PREVIEW_FLASH_STRENGTH_MAX
+                    }
+            } else {
+                null
+            }
+        val adbCalExportSmoke =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CAL_EXPORT, false) ?: false
+            } else {
+                false
+            }
+        val adbPreviewThemeMode =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_THEME_MODE)?.trim()?.takeIf { it.isNotEmpty() }
+                    ?.let { PnsThemeMode.fromStorage(it) }
+            } else {
+                null
+            }
+        val adbWorkflowPresetId =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_WORKFLOW_PRESET)?.trim()?.takeIf { it.isNotEmpty() }
+            } else {
+                null
+            }
+        val adbOpenGallery =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_OPEN_GALLERY, false) ?: false
+            } else {
+                false
+            }
+        val adbGalleryBatchShareCount =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_GALLERY_BATCH_SHARE, 0) ?: 0)
+                    .takeIf { it >= 2 }
+            } else {
+                null
+            }
+        val adbCloudBackupEnabled =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CLOUD_BACKUP, false) ?: false
+            } else {
+                false
+            }
+        val adbCloudBackupSyncNow =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CLOUD_BACKUP_SYNC, false) ?: false
+            } else {
+                false
+            }
+        val adbCloudBackupProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_CLOUD_BACKUP_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbPlatformShareProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_PLATFORM_SHARE_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbPlatformFileProviderProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_PLATFORM_FILE_PROVIDER_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbPlatformWidgetProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_PLATFORM_WIDGET_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbLanTransfer =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_LAN_TRANSFER, false) ?: false
+            } else {
+                false
+            }
+        val adbLanTransferProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_LAN_TRANSFER_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbWebDavProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_WEBDAV_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbSocialStreamProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SOCIAL_STREAM_PROBE, false) ?: false
+            } else {
+                false
+            }
+        val adbCollaborativeProbe =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_COLLABORATIVE_PROBE, false) ?: false
+            } else {
+                false
+            }
         val adbSeedFocusPeakingColor =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent.previewFocusPeakingColorExtra()
@@ -1002,6 +1202,27 @@ fun CameraCapabilitiesProbe(
             adbAutomationVideoRawSec = adbAutomationVideoRawSec,
             adbDngBisectActive = adbDngBisectActive,
             adbStillCaptureMode = adbStillCaptureMode,
+            adbBurstStillCount = adbBurstStillCount,
+            adbBurstIntervalMs = adbBurstIntervalMs,
+            adbTetherEnabled = adbTetherEnabled,
+            adbPictureProfileId = adbPictureProfileId,
+            adbFlashStrengthPercent = adbFlashStrengthPercent,
+            adbCalExportSmoke = adbCalExportSmoke,
+            adbPreviewThemeMode = adbPreviewThemeMode,
+            adbWorkflowPresetId = adbWorkflowPresetId,
+            adbOpenGallery = adbOpenGallery,
+            adbGalleryBatchShareCount = adbGalleryBatchShareCount,
+            adbCloudBackupEnabled = adbCloudBackupEnabled,
+            adbCloudBackupSyncNow = adbCloudBackupSyncNow,
+            adbCloudBackupProbe = adbCloudBackupProbe,
+            adbPlatformShareProbe = adbPlatformShareProbe,
+            adbPlatformFileProviderProbe = adbPlatformFileProviderProbe,
+            adbPlatformWidgetProbe = adbPlatformWidgetProbe,
+            adbLanTransfer = adbLanTransfer,
+            adbLanTransferProbe = adbLanTransferProbe,
+            adbWebDavProbe = adbWebDavProbe,
+            adbSocialStreamProbe = adbSocialStreamProbe,
+            adbCollaborativeProbe = adbCollaborativeProbe,
             adbSeedFocusPeakingColor = adbSeedFocusPeakingColor,
             adbPreviewFocusMode = adbPreviewFocusMode,
             adbSeedVideoLutName = adbSeedVideoLutName,
@@ -1014,6 +1235,8 @@ fun CameraCapabilitiesProbe(
             adbVideoBitrateScalePercent = adbVideoBitrateScalePercent,
             adbSceneVendorHints = adbSceneVendorHints,
             adbShowAboutOverlay = adbShowAboutOverlay,
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
         )
         return
     }
@@ -1134,6 +1357,8 @@ fun CameraCapabilitiesProbe(
 
     if (showHudSettings) {
         HudSettingsScreen(
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
             onBack = {
                 showHudSettings = false
                 hudSettingsFocus = HudSettingsFocus.None
@@ -1362,6 +1587,8 @@ fun CameraCapabilitiesProbe(
             startAutoSweep = autoSweep,
             initialPrimaryPhoto = previewSeedPrimaryPhoto,
             adbAutomationInAppVideoSec = 0,
+            themeMode = themeMode,
+            onThemeModeChange = onThemeModeChange,
         )
         return
     }

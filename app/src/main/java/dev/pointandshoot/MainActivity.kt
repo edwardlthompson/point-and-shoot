@@ -14,13 +14,18 @@ import androidx.activity.ComponentActivity
 import androidx.core.content.IntentCompat
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
@@ -69,6 +74,8 @@ class MainActivity : ComponentActivity() {
         // remains unaffected when verbose is muted in release.
         PnsLog.init(applicationContext)
 
+        intent?.let { PlatformIntegration.applyDeepLinkToIntent(it) }
+
         if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW, false) == true) {
             HudSettings.save(this, HudSettings.load(this).copy(enableHdr10LivePreview = true))
             PnsAdbLog.i(applicationContext, "preview adb seed hdr10LivePreview=true")
@@ -109,7 +116,10 @@ class MainActivity : ComponentActivity() {
         val autoFaceMeter = intent?.getBooleanExtra(EXTRA_PNS_AUTOFACEMETER, false) ?: false
 
         setContent {
-            PnsTheme {
+            val appCtx = LocalContext.current.applicationContext
+            var themeMode by remember { mutableStateOf(UxSettings.loadThemeMode(appCtx)) }
+            val darkTheme = UxSettings.resolveDarkTheme(themeMode, appCtx)
+            PnsTheme(darkTheme = darkTheme) {
                 val snackbarHostState = remember { SnackbarHostState() }
                 Box(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(
@@ -117,6 +127,11 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Surface(modifier = Modifier.fillMaxSize()) {
                             CameraCapabilitiesProbe(
+                                themeMode = themeMode,
+                                onThemeModeChange = { mode ->
+                                    themeMode = mode
+                                    UxSettings.saveThemeMode(appCtx, mode)
+                                },
                                 launchScreen = launchScreen,
                                 imageCaptureReturn = imageCaptureReturn,
                                 videoCaptureReturn = videoCaptureReturn,

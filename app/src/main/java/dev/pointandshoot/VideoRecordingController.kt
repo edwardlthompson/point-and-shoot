@@ -644,6 +644,7 @@ internal class VideoRecordingController(
                 recordingCaptureInfo = null
                 out = uri
                 Log.i(TAG, "inAppVideoSaved uri=$uri")
+                CloudCaptureBackup.queueUri(appContext, uri)
                 logAdbInAppVideoSaved(uri)
             }.onFailure { e ->
                 Log.w(TAG, "finalize video failed", e)

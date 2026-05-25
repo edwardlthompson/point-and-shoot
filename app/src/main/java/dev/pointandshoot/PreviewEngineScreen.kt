@@ -631,6 +631,8 @@ private fun previewEnginePollStateFromController(c: PreviewController): PreviewE
 fun PreviewEngineScreen(
     onBack: () -> Unit,
     onOpenDeveloperMenu: () -> Unit = {},
+    themeMode: PnsThemeMode = PnsThemeMode.System,
+    onThemeModeChange: (PnsThemeMode) -> Unit = {},
     startAutoSweep: Boolean = false,
     /** From `am start` extras — see `EXTRA_PNS_PREVIEW_*` in [CameraCapabilitiesProbe]. */
     adbInitialDial: CommandDialMode? = null,
@@ -702,6 +704,9 @@ fun PreviewEngineScreen(
     adbDngBisectActive: Boolean = false,
     /** `pns_preview_still_mode` — [StillCaptureMode] for 13.8 automation (non-Standard falls back until shipped). */
     adbStillCaptureMode: StillCaptureMode? = null,
+    /** Sprint **CC.1** — `pns_preview_burst_count` + `pns_preview_burst_interval_ms` composed still burst. */
+    adbBurstStillCount: Int = 0,
+    adbBurstIntervalMs: Int = 0,
     /** `pns_preview_focus_peaking` — seeds HUD peaking color (e.g. `Red`) for Sprint **13V.10** gates. */
     adbSeedFocusPeakingColor: FocusPeakingColor? = null,
     /** `pns_preview_focus_mode` — Sprint **14.8** (`auto`, `manual`, `macro`, …). */
@@ -726,6 +731,33 @@ fun PreviewEngineScreen(
     adbSceneVendorHints: Boolean = false,
     /** `--ez pns_preview_show_about true` — Sprint **14.11** gate: in-preview About overlay. */
     adbShowAboutOverlay: Boolean = false,
+    /** Sprint **CC.3** — `pns_preview_tether` enables loopback HTTP tether. */
+    adbTetherEnabled: Boolean = false,
+    /** Sprint **CC.3** — `pns_preview_picture_profile` (e.g. `cinematic`, `ultra_raw`). */
+    adbPictureProfileId: String? = null,
+    /** Sprint **CC.3** — `pns_preview_flash_strength` percent (25–100). */
+    adbFlashStrengthPercent: Int? = null,
+    /** Sprint **CC.3** — `pns_preview_cal_export` exports newest calibration JSON once. */
+    adbCalExportSmoke: Boolean = false,
+    /** Sprint **UX.1** — `pns_preview_theme_mode` (`system` | `light` | `dark`). */
+    adbPreviewThemeMode: PnsThemeMode? = null,
+    /** Sprint **UX.3** — `pns_preview_workflow_preset` (e.g. `street`). */
+    adbWorkflowPresetId: String? = null,
+    /** Sprint **UX.2/UX.3** — `pns_preview_open_gallery` opens bespoke gallery overlay. */
+    adbOpenGallery: Boolean = false,
+    /** Sprint **UX.3** — `pns_preview_gallery_batch_share` (≥2) auto batch-shares after index load. */
+    adbGalleryBatchShareCount: Int? = null,
+    adbCloudBackupEnabled: Boolean = false,
+    adbCloudBackupSyncNow: Boolean = false,
+    adbCloudBackupProbe: Boolean = false,
+    adbPlatformShareProbe: Boolean = false,
+    adbPlatformFileProviderProbe: Boolean = false,
+    adbPlatformWidgetProbe: Boolean = false,
+    adbLanTransfer: Boolean = false,
+    adbLanTransferProbe: Boolean = false,
+    adbWebDavProbe: Boolean = false,
+    adbSocialStreamProbe: Boolean = false,
+    adbCollaborativeProbe: Boolean = false,
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -747,7 +779,8 @@ fun PreviewEngineScreen(
             else -> true
         }
     val resolvedInitialGallery =
-        restoredTraySurface == PreviewLastSurface.Gallery && !intentOverridesTrayRestore
+        adbOpenGallery ||
+            (restoredTraySurface == PreviewLastSurface.Gallery && !intentOverridesTrayRestore)
     val adbSelfTimerSecSanitized =
         adbInitialSelfTimerSec?.coerceIn(0, 60)?.also { v ->
             if (v != adbInitialSelfTimerSec) {
@@ -806,7 +839,13 @@ fun PreviewEngineScreen(
             adbEnableSmileStill ||
             adbSmileStillSynthetic ||
             adbVideoBitrateScalePercent != null ||
-            adbSceneVendorHints
+            adbSceneVendorHints ||
+            adbTetherEnabled ||
+            !adbPictureProfileId.isNullOrBlank() ||
+            adbFlashStrengthPercent != null ||
+            adbCalExportSmoke ||
+            adbPreviewThemeMode != null ||
+            !adbWorkflowPresetId.isNullOrBlank()
     controller.superMacroAdbProbe = adbSuperMacroProbe
     controller.adbForceRawVideoLane = adbAutomationVideoRawSec > 0
     // Bracket automation disables face stats to cut CameraMetadataJV noise. Sequential RAW-only (`pns_preview_raw_count`)
@@ -1728,12 +1767,17 @@ fun PreviewEngineScreen(
     fun applyStillResultToGalleryThumb(result: Result<RawStillSaveSuccess>) {
         result.fold(
             onSuccess = { out ->
-                val pick =
-                    out.tonalUriString?.let { Uri.parse(it) }
-                        ?: runCatching { Uri.parse(out.dngUriString) }.getOrNull()
+                val dngUri = runCatching { Uri.parse(out.dngUriString) }.getOrNull()
+                val tonalUri =
+                    out.tonalUriString?.let { runCatching { Uri.parse(it) }.getOrNull() }
+                val pick = tonalUri ?: dngUri
                 if (pick != null) {
                     lastGalleryUri = pick
                     Log.i("PNS.ChromeUx", "galleryThumbUpdated path=${pick.lastPathSegment}")
+                }
+                dngUri?.let { CloudCaptureBackup.queueUri(appContext, it) }
+                if (tonalUri != null && tonalUri != dngUri) {
+                    CloudCaptureBackup.queueUri(appContext, tonalUri)
                 }
             },
             onFailure = { },
@@ -1742,6 +1786,7 @@ fun PreviewEngineScreen(
 
     LaunchedEffect(Unit) {
         lateinit var runTrayStillCaptureImpl: () -> Unit
+        lateinit var runTrayStillBurstImpl: () -> Unit
         fun scheduleTrayStillCapture() {
             controller.runAfterAfShutterGateIfNeeded(
                 onTimeoutOnMain = {
@@ -1752,6 +1797,18 @@ fun PreviewEngineScreen(
                     )
                 },
                 runCaptureOnMain = { runTrayStillCaptureImpl() },
+            )
+        }
+        fun scheduleTrayStillBurstCapture() {
+            controller.runAfterAfShutterGateIfNeeded(
+                onTimeoutOnMain = {
+                    captureScope.pnsShowSnackbar(
+                        snackbarHostState,
+                        "Focus wait timed out — burst not started.",
+                        longDuration = false,
+                    )
+                },
+                runCaptureOnMain = { runTrayStillBurstImpl() },
             )
         }
         runTrayStillCaptureImpl = {
@@ -1816,7 +1873,323 @@ fun PreviewEngineScreen(
                 )
             }
         }
-        trayStillCaptureRef.value = { scheduleTrayStillCapture() }
+        runTrayStillBurstImpl = {
+            val hud = hudState.current
+            val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
+            val plan = composedStillIntentState.value.resolveCapturePlan()
+            controller.setComposedCapturePlan(plan)
+            val blocked = controller.composedCaptureBlockedReason(plan)
+            if (blocked != null) {
+                captureScope.pnsShowSnackbar(snackbarHostState, blocked, longDuration = true)
+            } else {
+                controller.captureComposedStillBurst(
+                    appContext = context.applicationContext,
+                    plan = plan,
+                    haptics = haptics,
+                    surfaceRotation = rot,
+                    shotCount = hud.burstShotCount,
+                    intervalMs = hud.burstIntervalMs.toLong(),
+                    dngSoftwareDescription = formatDngSoftwareLine(context, stillsLutState.value),
+                    stillsLut = stillsLutState.value,
+                    onResult = { result ->
+                        result.fold(
+                            onSuccess = { n ->
+                                captureScope.pnsShowSnackbar(
+                                    snackbarHostState,
+                                    "Burst saved $n/${hud.burstShotCount}",
+                                    longDuration = false,
+                                )
+                            },
+                            onFailure = { e ->
+                                captureScope.pnsShowSnackbar(
+                                    snackbarHostState,
+                                    PnsUserFacingErrors.stillCaptureFailure(e),
+                                    longDuration = true,
+                                )
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        trayStillCaptureRef.value = {
+            if (hudState.current.burstModeEnabled) {
+                scheduleTrayStillBurstCapture()
+            } else {
+                scheduleTrayStillCapture()
+            }
+        }
+    }
+
+    LaunchedEffect(hudState.current.preCaptureBufferEnabled) {
+        controller.refreshPreCaptureRingFromHud()
+    }
+
+    LaunchedEffect(
+        primaryPhoto,
+        hudState.current.intervalometerRunning,
+        hudState.current.intervalometerIntervalSec,
+        isRecording,
+    ) {
+        if (
+            !primaryPhoto ||
+            isRecording ||
+            !hudState.current.intervalometerRunning ||
+            hudState.current.intervalometerIntervalSec <= 0
+        ) {
+            return@LaunchedEffect
+        }
+        val intervalSec = hudState.current.intervalometerIntervalSec
+        Log.i("PNS.ChromeUx", "intervalometer active intervalSec=$intervalSec")
+        while (
+            primaryPhoto &&
+            !isRecording &&
+            hudState.current.intervalometerRunning &&
+            hudState.current.intervalometerIntervalSec == intervalSec
+        ) {
+            delay(intervalSec * 1000L)
+            if (
+                !primaryPhoto ||
+                isRecording ||
+                !hudState.current.intervalometerRunning
+            ) {
+                break
+            }
+            trayStillCaptureRef.value?.invoke()
+        }
+    }
+
+    val tetherServer = remember { TetheredCaptureServer() }
+    DisposableEffect(Unit) {
+        onDispose { ProCapture.stopTether(tetherServer) }
+    }
+    val primaryPhotoForTether = rememberUpdatedState(primaryPhoto)
+    val selectedCameraIdForTether = rememberUpdatedState(selectedCameraId)
+    val selectedFpsForTether = rememberUpdatedState(selectedFps)
+    LaunchedEffect(hudState.current.tetheredCaptureEnabled, adbTetherEnabled) {
+        val want = hudState.current.tetheredCaptureEnabled || adbTetherEnabled
+        if (!want) {
+            ProCapture.stopTether(tetherServer)
+            return@LaunchedEffect
+        }
+        if (adbTetherEnabled && !hudState.current.tetheredCaptureEnabled) {
+            hudState.update(hudState.current.copy(tetheredCaptureEnabled = true))
+        }
+        val bridge =
+            object : ProCapture.PreviewControllerBridge {
+                override fun canCaptureStill(): Boolean = controller.canCaptureStill()
+
+                override fun primaryPhoto(): Boolean = primaryPhotoForTether.value
+
+                override fun selectedCameraId(): String? = selectedCameraIdForTether.value
+
+                override fun selectedFps(): Int = selectedFpsForTether.value
+
+                override fun previewFlashMode(): PreviewFlashMode = chromePrefs.current.previewFlashMode
+            }
+        ProCapture.stopTether(tetherServer)
+        ProCapture.bindTetherCallbacks(
+            tetherServer,
+            bridge,
+            onStillCapture = { trayStillCaptureRef.value?.invoke() },
+            onFlashMode = { mode ->
+                chromePrefs.update(chromePrefs.current.copy(previewFlashMode = mode))
+            },
+        )
+        ProCapture.startTether(tetherServer)
+        PnsAdbLog.i(context, "tetherServer active port=${TetheredCaptureServer.DEFAULT_PORT}")
+    }
+
+    LaunchedEffect(hudState.current.previewFlashStrengthPercent) {
+        controller.setPreviewFlashStrengthPercent(hudState.current.previewFlashStrengthPercent)
+    }
+
+    LaunchedEffect(adbFlashStrengthPercent) {
+        val pct = adbFlashStrengthPercent ?: return@LaunchedEffect
+        val clamped =
+            pct.coerceIn(
+                HudSettings.PREVIEW_FLASH_STRENGTH_MIN,
+                HudSettings.PREVIEW_FLASH_STRENGTH_MAX,
+            )
+        hudState.update(hudState.current.copy(previewFlashStrengthPercent = clamped))
+        controller.setPreviewFlashStrengthPercent(clamped)
+        PnsAdbLog.i(context, "preview seeded flashStrengthPercent=$clamped (adb)")
+    }
+
+    LaunchedEffect(adbPictureProfileId) {
+        val raw = adbPictureProfileId?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        val profile =
+            ProPictureProfiles.byId(raw) ?: run {
+                PnsAdbLog.e(context, "pictureProfile unknown id=$raw")
+                return@LaunchedEffect
+            }
+        ProCapture.applyPictureProfile(
+            context,
+            profile,
+            hudState,
+            onImagingProfile = { imaging ->
+                composedStillIntent =
+                    ComposedStillIntent.fromLegacyImagingProfile(imaging, jpegCompanionOn = true)
+                HudSettings.saveImagingProfile(context, imaging)
+                controller.kickPreviewPipelineRestart()
+            },
+        )
+        PnsAdbLog.i(context, "preview seeded pictureProfile=${profile.id} (adb)")
+    }
+
+    LaunchedEffect(adbCalExportSmoke) {
+        if (!adbCalExportSmoke) return@LaunchedEffect
+        delay(2_000)
+        val exported = ColorCalibrationTools.exportLatestProfile(context)
+        if (exported != null) {
+            PnsAdbLog.i(
+                context,
+                "colorCal export ok path=${exported.file.name} target=${exported.profile.targetId}",
+            )
+        } else {
+            PnsAdbLog.e(context, "colorCal export failed: no saved profile")
+        }
+    }
+
+    LaunchedEffect(adbPreviewThemeMode) {
+        val mode = adbPreviewThemeMode ?: return@LaunchedEffect
+        UxSettings.saveThemeMode(context, mode)
+        onThemeModeChange(mode)
+        PnsAdbLog.i(context, "preview seeded themeMode=${mode.name} (adb)")
+    }
+
+    LaunchedEffect(adbWorkflowPresetId) {
+        val raw = adbWorkflowPresetId?.trim()?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        val preset =
+            WorkflowPresets.byId(context, raw) ?: run {
+                PnsAdbLog.e(context, "workflowPreset unknown id=$raw")
+                return@LaunchedEffect
+            }
+        WorkflowPresets.logApplied(context, preset)
+        HudSettings.saveCommandDialMode(context, preset.commandDialMode)
+        val profile = ImagingProfile.byId(preset.imagingProfileId)
+        composedStillIntent =
+            ComposedStillIntent.fromLegacyImagingProfile(profile, jpegCompanionOn = true)
+        HudSettings.saveImagingProfile(context, profile)
+        primaryPhoto = preset.primaryPhoto
+        preset.fps?.let { fps ->
+            selectedFps = fps
+            userSelectedFps = fps
+        }
+        controller.kickPreviewPipelineRestart()
+    }
+
+    rememberNavigationUxSnapshot(immersiveSystemBarsHidden = true)
+
+    BackHandler(enabled = showBespokeGallery) {
+        PnsAdbLog.i(context, "navBack previewGalleryClosed")
+        showBespokeGallery = false
+    }
+
+    LaunchedEffect(adbOpenGallery) {
+        if (!adbOpenGallery) return@LaunchedEffect
+        showBespokeGallery = true
+        PnsAdbLog.i(context, "preview openGallery=true (adb)")
+    }
+
+    LaunchedEffect(adbCloudBackupEnabled) {
+        if (!adbCloudBackupEnabled) return@LaunchedEffect
+        CloudCaptureBackup.setEnabled(context, true)
+        PnsAdbLog.i(context, "preview seeded cloudBackup enabled=true (adb)")
+    }
+
+    LaunchedEffect(adbCloudBackupSyncNow, adbCloudBackupProbe) {
+        if (!adbCloudBackupSyncNow) return@LaunchedEffect
+        if (!CloudCaptureBackup.isEnabled(context) && !adbCloudBackupProbe) return@LaunchedEffect
+        if (adbCloudBackupProbe) CloudCaptureBackup.setEnabled(context, true)
+        val result =
+            CloudCaptureBackup.syncRecentCaptures(
+                context,
+                maxItems = 12,
+                allowProbeDir = adbCloudBackupProbe,
+            )
+        PnsAdbLog.i(
+            context,
+            "cloudBackup syncDone copied=${result.copied} skipped=${result.skipped} failed=${result.failed}",
+        )
+    }
+
+    LaunchedEffect(adbPlatformFileProviderProbe) {
+        if (!adbPlatformFileProviderProbe) return@LaunchedEffect
+        SharingManager.probeFileProvider(context)
+    }
+
+    LaunchedEffect(adbPlatformWidgetProbe) {
+        if (!adbPlatformWidgetProbe) return@LaunchedEffect
+        PlatformIntegration.logWidgetProbe(context)
+        ExternalApps.logInstalledViewers(context)
+    }
+
+    LaunchedEffect(adbPlatformShareProbe) {
+        if (!adbPlatformShareProbe) return@LaunchedEffect
+        val items = PnsMediaStoreGallery.loadIndex(context, maxItems = 3)
+        val first = items.firstOrNull() ?: return@LaunchedEffect
+        SharingManager.shareSingle(context, first.uri, "Platform share probe")
+    }
+
+    val lanMediaServer = remember { LanMediaTransferServer(context.applicationContext) }
+    DisposableEffect(Unit) {
+        onDispose { lanMediaServer.stop() }
+    }
+    LaunchedEffect(adbLanTransfer, adbLanTransferProbe) {
+        val want =
+            adbLanTransfer ||
+                adbLanTransferProbe ||
+                PnsConnectivity.isLanTransferEnabled(context)
+        if (!want) {
+            lanMediaServer.stop()
+            return@LaunchedEffect
+        }
+        if (adbLanTransfer || adbLanTransferProbe) {
+            PnsConnectivity.setLanTransferEnabled(context, true)
+        }
+        lanMediaServer.fileProvider = {
+            PnsMediaStoreGallery.loadIndex(context, maxItems = 24).map { item ->
+                LanMediaTransferServer.FileEntry(
+                    id = item.uri.lastPathSegment?.toLongOrNull() ?: item.uri.hashCode().toLong(),
+                    uri = item.uri,
+                    name = item.displayName,
+                    mime = item.mimeType,
+                    size = item.size,
+                )
+            }
+        }
+        if (!lanMediaServer.isListening()) {
+            lanMediaServer.start()
+            kotlinx.coroutines.delay(600)
+        }
+        if (lanMediaServer.isListening()) {
+            PnsAdbLog.i(context, "connectivity lanServer active port=${lanMediaServer.boundPort}")
+        }
+        if (adbLanTransferProbe) {
+            PnsConnectivity.logCapabilitySummary(context)
+        }
+    }
+
+    LaunchedEffect(adbWebDavProbe) {
+        if (!adbWebDavProbe) return@LaunchedEffect
+        NetworkStorageClient.probeWebDavConfigured(context)
+    }
+
+    LaunchedEffect(adbSocialStreamProbe) {
+        if (!adbSocialStreamProbe) return@LaunchedEffect
+        val items = PnsMediaStoreGallery.loadIndex(context, maxItems = 1)
+        val first = items.firstOrNull()
+        if (first != null) {
+            SocialStreamHooks.postCaptureEvent(context, first.uri, first.mimeType, first.displayName)
+        } else {
+            SocialStreamHooks.postCaptureEvent(context, Uri.EMPTY, null, "probe")
+        }
+    }
+
+    LaunchedEffect(adbCollaborativeProbe) {
+        if (!adbCollaborativeProbe) return@LaunchedEffect
+        CollaborativeCapture.logProbe(context)
     }
 
     fun invokeSmileTriggeredStillCapture() {
@@ -2177,8 +2550,46 @@ fun PreviewEngineScreen(
         }
     }
 
-    LaunchedEffect(adbComposedStillSmoke, composedStillIntent) {
-        if (!adbComposedStillSmoke) return@LaunchedEffect
+    LaunchedEffect(adbBurstStillCount, adbBurstIntervalMs, composedStillIntent) {
+        val n = adbBurstStillCount
+        if (n <= 0) return@LaunchedEffect
+        PnsAdbLog.i(context, "start burst automation n=$n intervalMs=$adbBurstIntervalMs")
+        var waitCap = 0
+        while (!controller.canCaptureStill() && waitCap < 300) {
+            delay(400)
+            waitCap++
+        }
+        if (!controller.canCaptureStill()) {
+            PnsAdbLog.e(context, "burst automation aborted: canCaptureStill=false")
+            return@LaunchedEffect
+        }
+        delay(ADB_SEQUENTIAL_RAW_POST_READY_SETTLE_MS_FAST)
+        val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
+        val plan = composedStillIntent.resolveCapturePlan()
+        controller.markAdbScriptedStillAutomationActive(true)
+        try {
+            suspendCoroutine<Unit> { cont ->
+                controller.captureComposedStillBurst(
+                    context.applicationContext,
+                    plan = plan,
+                    haptics = haptics,
+                    surfaceRotation = rot,
+                    shotCount = n,
+                    intervalMs = adbBurstIntervalMs.toLong(),
+                    dngSoftwareDescription = formatDngSoftwareLine(context, stillsLutLatest.value),
+                    stillsLut = stillsLutLatest.value,
+                    adbValidationShotLabel = "burst",
+                    onResult = { _ -> cont.resume(Unit) },
+                )
+            }
+            PnsAdbLog.i(context, "finished burst automation n=$n")
+        } finally {
+            controller.markAdbScriptedStillAutomationActive(false)
+        }
+    }
+
+    LaunchedEffect(adbComposedStillSmoke, composedStillIntent, adbBurstStillCount) {
+        if (!adbComposedStillSmoke || adbBurstStillCount > 0) return@LaunchedEffect
         PnsAdbLog.i(context, "start composed still smoke raw=${composedStillIntent.raw} jpeg=${composedStillIntent.jpeg}")
         var waitCap = 0
         while (!controller.canCaptureStill() && waitCap < 300) {
@@ -2421,7 +2832,9 @@ fun PreviewEngineScreen(
     // Create local reference to avoid scope conflict
     val setBespokeGallery: (Boolean) -> Unit = { showBespokeGallery = it }
 
+    // Preview chrome stays on dark Material tokens regardless of global Light/System (layout lock).
     Box(modifier = Modifier.fillMaxSize()) {
+    PnsTheme(darkTheme = true) {
     PreviewEngineContent(
         // Single merged status bar + cutout top — [rememberSystemInsetsDp] already maxes cutout
         // with system bars; avoid [asPaddingValuesWithExtraTopBarBand] (2× top) for the chrome band.
@@ -2694,12 +3107,29 @@ fun PreviewEngineScreen(
         adbAutomationVideoRawSec = adbAutomationVideoRawSec,
         adbAutomationInAppVideoSec = adbAutomationInAppVideoSec,
         videoEncodeSize = videoEncodeResolved,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange,
+        onApplyWorkflowPreset = { preset ->
+            WorkflowPresets.logApplied(context, preset)
+            HudSettings.saveCommandDialMode(context, preset.commandDialMode)
+            val profile = ImagingProfile.byId(preset.imagingProfileId)
+            composedStillIntent =
+                ComposedStillIntent.fromLegacyImagingProfile(profile, jpegCompanionOn = true)
+            HudSettings.saveImagingProfile(context, profile)
+            primaryPhoto = preset.primaryPhoto
+            preset.fps?.let { fps ->
+                selectedFps = fps
+                userSelectedFps = fps
+            }
+            controller.kickPreviewPipelineRestart()
+        },
     )
-    
+
     // Bespoke Gallery Overlay
     if (showBespokeGallery) {
         BespokeGalleryScreen(
             initialUri = lastGalleryUri,
+            adbBatchShareCount = adbGalleryBatchShareCount,
             onBack = { showBespokeGallery = false },
             onExternalGallery = {
                 showBespokeGallery = false
@@ -2710,6 +3140,7 @@ fun PreviewEngineScreen(
                 }
             }
         )
+    }
     }
     }
 
@@ -2799,6 +3230,9 @@ private fun PreviewEngineContent(
     adbAutomationVideoRawSec: Int = 0,
     adbAutomationInAppVideoSec: Int = 0,
     videoEncodeSize: Size,
+    themeMode: PnsThemeMode = PnsThemeMode.System,
+    onThemeModeChange: (PnsThemeMode) -> Unit = {},
+    onApplyWorkflowPreset: ((WorkflowPreset) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val snackbarHostState = LocalPnsSnackbarHostState.current
@@ -2854,6 +3288,9 @@ private fun PreviewEngineContent(
         }
     }
     var focusModePickerOpen by remember { mutableStateOf(false) }
+    BackHandler(enabled = focusModePickerOpen) {
+        focusModePickerOpen = false
+    }
     val previewFocusSelection = controller.previewFocusSelection()
     val macroLensLocked =
         PreviewMacroProgram.wantsMacroProgram(commandDialMode, previewFocusSelection)
@@ -3220,6 +3657,9 @@ private fun PreviewEngineContent(
     val uiRotationDegSmooth = deviceUiRotationState.smoothDegrees
 
     var calibrateOverlayActive by remember { mutableStateOf(false) }
+    BackHandler(enabled = calibrateOverlayActive) {
+        calibrateOverlayActive = false
+    }
     var calibratePendingInitialBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     fun openCalibrateFromPreviewFrame() {
@@ -3854,29 +4294,40 @@ private fun PreviewEngineContent(
                 fpsTargetEditable = fpsTargetEditable,
                 onKickPreviewPipeline = { controller.kickPreviewPipelineRestart() },
                 onOpenFocusModePicker = { focusModePickerOpen = true },
+                themeMode = themeMode,
+                onThemeModeChange = onThemeModeChange,
+                onPictureProfileImaging = { imaging ->
+                    onComposedStillIntentChange(
+                        ComposedStillIntent.fromLegacyImagingProfile(imaging, jpegCompanionOn = true),
+                    )
+                    HudSettings.saveImagingProfile(context, imaging)
+                    controller.kickPreviewPipelineRestart()
+                },
+                onApplyWorkflowPreset = onApplyWorkflowPreset,
             )
             val showBottomTray =
                 chrome.showOnScreenShutter || lastGalleryUri != null || settings.showCommandDial
             if (showBottomTray) {
                 PreviewChromeSectionDivider()
-                PreviewBottomCaptureTray(
-                    context = context,
-                    lastGalleryUri = lastGalleryUri,
-                    onExternalGalleryViewerLaunched = onExternalGalleryViewerLaunched,
-                    onBespokeGalleryChange = onBespokeGalleryChange,
-                    showOnScreenShutter = chrome.showOnScreenShutter,
-                    canCaptureRawStill = controller.canCaptureStill() && !afShutterGateActiveForUi,
-                    onCaptureDng = { triggerStillCapture() },
-                    isRecording = isRecording,
-                    onRecordingChange = onRecordingChange,
-                    onSetFps = onSetFps,
-                    selectedCameraId = selectedCameraId,
-                    primaryPhoto = primaryPhoto,
-                    onPrimaryPhotoChange = onPrimaryPhotoChange,
-                    showVideoFormatFab = PreviewTrayVideoChrome.showVideoFormatFab(primaryPhoto),
-                    onOpenVideoFormat = { showVideoFormatPicker = true },
-                    selectedFps = selectedFps,
-                    shootingModesSlot =
+                PnsGestureExclusionBottomBand(modifier = Modifier.fillMaxWidth()) {
+                    PreviewBottomCaptureTray(
+                        context = context,
+                        lastGalleryUri = lastGalleryUri,
+                        onExternalGalleryViewerLaunched = onExternalGalleryViewerLaunched,
+                        onBespokeGalleryChange = onBespokeGalleryChange,
+                        showOnScreenShutter = chrome.showOnScreenShutter,
+                        canCaptureRawStill = controller.canCaptureStill() && !afShutterGateActiveForUi,
+                        onCaptureDng = { triggerStillCapture() },
+                        isRecording = isRecording,
+                        onRecordingChange = onRecordingChange,
+                        onSetFps = onSetFps,
+                        selectedCameraId = selectedCameraId,
+                        primaryPhoto = primaryPhoto,
+                        onPrimaryPhotoChange = onPrimaryPhotoChange,
+                        showVideoFormatFab = PreviewTrayVideoChrome.showVideoFormatFab(primaryPhoto),
+                        onOpenVideoFormat = { showVideoFormatPicker = true },
+                        selectedFps = selectedFps,
+                        shootingModesSlot =
                         if (settings.showCommandDial) {
                             {
                                 var modeMenuExpanded by remember { mutableStateOf(false) }
@@ -3944,7 +4395,8 @@ private fun PreviewEngineContent(
                         Modifier
                             .fillMaxWidth()
                             .clip(RectangleShape),
-                )
+                    )
+                }
             }
         }
         if (calibrateOverlayActive) {
@@ -6195,6 +6647,10 @@ private fun PreviewRightRail(
     onRequestLocationForGeotag: () -> Unit,
     onKickPreviewPipeline: () -> Unit,
     onOpenFocusModePicker: () -> Unit,
+    onPictureProfileImaging: (ImagingProfile) -> Unit,
+    themeMode: PnsThemeMode = PnsThemeMode.System,
+    onThemeModeChange: (PnsThemeMode) -> Unit = {},
+    onApplyWorkflowPreset: ((WorkflowPreset) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val chrome = chromePrefs.current
@@ -6206,6 +6662,12 @@ private fun PreviewRightRail(
     /** Settings ▸ Guides & framing nested pane. */
     var settingsGuidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubPage by rememberSaveable { mutableStateOf<String?>(null) }
+    BackHandler(enabled = expandedKey != null) {
+        expandedKey = null
+        settingsSubPage = null
+        guidesPane = null
+        settingsGuidesPane = null
+    }
     LaunchedEffect(seedOpenAboutSheet) {
         if (seedOpenAboutSheet) {
             Log.i("PNS.ChromeUx", "settingsAbout=open adbSeed=true")
@@ -6410,7 +6872,13 @@ private fun PreviewRightRail(
                                             focalCrop = focalCrop,
                                         )
                                     "hud" ->
-                                        HudRailSheetContent(hudState = hudState)
+                                        HudRailSheetContent(
+                                            hudState = hudState,
+                                            themeMode = themeMode,
+                                            onThemeModeChange = onThemeModeChange,
+                                            onPictureProfileImaging = onPictureProfileImaging,
+                                            onApplyWorkflowPreset = onApplyWorkflowPreset,
+                                        )
                                     "preview" ->
                                         PreviewKeysRailSheetContent(
                                             chrome = chrome,
@@ -7095,8 +7563,17 @@ private class PreviewController(
 
     private var zslStillRing: ZslStillFrameRing? = null
 
-    fun effectiveStillCaptureMode(): StillCaptureMode =
-        StillCaptureModePolicy.effectiveForCapture(requestedStillCaptureMode)
+    fun effectiveStillCaptureMode(): StillCaptureMode {
+        val effective = StillCaptureModePolicy.effectiveForCapture(requestedStillCaptureMode)
+        if (
+            effective == StillCaptureMode.Standard &&
+            readHudCapturePrefs().preCaptureBufferEnabled &&
+            StillCaptureModePolicy.isZslStillImplemented()
+        ) {
+            return StillCaptureMode.ZslStill
+        }
+        return effective
+    }
 
     fun applyStillCaptureModeForPipeline(mode: StillCaptureMode) {
         requestedStillCaptureMode = mode
@@ -7112,9 +7589,24 @@ private class PreviewController(
         }
     }
 
-    private fun wantsZslStillRing(): Boolean =
-        requestedStillCaptureMode == StillCaptureMode.ZslStill &&
-            StillCaptureModePolicy.isZslStillImplemented()
+    private fun wantsZslStillRing(): Boolean {
+        if (!StillCaptureModePolicy.isZslStillImplemented()) return false
+        if (readHudCapturePrefs().preCaptureBufferEnabled) return true
+        return requestedStillCaptureMode == StillCaptureMode.ZslStill
+    }
+
+    /** Re-attach ZSL ring listener when CC.1 pre-capture buffer toggles in HUD. */
+    fun refreshPreCaptureRingFromHud() {
+        if (wantsZslStillRing()) {
+            ensureZslRing()
+            attachZslRawRingListener()
+            Log.i(tag, "preCaptureBuffer enabled ringCapacity=${zslStillRing?.size() ?: 0}")
+        } else if (requestedStillCaptureMode != StillCaptureMode.ZslStill) {
+            zslStillRing?.clear(closeImages = true)
+            zslStillRing = null
+            detachZslRawRingListener()
+        }
+    }
 
     private fun ensureZslRing() {
         if (!wantsZslStillRing()) return
@@ -7214,6 +7706,7 @@ private class PreviewController(
 
     @Volatile
     private var previewFlashMode: PreviewFlashMode = PreviewFlashMode.Auto
+    private var previewFlashStrengthPercent: Int = HudSettings.PREVIEW_FLASH_STRENGTH_MAX
 
     private var yuvImageReader: ImageReader? = null
 
@@ -8093,6 +8586,20 @@ private class PreviewController(
         refreshRepeatingPreviewOnly()
     }
 
+    fun setPreviewFlashStrengthPercent(percent: Int) {
+        val next =
+            percent.coerceIn(
+                HudSettings.PREVIEW_FLASH_STRENGTH_MIN,
+                HudSettings.PREVIEW_FLASH_STRENGTH_MAX,
+            )
+        if (previewFlashStrengthPercent == next) return
+        previewFlashStrengthPercent = next
+        Log.i(tag, "setPreviewFlashStrengthPercent percent=$next")
+        refreshRepeatingPreviewOnly()
+    }
+
+    fun previewFlashStrengthPercent(): Int = previewFlashStrengthPercent
+
     /** Sprint **13V.17**: ML Kit smile probability may fire [smileStillCaptureListener]. */
     fun setSmileStillEnabled(enabled: Boolean) {
         if (smileStillEnabled == enabled) return
@@ -8926,6 +9433,91 @@ private class PreviewController(
     }
 
     /**
+     * Sprint **CC.1** — sequential composed stills at [intervalMs] (each shot uses [captureComposedStill]).
+     */
+    fun captureComposedStillBurst(
+        appContext: Context,
+        plan: ComposedCapturePlan,
+        haptics: CaptureHaptics,
+        surfaceRotation: Int,
+        shotCount: Int,
+        intervalMs: Long,
+        dngSoftwareDescription: String? = null,
+        stillsLut: LutCatalog = LutCatalog.None,
+        adbValidationShotLabel: String? = null,
+        onTonalReady: ((Uri?) -> Unit)? = null,
+        onProgress: ((Int, Int) -> Unit)? = null,
+        onResult: (Result<Int>) -> Unit,
+    ) {
+        val count = shotCount.coerceIn(1, 30)
+        val gap = intervalMs.coerceAtLeast(50L)
+        val bgHandler = handler
+        var saved = 0
+        fun shoot(index: Int) {
+            val label =
+                adbValidationShotLabel?.let { "$it ${index + 1}/$count" } ?: "${index + 1}/$count"
+            onProgress?.let { mainHandler.post { it(index + 1, count) } }
+            captureComposedStill(
+                appContext = appContext,
+                plan = plan,
+                haptics = haptics,
+                surfaceRotation = surfaceRotation,
+                dngSoftwareDescription = dngSoftwareDescription,
+                stillsLut = stillsLut,
+                adbValidationShotLabel = label,
+                onTonalReady = if (index == count - 1) onTonalReady else null,
+                onResult = { result ->
+                    result.fold(
+                        onSuccess = {
+                            saved++
+                            Log.i(
+                                CaptureStillLog.TAG,
+                                "captureBurst still $label ok=true saved=$saved/$count",
+                            )
+                            if (adbValidationShotLabel != null) {
+                                PnsAdbLog.i(appContext, "captureBurst $label ok=true")
+                            }
+                            if (index + 1 < count) {
+                                bgHandler?.postDelayed({ shoot(index + 1) }, gap)
+                                    ?: mainHandler.postDelayed({ shoot(index + 1) }, gap)
+                            } else {
+                                mainHandler.post { onResult(Result.success(saved)) }
+                            }
+                        },
+                        onFailure = { t ->
+                            Log.w(
+                                CaptureStillLog.TAG,
+                                "captureBurst still $label ok=false err=${t.message}",
+                            )
+                            if (adbValidationShotLabel != null) {
+                                PnsAdbLog.i(
+                                    appContext,
+                                    "captureBurst $label ok=false err=${t.message}",
+                                )
+                            }
+                            mainHandler.post {
+                                onResult(
+                                    Result.failure(
+                                        IllegalStateException(
+                                            "Burst stopped at ${index + 1}/$count: ${t.message}",
+                                            t,
+                                        ),
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                },
+            )
+        }
+        Log.i(CaptureStillLog.TAG, "captureBurst begin count=$count gapMs=$gap")
+        if (adbValidationShotLabel != null) {
+            PnsAdbLog.i(appContext, "captureBurst begin count=$count gapMs=$gap")
+        }
+        shoot(0)
+    }
+
+    /**
      * Single RAW → DNG via [Dng12Saver] + [CaptureStorage]. Never attaches a JPEG surface to this
      * request — tonal output uses [captureIndependentTonalStill].
      */
@@ -9153,6 +9745,7 @@ private class PreviewController(
                     previewFlashMode,
                     manualSensorStill,
                     commandDialMode,
+                    previewFlashStrengthPercent,
                 )
                 applyStillAfFreezeAndFaceParity(this, chars, previewFlashMode, manualSensorStill)
                 PreviewAeAntibanding.applyToRequest(this, chars)
@@ -9631,6 +10224,7 @@ private class PreviewController(
                                 previewFlashMode,
                                 commandDialMode,
                                 manualSensorStill,
+                                previewFlashStrengthPercent,
                             )
                             PreviewAeAntibanding.applyToRequest(this, chars)
                             applyFaceDetectMode(this, chars)
@@ -9915,6 +10509,7 @@ private class PreviewController(
                     previewFlashMode,
                     manualSensorStill,
                     commandDialMode,
+                    previewFlashStrengthPercent,
                 )
                 applyStillAfFreezeAndFaceParity(this, chars, previewFlashMode, manualSensorStill)
                 PreviewAeAntibanding.applyToRequest(this, chars)
@@ -12569,6 +13164,7 @@ private class PreviewController(
                     previewFlashMode,
                     commandDialMode,
                     manualIsoOverride != null || manualExposureNsOverride != null,
+                    previewFlashStrengthPercent,
                 )
                 if (!loggedChromeUxFlashHardware) {
                     loggedChromeUxFlashHardware = true

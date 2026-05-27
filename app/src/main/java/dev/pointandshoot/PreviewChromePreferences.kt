@@ -29,6 +29,8 @@ data class PreviewChromePreferences(
     val dndWhileInPreview: Boolean = true,
     val dndWhileRecording: Boolean = false,
     val volumeKeysCapture: Boolean = true,
+    /** Sprint **15.19** — Bluetooth / headset media key fires shutter when preview is foregrounded. */
+    val btRemoteShutter: Boolean = false,
     /** When true and location permission is granted, new captures use [CaptureLocationBridge] for GPS metadata. */
     val saveLocationWithMedia: Boolean = false,
     /** Large circular shutter over the preview (Sony hardware-shutter style apps often omit this). */
@@ -44,12 +46,6 @@ data class PreviewChromePreferences(
      * the preview while active.
      */
     val liveChartCornerOverlay: Boolean = false,
-    /**
-     * When **true** (default), the live stream uses center-**crop** inside the [TextureView] so the
-     * finder fills the tile (may show a tighter field of view than the JPEG/DNG still). When **false**,
-     * the stream uses center-**contain** (letterboxed inside the tile) so framing matches still output.
-     */
-    val previewTextureCoverCrop: Boolean = true,
     /**
      * Static rotation applied to the displayed preview via `graphicsLayer.rotationZ` (0 / 90 / 180 /
      * 270). The value is **fixed at runtime** — the preview never auto-rotates as the phone tilts.
@@ -124,11 +120,11 @@ data class PreviewChromePreferences(
         private const val KEY_DND_PREVIEW = "dnd_while_in_preview"
         private const val KEY_DND_RECORDING = "dnd_while_recording"
         private const val KEY_VOLUME_KEYS = "volume_keys_capture"
+        private const val KEY_BT_REMOTE_SHUTTER = "bt_remote_shutter"
         private const val KEY_SAVE_LOCATION = "save_location_with_media"
         private const val KEY_SHOW_SHUTTER = "show_on_screen_shutter"
         private const val KEY_TAP_PREVIEW_CAPTURE = "tap_preview_to_capture"
         private const val KEY_LIVE_CHART_CORNERS = "live_chart_corner_overlay"
-        private const val KEY_PREVIEW_TEXTURE_COVER_CROP = "preview_texture_cover_crop"
         private const val KEY_STATIC_PREVIEW_ROT = "static_preview_rotation_deg"
         private const val KEY_SELF_TIMER_DELAY_SEC = "self_timer_delay_sec"
         private const val KEY_STILL_JPEG_COMPANION = "still_capture_jpeg_companion"
@@ -179,11 +175,11 @@ data class PreviewChromePreferences(
                 dndWhileInPreview = prefs.getBoolean(KEY_DND_PREVIEW, defaults.dndWhileInPreview),
                 dndWhileRecording = prefs.getBoolean(KEY_DND_RECORDING, defaults.dndWhileRecording),
                 volumeKeysCapture = prefs.getBoolean(KEY_VOLUME_KEYS, defaults.volumeKeysCapture),
+                btRemoteShutter = prefs.getBoolean(KEY_BT_REMOTE_SHUTTER, defaults.btRemoteShutter),
                 saveLocationWithMedia = prefs.getBoolean(KEY_SAVE_LOCATION, defaults.saveLocationWithMedia),
                 showOnScreenShutter = prefs.getBoolean(KEY_SHOW_SHUTTER, defaults.showOnScreenShutter),
                 tapPreviewToCapture = prefs.getBoolean(KEY_TAP_PREVIEW_CAPTURE, defaults.tapPreviewToCapture),
                 liveChartCornerOverlay = prefs.getBoolean(KEY_LIVE_CHART_CORNERS, defaults.liveChartCornerOverlay),
-                previewTextureCoverCrop = prefs.getBoolean(KEY_PREVIEW_TEXTURE_COVER_CROP, defaults.previewTextureCoverCrop),
                 staticPreviewRotationDeg = normalizeStaticRotation(
                     prefs.getInt(KEY_STATIC_PREVIEW_ROT, defaults.staticPreviewRotationDeg),
                 ),
@@ -224,11 +220,11 @@ data class PreviewChromePreferences(
                 .putBoolean(KEY_DND_PREVIEW, value.dndWhileInPreview)
                 .putBoolean(KEY_DND_RECORDING, value.dndWhileRecording)
                 .putBoolean(KEY_VOLUME_KEYS, value.volumeKeysCapture)
+                .putBoolean(KEY_BT_REMOTE_SHUTTER, value.btRemoteShutter)
                 .putBoolean(KEY_SAVE_LOCATION, value.saveLocationWithMedia)
                 .putBoolean(KEY_SHOW_SHUTTER, value.showOnScreenShutter)
                 .putBoolean(KEY_TAP_PREVIEW_CAPTURE, value.tapPreviewToCapture)
                 .putBoolean(KEY_LIVE_CHART_CORNERS, value.liveChartCornerOverlay)
-                .putBoolean(KEY_PREVIEW_TEXTURE_COVER_CROP, value.previewTextureCoverCrop)
                 .putInt(KEY_STATIC_PREVIEW_ROT, normalizeStaticRotation(value.staticPreviewRotationDeg))
                 .putInt(KEY_SELF_TIMER_DELAY_SEC, normalizeSelfTimerDelaySec(value.selfTimerDelaySec))
                 .putBoolean(KEY_STILL_JPEG_COMPANION, value.stillCaptureJpegCompanion)

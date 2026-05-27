@@ -106,6 +106,17 @@ object FocalLensStripSupport {
      * Tap-enabled when the slot maps, digital-eq. policy passes the MP gate (when applicable),
      * and rear-only tele slots are not offered while the **front** camera is active (`cameraId=1`).
      */
+    /**
+     * Sprint **15.13** — slot disabled when [FleetCameraStartupScan] marked the routed camera
+     * grayscaled (< 12 MP sensor budget).
+     */
+    fun fleetScanGraysOutSlot(context: Context, slot: FocalMmSlot, ids: List<String>): Boolean {
+        val pair = resolveFocalMmSlot(context, slot, ids) ?: return false
+        val file = FleetCameraStartupScan.scanFile(context)
+        if (!file.exists()) return false
+        return FleetCameraStartupScan.loadFromFile(file).any { it.cameraId == pair.first && it.grayscaled }
+    }
+
     fun focalSlotInteractionEnabled(
         context: Context,
         slot: FocalMmSlot,
@@ -114,6 +125,7 @@ object FocalLensStripSupport {
         digitalEqOkOnWide: Boolean,
     ): Boolean {
         if (resolveFocalMmSlot(context, slot, ids) == null) return false
+        if (fleetScanGraysOutSlot(context, slot, ids)) return false
         if (selectedCameraId == "1" && isTeleSlot(slot)) return false
         if (isDigitalEqPolicySlot(slot) && !digitalEqOkOnWide) return false
         return true

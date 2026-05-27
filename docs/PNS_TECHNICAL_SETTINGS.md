@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-22 (Sprint **UX** — theme mode, nav UX telemetry, workflow presets).
+**Last synced with tree:** 2026-05-26 (M15 offline agent pass — video shrink-to-fit, gallery 3:4, DNG EXIF focal, PPM meters, host DNG gates).
 
 **Related deep dives (not duplicated here):**
 
@@ -170,7 +170,7 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 ## 4. YUV exposure chase (locked-axis Auto)
 
-**Code:** `ReadoutExposureChase.kt`, `PreviewController.maybeAdjustReadoutChaseFromHistogram`
+**Code:** `ReadoutExposureChase.kt`, `PreviewController.maybeAdjustReadoutChaseFromHistogram` (implemented in `PreviewEngineScreen.kt` controller)
 
 ### 4.1 Constants (edit here → update this doc)
 
@@ -228,6 +228,8 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 **CPH2655:** Cameras **2/3/4** are independent logical IDs (empty `physicalCameraIds`); pairing is always logical+logical.
 
 **Diagnostics:** `Log.i(PNS.CaptureStill, "dng save diag …")` with `DngMetadataResolution.toDiagSummary()`.
+
+**Post-save / creator metadata (Sprint 15.14):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` (ISO, exposure, f-number, **focal rational**, **FocalLengthIn35mmFilm 0xA405**) + IFD0 DateTime **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock).
 
 ### 5.3 Advanced capture modes (Sprint CC.1)
 
@@ -307,6 +309,7 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | **150 mm** | `LongTele150` digital crop on **mid-tele** sensor — **not** `longTeleId` |
 | Open camera | Prefer **physical tele id** when in `cameraIdList` (`tid to mode`) over logical **0** first |
 | Fleet policy enum | **No** second tele routing policy / persisted prefs (dodge path only) |
+| First-launch scan | `FleetCameraStartupScan` → `files/fleet_focal_map.json`; slots **&lt;12 MP** → `grayscaled=true` on focal strip |
 
 **Verification:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` — do **not** run parallel with `pns_photo_capture_verify` on one device.
 
@@ -347,6 +350,13 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | `selectedLutForStills` / `Video` | **None** | Per-mode LUT memory |
 | `hardwareJpegIspBias` | **0** (chart apply sets **-2**) | [PreviewJpegProcessingHints] — edge/NR/tonemap/CC modes |
 | `videoBitrateScalePercent` | **100** | 50–150% of probe table |
+| `videoShutterAngle` | **FREE** | Video-only: `FREE`, `360°`, `180°`, `90°`, `45°` → locks SS with `LOCKED_SS_AUTO_ISO`; label on SS chip |
+| Settings rail groups | Capture · Video · Focus · Display · About | `RailSettingsHomeContent`; **Developer** (long-press) hides `enableResearch*` |
+| QS grid (M15) | ISO band cycle **r1c3**, OIS **r2c3**, EIS **r2c4** | Flash **r2c5**; geotag not on grid |
+| `showFaceAlignmentDebugCrosshair` | **false** | Center crosshair on preview tile (HUD) |
+| Face overlay calibration | engineering only | `FaceOverlayCalibrationStore` (`pns_face_overlay_calibration`); D-pad in **Probe hub → Eye overlay calibration**; Camera2 eyes: `PreviewBufferCoordMap.activeArrayToPreviewBuffer` (same linear crop as tap); view: `FaceHudOverlayMapping.mapBufferPointToTile` on measured content host (`onPreviewContentSized`); no sensor quarter-turn / ST / nominal footprint offset (`PNS.FaceAlign` **`faceHudMap`**) |
+
+**OIS vs EIS (user-facing):** Settings → **Video & stabilization** — **Optical stabilization (OIS)** maps to `enableLensOpticalStabilization` (preview + still policy in `PreviewStabilization`); **Electronic stabilization (EIS)** maps to `enableVideoStabilizationPreview` (skipped at preview **≥120 fps**).
 
 ### 9.1 Chart calibration (natural JPEG + DNG sidecar)
 
@@ -363,6 +373,8 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | Exposure nudge | ±1.25 EV max from **Neutral 5** patch vs `NEUTRAL5_REC709_LUMA` (**0.396**) |
 | JPEG color | When `selectedLutForStills == None`, newest saved profile applied via `StillRgbLut.applyCalibrationProfileInPlace` on hardware JPEG decode path |
 | DNG | WB/CCM in `.pns-calibration.json` sidecar (`DngColorTags`); RAW Bayer not LUT-baked |
+| Post-apply diag | `CalibrationWorkflow.logPostApplyParity` → logcat **`PNS.ColorCal`** `postApplyParity` (WB gains vs `asShotNeutral` / preview shader WB) |
+| Auto-detect | `ChartQuadDetector` on preview grab; debounced **1.8 s** while overlay on and corners &lt; 4 |
 
 **Storage:** `getExternalFilesDir(null)/calibration/<illuminant>_<utc>.json` — newest wins.
 
@@ -376,10 +388,17 @@ Command dial default on fresh install: **`CommandDialMode.M`** in probe/preview 
 
 | Setting | Value |
 |---------|-------|
-| 8-bit HEVC VUI | **BT.709 limited** — log `PNS.MCVideoRec colorVui=bt709` |
+| 8-bit HEVC VUI | **BT.709 limited** on **MediaCodec** path (all 8-bit HEVC fps, incl. ≤60); log `PNS.MCVideoRec colorVui=bt709`. H.264 ≤60 stays **MediaRecorder**. |
 | H.264 @ 60 (reference) | Typically bt470bg / smpte170m (device-dependent) |
 | In-app preview cap FPS | `VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS` |
-| Gate script | `scripts/pns_video_codec_color_compare.ps1` |
+| Gate scripts | `scripts/pns_video_codec_color_compare.ps1` (H.264 @60 MR + 8-bit HEVC @60/@30 MC; `colorVui=bt709` + ffprobe) → `scripts/pns_hfr_color_compare_frames.ps1` (wraps gate + `scripts/video_codec_yuv_compare.py`; mean Cb/Cr Δ &lt; 8) |
+| 8K picker banner | When `ALL_TIERS` lists 8K but `MediaCodecCapabilityProbe.supports8k` is false, `VideoFormatPickerSheet` shows an orange diagnostic line (probe logs `maxFps8k` / `supports8k` on `PNS.MCVideoRec` prepare) |
+| 8K record path | `VideoRecordingController` routes **7680×4320** through **MediaCodec** (not MediaRecorder) for reliable mux finalize |
+| 8K session negotiate | While recording (non-HFR), clamp encode size to HAL **MediaRecorder** outputs; align preview **SurfaceTexture** buffer to record size when listed (`InAppVideoRecordingSupport.pickPreviewSizeAlignedToRecord`); log `PNS.VideoEncode eightKNegotiation` |
+| 8K picker gate | `InAppVideoFormatSelection` requires HAL MR/ST **and** encoder `supports8k` for 8K rows; orange banner when probe or HAL missing |
+| Preview stream fit | Always **contain** (shrink-to-fit) in the finder — no user toggle. GLES: [lut_preview_external.vert.glsl] `viewToBufferUv` + raw [SurfaceTexture] matrix; layout footprint uses [previewBufferDimensionsForDisplay] (portrait 3:4). Tap/HUD: [mapViewToBufferWithExternalOesPreview] / [mapBufferToViewWithExternalOesPreview] on the GL content box. USB gate: `scripts/pns_preview_jpeg_framing_gate.ps1` |
+| PPM audio meters | `PpmAudioMeter` in `PreviewTopStatusBar` when `audioMeters=true` during video record |
+| Dual video automation | `pns_preview_dial=DUAL` + `pns_preview_video_fps=30` + `pns_preview_automation_in_app_video_sec`; app waits for `dualGlRecordArmed` before record duration (`pns_dual_video_verify.ps1`) |
 
 Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / resolution prefs).
 
@@ -443,6 +462,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_workflow_preset` | **UX.3** — built-in `street` / `portrait` / `video_log` (dial + imaging + photo/video tray + optional FPS) |
 | `pns_preview_open_gallery` | **UX.2/UX.3** — open bespoke gallery overlay on cold preview |
 | `pns_preview_gallery_batch_share` | **UX.3** — int ≥ 2: auto-select N indexed items and `ACTION_SEND_MULTIPLE` |
+| `pns_preview_readout_shutter_ns` | **M15.10** — lock shutter speed (ns) so ISO chase emits `PNS.Cam readoutChase` logs |
 | `pns_preview_platform_share_probe` | **IP.1** — [SharingManager] share probe on first indexed capture |
 | `pns_preview_platform_file_provider_probe` | **IP.1** — FileProvider authority probe |
 | `pns_preview_platform_widget_probe` | **IP.1** — log widget + installed external viewers |
@@ -499,6 +519,17 @@ Log: `PNS.PowerThermal longRunningPaused=true/false`.
 ---
 
 ## 12. GLES preview geometry
+
+**Code:** `LutCameraPreviewRenderer.setGeometry`, `TexturePreviewFit`, `PreviewMainViewport` (`AndroidView` `update` + `OnLayoutChangeListener` only — no coroutine/ST listeners).
+
+| Mode | `coverCrop` | Behavior |
+|------|-------------|----------|
+| Photo / cover (default) | **true** | Center-**crop** — fills 3:4 finder tile |
+| Video / contain | **false** | Center-**contain** — letterbox/pillarbox inside tile (`LaunchedEffect(primaryPhoto)` syncs pref) |
+
+`TexturePreviewFit.computeFitRect(..., coverCrop)` returns overlay clip rect (full view when crop; inset rect when contain). Face HUD uses same flag via `FaceHudOverlayMapping.mapBufferPointToTile`.
+
+**Gallery viewer (15.7):** `BespokeGalleryScreen` pager uses fixed **3:4** outer tile; media `ContentScale.Fit` inside.
 
 **Invariant (May 2026):** `LutCameraPreviewRenderer.setGeometry` only from **`PreviewMainViewport`** — `AndroidView` `update` + `OnLayoutChangeListener`.
 

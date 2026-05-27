@@ -21,8 +21,17 @@ object DualVideoRecordingController {
 
     const val IS_WIRED = true
 
-    /** Composite MP4: rear top half + front bottom half (1920×1080). */
-    fun compositeRecordSize(): Size = Size(1920, 1080)
+    /**
+     * Composite MP4: front top + rear bottom in a **portrait** frame so stacked GLES matches
+     * preview chrome and is not turned into a left/right pair by muxer rotation (90°).
+     */
+    const val COMPOSITE_RECORD_WIDTH = 1080
+    const val COMPOSITE_RECORD_HEIGHT = 1920
+
+    fun compositeRecordSize(): Size = Size(COMPOSITE_RECORD_WIDTH, COMPOSITE_RECORD_HEIGHT)
+
+    /** Dual composite is authored upright; do not apply rear-camera rotation on the muxer. */
+    const val COMPOSITE_ORIENTATION_HINT_DEGREES = 0
 
     /** Front inset height fraction (LG-style PiP uses ~25–30%; stacked v1 uses 50%). */
     const val STACKED_FRONT_HEIGHT_FRACTION = 0.5f
@@ -35,7 +44,7 @@ object DualVideoRecordingController {
             } else {
                 emptySet()
             }
-        if (sets.isEmpty()) return true
+        if (sets.isEmpty()) return false
         return sets.any { rearId in it && frontId in it }
     }
 

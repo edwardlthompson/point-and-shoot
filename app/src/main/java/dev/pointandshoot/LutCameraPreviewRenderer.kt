@@ -11,6 +11,7 @@ import android.view.Surface
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
@@ -42,11 +43,20 @@ class LutCameraPreviewRenderer(
     private var lutTextureSize: Int = 0
 
     private val stMatrix = FloatArray(16)
+    private val composedStMatrixScratch = FloatArray(16)
+    /** Set by [SurfaceTexture.setOnFrameAvailableListener]; consumed in [onDrawFrame]. */
+    private val frameAvailable = AtomicBoolean(false)
+    /** Front aux texture — only [SurfaceTexture.updateTexImage] when set (avoids streaks). */
+    private val frontFrameAvailable = AtomicBoolean(false)
+    private var rearTextureReady: Boolean = false
+    private var frontTextureReady: Boolean = false
+    @Volatile private var lastBufferW: Int = 0
+    @Volatile private var lastBufferH: Int = 0
     private val pendingLut: AtomicReference<LutUpdate?> = AtomicReference(null)
     private val activeLut: AtomicReference<Lut3D?> = AtomicReference(null)
     /** Latest LUT from [setLut]; replayed after EGL context loss so preview survives pause/resume. */
     private val lastLutRequested: AtomicReference<Lut3D?> = AtomicReference(null)
-    private val geometry = AtomicReference(Geometry(1, 1, 0, 0, coverCrop = true))
+    private val geometry = AtomicReference(Geometry(1, 1, 0, 0, 0, 0, coverCrop = true))
     private val dualSplitEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
     private val hfrYuvMonitorEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
     private var hfrYuvProgram: HfrYuvMonitorShaderProgram? = null
@@ -70,6 +80,8 @@ class LutCameraPreviewRenderer(
     private var recordDrawCounter: Int = 0
     @Volatile private var frontTextureInitialized: Boolean = false
     @Volatile private var frontFrameCount: Int = 0
+
+    private var frontOesDiagFrames: Long = 0L
     private val maxFrontFrameErrors: Int = 10
 
     private var glSurfaceViewRef: GLSurfaceView? = null
@@ -84,16 +96,89 @@ class LutCameraPreviewRenderer(
 
     fun surfaceTextureOrNull(): SurfaceTexture? = surfaceTexture
 
-    fun setGeometry(viewW: Int, viewH: Int, bufferW: Int, bufferH: Int, coverCrop: Boolean) {
-        geometry.set(
+    /**
+     * Latest [SurfaceTexture.getTransformMatrix] for face/eye HUD alignment (main thread).
+     * Matches the matrix fed to [lut_preview_external.vert.glsl] on the last drawn frame.
+     */
+    fun readSurfaceTransformMatrix(dest: FloatArray): Boolean {
+        if (dest.size < 16) return false
+        val st = surfaceTexture ?: return false
+        return runCatching {
+            st.getTransformMatrix(dest)
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Apply [setGeometry] on the GL thread; keeps last non-zero buffer dims across layout churn. */
+    fun queueSetGeometry(
+        viewW: Int,
+        viewH: Int,
+        bufferW: Int,
+        bufferH: Int,
+        coverCrop: Boolean,
+    ) {
+        val bw: Int
+        val bh: Int
+        if (bufferW > 0 && bufferH > 0) {
+            lastBufferW = bufferW
+            lastBufferH = bufferH
+            bw = bufferW
+            bh = bufferH
+        } else if (lastBufferW > 0 && lastBufferH > 0) {
+            bw = lastBufferW
+            bh = lastBufferH
+        } else {
+            bw = 0
+            bh = 0
+        }
+        val glv = glSurfaceViewRef ?: return
+        glv.queueEvent {
+            setGeometry(
+                viewW = viewW,
+                viewH = viewH,
+                bufferW = bw,
+                bufferH = bh,
+                coverCrop = coverCrop,
+                aspectW = bw,
+                aspectH = bh,
+            )
+        }
+        glv.requestRender()
+    }
+
+    fun setGeometry(
+        viewW: Int,
+        viewH: Int,
+        bufferW: Int,
+        bufferH: Int,
+        coverCrop: Boolean,
+        aspectW: Int = bufferW,
+        aspectH: Int = bufferH,
+    ) {
+        val g =
             Geometry(
                 viewW.coerceAtLeast(1),
                 viewH.coerceAtLeast(1),
                 bufferW.coerceAtLeast(0),
                 bufferH.coerceAtLeast(0),
+                aspectW.coerceAtLeast(0),
+                aspectH.coerceAtLeast(0),
                 coverCrop,
-            ),
-        )
+            )
+        val prev = geometry.getAndSet(g)
+        if (
+            prev.bufferW != g.bufferW ||
+                prev.bufferH != g.bufferH ||
+                prev.viewW != g.viewW ||
+                prev.viewH != g.viewH ||
+                prev.coverCrop != g.coverCrop
+        ) {
+            Log.i(
+                TAG,
+                "previewGeometry view=${g.viewW}x${g.viewH} buf=${g.bufferW}x${g.bufferH} " +
+                    "coverCrop=${g.coverCrop}",
+            )
+        }
     }
 
     fun setLut(lut: Lut3D?) {
@@ -105,7 +190,7 @@ class LutCameraPreviewRenderer(
         frontBufferSize.set(intArrayOf(bufferW.coerceAtLeast(0), bufferH.coerceAtLeast(0)))
     }
 
-    /** Stacked rear (top) + front (bottom) for Sprint **14.12** dual video (LG dual-recording heritage). */
+    /** Stacked front (top) + rear (bottom) for Sprint **14.12** / **15.5** dual video. */
     fun setDualSplitEnabled(
         enabled: Boolean,
         onFrontSurfaceReady: ((SurfaceTexture, Int, Int) -> Unit)?,
@@ -153,6 +238,8 @@ class LutCameraPreviewRenderer(
      * [GLSurfaceView.queueEvent] before [GLSurfaceView.onPause]).
      */
     fun releaseGlThread() {
+        lastBufferW = 0
+        lastBufferH = 0
         val st = surfaceTexture
         surfaceTexture = null
         surfacePosted = false
@@ -224,6 +311,7 @@ class LutCameraPreviewRenderer(
         val st = SurfaceTexture(oesTextureId)
         surfaceTexture = st
         st.setOnFrameAvailableListener {
+            frameAvailable.set(true)
             glSurfaceViewRef?.requestRender()
         }
         // Compose often does not re-run LUT [LaunchedEffect] after EGL recreate; replay last request.
@@ -254,39 +342,35 @@ class LutCameraPreviewRenderer(
         val yuvMonitorMode = hfrYuvMonitorEnabled.get()
         val yuvFrame = if (yuvMonitorMode) pendingHfrYuvFrame.getAndSet(null) else null
 
-        if (!yuvMonitorMode) {
-            val st = surfaceTexture ?: return
-            runCatching { st.updateTexImage() }
-            st.getTransformMatrix(stMatrix)
-        }
+        val dual = dualSplitEnabled.get()
+        val rearSynced = syncRearOesTexture()
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         val g = geometry.get()
-        val dual = dualSplitEnabled.get()
-        if (dual) {
-            val fst = frontSurfaceTexture
-            var frontValid = false
-            if (fst != null && frontTextureInitialized) {
-                try {
-                    fst.updateTexImage()
-                    fst.getTransformMatrix(frontStMatrix)
-                    frontValid = true
-                    frontFrameCount++
-                    // Reset error count on successful frame
-                    if (frontFrameCount > 0) {
-                        frontFrameCount = 0
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Front texture update failed: ${e.message}")
-                    frontFrameCount++
-                    if (frontFrameCount > maxFrontFrameErrors) {
-                        Log.e(TAG, "Too many front texture errors, marking as unhealthy")
-                        frontTextureInitialized = false
-                    }
-                }
+        val frontOk =
+            if (dual) {
+                syncFrontOesTextureForDual()
+            } else {
+                false
             }
-            drawStackedComposite(prog, g, frontReady = dual && frontValid)
+        if (dual) {
+            if (frontOk) {
+                drawStackedComposite(prog, g, frontReady = true)
+            } else if (g.bufferW > 0 && g.bufferH > 0) {
+                // Front not ready yet — full rear finder (avoid black/streak split).
+                drawOesToViewport(
+                    prog = prog,
+                    g = g,
+                    oesId = oesTextureId,
+                    matrix = stMatrix,
+                    viewX = 0,
+                    viewY = 0,
+                    viewW = g.viewW,
+                    viewH = g.viewH,
+                    applyLut = true,
+                )
+            }
         } else if (yuvMonitorMode) {
             var frame = yuvFrame
             if (frame != null) {
@@ -298,7 +382,7 @@ class LutCameraPreviewRenderer(
                 drawHfrYuvFrame(frame, g)
             }
             // else: primary ST is starved during encoder-only HS — keep cleared until monitor YUV arrives
-        } else {
+        } else if (g.bufferW > 0 && g.bufferH > 0) {
             drawOesToViewport(
                 prog = prog,
                 g = g,
@@ -314,13 +398,21 @@ class LutCameraPreviewRenderer(
 
         val sink = encoderSinkRef.get()
         if (recordCompositeToEncoder.get() && sink != null) {
-            recordDrawCounter++
-            if (recordDrawCounter % 2 == 0) {
+            if (dual) {
+                if (rearSynced) {
                 sink.recordFrame { rw, rh ->
-                    val recGeo = Geometry(rw, rh, g.bufferW, g.bufferH, g.coverCrop)
-                    if (dual && frontSurfaceTexture != null) {
-                        drawStackedComposite(prog, recGeo, frontReady = true)
-                    } else {
+                    // Textures already latched above — do not call updateTexImage twice per vsync.
+                    val recGeo =
+                        Geometry(rw, rh, g.bufferW, g.bufferH, g.aspectW, g.aspectH, g.coverCrop)
+                    drawStackedComposite(prog, recGeo, frontReady = frontOk)
+                }
+                }
+            } else {
+                recordDrawCounter++
+                if (recordDrawCounter % 2 == 0) {
+                    sink.recordFrame { rw, rh ->
+                        val recGeo =
+                            Geometry(rw, rh, g.bufferW, g.bufferH, g.aspectW, g.aspectH, g.coverCrop)
                         drawOesToViewport(
                             prog,
                             recGeo,
@@ -347,32 +439,49 @@ class LutCameraPreviewRenderer(
         g: Geometry,
         frontReady: Boolean,
     ) {
-        val frontH =
+        val frontBandH =
             (g.viewH * DualVideoRecordingController.STACKED_FRONT_HEIGHT_FRACTION).toInt()
                 .coerceIn(1, g.viewH - 1)
-        val rearH = g.viewH - frontH
+        val rearBandH = g.viewH - frontBandH
+        val rearBufW = g.bufferW.takeIf { it > 0 } ?: g.aspectW.coerceAtLeast(1)
+        val rearBufH = g.bufferH.takeIf { it > 0 } ?: g.aspectH.coerceAtLeast(1)
         val fb = frontBufferSize.get()
-        val frontBufW = fb[0].takeIf { it > 0 } ?: g.bufferW
-        val frontBufH = fb[1].takeIf { it > 0 } ?: g.bufferH
+        val frontBufW = fb[0].takeIf { it > 0 } ?: rearBufW
+        val frontBufH = fb[1].takeIf { it > 0 } ?: rearBufH
+        val rearGeo =
+            Geometry(
+                viewW = g.viewW,
+                viewH = rearBandH,
+                bufferW = rearBufW,
+                bufferH = rearBufH,
+                aspectW = rearBufW,
+                aspectH = rearBufH,
+                coverCrop = false,
+            )
         val frontGeo =
             Geometry(
                 viewW = g.viewW,
-                viewH = frontH,
+                viewH = frontBandH,
                 bufferW = frontBufW,
                 bufferH = frontBufH,
-                coverCrop = true,
+                aspectW = frontBufW,
+                aspectH = frontBufH,
+                coverCrop = false,
             )
+        // GLES viewY=0 is bottom — rear on bottom, front on top; center-fit via vertex shader per band.
+        clearSubViewport(0, 0, g.viewW, rearBandH)
         drawOesToViewport(
             prog,
-            g,
+            rearGeo,
             oesTextureId,
             stMatrix,
             viewX = 0,
-            viewY = frontH,
+            viewY = 0,
             viewW = g.viewW,
-            viewH = rearH,
+            viewH = rearBandH,
             applyLut = true,
         )
+        clearSubViewport(0, rearBandH, g.viewW, frontBandH)
         if (frontReady && frontOesTextureId != 0) {
             drawOesToViewport(
                 prog = prog,
@@ -380,18 +489,50 @@ class LutCameraPreviewRenderer(
                 oesId = frontOesTextureId,
                 matrix = frontStMatrix,
                 viewX = 0,
-                viewY = 0,
+                viewY = rearBandH,
                 viewW = g.viewW,
-                viewH = frontH,
+                viewH = frontBandH,
                 applyLut = false,
                 readoutWb = IDENTITY_WB,
             )
-        } else {
-            GLES20.glViewport(0, 0, g.viewW, frontH)
-            GLES20.glClearColor(0.05f, 0.05f, 0.05f, 1f)
-            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
         }
         GLES20.glViewport(0, 0, g.viewW, g.viewH)
+    }
+
+    private fun syncRearOesTexture(): Boolean {
+        if (hfrYuvMonitorEnabled.get()) return false
+        val st = surfaceTexture ?: return false
+        return runCatching {
+            st.updateTexImage()
+            st.getTransformMatrix(stMatrix)
+            rearTextureReady = true
+            true
+        }.getOrDefault(false)
+    }
+
+    /** Front OES: latch only on [frontFrameAvailable] (unconsumed updates cause streaks). */
+    private fun syncFrontOesTextureForDual(): Boolean {
+        val fst = frontSurfaceTexture ?: return false
+        if (!frontTextureInitialized) return false
+        if (frontFrameAvailable.compareAndSet(true, false)) {
+            frontTextureReady =
+                runCatching {
+                    fst.updateTexImage()
+                    fst.getTransformMatrix(frontStMatrix)
+                    frontOesDiagFrames++
+                    true
+                }.getOrDefault(false)
+            if (!frontTextureReady) {
+                frontFrameCount++
+                if (frontFrameCount > maxFrontFrameErrors) {
+                    Log.e(TAG, "dualFront texture update failed repeatedly")
+                    frontTextureInitialized = false
+                }
+            } else {
+                frontFrameCount = 0
+            }
+        }
+        return frontTextureReady
     }
 
     private fun drawOesToViewport(
@@ -405,16 +546,39 @@ class LutCameraPreviewRenderer(
         viewH: Int,
         applyLut: Boolean = true,
         readoutWb: FloatArray = readoutWbRgb(),
+        /** Dual stacked halves only — main finder preview uses shader [Geometry.coverCrop] like HEAD. */
+        fitContainInMatrix: Boolean = false,
     ) {
         GLES20.glViewport(viewX, viewY, viewW.coerceAtLeast(1), viewH.coerceAtLeast(1))
         val lut = if (applyLut) activeLut.get() else null
+        val bufW = g.bufferW
+        val bufH = g.bufferH
+        val fitInMatrix = fitContainInMatrix && bufW > 0 && bufH > 0
+        val matrixForShader =
+            if (fitInMatrix) {
+                TexturePreviewFit.composeExternalOesPreviewMatrix(
+                    destColumnMajor4x4 = composedStMatrixScratch,
+                    viewWidthPx = viewW,
+                    viewHeightPx = viewH,
+                    bufferWidthPx = bufW,
+                    bufferHeightPx = bufH,
+                    coverCrop = false,
+                    surfaceTransformColumnMajor4x4 = matrix,
+                )
+                composedStMatrixScratch
+            } else {
+                matrix
+            }
         prog.bindPerFrameUniforms(
-            stMatrix16 = matrix,
+            stMatrix16 = matrixForShader,
             viewW = viewW,
             viewH = viewH,
-            bufW = g.bufferW,
-            bufH = g.bufferH,
-            coverCrop = g.coverCrop,
+            texW = bufW,
+            texH = bufH,
+            aspectW = g.aspectW.takeIf { it > 0 } ?: bufW,
+            aspectH = g.aspectH.takeIf { it > 0 } ?: bufH,
+            coverCrop = if (fitInMatrix) false else g.coverCrop,
+            fitAppliedInMatrix = fitInMatrix,
             lut = lut,
             readoutWbRgb = readoutWb,
             focusPeaking = if (applyLut) focusPeakingUniforms() else FocusPeakingGlUniforms.disabled(),
@@ -439,7 +603,16 @@ class LutCameraPreviewRenderer(
 
     private fun ensureFrontOesTextureOnGlThread() {
         if (frontOesTextureId != 0) {
-            Log.d(TAG, "Front OES texture already exists")
+            val existing = frontSurfaceTexture
+            if (existing != null) {
+                val buf = frontBufferSize.get()
+                val w = buf.getOrNull(0)?.takeIf { it > 0 } ?: 960
+                val h = buf.getOrNull(1)?.takeIf { it > 0 } ?: 540
+                onDualFrontReady.get()?.let { cb ->
+                    mainHandler.post { cb(existing, w, h) }
+                }
+                Log.d(TAG, "Front OES texture already exists — rebinding surface $w×$h")
+            }
             return
         }
         
@@ -469,12 +642,13 @@ class LutCameraPreviewRenderer(
             frontTextureInitialized = false
             frontFrameCount = 0
             
-            val w = 960
-            val h = 540
+            val w = 640
+            val h = 480
             fst.setDefaultBufferSize(w, h)
-            fst.setOnFrameAvailableListener { 
+            fst.setOnFrameAvailableListener {
+                frontFrameAvailable.set(true)
                 frontTextureInitialized = true
-                glSurfaceViewRef?.requestRender() 
+                glSurfaceViewRef?.requestRender()
             }
             
             onDualFrontReady.get()?.let { cb -> mainHandler.post { cb(fst, w, h) } }
@@ -547,6 +721,12 @@ class LutCameraPreviewRenderer(
                     }
         }
         return hfrYuvQuadBuffer
+    }
+
+    private fun clearSubViewport(viewX: Int, viewY: Int, viewW: Int, viewH: Int) {
+        GLES20.glViewport(viewX, viewY, viewW.coerceAtLeast(1), viewH.coerceAtLeast(1))
+        GLES20.glClearColor(0.05f, 0.05f, 0.05f, 1f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
     }
 
     /** Center-crop buffer aspect into the view (matches OES cover-crop intent). */
@@ -623,6 +803,9 @@ class LutCameraPreviewRenderer(
         frontSurfaceTexture = null
         frontTextureInitialized = false
         frontFrameCount = 0
+        frontFrameAvailable.set(false)
+        frontTextureReady = false
+        rearTextureReady = false
         
         if (fst != null) {
             runCatching { fst.setOnFrameAvailableListener(null) }
@@ -697,6 +880,8 @@ class LutCameraPreviewRenderer(
         val viewH: Int,
         val bufferW: Int,
         val bufferH: Int,
+        val aspectW: Int,
+        val aspectH: Int,
         val coverCrop: Boolean,
     )
 

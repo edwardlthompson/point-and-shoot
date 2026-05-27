@@ -1,7 +1,11 @@
 package dev.pointandshoot
 
+import android.content.Context
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
+import kotlin.math.abs
 import kotlin.math.ln
+import kotlin.math.max
 import kotlin.math.pow
 
 /**
@@ -10,6 +14,8 @@ import kotlin.math.pow
  * exposure to a neutral patch.
  */
 object CalibrationWorkflow {
+
+    const val TAG = "PNS.ColorCal"
 
     /** [PreviewJpegProcessingHints] bias for minimal edge/NR/tonemap sharpening (natural). */
     const val NATURAL_HARDWARE_JPEG_ISP_BIAS: Int = -2
@@ -140,7 +146,60 @@ object CalibrationWorkflow {
         val measured =
             (0.2126f * meanRgb[0] + 0.7152f * meanRgb[1] + 0.0722f * meanRgb[2])
                 .coerceAtLeast(1e-4f)
-        val ratio = NEUTRAL5_REC709_LUMA / measured
-        return (ln(ratio.toDouble()) / ln(2.0)).coerceIn(-1.25, 1.25)
+        return (ln((NEUTRAL5_REC709_LUMA / measured).toDouble()) / ln(2.0)).coerceIn(-1.25, 1.25)
+    }
+
+    /**
+     * After Apply/Save: log that preview JPEG shader WB and DNG [DngColorTags.asShotNeutral]
+     * describe the same profile (grep `postApplyParity` on device).
+     */
+    data class PostApplyParityDiag(
+        val wbR: Float,
+        val wbG: Float,
+        val wbB: Float,
+        val asShotNeutral: FloatArray,
+        val previewShaderWb: FloatArray,
+        val maxWbAsnDelta: Float,
+    )
+
+    fun logPostApplyParity(
+        context: Context?,
+        profile: CalibrationProfile,
+    ): PostApplyParityDiag {
+        val dng = DngColorTags.forProfile(profile)
+        val shaderWb = previewShaderWbFromProfile(profile)
+        val inv =
+            floatArrayOf(
+                1f / profile.wbGains.r.coerceAtLeast(1e-6f),
+                1f / profile.wbGains.g.coerceAtLeast(1e-6f),
+                1f / profile.wbGains.b.coerceAtLeast(1e-6f),
+            )
+        val maxInv = max(inv[0], max(inv[1], inv[2]))
+        val asnFromWb =
+            floatArrayOf(inv[0] / maxInv, inv[1] / maxInv, inv[2] / maxInv)
+        val maxDelta =
+            (0..2).maxOf { i ->
+                abs(dng.asShotNeutral[i] - asnFromWb[i])
+            }
+        val msg =
+            "postApplyParity wb=(${profile.wbGains.r},${profile.wbGains.g},${profile.wbGains.b}) " +
+                "asn=[${dng.asShotNeutral.joinToString { "%.4f".format(it) }}] " +
+                "shaderWb=[${shaderWb.joinToString { "%.3f".format(it) }}] " +
+                "asnDelta=${"%.5f".format(maxDelta)} targetNeutral5=$NEUTRAL5_REC709_LUMA " +
+                "target=${profile.targetId}"
+        try {
+            Log.i(TAG, msg)
+        } catch (_: RuntimeException) {
+            // JVM unit tests
+        }
+        context?.let { PnsAdbLog.i(it, msg) }
+        return PostApplyParityDiag(
+            wbR = profile.wbGains.r,
+            wbG = profile.wbGains.g,
+            wbB = profile.wbGains.b,
+            asShotNeutral = dng.asShotNeutral,
+            previewShaderWb = shaderWb,
+            maxWbAsnDelta = maxDelta,
+        )
     }
 }

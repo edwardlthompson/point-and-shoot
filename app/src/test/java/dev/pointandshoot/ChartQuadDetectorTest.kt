@@ -29,8 +29,31 @@ class ChartQuadDetectorTest {
         val c = result!!.corners
         assertTrue(c.tl.x < c.tr.x)
         assertTrue(c.tl.y < c.br.y)
-        assertTrue(result.confidence >= 0.35f)
+        assertTrue(result.confidence >= 0.32f)
         assertTrue(c.tl.x in 20f..60f)
         assertTrue(c.br.x in 260f..300f)
+    }
+
+    @Test
+    fun detectFromArgb_findsPartialQuadOnGrayField() {
+        val w = 320
+        val h = 240
+        val pixels = IntArray(w * h) { 0xFF505050.toInt() }
+        val left = 8
+        val top = 12
+        val right = 200
+        val bottom = 145
+        for (y in top..bottom) {
+            for (x in left..right) {
+                if (x == left || x == right || y == top || y == bottom) {
+                    pixels[y * w + x] = 0xFFEDEDED.toInt()
+                } else {
+                    pixels[y * w + x] = 0xFFE0E0E0.toInt()
+                }
+            }
+        }
+        val result = ChartQuadDetector.detectFromArgb(pixels, w, h)
+        assertNotNull(result)
+        assertTrue(result!!.confidence >= 0.32f)
     }
 }

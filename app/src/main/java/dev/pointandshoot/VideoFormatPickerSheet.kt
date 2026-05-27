@@ -117,12 +117,21 @@ fun VideoFormatPickerSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val appContext = LocalContext.current.applicationContext
     var hiFiMuxRateHz by remember { mutableIntStateOf(0) }
+    var mcCaps by remember { mutableStateOf<MediaCodecCapabilityProbe.CapabilityMatrix?>(null) }
     LaunchedEffect(appContext) {
         hiFiMuxRateHz =
             withContext(Dispatchers.Default) {
                 PnsAacEncoderSupport.maxHiFiMuxSampleRateHz(appContext)
             }
+        mcCaps =
+            withContext(Dispatchers.Default) {
+                MediaCodecCapabilityProbe.probeSync()
+            }
     }
+    val pickerLists8k =
+        remember(formats) {
+            formats.any { it.resolution.width >= 7680 || it.resolution.height >= 4320 }
+        }
     val hiFiKhzLabel =
         remember(hiFiMuxRateHz) {
             if (hiFiMuxRateHz > 0) "${hiFiMuxRateHz / 1000} kHz" else "…"
@@ -242,6 +251,19 @@ fun VideoFormatPickerSheet(
                 }
             }
             HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
+
+            val halLists8k =
+                videoTruth?.lines?.any { it.contains("HAL capture outputs=yes", ignoreCase = true) } == true
+            if (pickerLists8k && (mcCaps?.supports8k != true || !halLists8k)) {
+                Text(
+                    text =
+                        "8K is not available on this device (encoder max ${mcCaps?.maxFps8k ?: 0} fps @ 8K; " +
+                            "HAL capture=${if (halLists8k) "yes" else "no"}). Choose 4K or lower.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PnsColors.PhotoOrange.copy(alpha = 0.9f),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
 
             videoTruth?.lines?.takeIf { it.isNotEmpty() }?.let { truthLines ->
                 Column(

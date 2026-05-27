@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
@@ -45,6 +46,28 @@ fun PreviewSelfieRingIndicator(
 
     if (!visible) return
 
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = 10.dp, vertical = 2.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        RotatingOrangeSelfieArc(
+            ringSize = 40.dp,
+            strokeWidth = 3.dp,
+            contentDescription = "Selfie mode active",
+        )
+    }
+}
+
+@Composable
+private fun RotatingOrangeSelfieArc(
+    ringSize: Dp,
+    strokeWidth: Dp,
+    contentDescription: String,
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "selfieRingSpin")
     val rotationDeg by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -57,36 +80,25 @@ fun PreviewSelfieRingIndicator(
         label = "selfieRingRotation",
     )
 
-    Box(
+    Canvas(
         modifier =
-            modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
-                .padding(horizontal = 10.dp, vertical = 2.dp),
-        contentAlignment = Alignment.Center,
+            Modifier
+                .size(ringSize)
+                .semantics { this.contentDescription = contentDescription },
     ) {
-        Canvas(
-            modifier =
-                Modifier
-                    .size(40.dp)
-                    .semantics {
-                        contentDescription = "Selfie mode active"
-                    },
-        ) {
-            val strokePx = 3.dp.toPx()
-            val diameter = size.minDimension - strokePx
-            val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
-            val arcSize = Size(diameter, diameter)
-            drawArc(
-                color = PnsColors.PhotoOrange,
-                startAngle = rotationDeg - 90f,
-                sweepAngle = 300f,
-                useCenter = false,
-                topLeft = topLeft,
-                size = arcSize,
-                style = Stroke(width = strokePx, cap = StrokeCap.Round),
-            )
-        }
+        val strokePx = strokeWidth.toPx()
+        val diameter = size.minDimension - strokePx
+        val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+        val arcSize = Size(diameter, diameter)
+        drawArc(
+            color = PnsColors.PhotoOrange,
+            startAngle = rotationDeg - 90f,
+            sweepAngle = 300f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = strokePx, cap = StrokeCap.Round),
+        )
     }
 }
 

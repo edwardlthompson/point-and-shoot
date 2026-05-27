@@ -1,14 +1,21 @@
 package dev.pointandshoot
 
+import android.graphics.SurfaceTexture
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.media.MediaRecorder
 import android.util.Range
 import android.util.Size
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /** Helpers for in-app [MediaRecorder] sizing / labeling (Milestone 11 Sprint 11.4). */
 object InAppVideoRecordingSupport {
     private val Fallback720p = Size(1280, 720)
+    const val EIGHT_K_WIDTH = 7680
+    const val EIGHT_K_HEIGHT = 4320
+
+    fun isEightKSize(width: Int, height: Int): Boolean =
+        width >= EIGHT_K_WIDTH || height >= EIGHT_K_HEIGHT
 
     /** Largest-first menu order (common presets land near the top after stable sort). */
     fun sortedMediaRecorderSizes(map: StreamConfigurationMap?): List<Size> {
@@ -166,6 +173,49 @@ object InAppVideoRecordingSupport {
                 .getOrNull()
                 .orEmpty()
         return sizes.any { it.width == width && it.height == height }
+    }
+
+    fun supportsSurfaceTextureOutputSize(
+        map: StreamConfigurationMap?,
+        width: Int,
+        height: Int,
+    ): Boolean {
+        if (map == null || width <= 0 || height <= 0) return false
+        val sizes =
+            runCatching { map.getOutputSizes(SurfaceTexture::class.java)?.toList() }
+                .getOrNull()
+                .orEmpty()
+        return sizes.any { it.width == width && it.height == height }
+    }
+
+    /** HAL must expose 8K on MR and/or preview [SurfaceTexture] outputs (Sprint **15.4**). */
+    fun supportsEightKCameraOutputs(map: StreamConfigurationMap?): Boolean =
+        supportsMediaRecorderOutputSize(map, EIGHT_K_WIDTH, EIGHT_K_HEIGHT) ||
+            supportsSurfaceTextureOutputSize(map, EIGHT_K_WIDTH, EIGHT_K_HEIGHT)
+
+    /**
+     * Align preview buffer size with record size when both are in the HAL table so
+     * REGULAR + MediaCodec encoder surfaces can configure (Sprint **15.4**).
+     */
+    fun pickPreviewSizeAlignedToRecord(
+        map: StreamConfigurationMap?,
+        recordSize: Size,
+    ): Size? {
+        if (map == null || recordSize.width <= 0 || recordSize.height <= 0) return null
+        val w = recordSize.width
+        val h = recordSize.height
+        if (supportsSurfaceTextureOutputSize(map, w, h)) return recordSize
+        val aspect = w.toFloat() / h.toFloat()
+        val stSizes =
+            runCatching { map.getOutputSizes(SurfaceTexture::class.java)?.toList() }
+                .getOrNull()
+                .orEmpty()
+        return stSizes
+            .filter { s ->
+                val a = s.width.toFloat() / s.height.toFloat()
+                abs(a - aspect) < 0.02f && s.width <= w && s.height <= h
+            }
+            .maxByOrNull { it.width.toLong() * it.height }
     }
 
     /**

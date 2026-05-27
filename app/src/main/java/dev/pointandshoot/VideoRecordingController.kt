@@ -18,11 +18,11 @@ import kotlin.math.min
  * Video recording controller extracted from PreviewEngineScreen.kt (Sprint 12.4).
  *
  * Supports two encoder paths:
- * - **[MediaRecorder] path**: standard 8-bit H.264/HEVC up to 60 fps (bounded by
+ * - **[MediaRecorder] path**: 8-bit **H.264** up to 60 fps (bounded by
  *   `ro.media.recorder-max-base-layer-fps=60` on CPH2655-class devices).
  * - **[MediaCodecVideoRecorder] path**: Surface-input MediaCodec encoder that bypasses the
- *   60 fps MediaRecorder cap. Used automatically when [VideoFormat.isTenBit] is true
- *   or when [desiredFps] > [IN_APP_VIDEO_PREVIEW_CAP_FPS]. Drives `c2.qti.hevc.encoder`
+ *   60 fps MediaRecorder cap. Used for 8-bit **HEVC** (Sprint **15.2** BT.709 VUI), HFR,
+ *   [VideoFormat.isTenBit], DCG, and AV1. Drives `c2.qti.hevc.encoder`
  *   directly (supports 480 fps, Main10/HDR10/HDR10Plus profiles, YUVP010 color format).
  *
  * Thread safety: All mutable state accessed only from [handler] thread.
@@ -138,6 +138,9 @@ internal class VideoRecordingController(
 
     /** True after [maybeStartRecorder] / MediaRecorder.start (not merely prepared). */
     fun isRecorderStarted(): Boolean = recorderStarted
+
+    /** MediaCodec encoder actively accepting GL/composite frames (may lag [recorderStarted] on dual rebuild). */
+    fun isMcEncoderRecording(): Boolean = mcRecorder?.isRecording == true
 
     /** MediaCodec path: true once [MediaMuxer] has started (first encoder output format). */
     fun isMuxerReadyForRecord(): Boolean =
@@ -290,12 +293,21 @@ internal class VideoRecordingController(
 
         // HFR check - MediaCodec path handles fps > 60 natively; no rejection needed for that path
         val isHfr = desiredFps >= HFR_THRESHOLD_FPS
+        // Sprint **15.2**: 8-bit HEVC ≤60 fps via MediaCodec so BT.709 limited VUI is set on
+        // MediaFormat (MediaRecorder has no reliable color-metadata API on this fleet).
+        val useHevcMediaCodecForSdrColor =
+            videoFormat.codec == VideoCodec.H265 && !videoFormat.isTenBit && !videoFormat.isDcg
+        // Sprint **15.4**: 8K is not reliable on MediaRecorder (corrupt / moov-less MP4 observed on CPH2655);
+        // route 8K through MediaCodec so muxer setup and track finalization are explicit.
+        val useMediaCodecFor8k = videoFormat.resolution.width >= 7680 || videoFormat.resolution.height >= 4320
         val useMediaCodecPath =
             forceMediaCodecGlComposite ||
                 isHfr ||
                 videoFormat.isTenBit ||
                 videoFormat.isDcg ||
-                videoFormat.codec == VideoCodec.AV1
+                videoFormat.codec == VideoCodec.AV1 ||
+                useHevcMediaCodecForSdrColor ||
+                useMediaCodecFor8k
         // Signal immediately so createSession can skip useHighSpeed before recorder is prepared
         wantsMediaCodecPath = useMediaCodecPath
         if (forceMediaCodecGlComposite) {
@@ -448,9 +460,17 @@ internal class VideoRecordingController(
         recordingPfd = pfd
         recorderStarted = false
 
+        val colorVui =
+            when (videoFormat.codec) {
+                VideoCodec.H265,
+                VideoCodec.H265_10BIT,
+                VideoCodec.H264,
+                -> "bt709-limited-mediarecorder"
+                else -> "default-mediarecorder"
+            }
         Log.i(
             TAG,
-            "inAppVideoPrepared audioEnabled=$hasAudio size=${videoFormat.resolution.width}x${videoFormat.resolution.height} fps=$targetFps bitrate=${videoFormat.bitrate} codec=${videoFormat.getLabel()} tenBit=${videoFormat.isTenBit}"
+            "inAppVideoPrepared audioEnabled=$hasAudio size=${videoFormat.resolution.width}x${videoFormat.resolution.height} fps=$targetFps bitrate=${videoFormat.bitrate} codec=${videoFormat.getLabel()} tenBit=${videoFormat.isTenBit} colorVui=$colorVui",
         )
 
         // Caller must rebuild session with this surface, then call maybeStartRecorder()

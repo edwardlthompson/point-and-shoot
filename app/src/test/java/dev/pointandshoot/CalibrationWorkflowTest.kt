@@ -47,4 +47,22 @@ class CalibrationWorkflowTest {
         assertEquals(200f, corners.tr.x, 0.01f)
         assertEquals(100f, corners.br.y, 0.01f)
     }
+
+    @Test
+    fun logPostApplyParity_wbMatchesAsShotNeutral() {
+        val profile =
+            CalibrationProfile(
+                wbGains = CalibrationProfile.WbGains(1.2f, 1f, 0.9f),
+                ccm = CalibrationProfile.Ccm.Identity,
+                bias = CalibrationProfile.Bias.Zero,
+                mtf50Lpph = null,
+                illuminant = CalibrationProfile.Illuminant.D65,
+                capturedAtMs = 0L,
+                cameraId = "test",
+                targetId = "cc24",
+            )
+        val diag = CalibrationWorkflow.logPostApplyParity(null, profile)
+        assertTrue(diag.maxWbAsnDelta < 0.02f)
+        assertEquals(profile.wbGains.r, diag.previewShaderWb[0], 0.001f)
+    }
 }

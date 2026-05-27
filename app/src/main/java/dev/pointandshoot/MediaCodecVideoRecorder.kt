@@ -453,6 +453,13 @@ class MediaCodecVideoRecorder(
                     }
                     VideoEncoderKind.HEVC -> applyHevcColorMetadata(format, config)
                 }
+            MediaCodecCapabilityProbe.probeSync()?.let { probe ->
+                Log.i(
+                    TAG,
+                    "maxFps8k=${probe.maxFps8k} supports8k=${probe.supports8k} " +
+                        "4k_max=${probe.maxFps4k} 1080p_max=${probe.maxFps1080p}",
+                )
+            }
             Log.i(
                 TAG,
                 "prepare codec=$codecName mime=$mime size=${config.width}x${config.height} fps=${config.fps} " +

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,10 +66,26 @@ fun HudRailSheetContent(
     LaunchedEffect(cameraGranted, ctx) {
         gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
     }
-    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, patchHud) }
+    var developerUnlocked by remember { mutableStateOf(false) }
+    val rows: List<HudToggleRow> =
+        remember(settings, developerUnlocked) {
+            hudToggleRows(settings, patchHud, includeResearch = developerUnlocked)
+        }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ChromeSettingsIntroText("Granular toggles for HUD elements. Persists across launches.")
+        ChromeSettingsIntroText(
+            text =
+                if (developerUnlocked) {
+                    "Granular toggles for HUD elements (research items visible). Persists across launches."
+                } else {
+                    "Granular toggles for HUD elements. Long-press this line to show research toggles."
+                },
+            modifier =
+                Modifier.combinedClickable(
+                    onClick = {},
+                    onLongClick = { developerUnlocked = true },
+                ),
+        )
 
         UxAppearanceSection(
             themeMode = themeMode,
@@ -80,6 +97,7 @@ fun HudRailSheetContent(
         )
         CloudBackupHudSection(context = ctx)
 
+        if (developerUnlocked) {
         PreviewRailSectionTitle("Capability gate (rear camera)")
         if (!cameraGranted) {
             Text(
@@ -128,6 +146,7 @@ fun HudRailSheetContent(
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.52f),
         )
+        }
 
         PreviewRailSectionTitle("HUD elements")
         HudStillCaptureModeRow(
@@ -460,8 +479,10 @@ private fun CompositionGuideQuickControls() {
 private fun hudToggleRows(
     settings: HudSettings,
     patch: ((HudSettings) -> HudSettings) -> Unit,
-): List<HudToggleRow> =
-    listOf(
+    includeResearch: Boolean = false,
+): List<HudToggleRow> {
+    val rows =
+        listOf(
         HudToggleRow(
             title = "Command dial (A / M / H / S / BKT)",
             description = "Rotary mode selector overlay (Hasselblad-orange selected segment).",
@@ -584,9 +605,10 @@ private fun hudToggleRows(
             },
         ),
         HudToggleRow(
-            title = "Lens optical stabilization (OIS)",
+            title = "Optical stabilization (OIS)",
             description =
-                "When the HAL exposes OIS, request ON for preview + stills (Camera2).",
+                "When the HAL exposes OIS, request ON for preview + stills (Camera2). " +
+                    "Quick tile: grid row 2 column 3.",
             enabled = settings.enableLensOpticalStabilization,
             onChange = { checked -> patch { it.copy(enableLensOpticalStabilization = checked) } },
         ),
@@ -599,10 +621,11 @@ private fun hudToggleRows(
             onChange = { checked -> patch { it.copy(disableOisForStillCapture = checked) } },
         ),
         HudToggleRow(
-            title = "Preview video stabilization (EIS)",
+            title = "Electronic stabilization (EIS)",
             description =
                 "Electronic stabilization on the preview stream only; off by default. " +
-                    "Skipped for HFR (≥120 fps target) and for still captures.",
+                    "Skipped for HFR (≥120 fps target) and for still captures. " +
+                    "Quick tile: grid row 2 column 4.",
             enabled = settings.enableVideoStabilizationPreview,
             onChange = { checked -> patch { it.copy(enableVideoStabilizationPreview = checked) } },
         ),
@@ -716,6 +739,12 @@ private fun hudToggleRows(
             onChange = { checked -> patch { it.copy(waitForAfFocusBeforeStill = checked) } },
         ),
     )
+    return if (includeResearch) {
+        rows
+    } else {
+        rows.filter { !it.title.startsWith("Research:") }
+    }
+}
 
 private data class HudToggleRow(
     val title: String,

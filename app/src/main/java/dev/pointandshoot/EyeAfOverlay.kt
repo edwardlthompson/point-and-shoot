@@ -37,11 +37,17 @@ fun EyeAfOverlay(
     color: Color = Color(0xFF00FF66),
     strokeWidth: Dp = 1.5.dp,
     sizeDp: Dp = 18.dp,
+    /** [FaceOverlayCalibration.markerSizeScale] from engineering calibrator (1f = default). */
+    markerSizeScale: Float = 1f,
 ) {
     if (eyes.isEmpty()) return
     Canvas(modifier = modifier.fillMaxSize()) {
         val sw = max(1f, strokeWidth.toPx())
-        val half = sizeDp.toPx() / 2f
+        val scale = markerSizeScale.coerceIn(
+            FaceOverlayCalibration.MARKER_SIZE_SCALE_MIN,
+            FaceOverlayCalibration.MARKER_SIZE_SCALE_MAX,
+        )
+        val half = sizeDp.toPx() * scale / 2f
         for (eye in eyes) {
             val cx = eye.position.x
             val cy = eye.position.y

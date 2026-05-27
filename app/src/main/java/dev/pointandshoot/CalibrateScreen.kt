@@ -161,6 +161,38 @@ fun CalibrateScreen(
             Button(onClick = { pickImage.launch(arrayOf("image/*")) }) {
                 Text(if (bitmap == null) "Load chart photo\u2026" else "Replace chart photo\u2026")
             }
+            val chartBmp = bitmap
+            if (chartBmp != null) {
+                OutlinedButton(
+                    onClick = {
+                        val det = ChartQuadDetector.detectFromBitmap(chartBmp)
+                        if (det == null) {
+                            statusIsError = true
+                            status = "Auto-detect failed — tap corners manually."
+                            return@OutlinedButton
+                        }
+                        val scaled =
+                            ChartQuadDetector.scaleResultToSize(
+                                det,
+                                displayedSize.width.coerceAtLeast(1),
+                                displayedSize.height.coerceAtLeast(1),
+                            )
+                        corners =
+                            listOf(
+                                Offset(scaled.tl.x, scaled.tl.y),
+                                Offset(scaled.tr.x, scaled.tr.y),
+                                Offset(scaled.br.x, scaled.br.y),
+                                Offset(scaled.bl.x, scaled.bl.y),
+                            )
+                        profile = null
+                        statusIsError = false
+                        status =
+                            "Auto-detect ok (conf=${"%.0f".format(det.confidence * 100)}%). Tap Compute."
+                    },
+                ) {
+                    Text("Auto-detect")
+                }
+            }
             if (corners.isNotEmpty()) {
                 OutlinedButton(onClick = {
                     corners = emptyList()

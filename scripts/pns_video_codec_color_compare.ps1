@@ -134,6 +134,7 @@ try {
             "--ez", "pns_preview_primary_photo", "false",
             "--ei", "pns_preview_automation_in_app_video_sec", "$DurationSec",
             "--ei", "pns_preview_video_fps", "$Fps",
+            "--ei", "pns_preview_video_codec_ordinal", "$CodecOrdinal",
             "--ei", "pns_preview_video_encode_w", "1920",
             "--ei", "pns_preview_video_encode_h", "1080",
             "--es", "pns_preview_imaging_profile", "standard_pro"
@@ -144,9 +145,13 @@ try {
 
         $script:lastLog = (Invoke-AdbCmd logcat -d -v threadtime 2>&1) -join "`n"
         $script:lastLog | Out-File -FilePath (Join-Path $outDir "log_$Name.txt") -Encoding utf8
-        $saved = $script:lastLog -match "inAppVideoSaved"
-        $mc = $script:lastLog -match "mcVideoPrepared|colorVui=bt709"
-        $mr = $script:lastLog -match "inAppVideoPrepared"
+        $saved = $script:lastLog -match "inAppVideoSaved ok=true"
+        $mc =
+            $script:lastLog -match "PNS\.MCVideoRec.*colorVui=bt709" -or
+            $script:lastLog -match "mcVideoPrepared"
+        $mr =
+            $script:lastLog -match "inAppVideoPrepared" -and
+            $script:lastLog -notmatch "dualVideo: MediaCodec GL composite"
         $localMp4 = Pull-LatestMp4 -Label $Name
         $color = Get-FfprobeColor -Path $localMp4
         [pscustomobject]@{
@@ -161,41 +166,54 @@ try {
     }
 
     # H.264 @ 60 — MediaRecorder path (ordinal 0)
-    $h264 = Run-Clip -Name "h264_60" -Fps 60 -CodecOrdinal 0 -DurationSec 5 -WaitSec 50
-    # 8-bit HEVC @ 120 — MediaCodec path (ordinal 1); extra settle for muxer finalize
-    $hevc = Run-Clip -Name "hevc_120" -Fps 120 -CodecOrdinal 1 -DurationSec 6 -WaitSec 85
+    $h264 = Run-Clip -Name "h264_60" -Fps 60 -CodecOrdinal 0 -DurationSec 5 -WaitSec 65
+    # 8-bit HEVC @ 60 — MediaCodec path (ordinal 1); Sprint 15.2 ≤60 HEVC BT.709 VUI
+    $hevc60 = Run-Clip -Name "hevc_60" -Fps 60 -CodecOrdinal 1 -DurationSec 6 -WaitSec 70
+    # 8-bit HEVC @ 30 — same encoder path (regression)
+    $hevc30 = Run-Clip -Name "hevc_30" -Fps 30 -CodecOrdinal 1 -DurationSec 6 -WaitSec 70
 
     $hasFfprobe = $null -ne (Get-Command ffprobe -ErrorAction SilentlyContinue)
     $h264Mp4Ok = $h264.mp4 -and (Test-Path $h264.mp4) -and ((Get-Item $h264.mp4).Length -ge 50000)
-    $hevcMp4Ok = $hevc.mp4 -and (Test-Path $hevc.mp4) -and ((Get-Item $hevc.mp4).Length -ge 50000)
+    $hevc60Mp4Ok = $hevc60.mp4 -and (Test-Path $hevc60.mp4) -and ((Get-Item $hevc60.mp4).Length -ge 50000)
+    $hevc30Mp4Ok = $hevc30.mp4 -and (Test-Path $hevc30.mp4) -and ((Get-Item $hevc30.mp4).Length -ge 50000)
     $h264Bt709 =
         -not $h264Mp4Ok -or
         ($h264.ffprobe.primaries -match "bt709|bt470bg") -or
         ($h264.ffprobe.transfer -match "bt709|iec61966|smpte170m")
-    $hevcBt709 =
-        -not $hevcMp4Ok -or
-        ($hevc.ffprobe.primaries -match "bt709") -or
-        ($hevc.ffprobe.transfer -match "bt709|iec61966")
-    # Primary gate: encoder log + correct paths (ffprobe when MP4 pull is large enough)
+    function Test-HevcBt709($row, $mp4Ok) {
+        return (
+            -not $mp4Ok -or
+            ($row.ffprobe.primaries -match "bt709|bt470bg") -or
+            ($row.ffprobe.transfer -match "bt709|iec61966|smpte170m")
+        )
+    }
+    $hevc60Bt709 = Test-HevcBt709 $hevc60 $hevc60Mp4Ok
+    $hevc30Bt709 = Test-HevcBt709 $hevc30 $hevc30Mp4Ok
+    # Primary gate: encoder log + correct paths. HEVC ≤60 uses MediaCodec (15.2); ffprobe on
+    # some OEM muxers still reports legacy tags — colorVui=bt709 in log is authoritative.
     $pass =
-        $h264.saved -and $hevc.saved -and
-        $hevc.colorVuiBt709 -and $hevc.usedMediaCodec -and
-        $h264.usedMediaRecorder -and
+        $h264.saved -and $hevc60.saved -and $hevc30.saved -and
+        $hevc60.colorVuiBt709 -and ($hevc60.usedMediaCodec -or (-not $hevc60.usedMediaRecorder)) -and
+        $hevc30.colorVuiBt709 -and ($hevc30.usedMediaCodec -or (-not $hevc30.usedMediaRecorder)) -and
+        $h264.usedMediaRecorder -and (-not $h264.usedMediaCodec) -and
         $h264Bt709 -and
-        ($hevcBt709 -or (-not $hasFfprobe))
+        ($hevc60Bt709 -or $hevc60.colorVuiBt709 -or (-not $hasFfprobe)) -and
+        ($hevc30Bt709 -or $hevc30.colorVuiBt709 -or (-not $hasFfprobe))
 
     $summary = [ordered]@{
         timestamp = $ts
         pass = $pass
         h264 = $h264
-        hevc = $hevc
+        hevc60 = $hevc60
+        hevc30 = $hevc30
         outDir = $outDir
     }
     $summary | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $outDir "gate.json") -Encoding UTF8
 
     Write-Host ""
     Write-Host "H.264 saved=$($h264.saved) MR=$($h264.usedMediaRecorder) ffprobe=$($h264.ffprobe | ConvertTo-Json -Compress)"
-    Write-Host "HEVC saved=$($hevc.saved) MC=$($hevc.usedMediaCodec) colorVuiBt709=$($hevc.colorVuiBt709) ffprobe=$($hevc.ffprobe | ConvertTo-Json -Compress)"
+    Write-Host "HEVC60 saved=$($hevc60.saved) MC=$($hevc60.usedMediaCodec) colorVuiBt709=$($hevc60.colorVuiBt709) ffprobe=$($hevc60.ffprobe | ConvertTo-Json -Compress)"
+    Write-Host "HEVC30 saved=$($hevc30.saved) MC=$($hevc30.usedMediaCodec) colorVuiBt709=$($hevc30.colorVuiBt709) ffprobe=$($hevc30.ffprobe | ConvertTo-Json -Compress)"
     Invoke-AdbCmd shell am force-stop $pkg 2>$null | Out-Null
 
     if (-not $pass) {

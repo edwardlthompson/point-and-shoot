@@ -507,22 +507,15 @@ fun BespokeGalleryScreen(
                         val exifMetadata = pageExif ?: ExifMetadata()
                         val isDng = media.displayName.lowercase().endsWith(".dng")
                         val videoRot = pageVideoMeta?.rotationDegrees ?: 0
-                        val swapAspect =
-                            (isDng &&
-                                DngGalleryOrientation.needsSwapWidthHeight(exifMetadata.orientation)) ||
-                            (media.isVideo && (videoRot == 90 || videoRot == 270))
-                        
-                        val aspectRatio = if (swapAspect) {
-                            media.height.toFloat() / media.width.toFloat()
-                        } else {
-                            media.width.toFloat() / media.height.toFloat()
-                        }
-                        
+
+                        // Sprint **15.7**: lock viewer tile to 3:4; letterbox media inside (ContentScale.Fit).
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(aspectRatio)
-                                .background(Color.DarkGray)
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(3f / 4f)
+                                    .background(Color.DarkGray),
+                            contentAlignment = Alignment.Center,
                         ) {
                             if (media.isVideo) {
                                 GalleryInlineVideoPlayer(
@@ -530,78 +523,69 @@ fun BespokeGalleryScreen(
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
-                            val bmp = if (selectedMedia?.uri == media.uri) selectedBitmap else null
-                            if (bmp != null && !bmp.isRecycled) {
-                                val rotatedBitmap =
-                                    DngGalleryOrientation.applyGalleryDisplayRotation(
-                                        bmp,
-                                        isDng,
-                                        exifMetadata.orientation,
-                                    )
-                                
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .pointerInput(media.uri) {
-                                            detectTapGestures(
-                                                onDoubleTap = {
-                                                    // Reset zoom on double tap
-                                                    scale = 1f
-                                                    offsetX = 0f
-                                                    offsetY = 0f
+                                val bmp = if (selectedMedia?.uri == media.uri) selectedBitmap else null
+                                if (bmp != null && !bmp.isRecycled) {
+                                    val rotatedBitmap =
+                                        DngGalleryOrientation.applyGalleryDisplayRotation(
+                                            bmp,
+                                            isDng,
+                                            exifMetadata.orientation,
+                                        )
+                                    Box(
+                                        modifier =
+                                            Modifier
+                                                .fillMaxSize()
+                                                .pointerInput(media.uri) {
+                                                    detectTapGestures(
+                                                        onDoubleTap = {
+                                                            scale = 1f
+                                                            offsetX = 0f
+                                                            offsetY = 0f
+                                                        },
+                                                    )
                                                 }
+                                                .pointerInput(media.uri) {
+                                                    detectTransformGestures { _, pan, zoom, _ ->
+                                                        val newScale = (scale * zoom).coerceIn(1f, 8f)
+                                                        scale = newScale
+                                                        if (scale > 1f) {
+                                                            offsetX += pan.x
+                                                            offsetY += pan.y
+                                                            val maxPanX = (scale - 1) * rotatedBitmap.width / 2
+                                                            val maxPanY = (scale - 1) * rotatedBitmap.height / 2
+                                                            offsetX = offsetX.coerceIn(-maxPanX, maxPanX)
+                                                            offsetY = offsetY.coerceIn(-maxPanY, maxPanY)
+                                                        }
+                                                    }
+                                                },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Image(
+                                            bitmap = rotatedBitmap.asImageBitmap(),
+                                            contentDescription = media.displayName,
+                                            modifier =
+                                                Modifier
+                                                    .fillMaxSize()
+                                                    .graphicsLayer(
+                                                        scaleX = scale,
+                                                        scaleY = scale,
+                                                        translationX = offsetX,
+                                                        translationY = offsetY,
+                                                    ),
+                                            contentScale = ContentScale.Fit,
+                                        )
+                                    }
+                                    LaunchedEffect(rotatedBitmap) {
+                                        if (rotatedBitmap != bmp) {
+                                            PnsBitmapGuard.safeRecycle(
+                                                rotatedBitmap,
+                                                "BespokeGallery.RotatedBitmap",
                                             )
                                         }
-                                        .pointerInput(media.uri) {
-                                            detectTransformGestures { centroid, pan, zoom, _ ->
-                                                // Apply zoom with constraints
-                                                val newScale = (scale * zoom).coerceIn(1f, 8f)
-                                                scale = newScale
-                                                
-                                                // Apply pan if zoomed
-                                                if (scale > 1f) {
-                                                    offsetX += pan.x
-                                                    offsetY += pan.y
-                                                    
-                                                    // Constrain pan to keep image within bounds
-                                                    val maxPanX = (scale - 1) * rotatedBitmap.width / 2
-                                                    val maxPanY = (scale - 1) * rotatedBitmap.height / 2
-                                                    offsetX = offsetX.coerceIn(-maxPanX, maxPanX)
-                                                    offsetY = offsetY.coerceIn(-maxPanY, maxPanY)
-                                                }
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Image(
-                                        bitmap = rotatedBitmap.asImageBitmap(),
-                                        contentDescription = media.displayName,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .graphicsLayer(
-                                                scaleX = scale,
-                                                scaleY = scale,
-                                                translationX = offsetX,
-                                                translationY = offsetY
-                                            ),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                }
-                                
-                                // Clean up rotated bitmap
-                                LaunchedEffect(Unit) {
-                                    if (rotatedBitmap != bmp) {
-                                        PnsBitmapGuard.safeRecycle(rotatedBitmap, "BespokeGallery.RotatedBitmap")
                                     }
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
+                                } else {
                                     CircularProgressIndicator(color = Color.White)
                                 }
-                            }
                             }
                         }
                         

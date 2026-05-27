@@ -142,6 +142,11 @@ object InAppVideoFormatSelection {
                 lines +=
                     "Encoder supports 1080p@480 H.264, but this lens does not — switch to ultra-wide for 480."
             }
+            val hal8k =
+                InAppVideoRecordingSupport.supportsEightKCameraOutputs(highSpeedMap)
+            lines +=
+                "8K: encoder probe max ${probe.maxFps8k} fps (supports8k=${probe.supports8k}); " +
+                    "HAL capture outputs=${if (hal8k) "yes" else "no"}."
         }
 
         return VideoTruth(lines)
@@ -231,6 +236,26 @@ object InAppVideoFormatSelection {
         }
 
 
+
+        if (InAppVideoRecordingSupport.isEightKSize(w, h)) {
+            val halOk = InAppVideoRecordingSupport.supportsEightKCameraOutputs(highSpeedMap)
+            val enc8k = MediaCodecCapabilityProbe.probeSync()?.supports8k == true
+            return when (format.codec) {
+                VideoCodec.H264 ->
+                    probe.hasExactH264PerformancePoint(w, h, fps) &&
+                        halOk &&
+                        enc8k
+                VideoCodec.H265 ->
+                    probe.hasExactHevcPerformancePoint(w, h, fps) &&
+                        halOk &&
+                        enc8k
+                VideoCodec.H265_10BIT,
+                VideoCodec.DCG,
+                -> probe.hasExactHevcPerformancePoint(w, h, fps) && halOk
+                VideoCodec.AV1 ->
+                    supportsAv1 && probe.hasExactHevcPerformancePoint(w, h, fps) && halOk
+            }
+        }
 
         return when (format.codec) {
 
@@ -429,6 +454,76 @@ object InAppVideoFormatSelection {
                 )
 
                 return forced
+
+            }
+
+            val synthFps =
+
+                if (targetFps >= 120) {
+
+                    targetFps.coerceIn(15, 480)
+
+                } else {
+
+                    targetFps.coerceIn(15, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
+
+                }
+
+            val canHonorForced =
+
+                when (forcedCodec) {
+
+                    VideoCodec.H264 -> true
+
+                    VideoCodec.H265 ->
+
+                        synthFps < VideoRecordingController.HFR_THRESHOLD_FPS
+
+                    VideoCodec.AV1 -> supportsAv1
+
+                    else -> false
+
+                }
+
+            if (canHonorForced) {
+
+                val fallback =
+
+                    VideoFormat(
+
+                        codec = forcedCodec,
+
+                        resolution = recordSize,
+
+                        frameRate = synthFps,
+
+                        bitrate =
+
+                            VideoFormatPresets.calculateBitrate(
+
+                                recordSize.width,
+
+                                recordSize.height,
+
+                                synthFps,
+
+                                forcedCodec,
+
+                            ),
+
+                    )
+
+                Log.i(
+
+                    TAG,
+
+                    "inAppVideoFormat=forcedCodecFallback label=${fallback.getLabel()} " +
+
+                        "${fallback.resolution.width}x${fallback.resolution.height}@${fallback.frameRate}",
+
+                )
+
+                return fallback
 
             }
 

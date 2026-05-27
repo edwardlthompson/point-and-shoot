@@ -60,13 +60,14 @@ data class VideoFormat(
         VideoCodec.AV1 -> "Next-gen — best compression"
     }
 
-    /** True when this format requires the MediaCodec path (HFR, 10-bit, DCG, or AV1). */
+    /** True when recording uses [MediaCodecVideoRecorder] (HFR, 10-bit, DCG, AV1, or 8-bit HEVC SDR). */
     val requiresMediaCodec: Boolean
         get() =
             codec == VideoCodec.AV1 ||
                 isTenBit ||
                 isDcg ||
-                frameRate > VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS
+                frameRate > VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS ||
+                (codec == VideoCodec.H265 && !isTenBit && !isDcg)
 }
 
 object VideoFormatPresets {

@@ -269,15 +269,18 @@ try {
                 $result.DurationSec = [double]$Matches[1]
             }
         }
-        $pktRaw = (& ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 $LocalPath 2>&1) -join ""
-        if ($pktRaw -match "^\d+$") {
-            $result.VideoPackets = [int]$pktRaw
-        }
-        if ($result.VideoPackets -le 0) {
-            $nbFrames = (& ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 $LocalPath 2>&1) -join ""
-            if ($nbFrames -match "^\d+$") {
-                $result.VideoPackets = [int]$nbFrames
+        function Get-FfprobeIntField([string[]]$Lines) {
+            foreach ($line in $Lines) {
+                $tok = ($line -split ',')[0].Trim()
+                if ($tok -match '^\d+$') { return [int]$tok }
             }
+            return 0
+        }
+        $nbLines = @(& ffprobe -v error -select_streams v:0 -count_frames -show_entries stream=nb_read_frames -of csv=p=0 $LocalPath 2>$null)
+        $result.VideoPackets = Get-FfprobeIntField $nbLines
+        if ($result.VideoPackets -le 0) {
+            $pktLines = @(& ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 $LocalPath 2>$null)
+            $result.VideoPackets = Get-FfprobeIntField $pktLines
         }
         $minPackets =
             if ($TargetFps -ge 480) { [int][math]::Max(400, $TargetFps * 2) }

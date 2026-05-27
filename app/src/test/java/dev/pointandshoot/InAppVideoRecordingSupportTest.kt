@@ -14,4 +14,10 @@ class InAppVideoRecordingSupportTest {
     fun shortLabel_1080p() {
         assertEquals("1080p", InAppVideoRecordingSupport.shortLabelForDims(1920, 1080))
     }
+
+    @Test
+    fun isEightKSize_detects_uhd_tier() {
+        assertTrue(InAppVideoRecordingSupport.isEightKSize(7680, 4320))
+        assertTrue(!InAppVideoRecordingSupport.isEightKSize(3840, 2160))
+    }
 }

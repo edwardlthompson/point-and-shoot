@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.graphics.Bitmap
+import android.util.Log
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -16,12 +17,18 @@ import kotlin.math.sqrt
  */
 object ChartQuadDetector {
 
+    const val TAG = "PNS.ChartDetect"
+
     /** ColorChecker Classic is 6×4 patches → ~1.5:1 width:height. */
-    private const val MIN_ASPECT = 1.15f
-    private const val MAX_ASPECT = 1.85f
+    private const val MIN_ASPECT = 1.12f
+    private const val MAX_ASPECT = 1.92f
+    /** Full chart in frame. */
     private const val MIN_AREA_FRAC = 0.04f
-    private const val MAX_AREA_FRAC = 0.92f
-    private const val MIN_EDGE_PIXELS = 48
+    /** Partial chart / skewed framing (Sprint **15.0**). */
+    private const val MIN_AREA_FRAC_PARTIAL = 0.022f
+    private const val MAX_AREA_FRAC = 0.94f
+    private const val MIN_EDGE_PIXELS = 40
+    private const val MIN_CONFIDENCE = 0.32f
     private const val DEFAULT_MAX_EDGE = 480
 
     data class Result(
@@ -59,7 +66,15 @@ object ChartQuadDetector {
         val edges = sobelEdgeMask(gray, width, height) ?: return null
         val quad = quadFromEdgeMask(edges, width, height) ?: return null
         val conf = scoreQuad(quad, edges, width, height)
-        if (conf < 0.35f) return null
+        if (conf < MIN_CONFIDENCE) {
+            chartDetectLog("detect reject conf=${"%.2f".format(conf)} ${width}x$height")
+            return null
+        }
+        chartDetectLog(
+            "detect ok conf=${"%.2f".format(conf)} areaFrac=${"%.3f".format(
+                abs(quadArea(quad.tl, quad.tr, quad.br, quad.bl)) / (width * height),
+            )} ${width}x$height",
+        )
         return Result(
             corners = quad,
             confidence = conf,
@@ -127,8 +142,8 @@ object ChartQuadDetector {
                 if (m > maxMag) maxMag = m
             }
         }
-        if (maxMag < 24) return null
-        val threshold = (maxMag * 0.42f).toInt().coerceAtLeast(18)
+        if (maxMag < 20) return null
+        val threshold = adaptiveEdgeThreshold(mag, maxMag)
         val mask = BooleanArray(w * h)
         var count = 0
         for (i in mag.indices) {
@@ -195,8 +210,40 @@ object ChartQuadDetector {
         val tr = Point2(trX.toFloat(), trY.toFloat())
         val br = Point2(brX.toFloat(), brY.toFloat())
         val bl = Point2(blX.toFloat(), blY.toFloat())
+        if (!isConvexQuad(tl, tr, br, bl)) return null
         if (!isReasonableQuad(tl, tr, br, bl, w, h)) return null
         return ChartCorners(tl, tr, br, bl)
+    }
+
+    /** Glare-heavy frames: use high-percentile edge magnitude instead of a fixed fraction of max only. */
+    private fun adaptiveEdgeThreshold(mag: IntArray, maxMag: Int): Int {
+        val sample = IntArray(min(mag.size, 8192))
+        var n = 0
+        var i = 0
+        while (i < mag.size && n < sample.size) {
+            val m = mag[i]
+            if (m > 0) {
+                sample[n++] = m
+            }
+            i += max(1, mag.size / sample.size)
+        }
+        if (n < 32) return (maxMag * 0.40f).toInt().coerceAtLeast(14)
+        val sorted = sample.copyOf(n)
+        sorted.sort()
+        val p70 = sorted[(n * 0.70f).toInt().coerceIn(0, n - 1)]
+        val fromMax = (maxMag * 0.36f).toInt()
+        return maxOf(fromMax, (p70 * 0.92f).toInt()).coerceIn(14, maxMag)
+    }
+
+    private fun isConvexQuad(tl: Point2, tr: Point2, br: Point2, bl: Point2): Boolean {
+        fun cross(a: Point2, b: Point2, c: Point2): Float =
+            (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+        val c1 = cross(tl, tr, br)
+        val c2 = cross(tr, br, bl)
+        val c3 = cross(br, bl, tl)
+        val c4 = cross(bl, tl, tr)
+        return (c1 > 0f && c2 > 0f && c3 > 0f && c4 > 0f) ||
+            (c1 < 0f && c2 < 0f && c3 < 0f && c4 < 0f)
     }
 
     private fun isReasonableQuad(
@@ -209,12 +256,14 @@ object ChartQuadDetector {
     ): Boolean {
         val area = abs(quadArea(tl, tr, br, bl))
         val frame = w * h.toFloat()
-        val frac = area / frame
-        if (frac < MIN_AREA_FRAC || frac > MAX_AREA_FRAC) return false
         val widthTop = dist(tl, tr)
         val widthBot = dist(bl, br)
         val heightLeft = dist(tl, bl)
         val heightRight = dist(tr, br)
+        val frac = area / frame
+        if (frac < MIN_AREA_FRAC_PARTIAL || frac > MAX_AREA_FRAC) return false
+        val minSideEarly = min(min(widthTop, widthBot), min(heightLeft, heightRight))
+        if (frac < MIN_AREA_FRAC && minSideEarly < min(w, h) * 0.10f) return false
         val avgW = (widthTop + widthBot) * 0.5f
         val avgH = (heightLeft + heightRight) * 0.5f
         if (avgW < 8f || avgH < 8f) return false
@@ -255,7 +304,11 @@ object ChartQuadDetector {
         val aspectScore = 1f - (abs(aspect - aspectTarget) / aspectTarget).coerceIn(0f, 1f)
         val areaScore =
             when {
-                areaFrac < MIN_AREA_FRAC -> 0f
+                areaFrac < MIN_AREA_FRAC_PARTIAL -> 0f
+                areaFrac < MIN_AREA_FRAC ->
+                    ((areaFrac - MIN_AREA_FRAC_PARTIAL) /
+                        (MIN_AREA_FRAC - MIN_AREA_FRAC_PARTIAL))
+                        .coerceIn(0f, 0.65f)
                 areaFrac > MAX_AREA_FRAC -> 0.2f
                 else -> ((areaFrac - MIN_AREA_FRAC) / (0.45f - MIN_AREA_FRAC)).coerceIn(0f, 1f)
             }
@@ -288,5 +341,13 @@ object ChartQuadDetector {
         walk(quad.tr, quad.br)
         walk(quad.br, quad.bl)
         walk(quad.bl, quad.tl)
+    }
+
+    private fun chartDetectLog(msg: String) {
+        try {
+            Log.i(TAG, msg)
+        } catch (_: RuntimeException) {
+            // JVM unit tests without android.util.Log shadowing
+        }
     }
 }

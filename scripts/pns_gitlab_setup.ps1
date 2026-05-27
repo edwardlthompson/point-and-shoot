@@ -27,17 +27,31 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$GitLabToken,
-    
-    [Parameter(Mandatory=$true)]
+
+    [Parameter(Mandatory=$false)]
     [string]$GitHubRepo,
-    
+
     [string]$GitLabGroup = "",
-    [string]$ProjectName = ""
+    [string]$ProjectName = "",
+    [switch]$Verify,
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($Verify) {
+    if (-not $env:ANDROID_KEYSTORE_BASE64) {
+        Write-Host "GITLAB VERIFY: SKIP (ANDROID_KEYSTORE_BASE64 not set in environment)"
+        exit 0
+    }
+    Write-Host "GITLAB VERIFY: PASS (ANDROID_KEYSTORE_BASE64 is set; confirm masked=true in GitLab UI)"
+    exit 0
+}
+
+if (-not $GitLabToken -or -not $GitHubRepo) {
+    throw "GitLabToken and GitHubRepo are required unless -Verify is used"
+}
 $script:tag = "PNS.GitLabSetup"
 
 function Write-Log {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -87,10 +88,9 @@ fun PreviewTopStatusBar(
                 )
             }
             if (showMeters) {
-                AudioLevelMeter(
-                    isRecording = true,
-                    sampleAmplitude = sampleAudioAmplitude,
-                    barHeight = 28.dp,
+                PpmAudioMeter(
+                    levelLinear = sampleAudioAmplitude().coerceIn(0, 32767) / 32767f,
+                    modifier = Modifier.height(28.dp),
                 )
             }
         }

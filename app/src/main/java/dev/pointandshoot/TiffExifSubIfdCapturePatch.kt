@@ -7,6 +7,7 @@ import android.util.Log
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.roundToLong
 
@@ -43,6 +44,9 @@ object TiffExifSubIfdCapturePatch {
     /** Modern ISO tag (replaces legacy ISOSpeedRatings where applicable). */
     private const val TAG_PHOTOGRAPHIC_SENSITIVITY = 0x8827 // 34855
     private const val TAG_DATETIME_ORIGINAL = 0x9003 // 36867
+    private const val TAG_FOCAL_LENGTH = 0x920A // 37386
+    /** EXIF FocalLengthIn35mmFilm (0xA405). */
+    private const val TAG_FOCAL_LENGTH_IN_35MM_FILM = 0xA405 // 41989
 
     fun patchFromCapture(
         tifBytes: ByteArray,
@@ -71,6 +75,10 @@ object TiffExifSubIfdCapturePatch {
         val aperture =
             result.get(CaptureResult.LENS_APERTURE)
                 ?: StillCaptureMetadata.fallbackAperture(characteristics)
+        val focalMm =
+            result.get(CaptureResult.LENS_FOCAL_LENGTH)
+                ?: StillCaptureMetadata.fallbackFocalMm(characteristics)
+        val focal35mm = focalLength35mmEquiv(focalMm, characteristics)
 
         var out = tifBytes.copyOf()
         var patched = 0
@@ -107,6 +115,20 @@ object TiffExifSubIfdCapturePatch {
 
         if (patchAsciiTagInIfdPreservingLength(out, exifIfdOffset.toInt(), TAG_DATETIME_ORIGINAL, dateTimeOriginalAscii19)) {
             patched++
+        }
+
+        focalMm?.let { mm ->
+            val num = (mm * 1000f).roundToLong().coerceAtLeast(1)
+            val (n, d) = reduceRational(num, 1000L)
+            if (patchRationalTagInIfd(out, exifIfdOffset.toInt(), TAG_FOCAL_LENGTH, n, d)) {
+                patched++
+            }
+        }
+
+        focal35mm?.let { mm35 ->
+            if (patchShortTagInIfd(out, exifIfdOffset.toInt(), TAG_FOCAL_LENGTH_IN_35MM_FILM, mm35.coerceIn(1, 65535))) {
+                patched++
+            }
         }
 
         if (patched > 0) {
@@ -256,5 +278,14 @@ object TiffExifSubIfdCapturePatch {
         }
         val g = a.coerceAtLeast(1L)
         return (n / g) to (d / g)
+    }
+
+    private fun focalLength35mmEquiv(focalMm: Float?, characteristics: CameraCharacteristics): Int? {
+        if (focalMm == null || focalMm <= 0f) return null
+        val sensorSize = characteristics.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE) ?: return null
+        if (sensorSize.width <= 0f || sensorSize.height <= 0f) return null
+        val diagSensor = hypot(sensorSize.width.toDouble(), sensorSize.height.toDouble())
+        if (diagSensor <= 0.0) return null
+        return (focalMm * (43.27 / diagSensor)).roundToInt().coerceIn(1, 65535)
     }
 }

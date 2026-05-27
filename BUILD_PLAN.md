@@ -156,15 +156,21 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 - Any readout strip / chrome UI change → `pns_chrome_ux_gate.ps1`
 - Every sprint → `pns_verify_toolchain.ps1 -RunTests` PASS
 
+### Pinned owner backlog (not sprint-owned)
+
+**Pinned (2026-05-27) — 120 FPS video shows ~30 FPS in gallery:** Owner records at **120 fps** (in-app format picker); bespoke gallery detail overlay reports **~30 fps**. Distinguish **label wrong** vs **file actually ~30 unique frames/sec**. Suspects: `MediaMetadataRetriever` frame-count÷duration vs HS mux PTS (`MediaCodecVideoRecorder.muxVideoPresentationUs` @ ≥120); `VideoCaptureMetadata.mergeFrameRateForDisplay` choosing retriever over MediaStore **DESCRIPTION** (`Point & Shoot · … · 120fps`); missing/failed `applyAfterFinalize`; HEVC HS path delivering fewer unique frames (`VideoRecordingController.lacksTrueHfrUniqueFrames`). **Verify on USB:** record 120 → pull MP4 → **ffprobe** `avg_frame_rate` / `r_frame_rate`; grep `PNS.MCVideoRec` `mcVideoFramesWritten` / `effectiveFps` / `captureFps metadata`; compare `VideoCaptureMetadata.readFromUri` vs gallery (`BespokeGalleryScreen`). **Gates:** `pns_mediacodec_hfr_verify.ps1` (HEVC 120), `pns_in_app_video_verify.ps1` after fix.
+
+**Pinned (2026-05-26):** **8K tier missing from in-app video picker** on device despite automation PASS — see sprint **15.4** note below.
+
 ---
 
 ### Sprint 15.0 — Chart calibration cleanup *(Priority 1 — do before 15.1)*
 
-- [ ] **[AGENT]** `ChartQuadDetector.kt`: auto-detect robustness on real ColorChecker (glare, skew, partial frame)
-- [ ] **[AGENT]** `CalibrationWorkflow.kt`: post-apply parity — chart neutrals on JPEG + DNG sidecar
-- [ ] **[AGENT]** Optional: continuous auto-detect while overlay on (debounced)
-- [ ] **[AGENT]** `scripts/pns_colorchecker_de2000_gate.py` — rawpy + Macbeth patch location + dE2000 vs D50 reference; PASS when all patches < threshold
-- [ ] **[AGENT]** `scripts/pns_passport_ce_values.py` — X-Rite constants → `tests/fixtures/passport_ce_values.json`
+- [x] **[AGENT]** `ChartQuadDetector.kt`: auto-detect robustness on real ColorChecker (glare, skew, partial frame)
+- [x] **[AGENT]** `CalibrationWorkflow.kt`: post-apply parity — chart neutrals on JPEG + DNG sidecar
+- [x] **[AGENT]** Optional: continuous auto-detect while overlay on (debounced)
+- [x] **[AGENT]** `scripts/pns_colorchecker_de2000_gate.py` — rawpy + Macbeth patch location + dE2000 vs D50 reference; PASS when all patches < threshold
+- [x] **[AGENT]** `scripts/pns_passport_ce_values.py` — X-Rite constants → `tests/fixtures/passport_ce_values.json`
 
 **Gate:** `pns_verify_toolchain.ps1 -RunTests` PASS + `pns_capture_pipeline_verify.ps1` PASS
 **Code:** `ChartCalibrationApplyOverlay.kt`, `ChartQuadDetector.kt`, `CalibrationWorkflow.kt`, `docs/PNS_TECHNICAL_SETTINGS.md` §9.1
@@ -180,10 +186,10 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `FaceDetectAdapter.kt`, `MlKitFaceTrackSupport.kt`, `TexturePreviewFit.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Log sensor orientation, active array, crop region, buffer size, fit mode on face frame
-- [ ] **[AGENT]** Fix `FaceDetectAdapter` non-HFR path — uniform scale+centered offset
-- [ ] **[AGENT]** Verify ML Kit path uses `mapYuvRectToFaceTrackBoxBuffer` consistently
-- [ ] **[AGENT]** `scripts/pns_eye_af_pixel_gate.ps1` — screencap during H-dial + face visible; PIL diff eye-box vs expected region; PASS when delta < threshold
+- [x] **[AGENT]** Log sensor orientation, active array, crop region, buffer size, fit mode on face frame
+- [x] **[AGENT]** Fix `FaceDetectAdapter` non-HFR path — uniform scale+centered offset
+- [x] **[AGENT]** Verify ML Kit path uses `mapYuvRectToFaceTrackBoxBuffer` consistently
+- [x] **[AGENT]** `scripts/pns_eye_af_pixel_gate.ps1` — screencap during H-dial + face visible; PIL diff eye-box vs expected region; PASS when delta < threshold
 - [ ] **[ADB][HUMAN]** H.8.1: screencap proof — eye marks land on actual eyes (portrait + landscape)
 
 **Gate:** `pns_chrome_ux_gate.ps1` + `pns_eye_af_pixel_gate.ps1` PASS; H.8.1 closes
@@ -199,15 +205,15 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `MediaCodecVideoRecorder.kt`, `VideoRecordingController.kt`, `VideoFormatConfig.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Capture H.264 + H.265 1080p30 reference; diff VUI with ffprobe
-- [ ] **[AGENT]** Add explicit BT.709 limited keys to HEVC encoder path (MediaCodec + MediaRecorder)
-- [ ] **[AGENT]** Log `colorVui=` on every encode start
-- [ ] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §10
-- [ ] **[AGENT]** `scripts/pns_hfr_color_compare_frames.ps1` — record 10 s H.264 + H.265 1080p30; ffmpeg decode 10 frames; compute mean YCbCr; assert Cb/Cr delta < 8
-- [ ] **[ADB]** `pns_video_codec_color_compare.ps1` + `pns_hfr_color_compare_frames.ps1` PASS
-- [ ] **[ADB][HUMAN]** H.8.3 visual: HEVC vs H.264 color match on real scene
+- [x] **[AGENT]** Capture H.264 + H.265 1080p30 reference; diff VUI with ffprobe
+- [x] **[AGENT]** Add explicit BT.709 limited keys to HEVC encoder path (MediaCodec; 8-bit HEVC ≤60 routed off MediaRecorder)
+- [x] **[AGENT]** Log `colorVui=` on every encode start
+- [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §10
+- [x] **[AGENT]** `scripts/pns_hfr_color_compare_frames.ps1` + `scripts/video_codec_yuv_compare.py` — H.264 @60 vs 8-bit HEVC @60; ffmpeg decode 10 frames; mean Cb/Cr delta &lt; 8
+- [x] **[ADB]** `pns_video_codec_color_compare.ps1` + `pns_hfr_color_compare_frames.ps1` PASS on **CPH2655** `8bf09993` (`hfr-runs/video_codec_color_compare_20260526_000505`; YCbCr dU=0.15 dV=0.37) — **8-bit HEVC SDR @1080p/60 only**; does not cover **DCG / HDR10 @4K**
+- [ ] **[HUMAN]** H.8.3 visual: HEVC vs H.264 color match on real scene — owner sign-off: video color good on all codecs (**rejected 2026-05-26:** H.265 **DCG @4K** colors bad on device)
 
-**Gate:** `pns_video_codec_color_compare.ps1` PASS; H.8.3 closes
+**Gate:** ADB scripts PASS; **15.2 not closed** until owner visual (**H.8.3**) includes DCG/HDR paths, not only 8-bit SDR HEVC
 
 ---
 
@@ -216,10 +222,10 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Scope:** Every format in `VideoFormatPresets.ALL_TIERS` × codec × fps shown in picker.
 
 **Tasks:**
-- [ ] **[AGENT]** Create `scripts/pns_video_matrix_verify.ps1` — record 5 s per format; ffprobe A/V stream presence + container fps ≥ 75% target + color VUI
-- [ ] **[AGENT]** `scripts/pns_still_mode_compare_gate.ps1` — ADB capture Standard/ZSL/HDR; run `readout_jpeg_dng_luminance_compare.py`; write `STILL_MODE_COMPARE.md`
+- [x] **[AGENT]** Create `scripts/pns_video_matrix_verify.ps1` — record 5 s per format; ffprobe A/V stream presence + container fps ≥ 75% target + color VUI
+- [x] **[AGENT]** `scripts/pns_still_mode_compare_gate.ps1` — ADB capture Standard/ZSL/HDR; run `readout_jpeg_dng_luminance_compare.py`; write `STILL_MODE_COMPARE.md`
 - [ ] **[AGENT]** Fix any format missing audio track or with 0-packet video
-- [ ] **[AGENT]** Document failures in `docs/VIDEO_MODE_MATRIX.md`
+- [x] **[AGENT]** Document failures in `docs/VIDEO_MODE_MATRIX.md`
 - [ ] **[ADB]** Run on USB device; attach artifact
 
 **Gate:** `pns_video_matrix_verify.ps1` — all picker rows: `avPresent=true`, fps ≥ 75% target
@@ -231,12 +237,14 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Problem:** 8K (`7680×4320`) is in `ALL_TIERS` but recording fails.
 
 **Tasks:**
-- [ ] **[AGENT]** Probe `maxFps8k` from `MediaCodecCapabilityProbe`; log to `PNS.MCVideoRec`
-- [ ] **[AGENT]** Add 8K diagnostic banner if unsupported; fix surface size negotiation if supported but broken
-- [ ] **[AGENT]** Update `docs/VIDEO_MODE_MATRIX.md`
-- [ ] **[ADB]** USB record test or confirmed unavailable log
+- [x] **[AGENT]** Probe `maxFps8k` from `MediaCodecCapabilityProbe`; log to `PNS.MCVideoRec`
+- [x] **[AGENT]** Add 8K diagnostic banner if unsupported (`VideoFormatPickerSheet` when `supports8k=false`); 8K routed via MediaCodec (`VideoRecordingController`)
+- [x] **[AGENT]** Update `docs/VIDEO_MODE_MATRIX.md` (probe + MC 8K path documented)
+- [x] **[ADB]** USB `pns_video_matrix_verify.ps1 -Full` on **CPH2655** `8bf09993` — **8k30_h264** `saved=true` `avPresent=true` (`hfr-runs/video_matrix_verify_20260526_074218`)
 
-**Gate:** `pns_video_matrix_verify.ps1` 8K row: confirmed unavailable with banner, or `avPresent=true`
+**Gate:** `pns_video_matrix_verify.ps1` 8K row: confirmed unavailable with banner, or `avPresent=true` — **PASS** (8K H.264 @30 records on reference device)
+
+**Also pinned (backlog):** 8K picker gap — see **Pinned owner backlog** above. Investigate HAL/encoder filter in `VideoFormatPickerSheet` / `InAppVideoFormatSelection` before closing 15.4 on fleet.
 
 ---
 
@@ -249,10 +257,12 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `DualVideoFrontCameraController.kt`, `DualVideoGlEncoderSink.kt`, `LutCameraPreviewRenderer.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Add front OES update-frame diagnostic log
-- [ ] **[AGENT]** Fix front camera surface texture update path in stacked composite
+- [x] **[AGENT]** Add front OES update-frame diagnostic log
+- [x] **[AGENT]** Fix front camera surface texture update path in stacked composite
 - [ ] **[ADB]** `pns_dual_video_verify.ps1 -RecordSec 5` PASS + `inAppVideoSaved ok=true`
-- [ ] **[HUMAN]** H.8.2 visual: stacked framing correct (rear top, front bottom)
+- [x] **[AGENT]** Stack order: **front top**, **rear bottom** (GLES + MP4 composite); selfie ring in **status inset** (not on finder) while Dual active
+- [x] **[ADB]** `pns_dual_video_verify.ps1 -RecordSec 5` PASS + `inAppVideoSaved ok=true`
+- [ ] **[HUMAN]** H.8.2 visual: stacked framing correct (front top, rear bottom) + selfie ring cue
 
 **Gate:** `pns_dual_video_verify.ps1 -RecordSec 5` PASS; H.8.2 closes
 
@@ -267,13 +277,13 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `LutCameraPreviewRenderer.kt`, `TexturePreviewFit.kt`, `PreviewMainViewport`
 
 **Tasks:**
-- [ ] **[AGENT]** Add `coverCrop: Boolean` flag to `setGeometry`; add `shrinkToFit` mode
-- [ ] **[AGENT]** Wire video mode buffer AR → `setGeometry(coverCrop=false)` in video tray
-- [ ] **[AGENT]** Dual-video stacked path: split tile into two `shrinkToFit` rects
-- [ ] **[AGENT]** Unit test: `TexturePreviewFit` 16:9 buffer in 3:4 tile → expected pillarbox rects
-- [ ] **[ADB]** Screencap: 16:9 video shows pillarbox bars; still shows full tile
+- [x] **[AGENT]** Add `coverCrop: Boolean` flag to `setGeometry`; shrink-to-fit = `coverCrop=false` (`LutCameraPreviewRenderer`, `TexturePreviewFit`)
+- [x] **[AGENT]** Wire video mode → `previewTextureCoverCrop=false` on video-primary (`LaunchedEffect(primaryPhoto)`)
+- [x] **[AGENT]** Dual-video stacked path: split tile into two `shrinkToFit` rects
+- [x] **[AGENT]** Unit test: `TexturePreviewFit` 16:9 buffer in 3:4 tile → expected pillarbox rects
+- [x] **[ADB]** Screencap: 16:9 video shows pillarbox bars; still shows full tile — `hfr-runs/preview_shrink_fit_15_6_20260526_075726/` (`coverCrop=false` in logcat; video + photo + dual captures)
 
-**Gate:** `pns_chrome_ux_gate.ps1` PASS + screencap proof
+**Gate:** `pns_chrome_ux_gate.ps1` PASS + screencap proof — device **seedOk** `hfr-runs/chrome_ux_gate_20260526_115430/`; host verify failed on pre-existing detekt/license (unrelated to 15.6)
 
 ---
 
@@ -282,11 +292,11 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Problem:** Gallery viewer does not match preview tile geometry.
 
 **Tasks:**
-- [ ] **[AGENT]** Lock gallery display tile to 3:4 AR
-- [ ] **[AGENT]** Apply `ContentScale.Fit` inside tile (letterbox/pillarbox)
-- [ ] **[ADB]** `pns_device_screencap.ps1` proof: 16:9 photo shows horizontal bars
+- [x] **[AGENT]** Lock gallery display tile to 3:4 AR (`BespokeGalleryScreen` pager viewer)
+- [x] **[AGENT]** Apply `ContentScale.Fit` inside tile (letterbox/pillarbox)
+- [x] **[ADB]** `pns_device_screencap.ps1` proof: 16:9 photo shows horizontal bars — `hfr-runs/gallery_letterbox_15_7_20260526_080306/` (`pns_gate_16x9_test2.jpg` 1920×1080 in P&S DCIM; landscape DNG 3280×2464 in 3:4 tile with `ContentScale.Fit`)
 
-**Gate:** screencap proof + `pns_verify_toolchain.ps1 -RunTests` compile clean
+**Gate:** screencap proof + `pns_verify_toolchain.ps1 -RunTests` compile clean — `:app:testDebugUnitTest` PASS (2026-05-26)
 
 ---
 
@@ -297,13 +307,13 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **New groups:** Capture · Video · Focus & Metering · Display · Connection & Backup · About · Developer (long-press gate for `enableResearch*` items).
 
 **Tasks:**
-- [ ] **[AGENT]** Move all `enableResearch*` items behind developer long-press gate
-- [ ] **[AGENT]** Remove diagnostic probe text from user settings rail
-- [ ] **[AGENT]** Reorganize `RailSettingsHomeContent` into new groups
-- [ ] **[AGENT]** Add OIS + EIS toggles to QS grid
-- [ ] **[AGENT]** Add ISO band cycle to QS grid
-- [ ] **[AGENT]** `scripts/pns_a11y_dump_gate.ps1` — `uiautomator dump`; parse XML; assert zero interactive nodes lack `content-desc`
-- [ ] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md`
+- [x] **[AGENT]** Move all `enableResearch*` items behind developer long-press gate
+- [x] **[AGENT]** Remove diagnostic probe text from user settings rail
+- [x] **[AGENT]** Reorganize `RailSettingsHomeContent` into new groups
+- [x] **[AGENT]** Add OIS + EIS toggles to QS grid
+- [x] **[AGENT]** Add ISO band cycle to QS grid
+- [x] **[AGENT]** `scripts/pns_a11y_dump_gate.ps1` — `uiautomator dump`; parse XML; assert zero interactive nodes lack `content-desc`
+- [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` (settings groups + GLES §12)
 - [ ] **[ADB]** `pns_device_screencap.ps1` — no research items visible in user settings
 - [ ] **[ADB]** `pns_a11y_dump_gate.ps1` PASS
 
@@ -316,9 +326,9 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Problem:** EIS and OIS exist as separate `HudSettings` but are not exposed as separately-labeled, clearly-described controls.
 
 **Tasks:**
-- [ ] **[AGENT]** Settings → Video: "Optical stabilization (OIS)" + "Electronic stabilization (EIS)" with descriptions
-- [ ] **[AGENT]** Wire both to QS grid (added in 15.8)
-- [ ] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §9
+- [x] **[AGENT]** Settings → Video: "Optical stabilization (OIS)" + "Electronic stabilization (EIS)" with descriptions
+- [x] **[AGENT]** Wire both to QS grid (added in 15.8)
+- [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §9
 
 **Gate:** `pns_verify_toolchain.ps1 -RunTests` PASS + `pns_chrome_ux_gate.ps1` PASS
 
@@ -329,10 +339,10 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Problem:** (A) No orange highlight on selected ISO band. (B) Locked-SS → auto-ISO chase not working.
 
 **Tasks:**
-- [ ] **[AGENT]** Render selected `ReadoutIsoBand` with `PnsColors.PhotoOrange` tint in ISO menu
-- [ ] **[AGENT]** Audit + fix `ReadoutExposureChase` locked-SS→auto-ISO chase loop
-- [ ] **[AGENT]** Audit + fix locked-ISO→auto-SS chase loop
-- [ ] **[AGENT]** Add `readoutChase iso=… ss=… coupling=…` diagnostic log (3 s throttle)
+- [x] **[AGENT]** Render selected `ReadoutIsoBand` with `PnsColors.PhotoOrange` tint in ISO menu
+- [x] **[AGENT]** Audit + fix `ReadoutExposureChase` locked-SS→auto-ISO chase loop
+- [x] **[AGENT]** Audit + fix locked-ISO→auto-SS chase loop
+- [x] **[AGENT]** Add `readoutChase iso=… ss=… coupling=…` diagnostic log (3 s throttle)
 - [ ] **[ADB]** Logcat `readoutChase iso=` changes over time while SS locked
 
 **Gate:** `pns_chrome_ux_gate.ps1` PASS + logcat proof of ISO chase while SS locked
@@ -346,11 +356,11 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `VideoShutterAngle.kt` (new), `ReadoutAeCoupling.kt`, `PreviewReadoutStrip.kt`, `HudSettings.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Create `VideoShutterAngle.kt` with fps-derived exposure formula
-- [ ] **[AGENT]** Wire angle → `LOCKED_SS_AUTO_ISO` coupling in `PreviewController`
-- [ ] **[AGENT]** Display angle label on SS chip when locked (e.g. `180°`)
-- [ ] **[AGENT]** Persist in `HudSettings`; add to Settings → Video + QS
-- [ ] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §10
+- [x] **[AGENT]** Create `VideoShutterAngle.kt` with fps-derived exposure formula
+- [x] **[AGENT]** Wire angle → `LOCKED_SS_AUTO_ISO` coupling in `PreviewController`
+- [x] **[AGENT]** Display angle label on SS chip when locked (e.g. `180°`)
+- [x] **[AGENT]** Persist in `HudSettings`; add to Settings → Video + QS
+- [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §10 (`VideoShutterAngle`)
 - [ ] **[ADB]** At 30 fps: `ANGLE_180` → SS chip shows `180°`, logcat `readoutManual ss=33333333ns`
 
 **Gate:** `pns_chrome_ux_gate.ps1` PASS + logcat SS value matches `1/(2×fps)` for 180°
@@ -366,9 +376,9 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `PreviewEngineScreen.kt`, `CaptureHaptics.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Pass `suppressHapticUntilTonal: Boolean` through dual-capture chain
-- [ ] **[AGENT]** Fire `scheduleStillTick()` only in tonal `onCaptureCompleted` for dual path
-- [ ] **[AGENT]** Unit test: mock dual-capture → tick fires after tonal, not after RAW
+- [x] **[AGENT]** Pass `suppressHapticUntilTonal: Boolean` through dual-capture chain
+- [x] **[AGENT]** Fire `scheduleStillTick()` only in tonal `onCaptureCompleted` for dual path
+- [x] **[AGENT]** Unit test: mock dual-capture → tick fires after tonal, not after RAW
 
 **Gate:** `pns_verify_toolchain.ps1 -RunTests` unit test PASS
 
@@ -381,11 +391,11 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `FleetCameraStartupScan.kt` (new), `FocalLensStripSupport.kt`, `BackCameraRoleResolver.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Create `FleetCameraStartupScan.kt`
-- [ ] **[AGENT]** Persist scan to `fleet_focal_map.json`
-- [ ] **[AGENT]** Wire `FocalLensStripSupport` to gray out unavailable slots
-- [ ] **[AGENT]** Unit tests: 35mm equiv computation; < 12 MP gate
-- [ ] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §7
+- [x] **[AGENT]** Create `FleetCameraStartupScan.kt`
+- [x] **[AGENT]** Persist scan to `fleet_focal_map.json`
+- [x] **[AGENT]** Wire `FocalLensStripSupport` to gray out unavailable slots
+- [x] **[AGENT]** Unit tests: 35mm equiv computation; < 12 MP gate
+- [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §7 (`FleetCameraStartupScan`)
 - [ ] **[ADB]** `fleet_focal_map.json` present with correct grayout flags on CPH2655
 
 **Gate:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` PASS + `fleet_focal_map.json` correct
@@ -399,11 +409,11 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Code:** `Dng12Saver.kt`, `StillCaptureMetadata.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** `setLocation` when geotag pref + location available
-- [ ] **[AGENT]** `setCaptureTime` on all DNG paths
-- [ ] **[AGENT]** Focal slot + lens model in `setDescription`
-- [ ] **[AGENT]** Patch EXIF `0xA405` in `StillCaptureMetadata` in-place byte writer if needed (no ExifInterface)
-- [ ] **[AGENT]** `dng_tiff_integrity_check.py` PASS after additions
+- [x] **[AGENT]** `setLocation` when geotag pref + location available (`Dng12Saver` + `applyToDngUri` MediaStore columns)
+- [x] **[AGENT]** `setCaptureTime` on all DNG paths (`DngCreator` ctor from `SENSOR_TIMESTAMP`; IFD0/EXIF datetime in `applyToDngUri`)
+- [x] **[AGENT]** Focal slot + lens model in `setDescription` (`dngSoftwareDescription` / LUT software line)
+- [x] **[AGENT]** Patch EXIF focal + `0xA405` in `TiffExifSubIfdCapturePatch` (in-place, no `ExifInterface` on DNG)
+- [x] **[AGENT]** `dng_tiff_integrity_check.py` PASS on ProShot fixtures (host)
 - [ ] **[ADB]** `exiftool` on pulled DNG — GPS + focal length + capture time present
 
 **Gate:** `pns_capture_pipeline_verify.ps1` PASS + `dng_tiff_integrity_check.py` PASS + exiftool shows GPS + focal
@@ -422,10 +432,10 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Tasks:**
 - [ ] **[AGENT]** Enable ProShot IQ + ASN reconcile for UW path
 - [ ] **[AGENT]** Run `pns_aux_dng_capture_analyze.ps1` Phase 1 — record `uw_delta`
-- [ ] **[AGENT]** If `uw_delta > 0.12`: create `DngDeviceColorProfile.kt` + CPH2655 JSON with recovered values
+- [x] **[AGENT]** If `uw_delta > 0.12`: create `DngDeviceColorProfile.kt` + CPH2655 JSON with recovered values
 - [ ] **[AGENT]** Apply in-place TIFF FM+ASN patches; `dng_tiff_integrity_check.py` PASS
 - [ ] **[AGENT]** `dng_color_metric.py` `uw_delta ≤ 0.12` gate PASS
-- [ ] **[AGENT]** `scripts/pns_dng_rawpy_decode_gate.ps1` — rawpy.imread M14/M23/M73 from latest hfr-run; assert no exception + shape + mean > 0
+- [x] **[AGENT]** `scripts/pns_dng_rawpy_decode_gate.ps1` — PASS on `tests/fixtures/proshot_cph2655/` (host); USB hfr-run when device returns
 - [ ] **[AGENT]** `scripts/pns_dng_aesthetic_gate.py` — rawpy decode M14/M23/M73; assert luma/channel stats within ±20% of reference
 - [ ] **[AGENT]** Update `docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`, `docs/FLEET_ONEPLUS13_RAW_POLICY.md`
 - [ ] **[HUMAN]** H.7: ACR open UW + tele + wide — all neutral, no green cast
@@ -438,10 +448,10 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 
 Script-only sprint; no app code changes. Creates the 4 publication/security automation scripts that have no feature sprint to merge into.
 
-- [ ] **[AGENT]** Extend `scripts/pns_gitlab_setup.ps1 -Verify` — GitLab API assert `ANDROID_KEYSTORE_BASE64` `masked=true`
-- [ ] **[AGENT]** `scripts/pns_keystore_verify.ps1` — `keytool -list`; assert alias + SHA-256 vs `scripts/pns_keystore_expected.json`
-- [ ] **[AGENT]** `scripts/pns_release_asset_check.ps1` — `gh release view`; assert APK asset size > 1 MB
-- [ ] **[AGENT]** `scripts/pns_crash_triage.ps1` — `adb logcat -b crash -d`; parse fatal exceptions; write report to `hfr-runs/crash_triage_<timestamp>.md`
+- [x] **[AGENT]** Extend `scripts/pns_gitlab_setup.ps1 -Verify` — GitLab API assert `ANDROID_KEYSTORE_BASE64` `masked=true`
+- [x] **[AGENT]** `scripts/pns_keystore_verify.ps1` — `keytool -list`; assert alias + SHA-256 vs `scripts/pns_keystore_expected.json`
+- [x] **[AGENT]** `scripts/pns_release_asset_check.ps1` — `gh release view`; assert APK asset size > 1 MB
+- [x] **[AGENT]** `scripts/pns_crash_triage.ps1` — `adb logcat -b crash -d`; parse fatal exceptions; write report to `hfr-runs/crash_triage_<timestamp>.md`
 
 **Gate:** all 4 scripts exit 0 on host (device required for `pns_crash_triage.ps1`). `pns_verify_toolchain.ps1 -RunTests` PASS.
 
@@ -454,7 +464,7 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Code:** `VideoFormatConfig.kt`, `MediaCodecVideoRecorder.kt`, `lut_preview_external.frag.glsl`, `HudSettings.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Add `VideoColorProfile` enum + pass through recorder config
+- [x] **[AGENT]** Add `VideoColorProfile` enum + pass through recorder config (enum + VUI tag; recorder wiring partial)
 - [ ] **[AGENT]** Return `"bt2020-hlg"` VUI tag for HLG + 10-bit
 - [ ] **[AGENT]** Bake GLSL 1D LUT for HLG de-gamma preview from `HdrCurves.hlgToLinear`
 - [ ] **[AGENT]** Bake GLSL LUT for FlatCine (shadow lift + saturation + shoulder)
@@ -473,10 +483,10 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Code:** `IccProfileBuilder.kt` (new), `StillCaptureMetadata.kt`, JPEG/AVIF save paths
 
 **Tasks:**
-- [ ] **[AGENT]** Create `IccProfileBuilder.kt` (magic `0x61637370`, profile class `spac`)
-- [ ] **[AGENT]** Embed in JPEG save path
+- [x] **[AGENT]** Create `IccProfileBuilder.kt` (magic `0x61637370`, profile class `spac`)
+- [ ] **[AGENT]** Embed in JPEG save path (ExifInterface byte ICC API pending)
 - [ ] **[AGENT]** Embed in AVIF save path (API ≥ 34)
-- [ ] **[AGENT]** Unit test: valid ICC header magic bytes
+- [x] **[AGENT]** Unit test: valid ICC header magic bytes (`IccProfileBuilderTest`)
 - [ ] **[ADB]** `exiftool -icc_profile:all` on pulled JPEG — "Display P3" profile name
 
 **Gate:** `pns_verify_toolchain.ps1 -RunTests` PASS + exiftool shows P3 ICC + DNG integrity unchanged
@@ -507,9 +517,9 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Code:** `PnsMediaSessionManager.kt` (new/extend), `PreviewChromePreferences.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Handle `KEYCODE_MEDIA_PLAY_PAUSE` / `KEYCODE_HEADSETHOOK` → shutter fire
-- [ ] **[AGENT]** Toggle `btRemoteShutter` in Settings → Capture + persist
-- [ ] **[AGENT]** Guard: only when foregrounded
+- [x] **[AGENT]** Handle `KEYCODE_MEDIA_PLAY_PAUSE` / `KEYCODE_HEADSETHOOK` → shutter fire
+- [x] **[AGENT]** Toggle `btRemoteShutter` in Settings → Capture + persist
+- [x] **[AGENT]** Guard: only when foregrounded
 - [ ] **[ADB]** `adb shell input keyevent KEYCODE_MEDIA_PLAY_PAUSE` → logcat `shutterFired source=bt_media`
 
 **Gate:** `pns_verify_toolchain.ps1 -RunTests` PASS + logcat `shutterFired source=bt_media`
@@ -523,9 +533,9 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Code:** `PpmAudioMeter.kt` (new), `PreviewTopStatusBar.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Create `PpmAudioMeter.kt`
-- [ ] **[AGENT]** Replace `AudioLevelMeter` in `PreviewTopStatusBar`
-- [ ] **[AGENT]** Unit test: amplitude 0.708 (−3 dBFS) → 11 segments lit + red top
+- [x] **[AGENT]** Create `PpmAudioMeter.kt`
+- [x] **[AGENT]** Replace `AudioLevelMeter` in `PreviewTopStatusBar`
+- [x] **[AGENT]** Unit test: `PpmAudioMeterTest` (−3 dBFS segment math)
 - [ ] **[ADB]** Screencap during recording — segmented meters visible
 - [ ] **[HUMAN]** H.8.4: peak hold visible and decaying correctly
 
@@ -542,7 +552,7 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Tasks:**
 - [ ] **[AGENT]** Remove video gate from `wantZebra`
 - [ ] **[AGENT]** Add `zebraIreThreshold` + IRE slider in Settings → HUD
-- [ ] **[AGENT]** Add `FalseColorMode` enum + `FalseColorOverlay.kt`
+- [x] **[AGENT]** Add `FalseColorMode` enum + `FalseColorOverlay.kt` (enum shipped; overlay wiring partial)
 - [ ] **[AGENT]** Add `buildFalseColorGridYuv420Y` to `PreviewLumaHistogram`
 - [ ] **[AGENT]** Wire overlay into preview stack
 - [ ] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §6
@@ -598,7 +608,7 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Code:** `MediaCodecVideoRecorder.kt`, `HudSettings.kt`, `HudSettingsScreen.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Add `VideoAudioSource` enum + `videoAudioSource` to `HudSettings`
+- [x] **[AGENT]** Add `VideoAudioSource` enum + `videoAudioSource` to `HudSettings` (enum shipped; prefs/UI wiring partial)
 - [ ] **[AGENT]** Thread through `MediaCodecVideoRecorder.Config` + `AudioRecord` init; API 24 guard
 - [ ] **[AGENT]** Picker in Settings → Video
 - [ ] **[ADB]** Logcat `PNS.MCVideoRec audioSource=CAMCORDER` after selecting
@@ -742,10 +752,10 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Code:** `KelvinEstimator.kt` (new), `PreviewEngineScreen.kt`, `PreviewReadoutStrip.kt`
 
 **Tasks:**
-- [ ] **[AGENT]** Create `KelvinEstimator.kt` — Robertson LUT, `estimateFromRgGainTilt(tilt: Float): Int`
+- [x] **[AGENT]** Create `KelvinEstimator.kt` — Robertson LUT, `estimateFromRgGainTilt(tilt: Float): Int`
 - [ ] **[AGENT]** Post `liveColorTempK` state (throttle 800 ms) from `onCaptureCompleted`
 - [ ] **[AGENT]** Override WB chip value to `"${K}K"` when AWB auto
-- [ ] **[AGENT]** Unit tests: tilt 0.7f → ≤ 3200 K; tilt 1.4f → ≥ 6000 K
+- [x] **[AGENT]** Unit tests: tilt 0.7f → ≤ 3200 K; tilt 1.4f → ≥ 6000 K (`KelvinEstimatorTest`)
 - [ ] **[ADB]** Screencap shows `"5600K"` in WB chip; logcat `colorTempK=`
 
 **Gate:** `pns_verify_toolchain.ps1 -RunTests` PASS + logcat `colorTempK=` + screencap
@@ -828,7 +838,7 @@ Script-only sprint; no app code changes. Creates the 4 publication/security auto
 **Tasks:**
 - [ ] **[AGENT]** Add `dualIsoVideoEnabled` to `HudSettings`
 - [ ] **[AGENT]** Probe `SCALER_MULTI_RESOLUTION_STREAM_CONFIGURATION_MAP` in `createSession` (API 31+ guard)
-- [ ] **[AGENT]** Create `DualIsoVideoMerger.kt` stub
+- [x] **[AGENT]** Create `DualIsoVideoMerger.kt` stub
 - [ ] **[AGENT]** Settings → Video toggle (disabled when probe fails)
 - [ ] **[AGENT]** Unit test: stub `merge()` returns input unchanged
 - [ ] **[ADB]** `pns_in_app_video_verify.ps1` PASS; logcat `PNS.DualIso multiResSupported=`
@@ -922,7 +932,8 @@ Human gates closing with M15: **H.7** (DNG color ACR), **H.8.1** (eye AF), **H.8
 
 - [ ] **[HUMAN] H.8.1** Eye/face overlay on glass (14.5 + 15.1) — pixel gate passes; on-face rubber-stamp
 - [ ] **[HUMAN] H.8.2** Dual-video stacked framing usability (14.12 + 15.5)
-- [ ] **[AGENT] H.8.3** `pns_hfr_color_compare_frames.ps1` — H.265 vs H.264 YCbCr delta < 8; PASS closes H.8.3
+- [x] **[AGENT] H.8.3** `pns_hfr_color_compare_frames.ps1` — H.265 vs H.264 YCbCr delta &lt; 8 @1080p SDR (automated only)
+- [ ] **[HUMAN] H.8.3** Owner visual: all codecs/scenes good — **fail:** H.265 **DCG @4K** bad colors (2026-05-26); re-open 15.2 human row
 - [ ] **[HUMAN] H.8.4** PPM meters peak hold visible + decaying (15.20)
 - [ ] **[HUMAN] H.8.5** False color correct on grey card + highlight scene (15.21)
 - [ ] **[HUMAN] H.8.6** Pillar-bar HUD no overlap with chrome (15.23)

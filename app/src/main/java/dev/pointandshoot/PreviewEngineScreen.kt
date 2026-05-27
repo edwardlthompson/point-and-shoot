@@ -105,6 +105,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BurstMode
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BrightnessHigh
 import androidx.compose.material.icons.outlined.DoNotDisturb
@@ -191,6 +192,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.text.Charsets
 
@@ -214,7 +216,11 @@ private fun Modifier.chromeGlyphRotation(degrees: Float): Modifier =
 private const val PreviewChromeFinderFlexWeight = 2.9f
 private const val PreviewChromeRailFlexWeight = 1f
 
+/** Live preview always shrink-to-fit in the finder ([TexturePreviewFit] center-contain). */
+private const val PREVIEW_FINDER_CONTAIN = false
+
 private enum class ChromeGridQuickAction {
+    /** Popup: self-timer + burst shutter behavior (single / timer / burst). */
     TimerStub,
     ToggleHistogram,
     ToggleHorizonLevel,
@@ -228,6 +234,10 @@ private enum class ChromeGridQuickAction {
     CycleFlash,
     /** Icon-only: embed GPS in DNG/JPEG when permission allows. */
     ToggleSaveLocation,
+    /** Sprint **15.8/15.9** — lens OIS ([HudSettings.enableLensOpticalStabilization]). */
+    ToggleLensOis,
+    /** Sprint **15.8/15.9** — preview EIS ([HudSettings.enableVideoStabilizationPreview]). */
+    ToggleVideoEis,
 }
 
 private sealed class ChromeGridSlotSpec {
@@ -260,16 +270,16 @@ private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
         ChromeGridSlotSpec.ExpandShortcut(1, 0, "Guides", Icons.Outlined.GridOn, "Guides"),
         ChromeGridSlotSpec.ExpandShortcut(1, 1, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
         ChromeGridSlotSpec.ExpandShortcut(1, 2, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
-        ChromeGridSlotSpec.QuickAction(1, 3, Icons.Outlined.Timer, "Self timer", ChromeGridQuickAction.TimerStub),
+        ChromeGridSlotSpec.QuickAction(1, 3, Icons.Outlined.Timer, "Shutter: single, timer, or burst", ChromeGridQuickAction.TimerStub),
         ChromeGridSlotSpec.QuickAction(1, 4, Icons.Outlined.BarChart, "Histogram", ChromeGridQuickAction.ToggleHistogram),
         ChromeGridSlotSpec.QuickAction(1, 5, Icons.Outlined.Landscape, "Horizon level", ChromeGridQuickAction.ToggleHorizonLevel),
         ChromeGridSlotSpec.QuickAction(1, 6, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
         ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Videocam, "Video tally", ChromeGridQuickAction.ToggleVideoTally),
         ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview),
         ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
-        ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.PhotoCamera, "Extra shutters", ChromeGridQuickAction.ExtraShutterMenu),
-        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash),
-        ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.LocationOn, "Save location in files", ChromeGridQuickAction.ToggleSaveLocation),
+        ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.PhotoCamera, "Optical stabilization OIS", ChromeGridQuickAction.ToggleLensOis),
+        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.Videocam, "Electronic stabilization EIS", ChromeGridQuickAction.ToggleVideoEis),
+        ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash),
         ChromeGridSlotSpec.ExpandShortcut(2, 6, "Settings", Icons.Outlined.Settings, "Settings"),
     )
 
@@ -668,6 +678,10 @@ fun PreviewEngineScreen(
     adbInitialSelfTimerSec: Int? = null,
     /** **`--es pns_preview_focal_mm_slot N`** — applies [FocalMmSlot] once after seed; logs **`focalSlotTap=`**. */
     adbFocalMmSlotProbe: FocalMmSlot? = null,
+    /** Sprint **15.10** — `--el pns_preview_readout_shutter_ns` (lock SS so ISO chase logs can be proven). */
+    adbReadoutShutterNsProbe: Long? = null,
+    /** Sprint **15.1** — ADB seed: enable face/eye overlay markers. */
+    adbEyeAfOverlaySeed: Boolean? = null,
     /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */
     imageCaptureReturn: ImageCaptureReturnContract? = null,
     /** When non-null, [MediaStore.ACTION_VIDEO_CAPTURE] — stop mock record encodes a short clip and [Activity.finish]es with result. */
@@ -758,6 +772,9 @@ fun PreviewEngineScreen(
     adbWebDavProbe: Boolean = false,
     adbSocialStreamProbe: Boolean = false,
     adbCollaborativeProbe: Boolean = false,
+    /** Engineering hub: live D-pad alignment for face/eye HUD overlays (Sprint **15.1**). */
+    eyeOverlayCalibratorActive: Boolean = false,
+    onEyeOverlayCalibratorDone: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -790,9 +807,24 @@ fun PreviewEngineScreen(
     val captureScope = rememberCoroutineScope()
     val snackbarHostState = LocalPnsSnackbarHostState.current
     val controller = remember { PreviewController(context.applicationContext) }
+    if (adbAutomationVideoCodecOrdinal != null) {
+        controller.adbAutomationVideoCodecOrdinal = adbAutomationVideoCodecOrdinal
+    }
     /** Owned for features that need the active [GLSurfaceView] (e.g. calibrate grab). */
     val previewHostSlot = remember { PreviewHostSlot() }
     val hudState = rememberHudSettings()
+    var faceOverlayCalibration by remember {
+        mutableStateOf(FaceOverlayCalibrationStore.load(appContext))
+    }
+    LaunchedEffect(eyeOverlayCalibratorActive) {
+        if (eyeOverlayCalibratorActive) {
+            faceOverlayCalibration = FaceOverlayCalibrationStore.load(appContext)
+            hudState.updateMutate {
+                it.copy(showEyeAfOverlay = true, showFaceAlignmentDebugCrosshair = true)
+            }
+            Log.i(FaceOverlayCalibration.TAG, "calibrator open ${faceOverlayCalibration.toDiagString()}")
+        }
+    }
     // Stable list instance when the id roster is unchanged — avoids extra child work from a fresh
     // [List] allocation on every 350 ms controller poll recomposition.
     val cameraIdsRaw = controller.cameraIds()
@@ -1283,6 +1315,15 @@ fun PreviewEngineScreen(
         }
     }
     val chromePrefs = rememberPreviewChromePreferences()
+    LaunchedEffect(chromePrefs.current.btRemoteShutter, chromePrefs.current.volumeKeysCapture) {
+        PnsMediaSessionManager.btRemoteShutterEnabled =
+            chromePrefs.current.btRemoteShutter && chromePrefs.current.volumeKeysCapture
+    }
+    LaunchedEffect(context) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            FleetCameraStartupScan.runIfNeeded(context.applicationContext)
+        }
+    }
     LaunchedEffect(adbAutomationVideoAv1, adbAutomationVideoCodecOrdinal) {
         if (adbAutomationVideoAv1 || adbAutomationVideoCodecOrdinal == VideoCodec.AV1.ordinal) {
             val c = chromePrefs.current
@@ -1311,6 +1352,14 @@ fun PreviewEngineScreen(
     LaunchedEffect(adbAutomationVideoAv1) {
         controller.adbAutomationVideoAv1 = adbAutomationVideoAv1
     }
+    LaunchedEffect(adbAutomationVideoCodecOrdinal) {
+        controller.adbAutomationVideoCodecOrdinal = adbAutomationVideoCodecOrdinal
+    }
+    LaunchedEffect(adbEyeAfOverlaySeed) {
+        val want = adbEyeAfOverlaySeed ?: return@LaunchedEffect
+        controller.setHudFaceOverlayEnabled(want)
+        PnsAdbLog.i(context, "preview seeded eyeAfOverlay=$want (adb)")
+    }
     LaunchedEffect(
         selectedFps,
         primaryPhoto,
@@ -1323,11 +1372,20 @@ fun PreviewEngineScreen(
         val wantsAv1 =
             adbAutomationVideoAv1 ||
                 chromePrefs.current.inAppVideoCodecOrdinal == VideoCodec.AV1.ordinal
+        val wantsHevcSdrMc =
+            chromePrefs.current.inAppVideoCodecOrdinal == VideoCodec.H265.ordinal ||
+                adbAutomationVideoCodecOrdinal == VideoCodec.H265.ordinal
         val automationHfrFps = adbAutomationVideoFps?.takeIf { it >= 120 } ?: 0
         val mcHintFps = maxOf(selectedFps, automationHfrFps)
         val wantsMc =
             !primaryPhoto &&
-                (mcHintFps >= 120 || adbAutomationVideoTenBit || adbAutomationVideoDcg || wantsAv1)
+                (
+                    mcHintFps >= 120 ||
+                        adbAutomationVideoTenBit ||
+                        adbAutomationVideoDcg ||
+                        wantsAv1 ||
+                        wantsHevcSdrMc
+                    )
         controller.hintInAppVideoMediaCodecPath(wantsMc)
     }
     LaunchedEffect(adbAutomationVideoEncodeW, adbAutomationVideoEncodeH) {
@@ -1697,6 +1755,21 @@ fun PreviewEngineScreen(
         focalSlotProbeConsumed = true
     }
 
+    // Sprint **15.10** ADB proof: lock shutter so ISO chase emits `readoutChase iso=...` logs.
+    var readoutShutterProbeConsumed by remember(adbReadoutShutterNsProbe) { mutableStateOf(false) }
+    LaunchedEffect(
+        controller,
+        adbReadoutShutterNsProbe,
+        readoutShutterProbeConsumed,
+    ) {
+        val shutterNs = adbReadoutShutterNsProbe ?: return@LaunchedEffect
+        if (readoutShutterProbeConsumed) return@LaunchedEffect
+        controller.setReadoutManualShutter(shutterNs)
+        controller.adbReadoutChaseProof = true
+        readoutShutterProbeConsumed = true
+        PnsAdbLog.i(context, "preview seeded readoutShutterNs=$shutterNs (adb)")
+    }
+
     // Keep [PreviewController] session outputs aligned with IMG tiers before any shutter tap (LaunchedEffect
     // alone races tray capture → missing JPEG surface → generic save failure).
     SideEffect {
@@ -1873,6 +1946,7 @@ fun PreviewEngineScreen(
                 )
             }
         }
+        PnsMediaSessionManager.onRemoteShutter = { scheduleTrayStillCapture() }
         runTrayStillBurstImpl = {
             val hud = hudState.current
             val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
@@ -2252,6 +2326,7 @@ fun PreviewEngineScreen(
             controller.applyInAppVideoRecordingShell(
                 wantRecord = false,
                 profile = imagingProfile,
+                wantHighSpeed = selectedFps >= VideoRecordingController.HFR_THRESHOLD_FPS,
                 onUi = { ev ->
                     when (ev) {
                         InAppVideoRecordingUiEvent.StartFailed -> Unit
@@ -2307,6 +2382,7 @@ fun PreviewEngineScreen(
         controller.applyInAppVideoRecordingShell(
             wantRecord = true,
             profile = imagingProfile,
+            wantHighSpeed = selectedFps >= VideoRecordingController.HFR_THRESHOLD_FPS,
             onUi = { ev ->
                 when (ev) {
                     InAppVideoRecordingUiEvent.StartFailed -> {
@@ -2346,12 +2422,16 @@ fun PreviewEngineScreen(
         remember {
             (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
         }
+    val adbRawVideoAutomationConsumed = remember { AtomicBoolean(false) }
+    val adbInAppVideoAutomationConsumed = remember { AtomicBoolean(false) }
     LaunchedEffect(
         adbAutomationVideoRawSec,
         debuggableVideoAutomation,
     ) {
         val sec = adbAutomationVideoRawSec
         if (!debuggableVideoAutomation || sec <= 0) return@LaunchedEffect
+        if (!adbRawVideoAutomationConsumed.compareAndSet(false, true)) return@LaunchedEffect
+        try {
         primaryPhoto = false
         controller.adbForceRawVideoLane = true
         delay(50)
@@ -2401,6 +2481,9 @@ fun PreviewEngineScreen(
             )
         }
         PnsAdbLog.i(context, "finished RAW video automation recordSec=$sec")
+        } finally {
+            hostActivity?.intent?.stripPreviewVideoAutomationExtras()
+        }
     }
 
     LaunchedEffect(
@@ -2409,15 +2492,30 @@ fun PreviewEngineScreen(
     ) {
         val sec = adbAutomationInAppVideoSec
         if (!debuggableVideoAutomation || sec <= 0 || adbAutomationVideoRawSec > 0) return@LaunchedEffect
+        if (!adbInAppVideoAutomationConsumed.compareAndSet(false, true)) return@LaunchedEffect
+        try {
         primaryPhoto = false
         delay(50)
-        PnsAdbLog.i(context, "start in-app video automation recordSec=$sec profile=${imagingProfileState.value.id}")
+        val dualAutomation =
+            adbInitialDial == CommandDialMode.Dual
+        if (dualAutomation) {
+            selectedFps = DualVideoRecordingController.V1_TARGET_FPS
+            selectedCameraIdState.value?.let { controller.setDesired(it, selectedFps) }
+        }
+        PnsAdbLog.i(
+            context,
+            "start in-app video automation recordSec=$sec profile=${imagingProfileState.value.id} dual=$dualAutomation",
+        )
         var hwWait = 0
         while (!controller.previewCameraHandlerReady() && hwWait < 300) {
             delay(50)
             hwWait++
         }
-        delay(2500)
+        if (dualAutomation) {
+            delay(1500)
+        } else {
+            delay(2500)
+        }
         adbAutomationVideoFps?.takeIf { it >= 120 }?.let { targetFps ->
             selectedFps = targetFps.coerceIn(15, 480)
             controller.setDesired(selectedCameraIdState.value, targetFps)
@@ -2439,8 +2537,12 @@ fun PreviewEngineScreen(
             pumpWait++
         }
         isRecording = true
+        if (dualAutomation) {
+            controller.ensureDualFrontOpenForRecord()
+        }
         val prepCap =
             when {
+                dualAutomation -> 2400
                 adbAutomationVideoFps != null && adbAutomationVideoFps >= 480 -> 4800
                 adbAutomationVideoFps != null && adbAutomationVideoFps >= 240 -> 2800
                 adbAutomationVideoFps != null && adbAutomationVideoFps >= 120 -> 2800
@@ -2452,16 +2554,53 @@ fun PreviewEngineScreen(
                 !controller.peekInAppVideoShellStartFailureHold() &&
                 prepWait < prepCap
         ) {
+            if (
+                dualAutomation &&
+                    controller.peekInAppVideoRecorderPresent() &&
+                    !controller.peekInAppVideoRecorderStarted() &&
+                    prepWait >= 40
+            ) {
+                controller.maybeStartInAppVideoRecorder()
+            }
             delay(25)
             prepWait++
         }
         if (controller.peekInAppVideoShellStartFailureHold() || !controller.peekInAppVideoAutomationRecordReady()) {
             PnsAdbLog.i(
                 context,
-                "inAppVideoAutomation recorderMissingOrFailed prepWaitMs=${prepWait * 25} hold=${controller.peekInAppVideoShellStartFailureHold()}",
+                "inAppVideoAutomation recorderMissingOrFailed prepWaitMs=${prepWait * 25} hold=${controller.peekInAppVideoShellStartFailureHold()} dual=$dualAutomation",
             )
             isRecording = false
             return@LaunchedEffect
+        }
+        if (dualAutomation) {
+            var frontWait = 0
+            while (!controller.peekDualFrontSessionReady() && frontWait < 400) {
+                delay(25)
+                frontWait++
+            }
+            PnsAdbLog.i(
+                context,
+                "inAppVideoAutomation dualFrontSettle ready=${controller.peekDualFrontSessionReady()} waitMs=${frontWait * 25}",
+            )
+            var dualWait = 0
+            while (!controller.peekDualGlRecordArmed() && dualWait < 400) {
+                delay(25)
+                dualWait++
+            }
+            if (!controller.peekDualGlRecordArmed() || !controller.peekDualEncoderSinkReady()) {
+                PnsAdbLog.i(
+                    context,
+                    "inAppVideoAutomation dualGlNotArmed frontReady=${controller.peekDualFrontSessionReady()} " +
+                        "sink=${controller.peekDualEncoderSinkReady()} dualWaitMs=${dualWait * 25}",
+                )
+                isRecording = false
+                return@LaunchedEffect
+            }
+            PnsAdbLog.i(
+                context,
+                "inAppVideoAutomation dualGlArmed ok dualWaitMs=${dualWait * 25} sinkReady=true",
+            )
         }
         delay(sec * 1000L)
         if (adbAutomationVideoFps != null && adbAutomationVideoFps >= 120) {
@@ -2473,6 +2612,9 @@ fun PreviewEngineScreen(
             "finished in-app video automation recordSec=$sec previewFps=${"%.1f".format(controller.peekPreviewSmoothedFps())} " +
                 "targetFps=${adbAutomationVideoFps ?: selectedFps}",
         )
+        } finally {
+            hostActivity?.intent?.stripPreviewVideoAutomationExtras()
+        }
     }
 
     var pendingEnableGeotag by remember { mutableStateOf(false) }
@@ -2923,6 +3065,10 @@ fun PreviewEngineScreen(
             userSelectedFps = it
             selectedFps = it
         },
+        onSelectCameraId = { id ->
+            selectedCameraId = id
+            focalCrop = null
+        },
         onStartSweep = {
             if (sweepJob != null) return@PreviewEngineContent
             sweepJob = CoroutineScope(Dispatchers.Main).launch {
@@ -3123,6 +3269,13 @@ fun PreviewEngineScreen(
             }
             controller.kickPreviewPipelineRestart()
         },
+        eyeOverlayCalibratorActive = eyeOverlayCalibratorActive,
+        faceOverlayCalibration = faceOverlayCalibration,
+        onFaceOverlayCalibrationChange = { next ->
+            faceOverlayCalibration = next
+            FaceOverlayCalibrationStore.save(appContext, next)
+        },
+        onEyeOverlayCalibratorDone = onEyeOverlayCalibratorDone,
     )
 
     // Bespoke Gallery Overlay
@@ -3209,6 +3362,7 @@ private fun PreviewEngineContent(
     onSwitchToFrontCamera: () -> Unit,
     onSwitchToRearCamera: () -> Unit,
     onSetFps: (Int) -> Unit,
+    onSelectCameraId: (String) -> Unit,
     onStartSweep: () -> Unit,
     onStopSweep: () -> Unit,
     focalCrop: FocalMode?,
@@ -3233,6 +3387,10 @@ private fun PreviewEngineContent(
     themeMode: PnsThemeMode = PnsThemeMode.System,
     onThemeModeChange: (PnsThemeMode) -> Unit = {},
     onApplyWorkflowPreset: ((WorkflowPreset) -> Unit)? = null,
+    eyeOverlayCalibratorActive: Boolean = false,
+    faceOverlayCalibration: FaceOverlayCalibration = FaceOverlayCalibration.Default,
+    onFaceOverlayCalibrationChange: (FaceOverlayCalibration) -> Unit = {},
+    onEyeOverlayCalibratorDone: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val snackbarHostState = LocalPnsSnackbarHostState.current
@@ -3261,24 +3419,59 @@ private fun PreviewEngineContent(
             HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
         }
     }
-    LaunchedEffect(primaryPhoto, commandDialMode, selectedCameraId, cameraIds) {
-        val dual = !primaryPhoto && commandDialMode == CommandDialMode.Dual
-        controller.setDualVideoActive(dual)
-        if (dual) {
-            val rear = selectedCameraId
-            val front = Camera2Facing.frontCameraId(
-                context.getSystemService(Context.CAMERA_SERVICE) as CameraManager,
-                cameraIds,
-            )
-            DualVideoRecordingController.logStatus(
-                active = true,
-                rearId = rear,
-                frontId = front,
-            )
-            if (selectedFps > DualVideoRecordingController.V1_TARGET_FPS) {
-                onSetFps(DualVideoRecordingController.V1_TARGET_FPS)
-            }
+    // Clamp fps before arming dual — opening the front camera during a rear session rebuild
+    // (fps 120→30) leaves the rear band black on CPH2655-class devices.
+    LaunchedEffect(primaryPhoto, commandDialMode, selectedFps) {
+        if (!primaryPhoto && commandDialMode == CommandDialMode.Dual &&
+            selectedFps > DualVideoRecordingController.V1_TARGET_FPS
+        ) {
+            onSetFps(DualVideoRecordingController.V1_TARGET_FPS)
         }
+    }
+    LaunchedEffect(primaryPhoto, commandDialMode, selectedCameraId, cameraIds, selectedFps) {
+        val dual =
+            !primaryPhoto &&
+                commandDialMode == CommandDialMode.Dual &&
+                selectedFps <= DualVideoRecordingController.V1_TARGET_FPS
+        if (!dual) {
+            controller.setDualVideoActive(false)
+            // Dual concurrent routing opens logical **0**; HFR must record on leaf wide **2**.
+            if (selectedCameraId == dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_LOGICAL) {
+                val wide = dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_WIDE
+                if (wide in cameraIds) {
+                    Log.i(
+                        DualVideoRecordingController.TAG,
+                        "dual off — restore rear cameraId=$wide for preview/HFR",
+                    )
+                    onSelectCameraId(wide)
+                    controller.setPreviewSurfacePhysicalCameraId(null)
+                }
+            }
+            return@LaunchedEffect
+        }
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val front = Camera2Facing.frontCameraId(cm, cameraIds)
+        val resolved =
+            DualVideoHalConcurrency.resolveRearForDual(cm, selectedCameraId, front)
+        if (resolved.rearId != null && resolved.rearId != selectedCameraId) {
+            Log.i(
+                DualVideoRecordingController.TAG,
+                "dual rear reroute ${selectedCameraId} -> ${resolved.rearId} (HAL concurrent with front=$front)",
+            )
+            onSelectCameraId(resolved.rearId)
+            if (resolved.rearId == dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_LOGICAL) {
+                controller.setPreviewSurfacePhysicalCameraId(
+                    dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_WIDE,
+                )
+            }
+            return@LaunchedEffect
+        }
+        controller.setDualVideoActive(true)
+        DualVideoRecordingController.logStatus(
+            active = true,
+            rearId = selectedCameraId,
+            frontId = front,
+        )
     }
     LaunchedEffect(commandDialMode, selectedCameraId) {
         if (commandDialMode == CommandDialMode.M) {
@@ -3374,17 +3567,178 @@ private fun PreviewEngineContent(
         }
     }
 
-    val liveChartTarget = remember { BundledReferenceTargets.Generic24 }
-    var chartCorners by remember { mutableStateOf<List<Offset>>(emptyList()) }
-    LaunchedEffect(chrome.liveChartCornerOverlay) {
-        if (!chrome.liveChartCornerOverlay) chartCorners = emptyList()
-    }
     var centerViewSize by remember { mutableStateOf(IntSize.Zero) }
     /** TextureView / rotated inner box size in px (for buffer→eye-mark mapping; not the full letterboxed viewport). */
     var previewTilePx by remember { mutableStateOf(IntSize.Zero) }
-    /** Parent finder + inner GL box offset — matches [applyTapFocusFromView] viewport. */
-    var previewHudParentPx by remember { mutableStateOf(IntSize.Zero) }
-    var previewHudInnerOffsetPx by remember { mutableStateOf(IntOffset.Zero) }
+    val liveChartTarget = remember { BundledReferenceTargets.ColorCheckerClassic24 }
+    var chartCorners by remember { mutableStateOf<List<Offset>>(emptyList()) }
+    var chartAutoDetectBusy by remember { mutableStateOf(false) }
+    LaunchedEffect(chrome.liveChartCornerOverlay) {
+        if (!chrome.liveChartCornerOverlay) {
+            chartCorners = emptyList()
+            chartAutoDetectBusy = false
+        }
+    }
+    fun chartCornersFromDetector(
+        det: ChartQuadDetector.Result,
+        layoutW: Int,
+        layoutH: Int,
+    ): List<Offset> {
+        val scaled = ChartQuadDetector.scaleResultToSize(det, layoutW, layoutH)
+        return listOf(
+            Offset(scaled.tl.x, scaled.tl.y),
+            Offset(scaled.tr.x, scaled.tr.y),
+            Offset(scaled.br.x, scaled.br.y),
+            Offset(scaled.bl.x, scaled.bl.y),
+        )
+    }
+    fun runLiveChartAutoDetect() {
+        val gl = previewHostSlot.view
+        val lw = centerViewSize.width
+        val lh = centerViewSize.height
+        if (gl == null || lw <= 0 || lh <= 0) {
+            captureScope.pnsShowSnackbar(snackbarHostState, "Preview not ready for auto-detect.")
+            return
+        }
+        if (chartAutoDetectBusy) return
+        chartAutoDetectBusy = true
+        gl.requestRender()
+        captureScope.launch(Dispatchers.IO) {
+            try {
+                val bmp = controller.grabPreviewFrameBitmap(gl)
+                if (bmp == null) {
+                    withContext(Dispatchers.Main) {
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "Could not grab preview for auto-detect.",
+                        )
+                    }
+                    return@launch
+                }
+                val det = ChartQuadDetector.detectFromBitmap(bmp)
+                bmp.recycle()
+                withContext(Dispatchers.Main) {
+                    if (det == null) {
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "No chart quad found — tap corners or reframe.",
+                        )
+                    } else {
+                        chartCorners = chartCornersFromDetector(det, lw, lh)
+                        PnsAdbLog.i(
+                            context,
+                            "liveChartAutoDetect conf=${"%.2f".format(det.confidence)} corners=4",
+                        )
+                    }
+                }
+            } finally {
+                withContext(Dispatchers.Main) { chartAutoDetectBusy = false }
+            }
+        }
+    }
+    fun applyLiveChartCalibration() {
+        if (chartCorners.size < 4) return
+        val gl = previewHostSlot.view
+        val lw = centerViewSize.width
+        val lh = centerViewSize.height
+        if (gl == null || lw <= 0 || lh <= 0) {
+            captureScope.pnsShowSnackbar(snackbarHostState, "Preview not ready.")
+            return
+        }
+        gl.requestRender()
+        captureScope.launch(Dispatchers.IO) {
+            val bmp = controller.grabPreviewFrameBitmap(gl)
+            if (bmp == null) {
+                withContext(Dispatchers.Main) {
+                    captureScope.pnsShowSnackbar(snackbarHostState, "Could not grab preview frame.")
+                }
+                return@launch
+            }
+            val planeCorners =
+                CalibrationWorkflow.chartCornersForPlane(
+                    corners = chartCorners,
+                    layoutWidth = lw,
+                    layoutHeight = lh,
+                    planeWidth = bmp.width,
+                    planeHeight = bmp.height,
+                )
+            val result =
+                runCatching {
+                    CalibrationWorkflow.computeFromBitmap(
+                        bitmap = bmp,
+                        target = liveChartTarget,
+                        corners = planeCorners,
+                        cameraId = selectedCameraId ?: "preview",
+                    )
+                }
+            bmp.recycle()
+            withContext(Dispatchers.Main) {
+                result.fold(
+                    onSuccess = { computed ->
+                        val saved =
+                            CalibrationProfileStorage.save(context, computed.profile)
+                        hudState.update(
+                            CalibrationWorkflow.hudNaturalDefaults(hudState.current),
+                        )
+                        controller.applyChartCalibrationProfile(
+                            computed.profile,
+                            computed.exposureStops,
+                        )
+                        CalibrationWorkflow.logPostApplyParity(context, computed.profile)
+                        val pathNote = saved?.name?.let { " ($it)" } ?: ""
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "Chart calibration applied$pathNote",
+                        )
+                    },
+                    onFailure = { ex ->
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "Apply failed: ${ex.message}",
+                        )
+                    },
+                )
+            }
+        }
+    }
+    LaunchedEffect(chrome.liveChartCornerOverlay, chartCorners.size, centerViewSize) {
+        if (!chrome.liveChartCornerOverlay) return@LaunchedEffect
+        if (chartCorners.size >= 4) return@LaunchedEffect
+        while (chrome.liveChartCornerOverlay && chartCorners.size < 4) {
+            delay(1800)
+            if (!chrome.liveChartCornerOverlay || chartCorners.size >= 4 || chartAutoDetectBusy) {
+                continue
+            }
+            val gl = previewHostSlot.view ?: continue
+            if (centerViewSize.width <= 0 || centerViewSize.height <= 0) continue
+            chartAutoDetectBusy = true
+            try {
+                gl.requestRender()
+                withContext(Dispatchers.IO) {
+                    val bmp = controller.grabPreviewFrameBitmap(gl) ?: return@withContext
+                    val det = ChartQuadDetector.detectFromBitmap(bmp)
+                    bmp.recycle()
+                    if (det != null) {
+                        chartCorners =
+                            chartCornersFromDetector(
+                                det,
+                                centerViewSize.width,
+                                centerViewSize.height,
+                            )
+                        PnsAdbLog.i(
+                            context,
+                            "liveChartAutoDetect debounced conf=${"%.2f".format(det.confidence)}",
+                        )
+                    }
+                }
+            } finally {
+                chartAutoDetectBusy = false
+            }
+        }
+    }
+    /** Measured preview content host (GL + overlays); same size as [LutCameraPreviewRenderer.setGeometry]. */
+    var previewContentPx by remember { mutableStateOf(IntSize.Zero) }
+    var previewFinderPx by remember { mutableStateOf(IntSize.Zero) }
     val focusRequester = remember { FocusRequester() }
     var lastStillPostReadout by remember { mutableStateOf<StillPostReadoutSnapshot?>(null) }
     DisposableEffect(controller) {
@@ -3401,9 +3755,6 @@ private fun PreviewEngineContent(
     // maybeRestart could observe a stale dial on the controller — SideEffect aligns first.
     SideEffect {
         controller.setCommandDialMode(commandDialMode)
-    }
-    SideEffect {
-        controller.setPreviewTextureCoverCrop(chrome.previewTextureCoverCrop)
     }
     SideEffect {
         controller.setPreviewFlashMode(chrome.previewFlashMode)
@@ -3426,6 +3777,7 @@ private fun PreviewEngineContent(
         if (PreviewTrayVideoChrome.showVideoFormatFab(primaryPhoto)) {
             Log.i("PNS.ChromeUx", "trayVideoFormatFab=visible anchor=galleryThumb")
         }
+        // Preview chrome always uses shrink-to-fit unless the user enables cover-crop in dev settings.
     }
     var showVideoFormatPicker by remember { mutableStateOf(false) }
     val supportsInAppVideoDcg =
@@ -3712,60 +4064,77 @@ private fun PreviewEngineContent(
         remember(selectedCameraId) {
             controller.readoutMenuSnapshot()
         }
+    val readoutAeCoupling =
+        remember(previewReadoutIso, previewReadoutExposureNs, selectedCameraId) {
+            controller.readoutAeCoupling()
+        }
+    LaunchedEffect(primaryPhoto, selectedFps, settings.videoShutterAngle) {
+        if (!primaryPhoto) {
+            controller.applyVideoShutterAnglePreset(settings.videoShutterAngleEnum(), selectedFps)
+        }
+    }
 
-    val previewMirrorForOverlays = controller.previewMirrorHorizontally()
+    LaunchedEffect(
+        previewContentPx,
+        previewFinderPx,
+        previewBufferSize,
+        sensorOrientationDeg,
+    ) {
+        val raw = previewBufferSize
+        val disp =
+            raw?.let {
+                val (dw, dh) = previewBufferDimensionsForDisplay(it.width, it.height, sensorOrientationDeg)
+                IntSize(dw, dh)
+            }
+        FaceHudOverlayMapping.logViewportDiagOnce(
+            finderPx = previewFinderPx,
+            contentPx = previewContentPx,
+            bufferSize = disp,
+            coverCrop = PREVIEW_FINDER_CONTAIN,
+        )
+    }
+    val hudStScratch = remember { FloatArray(16) }
+    val hudStReady =
+        controller.lutPreviewRendererForDual?.readSurfaceTransformMatrix(hudStScratch) == true
     val eyeMarksView =
         remember(
             eyeMarksBuffer,
-            previewTilePx,
-            previewHudParentPx,
-            previewHudInnerOffsetPx,
+            previewContentPx,
             previewBufferSize,
-            chrome.previewTextureCoverCrop,
-            previewMirrorForOverlays,
+            sensorOrientationDeg,
+            faceOverlayCalibration,
+            hudStReady,
         ) {
             val buf = previewBufferSize
-            val vwGl = previewTilePx.width
-            val vhGl = previewTilePx.height
-            val vwParent = previewHudParentPx.width
-            val vhParent = previewHudParentPx.height
-            val ox = previewHudInnerOffsetPx.x.toFloat()
-            val oy = previewHudInnerOffsetPx.y.toFloat()
-            if (buf == null || vwGl <= 0 || vhGl <= 0) {
+            val contentW = previewContentPx.width
+            val contentH = previewContentPx.height
+            val tileCenterX = contentW / 2f
+            val tileCenterY = contentH / 2f
+            if (buf == null || contentW <= 0 || contentH <= 0) {
                 emptyList()
             } else {
-                val useParent = vwParent > 0 && vhParent > 0
                 eyeMarksBuffer.map { m ->
-                    val (vx, vy) =
-                        if (useParent) {
-                            val (vxP, vyP) =
-                                TexturePreviewFit.mapBufferToView(
-                                    m.position.x,
-                                    m.position.y,
-                                    vwParent,
-                                    vhParent,
-                                    buf.width,
-                                    buf.height,
-                                    coverCrop = chrome.previewTextureCoverCrop,
-                                )
-                            (vxP - ox) to (vyP - oy)
-                        } else {
-                            TexturePreviewFit.mapBufferToView(
-                                m.position.x,
-                                m.position.y,
-                                vwGl,
-                                vhGl,
-                                buf.width,
-                                buf.height,
-                                coverCrop = chrome.previewTextureCoverCrop,
-                            )
-                        }
-                    val xOut = if (previewMirrorForOverlays) vwGl.toFloat() - vx else vx
-                    EyeMark(
-                        Offset(xOut, vy),
-                        m.confidence,
-                        m.trackingLocked,
-                        m.referenceTrack,
+                    val (xOut, vy) =
+                        FaceHudOverlayMapping.mapBufferPointToTile(
+                            bufferX = m.position.x,
+                            bufferY = m.position.y,
+                            tileW = contentW,
+                            tileH = contentH,
+                            bufferW = buf.width,
+                            bufferH = buf.height,
+                            coverCrop = PREVIEW_FINDER_CONTAIN,
+                            surfaceTransformColumnMajor4x4 = if (hudStReady) hudStScratch else null,
+                        )
+                    FaceOverlayCalibration.applyViewMark(
+                        EyeMark(
+                            Offset(xOut, vy),
+                            m.confidence,
+                            m.trackingLocked,
+                            m.referenceTrack,
+                        ),
+                        faceOverlayCalibration,
+                        tileCenterX,
+                        tileCenterY,
                     )
                 }
             }
@@ -3774,87 +4143,68 @@ private fun PreviewEngineContent(
     val faceTrackBoxesView =
         remember(
             faceTrackBoxesBuffer,
-            previewTilePx,
-            previewHudParentPx,
-            previewHudInnerOffsetPx,
+            previewContentPx,
             previewBufferSize,
-            chrome.previewTextureCoverCrop,
-            previewMirrorForOverlays,
+            sensorOrientationDeg,
+            faceOverlayCalibration,
+            hudStReady,
         ) {
             val buf = previewBufferSize
-            val vwGl = previewTilePx.width
-            val vhGl = previewTilePx.height
-            val vwParent = previewHudParentPx.width
-            val vhParent = previewHudParentPx.height
-            val ox = previewHudInnerOffsetPx.x.toFloat()
-            val oy = previewHudInnerOffsetPx.y.toFloat()
-            if (buf == null || vwGl <= 0 || vhGl <= 0) {
+            val contentW = previewContentPx.width
+            val contentH = previewContentPx.height
+            val tileCenterX = contentW / 2f
+            val tileCenterY = contentH / 2f
+            if (buf == null || contentW <= 0 || contentH <= 0) {
                 emptyList()
             } else {
-                val useParent = vwParent > 0 && vhParent > 0
                 faceTrackBoxesBuffer.mapNotNull { box ->
-                    val (vx0, vy0) =
-                        if (useParent) {
-                            val p =
-                                TexturePreviewFit.mapBufferToView(
-                                    box.left,
-                                    box.top,
-                                    vwParent,
-                                    vhParent,
-                                    buf.width,
-                                    buf.height,
-                                    coverCrop = chrome.previewTextureCoverCrop,
-                                )
-                            (p.first - ox) to (p.second - oy)
-                        } else {
-                            TexturePreviewFit.mapBufferToView(
-                                box.left,
-                                box.top,
-                                vwGl,
-                                vhGl,
-                                buf.width,
-                                buf.height,
-                                coverCrop = chrome.previewTextureCoverCrop,
-                            )
-                        }
-                    val (vx1, vy1) =
-                        if (useParent) {
-                            val p =
-                                TexturePreviewFit.mapBufferToView(
-                                    box.right,
-                                    box.bottom,
-                                    vwParent,
-                                    vhParent,
-                                    buf.width,
-                                    buf.height,
-                                    coverCrop = chrome.previewTextureCoverCrop,
-                                )
-                            (p.first - ox) to (p.second - oy)
-                        } else {
-                            TexturePreviewFit.mapBufferToView(
-                                box.right,
-                                box.bottom,
-                                vwGl,
-                                vhGl,
-                                buf.width,
-                                buf.height,
-                                coverCrop = chrome.previewTextureCoverCrop,
-                            )
-                        }
-                    val l0 = kotlin.math.min(vx0, vx1)
-                    val t0 = kotlin.math.min(vy0, vy1)
-                    val r0 = kotlin.math.max(vx0, vx1)
-                    val b0 = kotlin.math.max(vy0, vy1)
-                    val l = if (previewMirrorForOverlays) vwGl - r0 else l0
-                    val r = if (previewMirrorForOverlays) vwGl - l0 else r0
-                    val t = t0
-                    val b = b0
-                    if (r - l < 4f || b - t < 4f) return@mapNotNull null
+                    val stForHud = if (hudStReady) hudStScratch else null
+                    val (l0, t0) =
+                        FaceHudOverlayMapping.mapBufferPointToTile(
+                            bufferX = box.left,
+                            bufferY = box.top,
+                            tileW = contentW,
+                            tileH = contentH,
+                            bufferW = buf.width,
+                            bufferH = buf.height,
+                            coverCrop = PREVIEW_FINDER_CONTAIN,
+                            surfaceTransformColumnMajor4x4 = stForHud,
+                        )
+                    val (r0, b0) =
+                        FaceHudOverlayMapping.mapBufferPointToTile(
+                            bufferX = box.right,
+                            bufferY = box.bottom,
+                            tileW = contentW,
+                            tileH = contentH,
+                            bufferW = buf.width,
+                            bufferH = buf.height,
+                            coverCrop = PREVIEW_FINDER_CONTAIN,
+                            surfaceTransformColumnMajor4x4 = stForHud,
+                        )
+                    val left = kotlin.math.min(l0, r0)
+                    val right = kotlin.math.max(l0, r0)
+                    val top = kotlin.math.min(t0, b0)
+                    val bottom = kotlin.math.max(t0, b0)
+                    if (right - left < 4f || bottom - top < 4f) return@mapNotNull null
+                    val pLt =
+                        FaceOverlayCalibration.applyViewPoint(left, top, faceOverlayCalibration, tileCenterX, tileCenterY)
+                    val pRb =
+                        FaceOverlayCalibration.applyViewPoint(
+                            right,
+                            bottom,
+                            faceOverlayCalibration,
+                            tileCenterX,
+                            tileCenterY,
+                        )
                     FaceTrackBoxView(
                         rect =
                             androidx.compose.ui.geometry.Rect(
-                                offset = Offset(l, t),
-                                size = androidx.compose.ui.geometry.Size(r - l, b - t),
+                                offset = Offset(kotlin.math.min(pLt.x, pRb.x), kotlin.math.min(pLt.y, pRb.y)),
+                                size =
+                                    androidx.compose.ui.geometry.Size(
+                                        kotlin.math.abs(pRb.x - pLt.x),
+                                        kotlin.math.abs(pRb.y - pLt.y),
+                                    ),
                             ),
                         trackingLocked = box.trackingLocked,
                     )
@@ -3993,6 +4343,10 @@ private fun PreviewEngineContent(
                 remember(selectedCameraId) {
                     isPreviewFrontCameraActive(cameraManager, selectedCameraId)
                 }
+            val dualVideoSelfieRing =
+                !primaryPhoto &&
+                    commandDialMode == CommandDialMode.Dual &&
+                    selectedFps <= DualVideoRecordingController.V1_TARGET_FPS
             Box(
                 modifier =
                     Modifier
@@ -4011,7 +4365,7 @@ private fun PreviewEngineContent(
                     modifier = Modifier.fillMaxSize(),
                 )
                 PreviewSelfieRingIndicator(
-                    visible = frontCameraActive,
+                    visible = frontCameraActive || dualVideoSelfieRing,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -4063,9 +4417,9 @@ private fun PreviewEngineContent(
                             centerViewSize = centerViewSize,
                             onCenterViewSize = { centerViewSize = it },
                             onPreviewTilePx = { previewTilePx = it },
-                            onPreviewHudViewport = { sz, off ->
-                                previewHudParentPx = sz
-                                previewHudInnerOffsetPx = off
+                            onPreviewContentSized = { finder, content ->
+                                previewFinderPx = finder
+                                previewContentPx = content
                             },
                             previewHostSlot = previewHostSlot,
                             controller = controller,
@@ -4078,7 +4432,6 @@ private fun PreviewEngineContent(
                             eyeMarks = eyeMarksView,
                             faceTrackBoxes = faceTrackBoxesView,
                             focusRequester = focusRequester,
-                            previewTextureCoverCrop = chrome.previewTextureCoverCrop,
                             tapPreviewToCapture = effectiveTapPreviewToCapture,
                             manualFocusRackEnabled = manualFocusUi.rackActive,
                             manualFocusRackDiopters = manualFocusUi.rackDiopters,
@@ -4091,6 +4444,7 @@ private fun PreviewEngineContent(
                             liveChartRows = liveChartTarget.rows,
                             liveChartCols = liveChartTarget.cols,
                             sensorOrientationDeg = sensorOrientationDeg,
+                            staticPreviewRotationDeg = chrome.staticPreviewRotationDeg,
                             previewHistogramBins = previewHistogramBins,
                             highlightClipZebraFrame = highlightClipZebraFrame,
                             previewMirrorHorizontally = controller.previewMirrorHorizontally(),
@@ -4112,7 +4466,24 @@ private fun PreviewEngineContent(
                             rawVideoLane =
                                 settings.videoEncodeLane == VideoEncodeLane.Raw ||
                                     adbAutomationVideoRawSec > 0,
+                            eyeOverlayCalibratorActive = eyeOverlayCalibratorActive,
+                            eyeOverlayMarkerSizeScale = faceOverlayCalibration.markerSizeScale,
                         )
+                        if (eyeOverlayCalibratorActive) {
+                            FaceOverlayCalibratorPanel(
+                                calibration = faceOverlayCalibration,
+                                onCalibrationChange = onFaceOverlayCalibrationChange,
+                                onDone = onEyeOverlayCalibratorDone,
+                                onReset = {
+                                    onFaceOverlayCalibrationChange(FaceOverlayCalibration.Default)
+                                },
+                                modifier =
+                                    Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(8.dp)
+                                        .fillMaxWidth(0.62f),
+                            )
+                        }
                         if (commandDialMode == CommandDialMode.Qr) {
                             PreviewQrScanOverlay(
                                 decodedText = qrDecodedText,
@@ -4158,6 +4529,21 @@ private fun PreviewEngineContent(
                                 )
                             }
                         }
+                        if (chrome.liveChartCornerOverlay) {
+                            ChartCalibrationApplyOverlay(
+                                modifier = Modifier.fillMaxSize(),
+                                overlayEnabled = true,
+                                cornerCount = chartCorners.size,
+                                onApply = { applyLiveChartCalibration() },
+                                onAutoDetectCorners = { runLiveChartAutoDetect() },
+                                onExitCalibration = {
+                                    chromePrefs.updateMutate {
+                                        it.copy(liveChartCornerOverlay = false)
+                                    }
+                                    chartCorners = emptyList()
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -4171,6 +4557,9 @@ private fun PreviewEngineContent(
                 sessionJpegCompanionReady = previewJpegCompanion,
                 composedStillIntent = composedStillIntent,
                 menu = readoutMenuSnapshot,
+                readoutAeCoupling = readoutAeCoupling,
+                videoShutterAngleLabel =
+                    if (!primaryPhoto) settings.videoShutterAngleEnum().chipLabel() else null,
                 fpsOptions = fpsOptions,
                 fpsTargetEditable = fpsTargetEditable,
                 videoResSelectorVisible = fpsTargetEditable,
@@ -4178,6 +4567,7 @@ private fun PreviewEngineContent(
                 videoEncodeShortLabel = videoEncodeShortLabel,
                 onPickVideoEncodeSize = onPickVideoEncodeSize,
                 onPickIso = { iso -> controller.setReadoutManualIso(iso) },
+                onPickIsoBand = { band -> controller.setReadoutIsoBand(band) },
                 onPickShutter = { ns -> controller.setReadoutManualShutter(ns) },
                 onPickAwb = { mode -> controller.setReadoutManualAwbMode(mode) },
                 onPickFps = onSetFps,
@@ -4408,6 +4798,18 @@ private fun PreviewEngineContent(
                     initialChartBitmap = calibratePendingInitialBitmap,
                     onInitialChartBitmapConsumed = { calibratePendingInitialBitmap = null },
                     onBack = { calibrateOverlayActive = false },
+                    cameraIdForProfile = selectedCameraId ?: "preview",
+                    onProfileSaved = { profile, exposureStops ->
+                        hudState.update(
+                            CalibrationWorkflow.hudNaturalDefaults(hudState.current),
+                        )
+                        controller.applyChartCalibrationProfile(profile, exposureStops)
+                        CalibrationWorkflow.logPostApplyParity(context, profile)
+                        captureScope.pnsShowSnackbar(
+                            snackbarHostState,
+                            "Calibration profile saved and applied",
+                        )
+                    },
                 )
             }
         }
@@ -4462,7 +4864,7 @@ private fun PreviewMainViewport(
     centerViewSize: IntSize,
     onCenterViewSize: (IntSize) -> Unit,
     onPreviewTilePx: (IntSize) -> Unit,
-    onPreviewHudViewport: (IntSize, IntOffset) -> Unit,
+    onPreviewContentSized: (finderPx: IntSize, contentPx: IntSize) -> Unit,
     previewHostSlot: PreviewHostSlot,
     controller: PreviewController,
     uiRotationDeg: Float,
@@ -4474,8 +4876,6 @@ private fun PreviewMainViewport(
     eyeMarks: List<EyeMark>,
     faceTrackBoxes: List<FaceTrackBoxView>,
     focusRequester: FocusRequester,
-    /** When true, preview uses center-crop (fill); when false, center-contain (matches still JPEG framing). */
-    previewTextureCoverCrop: Boolean,
     tapPreviewToCapture: Boolean,
     liveChartCornerOverlay: Boolean,
     chartCorners: List<Offset>,
@@ -4483,6 +4883,8 @@ private fun PreviewMainViewport(
     liveChartRows: Int,
     liveChartCols: Int,
     sensorOrientationDeg: Int?,
+    /** [PreviewChromePreferences.staticPreviewRotationDeg] — user Spin (preview). */
+    staticPreviewRotationDeg: Int,
     /** Latest luma histogram for overlay (null when disabled or not yet sampled). */
     previewHistogramBins: IntArray?,
     highlightClipZebraFrame: HighlightClipZebraFrame?,
@@ -4510,6 +4912,8 @@ private fun PreviewMainViewport(
     adbAutomationVideoTenBit: Boolean = false,
     adbAutomationVideoRawSec: Int = 0,
     rawVideoLane: Boolean = false,
+    eyeOverlayCalibratorActive: Boolean = false,
+    eyeOverlayMarkerSizeScale: Float = 1f,
 ) {
     // The OUTER box is the full-width finder above the chrome grid (no side rails).
     //
@@ -4522,11 +4926,9 @@ private fun PreviewMainViewport(
     //     being known we'd deadlock (camera starts only after surface, surface arrives only
     //     after TextureView, buffer-size signal only after camera starts).
     //
-    //   * Distortion handling: once `previewBufferSize` is known, the inner content box uses
-    //     **cover** sizing (same aspect as the buffer, minimum size that fills the viewport).
-    //     Parent clips overflow so left/right pillarbars disappear; top/bottom may crop. The
-    //     TextureView fills that box — center-fit transform stays uniform scale (no stretch).
-    //     While `previewBufferSize` is unknown, the TextureView fills the parent.
+    //   * Aspect handling: once `previewBufferSize` is known, the inner GLES box uses portrait
+    //     display aspect and **contain** sizing (full stream visible, letterboxed in the finder).
+    //     While `previewBufferSize` is unknown, the GLES view fills the parent.
     //
     //   * Fixed default buffer orientation: [effectivePreviewStaticRotationDeg] with stored
     //     nominal **90°** maps to **0°** effective rotation (see [PreviewLayoutOrientation]).
@@ -4555,7 +4957,7 @@ private fun PreviewMainViewport(
         val context = LocalContext.current
         val mainHandler = remember { Handler(Looper.getMainLooper()) }
         val reportPreviewTilePx = rememberUpdatedState(onPreviewTilePx)
-        val reportPreviewHud = rememberUpdatedState(onPreviewHudViewport)
+        val reportPreviewContentSized = rememberUpdatedState(onPreviewContentSized)
         val hudForPeakingUniforms = rememberUpdatedState(hudState.current)
         val forcePeakingForManualVideo = remember { mutableStateOf(false) }
         SideEffect {
@@ -4593,8 +4995,18 @@ private fun PreviewMainViewport(
             controller.glSurfaceHostForDual = glSurfaceHost
             controller.lutPreviewRendererForDual = lutPreviewRenderer
         }
-        LaunchedEffect(commandDialMode, videoPrimaryPreview, glSurfaceHost, lutPreviewRenderer) {
-            val dual = videoPrimaryPreview && commandDialMode == CommandDialMode.Dual
+        LaunchedEffect(
+            commandDialMode,
+            videoPrimaryPreview,
+            selectedFps,
+            isRecording,
+            glSurfaceHost,
+            lutPreviewRenderer,
+        ) {
+            val dual =
+                videoPrimaryPreview &&
+                    commandDialMode == CommandDialMode.Dual &&
+                    selectedFps <= DualVideoRecordingController.V1_TARGET_FPS
             val host = glSurfaceHost ?: return@LaunchedEffect
             host.queueEvent {
                 lutPreviewRenderer.setDualSplitEnabled(dual) { fst, w, h ->
@@ -4605,13 +5017,23 @@ private fun PreviewMainViewport(
                 host.queueEvent {
                     lutPreviewRenderer.setEncoderCompositeSink(null, record = false)
                 }
-                controller.closeDualFrontCamera()
+                if (commandDialMode != CommandDialMode.Dual) {
+                    controller.closeDualFrontCamera()
+                }
             }
         }
-        LaunchedEffect(isRecording, commandDialMode, videoPrimaryPreview, glSurfaceHost, lutPreviewRenderer) {
-            val dual = videoPrimaryPreview && commandDialMode == CommandDialMode.Dual
+        LaunchedEffect(isRecording, commandDialMode, videoPrimaryPreview, selectedFps, glSurfaceHost, lutPreviewRenderer) {
+            val dual =
+                videoPrimaryPreview &&
+                    commandDialMode == CommandDialMode.Dual &&
+                    selectedFps <= DualVideoRecordingController.V1_TARGET_FPS
             val host = glSurfaceHost ?: return@LaunchedEffect
+            if (dual && isRecording) {
+                controller.ensureDualFrontOpenForRecord()
+                controller.maybeArmDualStackedPreview()
+            }
             if (!isRecording || !dual) {
+                controller.markDualGlRecordArmed(false)
                 host.queueEvent {
                     lutPreviewRenderer.setEncoderCompositeSink(controller.dualVideoEncoderSink, false)
                 }
@@ -4620,26 +5042,51 @@ private fun PreviewMainViewport(
             var wait = 0
             while (
                 (!controller.peekDualFrontSessionReady() ||
-                    !controller.peekInAppVideoRecorderStarted() ||
+                    (!controller.peekInAppVideoRecorderStarted() &&
+                        !controller.peekInAppVideoMcEncoderRecording()) ||
                     controller.getInAppVideoRecordingSurface() == null) &&
-                    wait < 120
+                    wait < 240
             ) {
+                if (
+                    controller.peekInAppVideoRecorderPresent() &&
+                        !controller.peekInAppVideoRecorderStarted() &&
+                        !controller.peekInAppVideoMcEncoderRecording() &&
+                        wait >= 4
+                ) {
+                    controller.maybeStartInAppVideoRecorder()
+                }
                 delay(50)
                 wait++
             }
             val size = DualVideoRecordingController.compositeRecordSize()
-            controller.bindDualEncoderSurface(size.width, size.height)
-            delay(200)
+            var bindWait = 0
+            while (
+                controller.getInAppVideoRecordingSurface() == null &&
+                    bindWait < 80
+            ) {
+                delay(50)
+                bindWait++
+            }
+            var bindAttempts = 0
+            while (!controller.peekDualEncoderSinkReady() && bindAttempts < 20) {
+                controller.bindDualEncoderSurface(size.width, size.height)
+                delay(100)
+                bindAttempts++
+            }
             host.queueEvent {
                 lutPreviewRenderer.setEncoderCompositeSink(
                     controller.dualVideoEncoderSink,
                     record = true,
                 )
             }
+            host.requestRender()
+            val armed = controller.peekDualEncoderSinkReady()
+            controller.markDualGlRecordArmed(armed)
             Log.i(
                 DualVideoRecordingController.TAG,
                 "dualGlRecordArmed frontReady=${controller.peekDualFrontSessionReady()} " +
-                    "recorder=${controller.peekInAppVideoRecorderStarted()} waitMs=${wait * 50}",
+                    "recorder=${controller.peekInAppVideoRecorderStarted()} " +
+                    "mcRec=${controller.peekInAppVideoMcEncoderRecording()} waitMs=${wait * 50}",
             )
         }
         val hudForPreviewLut = rememberUpdatedState(hudState.current)
@@ -4744,26 +5191,32 @@ private fun PreviewMainViewport(
 
         val parentW = constraints.maxWidth
         val parentH = constraints.maxHeight
-        val buf = previewBufferSize
+        // Negotiated stream size from the controller first — Compose poll can lag and still hold
+        // a stale view-sized Size from an early GLES layout callback.
+        val buf = controller.previewBufferSize() ?: previewBufferSize
         val bufW = buf?.width ?: 0
         val bufH = buf?.height ?: 0
         val knownBuf = bufW > 0 && bufH > 0 && parentW > 0 && parentH > 0
-        val rotationAppliedDeg = effectivePreviewStaticRotationDeg(90, false)
+        val rotationAppliedDeg = effectivePreviewStaticRotationDeg(staticPreviewRotationDeg, false)
         val isQuarterTurn = rotationAppliedDeg == 90 || rotationAppliedDeg == 270
 
-        // Axis-aligned footprint in parent coords after static rotation (matches reality).
-        // Integer width/height from cover-fit sizing avoids drift vs scaling k.
-        val footprintAspectWH: Float =
-            if (!knownBuf) {
-                1f
-            } else if (isQuarterTurn) {
-                bufH.toFloat() / bufW.coerceAtLeast(1)
+        // Layout footprint: portrait **display** aspect (e.g. 1440/1920). GLES fit uses raw HAL WxH
+        // + [SurfaceTexture.getTransformMatrix] via [TexturePreviewFit.composeExternalOesPreviewMatrix].
+        val (displayBufW, displayBufH) =
+            if (knownBuf) {
+                previewBufferDimensionsForDisplay(bufW, bufH, sensorOrientationDeg)
             } else {
-                bufW.toFloat() / bufH.coerceAtLeast(1)
+                3 to 4
+            }
+        val footprintAspectWH: Float =
+            if (knownBuf) {
+                displayBufW.toFloat() / displayBufH.coerceAtLeast(1)
+            } else {
+                3f / 4f
             }
         val (boxW, boxH) =
             if (knownBuf) {
-                TexturePreviewFit.smallestCoveringAxisAlignedRectWithAspect(
+                TexturePreviewFit.largestAxisAlignedRectWithAspect(
                     parentW,
                     parentH,
                     footprintAspectWH,
@@ -4780,7 +5233,7 @@ private fun PreviewMainViewport(
         SideEffect {
             OrientationProbeBridge.update(
                 OrientationProbeSnapshot(
-                    bufferSize = previewBufferSize,
+                    bufferSize = buf,
                     centerViewSize = IntSize(parentW, parentH),
                     sensorOrientationDeg = sensorOrientationDeg,
                     chromeRotationDegSnapped = uiRotationDeg,
@@ -4789,26 +5242,16 @@ private fun PreviewMainViewport(
             )
         }
 
-        SideEffect {
-            if (knownBuf && parentW > 0 && parentH > 0 && preW > 0 && preH > 0) {
-                reportPreviewHud.value(
-                    IntSize(parentW, parentH),
-                    IntOffset((parentW - preW) / 2, (parentH - preH) / 2),
-                )
-            }
-        }
-
         val density = LocalDensity.current
         val preWDp = with(density) { preW.toDp() }
         val preHDp = with(density) { preH.toDp() }
 
-        // Displayed image rect in centerView coords (after static rotation footprint). Used
-        // for tap-to-shoot mapping and the chart-corner guide.
-        val displayW = boxW
-        val displayH = boxH
-        // Cover-fit footprint may extend past the clipped viewport — offsets may be negative.
-        val displayLeft = (parentW - displayW) / 2
-        val displayTop = (parentH - displayH) / 2
+        // Tap and overlays share the measured GL content box (not the full finder band).
+        val displayW = preW
+        val displayH = preH
+        val displayLeft = 0
+        val displayTop = 0
+        val tapStMatrixScratch = remember { FloatArray(16) }
 
         val tapToShootEnabled =
             tapPreviewToCapture &&
@@ -4837,12 +5280,14 @@ private fun PreviewMainViewport(
                         // [PreviewController] still treats centerView as the viewport.
                         val vx = p.x + displayLeft
                         val vy = p.y + displayTop
+                        val stOk = lutPreviewRenderer.readSurfaceTransformMatrix(tapStMatrixScratch)
                         controller.applyTapFocusFromView(
                             vx,
                             vy,
-                            parentW,
-                            parentH,
+                            displayW,
+                            displayH,
                             0f,
+                            surfaceTransformColumnMajor4x4 = if (stOk) tapStMatrixScratch else null,
                         )
                     }
 
@@ -4864,6 +5309,14 @@ private fun PreviewMainViewport(
                 Modifier
                     .align(Alignment.Center)
                     .size(preWDp, preHDp)
+                    .onSizeChanged {
+                        if (it.width > 0 && it.height > 0) {
+                            reportPreviewContentSized.value(
+                                IntSize(parentW, parentH),
+                                IntSize(it.width, it.height),
+                            )
+                        }
+                    }
                     .graphicsLayer {
                         rotationZ = rotationAppliedDeg.toFloat()
                         transformOrigin = TransformOrigin(0.5f, 0.5f)
@@ -4878,35 +5331,33 @@ private fun PreviewMainViewport(
                         renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
                         addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
                             val glv = v as GLSurfaceView
-                            val b = controller.previewBufferSize()
-                            lutPreviewRenderer.setGeometry(
+                            val b = controller.previewBufferSize() ?: previewBufferSize
+                            lutPreviewRenderer.queueSetGeometry(
                                 viewW = glv.width,
                                 viewH = glv.height,
                                 bufferW = b?.width ?: 0,
                                 bufferH = b?.height ?: 0,
-                                coverCrop = previewTextureCoverCrop,
+                                coverCrop = PREVIEW_FINDER_CONTAIN,
                             )
                             if (glv.width > 0 && glv.height > 0) {
                                 mainHandler.post {
                                     reportPreviewTilePx.value(IntSize(glv.width, glv.height))
                                 }
                             }
-                            glv.requestRender()
                         }
                     }
                 },
                 update = { glv ->
                     previewHostSlot.view = glv
                     glSurfaceHost = glv
-                    val b = controller.previewBufferSize()
-                    lutPreviewRenderer.setGeometry(
+                    val b = controller.previewBufferSize() ?: previewBufferSize
+                    lutPreviewRenderer.queueSetGeometry(
                         viewW = glv.width,
                         viewH = glv.height,
                         bufferW = b?.width ?: 0,
                         bufferH = b?.height ?: 0,
-                        coverCrop = previewTextureCoverCrop,
+                        coverCrop = PREVIEW_FINDER_CONTAIN,
                     )
-                    glv.requestRender()
                 },
             )
 
@@ -4935,11 +5386,13 @@ private fun PreviewMainViewport(
                     previewBufferWidthPx = bufW,
                     previewBufferHeightPx = bufH,
                     previewMirrorHorizontally = previewMirrorHorizontally,
-                    previewCoverCrop = previewTextureCoverCrop,
+                    previewCoverCrop = PREVIEW_FINDER_CONTAIN,
                     liveChartCornerOverlay = liveChartCornerOverlay,
                     macroLocksCameraSwipe = macroLocksCameraSwipe,
                     onSwitchToFrontCamera = onSwitchToFrontCamera,
                     onSwitchToRearCamera = onSwitchToRearCamera,
+                    eyeOverlayCalibratorActive = eyeOverlayCalibratorActive,
+                    eyeOverlayMarkerSizeScale = eyeOverlayMarkerSizeScale,
                 )
                 if (liveChartCornerOverlay) {
                     LiveChartCornerGuide(
@@ -5422,6 +5875,16 @@ private fun performQuickActionToggle(
                 onRequestLocationForGeotag()
             }
         }
+        ChromeGridQuickAction.ToggleLensOis -> {
+            val h = hudState.current
+            hudState.update(h.copy(enableLensOpticalStabilization = !h.enableLensOpticalStabilization))
+            Log.i("PNS.ChromeUx", "ois=${!h.enableLensOpticalStabilization}")
+        }
+        ChromeGridQuickAction.ToggleVideoEis -> {
+            val h = hudState.current
+            hudState.update(h.copy(enableVideoStabilizationPreview = !h.enableVideoStabilizationPreview))
+            Log.i("PNS.ChromeUx", "eis=${!h.enableVideoStabilizationPreview}")
+        }
     }
 }
 
@@ -5464,19 +5927,46 @@ private fun ChromeGridQuickActionPopup(
                 )
             }
             ChromeGridQuickAction.TimerStub -> {
+                PnsChromeMenuItem(
+                    label = "Single shot",
+                    selected =
+                        ShutterCaptureMode.current(chrome, hud) == ShutterCaptureMode.Single,
+                    onClick = {
+                        applyShutterCaptureMode(ShutterCaptureMode.Single, chromePrefs, hudState)
+                        Log.i("PNS.ChromeUx", "shutterMode=Single")
+                        onDismissRequest()
+                    },
+                )
+                PnsChromeMenuItem(
+                    label = "Burst",
+                    selected =
+                        ShutterCaptureMode.current(chrome, hud) == ShutterCaptureMode.Burst,
+                    onClick = {
+                        applyShutterCaptureMode(ShutterCaptureMode.Burst, chromePrefs, hudState)
+                        Log.i("PNS.ChromeUx", "shutterMode=Burst")
+                        onDismissRequest()
+                    },
+                )
+                androidx.compose.material3.HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.18f),
+                )
                 for (sec in PreviewChromePreferences.SELF_TIMER_DELAY_SEC_OPTIONS) {
-                    val label = if (sec == 0) "Off" else "${sec}s"
-                    val selected = chromePrefs.current.selfTimerDelaySec == sec
+                    if (sec == 0) continue
+                    val label = "${sec}s timer"
+                    val selected =
+                        ShutterCaptureMode.current(chrome, hud) == ShutterCaptureMode.Timer &&
+                            chromePrefs.current.selfTimerDelaySec == sec
                     PnsChromeMenuItem(
                         label = label,
                         selected = selected,
                         onClick = {
-                            val normalized =
-                                PreviewChromePreferences.normalizeSelfTimerDelaySec(sec)
-                            chromePrefs.update(
-                                chromePrefs.current.copy(selfTimerDelaySec = normalized),
+                            applyShutterCaptureMode(
+                                ShutterCaptureMode.Timer,
+                                chromePrefs,
+                                hudState,
+                                timerSec = sec,
                             )
-                            Log.i("PNS.ChromeUx", "selfTimerSec=$normalized")
+                            Log.i("PNS.ChromeUx", "shutterMode=Timer selfTimerSec=$sec")
                             onDismissRequest()
                         },
                     )
@@ -5655,6 +6145,9 @@ private fun ChromeGridQuickActionPopup(
                     )
                 }
             }
+            ChromeGridQuickAction.ToggleLensOis,
+            ChromeGridQuickAction.ToggleVideoEis,
+            -> Unit
             ChromeGridQuickAction.ToggleSaveLocation -> {
                 PnsChromeMenuItem(
                     label = "Off",
@@ -5699,6 +6192,8 @@ private fun PreviewChromeScrollSlot(
     onRequestLocationForGeotag: () -> Unit,
 ) {
     val hud = hudState.current
+    val chrome = chromePrefs.current
+    val shutterMode = ShutterCaptureMode.current(chrome, hud)
     val rot = Modifier.chromeGlyphRotation(uiRotationDeg)
     val context = LocalContext.current
     val snackbarHost = LocalPnsSnackbarHostState.current
@@ -5724,17 +6219,16 @@ private fun PreviewChromeScrollSlot(
             )
         is ChromeGridSlotSpec.QuickAction -> {
             var qsMenuExpanded by remember { mutableStateOf(false) }
-            val menuOnlyQs =
-                spec.kind == ChromeGridQuickAction.TimerStub ||
-                    spec.kind == ChromeGridQuickAction.ExtraShutterMenu
+            val menuOnlyQs = spec.kind == ChromeGridQuickAction.ExtraShutterMenu
             val cycleFlashQs = spec.kind == ChromeGridQuickAction.CycleFlash
-            val binaryQs = !menuOnlyQs && !cycleFlashQs
+            val cycleShutterQs = spec.kind == ChromeGridQuickAction.TimerStub
+            val binaryQs = !menuOnlyQs && !cycleFlashQs && !cycleShutterQs
             val selectedQuick =
                 when (spec.kind) {
                     ChromeGridQuickAction.ToggleHistogram ->
                         hud.showHistogram
                     ChromeGridQuickAction.TimerStub ->
-                        chromePrefs.current.selfTimerDelaySec > 0
+                        shutterMode != ShutterCaptureMode.Single
                     ChromeGridQuickAction.ToggleHorizonLevel ->
                         hud.showHorizonLevel
                     ChromeGridQuickAction.ToggleEyeAfOverlay ->
@@ -5752,24 +6246,31 @@ private fun PreviewChromeScrollSlot(
                         chromePrefs.current.previewFlashMode != PreviewFlashMode.Off
                     ChromeGridQuickAction.ToggleSaveLocation ->
                         chromePrefs.current.saveLocationWithMedia && fineLocationGranted
+                    ChromeGridQuickAction.ToggleLensOis ->
+                        hud.enableLensOpticalStabilization
+                    ChromeGridQuickAction.ToggleVideoEis ->
+                        hud.enableVideoStabilizationPreview
                 }
-            val flashIcon =
-                if (spec.kind == ChromeGridQuickAction.CycleFlash) {
-                    if (chromePrefs.current.previewFlashMode == PreviewFlashMode.Off) {
-                        Icons.Outlined.FlashOff
-                    } else {
-                        Icons.Outlined.FlashOn
-                    }
-                } else {
-                    spec.icon
+            val tileIcon =
+                when (spec.kind) {
+                    ChromeGridQuickAction.TimerStub ->
+                        when (shutterMode) {
+                            ShutterCaptureMode.Burst -> Icons.Outlined.BurstMode
+                            ShutterCaptureMode.Timer -> Icons.Outlined.Timer
+                            ShutterCaptureMode.Single -> Icons.Outlined.PhotoCamera
+                        }
+                    ChromeGridQuickAction.CycleFlash ->
+                        if (chromePrefs.current.previewFlashMode == PreviewFlashMode.Off) {
+                            Icons.Outlined.FlashOff
+                        } else {
+                            Icons.Outlined.FlashOn
+                        }
+                    else -> spec.icon
                 }
             val qsA11yLabel =
                 when (spec.kind) {
-                    ChromeGridQuickAction.TimerStub -> {
-                        val sec = chromePrefs.current.selfTimerDelaySec
-                        "${spec.contentDescription}, " +
-                            if (sec > 0) "on, $sec second timer" else "off"
-                    }
+                    ChromeGridQuickAction.TimerStub ->
+                        "${spec.contentDescription}, ${shutterCaptureModeLabel(shutterMode, chrome)}"
                     ChromeGridQuickAction.CycleFlash ->
                         "${spec.contentDescription}, current mode ${chromePrefs.current.previewFlashMode}"
                     else ->
@@ -5779,6 +6280,11 @@ private fun PreviewChromeScrollSlot(
                 IconCubeVectorButton(
                     onClick = {
                         when (spec.kind) {
+                            ChromeGridQuickAction.TimerStub -> {
+                                val next = ShutterCaptureMode.cycle(shutterMode)
+                                applyShutterCaptureMode(next, chromePrefs, hudState)
+                                Log.i("PNS.ChromeUx", "shutterMode=$next")
+                            }
                             ChromeGridQuickAction.CycleFlash -> {
                                 val c = chromePrefs.current
                                 val next = c.previewFlashMode.cycle()
@@ -5802,13 +6308,13 @@ private fun PreviewChromeScrollSlot(
                         }
                     },
                     contentDescription = qsA11yLabel,
-                    imageVector = flashIcon,
+                    imageVector = tileIcon,
                     selected = selectedQuick,
                     modifier = Modifier.fillMaxSize(),
                     chromeChipStyle = true,
                     fillMaxTile = true,
                     onLongClick =
-                        if (binaryQs || cycleFlashQs) {
+                        if (binaryQs || cycleFlashQs || cycleShutterQs) {
                             {
                                 if (cycleFlashQs &&
                                     !PnsUiHintsStore.hasSeenFlashLongPressMenuTip(context.applicationContext)
@@ -6109,38 +6615,45 @@ private fun RailSettingsHomeContent(
     onHud: () -> Unit,
     onPreview: () -> Unit,
     onCapture: () -> Unit,
+    onVideo: () -> Unit,
     onAbout: () -> Unit,
     onTargetFps: () -> Unit,
+    onQuickSettings: () -> Unit,
     fpsTargetEditable: Boolean,
+    settingsSearchQuery: String,
+    onSettingsSearchQueryChange: (String) -> Unit,
+    onSettingsSearchPick: (ChromeSettingSearchHit) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ChromeSettingsSearchField(
+            query = settingsSearchQuery,
+            onQueryChange = onSettingsSearchQueryChange,
+        )
+        if (settingsSearchQuery.isNotBlank()) {
+            ChromeSettingsSearchResults(
+                query = settingsSearchQuery,
+                onPick = onSettingsSearchPick,
+            )
+        } else {
         ChromeSettingsIntroText(
-            "Quick-setting icons on the grid mirror these groups (histogram, DND, location, …). This menu lists every non-debug control in one place.",
+            "Quick-setting tiles mirror these groups. Long-press the Settings tile for developer / research items.",
         )
         RailSettingsMenuEntryCard(
-            title = "Guides & framing",
-            subtitle = "Crop guide and framing grid (same as the Guides tile).",
-            onClick = onGuides,
+            title = "Quick settings",
+            subtitle = "All 7×3 toggles: shutter mode, histogram, DND, flash, geotag, stabilization.",
+            onClick = onQuickSettings,
         )
-        RailSettingsMenuEntryCard(
-            title = "HUD & readouts",
-            subtitle = "Dial, tally, timecode, meters, histogram, focus peaking, LUT chips.",
-            onClick = onHud,
-        )
-        RailSettingsMenuEntryCard(
-            title = "Preview & behavior",
-            subtitle = "Shutter, gestures, preview fit, focus peaking, brightness, keys, Do Not Disturb.",
-            onClick = onPreview,
-        )
+        PreviewRailSectionTitle("Capture")
         RailSettingsMenuEntryCard(
             title = "Capture & stills",
             subtitle = "RAW / JPEG, brackets, shutter sound, flash, default camera.",
             onClick = onCapture,
         )
+        PreviewRailSectionTitle("Video")
         RailSettingsMenuEntryCard(
-            title = "About & heritage",
-            subtitle = "Credits, LG dual-camera nod, support development (Venmo).",
-            onClick = onAbout,
+            title = "Video & stabilization",
+            subtitle = "OIS, EIS, shutter-angle presets, encode lane.",
+            onClick = onVideo,
         )
         if (fpsTargetEditable) {
             RailSettingsMenuEntryCard(
@@ -6149,11 +6662,80 @@ private fun RailSettingsHomeContent(
                 onClick = onTargetFps,
             )
         }
+        PreviewRailSectionTitle("Focus & metering")
+        RailSettingsMenuEntryCard(
+            title = "HUD & readouts",
+            subtitle = "Dial, tally, timecode, meters, histogram, focus peaking, LUT chips.",
+            onClick = onHud,
+        )
+        PreviewRailSectionTitle("Display")
+        RailSettingsMenuEntryCard(
+            title = "Guides & framing",
+            subtitle = "Crop guide and framing grid (same as the Guides tile).",
+            onClick = onGuides,
+        )
+        RailSettingsMenuEntryCard(
+            title = "Preview & behavior",
+            subtitle = "Shutter, gestures, preview fit, brightness, keys, Do Not Disturb.",
+            onClick = onPreview,
+        )
+        PreviewRailSectionTitle("About")
+        RailSettingsMenuEntryCard(
+            title = "About & heritage",
+            subtitle = "Credits, LG dual-camera nod, support development (Venmo).",
+            onClick = onAbout,
+        )
+        }
     }
 }
 
 @Composable
-private fun FocusPeakingOptionRow(
+private fun VideoSettingsRailSheetContent(
+    hudState: HudSettingsState,
+    onKickPreviewPipeline: () -> Unit,
+) {
+    val hud = hudState.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        PreviewRailSectionTitle("Stabilization")
+        PreviewRailSettingToggle(
+            title = "Optical stabilization (OIS)",
+            subtitle = "Lens OIS on preview and stills when the HAL exposes a non-OFF mode.",
+            checked = hud.enableLensOpticalStabilization,
+            onCheckedChange = { on ->
+                hudState.update(hud.copy(enableLensOpticalStabilization = on))
+                onKickPreviewPipeline()
+            },
+        )
+        PreviewRailSettingToggle(
+            title = "Electronic stabilization (EIS)",
+            subtitle = "Preview-stream EIS only; skipped for HFR (≥120 fps) and still captures.",
+            checked = hud.enableVideoStabilizationPreview,
+            onCheckedChange = { on ->
+                hudState.update(hud.copy(enableVideoStabilizationPreview = on))
+                onKickPreviewPipeline()
+            },
+        )
+        PreviewRailSectionTitle("Shutter angle (video)")
+        Text(
+            "Locks shutter speed as a fraction of the frame interval; ISO chases via readout (15.11).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.62f),
+        )
+        for (angle in VideoShutterAngle.entries) {
+            FocusPeakingOptionRow(
+                label = angle.label,
+                selected = hud.videoShutterAngleEnum() == angle,
+                swatchColor = null,
+                onClick = {
+                    hudState.update(hud.copy(videoShutterAngle = angle.name))
+                },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun FocusPeakingOptionRow(
     label: String,
     selected: Boolean,
     swatchColor: Color?,
@@ -6321,18 +6903,13 @@ private fun PreviewKeysRailSheetContent(
             checked = chrome.volumeKeysCapture,
             onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(volumeKeysCapture = checked) } },
         )
-        PreviewRailSectionTitle("Preview framing & overlays")
         PreviewRailSettingToggle(
-            title = "Stretch preview to fill finder",
-            subtitle =
-                if (chrome.previewTextureCoverCrop) {
-                    "Finder fills the tile; edges may be tighter than exported stills."
-                } else {
-                    "Letterboxed preview matches still framing (entire crop visible)."
-                },
-            checked = chrome.previewTextureCoverCrop,
-            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(previewTextureCoverCrop = checked) } },
+            title = "Bluetooth remote shutter",
+            subtitle = "Headset / AVRCP play-pause fires the tray shutter when preview is foregrounded.",
+            checked = chrome.btRemoteShutter,
+            onCheckedChange = { checked -> chromePrefs.updateMutate { it.copy(btRemoteShutter = checked) } },
         )
+        PreviewRailSectionTitle("Preview framing & overlays")
         PreviewRailSettingToggle(
             title = "Corner test chart overlay",
             subtitle = "Small alignment grid overlay for display checks.",
@@ -6425,6 +7002,7 @@ private fun PreviewKeysRailSheetContent(
 private fun CaptureToolsRailSheetContent(
     chrome: PreviewChromePreferences,
     chromePrefs: PreviewChromePreferencesState,
+    hudState: HudSettingsState,
     onCaptureDng: () -> Unit,
     canCaptureRawStill: Boolean,
     previewJpegCompanion: Boolean,
@@ -6443,6 +7021,7 @@ private fun CaptureToolsRailSheetContent(
     }
     val shutterPack = ShutterSoundPack.fromStorageKey(chrome.shutterSoundPackKey)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ShutterModeRailSection(chromePrefs = chromePrefs, hudState = hudState)
         PreviewRailSectionTitle("Imaging")
         Text(
             text = "Still pipeline tiers (RAW vs HDR / JPEG) live on the IMG chip in the readout strip above the rail.",
@@ -6662,11 +7241,13 @@ private fun PreviewRightRail(
     /** Settings ▸ Guides & framing nested pane. */
     var settingsGuidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubPage by rememberSaveable { mutableStateOf<String?>(null) }
+    var settingsSearchQuery by rememberSaveable { mutableStateOf("") }
     BackHandler(enabled = expandedKey != null) {
         expandedKey = null
         settingsSubPage = null
         guidesPane = null
         settingsGuidesPane = null
+        settingsSearchQuery = ""
     }
     LaunchedEffect(seedOpenAboutSheet) {
         if (seedOpenAboutSheet) {
@@ -6710,7 +7291,7 @@ private fun PreviewRightRail(
     LaunchedEffect(expandedKey, settingsSubPage) {
         if (expandedKey == "Settings" &&
             settingsSubPage != null &&
-            settingsSubPage !in setOf("preview", "capture", "guides", "fps", "hud", "about")
+            settingsSubPage !in setOf("preview", "capture", "video", "guides", "fps", "hud", "about", "quick")
         ) {
             settingsSubPage = null
         }
@@ -6757,6 +7338,7 @@ private fun PreviewRightRail(
                 when {
                     key == "Settings" && settingsSubPage == "preview" -> "Preview & behavior"
                     key == "Settings" && settingsSubPage == "capture" -> "Capture & stills"
+                    key == "Settings" && settingsSubPage == "video" -> "Video & stabilization"
                     key == "Settings" && settingsSubPage == "guides" ->
                         when (settingsGuidesPane) {
                             "crop" -> "Crop guide"
@@ -6765,6 +7347,7 @@ private fun PreviewRightRail(
                         }
                     key == "Settings" && settingsSubPage == "fps" -> "Target frame rate"
                     key == "Settings" && settingsSubPage == "hud" -> "HUD & readouts"
+                    key == "Settings" && settingsSubPage == "quick" -> "Quick settings"
                     key == "Settings" && settingsSubPage == "about" -> "About & heritage"
                     key == "Guides" ->
                         when (guidesPane) {
@@ -6780,6 +7363,7 @@ private fun PreviewRightRail(
                     settingsSubPage = null
                     guidesPane = null
                     settingsGuidesPane = null
+                    settingsSearchQuery = ""
                 },
             ) {
                 Surface(
@@ -6835,6 +7419,7 @@ private fun PreviewRightRail(
                                     settingsSubPage = null
                                     guidesPane = null
                                     settingsGuidesPane = null
+                                    settingsSearchQuery = ""
                                 },
                                 modifier = Modifier.align(Alignment.CenterEnd),
                             ) {
@@ -6851,12 +7436,24 @@ private fun PreviewRightRail(
                                             onHud = { settingsSubPage = "hud" },
                                             onPreview = { settingsSubPage = "preview" },
                                             onCapture = { settingsSubPage = "capture" },
+                                            onVideo = { settingsSubPage = "video" },
                                             onAbout = {
                                                 Log.i("PNS.ChromeUx", "settingsAbout=open")
                                                 settingsSubPage = "about"
                                             },
                                             onTargetFps = { settingsSubPage = "fps" },
+                                            onQuickSettings = { settingsSubPage = "quick" },
                                             fpsTargetEditable = fpsTargetEditable,
+                                            settingsSearchQuery = settingsSearchQuery,
+                                            onSettingsSearchQueryChange = { settingsSearchQuery = it },
+                                            onSettingsSearchPick = { hit ->
+                                                settingsSubPage = hit.subPage
+                                                settingsSearchQuery = ""
+                                                Log.i(
+                                                    "PNS.ChromeUx",
+                                                    "settingsSearchPick title=${hit.title} subPage=${hit.subPage}",
+                                                )
+                                            },
                                         )
                                     "guides" ->
                                         GuidesFramingMenuContent(
@@ -6888,10 +7485,16 @@ private fun PreviewRightRail(
                                             onKickPreviewPipeline = onKickPreviewPipeline,
                                             onOpenFocusModePicker = onOpenFocusModePicker,
                                         )
+                                    "video" ->
+                                        VideoSettingsRailSheetContent(
+                                            hudState = hudState,
+                                            onKickPreviewPipeline = onKickPreviewPipeline,
+                                        )
                                     "capture" ->
                                         CaptureToolsRailSheetContent(
                                             chrome = chrome,
                                             chromePrefs = chromePrefs,
+                                            hudState = hudState,
                                             onCaptureDng = onCaptureDng,
                                             canCaptureRawStill = canCaptureRawStill,
                                             previewJpegCompanion = previewJpegCompanion,
@@ -6907,6 +7510,15 @@ private fun PreviewRightRail(
                                         AboutRailSheetContent(
                                             liveSummary = aboutLiveSummary,
                                             liveHalHfrMaxByCameraId = aboutHalHfrMaxByCameraId,
+                                        )
+                                    "quick" ->
+                                        QuickSettingsRailSheetContent(
+                                            chromePrefs = chromePrefs,
+                                            hudState = hudState,
+                                            fineLocationGranted = fineLocationGranted,
+                                            onPendingEnableGeotagChange = onPendingEnableGeotagChange,
+                                            onRequestLocationForGeotag = onRequestLocationForGeotag,
+                                            onKickPreviewPipeline = onKickPreviewPipeline,
                                         )
                                     else -> Unit
                                 }
@@ -6931,6 +7543,7 @@ private fun PreviewRightRail(
                                 CaptureToolsRailSheetContent(
                                     chrome = chrome,
                                     chromePrefs = chromePrefs,
+                                    hudState = hudState,
                                     onCaptureDng = onCaptureDng,
                                     canCaptureRawStill = canCaptureRawStill,
                                     previewJpegCompanion = previewJpegCompanion,
@@ -6986,14 +7599,17 @@ private fun PreviewCenterOverlay(
     previewBufferWidthPx: Int = 0,
     previewBufferHeightPx: Int = 0,
     previewMirrorHorizontally: Boolean = false,
-    previewCoverCrop: Boolean = true,
+    previewCoverCrop: Boolean = PREVIEW_FINDER_CONTAIN,
     liveChartCornerOverlay: Boolean = false,
     macroLocksCameraSwipe: Boolean = false,
     onSwitchToFrontCamera: () -> Unit = {},
     onSwitchToRearCamera: () -> Unit = {},
+    eyeOverlayCalibratorActive: Boolean = false,
+    eyeOverlayMarkerSizeScale: Float = 1f,
 ) {
     val settings = hudState.current
     val guides = compositionGuide.current
+    val showFaceHud = settings.showEyeAfOverlay || eyeOverlayCalibratorActive
     val focusTap = remember { MutableInteractionSource() }
     val swipeThresholdPx = with(LocalDensity.current) { 100.dp.toPx() }
     val cameraSwipeActive = !isRecording && !liveChartCornerOverlay && !macroLocksCameraSwipe
@@ -7073,9 +7689,13 @@ private fun PreviewCenterOverlay(
             HorizonLevelOverlay(modifier = Modifier.fillMaxSize())
         }
         // Face rectangles first, then pupil marks so eye crosses sit visually on top of the box stroke.
-        if (settings.showEyeAfOverlay) {
+        if (showFaceHud) {
             FaceTrackOverlay(faceBoxes = faceTrackBoxes, modifier = Modifier.fillMaxSize())
-            EyeAfOverlay(eyes = eyeMarks, modifier = Modifier.fillMaxSize())
+            EyeAfOverlay(
+                eyes = eyeMarks,
+                modifier = Modifier.fillMaxSize(),
+                markerSizeScale = eyeOverlayMarkerSizeScale,
+            )
         }
         if (settings.showFaceAlignmentDebugCrosshair) {
             FaceAlignmentDebugCrosshairOverlay(modifier = Modifier.fillMaxSize())
@@ -7153,9 +7773,18 @@ private class PreviewController(
         shutterSoundManager.playShutter(chrome, haptics.takeIf { chrome.shutterHapticSync })
     }
 
-    fun onStillCaptureReadoutComplete(haptics: CaptureHaptics) {
+    fun onStillCaptureReadoutComplete(
+        haptics: CaptureHaptics,
+        deferUntilTonalCompanion: Boolean = false,
+    ) {
         val chrome = PreviewChromePreferences.load(appContext)
-        if (!chrome.shutterHapticSync) {
+        if (
+            !chrome.shutterHapticSync &&
+            PreviewCaptureHapticsPolicy.shouldFireStillTick(
+                rawComplete = true,
+                deferUntilTonal = deferUntilTonalCompanion,
+            )
+        ) {
             haptics.scheduleStillTick()
         }
     }
@@ -7316,6 +7945,24 @@ private class PreviewController(
     private var dualFrontController: DualVideoFrontCameraController? = null
     @Volatile private var dualVideoActive: Boolean = false
 
+    private var dualFrontSurfaceTexture: SurfaceTexture? = null
+    private var dualFrontSurfaceW: Int = 0
+    private var dualFrontSurfaceH: Int = 0
+    @Volatile private var dualFrontOpenPending: Boolean = false
+    /** Set by [ensureDualFrontOpenForRecord] before [inAppVideoRecordingArmed] on non-concurrent devices. */
+    @Volatile private var dualFrontOpenForced: Boolean = false
+    @Volatile private var dualHalConcurrencyProbe: DualVideoHalConcurrency.Probe? = null
+    @Volatile private var dualFrontDelayedPreviewTry: Boolean = false
+    private var dualFrontDelayedOpenRunnable: Runnable? = null
+    private var dualFrontThread: HandlerThread? = null
+    private var dualFrontHandler: Handler? = null
+    @Volatile private var rearTextureFramesAtDualFrontOpen: Long = 0L
+
+    /** Set when stacked GL composite is feeding the encoder (ADB / dual gate). */
+    @Volatile
+    var dualGlRecordArmed: Boolean = false
+        private set
+
     /** True only between successful record prepare ([applyInAppVideoRecordingShell] wantRecord) and stop. */
     @Volatile private var inAppVideoRecordingArmed: Boolean = false
     @Volatile private var hfrInterleavedRecordActive: Boolean = false
@@ -7378,6 +8025,13 @@ private class PreviewController(
      */
     @Volatile private var videoRecordingSessionRebuildPending: Boolean = false
 
+    /**
+     * HFR MediaCodec stop: [maybeRestartBody] must run **after** muxer finalizes. Rebuilding the
+     * HS session while the encoder [Surface] is still in use freezes the app and drops the MP4.
+     */
+    @Volatile private var deferPreviewRebuildUntilMcStopped: Boolean = false
+    private var deferredMcStopRebuildRunnable: Runnable? = null
+
     private var lastStatus: String = "Idle"
 
     private val lastStillPostReadout = AtomicReference<StillPostReadoutSnapshot?>(null)
@@ -7431,10 +8085,6 @@ private class PreviewController(
     @Volatile private var lastFrameNs: Long = 0L
     @Volatile private var smoothedFrameFps: Double = 0.0
     @Volatile private var framesFromTexture: Long = 0L
-    /**
-     * Mirrors [PreviewChromePreferences.previewTextureCoverCrop] for tap/metering math in buffer space.
-     */
-    @Volatile private var previewTextureCoverCrop: Boolean = true
     /** When true and still pipeline uses [CaptureLocationBridge.snapshot], embed GPS in DNG/JPEG EXIF. */
     @Volatile private var stillEmbedLocationInFiles: Boolean = false
     @Volatile private var textureWindowStartNs: Long = 0L
@@ -7557,6 +8207,14 @@ private class PreviewController(
 
     @Volatile
     var adbAutomationVideoAv1: Boolean = false
+
+  /** ADB / automation codec ordinal (`pns_preview_video_codec_ordinal`); wins over session chrome snapshot. */
+    @Volatile
+    var adbAutomationVideoCodecOrdinal: Int? = null
+
+    /** Sprint **15.10** — ADB proof mode: emit `readoutChase` logs more frequently. */
+    @Volatile
+    var adbReadoutChaseProof: Boolean = false
 
     @Volatile
     var adbForceRawVideoLane: Boolean = false
@@ -7764,6 +8422,28 @@ private class PreviewController(
      */
     private val highlightMeterDarkenOnly: Boolean = true
 
+    /** Sprint **15.10** — locked-axis YUV chase (see [ReadoutExposureChase]). */
+    @Volatile
+    private var readoutIsoBand: ReadoutIsoBand = ReadoutIsoBand.FULL
+
+    private var readoutChaseMedianEma: Double = Double.NaN
+
+    @Volatile
+    private var readoutChaseExposureNs: Long? = null
+
+    @Volatile
+    private var readoutChaseIso: Int? = null
+
+    private var lastReadoutChaseProcessWallMs: Long = 0L
+
+    private var lastReadoutChaseRefreshWallMs: Long = 0L
+
+    private var lastReadoutChaseLogWallMs: Long = 0L
+
+    private val readoutChaseHistMinIntervalMs: Long = 50L
+
+    private val readoutChaseRefreshMinGapMs: Long = 150L
+
     private var hudFaceOverlayEnabled: Boolean = false
 
     @Volatile
@@ -7788,6 +8468,8 @@ private class PreviewController(
     private var faceHudMlSmoothedMeteringPrimary: FaceTrackBoxBuffer? = null
 
     private var lastMlFaceProcessWallMs: Long = 0L
+
+    private var lastFaceGeometryDiagLogWallMs: Long = 0L
     private var lastSmileProcessWallMs: Long = 0L
     private var lastSmileDiagLogWallMs: Long = 0L
     private val smileMinIntervalMs: Long = 80L
@@ -7871,6 +8553,10 @@ private class PreviewController(
         return chars.get(CameraCharacteristics.LENS_FACING) == CameraCharacteristics.LENS_FACING_FRONT
     }
 
+    /** Latest [SurfaceTexture.getTransformMatrix] from the GLES preview (column-major 4×4). */
+    fun readPreviewSurfaceTransformMatrix(dest: FloatArray): Boolean =
+        lutPreviewRendererForDual?.readSurfaceTransformMatrix(dest) == true
+
     private fun highlightAeTryVendorExtraModes(): Boolean =
         VendorHighlightAePrefs.isTryExtraModesEnabled(appContext) &&
             RootCapabilityStore.loadOrUnknown(appContext).grantsPrivileged
@@ -7907,14 +8593,17 @@ private class PreviewController(
         // IllegalArgumentException: Surface was abandoned in OutputConfiguration (Sprint 5.3).
         if (device == null) {
             rebuildSurfaceIfPossible()
+            maybeRestart()
         }
-        maybeRestart()
     }
 
     fun onSurfaceTextureSizeChanged(width: Int, height: Int) {
         Log.d(tag, "textureSizeChanged ${width}x${height}")
         reconcilePreviewBufferSizeFromCallbacks(width, height)
-        maybeRestart()
+        // GLES [GLSurfaceView.onSurfaceChanged] reports **view** WxH on every finder layout
+        // settle (e.g. 1411×1881 → 1411×1058). maybeRestart() here restarted Camera2 each
+        // time and caused preview tearing / streaking. Stream size changes only via
+        // [maybeRestartBody] + [setDefaultBufferSize] on the camera thread.
     }
 
     /**
@@ -7923,14 +8612,15 @@ private class PreviewController(
      * OEMs diverge from [setDefaultBufferSize] — treating them as the camera buffer WxH breaks
      * [TexturePreviewFit] aspect math and distorts the chart vs RAW.
      */
-    private fun reconcilePreviewBufferSizeFromCallbacks(textureWidth: Int, textureHeight: Int) {
-        val want = desiredSurfaceSize
-        currentSurfaceSize =
-            when {
-                want != null -> want
-                textureWidth > 0 && textureHeight > 0 -> Size(textureWidth, textureHeight)
-                else -> null
-            }
+    private fun reconcilePreviewBufferSizeFromCallbacks(
+        @Suppress("UNUSED_PARAMETER") textureWidth: Int,
+        @Suppress("UNUSED_PARAMETER") textureHeight: Int,
+    ) {
+        // GLES [GLSurfaceView] and legacy TextureView listeners pass **view** WxH, not the Camera2
+        // stream. Never stash those as [currentSurfaceSize] — it made [TexturePreviewFit] / GLES
+        // treat the finder size as the buffer and squash the preview vertically.
+        val want = desiredSurfaceSize ?: return
+        currentSurfaceSize = want
     }
 
     /**
@@ -8066,6 +8756,12 @@ private class PreviewController(
         this.selectedCameraId = selectedCameraId
         this.desiredFps = desiredFps
         if (changed) Log.d(tag, "setDesired cameraId=${selectedCameraId ?: "null"} fps=$desiredFps previewPhysical=${previewSurfacePhysicalCameraId ?: "none"}")
+        if (camChanged && dualVideoActive) {
+            dualFrontDelayedPreviewTry = false
+            cancelDualFrontDelayedPreviewTry()
+            closeDualFrontCamera()
+            scheduleDualFrontDelayedPreviewTry()
+        }
         if (changed) maybeRestart()
     }
 
@@ -8195,36 +8891,222 @@ private class PreviewController(
         if (dualVideoActive == active) return
         dualVideoActive = active
         if (!active) {
+            dualFrontOpenPending = false
+            dualFrontOpenForced = false
+            dualFrontDelayedPreviewTry = false
+            cancelDualFrontDelayedPreviewTry()
             closeDualFrontCamera()
+            releaseDualFrontHandler()
             dualVideoEncoderSink.release()
+            if (previewSurfacePhysicalCameraId == dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_WIDE &&
+                selectedCameraId == dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_LOGICAL
+            ) {
+                previewSurfacePhysicalCameraId = null
+            }
+            Log.i(DualVideoRecordingController.TAG, "setDualVideoActive=false")
+            maybeRestart()
+            return
         }
-        Log.i(DualVideoRecordingController.TAG, "setDualVideoActive=$active")
-        maybeRestart()
+        // Enabling dual only arms GL split + front cam — rebuilding the rear session here races
+        // front SurfaceTexture setup (abandoned surface / 0 MediaCodec frames on CPH2655).
+        val frontId = Camera2Facing.frontCameraId(cm, cameraIds())
+        val resolved =
+            DualVideoHalConcurrency.resolveRearForDual(cm, selectedCameraId, frontId)
+        val rearForDual = resolved.rearId ?: selectedCameraId
+        dualHalConcurrencyProbe = DualVideoHalConcurrency.probe(cm, rearForDual, frontId)
+        if (rearForDual == dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_LOGICAL) {
+            setPreviewSurfacePhysicalCameraId(dev.pointandshoot.fleet.OnePlus13FleetPolicy.CANONICAL_WIDE)
+        }
+        dualFrontDelayedPreviewTry = false
+        closeDualFrontCamera()
+        scheduleDualFrontDelayedPreviewTry()
+        Log.i(
+            DualVideoRecordingController.TAG,
+            "setDualVideoActive=true (dual preview + record stacked) rear=$rearForDual concurrent=${resolved.pairAdvertisedConcurrent}",
+        )
+    }
+
+    fun scheduleDualFrontDelayedPreviewTry() {
+        cancelDualFrontDelayedPreviewTry()
+        val probe = dualHalConcurrencyProbe ?: return
+        if (DualVideoHalConcurrency.allowSimultaneousDualPreview(probe)) {
+            dualFrontOpenPending = true
+            scheduleDualFrontOpenAfterRearSettle()
+            return
+        }
+        val hnd = handler ?: return
+        val runnable =
+            object : Runnable {
+                private var attempts = 0
+
+                override fun run() {
+                    if (!dualVideoActive || dualFrontDelayedPreviewTry) return
+                    val minRear = DualVideoHalConcurrency.minRearFramesBeforeFrontOpen(probe)
+                    if (previewTextureFrameCount() < minRear && attempts < 80) {
+                        attempts++
+                        hnd.postDelayed(this, 100)
+                        return
+                    }
+                    dualFrontDelayedPreviewTry = true
+                    Log.i(
+                        DualVideoRecordingController.TAG,
+                        "dualFront delayed preview try rearFrames=${previewTextureFrameCount()}",
+                    )
+                    dualFrontOpenPending = true
+                    val st = dualFrontSurfaceTexture
+                    if (st != null) {
+                        openDualFrontCameraLocked(st, dualFrontSurfaceW, dualFrontSurfaceH)
+                    } else {
+                        scheduleDualFrontOpenAfterRearSettle()
+                    }
+                }
+            }
+        dualFrontDelayedOpenRunnable = runnable
+        hnd.postDelayed(runnable, 2_500L)
+    }
+
+    fun maybeArmDualStackedPreview() {
+        if (!dualVideoActive || !peekDualFrontSessionReady()) return
+        Log.i(DualVideoRecordingController.TAG, "dualFront preview ready — nudge render")
+        glSurfaceHostForDual?.requestRender()
+    }
+
+    private fun cancelDualFrontDelayedPreviewTry() {
+        dualFrontDelayedOpenRunnable?.let { mainHandler.removeCallbacks(it) }
+        dualFrontDelayedOpenRunnable = null
+    }
+
+    private fun ensureDualFrontHandler(): Handler {
+        val existing = dualFrontHandler
+        if (existing != null) return existing
+        val thread = HandlerThread("PNS.DualFront")
+        thread.start()
+        dualFrontThread = thread
+        return Handler(thread.looper).also { dualFrontHandler = it }
+    }
+
+    private fun releaseDualFrontHandler() {
+        dualFrontController?.close()
+        dualFrontController = null
+        dualFrontHandler = null
+        dualFrontThread?.quitSafely()
+        dualFrontThread = null
     }
 
     fun peekDualVideoActive(): Boolean = dualVideoActive
+
+    fun peekDualFrontOpenForced(): Boolean = dualFrontOpenForced
+
+    fun clearDualFrontOpenForced() {
+        dualFrontOpenForced = false
+    }
+
+    fun dualConcurrentRearFrontSupported(): Boolean =
+        DualVideoRecordingController.canRunConcurrentRearFront(
+            cm,
+            selectedCameraId,
+            Camera2Facing.frontCameraId(cm, cameraIds()),
+        )
+
+    private fun dualFrontOpenAllowedNow(): Boolean {
+        val probe = dualHalConcurrencyProbe ?: return dualVideoActive
+        return dualVideoActive &&
+            DualVideoHalConcurrency.allowFrontCameraOpen(
+                probe = probe,
+                recordingArmed = inAppVideoRecordingArmed || dualFrontOpenForced,
+                delayedPreviewTry = dualFrontDelayedPreviewTry,
+            )
+    }
 
     fun onDualFrontSurfaceTextureReady(st: SurfaceTexture, w: Int, h: Int) {
         if (!dualVideoActive) {
             Log.d(DualVideoRecordingController.TAG, "dualFront: dual video not active, ignoring surface")
             return
         }
+        dualFrontSurfaceTexture = st
+        dualFrontSurfaceW = w
+        dualFrontSurfaceH = h
+        if (!dualFrontOpenAllowedNow()) return
+        dualFrontOpenPending = true
+        scheduleDualFrontOpenAfterRearSettle()
+    }
+
+    /** Close front and reopen after rear [CameraCaptureSession] is configured — avoids starving rear preview/encode. */
+    private fun recycleDualFrontForRearSessionRebuild() {
+        if (!dualVideoActive) return
+        dualFrontController?.close()
+        dualFrontOpenPending = dualFrontSurfaceTexture != null
+        scheduleDualFrontOpenAfterRearSettle()
+    }
+
+    fun ensureDualFrontOpenForRecord() {
+        if (!dualVideoActive) return
+        dualFrontOpenForced = true
+        dualFrontOpenPending = true
+        scheduleDualFrontOpenAfterRearSettle()
+    }
+
+    private fun scheduleDualFrontOpenAfterRearSettle() {
+        val hnd = handler ?: return
+        var attempts = 0
+        val settleRunnable =
+            object : Runnable {
+                override fun run() {
+                    if (!dualVideoActive || !dualFrontOpenPending) return
+                    val st = dualFrontSurfaceTexture ?: return
+                    val minRear =
+                        dualHalConcurrencyProbe?.let { DualVideoHalConcurrency.minRearFramesBeforeFrontOpen(it) }
+                            ?: 8
+                    val rearReady =
+                        device != null &&
+                            session != null &&
+                            sessionCommittedGeneration == generation &&
+                            previewTextureFrameCount() >= minRear
+                    if (!rearReady && attempts < 200) {
+                        attempts++
+                        hnd.postDelayed(this, 50)
+                        return
+                    }
+                    if (!rearReady) {
+                        Log.w(
+                            DualVideoRecordingController.TAG,
+                            "dualFront open: rear not ready after wait " +
+                                "device=${device != null} session=${session != null} " +
+                                "sessCommit=$sessionCommittedGeneration gen=$generation " +
+                                "rearFrames=${previewTextureFrameCount()}",
+                        )
+                    }
+                    dualFrontOpenPending = false
+                    openDualFrontCameraLocked(st, dualFrontSurfaceW, dualFrontSurfaceH)
+                }
+            }
+        hnd.postDelayed(settleRunnable, 200)
+    }
+
+    private fun openDualFrontCameraLocked(st: SurfaceTexture, w: Int, h: Int) {
+        if (!dualVideoActive) return
+        if (!dualFrontOpenAllowedNow()) {
+            dualFrontOpenPending = false
+            return
+        }
+        if (dualFrontController?.sessionReady == true && dualFrontController?.hasValidFrames == true) {
+            dualFrontOpenPending = false
+            return
+        }
         val hnd = handler ?: run {
             Log.e(DualVideoRecordingController.TAG, "dualFront: no handler available")
             return
         }
-        
+        val frontHandler = ensureDualFrontHandler()
         if (dualFrontController == null) {
-            dualFrontController = DualVideoFrontCameraController(cm, hnd)
+            dualFrontController = DualVideoFrontCameraController(cm, frontHandler)
         }
-        
-        val frontId = Camera2Facing.frontCameraId(cm, cameraIds()) ?: run {
-            Log.e(DualVideoRecordingController.TAG, "dualFront: no front camera id found")
-            // Fallback: disable dual video if no front camera
-            dualVideoActive = false
-            return
-        }
-        
+        val frontId =
+            Camera2Facing.frontCameraId(cm, cameraIds()) ?: run {
+                Log.e(DualVideoRecordingController.TAG, "dualFront: no front camera id found")
+                dualVideoActive = false
+                return
+            }
         val rearId = selectedCameraId
         if (!DualVideoRecordingController.canRunConcurrentRearFront(cm, rearId, frontId)) {
             Log.w(
@@ -8232,37 +9114,55 @@ private class PreviewController(
                 "dualFront: concurrent pair not advertised rear=$rearId front=$frontId (trying anyway)",
             )
         }
-        
         try {
             val pick = DualVideoFrontCameraController.pickFrontPreviewSize(cm, frontId)
-            Log.i(DualVideoRecordingController.TAG, "dualFront: setting up front camera $frontId at ${pick.width}x${pick.height}")
-            
+            Log.i(
+                DualVideoRecordingController.TAG,
+                "dualFront open rearFrames=${previewTextureFrameCount()} " +
+                    "cameraId=$frontId size=${pick.width}x${pick.height}",
+            )
             st.setDefaultBufferSize(pick.width, pick.height)
             glSurfaceHostForDual?.queueEvent {
                 lutPreviewRendererForDual?.setFrontBufferSize(pick.width, pick.height)
             }
-            
+            rearTextureFramesAtDualFrontOpen = previewTextureFrameCount()
             val surface = Surface(st)
             dualFrontController?.setPreviewSurface(surface)
-            dualFrontController?.open(frontId)
-            
-            // Monitor front camera health
-            mainHandler.postDelayed({
-                checkDualVideoHealth()
-            }, 5000) // Check after 5 seconds
-            
+            val matchedFps = DualVideoRecordingController.V1_TARGET_FPS
+            val rearRange = pickNormalFpsRange(rearId ?: frontId, matchedFps)
+            val frontFps = rearRange?.upper ?: matchedFps
+            dualFrontController?.open(frontId, frontFps)
+            Log.i(
+                DualVideoRecordingController.TAG,
+                "dualFront armed rearFrames=$rearTextureFramesAtDualFrontOpen " +
+                    "frontSize=${pick.width}x${pick.height} matchedFps=$frontFps rearRange=$rearRange",
+            )
+            mainHandler.postDelayed({ maybeArmDualStackedPreview() }, 400)
+            mainHandler.postDelayed({ checkDualVideoHealth() }, 15_000)
         } catch (e: Exception) {
             Log.e(DualVideoRecordingController.TAG, "dualFront setup failed: ${e.message}", e)
-            // Fallback: disable dual video on setup failure
             dualVideoActive = false
         }
     }
 
     fun peekDualFrontSessionReady(): Boolean = dualFrontController?.sessionReady == true
 
+    fun peekDualGlRecordArmed(): Boolean = dualGlRecordArmed
+
+    fun markDualGlRecordArmed(armed: Boolean) {
+        dualGlRecordArmed = armed
+    }
+
     @Volatile var lutPreviewRendererForDual: LutCameraPreviewRenderer? = null
 
     fun closeDualFrontCamera() {
+        if (dualVideoActive && inAppVideoRecordingArmed) {
+            Log.d(
+                DualVideoRecordingController.TAG,
+                "closeDualFrontCamera skipped (dual record armed)",
+            )
+            return
+        }
         Log.i(DualVideoRecordingController.TAG, "Closing dual front camera")
         dualFrontController?.close()
     }
@@ -8492,21 +9392,25 @@ private class PreviewController(
         
         val isHealthy = controller.isFrameFlowHealthy()
         if (!isHealthy) {
-            Log.w(DualVideoRecordingController.TAG, "dualFront health check failed - disabling dual video")
-            dualVideoActive = false
-            closeDualFrontCamera()
-            
-            // Notify user of fallback
-            mainHandler.post {
-                // Could show a toast or UI indication here
-                Log.i(DualVideoRecordingController.TAG, "Dual video disabled due to front camera issues")
-            }
+            Log.w(
+                DualVideoRecordingController.TAG,
+                "dualFront health check: unhealthy sessionReady=${dualFrontController?.sessionReady} " +
+                    "hasValidFrames=${dualFrontController?.hasValidFrames} (no auto-fallback — Sprint 15.5)",
+            )
+            mainHandler.postDelayed({ checkDualVideoHealth() }, 10_000)
         } else {
             Log.d(DualVideoRecordingController.TAG, "dualFront health check passed")
-            // Schedule next check
-            mainHandler.postDelayed({
-                checkDualVideoHealth()
-            }, 10000) // Check every 10 seconds
+            maybeArmDualStackedPreview()
+            mainHandler.postDelayed({ checkDualVideoHealth() }, 10_000)
+        }
+        val rearNow = previewTextureFrameCount()
+        if (rearNow <= rearTextureFramesAtDualFrontOpen + 4L) {
+            Log.w(
+                DualVideoRecordingController.TAG,
+                "dual rear frame counter dropped after front open " +
+                    "rearFramesAtOpen=$rearTextureFramesAtDualFrontOpen now=$rearNow " +
+                    "(non-concurrent HAL — not recycling; counter may reset on session churn)",
+            )
         }
     }
 
@@ -8514,8 +9418,13 @@ private class PreviewController(
         val surf = videoController.getRecordingSurface() ?: return
         glSurfaceHostForDual?.queueEvent {
             dualVideoEncoderSink.setEncoderTarget(surf, width, height)
+            if (!dualVideoEncoderSink.isEncoderSurfaceReady) {
+                Log.w(DualVideoRecordingController.TAG, "dualEncoderSink bind failed on GL thread")
+            }
         } ?: dualVideoEncoderSink.setEncoderTarget(surf, width, height)
     }
+
+    fun peekDualEncoderSinkReady(): Boolean = dualVideoEncoderSink.isEncoderSurfaceReady
 
     /** Set from [PreviewMainViewport] so encoder bind can run on the GL thread. */
     @Volatile var glSurfaceHostForDual: GLSurfaceView? = null
@@ -8571,12 +9480,6 @@ private class PreviewController(
         val camId = selectedCameraId ?: return null
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return null
         return ManualFocusDistance.focusRange(chars)
-    }
-
-    fun setPreviewTextureCoverCrop(coverCrop: Boolean) {
-        if (previewTextureCoverCrop == coverCrop) return
-        previewTextureCoverCrop = coverCrop
-        Log.d(tag, "setPreviewTextureCoverCrop coverCrop=$coverCrop")
     }
 
     fun setPreviewFlashMode(mode: PreviewFlashMode) {
@@ -8661,15 +9564,44 @@ private class PreviewController(
         }.getOrNull()
     }
 
+    fun readoutAeCoupling(): ReadoutAeCoupling =
+        ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride)
+
     fun readoutMenuSnapshot(): ReadoutMenuSnapshot {
         val camId = selectedCameraId ?: return ReadoutMenuSnapshot.EMPTY
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
             ?: return ReadoutMenuSnapshot.EMPTY
         return ReadoutMenuSnapshot(
-            isoChoices = ReadoutExposureCatalog.isoChoices(chars),
+            isoChoices = ReadoutExposureCatalog.isoChoices(chars, readoutIsoBand),
             exposureChoices = ReadoutExposureCatalog.exposureChoices(chars),
             awbChoices = ReadoutExposureCatalog.awbChoices(chars),
+            isoBand = readoutIsoBand,
         )
+    }
+
+    fun setReadoutIsoBand(band: ReadoutIsoBand) {
+        if (readoutIsoBand == band) return
+        readoutIsoBand = band
+        refreshRepeatingPreviewOnly()
+    }
+
+    fun cycleReadoutIsoBand() {
+        val bands = ReadoutIsoBand.entries
+        val idx = bands.indexOf(readoutIsoBand).coerceAtLeast(0)
+        val next = bands[(idx + 1) % bands.size]
+        setReadoutIsoBand(next)
+        Log.i(tag, "readoutIsoBand=${next.menuLabel}")
+    }
+
+    /** Sprint **15.11** — lock shutter from angle preset; ISO stays auto when only SS is set. */
+    fun applyVideoShutterAnglePreset(angle: VideoShutterAngle, fps: Int) {
+        val ns = angle.exposureNsForFps(fps)
+        if (ns == null) {
+            if (manualExposureNsOverride != null) setReadoutManualShutter(null)
+            return
+        }
+        setReadoutManualShutter(ns)
+        Log.i(tag, "readoutManual videoShutterAngle=${angle.name} ssNs=$ns fps=$fps")
     }
 
     fun setReadoutManualIsoExposure(
@@ -8684,12 +9616,29 @@ private class PreviewController(
     /** Adjust ISO only; keeps the current manual shutter selection (or auto). */
     fun setReadoutManualIso(iso: Int?) {
         manualIsoOverride = iso
+        if (iso != null && manualExposureNsOverride == null) {
+            readoutChaseExposureNs =
+                previewMetadata.get().exposureNs ?: readoutChaseExposureNs
+        }
+        if (iso == null && manualExposureNsOverride == null) {
+            readoutChaseExposureNs = null
+            readoutChaseIso = null
+            readoutChaseMedianEma = Double.NaN
+        }
         refreshRepeatingPreviewOnly()
     }
 
     /** Adjust shutter only; keeps the current manual ISO selection (or auto). */
     fun setReadoutManualShutter(exposureNs: Long?) {
         manualExposureNsOverride = exposureNs
+        if (exposureNs != null && manualIsoOverride == null) {
+            readoutChaseIso = previewMetadata.get().iso ?: readoutChaseIso
+        }
+        if (manualIsoOverride == null && manualExposureNsOverride == null) {
+            readoutChaseExposureNs = null
+            readoutChaseIso = null
+            readoutChaseMedianEma = Double.NaN
+        }
         refreshRepeatingPreviewOnly()
     }
 
@@ -8746,6 +9695,26 @@ private class PreviewController(
 
     /** Latest readout-WB RGB multipliers for the external-OES preview shader (GL thread safe). */
     fun previewShaderWbRgbForGl(): FloatArray = previewShaderWbRgb.get()
+
+    /** Sprint 15.0: apply saved chart profile to live preview + manual shutter nudge. */
+    fun applyChartCalibrationProfile(profile: CalibrationProfile, exposureStops: Double) {
+        manualAwbModeOverride = CaptureRequest.CONTROL_AWB_MODE_OFF
+        previewShaderWbRgb.set(CalibrationWorkflow.previewShaderWbFromProfile(profile))
+        notifyReadoutWbShaderChanged()
+        if (exposureStops != 0.0) {
+            val base =
+                manualExposureNsOverride
+                    ?: previewMetadata.get().exposureNs
+            if (base != null && base > 0L) {
+                val scaled =
+                    (base.toDouble() * 2.0.pow(exposureStops))
+                        .toLong()
+                        .coerceIn(1_000L, 30_000_000_000L)
+                setReadoutManualShutter(scaled)
+            }
+        }
+        refreshRepeatingPreviewOnly()
+    }
 
     fun setReadoutWbShaderChangedListener(listener: Runnable?) {
         readoutWbShaderChangedListener = listener
@@ -9002,6 +9971,14 @@ private class PreviewController(
         return desiredFps
     }
 
+    /** ADB intent / controller field — must win over [PreviewChromePreferences] session snapshot. */
+    private fun effectiveAdbVideoCodecOrdinal(): Int? {
+        adbAutomationVideoCodecOrdinal?.let { return it }
+        val activity = appContext.findHostActivity() ?: return null
+        val ord = activity.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL, -1) ?: -1
+        return ord.takeIf { it >= 0 }
+    }
+
     /**
      * Pick in-app video encoder format (Sprint **13.4** DCG session + HDR10 encode when requested).
      */
@@ -9022,7 +9999,12 @@ private class PreviewController(
                 enableResearchDcgHdr = prefs.enableResearchDcgHDR,
                 adbPreviewVideoDcg = adbAutomationVideoDcg,
             )
-        val chrome = PreviewChromePreferences.load(appContext)
+        val chromeLoaded = PreviewChromePreferences.load(appContext)
+        val adbCodecOrd = effectiveAdbVideoCodecOrdinal()
+        val chrome =
+            adbCodecOrd?.let { ord ->
+                chromeLoaded.copy(inAppVideoCodecOrdinal = ord)
+            } ?: chromeLoaded
         val supportsAv1 = MediaCodecCapabilityProbe.supportsAv1Encoder()
         val hsMap =
             chars?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
@@ -9067,14 +10049,17 @@ private class PreviewController(
         onUi: (InAppVideoRecordingUiEvent) -> Unit,
         wantHighSpeed: Boolean = false,
     ) {
+        cancelDeferredMcStopPreviewRebuild()
         // Map UI events from VideoRecordingController to PreviewController events
         val onEvent: (VideoRecordingController.Event) -> Unit = { event ->
             when (event) {
                 is VideoRecordingController.Event.StartFailed -> {
                     inAppVideoRecordingArmed = false
+                    cancelDeferredMcStopPreviewRebuild()
                     mainHandler.post { onUi(InAppVideoRecordingUiEvent.StartFailed) }
                 }
                 is VideoRecordingController.Event.Stopped -> {
+                    finishDeferredMcStopPreviewRebuildIfNeeded()
                     mainHandler.post { onUi(InAppVideoRecordingUiEvent.Stopped(event.uri, event.audioEnabled)) }
                 }
             }
@@ -9125,7 +10110,11 @@ private class PreviewController(
             )
             val videoFormat = resolveInAppVideoFormat(recordSize, desiredFps)
             val orientHint =
-                selectedCameraId?.let { videoOrientationHintDegrees(it) } ?: 0
+                if (dualVideoActive) {
+                    DualVideoRecordingController.COMPOSITE_ORIENTATION_HINT_DEGREES
+                } else {
+                    selectedCameraId?.let { videoOrientationHintDegrees(it) } ?: 0
+                }
             val result = videoController.applyShell(
                 wantRecord = wantRecord,
                 profile = profile,
@@ -9156,10 +10145,51 @@ private class PreviewController(
             if (stopNeedsPreviewSessionRebuild) {
                 stopHfrRecordMonitor()
                 videoRecordingSessionRebuildPending = false
-                Log.i("PNS.Cam", "Video stopped — rebuilding preview-only session")
-                maybeRestartBody()
+                val deferRebuild =
+                    desiredFps >= VideoRecordingController.HFR_THRESHOLD_FPS &&
+                        videoController.wantsMediaCodecPath
+                if (deferRebuild) {
+                    deferPreviewRebuildUntilMcStopped = true
+                    scheduleDeferredMcStopPreviewRebuildSafety()
+                    Log.i(
+                        "PNS.Cam",
+                        "Video stopped — defer preview rebuild until MediaCodec muxer finalizes",
+                    )
+                } else {
+                    Log.i("PNS.Cam", "Video stopped — rebuilding preview-only session")
+                    maybeRestartBody()
+                }
             }
         }
+    }
+
+    private fun finishDeferredMcStopPreviewRebuildIfNeeded() {
+        if (!deferPreviewRebuildUntilMcStopped) return
+        deferPreviewRebuildUntilMcStopped = false
+        cancelDeferredMcStopPreviewRebuild()
+        Log.i("PNS.Cam", "MediaCodec finalized — rebuilding preview-only session")
+        handler?.post { maybeRestartBody() } ?: maybeRestartBody()
+    }
+
+    private fun cancelDeferredMcStopPreviewRebuild() {
+        deferredMcStopRebuildRunnable?.let { mainHandler.removeCallbacks(it) }
+        deferredMcStopRebuildRunnable = null
+        deferPreviewRebuildUntilMcStopped = false
+    }
+
+    private fun scheduleDeferredMcStopPreviewRebuildSafety() {
+        deferredMcStopRebuildRunnable?.let { mainHandler.removeCallbacks(it) }
+        val runnable =
+            Runnable {
+                if (!deferPreviewRebuildUntilMcStopped) return@Runnable
+                Log.w(
+                    "PNS.Cam",
+                    "deferred HFR preview rebuild timeout — forcing session rebuild",
+                )
+                finishDeferredMcStopPreviewRebuildIfNeeded()
+            }
+        deferredMcStopRebuildRunnable = runnable
+        mainHandler.postDelayed(runnable, 12_000L)
     }
 
     /** Get recording surface for session configuration. */
@@ -9389,6 +10419,7 @@ private class PreviewController(
                     dngSoftwareDescription,
                     stillsLut,
                     adbValidationShotLabel,
+                    deferReadoutHapticUntilTonal = true,
                 ) { rawResult ->
                     rawResult.fold(
                         onSuccess = { rawOut ->
@@ -9600,6 +10631,8 @@ private class PreviewController(
         stillsLut: LutCatalog = LutCatalog.None,
         /** When set (e.g. `3/10`), logs `PNS.AdbValidation` lines for scripted runs. */
         adbValidationShotLabel: String? = null,
+        /** Sprint **15.12** — defer readout haptic until tonal HAL completes (RAW+tonal dual path). */
+        deferReadoutHapticUntilTonal: Boolean = false,
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
         if (effectiveStillCaptureMode() == StillCaptureMode.HdrStill) {
@@ -10168,7 +11201,7 @@ private class PreviewController(
                                     result: TotalCaptureResult,
                                 ) {
                                     boundaryTimings.tOnCaptureCompletedNs = SystemClock.elapsedRealtimeNanos()
-                                    onStillCaptureReadoutComplete(haptics)
+                                    onStillCaptureReadoutComplete(haptics, deferReadoutHapticUntilTonal)
                                     pendingResult.set(result)
                                     maybeProcess()
                                     val postCompleteWaitMs =
@@ -10277,7 +11310,7 @@ private class PreviewController(
                                             ) {
                                                 boundaryTimings.tOnCaptureCompletedNs =
                                                     SystemClock.elapsedRealtimeNanos()
-                                                onStillCaptureReadoutComplete(haptics)
+                                                onStillCaptureReadoutComplete(haptics, deferReadoutHapticUntilTonal)
                                                 pendingResult.set(result)
                                                 maybeProcess()
                                                 val postCompleteWaitMs =
@@ -11655,12 +12688,17 @@ private class PreviewController(
     fun peekInAppVideoRecorderStarted(): Boolean =
         videoController.isRecorderStarted() && videoController.isMuxerReadyForRecord()
 
+    fun peekInAppVideoMcEncoderRecording(): Boolean = videoController.isMcEncoderRecording()
+
     /** ADB in-app video: MC HFR may need several seconds after [maybeStartInAppVideoRecorder] for the first encoded frame. */
     fun peekInAppVideoAutomationRecordReady(): Boolean {
         if (videoController.isStartFailureHold()) return false
         if (!videoController.isRecorderPresent()) return false
-        if (!videoController.isRecorderStarted()) return false
-        return videoController.isMuxerReadyForRecord()
+        val encoderLive =
+            videoController.isRecorderStarted() || videoController.isMcEncoderRecording()
+        if (!encoderLive) return false
+        return videoController.isMuxerReadyForRecord() ||
+            (dualVideoActive && videoController.getRecordingSurface()?.isValid == true)
     }
 
     /** Sprint **14.2** — live audio meters in [PreviewTopStatusBar] while in-app video records. */
@@ -11957,13 +12995,20 @@ private class PreviewController(
      * session. Full teardown paths ([stop], texture destroyed, errors) pass true (default).
      */
     private fun closeCamera(teardownPreparedMediaRecorder: Boolean = true) {
-        closeDualFrontCamera()
+        if (!dualVideoActive) {
+            closeDualFrontCamera()
+            dualVideoEncoderSink.release()
+        } else {
+            Log.d(
+                DualVideoRecordingController.TAG,
+                "closeCamera: keeping dual front (dualVideoActive, teardown=$teardownPreparedMediaRecorder)",
+            )
+        }
         if (teardownPreparedMediaRecorder) {
             stopHfrRecordMonitor()
             hfrInterleavedRecordActive = false
             inAppVideoRecordingArmed = false
         }
-        dualVideoEncoderSink.release()
         PreviewLogicalPhysicalDebugBridge.clear()
         captureSessionAsyncConfigurePending = false
         cameraDeviceOpenPending = false
@@ -12127,12 +13172,43 @@ private class PreviewController(
                 ?.maxByOrNull { it.width.toLong() * it.height.toLong() }
 
         // Pick the surface size we want to drive for this mode.
+        val recordForNegotiation =
+            when {
+                dualVideoActive && inAppVideoRecordingArmed ->
+                    DualVideoRecordingController.compositeRecordSize()
+                inAppVideoRecordingArmed && desiredFps < 120 ->
+                    resolveInAppVideoRecordSize()
+                else -> null
+            }
+        val previewAlignedToRecord =
+            recordForNegotiation?.let { rec ->
+                InAppVideoRecordingSupport.pickPreviewSizeAlignedToRecord(map, rec)
+            }
+        if (recordForNegotiation != null) {
+            val halMr =
+                InAppVideoRecordingSupport.supportsMediaRecorderOutputSize(
+                    map,
+                    recordForNegotiation.width,
+                    recordForNegotiation.height,
+                )
+            val halSt =
+                InAppVideoRecordingSupport.supportsSurfaceTextureOutputSize(
+                    map,
+                    recordForNegotiation.width,
+                    recordForNegotiation.height,
+                )
+            Log.i(
+                "PNS.VideoEncode",
+                "eightKNegotiation record=${recordForNegotiation.width}x${recordForNegotiation.height} " +
+                    "halMr=$halMr halSt=$halSt previewAligned=" +
+                    "${previewAlignedToRecord?.width ?: 0}x${previewAlignedToRecord?.height ?: 0}",
+            )
+        }
         val wantedSurfaceSize =
-            if (desiredFps >= 120) {
-                // Constrained high-speed requires one of these exact sizes.
-                desiredHighSpeedSize
-            } else {
-                pickNormalPreviewSize(map, activeArray, chars) ?: emergencyPreview
+            when {
+                desiredFps >= 120 -> desiredHighSpeedSize
+                previewAlignedToRecord != null -> previewAlignedToRecord
+                else -> pickNormalPreviewSize(map, activeArray, chars) ?: emergencyPreview
             }
         desiredSurfaceSize = wantedSurfaceSize
 
@@ -12517,7 +13593,7 @@ private class PreviewController(
         if (!dualVideoActive) {
             videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { surfaces.add(it) }
         }
-        if (!useHighSpeed) {
+        if (!useHighSpeed && !dualVideoActive) {
             if (!videoController.isRecorderPresent()) {
             val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
             val mapForStreams =
@@ -12574,7 +13650,8 @@ private class PreviewController(
                             (!automationSuppressFacePipeline && previewHistogramEnabled) ||
                             (!automationSuppressFacePipeline && highlightClipZebraEnabled) ||
                             (hudFaceOverlayEnabled && !automationSuppressFacePipeline) ||
-                            (smileStillEnabled && !automationSuppressFacePipeline)
+                            (smileStillEnabled && !automationSuppressFacePipeline) ||
+                            (wantsReadoutExposureChase() && desiredFps < 120)
                     )
             if (wantYuv) {
                 val yuvPick = desiredSurfaceSize ?: currentSurfaceSize
@@ -13320,6 +14397,80 @@ private class PreviewController(
         return mode != CaptureRequest.CONTROL_AWB_MODE_OFF
     }
 
+    private fun wantsReadoutExposureChase(): Boolean {
+        if (desiredFps >= 120) return false
+        return when (
+            ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride)
+        ) {
+            ReadoutAeCoupling.LOCKED_ISO_AUTO_SS,
+            ReadoutAeCoupling.LOCKED_SS_AUTO_ISO,
+            -> true
+            else -> false
+        }
+    }
+
+    private fun maybeAdjustReadoutChaseFromHistogram(hist: IntArray) {
+        if (!wantsReadoutExposureChase()) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastReadoutChaseProcessWallMs < readoutChaseHistMinIntervalMs) return
+        lastReadoutChaseProcessWallMs = now
+        val coupling =
+            ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride)
+        val camId = selectedCameraId ?: return
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
+        val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+        val expRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+        val sampleBin = ReadoutExposureChase.medianBin(hist)
+        readoutChaseMedianEma = ReadoutExposureChase.smoothMedian(readoutChaseMedianEma, sampleBin)
+        val medianEma = readoutChaseMedianEma
+        var applied = false
+        when (coupling) {
+            ReadoutAeCoupling.LOCKED_ISO_AUTO_SS -> {
+                val cur =
+                    readoutChaseExposureNs
+                        ?: manualExposureNsOverride
+                        ?: previewMetadata.get().exposureNs
+                        ?: expRange?.lower
+                        ?: 33_333_333L
+                readoutChaseExposureNs = cur
+                val res = ReadoutExposureChase.adjustExposureNs(cur, medianEma, expRange)
+                if (res.applied) {
+                    readoutChaseExposureNs = res.value
+                    applied = true
+                }
+            }
+            ReadoutAeCoupling.LOCKED_SS_AUTO_ISO -> {
+                val cur =
+                    readoutChaseIso
+                        ?: manualIsoOverride
+                        ?: previewMetadata.get().iso
+                        ?: isoRange?.lower
+                        ?: 100
+                readoutChaseIso = cur
+                val res =
+                    ReadoutExposureChase.adjustIso(cur, medianEma, isoRange, readoutIsoBand)
+                if (res.applied) {
+                    readoutChaseIso = res.value
+                    applied = true
+                }
+            }
+            else -> return
+        }
+        val logEveryMs = if (adbReadoutChaseProof) 1000L else 3000L
+        if (now - lastReadoutChaseLogWallMs >= logEveryMs) {
+            lastReadoutChaseLogWallMs = now
+            Log.i(
+                tag,
+                "readoutChase iso=${readoutChaseIso} ss=${readoutChaseExposureNs} " +
+                    "coupling=$coupling medianEma=${"%.1f".format(medianEma)}",
+            )
+        }
+        if (applied && now - lastReadoutChaseRefreshWallMs >= readoutChaseRefreshMinGapMs) {
+            lastReadoutChaseRefreshWallMs = now
+            handler?.post { refreshRepeatingPreviewOnly() }
+        }
+    }
+
     private fun applyReadoutManualExposureAndWb(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
@@ -13328,22 +14479,70 @@ private class PreviewController(
         val aeModes = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES) ?: intArrayOf()
         val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
         val expRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
-        val wantsManualSensor = manualIsoOverride != null || manualExposureNsOverride != null
-        if (wantsManualSensor) {
+        val coupling =
+            ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride)
+        if (coupling != ReadoutAeCoupling.AUTO) {
             if (!aeModes.contains(CaptureRequest.CONTROL_AE_MODE_OFF)) {
                 Log.w(tag, "Readout manual ISO/shutter unavailable: no CONTROL_AE_MODE_OFF (AWB still applied)")
             } else {
                 req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
-                val isoPick = manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
-                val isoClamped = ReadoutExposureCatalog.clampIso(isoRange, isoPick)
-                req.set(CaptureRequest.SENSOR_SENSITIVITY, isoClamped)
-                val expPick =
-                    manualExposureNsOverride
-                        ?: previewMetadata.get().exposureNs
-                        ?: expRange?.lower
-                        ?: 33_333_333L
-                val expClamped = ReadoutExposureCatalog.clampExposure(expRange, expPick)
-                req.set(CaptureRequest.SENSOR_EXPOSURE_TIME, expClamped)
+                when (coupling) {
+                    ReadoutAeCoupling.LOCKED_ISO_AUTO_SS -> {
+                        val isoPick =
+                            manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
+                        req.set(
+                            CaptureRequest.SENSOR_SENSITIVITY,
+                            ReadoutExposureCatalog.clampIso(isoRange, isoPick),
+                        )
+                        val expPick =
+                            readoutChaseExposureNs
+                                ?: previewMetadata.get().exposureNs
+                                ?: expRange?.lower
+                                ?: 33_333_333L
+                        req.set(
+                            CaptureRequest.SENSOR_EXPOSURE_TIME,
+                            ReadoutExposureCatalog.clampExposure(expRange, expPick),
+                        )
+                    }
+                    ReadoutAeCoupling.LOCKED_SS_AUTO_ISO -> {
+                        val isoPick =
+                            readoutChaseIso
+                                ?: previewMetadata.get().iso
+                                ?: isoRange?.lower
+                                ?: 100
+                        req.set(
+                            CaptureRequest.SENSOR_SENSITIVITY,
+                            ReadoutExposureCatalog.clampIso(isoRange, isoPick),
+                        )
+                        val expPick =
+                            manualExposureNsOverride
+                                ?: previewMetadata.get().exposureNs
+                                ?: expRange?.lower
+                                ?: 33_333_333L
+                        req.set(
+                            CaptureRequest.SENSOR_EXPOSURE_TIME,
+                            ReadoutExposureCatalog.clampExposure(expRange, expPick),
+                        )
+                    }
+                    ReadoutAeCoupling.MANUAL_BOTH -> {
+                        val isoPick =
+                            manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
+                        req.set(
+                            CaptureRequest.SENSOR_SENSITIVITY,
+                            ReadoutExposureCatalog.clampIso(isoRange, isoPick),
+                        )
+                        val expPick =
+                            manualExposureNsOverride
+                                ?: previewMetadata.get().exposureNs
+                                ?: expRange?.lower
+                                ?: 33_333_333L
+                        req.set(
+                            CaptureRequest.SENSOR_EXPOSURE_TIME,
+                            ReadoutExposureCatalog.clampExposure(expRange, expPick),
+                        )
+                    }
+                    ReadoutAeCoupling.AUTO -> Unit
+                }
             }
         }
         manualAwbModeOverride?.let { mode ->
@@ -13725,41 +14924,13 @@ private class PreviewController(
         }
     }
 
-    /**
-     * Active-array landmark → preview-buffer pixels when preview uses a **strict** scaler crop
-     * (digital tele / portrait). Matches the inverse of [applyTapFocusFromView] (normalized
-     * buffer coordinates span the crop rectangle linearly).
-     */
-    private fun mapActivePointToBufferWithScalerCrop(
-        ax: Int,
-        ay: Int,
-        cropRect: Rect,
-        bufW: Int,
-        bufH: Int,
-        mirrorHorizontally: Boolean,
-    ): Offset {
-        val cw = cropRect.width().coerceAtLeast(1)
-        val ch = cropRect.height().coerceAtLeast(1)
-        val nx = ((ax - cropRect.left).toFloat() / cw).coerceIn(0f, 1f)
-        val ny = ((ay - cropRect.top).toFloat() / ch).coerceIn(0f, 1f)
-        var x = nx * bufW
-        val y = ny * bufH
-        if (mirrorHorizontally) x = bufW - x
-        return Offset(x, y)
-    }
-
     /** Maps [Face] bounds (active-array space) into preview-buffer pixels for [FaceTrackBoxBuffer]. */
     private fun faceBoundsToBufferRect(
         bounds: Rect,
-        cropIsTighterThanActive: Boolean,
         cropRect: Rect,
         bufW: Int,
         bufH: Int,
         mirror: Boolean,
-        sensorOrientation: Int,
-        aw: Int,
-        ah: Int,
-        bufferScalePolicy: FaceDetectAdapter.PreviewBufferScalePolicy,
     ): FaceTrackBoxBuffer? {
         val corners =
             arrayOf(
@@ -13773,21 +14944,14 @@ private class PreviewController(
         var i = 0
         for ((x, y) in corners) {
             val o =
-                if (cropIsTighterThanActive) {
-                    mapActivePointToBufferWithScalerCrop(x, y, cropRect, bufW, bufH, mirror)
-                } else {
-                    FaceDetectAdapter.mapEyeToPreview(
-                        eyeSensor = SensorPoint(x, y),
-                        activeArrayWidth = aw,
-                        activeArrayHeight = ah,
-                        previewWidth = bufW,
-                        previewHeight = bufH,
-                        sensorOrientationDeg = sensorOrientation,
-                        mirrorHorizontally = mirror,
-                        confidence = 1f,
-                        bufferScalePolicy = bufferScalePolicy,
-                    ).position
-                }
+                PreviewBufferCoordMap.activeArrayToPreviewBuffer(
+                    x,
+                    y,
+                    cropRect,
+                    bufW,
+                    bufH,
+                    mirror,
+                )
             xs[i] = o.x
             ys[i] = o.y
             i++
@@ -13915,21 +15079,20 @@ private class PreviewController(
             cropRect.width() < activeLogical.width() - cropTighterTolPx ||
                 cropRect.height() < activeLogical.height() - cropTighterTolPx
 
-        /** Match GLES preview: same uniform scale as [TexturePreviewFit.mapBufferToView] for this finder mode. */
-        val faceBufferScalePolicy =
-            if (previewTextureCoverCrop) {
-                FaceDetectAdapter.PreviewBufferScalePolicy.UniformCover
-            } else {
-                FaceDetectAdapter.PreviewBufferScalePolicy.UniformContain
-            }
-
-        // Use the **active physical** module's sensor orientation when HAL reports it (or when we
-        // route preview to a pinned tele child); wide vs tele stacks often differ by 180° / swap.
-        val faceToBufferRotationDeg = mlInputImageRotationDegrees(charsForFaceGeometry)
         val lensFacing = charsForFaceGeometry.get(CameraCharacteristics.LENS_FACING)
         val mirror = lensFacing == CameraCharacteristics.LENS_FACING_FRONT
         val aw = activeForLandmarks.width()
         val ah = activeForLandmarks.height()
+        val faceDiagWall = SystemClock.elapsedRealtime()
+        if (faceDiagWall - lastFaceGeometryDiagLogWallMs >= 3000L) {
+            lastFaceGeometryDiagLogWallMs = faceDiagWall
+            Log.i(
+                "PNS.FaceAlign",
+                "faceDiag cam=$camId phys=$physForGeometry buf=${bufW}x$bufH " +
+                    "active=${aw}x$ah crop=${cropRect.width()}x${cropRect.height()} " +
+                    "cropTight=$cropIsTighterThanActive map=cropLinear fps=$desiredFps",
+            )
+        }
         val marks = ArrayList<EyeMark>(faces.size * 2)
         val faceBoxBuffers = ArrayList<FaceTrackBoxBuffer>(faces.size)
         for (face in faces) {
@@ -13938,123 +15101,57 @@ private class PreviewController(
             val sc = face.score.coerceIn(1, 100) / 100f
             val left: Point? = face.leftEyePosition
             val right: Point? = face.rightEyePosition
-            if (cropIsTighterThanActive) {
-                if (left != null) {
-                    marks.add(
-                        EyeMark(
-                            position =
-                                mapActivePointToBufferWithScalerCrop(
-                                    left.x,
-                                    left.y,
-                                    cropRect,
-                                    bufW,
-                                    bufH,
-                                    mirror,
-                                ),
-                            confidence = sc,
-                            trackingLocked = locked,
-                        ),
+            if (left != null) {
+                val p =
+                    PreviewBufferCoordMap.activeArrayToPreviewBuffer(
+                        left.x,
+                        left.y,
+                        cropRect,
+                        bufW,
+                        bufH,
+                        mirror,
                     )
-                }
-                if (right != null) {
-                    marks.add(
-                        EyeMark(
-                            position =
-                                mapActivePointToBufferWithScalerCrop(
-                                    right.x,
-                                    right.y,
-                                    cropRect,
-                                    bufW,
-                                    bufH,
-                                    mirror,
-                                ),
-                            confidence = sc,
-                            trackingLocked = locked,
-                        ),
+                marks.add(
+                    EyeMark(position = p, confidence = sc, trackingLocked = locked),
+                )
+            }
+            if (right != null) {
+                val p =
+                    PreviewBufferCoordMap.activeArrayToPreviewBuffer(
+                        right.x,
+                        right.y,
+                        cropRect,
+                        bufW,
+                        bufH,
+                        mirror,
                     )
-                }
-                if (left == null && right == null) {
-                    val b = face.bounds
-                    val ax = (b.left + b.right) / 2
-                    val ay = b.top + ((b.bottom - b.top) / 3)
-                    marks.add(
-                        EyeMark(
-                            position =
-                                mapActivePointToBufferWithScalerCrop(
-                                    ax,
-                                    ay,
-                                    cropRect,
-                                    bufW,
-                                    bufH,
-                                    mirror,
-                                ),
-                            confidence = sc * 0.5f,
-                            trackingLocked = locked,
-                        ),
+                marks.add(
+                    EyeMark(position = p, confidence = sc, trackingLocked = locked),
+                )
+            }
+            if (left == null && right == null) {
+                val b = face.bounds
+                val ax = (b.left + b.right) / 2
+                val ay = b.top + ((b.bottom - b.top) / 3)
+                val p =
+                    PreviewBufferCoordMap.activeArrayToPreviewBuffer(
+                        ax,
+                        ay,
+                        cropRect,
+                        bufW,
+                        bufH,
+                        mirror,
                     )
-                }
-            } else {
-                if (left != null) {
-                    marks.add(
-                        FaceDetectAdapter.mapEyeToPreview(
-                            eyeSensor = SensorPoint(left.x, left.y),
-                            activeArrayWidth = aw,
-                            activeArrayHeight = ah,
-                            previewWidth = bufW,
-                            previewHeight = bufH,
-                            sensorOrientationDeg = faceToBufferRotationDeg,
-                            mirrorHorizontally = mirror,
-                            confidence = sc,
-                            bufferScalePolicy = faceBufferScalePolicy,
-                        ).copy(trackingLocked = locked),
-                    )
-                }
-                if (right != null) {
-                    marks.add(
-                        FaceDetectAdapter.mapEyeToPreview(
-                            eyeSensor = SensorPoint(right.x, right.y),
-                            activeArrayWidth = aw,
-                            activeArrayHeight = ah,
-                            previewWidth = bufW,
-                            previewHeight = bufH,
-                            sensorOrientationDeg = faceToBufferRotationDeg,
-                            mirrorHorizontally = mirror,
-                            confidence = sc,
-                            bufferScalePolicy = faceBufferScalePolicy,
-                        ).copy(trackingLocked = locked),
-                    )
-                }
-                if (left == null && right == null) {
-                    val b = face.bounds
-                    marks.add(
-                        FaceDetectAdapter.mapFaceCenterToPreview(
-                            faceLeft = b.left,
-                            faceTop = b.top,
-                            faceRight = b.right,
-                            faceBottom = b.bottom,
-                            activeArrayWidth = aw,
-                            activeArrayHeight = ah,
-                            previewWidth = bufW,
-                            previewHeight = bufH,
-                            sensorOrientationDeg = faceToBufferRotationDeg,
-                            mirrorHorizontally = mirror,
-                            confidence = sc * 0.5f,
-                            bufferScalePolicy = faceBufferScalePolicy,
-                        ).copy(trackingLocked = locked),
-                    )
-                }
+                marks.add(
+                    EyeMark(position = p, confidence = sc * 0.5f, trackingLocked = locked),
+                )
             }
             faceBoundsToBufferRect(
                 face.bounds,
-                cropIsTighterThanActive,
                 cropRect,
                 bufW,
                 bufH,
                 mirror,
-                faceToBufferRotationDeg,
-                aw,
-                ah,
-                faceBufferScalePolicy,
             )
                 ?.copy(trackingLocked = locked)
                 ?.let { faceBoxBuffers.add(it) }
@@ -14073,19 +15170,33 @@ private class PreviewController(
         viewW: Int,
         viewH: Int,
         @Suppress("UNUSED_PARAMETER") uiTwistDegrees: Float,
+        surfaceTransformColumnMajor4x4: FloatArray? = null,
     ) {
         val buf = desiredSurfaceSize ?: currentSurfaceSize ?: return
         if (viewW <= 0 || viewH <= 0 || buf.width <= 0 || buf.height <= 0) return
         val (bx, by) =
-            TexturePreviewFit.mapViewToBuffer(
-                viewX,
-                viewY,
-                viewW,
-                viewH,
-                buf.width,
-                buf.height,
-                coverCrop = previewTextureCoverCrop,
-            )
+            if (surfaceTransformColumnMajor4x4 != null && surfaceTransformColumnMajor4x4.size >= 16) {
+                TexturePreviewFit.mapViewToBufferWithExternalOesPreview(
+                    viewX,
+                    viewY,
+                    viewW,
+                    viewH,
+                    buf.width,
+                    buf.height,
+                    coverCrop = PREVIEW_FINDER_CONTAIN,
+                    surfaceTransformColumnMajor4x4,
+                )
+            } else {
+                TexturePreviewFit.mapViewToBuffer(
+                    viewX,
+                    viewY,
+                    viewW,
+                    viewH,
+                    buf.width,
+                    buf.height,
+                    coverCrop = PREVIEW_FINDER_CONTAIN,
+                )
+            }
         val camId = selectedCameraId ?: return
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
         val active = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: return
@@ -14211,11 +15322,12 @@ private class PreviewController(
         val wantHighlight = wantsHighlightMetering()
         val wantHist = previewHistogramEnabled
         val wantZebra = highlightClipZebraEnabled && desiredFps < 120
+        val wantChase = wantsReadoutExposureChase()
         val wantFaceHud = hudFaceOverlayEnabled && !automationSuppressFacePipeline
         val wantSmileStill = smileStillEnabled && !automationSuppressFacePipeline
         val wantFace = wantFaceHud || wantSmileStill
         val wantQr = wantsQrScan()
-        if (!wantHighlight && !wantHist && !wantFace && !wantZebra && !wantQr) {
+        if (!wantHighlight && !wantHist && !wantFace && !wantZebra && !wantQr && !wantChase) {
             reader.acquireLatestImage()?.close()
             return
         }
@@ -14225,9 +15337,10 @@ private class PreviewController(
                 if (wantHighlight) highlightMeterMinIntervalMs else 0L,
                 if (wantHist) histogramUiMinIntervalMs else 0L,
                 if (wantZebra) zebraMinIntervalMs else 0L,
+                if (wantChase) readoutChaseHistMinIntervalMs else 0L,
             )
         val histOk =
-            (!wantHighlight && !wantHist && !wantZebra) ||
+            (!wantHighlight && !wantHist && !wantZebra && !wantChase) ||
                 (now - lastHighlightProcessWallMs >= histGapMs)
         val skipMlBecauseCameraFaces =
             wantFaceHud && faceHudLastCameraFaceBoxes.isNotEmpty()
@@ -14249,7 +15362,7 @@ private class PreviewController(
             reader.acquireLatestImage()?.close()
             return
         }
-        if (histOk && (wantHighlight || wantHist || wantZebra)) {
+        if (histOk && (wantHighlight || wantHist || wantZebra || wantChase)) {
             lastHighlightProcessWallMs = now
         }
         if (!yuvAnalysisInFlight.compareAndSet(false, true)) {
@@ -14354,7 +15467,7 @@ private class PreviewController(
                             bufferWidth = faceBuf.width,
                             bufferHeight = faceBuf.height,
                             mirrorHorizontally = mirror,
-                            coverCrop = previewTextureCoverCrop,
+                            coverCrop = PREVIEW_FINDER_CONTAIN,
                         )
                     if (hud.boxes.isEmpty()) {
                         mlConsecutiveEmptyMlDetections++
@@ -14393,7 +15506,7 @@ private class PreviewController(
                 }
 
                 fun runHistogramAndHighlightIfNeeded() {
-                    if (!wantHighlight && !wantHist && !wantZebra) return
+                    if (!wantHighlight && !wantHist && !wantZebra && !wantChase) return
 
                     val plane = image.planes[0]
                     val buf = plane.buffer
@@ -14409,13 +15522,16 @@ private class PreviewController(
                     val h = image.height
                     val rowStride = plane.rowStride
                     val hist: IntArray? =
-                        if ((wantHist || wantHighlight) && w > 0 && h > 0) {
+                        if ((wantHist || wantHighlight || wantChase) && w > 0 && h > 0) {
                             runCatching { PreviewLumaHistogram.reduceYuv420Y(bytes, w, h, rowStride) }
                                 .onFailure { e -> Log.w(tag, "histogram reduce failed: ${e.message}") }
                                 .getOrNull()
                         } else {
                             null
                         }
+                    if (wantChase && hist != null) {
+                        maybeAdjustReadoutChaseFromHistogram(hist)
+                    }
                     if (wantZebra && w > 0 && h > 0) {
                         val wall = SystemClock.elapsedRealtime()
                         if (wall - lastZebraProcessWallMs >= zebraMinIntervalMs) {
@@ -14892,7 +16008,20 @@ private class PreviewController(
             } else {
                 surf
             }
-        val req = buildPreviewCaptureRequest(camera, requestSurf, fpsRange, camId)
+        val req =
+            try {
+                buildPreviewCaptureRequest(camera, requestSurf, fpsRange, camId)
+            } catch (e: CameraAccessException) {
+                lastStatus = "Preview request failed: ${e.reason}"
+                Log.e(tag, "startRepeating buildPreviewCaptureRequest failed (CameraAccessException)", e)
+                handler?.post { kickPreviewPipelineRestart() }
+                return
+            } catch (t: Throwable) {
+                lastStatus = "Preview request failed: ${t::class.java.simpleName}"
+                Log.e(tag, "startRepeating buildPreviewCaptureRequest failed", t)
+                handler?.post { kickPreviewPipelineRestart() }
+                return
+            }
 
         try {
             if (sess is CameraConstrainedHighSpeedSessionShim && fpsRange != null) {
@@ -15165,19 +16294,32 @@ private class PreviewController(
     }
 
     private fun resolveInAppVideoRecordSize(): Size {
+        if (dualVideoActive) {
+            return DualVideoRecordingController.compositeRecordSize()
+        }
         val session = desiredSurfaceSize ?: currentSurfaceSize
         val pref = inAppVideoEncodeSizePref?.takeIf { it.width > 0 && it.height > 0 }
+        val camId = selectedCameraId
+        val map =
+            camId?.let {
+                runCatching {
+                    cm.getCameraCharacteristics(it).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                }.getOrNull()
+            }
         if (desiredFps >= 120 && videoController.wantsMediaCodecPath) {
-            val camId = selectedCameraId
-            val map =
-                camId?.let {
-                    runCatching {
-                        cm.getCameraCharacteristics(it).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                    }.getOrNull()
-                }
             InAppVideoRecordingSupport.pickHighSpeedVideoTarget(map, desiredFps, pref ?: session)
                 ?.first
                 ?.let { return it }
+        }
+        if (pref != null && map != null) {
+            val hal = InAppVideoRecordingSupport.pickOutputSize(map, pref.width, pref.height)
+            if (hal.width != pref.width || hal.height != pref.height) {
+                Log.w(
+                    tag,
+                    "encodePref ${pref.width}x${pref.height} clamped to HAL MR ${hal.width}x${hal.height}",
+                )
+            }
+            return hal
         }
         return when {
             desiredFps >= 120 -> session ?: pref ?: Size(1920, 1080)

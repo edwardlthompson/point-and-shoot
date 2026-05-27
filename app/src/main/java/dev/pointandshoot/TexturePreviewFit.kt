@@ -89,6 +89,53 @@ object TexturePreviewFit {
      * (TextureView is an Android framework class and isn't available in JVM
      * tests).
      */
+    /**
+     * [SurfaceTexture.getTransformMatrix] × center-fit/crop for external-OES GLES preview.
+     * [bufferWidthPx]/[bufferHeightPx] are the **negotiated Camera2 stream** WxH (raw HAL), same as
+     * [mapBufferToView] — not portrait-swapped display extents.
+     */
+    fun composeExternalOesPreviewMatrix(
+        destColumnMajor4x4: FloatArray,
+        viewWidthPx: Int,
+        viewHeightPx: Int,
+        bufferWidthPx: Int,
+        bufferHeightPx: Int,
+        coverCrop: Boolean,
+        surfaceTransformColumnMajor4x4: FloatArray,
+    ) {
+        require(destColumnMajor4x4.size >= 16) { "destColumnMajor4x4 must hold 16 floats" }
+        require(surfaceTransformColumnMajor4x4.size >= 16) { "surfaceTransformColumnMajor4x4 must hold 16 floats" }
+        val fit =
+            if (coverCrop) {
+                computeCenterCropMatrix(viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx)
+            } else {
+                computeCenterFitMatrix(viewWidthPx, viewHeightPx, bufferWidthPx, bufferHeightPx)
+            }
+        val fit4 = FloatArray(16)
+        androidGraphicsMatrixToOpengl4x4(fit, fit4)
+        // Texture coords: apply center-fit then SurfaceTexture orientation (fit * ST).
+        android.opengl.Matrix.multiplyMM(
+            destColumnMajor4x4,
+            0,
+            fit4,
+            0,
+            surfaceTransformColumnMajor4x4,
+            0,
+        )
+    }
+
+    internal fun androidGraphicsMatrixToOpengl4x4(m: Matrix, outColumnMajor4x4: FloatArray) {
+        android.opengl.Matrix.setIdentityM(outColumnMajor4x4, 0)
+        val v = FloatArray(9)
+        m.getValues(v)
+        outColumnMajor4x4[0] = v[Matrix.MSCALE_X]
+        outColumnMajor4x4[1] = v[Matrix.MSKEW_Y]
+        outColumnMajor4x4[4] = v[Matrix.MSKEW_X]
+        outColumnMajor4x4[5] = v[Matrix.MSCALE_Y]
+        outColumnMajor4x4[12] = v[Matrix.MTRANS_X]
+        outColumnMajor4x4[13] = v[Matrix.MTRANS_Y]
+    }
+
     fun computeCenterFitMatrix(
         viewWidthPx: Int,
         viewHeightPx: Int,
@@ -162,6 +209,8 @@ object TexturePreviewFit {
         viewHeightPx: Int,
         bufferWidthPx: Int,
         bufferHeightPx: Int,
+        /** When true, center-**crop** (full view); when false, center-**contain** (letterbox/pillarbox). */
+        coverCrop: Boolean = true,
     ): FitRect {
         if (viewWidthPx <= 0 || viewHeightPx <= 0 || bufferWidthPx <= 0 || bufferHeightPx <= 0) {
             return FitRect(
@@ -173,8 +222,13 @@ object TexturePreviewFit {
         }
         val vw = viewWidthPx.toFloat()
         val vh = viewHeightPx.toFloat()
-        // Center-crop preview fills the TextureView — clip overlays to the full view rect.
-        return FitRect(left = 0f, top = 0f, width = vw, height = vh)
+        if (coverCrop) {
+            return FitRect(left = 0f, top = 0f, width = vw, height = vh)
+        }
+        val (w, h) = largestAxisAlignedRectWithAspect(viewWidthPx, viewHeightPx, bufferWidthPx.toFloat() / bufferHeightPx)
+        val left = (vw - w) / 2f
+        val top = (vh - h) / 2f
+        return FitRect(left = left, top = top, width = w.toFloat(), height = h.toFloat())
     }
 
     /** Visible image rect in view coords under center-crop preview (full [TextureView]). */
@@ -216,9 +270,121 @@ object TexturePreviewFit {
     }
 
     /**
-     * Like [mapBufferToView] but first applies **inv(ST)** to normalized buffer UV, matching
-     * [lut_preview_external.vert.glsl] `uStMatrix * vec4(bufUv, 0, 1)` in reverse for landmarks
-     * reported in the same buffer space as [SurfaceTexture.getTransformMatrix] expects.
+     * Buffer pixel → view pixel using the same **fit × ST** matrix as
+     * [composeExternalOesPreviewMatrix] / [TextureView.setTransform] (ProShot-style preview).
+     */
+    fun mapBufferToViewWithExternalOesPreview(
+        bufferX: Float,
+        bufferY: Float,
+        viewWidthPx: Int,
+        viewHeightPx: Int,
+        bufferWidthPx: Int,
+        bufferHeightPx: Int,
+        coverCrop: Boolean,
+        surfaceTransformColumnMajor4x4: FloatArray,
+        destComposed4x4: FloatArray? = null,
+    ): Pair<Float, Float> {
+        if (viewWidthPx <= 0 || viewHeightPx <= 0 || bufferWidthPx <= 0 || bufferHeightPx <= 0) {
+            return bufferX to bufferY
+        }
+        if (surfaceTransformColumnMajor4x4.size < 16) {
+            return mapBufferToView(
+                bufferX,
+                bufferY,
+                viewWidthPx,
+                viewHeightPx,
+                bufferWidthPx,
+                bufferHeightPx,
+                coverCrop,
+            )
+        }
+        val composed = destComposed4x4?.takeIf { it.size >= 16 } ?: FloatArray(16)
+        composeExternalOesPreviewMatrix(
+            composed,
+            viewWidthPx,
+            viewHeightPx,
+            bufferWidthPx,
+            bufferHeightPx,
+            coverCrop,
+            surfaceTransformColumnMajor4x4,
+        )
+        val bw = bufferWidthPx.toFloat().coerceAtLeast(1f)
+        val bh = bufferHeightPx.toFloat().coerceAtLeast(1f)
+        val inVec = floatArrayOf(bufferX / bw, bufferY / bh, 0f, 1f)
+        val outH = FloatArray(4)
+        android.opengl.Matrix.multiplyMV(outH, 0, composed, 0, inVec, 0)
+        val w = outH[3].takeIf { kotlin.math.abs(it) > 1e-6f } ?: 1f
+        val vw = viewWidthPx.toFloat()
+        val vh = viewHeightPx.toFloat()
+        return (outH[0] / w * vw) to (outH[1] / w * vh)
+    }
+
+    /**
+     * View pixel → buffer pixel — inverse of [mapBufferToViewWithExternalOesPreview].
+     */
+    fun mapViewToBufferWithExternalOesPreview(
+        viewX: Float,
+        viewY: Float,
+        viewWidthPx: Int,
+        viewHeightPx: Int,
+        bufferWidthPx: Int,
+        bufferHeightPx: Int,
+        coverCrop: Boolean,
+        surfaceTransformColumnMajor4x4: FloatArray,
+        destComposed4x4: FloatArray? = null,
+    ): Pair<Float, Float> {
+        if (viewWidthPx <= 0 || viewHeightPx <= 0 || bufferWidthPx <= 0 || bufferHeightPx <= 0) {
+            return viewX to viewY
+        }
+        if (surfaceTransformColumnMajor4x4.size < 16) {
+            return mapViewToBuffer(
+                viewX,
+                viewY,
+                viewWidthPx,
+                viewHeightPx,
+                bufferWidthPx,
+                bufferHeightPx,
+                coverCrop,
+            )
+        }
+        val composed = destComposed4x4?.takeIf { it.size >= 16 } ?: FloatArray(16)
+        composeExternalOesPreviewMatrix(
+            composed,
+            viewWidthPx,
+            viewHeightPx,
+            bufferWidthPx,
+            bufferHeightPx,
+            coverCrop,
+            surfaceTransformColumnMajor4x4,
+        )
+        val inv = FloatArray(16)
+        if (!android.opengl.Matrix.invertM(inv, 0, composed, 0)) {
+            return mapViewToBuffer(
+                viewX,
+                viewY,
+                viewWidthPx,
+                viewHeightPx,
+                bufferWidthPx,
+                bufferHeightPx,
+                coverCrop,
+            )
+        }
+        val vw = viewWidthPx.toFloat().coerceAtLeast(1f)
+        val vh = viewHeightPx.toFloat().coerceAtLeast(1f)
+        val inVec = floatArrayOf(viewX / vw, viewY / vh, 0f, 1f)
+        val outH = FloatArray(4)
+        android.opengl.Matrix.multiplyMV(outH, 0, inv, 0, inVec, 0)
+        val w = outH[3].takeIf { kotlin.math.abs(it) > 1e-6f } ?: 1f
+        val bw = bufferWidthPx.toFloat()
+        val bh = bufferHeightPx.toFloat()
+        val bx = (outH[0] / w * bw).coerceIn(0f, bw)
+        val by = (outH[1] / w * bh).coerceIn(0f, bh)
+        return bx to by
+    }
+
+    /**
+     * @deprecated Use [mapBufferToViewWithExternalOesPreview]; kept as alias for callers that only
+     * inverted raw ST without center-fit (misaligned vs GLES).
      */
     fun mapBufferToViewWithExternalOesInvert(
         bufferX: Float,
@@ -241,36 +407,15 @@ object TexturePreviewFit {
                 coverCrop,
             )
         }
-        val inv = FloatArray(16)
-        if (!android.opengl.Matrix.invertM(inv, 0, stMatrixColumnMajor4x4, 0)) {
-            return mapBufferToView(
-                bufferX,
-                bufferY,
-                viewWidthPx,
-                viewHeightPx,
-                bufferWidthPx,
-                bufferHeightPx,
-                coverCrop,
-            )
-        }
-        val bw = bufferWidthPx.toFloat().coerceAtLeast(1f)
-        val bh = bufferHeightPx.toFloat().coerceAtLeast(1f)
-        val bu = bufferX / bw
-        val bv = bufferY / bh
-        val inVec = floatArrayOf(bu, bv, 0f, 1f)
-        val outH = FloatArray(4)
-        android.opengl.Matrix.multiplyMV(outH, 0, inv, 0, inVec, 0)
-        val w = outH[3].takeIf { kotlin.math.abs(it) > 1e-6f } ?: 1f
-        val buAdj = outH[0] / w
-        val bvAdj = outH[1] / w
-        return mapBufferToView(
-            buAdj * bw,
-            bvAdj * bh,
+        return mapBufferToViewWithExternalOesPreview(
+            bufferX,
+            bufferY,
             viewWidthPx,
             viewHeightPx,
             bufferWidthPx,
             bufferHeightPx,
             coverCrop,
+            stMatrixColumnMajor4x4,
         )
     }
 

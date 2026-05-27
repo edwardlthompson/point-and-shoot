@@ -2,21 +2,38 @@ package dev.pointandshoot
 
 import android.opengl.EGL14
 import android.opengl.EGLConfig
+import android.opengl.EGLContext
+import android.opengl.EGLDisplay
 import android.opengl.EGLExt
 import android.opengl.EGLSurface
 import android.util.Log
 import android.view.Surface
 
 /**
- * Renders the current GLES composite into a [MediaCodec] input [Surface] using the **same**
- * EGL context as [LutCameraPreviewRenderer] ([EGL_RECORDABLE_ANDROID] window surface).
+ * Renders the current GLES composite into a [MediaCodec] input [Surface].
+ *
+ * Preview [GLSurfaceView] contexts are often **not** [EGL_RECORDABLE_ANDROID]; we create a
+ * **shared** recordable EGLContext for the encoder window surface (same display as preview).
  */
 class DualVideoGlEncoderSink {
+    /** [EGL_OPENGL_ES3_BIT_KHR] — preview [GLSurfaceView] uses ES 3. */
+    private companion object {
+        const val EGL_OPENGL_ES3_BIT_KHR = 0x00000040
+    }
+
+    @Volatile
+    var isEncoderSurfaceReady: Boolean = false
+        private set
+
     private var eglRecordSurface: EGLSurface? = null
     private var width: Int = 0
     private var height: Int = 0
     private var savedDraw: EGLSurface? = null
     private var savedRead: EGLSurface? = null
+    private var savedContext: EGLContext? = null
+    private var previewContext: EGLContext? = null
+    private var recordContext: EGLContext? = null
+    private var recordConfig: EGLConfig? = null
     private var frameIndex: Long = 0L
 
     fun setEncoderTarget(surface: Surface?, w: Int, h: Int) {
@@ -30,27 +47,29 @@ class DualVideoGlEncoderSink {
             Log.w(DualVideoRecordingController.TAG, "dualEncoderSink: no current EGL context")
             return
         }
-        val config = queryConfig(display, context) ?: run {
-            Log.w(DualVideoRecordingController.TAG, "dualEncoderSink: no EGL config")
-            return
-        }
-        val attribs =
-            intArrayOf(
-                EGLExt.EGL_RECORDABLE_ANDROID,
-                1,
-                EGL14.EGL_NONE,
+        previewContext = context
+        val recCtx = ensureRecordContext(display, context) ?: return
+        val config = recordConfig ?: return
+        val eglSurf =
+            EGL14.eglCreateWindowSurface(
+                display,
+                config,
+                surface,
+                intArrayOf(EGL14.EGL_NONE),
+                0,
             )
-        val eglSurf = EGL14.eglCreateWindowSurface(display, config, surface, attribs, 0)
         if (eglSurf == null || eglSurf == EGL14.EGL_NO_SURFACE) {
             val err = EGL14.eglGetError()
+            isEncoderSurfaceReady = false
             Log.e(DualVideoRecordingController.TAG, "dualEncoderSink: eglCreateWindowSurface failed err=$err")
             return
         }
         eglRecordSurface = eglSurf
+        isEncoderSurfaceReady = true
         frameIndex = 0L
         Log.i(
             DualVideoRecordingController.TAG,
-            "dualEncoderSink ready ${width}x$height recordable=true",
+            "dualEncoderSink ready ${width}x$height recordable=true sharedCtx=${recCtx != context}",
         )
     }
 
@@ -59,12 +78,13 @@ class DualVideoGlEncoderSink {
      */
     fun recordFrame(draw: (recordW: Int, recordH: Int) -> Unit): Boolean {
         val recSurf = eglRecordSurface ?: return false
+        val recCtx = recordContext ?: previewContext ?: return false
         val display = EGL14.eglGetCurrentDisplay()
-        val context = EGL14.eglGetCurrentContext()
-        if (display == EGL14.EGL_NO_DISPLAY || context == EGL14.EGL_NO_CONTEXT) return false
+        if (display == EGL14.EGL_NO_DISPLAY) return false
         savedDraw = EGL14.eglGetCurrentSurface(EGL14.EGL_DRAW)
         savedRead = EGL14.eglGetCurrentSurface(EGL14.EGL_READ)
-        if (!EGL14.eglMakeCurrent(display, recSurf, recSurf, context)) {
+        savedContext = EGL14.eglGetCurrentContext()
+        if (!EGL14.eglMakeCurrent(display, recSurf, recSurf, recCtx)) {
             Log.w(DualVideoRecordingController.TAG, "dualEncoderSink: eglMakeCurrent(record) failed")
             return false
         }
@@ -76,18 +96,25 @@ class DualVideoGlEncoderSink {
         if (!swapped) {
             Log.w(DualVideoRecordingController.TAG, "dualEncoderSink: eglSwapBuffers failed")
         }
-        EGL14.eglMakeCurrent(display, savedDraw, savedRead, context)
+        val restoreCtx = savedContext ?: previewContext
+        if (restoreCtx != null) {
+            EGL14.eglMakeCurrent(display, savedDraw, savedRead, restoreCtx)
+        }
         savedDraw = null
         savedRead = null
+        savedContext = null
         frameIndex++
         return swapped
     }
 
     fun release() {
         releaseEglSurface()
+        releaseRecordContext()
         width = 0
         height = 0
         frameIndex = 0L
+        previewContext = null
+        isEncoderSurfaceReady = false
     }
 
     private fun releaseEglSurface() {
@@ -97,18 +124,59 @@ class DualVideoGlEncoderSink {
             EGL14.eglDestroySurface(display, surf)
         }
         eglRecordSurface = null
+        isEncoderSurfaceReady = false
     }
 
-    private fun queryConfig(
-        display: android.opengl.EGLDisplay,
-        context: android.opengl.EGLContext,
-    ): EGLConfig? {
+    private fun releaseRecordContext() {
+        val display = EGL14.eglGetCurrentDisplay()
+        val ctx = recordContext
+        if (ctx != null && ctx != EGL14.EGL_NO_CONTEXT && display != EGL14.EGL_NO_DISPLAY) {
+            EGL14.eglDestroyContext(display, ctx)
+        }
+        recordContext = null
+        recordConfig = null
+    }
+
+    private fun ensureRecordContext(display: EGLDisplay, shareContext: EGLContext): EGLContext? {
+        recordContext?.let { return it }
+        val config = queryRecordableConfig(display) ?: run {
+            Log.w(DualVideoRecordingController.TAG, "dualEncoderSink: no recordable EGL config")
+            return null
+        }
+        val attribs = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE)
+        val ctx =
+            EGL14.eglCreateContext(display, config, shareContext, attribs, 0)
+                ?: EGL14.EGL_NO_CONTEXT
+        if (ctx == EGL14.EGL_NO_CONTEXT) {
+            Log.e(
+                DualVideoRecordingController.TAG,
+                "dualEncoderSink: eglCreateContext failed err=${EGL14.eglGetError()}",
+            )
+            return null
+        }
+        recordContext = ctx
+        recordConfig = config
+        return ctx
+    }
+
+    /** Window surface for [MediaCodec] must use a recordable config (preview GLSurfaceView config often is not). */
+    private fun queryRecordableConfig(display: EGLDisplay): EGLConfig? {
+        val attribs =
+            intArrayOf(
+                EGL14.EGL_RENDERABLE_TYPE,
+                EGL_OPENGL_ES3_BIT_KHR,
+                EGLExt.EGL_RECORDABLE_ANDROID,
+                1,
+                EGL14.EGL_SURFACE_TYPE,
+                EGL14.EGL_WINDOW_BIT,
+                EGL14.EGL_NONE,
+            )
+        val configs = arrayOfNulls<EGLConfig>(8)
         val num = IntArray(1)
-        EGL14.eglQueryContext(display, context, EGL14.EGL_CONFIG_ID, num, 0)
-        val configs = arrayOfNulls<EGLConfig>(1)
-        val attribs = intArrayOf(EGL14.EGL_CONFIG_ID, num[0], EGL14.EGL_NONE)
-        EGL14.eglChooseConfig(display, attribs, 0, configs, 0, 1, num, 0)
-        return configs[0]
+        if (!EGL14.eglChooseConfig(display, attribs, 0, configs, 0, configs.size, num, 0)) {
+            return null
+        }
+        return if (num[0] > 0) configs[0] else null
     }
 
     private fun GLES20Clear() {

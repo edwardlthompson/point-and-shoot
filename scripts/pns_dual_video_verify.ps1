@@ -54,10 +54,13 @@ try {
         exit 0
     }
 
+    $apk = Join-Path $repoRoot "app\build\outputs\apk\debug\app-debug.apk"
     if (-not $SkipGradle) {
         & "$PSScriptRoot\pns_gradlew.ps1" :app:assembleDebug
         if ($LASTEXITCODE -ne 0) { throw "assembleDebug failed" }
-        $apk = Join-Path $repoRoot "app\build\outputs\apk\debug\app-debug.apk"
+    }
+    if (-not $SkipGradle -or (Test-Path -LiteralPath $apk)) {
+        if (-not (Test-Path -LiteralPath $apk)) { throw "Missing $apk (run assembleDebug first)" }
         & adb @adbArgs install -r -t $apk | Out-Host
     }
 
@@ -68,18 +71,23 @@ try {
     $startExtras = @(
         "--es", "pns_screen", "preview",
         "--ez", "pns_preview_primary_photo", "false",
-        "--es", "pns_preview_dial", "DUAL"
+        "--es", "pns_preview_dial", "DUAL",
+        "--ei", "pns_preview_video_fps", "30",
+        "--es", "pns_preview_imaging_profile", "standard_pro"
     )
     if ($RecordSec -gt 0) {
         $startExtras += "--ei", "pns_preview_automation_in_app_video_sec", "$RecordSec"
     }
     & adb @adbArgs shell am start -n "$pkg/.MainActivity" @startExtras | Out-Null
 
-    $waitSec = if ($RecordSec -gt 0) { [Math]::Max(55, $RecordSec + 45) } else { 10 }
+    $waitSec = if ($RecordSec -gt 0) { [Math]::Max(90, $RecordSec + 75) } else { 15 }
     Start-Sleep -Seconds $waitSec
-    $log = & adb @adbArgs logcat -d -s "PNS.DualVideo:I" "PNS.AdbValidation:I" "PNS.VideoController:I" 2>&1 | Out-String
+    $log = & adb @adbArgs logcat -d -s "PNS.DualVideo:I" "PNS.AdbValidation:I" "PNS.VideoEncode:I" "PNS.MCVideoRec:I" 2>&1 | Out-String
 
-    $previewOk = $log -match "dualVideo=active=true" -or $log -match "dualFront session ready"
+    $previewOk =
+        $log -match "dualVideo=active=true" -or
+        $log -match "dualFront session ready" -or
+        $log -match "dualGlRecordArmed"
     if (-not $previewOk) {
         Write-Warning "[pns_dual_video] dual preview log missing"
     } else {
@@ -88,6 +96,7 @@ try {
 
     if ($RecordSec -gt 0) {
         if ($log -notmatch "inAppVideoSaved ok=true") {
+            $log | Out-File -FilePath (Join-Path $repoRoot "hfr-runs\dual_video_verify_log_tail.txt") -Encoding utf8
             throw "[pns_dual_video] FAIL: no inAppVideoSaved ok=true (dual record ${RecordSec}s)"
         }
         if ($log -notmatch "dualGlRecordArmed") {

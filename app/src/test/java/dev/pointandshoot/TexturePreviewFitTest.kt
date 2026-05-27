@@ -77,6 +77,14 @@ class TexturePreviewFitTest {
         assertEquals(9f, y, 0.001f)
     }
 
+    /** Finder GL host uses portrait display aspect (1440×1920 → 3:4); raw HAL fit is in composeExternalOesPreviewMatrix. */
+    @Test
+    fun `largestAxisAlignedRect uses display aspect in portrait finder`() {
+        val (w, h) = TexturePreviewFit.largestAxisAlignedRectWithAspect(1080, 1440, 1440f / 1920f)
+        assertEquals(1080, w)
+        assertEquals(1440, h)
+    }
+
     @Test
     fun `mapViewToBuffer inverts mapBufferToView for interior samples`() {
         val vw = 1080
@@ -139,6 +147,42 @@ class TexturePreviewFitTest {
         assertEquals(0f, r.top, 0.001f)
         assertEquals(0f, r.width, 0.001f)
         assertEquals(1080f, r.height, 0.001f)
+    }
+
+    /** Sprint **15.6** — 16:9 buffer in 3:4 portrait tile → horizontal pillarbox. */
+    @Test
+    fun `computeFitRect shrink-to-fit 16x9 buffer in 3x4 portrait tile`() {
+        val r = TexturePreviewFit.computeFitRect(1080, 1440, 1920, 1080, coverCrop = false)
+        assertEquals(1080f, r.width, 0.5f)
+        assertEquals(607.5f, r.height, 1f)
+        assertEquals(0f, r.left, 0.5f)
+        assertEquals(416.25f, r.top, 1f)
+    }
+
+    @Test
+    fun `mapBufferToView shrink-to-fit centers 16x9 in 3x4 portrait tile`() {
+        val (cx, cy) = TexturePreviewFit.mapBufferToView(960f, 540f, 1080, 1440, 1920, 1080, coverCrop = false)
+        assertEquals(540f, cx, 0.5f)
+        assertEquals(720f, cy, 0.5f)
+    }
+
+    /** Sprint **15.6** — dual-video stacked halves use the same contain math per band. */
+    @Test
+    fun `computeFitRect stacked dual half 16x9 shrink-to-fit in 3x4 tile`() {
+        val tileW = 1080
+        val tileH = 1440
+        val frontH =
+            (tileH * DualVideoRecordingController.STACKED_FRONT_HEIGHT_FRACTION).toInt()
+                .coerceIn(1, tileH - 1)
+        val rearH = tileH - frontH
+        val rear = TexturePreviewFit.computeFitRect(tileW, rearH, 1920, 1080, coverCrop = false)
+        assertEquals(1080f, rear.width, 0.5f)
+        assertEquals(607.5f, rear.height, 1f)
+        assertEquals(56.25f, rear.top, 1f)
+        val front = TexturePreviewFit.computeFitRect(tileW, frontH, 1920, 1080, coverCrop = false)
+        assertEquals(1080f, front.width, 0.5f)
+        assertEquals(607.5f, front.height, 1f)
+        assertEquals(56.25f, front.top, 1f)
     }
 
     @Test

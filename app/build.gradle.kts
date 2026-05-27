@@ -70,6 +70,9 @@ android {
         targetSdk = 36
         versionCode = 14003
         versionName = "0.14.0-beta.3"
+        // CPH2655: app hit ClassNotFound on large Compose entrypoints when they landed in
+        // secondary dex. Keep multidex explicitly enabled to ensure all classesN.dex are loaded.
+        multiDexEnabled = true
 
         ndk {
             // Device (arm64) + emulator (x86_64). Omit 32-bit ABIs to keep CI/APK lean.
@@ -173,6 +176,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.profileinstaller)
+    implementation("androidx.multidex:multidex:2.0.1")
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

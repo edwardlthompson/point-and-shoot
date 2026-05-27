@@ -29,6 +29,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -70,6 +74,10 @@ fun IconCubeButton(
                 .clip(RoundedCornerShape(10.dp))
                 .border(1.dp, borderColor, RoundedCornerShape(10.dp))
                 .background(bg)
+                .semantics(mergeDescendants = true) {
+                    this.contentDescription = contentDescription
+                    role = Role.Button
+                }
                 .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -129,6 +137,10 @@ fun IconCubeVectorButton(
             .clip(shape)
             .border(1.dp, borderColor, shape)
             .background(bg)
+            .semantics(mergeDescendants = true) {
+                this.contentDescription = contentDescription
+                role = Role.Button
+            }
             .then(
                 if (onLongClick != null) {
                     Modifier.combinedClickable(
@@ -145,7 +157,7 @@ fun IconCubeVectorButton(
             val edge = minOf(maxWidth, maxHeight)
             Icon(
                 imageVector = imageVector,
-                contentDescription = contentDescription,
+                contentDescription = null,
                 modifier = Modifier.size(edge * 0.56f),
                 tint = iconTint,
             )

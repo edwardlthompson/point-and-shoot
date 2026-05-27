@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.core.content.IntentCompat
 import androidx.activity.compose.setContent
@@ -75,6 +76,11 @@ class MainActivity : ComponentActivity() {
         PnsLog.init(applicationContext)
 
         intent?.let { PlatformIntegration.applyDeepLinkToIntent(it) }
+
+        // Launcher icon must not replay sticky `pns_preview_automation_in_app_video_sec` from a prior ADB gate.
+        if (isLauncherMainIntent(intent)) {
+            intent.stripPreviewVideoAutomationExtras()
+        }
 
         if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW, false) == true) {
             HudSettings.save(this, HudSettings.load(this).copy(enableHdr10LivePreview = true))
@@ -188,11 +194,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (PnsMediaSessionManager.handleKeyEvent(this, event, hasWindowFocus())) {
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     /**
      * [EXTRA_PNS_SCREEN] wins when set (ADB / in-app navigation).
      * System camera intents ([MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA], etc.) map to the preview finder
      * so the app appears in quick-launch / default-camera style pickers.
      */
+    /** True when the user opened the app from the home-screen icon (not an ADB `pns_screen` route). */
+    private fun isLauncherMainIntent(intent: Intent?): Boolean {
+        if (intent == null) return false
+        if (!intent.getStringExtra(EXTRA_PNS_SCREEN).isNullOrEmpty()) return false
+        return intent.action == Intent.ACTION_MAIN &&
+            intent.hasCategory(Intent.CATEGORY_LAUNCHER)
+    }
+
     private fun resolveLaunchScreenForMain(intent: Intent?): String? {
         val fromExtra = intent?.getStringExtra(EXTRA_PNS_SCREEN)
         if (!fromExtra.isNullOrEmpty()) return fromExtra

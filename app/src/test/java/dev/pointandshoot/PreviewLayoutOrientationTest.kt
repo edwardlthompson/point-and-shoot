@@ -17,4 +17,12 @@ class PreviewLayoutOrientationTest {
     fun `effective rotation normalizes negatives`() {
         assertEquals(180, effectivePreviewStaticRotationDeg(-90, false))
     }
+
+    @Test
+    fun `previewBufferDimensionsForDisplay swaps only landscape WxH`() {
+        assertEquals(1440 to 1920, previewBufferDimensionsForDisplay(1920, 1440, 90))
+        assertEquals(1440 to 1920, previewBufferDimensionsForDisplay(1920, 1440, null))
+        assertEquals(1440 to 1920, previewBufferDimensionsForDisplay(1440, 1920, 90))
+        assertEquals(1440 to 1920, previewBufferDimensionsForDisplay(1440, 1920, null))
+    }
 }

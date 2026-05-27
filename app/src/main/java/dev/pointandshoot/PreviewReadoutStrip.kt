@@ -269,6 +269,8 @@ fun PreviewReadoutStrip(
     /** When false, FPS readout stays visible but the target FPS menu is disabled (photo-primary tray). */
     fpsTargetEditable: Boolean = true,
     readoutAeCoupling: ReadoutAeCoupling = ReadoutAeCoupling.AUTO,
+    /** When set in video mode, prefixed on the SS chip (e.g. `180°`). */
+    videoShutterAngleLabel: String? = null,
     onPickIsoBand: (ReadoutIsoBand) -> Unit = {},
     onPickIso: (Int?) -> Unit,
     onPickShutter: (Long?) -> Unit,
@@ -312,8 +314,18 @@ fun PreviewReadoutStrip(
         when {
             exposureNs == null -> "—"
             readoutAeCoupling == ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ||
-                readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH ->
-                "${PreviewReadoutFormat.formatShutter(exposureNs)}·L"
+                readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH -> {
+                val base = PreviewReadoutFormat.formatShutter(exposureNs)
+                val anglePrefix =
+                    if (isVideoMode && !videoShutterAngleLabel.isNullOrBlank()) {
+                        "${videoShutterAngleLabel} "
+                    } else {
+                        ""
+                    }
+                "$anglePrefix$base·L"
+            }
+            isVideoMode && !videoShutterAngleLabel.isNullOrBlank() ->
+                "${videoShutterAngleLabel} ${PreviewReadoutFormat.formatShutter(exposureNs)}"
             else -> PreviewReadoutFormat.formatShutter(exposureNs)
         }
     val awb = PreviewReadoutFormat.awbModeLabel(awbMode)
@@ -486,6 +498,7 @@ fun PreviewReadoutStrip(
                     for (band in ReadoutIsoBand.entries) {
                         PnsChromePlainMenuItem(
                             label = band.menuLabel,
+                            selected = band == menu.isoBand,
                             onClick = {
                                 onPickIsoBand(band)
                                 isoMenu = false

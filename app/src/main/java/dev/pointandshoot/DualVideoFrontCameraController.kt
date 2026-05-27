@@ -26,6 +26,7 @@ internal class DualVideoFrontCameraController(
     @Volatile private var previewSurface: Surface? = null
     @Volatile private var frontCameraId: String? = null
     @Volatile private var openPending: Boolean = false
+    @Volatile private var targetFps: Int = DualVideoRecordingController.V1_TARGET_FPS
     @Volatile var sessionReady: Boolean = false
     @Volatile var hasValidFrames: Boolean = false
     private var lastFrameTime: Long = 0
@@ -44,9 +45,16 @@ internal class DualVideoFrontCameraController(
         }
     }
 
-    fun open(frontId: String) {
+    fun open(frontId: String, matchedFps: Int = DualVideoRecordingController.V1_TARGET_FPS) {
+        targetFps = matchedFps.coerceIn(1, 120)
         if (frontCameraId == frontId && device != null) {
-            Log.d(DualVideoRecordingController.TAG, "dualFront already open for $frontId")
+            val surf = previewSurface?.takeIf { it.isValid }
+            if (surf != null && !sessionReady) {
+                Log.i(DualVideoRecordingController.TAG, "dualFront reopen session for $frontId")
+                handler.post { createSession(frontId, device!!) }
+            } else {
+                Log.d(DualVideoRecordingController.TAG, "dualFront already open for $frontId ready=$sessionReady")
+            }
             return
         }
         close()
@@ -67,7 +75,7 @@ internal class DualVideoFrontCameraController(
         }
         
         openPending = true
-        Log.i(DualVideoRecordingController.TAG, "dualFront opening camera $frontId")
+        Log.i(DualVideoRecordingController.TAG, "dualFront opening camera $frontId targetFps=$targetFps")
         handler.post {
             runCatching {
                 cm.openCamera(
@@ -180,17 +188,28 @@ internal class DualVideoFrontCameraController(
             )
         }.onFailure { e ->
             Log.e(DualVideoRecordingController.TAG, "dualFront createSession: ${e.message}", e)
+            if (e is IllegalArgumentException && e.message?.contains("abandoned", ignoreCase = true) == true) {
+                sessionReady = false
+                handler.postDelayed({
+                    val retrySurf = previewSurface?.takeIf { it.isValid } ?: return@postDelayed
+                    val dev = device ?: return@postDelayed
+                    val id = frontCameraId ?: return@postDelayed
+                    Log.i(DualVideoRecordingController.TAG, "dualFront createSession retry after abandoned surface")
+                    createSession(id, dev)
+                }, 250)
+            }
         }
     }
 
     private fun pickFpsRange(camId: String): android.util.Range<Int>? {
+        val t = targetFps
         val ranges =
             runCatching {
                 cm.getCameraCharacteristics(camId)
                     .get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
             }.getOrNull().orEmpty()
-        return ranges.firstOrNull { it.lower == 30 && it.upper == 30 }
-            ?: ranges.firstOrNull { it.lower <= 30 && it.upper >= 30 }
+        return ranges.firstOrNull { it.lower == t && it.upper == t }
+            ?: ranges.firstOrNull { it.lower <= t && it.upper >= t }
             ?: ranges.firstOrNull()
     }
 
@@ -209,8 +228,8 @@ internal class DualVideoFrontCameraController(
                         .get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
                 }.getOrNull()
             val sizes = map?.getOutputSizes(SurfaceTexture::class.java) ?: emptyArray()
-            val target = Size(960, 540)
-            return sizes.minByOrNull { dist(it, target) } ?: Size(1280, 720)
+            val target = Size(640, 480)
+            return sizes.minByOrNull { dist(it, target) } ?: Size(864, 480)
         }
 
         private fun dist(a: Size, b: Size): Long {

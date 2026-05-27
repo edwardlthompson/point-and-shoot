@@ -201,7 +201,10 @@ data class HudSettings(
      * **100** = HAL default clamped to max; **25** = minimum useful level.
      */
     val previewFlashStrengthPercent: Int = 100,
+    /** Sprint **15.11** — video shutter-angle preset (see [VideoShutterAngle]). */
+    val videoShutterAngle: String = VideoShutterAngle.Free.name,
 ) {
+    fun videoShutterAngleEnum(): VideoShutterAngle = VideoShutterAngle.fromStorage(videoShutterAngle)
     /** Resolve the currently-active stills LUT, falling back to None on rename / removal. */
     fun stillsLut(): LutCatalog = resolveLut(selectedLutForStills)
 
@@ -261,6 +264,7 @@ data class HudSettings(
         private const val KEY_PICTURE_PROFILE = "selected_picture_profile_id"
         private const val KEY_TETHERED_CAPTURE = "tethered_capture_enabled"
         private const val KEY_PREVIEW_FLASH_STRENGTH = "preview_flash_strength_percent"
+        private const val KEY_VIDEO_SHUTTER_ANGLE = "video_shutter_angle"
         private const val KEY_SMILE_STILL = "enable_smile_triggered_still"
         private const val KEY_SCENE_VENDOR_HINTS = "show_scene_vendor_hints"
         private const val KEY_VIDEO_BITRATE_SCALE = "video_bitrate_scale_percent"
@@ -464,6 +468,9 @@ data class HudSettings(
                 previewFlashStrengthPercent =
                     prefs.getInt(KEY_PREVIEW_FLASH_STRENGTH, defaults.previewFlashStrengthPercent)
                         .coerceIn(PREVIEW_FLASH_STRENGTH_MIN, PREVIEW_FLASH_STRENGTH_MAX),
+                videoShutterAngle =
+                    prefs.getString(KEY_VIDEO_SHUTTER_ANGLE, defaults.videoShutterAngle)
+                        ?: defaults.videoShutterAngle,
             )
         }
 
@@ -538,6 +545,7 @@ data class HudSettings(
                         PREVIEW_FLASH_STRENGTH_MAX,
                     ),
                 )
+                .putString(KEY_VIDEO_SHUTTER_ANGLE, settings.videoShutterAngleEnum().name)
                 .commit()
         }
 

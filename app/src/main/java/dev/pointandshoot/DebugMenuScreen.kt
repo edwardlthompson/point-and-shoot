@@ -107,6 +107,7 @@ fun DebugMenuScreen(
     onShowProHud: () -> Unit,
     onShowHudSettings: () -> Unit,
     onShowCalibrate: () -> Unit,
+    onShowEyeOverlayCalibrator: () -> Unit,
     onShowLutImport: () -> Unit,
     onShowGlPreview: () -> Unit,
     onShowNativeDiagnostics: () -> Unit,
@@ -143,6 +144,12 @@ fun DebugMenuScreen(
                             "Camera2 preview path with HUD — same as the main camera experience.",
                             true,
                             onShowPreviewEngine,
+                        ),
+                        DebugEntry(
+                            "Eye overlay calibration",
+                            "D-pad on live preview to align green eye marks; saved to device prefs.",
+                            true,
+                            onShowEyeOverlayCalibrator,
                         ),
                         DebugEntry(
                             "QR / barcode scan",

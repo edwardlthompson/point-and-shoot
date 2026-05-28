@@ -38,6 +38,16 @@ class VideoCaptureMetadataTest {
     }
 
     @Test
+    fun mergeFrameRateForDisplay_prefersEmbedded120OverRetriever30() {
+        val merged =
+            VideoCaptureMetadata.mergeFrameRateForDisplay(
+                embeddedCaptureFps = 120,
+                retrieverFpsRaw = "30",
+            )
+        assertEquals("120", merged)
+    }
+
+    @Test
     fun mergeFrameRateForDisplay_usesRetrieverWhenNoEmbedded() {
         val merged =
             VideoCaptureMetadata.mergeFrameRateForDisplay(

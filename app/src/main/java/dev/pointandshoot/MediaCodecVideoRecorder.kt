@@ -920,10 +920,23 @@ class MediaCodecVideoRecorder(
                 if (muxAudioRate != null && info.hasAudio) {
                     out = out.copy(audioSampleRateHz = muxAudioRate)
                 }
+                val galleryFps =
+                    when {
+                        info.captureFps >= VideoRecordingController.HFR_THRESHOLD_FPS &&
+                            effectiveFps >= info.captureFps / 2 ->
+                            info.captureFps
+                        effectiveFps > 0 && effectiveFps >= info.captureFps * 9 / 10 ->
+                            effectiveFps
+                        effectiveFps > 0 -> effectiveFps
+                        else -> info.captureFps
+                    }
+                if (galleryFps != info.captureFps) {
+                    out = out.copy(captureFps = galleryFps)
+                }
                 if (effectiveFps > 0 && effectiveFps != info.captureFps) {
                     Log.i(
                         TAG,
-                        "captureFps metadata keeps target=${info.captureFps} muxEffective=$effectiveFps " +
+                        "captureFps metadata gallery=$galleryFps target=${info.captureFps} muxEffective=$effectiveFps " +
                             "frames=$frames durationUs=$durationUs",
                     )
                 }

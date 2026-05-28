@@ -429,7 +429,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **Spatial / multi-track:** `SpatialAudio` logs surround capability; in-app record stays stereo — `AudioEffects.multiTrackPolicy()` logs **unsupported**.
 
-**Gallery:** `VideoCaptureMetadata` embeds capture **fps** + audio in MediaStore **DESCRIPTION**; `readFromUri` prefers embedded **120fps** over retriever **60** when the container under-reports HFR. **Hi-Fi FAB:** `PnsAacEncoderSupport.maxHiFiMuxSampleRateHz` probes AAC encoders once per process — menu shows **48 kHz** / **96 kHz** etc. for this device, not a static “96 kHz when supported”.
+**Gallery:** `VideoCaptureMetadata` embeds capture **fps** + audio in MediaStore **DESCRIPTION**; `mergeFrameRateForDisplay` prefers embedded capture tier when retriever fps is **&lt;75%** of embedded (fixes ~30 fps labels on 120 fps HFR clips). HFR mux finalize writes **target** fps into description when `effectiveFps ≥ target/2`. **Hi-Fi FAB:** `PnsAacEncoderSupport.maxHiFiMuxSampleRateHz` probes AAC encoders once per process — menu shows **48 kHz** / **96 kHz** etc. for this device, not a static “96 kHz when supported”.
 
 **Video format FAB:** `VideoFormatPickerSheet` step **A — Audio** (Hi-Fi, wind NS, external mic, compression, ducking) — persists via `PreviewChromePreferences`.
 

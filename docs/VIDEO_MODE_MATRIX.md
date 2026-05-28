@@ -1,6 +1,6 @@
 # Video mode matrix (Milestone 15.3)
 
-Generated: 20260526_074218 device run. Artifacts: `hfr-runs\video_matrix_verify_20260526_074218`.
+Generated: 20260527_205431 device run. Artifacts: `hfr-runs\video_matrix_verify_20260527_205431`.
 
 | Row | Saved | A/V | fps ratio | Codec | Pass | Note |
 |-----|-------|-----|-----------|-------|------|------|
@@ -11,6 +11,6 @@ Generated: 20260526_074218 device run. Artifacts: `hfr-runs\video_matrix_verify_
 | 4k30_hevc | True | True | 0.994 | hevc | True |  |
 | 8k30_h264 | True | True | 1 | h264 | True |  |
 
-**8K (15.4):** On **CPH2655** (`20260526_074218`), **8k30_h264** records with A/V present via MediaCodec + aligned preview buffer. 
-If a device row shows **unavailable**, session configure failed or HAL lacks 8K outputs — see picker banner and `gate.json` `maxFps8k` / `supports8k`.
+**8K (15.4):** If the 8K row is marked **unavailable**, session configure failed or save failed; 
+the in-app picker banner explains the limitation. See gate.json maxFps8k / supports8k from PNS.MCVideoRec.
 

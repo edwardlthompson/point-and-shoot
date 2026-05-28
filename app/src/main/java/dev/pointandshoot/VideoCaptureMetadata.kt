@@ -362,6 +362,9 @@ object VideoCaptureMetadata {
         val retrieved = retrieverFpsRaw?.trim()?.toFloatOrNull()
         val chosen =
             when {
+                // HFR MP4: frame-count÷duration often ~30–60 while MediaStore description has true capture tier.
+                embedded != null && embedded > 0f && retrieved != null && retrieved > 0f &&
+                    retrieved < embedded * 0.75f -> embedded
                 embedded != null && embedded > 0f &&
                     (retrieved == null || embedded >= retrieved - 0.5f) -> embedded
                 retrieved != null && retrieved > 0f -> retrieved

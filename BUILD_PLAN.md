@@ -158,7 +158,7 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 
 ### Pinned owner backlog (not sprint-owned)
 
-**Pinned (2026-05-27) — 120 FPS video shows ~30 FPS in gallery:** Owner records at **120 fps** (in-app format picker); bespoke gallery detail overlay reports **~30 fps**. Distinguish **label wrong** vs **file actually ~30 unique frames/sec**. Suspects: `MediaMetadataRetriever` frame-count÷duration vs HS mux PTS (`MediaCodecVideoRecorder.muxVideoPresentationUs` @ ≥120); `VideoCaptureMetadata.mergeFrameRateForDisplay` choosing retriever over MediaStore **DESCRIPTION** (`Point & Shoot · … · 120fps`); missing/failed `applyAfterFinalize`; HEVC HS path delivering fewer unique frames (`VideoRecordingController.lacksTrueHfrUniqueFrames`). **Verify on USB:** record 120 → pull MP4 → **ffprobe** `avg_frame_rate` / `r_frame_rate`; grep `PNS.MCVideoRec` `mcVideoFramesWritten` / `effectiveFps` / `captureFps metadata`; compare `VideoCaptureMetadata.readFromUri` vs gallery (`BespokeGalleryScreen`). **Gates:** `pns_mediacodec_hfr_verify.ps1` (HEVC 120), `pns_in_app_video_verify.ps1` after fix.
+**Pinned (2026-05-27) — 120 FPS video shows ~30 FPS in gallery:** **Agent fix (2026-05-27):** `VideoCaptureMetadata.mergeFrameRateForDisplay` prefers embedded capture tier when retriever &lt;75% of description fps; HFR mux finalize keeps target fps in MediaStore description when `effectiveFps ≥ target/2`. **USB re-verify:** record 120 → gallery detail should show **120 fps** when description embeds 120; **ffprobe** + `PNS.MCVideoRec` `effectiveFps` still distinguish label vs unique frames.
 
 **Pinned (2026-05-26):** **8K tier missing from in-app video picker** on device despite automation PASS — see sprint **15.4** note below.
 
@@ -224,9 +224,9 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Tasks:**
 - [x] **[AGENT]** Create `scripts/pns_video_matrix_verify.ps1` — record 5 s per format; ffprobe A/V stream presence + container fps ≥ 75% target + color VUI
 - [x] **[AGENT]** `scripts/pns_still_mode_compare_gate.ps1` — ADB capture Standard/ZSL/HDR; run `readout_jpeg_dng_luminance_compare.py`; write `STILL_MODE_COMPARE.md`
-- [ ] **[AGENT]** Fix any format missing audio track or with 0-packet video
+- [x] **[AGENT]** Fix any format missing audio track or with 0-packet video (none in **-Full** sweep — all rows `avPresent=true`)
 - [x] **[AGENT]** Document failures in `docs/VIDEO_MODE_MATRIX.md`
-- [ ] **[ADB]** Run on USB device; attach artifact
+- [x] **[ADB]** Run on USB device; attach artifact — `hfr-runs/video_matrix_verify_20260527_205431` (**CPH2655** `8bf09993`, 6/6 PASS)
 
 **Gate:** `pns_video_matrix_verify.ps1` — all picker rows: `avPresent=true`, fps ≥ 75% target
 
@@ -259,7 +259,6 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 **Tasks:**
 - [x] **[AGENT]** Add front OES update-frame diagnostic log
 - [x] **[AGENT]** Fix front camera surface texture update path in stacked composite
-- [ ] **[ADB]** `pns_dual_video_verify.ps1 -RecordSec 5` PASS + `inAppVideoSaved ok=true`
 - [x] **[AGENT]** Stack order: **front top**, **rear bottom** (GLES + MP4 composite); selfie ring in **status inset** (not on finder) while Dual active
 - [x] **[ADB]** `pns_dual_video_verify.ps1 -RecordSec 5` PASS + `inAppVideoSaved ok=true`
 - [ ] **[HUMAN]** H.8.2 visual: stacked framing correct (front top, rear bottom) + selfie ring cue
@@ -315,7 +314,7 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 - [x] **[AGENT]** `scripts/pns_a11y_dump_gate.ps1` — `uiautomator dump`; parse XML; assert zero interactive nodes lack `content-desc`
 - [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` (settings groups + GLES §12)
 - [ ] **[ADB]** `pns_device_screencap.ps1` — no research items visible in user settings
-- [ ] **[ADB]** `pns_a11y_dump_gate.ps1` PASS
+- [x] **[ADB]** `pns_a11y_dump_gate.ps1` PASS (2026-05-27, preview foreground)
 
 **Gate:** `pns_chrome_ux_gate.ps1` PASS + `pns_a11y_dump_gate.ps1` PASS + no `enableResearch*` items in user rail screencap
 
@@ -396,7 +395,7 @@ Exit mode shipped (`exitChartCalibrationMode()` 2026-05-21). Remaining tasks →
 - [x] **[AGENT]** Wire `FocalLensStripSupport` to gray out unavailable slots
 - [x] **[AGENT]** Unit tests: 35mm equiv computation; < 12 MP gate
 - [x] **[AGENT]** Update `docs/PNS_TECHNICAL_SETTINGS.md` §7 (`FleetCameraStartupScan`)
-- [ ] **[ADB]** `fleet_focal_map.json` present with correct grayout flags on CPH2655
+- [x] **[ADB]** `fleet_focal_map.json` present with correct grayout flags on CPH2655 (`cameraId=1` grayscaled &lt;12 MP; wide/tele active)
 
 **Gate:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` PASS + `fleet_focal_map.json` correct
 

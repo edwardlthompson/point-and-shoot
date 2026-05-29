@@ -41,7 +41,7 @@ fun PreviewStorageRemainingOverlay(
     pollIntervalMs: Long = 3_000L,
 ) {
     if (!hudShowStorageRemaining) return
-    if (!videoPrimary && !isRecording) return
+    if (!isRecording) return
 
     val context = LocalContext.current
     val session =
@@ -92,16 +92,30 @@ fun PreviewStorageRemainingOverlay(
     }
 
     val snap = display ?: return
-    val minutesText = PreviewVideoStorageEstimate.formatMinutesRemaining(snap.minutesRemaining)
+    StorageRemainingChip(
+        result = snap,
+        modifier = modifier.padding(8.dp),
+    )
+}
+
+/**
+ * Compact storage-remaining readout (pillar HUD + bottom overlay).
+ */
+@Composable
+fun StorageRemainingChip(
+    result: PreviewVideoStorageEstimate.Result,
+    modifier: Modifier = Modifier,
+) {
+    val minutesText = PreviewVideoStorageEstimate.formatMinutesRemaining(result.minutesRemaining)
     val line =
-        if (snap.rawLane) {
+        if (result.rawLane) {
             "RAW · $minutesText left"
         } else {
             "REC · $minutesText left"
         }
     val textColor =
         when {
-            snap.lowStorageWarning -> PnsColors.RecordRed.copy(alpha = 0.95f)
+            result.lowStorageWarning -> PnsColors.RecordRed.copy(alpha = 0.95f)
             else -> Color.White.copy(alpha = 0.92f)
         }
     val chipBg = Color.Black.copy(alpha = 0.62f)
@@ -109,7 +123,6 @@ fun PreviewStorageRemainingOverlay(
     Column(
         modifier =
             modifier
-                .padding(8.dp)
                 .background(chipBg, MaterialTheme.shapes.small)
                 .padding(horizontal = 8.dp, vertical = 6.dp),
     ) {
@@ -119,7 +132,7 @@ fun PreviewStorageRemainingOverlay(
             fontFamily = FontFamily.Monospace,
             color = textColor,
         )
-        if (snap.lowStorageWarning) {
+        if (result.lowStorageWarning) {
             Text(
                 text = "LOW STORAGE",
                 style = MaterialTheme.typography.labelSmall,

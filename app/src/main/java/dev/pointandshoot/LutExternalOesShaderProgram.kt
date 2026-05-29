@@ -58,6 +58,8 @@ class LutExternalOesShaderProgram private constructor(
 
     val uniformPeakingSensitivity: Int,
 
+    val uniformVideoColorProfile: Int,
+
 ) {
 
 
@@ -108,6 +110,8 @@ class LutExternalOesShaderProgram private constructor(
 
         const val UNIFORM_PEAKING_SENSITIVITY: String = "uPeakingSensitivity"
 
+        const val UNIFORM_VIDEO_COLOR_PROFILE: String = "uVideoColorProfile"
+
 
 
         const val REQUIRED_GLSL_VERSION_DIRECTIVE: String = "#version 300 es"
@@ -154,6 +158,8 @@ class LutExternalOesShaderProgram private constructor(
 
             UNIFORM_PEAKING_SENSITIVITY,
 
+            UNIFORM_VIDEO_COLOR_PROFILE,
+
         )
 
     }
@@ -190,6 +196,8 @@ class LutExternalOesShaderProgram private constructor(
         readoutWbRgb: FloatArray,
 
         focusPeaking: FocusPeakingGlUniforms,
+
+        videoColorProfileMode: Float = 0f,
 
     ) {
 
@@ -259,6 +267,12 @@ class LutExternalOesShaderProgram private constructor(
         if (uniformPeakingSensitivity >= 0) {
 
             GLES20.glUniform1f(uniformPeakingSensitivity, focusPeaking.sensitivity)
+
+        }
+
+        if (uniformVideoColorProfile >= 0) {
+
+            GLES20.glUniform1f(uniformVideoColorProfile, videoColorProfileMode)
 
         }
 
@@ -355,6 +369,8 @@ class LutExternalOesShaderProgram private constructor(
                 uniformPeakingRgb = GLES20.glGetUniformLocation(program, Source.UNIFORM_PEAKING_RGB),
 
                 uniformPeakingSensitivity = GLES20.glGetUniformLocation(program, Source.UNIFORM_PEAKING_SENSITIVITY),
+
+                uniformVideoColorProfile = GLES20.glGetUniformLocation(program, Source.UNIFORM_VIDEO_COLOR_PROFILE),
 
             )
 

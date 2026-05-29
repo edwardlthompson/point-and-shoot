@@ -29,9 +29,9 @@ object ProCapture {
         }
     }
 
-    fun startTether(server: TetheredCaptureServer) {
-        server.start()
-        Log.i(TAG, "tetherServer start port=${TetheredCaptureServer.DEFAULT_PORT}")
+    fun startTether(server: TetheredCaptureServer, lanBind: Boolean = false) {
+        server.start(lanBind = lanBind)
+        Log.i(TAG, "tetherServer start port=${TetheredCaptureServer.DEFAULT_PORT} lanBind=$lanBind")
     }
 
     fun stopTether(server: TetheredCaptureServer) {

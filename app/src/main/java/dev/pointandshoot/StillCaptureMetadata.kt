@@ -112,6 +112,7 @@ object StillCaptureMetadata {
         characteristics: CameraCharacteristics,
         result: TotalCaptureResult,
         location: Location? = null,
+        colorSpaceTarget: ColorSpaceTarget = ColorSpaceTarget.DisplayP3,
     ) {
         applyCommonFd(
             context,
@@ -121,7 +122,36 @@ object StillCaptureMetadata {
             location,
             setOrientation = true,
             stampSoftwareTag = true,
+            embedIccProfile = true,
+            colorSpaceTarget = colorSpaceTarget,
         )
+    }
+
+    /**
+     * Sprint **15.17** — AVIF stills on API 34+ may carry ICC via `colr` `prof` when muxed in Kotlin
+     * ([AvifStillMuxer]). Native `.so` AVIF uses CICP `nclx` until remux lands.
+     */
+    fun applyToAvifUri(
+        context: Context,
+        uri: Uri,
+        characteristics: CameraCharacteristics,
+        result: TotalCaptureResult,
+        location: Location? = null,
+        colorSpaceTarget: ColorSpaceTarget = ColorSpaceTarget.DisplayP3,
+    ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        applyCommonFd(
+            context,
+            uri,
+            characteristics,
+            result,
+            location,
+            setOrientation = false,
+            stampSoftwareTag = false,
+            embedIccProfile = false,
+            colorSpaceTarget = colorSpaceTarget,
+        )
+        Log.i(TAG, "apply AVIF metadata ok uri=$uri colorSpace=$colorSpaceTarget (ICC via muxer when used)")
     }
 
     private fun applyCommonFd(
@@ -132,6 +162,8 @@ object StillCaptureMetadata {
         location: Location?,
         setOrientation: Boolean,
         stampSoftwareTag: Boolean,
+        embedIccProfile: Boolean,
+        colorSpaceTarget: ColorSpaceTarget,
     ) {
         runCatching {
             context.contentResolver.openFileDescriptor(uri, "rw")?.use { pfd ->
@@ -145,11 +177,31 @@ object StillCaptureMetadata {
                 }.onFailure { e -> Log.d(TAG, "fsync after jpeg exif uri=$uri err=${e.message}") }
             }
                 ?: Log.w(TAG, "openFileDescriptor(rw) null uri=$uri")
+            if (embedIccProfile) {
+                embedIccProfileInJpegFd(context, uri, colorSpaceTarget)
+            }
             location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
-            Log.i(TAG, "apply JPEG metadata ok uri=$uri geo=${location != null}")
+            Log.i(TAG, "apply JPEG metadata ok uri=$uri geo=${location != null} icc=$embedIccProfile")
         }.onFailure { e ->
             Log.w(TAG, "apply JPEG metadata failed uri=$uri err=${e.message}")
         }
+    }
+
+    private fun embedIccProfileInJpegFd(
+        context: Context,
+        uri: Uri,
+        colorSpaceTarget: ColorSpaceTarget,
+    ) {
+        val icc = IccProfileBuilder.forColorSpaceTarget(colorSpaceTarget)
+        val jpeg =
+            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return
+        val patched = JpegIccEmbedder.embedAfterSoi(jpeg, icc)
+        if (patched.contentEquals(jpeg)) return
+        context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
+            outs.write(patched)
+            outs.flush()
+        } ?: Log.w(TAG, "ICC embed write failed uri=$uri")
     }
 
     private fun fillExifFields(

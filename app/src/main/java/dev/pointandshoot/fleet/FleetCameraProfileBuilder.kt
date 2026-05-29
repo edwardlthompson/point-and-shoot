@@ -21,24 +21,23 @@ object FleetCameraProfileBuilder {
         val cm = app.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val ids = cm.cameraIdList.toList()
         val enumerated = BackCameraRoleResolver.resolveEnumerated(cm, ids)
-        val roles = OnePlus13FleetPolicy.mergeRoles(enumerated, ids)
+        val policy = FleetDevicePolicySelector.active(app)
+        val roles = policy.mergeRoles(enumerated, ids)
         val roleMap = roleMapFromResolver(roles, ids, cm)
         val profiles =
             ids.mapNotNull { id ->
                 val cc = runCatching { cm.getCameraCharacteristics(id) }.getOrNull() ?: return@mapNotNull null
                 val role = roleMap[id] ?: FleetCameraRole.UNKNOWN
-                buildProfile(id, cc, role).let { OnePlus13FleetPolicy.applyProfileDefaults(it) }
+                buildProfile(id, cc, role).let { policy.applyProfileDefaults(it) }
             }
-        val policyId = if (OnePlus13FleetPolicy.appliesToDevice()) OnePlus13FleetPolicy.POLICY_ID else null
-        val leafOrder = OnePlus13FleetPolicy.leafRawFormatOrder()
         return FleetProfilesSnapshot(
             deviceModel = android.os.Build.MODEL,
             manufacturer = android.os.Build.MANUFACTURER,
-            logicalCameraId = OnePlus13FleetPolicy.logicalCameraId(ids),
+            logicalCameraId = policy.logicalCameraId(ids),
             roleByCameraId = roleMap,
             profiles = profiles,
-            policyId = policyId,
-            leafRawFormatOrder = leafOrder,
+            policyId = policy.policyId,
+            leafRawFormatOrder = policy.leafRawFormatOrder(),
         )
     }
 

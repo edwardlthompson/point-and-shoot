@@ -94,6 +94,7 @@ fun DebugMenuScreen(
     onShowEncoderProbe: () -> Unit,
     onShowLegacyCamera1: () -> Unit,
     onShowDeepCaps: () -> Unit,
+    onShowFleetMatrix: () -> Unit,
     onShowFaceMeterProbe: () -> Unit,
     onShowQrScan: () -> Unit,
     onShowSessionMatrix: () -> Unit,
@@ -170,6 +171,12 @@ fun DebugMenuScreen(
                 description = "Structured dumps to share with maintainers (JSON / logs).",
                 entries =
                     listOf(
+                        DebugEntry(
+                            "Device capability matrix",
+                            "Fleet JSON — quick + full rescan, feature gates, export (Milestone 16).",
+                            true,
+                            onShowFleetMatrix,
+                        ),
                         DebugEntry(
                             "Deep capabilities",
                             "Stream maps, formats, and static metadata in one JSON blob.",

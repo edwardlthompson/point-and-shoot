@@ -153,6 +153,23 @@ class AvifStillMuxerTest {
     // ------------------------------------------------------------------
 
     @Test
+    fun `encode with iccProfileBytes emits prof colr payload`() {
+        val icc = IccProfileBuilder.forColorSpaceTarget(ColorSpaceTarget.DisplayP3)
+        val out =
+            AvifStillMuxer.encode(
+                canonicalInput().copy(iccProfileBytes = icc),
+            )
+        assertTrue(
+            (0 until out.size - 3).any { i ->
+                out[i] == 'p'.code.toByte() &&
+                    out[i + 1] == 'r'.code.toByte() &&
+                    out[i + 2] == 'o'.code.toByte() &&
+                    out[i + 3] == 'f'.code.toByte()
+            },
+        )
+    }
+
+    @Test
     fun `encode produces ftyp then meta then mdat top-level structure`() {
         val out = AvifStillMuxer.encode(canonicalInput())
         val ftypType = String(out.copyOfRange(4, 8), Charsets.US_ASCII)

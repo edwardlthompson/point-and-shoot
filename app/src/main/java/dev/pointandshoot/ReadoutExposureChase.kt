@@ -7,13 +7,22 @@ import kotlin.math.pow
 /**
  * YUV-driven adjustment for the **auto** exposure axis when the other axis is locked (Sprint **14.7**).
  *
- * Uses smoothed histogram median / EV and **partial blending** toward equilibrium so 20 Hz YUV polling
+ * Uses smoothed histogram median / EV and **partial blending** toward equilibrium so ~30 Hz YUV polling
  * does not overshoot and hunt. HAL [refreshRepeatingPreviewOnly] should only run when
  * [ChaseAdjustResult.applied] is true.
  *
  * **Documented defaults:** [docs/PNS_TECHNICAL_SETTINGS.md] §4 — update that file when changing constants here.
  */
 object ReadoutExposureChase {
+    /** True when a YUV frame should run luma histogram reduction (chase-only path included). */
+    fun needsYuvHistogramSample(
+        wantHighlight: Boolean,
+        wantHist: Boolean,
+        wantZebra: Boolean,
+        wantFalseColor: Boolean,
+        wantChase: Boolean,
+    ): Boolean = wantHighlight || wantHist || wantZebra || wantFalseColor || wantChase
+
     /**
      * Target scene median (0–255 histogram bin) for locked-axis YUV chase.
      * Single knob for preview, DNG, and independent tonal still (same [applyReadoutManualExposureAndWb]).
@@ -22,21 +31,21 @@ object ReadoutExposureChase {
     const val TARGET_MEDIAN_BIN = 34
 
     /** Inside this band of smoothed median, hold exposure/ISO steady. */
-    const val MEDIAN_DEADBAND_BINS = 10
+    const val MEDIAN_DEADBAND_BINS = 6
 
-    private const val MEDIAN_EMA_ALPHA = 0.22
+    private const val MEDIAN_EMA_ALPHA = 0.32
 
     /** Fraction of the gap closed per YUV sample toward luminance equilibrium. */
-    private const val LUMINANCE_BLEND_ALPHA = 0.14
+    private const val LUMINANCE_BLEND_ALPHA = 0.28
 
     private const val MIN_EV_STEP = 0.04
 
     private const val MAX_EV_STEP = 0.10
 
-    /** ~1/15 stop — ignore smaller HAL updates. */
-    private const val MIN_SIGNIFICANT_EXPOSURE_RATIO = 1.023
+    /** ~1/30 stop — ignore smaller HAL updates. */
+    private const val MIN_SIGNIFICANT_EXPOSURE_RATIO = 1.012
 
-    private const val MIN_SIGNIFICANT_ISO_RATIO = 1.023
+    private const val MIN_SIGNIFICANT_ISO_RATIO = 1.012
 
     data class ChaseAdjustResult<T>(
         val value: T,

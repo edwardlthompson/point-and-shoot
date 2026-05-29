@@ -167,6 +167,14 @@ internal class VideoRecordingController(
      */
     fun peekAudioAmplitude(): Int = mcRecorder?.peekAmplitude() ?: mediaRecorder?.maxAmplitude ?: 0
 
+    /** L/R peaks for pillar stereo meters; mono paths duplicate the same level on both channels. */
+    fun peekAudioAmplitudeStereo(): Pair<Int, Int> {
+        val mc = mcRecorder?.peekAmplitudeStereo()
+        if (mc != null) return mc
+        val mono = mediaRecorder?.maxAmplitude ?: 0
+        return mono to mono
+    }
+
     fun peekMcVideoSamplesWritten(): Long = mcRecorder?.peekVideoSamplesWritten() ?: 0L
 
     private fun targetFpsForMcWait(): Int = recordingCaptureInfo?.captureFps ?: 0
@@ -206,6 +214,7 @@ internal class VideoRecordingController(
         onEvent: (Event) -> Unit,
         /** Dual video feeds encoder via [DualVideoGlEncoderSink] — use MediaCodec Surface input. */
         forceMediaCodecGlComposite: Boolean = false,
+        videoColorProfile: VideoColorProfile = VideoColorProfile.Sdr,
     ): PrepareResult {
         val h = handler
         if (h == null) {
@@ -229,6 +238,7 @@ internal class VideoRecordingController(
                 videoFormat,
                 onEvent,
                 forceMediaCodecGlComposite,
+                videoColorProfile,
             )
         } else {
             var result: PrepareResult = PrepareResult.NoAction
@@ -244,6 +254,7 @@ internal class VideoRecordingController(
                     videoFormat,
                     onEvent,
                     forceMediaCodecGlComposite,
+                    videoColorProfile,
                 )
             }
             // Note: This is a synchronous return - the actual result will be set after post executes
@@ -263,6 +274,7 @@ internal class VideoRecordingController(
         videoFormat: VideoFormat,
         onEvent: (Event) -> Unit,
         forceMediaCodecGlComposite: Boolean,
+        videoColorProfile: VideoColorProfile,
     ): PrepareResult {
         // Debounce duplicate states
         if (lastShellWant == wantRecord && !startFailureHold) {
@@ -300,6 +312,7 @@ internal class VideoRecordingController(
         // Sprint **15.4**: 8K is not reliable on MediaRecorder (corrupt / moov-less MP4 observed on CPH2655);
         // route 8K through MediaCodec so muxer setup and track finalization are explicit.
         val useMediaCodecFor8k = videoFormat.resolution.width >= 7680 || videoFormat.resolution.height >= 4320
+        val useMediaCodecForHlg = videoColorProfile == VideoColorProfile.Hlg && !videoFormat.isDcg
         val useMediaCodecPath =
             forceMediaCodecGlComposite ||
                 isHfr ||
@@ -307,7 +320,8 @@ internal class VideoRecordingController(
                 videoFormat.isDcg ||
                 videoFormat.codec == VideoCodec.AV1 ||
                 useHevcMediaCodecForSdrColor ||
-                useMediaCodecFor8k
+                useMediaCodecFor8k ||
+                useMediaCodecForHlg
         // Signal immediately so createSession can skip useHighSpeed before recorder is prepared
         wantsMediaCodecPath = useMediaCodecPath
         if (forceMediaCodecGlComposite) {
@@ -369,7 +383,8 @@ internal class VideoRecordingController(
         val hasAudio = hasAudioPermission()
         audioEnabled = hasAudio
         val chrome = PreviewChromePreferences.load(appContext)
-        val audioProfile = PnsAudioCaptureSupport.resolve(appContext, chrome)
+        val audioSource = HudSettings.load(appContext).videoAudioSourceEnum()
+        val audioProfile = PnsAudioCaptureSupport.resolve(appContext, chrome, audioSource)
         AudioEffects.lightCompressionEnabled = chrome.audioLightCompression
         AudioEffects.voiceoverDuckingEnabled = chrome.audioVoiceoverDucking
         val audioMetaSampleRateHz =
@@ -382,8 +397,8 @@ internal class VideoRecordingController(
             }
         if (hasAudio) {
             PnsAudioCaptureSupport.logInputDevices(appContext)
-            Log.i(TAG, "videoAudioProfile ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
-            PnsAdbLog.i(appContext, "videoAudioProfile ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
+            Log.i(TAG, "videoAudioProfile audioSource=${audioSource.logTag()} ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
+            PnsAdbLog.i(appContext, "videoAudioProfile audioSource=${audioSource.logTag()} ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
         }
         recordingCaptureInfo =
             VideoCaptureMetadata.CaptureInfo(
@@ -407,6 +422,7 @@ internal class VideoRecordingController(
                 size,
                 hasAudio,
                 orientationHintDegrees,
+                videoColorProfile,
                 onEvent,
             )
         }
@@ -422,7 +438,7 @@ internal class VideoRecordingController(
         // Configure MediaRecorder
         val surface = runCatching {
             if (hasAudio) {
-                mr.setAudioSource(MediaRecorder.AudioSource.CAMCORDER)
+                mr.setAudioSource(audioSource.toMediaRecorderSource())
             }
             mr.setVideoSource(MediaRecorder.VideoSource.SURFACE)
             mr.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
@@ -489,11 +505,13 @@ internal class VideoRecordingController(
         size: android.util.Size,
         hasAudio: Boolean,
         orientationHintDegrees: Int,
+        videoColorProfile: VideoColorProfile,
         onEvent: (Event) -> Unit,
     ): PrepareResult {
         val hdrProfile = when {
             videoFormat.isDcg -> android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10
             videoFormat.isTenBit -> android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10
+            videoColorProfile == VideoColorProfile.Hlg -> android.media.MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10
             else -> 0
         }
         val isHdr10 = videoFormat.isDcg ||
@@ -526,18 +544,28 @@ internal class VideoRecordingController(
         if (mcTenBitSurfaceInput) {
             Log.i(TAG, "HFR: Main10 encoder surface input (HAL TP10_UBWC on interleaved HS)")
         }
+        val encodeTenBit =
+            videoFormat.isTenBit ||
+                mcTenBitSurfaceInput ||
+                (videoColorProfile == VideoColorProfile.Hlg && !videoFormat.isDcg)
+        val hud = HudSettings.load(appContext)
+        val audioSource = hud.videoAudioSourceEnum()
+        val audioGainDb = hud.audioGainDb
         val config = MediaCodecVideoRecorder.Config(
             width = encodeW,
             height = encodeH,
             fps = targetFps,
             bitrate = encodeBitrate,
-            isTenBit = videoFormat.isTenBit || mcTenBitSurfaceInput,
+            isTenBit = encodeTenBit,
             hdrProfile = hdrProfile,
             isHdr10 = isHdr10,
             maxCll = 1000,
             maxFall = 400,
             encoderKind = encoderKind,
             orientationHintDegrees = orientationHintDegrees,
+            videoColorProfile = videoColorProfile,
+            audioSource = audioSource,
+            audioGainDb = audioGainDb,
         )
         val rec = MediaCodecVideoRecorder(appContext, mainHandler)
         val surface = rec.prepare(config, uri, pfd, recordingCaptureInfo)
@@ -551,10 +579,12 @@ internal class VideoRecordingController(
         recordingSurface = surface
         recordingUri = uri
         recorderStarted = false
+        val colorVui = MediaCodecVideoRecorder.colorVuiTagForConfig(config)
         Log.i(
             TAG,
-            "mcVideoPrepared audioEnabled=$hasAudio size=${encodeW}x$encodeH fps=$targetFps " +
-                "bitrate=$encodeBitrate codec=${videoFormat.getLabel()} tenBit=${videoFormat.isTenBit}",
+            "mcVideoPrepared audioEnabled=$hasAudio audioSource=${audioSource.logTag()} size=${encodeW}x$encodeH fps=$targetFps " +
+                "bitrate=$encodeBitrate codec=${videoFormat.getLabel()} tenBit=$encodeTenBit " +
+                "colorProfile=${videoColorProfile.storageId} colorVui=$colorVui",
         )
         return PrepareResult.Ready(surface)
     }

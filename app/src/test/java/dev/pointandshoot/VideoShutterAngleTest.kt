@@ -13,6 +13,12 @@ class VideoShutterAngleTest {
     }
 
     @Test
+    fun angle180_at60fps_is_half_frame() {
+        val ns = VideoShutterAngle.Angle180.exposureNsForFps(60)!!
+        assertTrue(abs(ns - 8_333_333L) < 500_000L)
+    }
+
+    @Test
     fun free_returns_null() {
         assertEquals(null, VideoShutterAngle.Free.exposureNsForFps(30))
     }

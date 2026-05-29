@@ -126,6 +126,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.InvertColors
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.asImageBitmap
@@ -176,6 +177,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.viewinterop.AndroidView
+import dev.pointandshoot.fleet.FleetCapabilityGate
 import dev.pointandshoot.fleet.OnePlus13FleetPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -184,6 +186,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -238,6 +241,8 @@ private enum class ChromeGridQuickAction {
     ToggleLensOis,
     /** Sprint **15.8/15.9** — preview EIS ([HudSettings.enableVideoStabilizationPreview]). */
     ToggleVideoEis,
+    /** Sprint **15.21** — tap cycles off → zebra → exposure bands; long-press menu. */
+    CycleFalseColor,
 }
 
 private sealed class ChromeGridSlotSpec {
@@ -267,27 +272,42 @@ private sealed class ChromeGridSlotSpec {
  */
 private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
     listOf(
-        ChromeGridSlotSpec.ExpandShortcut(1, 0, "Guides", Icons.Outlined.GridOn, "Guides"),
+        ChromeGridSlotSpec.ExpandShortcut(1, 0, "Overlays", Icons.Outlined.GridOn, "Overlays"),
         ChromeGridSlotSpec.ExpandShortcut(1, 1, "Preview & keys", Icons.Outlined.TouchApp, "Preview & keys"),
         ChromeGridSlotSpec.ExpandShortcut(1, 2, "Capture & tools", Icons.Outlined.PhotoCamera, "Capture & tools"),
         ChromeGridSlotSpec.QuickAction(1, 3, Icons.Outlined.Timer, "Shutter: single, timer, or burst", ChromeGridQuickAction.TimerStub),
-        ChromeGridSlotSpec.QuickAction(1, 4, Icons.Outlined.BarChart, "Histogram", ChromeGridQuickAction.ToggleHistogram),
-        ChromeGridSlotSpec.QuickAction(1, 5, Icons.Outlined.Landscape, "Horizon level", ChromeGridQuickAction.ToggleHorizonLevel),
-        ChromeGridSlotSpec.QuickAction(1, 6, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
-        ChromeGridSlotSpec.QuickAction(2, 0, Icons.Outlined.Videocam, "Video tally", ChromeGridQuickAction.ToggleVideoTally),
-        ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.BrightnessHigh, "Max brightness in preview", ChromeGridQuickAction.ToggleMaxBrightnessPreview),
-        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
-        ChromeGridSlotSpec.QuickAction(2, 3, Icons.Outlined.PhotoCamera, "Optical stabilization OIS", ChromeGridQuickAction.ToggleLensOis),
-        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.Videocam, "Electronic stabilization EIS", ChromeGridQuickAction.ToggleVideoEis),
-        ChromeGridSlotSpec.QuickAction(2, 5, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash),
+        ChromeGridSlotSpec.QuickAction(1, 4, Icons.Outlined.Landscape, "Horizon level", ChromeGridQuickAction.ToggleHorizonLevel),
+        ChromeGridSlotSpec.QuickAction(1, 5, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
+        ChromeGridSlotSpec.ExpandShortcut(2, 0, "Video QS", Icons.Outlined.Videocam, "Video QS"),
+        ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
+        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash),
         ChromeGridSlotSpec.ExpandShortcut(2, 6, "Settings", Icons.Outlined.Settings, "Settings"),
     )
+
+private fun expandShortcutTileSelected(
+    title: String,
+    hud: HudSettings,
+    compositionGuide: CompositionGuideSettings,
+): Boolean =
+    when (title) {
+        "Overlays" ->
+            hud.showHistogram ||
+                hud.focusPeakingEnabled() ||
+                hud.falseColorModeEnum() != FalseColorMode.Off ||
+                compositionGuide.cropGuide != CropGuideAspect.OFF ||
+                compositionGuide.gridMode != GridOverlayMode.OFF
+        "Video QS" ->
+            hud.showVideoTally ||
+                hud.enableLensOpticalStabilization ||
+                hud.enableVideoStabilizationPreview
+        else -> false
+    }
 
 /** Immutable placeholder until the first YUV histogram sample arrives (overlay stays visible when enabled). */
 private val PreviewHistogramPendingBins = IntArray(PreviewLumaHistogram.BIN_COUNT)
 
-private val PreviewBottomTrayHeight = 92.dp
-private val PreviewGalleryThumbSize = 56.dp
+private val PreviewBottomTrayHeight = 76.dp
+private val PreviewGalleryThumbSize = 48.dp
 
 /** Seam between major preview chrome vertical bands; see docs/preview-chrome-layout-style-guide.md */
 private val PreviewChromeSectionDividerAlpha = 0.22f
@@ -305,6 +325,17 @@ private fun formatDngSoftwareLine(context: Context, lut: LutCatalog): String =
         appVersion = PnsAppInfo.versionName(context),
         activeLut = lut.identityForDngMetadata(),
     )
+
+private fun dngSoftwareDescriptionForSave(
+    context: Context,
+    cameraId: String,
+    lut: LutCatalog,
+): String? =
+    if (dev.pointandshoot.fleet.OnePlus13FleetPolicy.skipDngSoftwareDescriptionOnLeaf(cameraId)) {
+        null
+    } else {
+        formatDngSoftwareLine(context, lut)
+    }
 
 private fun dngUniqueCameraModelForSave(cameraId: String, lut: LutCatalog): String? =
     if (
@@ -600,6 +631,7 @@ private data class PreviewEnginePollState(
     val previewReadoutIso: Int?,
     val previewReadoutExposureNs: Long?,
     val previewReadoutAwbMode: Int?,
+    val aeLocked: Boolean,
     val previewLogicalPhysicalId: String?,
     val previewJpegCompanion: Boolean,
     val surfaceInfo: String,
@@ -614,6 +646,7 @@ private data class PreviewEnginePollState(
                 previewReadoutIso = null,
                 previewReadoutExposureNs = null,
                 previewReadoutAwbMode = null,
+                aeLocked = false,
                 previewLogicalPhysicalId = null,
                 previewJpegCompanion = false,
                 surfaceInfo = "surface=?",
@@ -630,12 +663,49 @@ private fun previewEnginePollStateFromController(c: PreviewController): PreviewE
         previewReadoutIso = c.previewMeterIso(),
         previewReadoutExposureNs = c.previewMeterExposureNs(),
         previewReadoutAwbMode = c.previewReadoutAwbMode(),
+        aeLocked = c.isAeLocked(),
         previewLogicalPhysicalId = c.previewMeterLogicalPhysicalId(),
         previewJpegCompanion = c.previewUsesJpegCompanion(),
         surfaceInfo = c.surfaceDebug(),
         previewBufferSize = c.previewBufferSize(),
         sensorOrientationDeg = c.sensorOrientationDegrees(),
     )
+
+private fun buildPreviewTrayModeSnapshot(
+    controller: PreviewController,
+    hud: HudSettings,
+    fps: Int,
+): PreviewTrayModeSnapshot =
+    PreviewTrayModeSnapshot(
+        readout = controller.captureReadoutState(),
+        targetFps = fps,
+        enableLensOpticalStabilization = hud.enableLensOpticalStabilization,
+        enableVideoStabilizationPreview = hud.enableVideoStabilizationPreview,
+        videoShutterAngle = hud.videoShutterAngle,
+    )
+
+private fun applyPreviewTrayModeSnapshot(
+    controller: PreviewController,
+    hudState: HudSettingsState,
+    snapshot: PreviewTrayModeSnapshot,
+    onFps: (Int) -> Unit,
+) {
+    hudState.update(
+        hudState.current.copy(
+            enableLensOpticalStabilization = snapshot.enableLensOpticalStabilization,
+            enableVideoStabilizationPreview = snapshot.enableVideoStabilizationPreview,
+            videoShutterAngle = snapshot.videoShutterAngle,
+        ),
+    )
+    controller.restoreReadoutState(snapshot.readout)
+    onFps(snapshot.targetFps)
+    Log.i(
+        "PNS.ChromeUx",
+        "trayModeRestore fps=${snapshot.targetFps} ois=${snapshot.enableLensOpticalStabilization} " +
+            "eis=${snapshot.enableVideoStabilizationPreview} angle=${snapshot.videoShutterAngle} " +
+            "iso=${snapshot.readout.manualIso} ss=${snapshot.readout.manualExposureNs}",
+    )
+}
 
 @Composable
 fun PreviewEngineScreen(
@@ -662,6 +732,8 @@ fun PreviewEngineScreen(
     adbAudioHiFiSeed: Boolean? = null,
     /** Sprint **AS.1** — `pns_preview_audio_wind` (session-only). */
     adbAudioWindSeed: Boolean? = null,
+    /** Sprint **15.25** — `pns_preview_wind_noise_filter` (HudSettings seed). */
+    adbWindNoiseFilterSeed: Boolean? = null,
     /** Sprint **AS.2** — `pns_preview_shutter_sound_pack` (session-only). */
     adbShutterSoundPackSeed: String? = null,
     /** `--ez pns_preview_composed_still true` — one IMG-matrix still via [PreviewController.captureComposedStill]. */
@@ -678,10 +750,26 @@ fun PreviewEngineScreen(
     adbInitialSelfTimerSec: Int? = null,
     /** **`--es pns_preview_focal_mm_slot N`** — applies [FocalMmSlot] once after seed; logs **`focalSlotTap=`**. */
     adbFocalMmSlotProbe: FocalMmSlot? = null,
+    /** Sprint **15.10** — `--ei pns_preview_readout_iso N` (lock ISO for still + readout; ProShot parity). */
+    adbReadoutIsoProbe: Int? = null,
     /** Sprint **15.10** — `--el pns_preview_readout_shutter_ns` (lock SS so ISO chase logs can be proven). */
     adbReadoutShutterNsProbe: Long? = null,
+    /** Sprint **15.11** — `--es pns_preview_video_shutter_angle Angle180` (video-primary gate). */
+    adbVideoShutterAngleProbe: String? = null,
     /** Sprint **15.1** — ADB seed: enable face/eye overlay markers. */
     adbEyeAfOverlaySeed: Boolean? = null,
+    /** Sprint **15.26** — `pns_preview_ae_lock` seeds preview AE lock. */
+    adbAeLockSeed: Boolean? = null,
+    /** Sprint **15.27** — intervalometer time-lapse mode + running (`pns_preview_timelapse_*`). */
+    adbTimelapseModeSeed: String? = null,
+    adbTimelapseRunningSeed: Boolean? = null,
+    adbTimelapseIntervalSecSeed: Int? = null,
+    adbTimelapseAutoStopSecSeed: Int? = null,
+    /** Sprint **15.28** — seed focus breathing compensation + automation rack duration. */
+    adbFocusBreathingCompSeed: Boolean? = null,
+    adbAutomationFocusRackSec: Int? = null,
+    /** Sprint **15.36** — `pns_preview_rack_focus_pull` automation rack once after settle. */
+    adbRackFocusPull: Boolean = false,
     /** When non-null, activity was started with [MediaStore.ACTION_IMAGE_CAPTURE]; still capture returns JPEG to caller. */
     imageCaptureReturn: ImageCaptureReturnContract? = null,
     /** When non-null, [MediaStore.ACTION_VIDEO_CAPTURE] — stop mock record encodes a short clip and [Activity.finish]es with result. */
@@ -714,6 +802,8 @@ fun PreviewEngineScreen(
     adbAutomationVideoStabilization: Boolean = false,
     /** RAW video automation (`--ei pns_preview_video_raw_sec N`, Sprint **13.6**). */
     adbAutomationVideoRawSec: Int = 0,
+    /** Sprint **15.19** — `pns_preview_automation_bt_media_key` (`pns_bt_remote_shutter_verify.ps1`). */
+    adbAutomationBtMediaKey: Boolean = false,
     /** DNG matrix bisect — see [DngSaveBisectState] and `EXTRA_PNS_PREVIEW_DNG_*`. */
     adbDngBisectActive: Boolean = false,
     /** `pns_preview_still_mode` — [StillCaptureMode] for 13.8 automation (non-Standard falls back until shipped). */
@@ -745,8 +835,12 @@ fun PreviewEngineScreen(
     adbSceneVendorHints: Boolean = false,
     /** `--ez pns_preview_show_about true` — Sprint **14.11** gate: in-preview About overlay. */
     adbShowAboutOverlay: Boolean = false,
+    /** `--ez pns_preview_open_settings true` — Sprint **15.8** gate: open chrome Settings rail. */
+    adbOpenSettingsRail: Boolean = false,
     /** Sprint **CC.3** — `pns_preview_tether` enables loopback HTTP tether. */
     adbTetherEnabled: Boolean = false,
+    /** Sprint **15.37** — `pns_preview_wifi_direct_tether` enables LAN bind + NSD. */
+    adbWifiDirectTether: Boolean = false,
     /** Sprint **CC.3** — `pns_preview_picture_profile` (e.g. `cinematic`, `ultra_raw`). */
     adbPictureProfileId: String? = null,
     /** Sprint **CC.3** — `pns_preview_flash_strength` percent (25–100). */
@@ -862,6 +956,7 @@ fun PreviewEngineScreen(
             adbJpegCompanionSeed != null ||
             adbAudioHiFiSeed != null ||
             adbAudioWindSeed != null ||
+            adbWindNoiseFilterSeed != null ||
             adbShutterSoundPackSeed != null ||
             adbAutomationInAppVideoSec > 0 ||
             adbAutomationVideoRawSec > 0 ||
@@ -873,6 +968,7 @@ fun PreviewEngineScreen(
             adbVideoBitrateScalePercent != null ||
             adbSceneVendorHints ||
             adbTetherEnabled ||
+            adbWifiDirectTether ||
             !adbPictureProfileId.isNullOrBlank() ||
             adbFlashStrengthPercent != null ||
             adbCalExportSmoke ||
@@ -1000,6 +1096,13 @@ fun PreviewEngineScreen(
     var primaryPhoto by rememberSaveable(resolvedInitialPrimaryPhoto) {
         mutableStateOf(resolvedInitialPrimaryPhoto)
     }
+    var photoTraySnapshot by remember {
+        mutableStateOf(PreviewTrayModeStore.load(appContext, photo = true))
+    }
+    var videoTraySnapshot by remember {
+        mutableStateOf(PreviewTrayModeStore.load(appContext, photo = false))
+    }
+    var initialTrayModeApplied by remember { mutableStateOf(false) }
     val rawOrBracketAutomation = adbSequentialRawStills > 0 || adbBracketPattern != null
     // Photo-primary: stay below 120 so [createSession] can attach RAW ([canCaptureRawStill]). Use **60** for
     // ADB sequential RAW / bracket runs: **90** preview targets still saw HAL timeouts on some devices
@@ -1008,9 +1111,9 @@ fun PreviewEngineScreen(
         mutableStateOf(
             when {
                 rawOrBracketAutomation -> 60
-                resolvedInitialPrimaryPhoto -> 90
-                // Video-primary default; HFR (≥120) uses MediaCodec + constrained high-speed session (13V.16).
-                else -> 60
+                resolvedInitialPrimaryPhoto ->
+                    PreviewTrayModeStore.load(context.applicationContext, photo = true).targetFps
+                else -> PreviewTrayModeStore.load(context.applicationContext, photo = false).targetFps
             },
         )
     }
@@ -1019,8 +1122,24 @@ fun PreviewEngineScreen(
         mutableStateOf(
             when {
                 rawOrBracketAutomation -> 60
-                resolvedInitialPrimaryPhoto -> 90
-                else -> 60
+                resolvedInitialPrimaryPhoto ->
+                    PreviewTrayModeStore.load(context.applicationContext, photo = true).targetFps
+                else -> PreviewTrayModeStore.load(context.applicationContext, photo = false).targetFps
+            },
+        )
+    }
+
+    LaunchedEffect(selectedCameraId, initialTrayModeApplied) {
+        if (initialTrayModeApplied || selectedCameraId == null) return@LaunchedEffect
+        initialTrayModeApplied = true
+        val snap = if (primaryPhoto) photoTraySnapshot else videoTraySnapshot
+        applyPreviewTrayModeSnapshot(
+            controller,
+            hudState,
+            snap,
+            onFps = { fps ->
+                selectedFps = fps
+                userSelectedFps = fps
             },
         )
     }
@@ -1053,7 +1172,14 @@ fun PreviewEngineScreen(
                 value = next
             }
             PreviewLogicalPhysicalDebugBridge.updateFromCaptureResult(next.previewLogicalPhysicalId)
-            delay(350)
+            val pollMs =
+                when (controller.readoutAeCoupling()) {
+                    ReadoutAeCoupling.LOCKED_ISO_AUTO_SS,
+                    ReadoutAeCoupling.LOCKED_SS_AUTO_ISO,
+                    -> 100L
+                    else -> 350L
+                }
+            delay(pollMs)
         }
     }
     var sweepJob by remember { mutableStateOf<Job?>(null) }
@@ -1237,6 +1363,9 @@ fun PreviewEngineScreen(
         // left [PreviewController.desiredFps] ≥ 120, and blocked RAW/DNG ([canCaptureRawStill] requires < 120).
         controller.setDesired(selectedCameraId = selectedCameraId, desiredFps = selectedFps)
     }
+    SideEffect {
+        controller.setVideoPrimarySession(!primaryPhoto)
+    }
 
     val insets = rememberSystemInsetsDp()
     val density = LocalDensity.current
@@ -1250,6 +1379,16 @@ fun PreviewEngineScreen(
     val fpsOptions =
         remember(selectedCameraId, context) {
             PreviewFpsSupport.enumerateQuickFpsOptions(context, selectedCameraId)
+        }
+    val effectiveVideoShutterFps =
+        remember(selectedCameraId, selectedFps, context) {
+            selectedCameraId?.let { cam ->
+                PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                    context.applicationContext,
+                    cam,
+                    selectedFps,
+                )
+            } ?: selectedFps
         }
     LaunchedEffect(selectedCameraId, sweepJob, adbAutomationVideoFps) {
         if (sweepJob != null) return@LaunchedEffect
@@ -1315,9 +1454,33 @@ fun PreviewEngineScreen(
         }
     }
     val chromePrefs = rememberPreviewChromePreferences()
-    LaunchedEffect(chromePrefs.current.btRemoteShutter, chromePrefs.current.volumeKeysCapture) {
-        PnsMediaSessionManager.btRemoteShutterEnabled =
-            chromePrefs.current.btRemoteShutter && chromePrefs.current.volumeKeysCapture
+    LaunchedEffect(chromePrefs.current.btRemoteShutter) {
+        PnsMediaSessionManager.btRemoteShutterEnabled = chromePrefs.current.btRemoteShutter
+    }
+    LaunchedEffect(adbAutomationBtMediaKey, hostActivity) {
+        val armed =
+            adbAutomationBtMediaKey ||
+                hostActivity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY, false) == true
+        if (!armed) return@LaunchedEffect
+        PnsAdbLog.i(
+            context,
+            "btMediaKeyAutomation armed delayMs=8000 btRemote=${chromePrefs.current.btRemoteShutter}",
+        )
+        kotlinx.coroutines.delay(8_000)
+        val btOn = chromePrefs.current.btRemoteShutter
+        PnsMediaSessionManager.btRemoteShutterEnabled = btOn
+        if (!btOn) {
+            PnsAdbLog.w(context, "bt media key automation skipped bt_remote_shutter=false")
+            return@LaunchedEffect
+        }
+        PnsMediaSessionManager.handleKeyEvent(
+            context,
+            android.view.KeyEvent(
+                android.view.KeyEvent.ACTION_DOWN,
+                android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+            ),
+            foreground = true,
+        )
     }
     LaunchedEffect(context) {
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -1359,6 +1522,12 @@ fun PreviewEngineScreen(
         val want = adbEyeAfOverlaySeed ?: return@LaunchedEffect
         controller.setHudFaceOverlayEnabled(want)
         PnsAdbLog.i(context, "preview seeded eyeAfOverlay=$want (adb)")
+    }
+    LaunchedEffect(adbAeLockSeed, selectedCameraId) {
+        if (adbAeLockSeed != true) return@LaunchedEffect
+        if (selectedCameraId == null) return@LaunchedEffect
+        controller.setAeLocked(true)
+        PnsAdbLog.i(context, "preview seeded aeLock=true")
     }
     LaunchedEffect(
         selectedFps,
@@ -1448,6 +1617,50 @@ fun PreviewEngineScreen(
             "preview seeded audio hiFi=${next.audioHiFiCapture} windNs=${next.audioWindNoiseReduction} (session-only)",
         )
     }
+    LaunchedEffect(adbWindNoiseFilterSeed, adbAudioWindSeed) {
+        val want = adbWindNoiseFilterSeed ?: adbAudioWindSeed ?: return@LaunchedEffect
+        val cur = hudState.current
+        if (cur.windNoiseFilterEnabled == want) return@LaunchedEffect
+        val next = cur.copy(windNoiseFilterEnabled = want)
+        hudState.update(next)
+        HudSettings.save(context, next)
+        PnsAdbLog.i(context, "preview seeded windNoiseFilter=$want (HudSettings)")
+    }
+    LaunchedEffect(adbTimelapseModeSeed, adbTimelapseRunningSeed, adbTimelapseIntervalSecSeed) {
+        if (
+            adbTimelapseModeSeed == null &&
+            adbTimelapseRunningSeed == null &&
+            adbTimelapseIntervalSecSeed == null
+        ) {
+            return@LaunchedEffect
+        }
+        var next = hudState.current
+        adbTimelapseModeSeed?.let { raw ->
+            val mode = TimeLapseMode.fromStorage(raw)
+            if (next.timeLapseModeEnum() != mode) {
+                next = next.copy(timeLapseMode = mode.storageId)
+            }
+        }
+        adbTimelapseIntervalSecSeed?.let { sec ->
+            val norm = AdvancedCaptureSettings.normalizeIntervalometerSec(sec)
+            if (next.intervalometerIntervalSec != norm) {
+                next = next.copy(intervalometerIntervalSec = norm)
+            }
+        }
+        adbTimelapseRunningSeed?.let { run ->
+            if (next.intervalometerRunning != run) {
+                next = next.copy(intervalometerRunning = run)
+            }
+        }
+        if (next == hudState.current) return@LaunchedEffect
+        hudState.update(next)
+        HudSettings.save(context, next)
+        PnsAdbLog.i(
+            context,
+            "preview seeded timelapse mode=${next.timeLapseModeEnum().name} " +
+                "intervalSec=${next.intervalometerIntervalSec} running=${next.intervalometerRunning}",
+        )
+    }
     LaunchedEffect(adbShutterSoundPackSeed) {
         val packKey = adbShutterSoundPackSeed ?: return@LaunchedEffect
         val resolved = ShutterSoundPack.fromStorageKey(packKey).storageKey
@@ -1456,6 +1669,38 @@ fun PreviewEngineScreen(
             chromePrefs.applySessionOnly(cur.copy(shutterSoundPackKey = resolved))
         }
         PnsAdbLog.i(context, "preview seeded shutterSoundPack=$resolved raw=$packKey (session-only)")
+    }
+    LaunchedEffect(adbFocusBreathingCompSeed) {
+        val want = adbFocusBreathingCompSeed ?: return@LaunchedEffect
+        val cur = hudState.current
+        if (cur.enableFocusBreathingComp == want) return@LaunchedEffect
+        val next = cur.copy(enableFocusBreathingComp = want)
+        hudState.update(next)
+        HudSettings.save(context, next)
+        PnsAdbLog.i(context, "preview seeded focusBreathingComp=$want (HudSettings)")
+    }
+    LaunchedEffect(adbAutomationFocusRackSec, adbInitialDial, adbFocalMmSlotProbe, selectedCameraId) {
+        val rackSec = adbAutomationFocusRackSec ?: return@LaunchedEffect
+        if (rackSec <= 0) return@LaunchedEffect
+        delay(3500)
+        controller.ensureManualFocusForDialM()
+        val maxD = controller.peekManualFocusMaxDiopters().coerceAtLeast(0.5f)
+        val durationMs = (rackSec * 1000).coerceIn(500, 3000)
+        RackFocusPull.run(context, 0f, maxD, durationMs) { diopters ->
+            controller.setPreviewFocusManualDiopters(diopters)
+        }
+    }
+    LaunchedEffect(adbRackFocusPull, selectedCameraId, hudState.current.rackFocusWaypointNear, hudState.current.rackFocusWaypointFar, hudState.current.rackFocusDurationMs) {
+        if (!adbRackFocusPull) return@LaunchedEffect
+        delay(3500)
+        controller.ensureManualFocusForDialM()
+        val maxD = controller.peekManualFocusMaxDiopters().coerceAtLeast(0.5f)
+        val hud = hudState.current
+        val near = hud.rackFocusWaypointNear ?: 0f
+        val far = hud.rackFocusWaypointFar ?: (maxD * 0.85f)
+        RackFocusPull.run(context, near, far, hud.rackFocusDurationMs) { diopters ->
+            controller.setPreviewFocusManualDiopters(diopters)
+        }
     }
     LaunchedEffect(imageCaptureReturn) {
         if (imageCaptureReturn != null) {
@@ -1599,6 +1844,7 @@ fun PreviewEngineScreen(
     }
 
     var isRecording by remember { mutableStateOf(false) }
+    val timelapseEncoderRef = remember { mutableStateOf<TimeLapseVideoEncoder?>(null) }
     val trayStillCaptureRef = remember { mutableStateOf<(() -> Unit)?>(null) }
     /** Latest indexed capture for gallery thumb + open-in-viewer (typically DNG URI). */
     var lastGalleryUri by remember { mutableStateOf<Uri?>(null) }
@@ -1752,22 +1998,57 @@ fun PreviewEngineScreen(
                     "reason=${controller.rawStillNotReadyReason() ?: "unknown"}",
             )
         }
+        applyAdbReadoutExposureProbe(
+            controller = controller,
+            iso = adbReadoutIsoProbe,
+            shutterNs = adbReadoutShutterNsProbe,
+            cameraId = pair.first,
+            context = context,
+        )
         focalSlotProbeConsumed = true
     }
 
-    // Sprint **15.10** ADB proof: lock shutter so ISO chase emits `readoutChase iso=...` logs.
-    var readoutShutterProbeConsumed by remember(adbReadoutShutterNsProbe) { mutableStateOf(false) }
+    // Sprint **15.10** — when no focal-slot probe, still honor readout ISO/SS extras after seed camera id.
+    var readoutExposureProbeConsumed by remember(adbReadoutIsoProbe, adbReadoutShutterNsProbe) {
+        mutableStateOf(false)
+    }
+    LaunchedEffect(
+        adbReadoutIsoProbe,
+        adbReadoutShutterNsProbe,
+        adbFocalMmSlotProbe,
+        selectedCameraId,
+        readoutExposureProbeConsumed,
+    ) {
+        if (adbFocalMmSlotProbe != null) return@LaunchedEffect
+        if (readoutExposureProbeConsumed || selectedCameraId.isNullOrBlank()) return@LaunchedEffect
+        if (adbReadoutIsoProbe == null && adbReadoutShutterNsProbe == null) return@LaunchedEffect
+        delay(400)
+        applyAdbReadoutExposureProbe(
+            controller = controller,
+            iso = adbReadoutIsoProbe,
+            shutterNs = adbReadoutShutterNsProbe,
+            cameraId = selectedCameraId!!,
+            context = context,
+        )
+        readoutExposureProbeConsumed = true
+    }
+
+    var videoShutterAngleProbeConsumed by remember(adbVideoShutterAngleProbe) { mutableStateOf(false) }
     LaunchedEffect(
         controller,
-        adbReadoutShutterNsProbe,
-        readoutShutterProbeConsumed,
+        adbVideoShutterAngleProbe,
+        adbAutomationVideoFps,
+        primaryPhoto,
+        effectiveVideoShutterFps,
+        videoShutterAngleProbeConsumed,
     ) {
-        val shutterNs = adbReadoutShutterNsProbe ?: return@LaunchedEffect
-        if (readoutShutterProbeConsumed) return@LaunchedEffect
-        controller.setReadoutManualShutter(shutterNs)
-        controller.adbReadoutChaseProof = true
-        readoutShutterProbeConsumed = true
-        PnsAdbLog.i(context, "preview seeded readoutShutterNs=$shutterNs (adb)")
+        val angleId = adbVideoShutterAngleProbe ?: return@LaunchedEffect
+        if (videoShutterAngleProbeConsumed || primaryPhoto) return@LaunchedEffect
+        val fps = adbAutomationVideoFps ?: effectiveVideoShutterFps
+        delay(300)
+        controller.applyVideoShutterAnglePreset(VideoShutterAngle.fromStorage(angleId), fps)
+        videoShutterAngleProbeConsumed = true
+        PnsAdbLog.i(context, "preview seeded videoShutterAngle=$angleId fps=$fps (adb)")
     }
 
     // Keep [PreviewController] session outputs aligned with IMG tiers before any shutter tap (LaunchedEffect
@@ -1860,6 +2141,7 @@ fun PreviewEngineScreen(
     LaunchedEffect(Unit) {
         lateinit var runTrayStillCaptureImpl: () -> Unit
         lateinit var runTrayStillBurstImpl: () -> Unit
+        lateinit var runTrayNightScapeImpl: () -> Unit
         fun scheduleTrayStillCapture() {
             controller.runAfterAfShutterGateIfNeeded(
                 onTimeoutOnMain = {
@@ -1882,6 +2164,18 @@ fun PreviewEngineScreen(
                     )
                 },
                 runCaptureOnMain = { runTrayStillBurstImpl() },
+            )
+        }
+        fun scheduleTrayNightScapeCapture() {
+            controller.runAfterAfShutterGateIfNeeded(
+                onTimeoutOnMain = {
+                    captureScope.pnsShowSnackbar(
+                        snackbarHostState,
+                        "Focus wait timed out — NightScape not started.",
+                        longDuration = false,
+                    )
+                },
+                runCaptureOnMain = { runTrayNightScapeImpl() },
             )
         }
         runTrayStillCaptureImpl = {
@@ -1946,7 +2240,61 @@ fun PreviewEngineScreen(
                 )
             }
         }
-        PnsMediaSessionManager.onRemoteShutter = { scheduleTrayStillCapture() }
+        runTrayNightScapeImpl = {
+            val hud = hudState.current
+            val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
+            val plan = composedStillIntentState.value.resolveCapturePlan()
+            controller.setComposedCapturePlan(plan)
+            val tonal = plan.tonal
+            if (tonal == null) {
+                captureScope.pnsShowSnackbar(
+                    snackbarHostState,
+                    "Enable JPEG in IMG for NightScape.",
+                    longDuration = true,
+                )
+            } else if (!controller.canCaptureNightScape()) {
+                captureScope.pnsShowSnackbar(
+                    snackbarHostState,
+                    "NightScape needs preview ≤119 fps and a ready JPEG session.",
+                    longDuration = true,
+                )
+            } else {
+                controller.captureNightScapeStack(
+                    appContext = context.applicationContext,
+                    haptics = haptics,
+                    surfaceRotation = rot,
+                    frameCount = hud.nightScapeFrameCount,
+                    tonalBundle = tonal,
+                    stillsLut = stillsLutState.value,
+                    onResult = { result ->
+                        applyStillResultToGalleryThumb(result)
+                        result.fold(
+                            onSuccess = {
+                                captureScope.pnsShowSnackbar(
+                                    snackbarHostState,
+                                    "NightScape saved (${hud.nightScapeFrameCount} frames)",
+                                    longDuration = false,
+                                )
+                            },
+                            onFailure = { e ->
+                                captureScope.pnsShowSnackbar(
+                                    snackbarHostState,
+                                    PnsUserFacingErrors.stillCaptureFailure(e),
+                                    longDuration = true,
+                                )
+                            },
+                        )
+                    },
+                )
+            }
+        }
+        PnsMediaSessionManager.onRemoteShutter = {
+            when {
+                controller.peekCommandDialMode() == CommandDialMode.Night -> scheduleTrayNightScapeCapture()
+                hudState.current.burstModeEnabled -> scheduleTrayStillBurstCapture()
+                else -> scheduleTrayStillCapture()
+            }
+        }
         runTrayStillBurstImpl = {
             val hud = hudState.current
             val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
@@ -1987,10 +2335,10 @@ fun PreviewEngineScreen(
             }
         }
         trayStillCaptureRef.value = {
-            if (hudState.current.burstModeEnabled) {
-                scheduleTrayStillBurstCapture()
-            } else {
-                scheduleTrayStillCapture()
+            when {
+                controller.peekCommandDialMode() == CommandDialMode.Night -> scheduleTrayNightScapeCapture()
+                hudState.current.burstModeEnabled -> scheduleTrayStillBurstCapture()
+                else -> scheduleTrayStillCapture()
             }
         }
     }
@@ -2003,50 +2351,203 @@ fun PreviewEngineScreen(
         primaryPhoto,
         hudState.current.intervalometerRunning,
         hudState.current.intervalometerIntervalSec,
+        hudState.current.timeLapseMode,
         isRecording,
+        adbTimelapseAutoStopSecSeed,
     ) {
+        val mode = hudState.current.timeLapseModeEnum()
+        val videoMode = mode == TimeLapseMode.Video
+        val autoStopSec = adbTimelapseAutoStopSecSeed?.takeIf { it > 0 }
+        val startedAtMs = android.os.SystemClock.elapsedRealtime()
+
+        suspend fun finishTimelapseEncoderIfAny() {
+            val enc = timelapseEncoderRef.value ?: return
+            val frames = enc.frameCount()
+            timelapseEncoderRef.value = null
+            withContext(Dispatchers.IO) {
+                enc.finish(context.applicationContext)
+            }.fold(
+                onSuccess = { uri ->
+                    lastGalleryUri = uri
+                    Log.i(
+                        TimeLapseVideoEncoder.TAG,
+                        "timelapse saved uri=$uri frames=$frames",
+                    )
+                    PnsAdbLog.i(
+                        context.applicationContext,
+                        "timelapseVideoSaved ok=true saved=$uri frames=$frames",
+                    )
+                },
+                onFailure = { e ->
+                    Log.w(TimeLapseVideoEncoder.TAG, "timelapse finish failed: ${e.message}")
+                    PnsAdbLog.i(
+                        context.applicationContext,
+                        "timelapseVideoSaved ok=false err=${e.message}",
+                    )
+                },
+            )
+        }
+
         if (
             !primaryPhoto ||
             isRecording ||
             !hudState.current.intervalometerRunning ||
             hudState.current.intervalometerIntervalSec <= 0
         ) {
+            if (videoMode || timelapseEncoderRef.value != null) {
+                finishTimelapseEncoderIfAny()
+            }
             return@LaunchedEffect
         }
+
         val intervalSec = hudState.current.intervalometerIntervalSec
-        Log.i("PNS.ChromeUx", "intervalometer active intervalSec=$intervalSec")
-        while (
-            primaryPhoto &&
-            !isRecording &&
-            hudState.current.intervalometerRunning &&
-            hudState.current.intervalometerIntervalSec == intervalSec
-        ) {
-            delay(intervalSec * 1000L)
-            if (
-                !primaryPhoto ||
-                isRecording ||
-                !hudState.current.intervalometerRunning
+        Log.i(
+            if (videoMode) TimeLapseVideoEncoder.TAG else "PNS.ChromeUx",
+            "intervalometer active mode=${mode.name} intervalSec=$intervalSec",
+        )
+
+        try {
+            while (
+                primaryPhoto &&
+                !isRecording &&
+                hudState.current.intervalometerRunning &&
+                hudState.current.intervalometerIntervalSec == intervalSec &&
+                hudState.current.timeLapseModeEnum() == mode
             ) {
-                break
+                if (
+                    autoStopSec != null &&
+                    android.os.SystemClock.elapsedRealtime() - startedAtMs >= autoStopSec * 1000L
+                ) {
+                    val next = hudState.current.copy(intervalometerRunning = false)
+                    hudState.update(next)
+                    HudSettings.save(context, next)
+                    PnsAdbLog.i(
+                        context,
+                        "timelapse automation stop intervalometer afterSec=$autoStopSec",
+                    )
+                    break
+                }
+                delay(intervalSec * 1000L)
+                if (
+                    !primaryPhoto ||
+                    isRecording ||
+                    !hudState.current.intervalometerRunning ||
+                    hudState.current.timeLapseModeEnum() != mode
+                ) {
+                    break
+                }
+                when (mode) {
+                    TimeLapseMode.Video -> {
+                        if (!controller.canCaptureTimelapseJpeg()) {
+                            Log.w(TimeLapseVideoEncoder.TAG, "timelapse skip frame: jpeg path not ready")
+                            continue
+                        }
+                        val rot =
+                            stillCaptureSurfaceRotationFromPhysicalCardinal(
+                                latestPhysicalCardinalSnap.value,
+                            )
+                        val jpegResult =
+                            suspendCancellableCoroutine { cont ->
+                                controller.captureTimelapseJpegFrame(
+                                    context.applicationContext,
+                                    rot,
+                                ) { result ->
+                                    if (cont.isActive) {
+                                        cont.resume(result)
+                                    }
+                                }
+                            }
+                        jpegResult.fold(
+                            onSuccess = { bytes ->
+                                var enc = timelapseEncoderRef.value
+                                if (enc == null) {
+                                    enc = TimeLapseVideoEncoder()
+                                    timelapseEncoderRef.value = enc
+                                }
+                                enc.encodeJpegFrame(
+                                    context.applicationContext,
+                                    imagingProfileState.value,
+                                    bytes,
+                                ).fold(
+                                    onSuccess = { frameIdx ->
+                                        Log.i(TimeLapseVideoEncoder.TAG, "timelapse frame=$frameIdx")
+                                    },
+                                    onFailure = { e ->
+                                        Log.w(
+                                            TimeLapseVideoEncoder.TAG,
+                                            "timelapse encode failed: ${e.message}",
+                                        )
+                                    },
+                                )
+                            },
+                            onFailure = { e ->
+                                Log.w(
+                                    TimeLapseVideoEncoder.TAG,
+                                    "timelapse capture failed: ${e.message}",
+                                )
+                            },
+                        )
+                    }
+                    TimeLapseMode.Off,
+                    TimeLapseMode.Photo,
+                    -> trayStillCaptureRef.value?.invoke()
+                }
             }
-            trayStillCaptureRef.value?.invoke()
+        } finally {
+            if (videoMode || timelapseEncoderRef.value != null) {
+                finishTimelapseEncoderIfAny()
+            }
         }
     }
 
     val tetherServer = remember { TetheredCaptureServer() }
+    val tetherNsd = remember { TetherNsdRegistrar() }
+    var wifiDirectTetherBound by remember { mutableStateOf(false) }
     DisposableEffect(Unit) {
-        onDispose { ProCapture.stopTether(tetherServer) }
+        onDispose {
+            tetherNsd.unregister()
+            ProCapture.stopTether(tetherServer)
+        }
     }
     val primaryPhotoForTether = rememberUpdatedState(primaryPhoto)
     val selectedCameraIdForTether = rememberUpdatedState(selectedCameraId)
     val selectedFpsForTether = rememberUpdatedState(selectedFps)
-    LaunchedEffect(hudState.current.tetheredCaptureEnabled, adbTetherEnabled) {
-        val want = hudState.current.tetheredCaptureEnabled || adbTetherEnabled
+    LaunchedEffect(
+        hudState.current.tetheredCaptureEnabled,
+        hudState.current.wifiDirectTetherEnabled,
+        adbTetherEnabled,
+        adbWifiDirectTether,
+    ) {
+        val wantLan = hudState.current.wifiDirectTetherEnabled || adbWifiDirectTether
+        val want =
+            hudState.current.tetheredCaptureEnabled ||
+                adbTetherEnabled ||
+                wantLan
         if (!want) {
+            wifiDirectTetherBound = false
+            tetherNsd.unregister()
             ProCapture.stopTether(tetherServer)
             return@LaunchedEffect
         }
+        if (wantLan && !WifiDirectTetherSupport.hasPermissions(context)) {
+            wifiDirectTetherBound = false
+            tetherNsd.unregister()
+            ProCapture.stopTether(tetherServer)
+            Log.w(TetheredCaptureServer.TAG, "wifiDirectTether blocked: missing permissions")
+            return@LaunchedEffect
+        }
         if (adbTetherEnabled && !hudState.current.tetheredCaptureEnabled) {
+            hudState.update(hudState.current.copy(tetheredCaptureEnabled = true))
+        }
+        if (adbWifiDirectTether && !hudState.current.wifiDirectTetherEnabled) {
+            hudState.update(
+                hudState.current.copy(
+                    tetheredCaptureEnabled = true,
+                    wifiDirectTetherEnabled = true,
+                ),
+            )
+        }
+        if (wantLan && !hudState.current.tetheredCaptureEnabled) {
             hudState.update(hudState.current.copy(tetheredCaptureEnabled = true))
         }
         val bridge =
@@ -2070,8 +2571,22 @@ fun PreviewEngineScreen(
                 chromePrefs.update(chromePrefs.current.copy(previewFlashMode = mode))
             },
         )
-        ProCapture.startTether(tetherServer)
-        PnsAdbLog.i(context, "tetherServer active port=${TetheredCaptureServer.DEFAULT_PORT}")
+        ProCapture.startTether(tetherServer, lanBind = wantLan)
+        wifiDirectTetherBound = false
+        tetherNsd.unregister()
+        if (wantLan) {
+            for (attempt in 0 until 30) {
+                delay(100)
+                if (tetherServer.lanBound) {
+                    wifiDirectTetherBound = true
+                    tetherNsd.register(context, TetheredCaptureServer.DEFAULT_PORT)
+                    Log.i(TetheredCaptureServer.TAG, "wifiDirectBound=true port=${TetheredCaptureServer.DEFAULT_PORT}")
+                    PnsAdbLog.i(context, "wifiDirectBound=true port=${TetheredCaptureServer.DEFAULT_PORT}")
+                    break
+                }
+            }
+        }
+        PnsAdbLog.i(context, "tetherServer active port=${TetheredCaptureServer.DEFAULT_PORT} lan=$wantLan")
     }
 
     LaunchedEffect(hudState.current.previewFlashStrengthPercent) {
@@ -2730,19 +3245,84 @@ fun PreviewEngineScreen(
         }
     }
 
-    LaunchedEffect(adbComposedStillSmoke, composedStillIntent, adbBurstStillCount) {
+    LaunchedEffect(adbComposedStillSmoke, composedStillIntent, adbBurstStillCount, adbInitialDial) {
         if (!adbComposedStillSmoke || adbBurstStillCount > 0) return@LaunchedEffect
-        PnsAdbLog.i(context, "start composed still smoke raw=${composedStillIntent.raw} jpeg=${composedStillIntent.jpeg}")
+        val nightSmoke =
+            adbInitialDial == CommandDialMode.Night ||
+                controller.peekCommandDialMode() == CommandDialMode.Night
+        PnsAdbLog.i(
+            context,
+            if (nightSmoke) {
+                "start nightScape smoke frames=${hudState.current.nightScapeFrameCount}"
+            } else {
+                "start composed still smoke raw=${composedStillIntent.raw} jpeg=${composedStillIntent.jpeg}"
+            },
+        )
         var waitCap = 0
-        while (!controller.canCaptureStill() && waitCap < 300) {
+        while (waitCap < 300) {
+            val ready =
+                if (nightSmoke) controller.canCaptureNightScape() else controller.canCaptureStill()
+            if (ready) break
             delay(400)
             waitCap++
         }
-        if (!controller.canCaptureStill()) {
-            PnsAdbLog.e(context, "composed still smoke aborted: canCaptureStill=false")
+        val readyFinal =
+            if (nightSmoke) controller.canCaptureNightScape() else controller.canCaptureStill()
+        if (!readyFinal) {
+            PnsAdbLog.e(
+                context,
+                if (nightSmoke) {
+                    "nightScape smoke aborted: canCaptureNightScape=false"
+                } else {
+                    "composed still smoke aborted: canCaptureStill=false"
+                },
+            )
             return@LaunchedEffect
         }
         delay(ADB_SEQUENTIAL_RAW_POST_READY_SETTLE_MS_FAST)
+        if (nightSmoke) {
+            val plan = composedStillIntent.resolveCapturePlan()
+            val tonal = plan.tonal
+            if (tonal == null) {
+                PnsAdbLog.e(context, "nightScape smoke aborted: JPEG tier missing in IMG")
+                return@LaunchedEffect
+            }
+            if (!controller.canCaptureNightScape()) {
+                PnsAdbLog.e(context, "nightScape smoke aborted: canCaptureNightScape=false")
+                return@LaunchedEffect
+            }
+            val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
+            val frames = hudState.current.nightScapeFrameCount
+            suspendCoroutine<Unit> { cont ->
+                controller.captureNightScapeStack(
+                    context.applicationContext,
+                    haptics = haptics,
+                    surfaceRotation = rot,
+                    frameCount = frames,
+                    tonalBundle = tonal,
+                    stillsLut = stillsLutLatest.value,
+                    adbValidationShotLabel = "nightscape_smoke",
+                ) { result ->
+                    result.fold(
+                        onSuccess = { out ->
+                            PnsAdbLog.i(
+                                context,
+                                "nightScape nightscape_smoke ok=true saved=${out.tonalUriString?.take(80) ?: "none"}",
+                            )
+                        },
+                        onFailure = { e ->
+                            PnsAdbLog.e(
+                                context,
+                                "nightScape nightscape_smoke ok=false err=${e.message}",
+                            )
+                        },
+                    )
+                    cont.resume(Unit)
+                }
+            }
+            PnsAdbLog.i(context, "finished nightScape smoke")
+            return@LaunchedEffect
+        }
         val plan = composedStillIntent.resolveCapturePlan()
         val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
         suspendCoroutine<Unit> { cont ->
@@ -2970,6 +3550,7 @@ fun PreviewEngineScreen(
     }
 
     val seedOpenAboutSheet = adbShowAboutOverlay
+    val seedOpenSettingsRail = adbOpenSettingsRail
 
     // Create local reference to avoid scope conflict
     val setBespokeGallery: (Boolean) -> Unit = { showBespokeGallery = it }
@@ -3004,6 +3585,7 @@ fun PreviewEngineScreen(
         previewReadoutIso = previewState.previewReadoutIso,
         previewReadoutExposureNs = previewState.previewReadoutExposureNs,
         previewReadoutAwbMode = previewState.previewReadoutAwbMode,
+        aeLocked = previewState.aeLocked,
         previewJpegCompanion = previewState.previewJpegCompanion,
         surfaceInfo = previewState.surfaceInfo,
         previewBufferSize = previewState.previewBufferSize,
@@ -3017,12 +3599,23 @@ fun PreviewEngineScreen(
         onPendingEnableGeotagChange = { pendingEnableGeotag = it },
         onRequestLocationForGeotag = { requestLocationForGeotag.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
         isRecording = isRecording,
-        onRecordingChange = { isRecording = it },
+        onRecordingChange = { want ->
+            if (want && TimeLapseMode.isTimelapseVideoSession(hudState.current)) {
+                captureScope.pnsShowSnackbar(
+                    snackbarHostState,
+                    "Stop time-lapse video before normal recording.",
+                    longDuration = true,
+                )
+            } else {
+                isRecording = want
+            }
+        },
         onOpenDeveloperMenu = {
             sweepJob?.cancel()
             onOpenDeveloperMenu()
         },
         seedOpenAboutSheet = seedOpenAboutSheet,
+        seedOpenSettingsRail = seedOpenSettingsRail,
         onPickFirstCamera = {
             val ids = controller.cameraIds()
             val m23 = resolveFocalMmSlot(context.applicationContext, FocalMmSlot.M23, ids)
@@ -3214,28 +3807,51 @@ fun PreviewEngineScreen(
         adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
         controller = controller,
         primaryPhoto = primaryPhoto,
+        showWifiDirectTetherBanner = wifiDirectTetherBound,
         onPrimaryPhotoChange = { next ->
-            primaryPhoto = next
-            // Video → photo while preview is still at 120 fps: no RAW session until user picks <120.
-            if (next && selectedFps >= 120) {
-                val cap =
-                    PreviewFpsSupport.enumerateQuickFpsOptions(context.applicationContext, selectedCameraId)
-                        .asSequence()
-                        .map { it.targetFps }
-                        .filter { it < 120 }
-                        .maxOrNull()
-                selectedFps = cap ?: 60
+            val outgoingSnap = buildPreviewTrayModeSnapshot(controller, hudState.current, selectedFps)
+            if (primaryPhoto) {
+                photoTraySnapshot = outgoingSnap
+                PreviewTrayModeStore.save(appContext, photo = true, outgoingSnap)
+            } else {
+                videoTraySnapshot = outgoingSnap
+                PreviewTrayModeStore.save(appContext, photo = false, outgoingSnap)
             }
+            primaryPhoto = next
+            val incomingSnap = if (next) photoTraySnapshot else videoTraySnapshot
+            applyPreviewTrayModeSnapshot(
+                controller,
+                hudState,
+                incomingSnap,
+                onFps = { fps ->
+                    var f = fps
+                    if (next && f >= 120) {
+                        val cap =
+                            PreviewFpsSupport.enumerateQuickFpsOptions(appContext, selectedCameraId)
+                                .asSequence()
+                                .map { it.targetFps }
+                                .filter { it < 120 }
+                                .maxOrNull()
+                        f = cap ?: 60
+                    }
+                    selectedFps = f
+                    userSelectedFps = f
+                },
+            )
             // Photo → video: warn if HFR not available on this device (Sprint 12.2 UI polish)
             if (!next && selectedFps >= 120) {
                 val camId = selectedCameraId
                 if (camId != null) {
-                    val hasHighSpeed = runCatching {
-                        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-                        val chars = cm.getCameraCharacteristics(camId)
-                        val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                        InAppVideoRecordingSupport.supportsHighSpeedVideoRecording(map)
-                    }.getOrDefault(false)
+                    val matrixHfrEnabled =
+                        FleetCapabilityGate.isHfrAppEnabled(appContext, camId)
+                    val hasHighSpeed =
+                        matrixHfrEnabled
+                            ?: runCatching {
+                                val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                                val chars = cm.getCameraCharacteristics(camId)
+                                val map = chars.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                                InAppVideoRecordingSupport.supportsHighSpeedVideoRecording(map)
+                            }.getOrDefault(false)
                     if (!hasHighSpeed) {
                         captureScope.pnsShowSnackbar(
                             snackbarHostState,
@@ -3247,6 +3863,7 @@ fun PreviewEngineScreen(
             }
         },
         adbAutomationVideoDcg = adbAutomationVideoDcg,
+        adbAutomationVideoStabilization = adbAutomationVideoStabilization,
         adbForcePowerThermalOverlay = adbForcePowerThermalOverlay,
         adbStorageAvailableBytes = adbStorageAvailableBytes,
         adbAutomationVideoTenBit = adbAutomationVideoTenBit,
@@ -3342,6 +3959,7 @@ private fun PreviewEngineContent(
     previewReadoutIso: Int?,
     previewReadoutExposureNs: Long?,
     previewReadoutAwbMode: Int?,
+    aeLocked: Boolean,
     previewJpegCompanion: Boolean,
     surfaceInfo: String,
     previewBufferSize: Size?,
@@ -3358,6 +3976,7 @@ private fun PreviewEngineContent(
     onRecordingChange: (Boolean) -> Unit,
     onOpenDeveloperMenu: () -> Unit,
     seedOpenAboutSheet: Boolean = false,
+    seedOpenSettingsRail: Boolean = false,
     onPickFirstCamera: () -> Unit,
     onSwitchToFrontCamera: () -> Unit,
     onSwitchToRearCamera: () -> Unit,
@@ -3376,8 +3995,10 @@ private fun PreviewEngineContent(
     adbCalibrateGrabSmoke: Boolean = false,
     controller: PreviewController,
     primaryPhoto: Boolean,
+    showWifiDirectTetherBanner: Boolean = false,
     onPrimaryPhotoChange: (Boolean) -> Unit,
     adbAutomationVideoDcg: Boolean = false,
+    adbAutomationVideoStabilization: Boolean = false,
     adbForcePowerThermalOverlay: Boolean = false,
     adbStorageAvailableBytes: Long? = null,
     adbAutomationVideoTenBit: Boolean = false,
@@ -3393,8 +4014,21 @@ private fun PreviewEngineContent(
     onEyeOverlayCalibratorDone: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val effectiveVideoShutterFps =
+        remember(selectedCameraId, selectedFps, context) {
+            selectedCameraId?.let { cam ->
+                PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                    context.applicationContext,
+                    cam,
+                    selectedFps,
+                )
+            } ?: selectedFps
+        }
     val snackbarHostState = LocalPnsSnackbarHostState.current
     val settings = hudState.current
+    SideEffect {
+        controller.setLiveHudSettings(settings)
+    }
     val chrome = chromePrefs.current
     val cameraManager =
         remember(context) {
@@ -3427,6 +4061,25 @@ private fun PreviewEngineContent(
         ) {
             onSetFps(DualVideoRecordingController.V1_TARGET_FPS)
         }
+    }
+    // Sprint **15.31** — macro video: cap fps for stable EIS on ultra-wide.
+    LaunchedEffect(primaryPhoto, commandDialMode, selectedFps) {
+        if (!CaptureMediaFamily.isMacroVideo(primaryPhoto, commandDialMode)) return@LaunchedEffect
+        if (selectedFps <= CaptureMediaFamily.MACRO_VIDEO_MAX_FPS) return@LaunchedEffect
+        onSetFps(CaptureMediaFamily.MACRO_VIDEO_MAX_FPS)
+        Log.i(
+            "PNS.ChromeUx",
+            "macroVideo fps clamped to ${CaptureMediaFamily.MACRO_VIDEO_MAX_FPS} (was $selectedFps)",
+        )
+    }
+    val macroVideoActive = CaptureMediaFamily.isMacroVideo(primaryPhoto, commandDialMode)
+    SideEffect {
+        controller.setMacroVideoActive(macroVideoActive)
+    }
+    LaunchedEffect(macroVideoActive) {
+        if (!macroVideoActive) return@LaunchedEffect
+        Log.i("PNS.ChromeUx", "macroVideo=true")
+        PnsAdbLog.i(context, "macroVideo=true")
     }
     LaunchedEffect(primaryPhoto, commandDialMode, selectedCameraId, cameraIds, selectedFps) {
         val dual =
@@ -3481,8 +4134,14 @@ private fun PreviewEngineContent(
         }
     }
     var focusModePickerOpen by remember { mutableStateOf(false) }
+    var rackWaypointSheetOpen by remember { mutableStateOf(false) }
+    var rackRunning by remember { mutableStateOf(false) }
+    var rackJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
     BackHandler(enabled = focusModePickerOpen) {
         focusModePickerOpen = false
+    }
+    BackHandler(enabled = rackWaypointSheetOpen) {
+        rackWaypointSheetOpen = false
     }
     val previewFocusSelection = controller.previewFocusSelection()
     val macroLensLocked =
@@ -3500,6 +4159,38 @@ private fun PreviewEngineContent(
     val focusChipValue =
         PreviewFocusMode.chipValue(previewFocusSelection, manualFocusUi.focusChipDiopters)
     val effectiveTapPreviewToCapture = manualFocusUi.effectiveTapPreviewToCapture
+    val rackFocusEnabled =
+        RackFocusPull.canRack(commandDialMode, previewFocusSelection)
+    fun toggleRackFocusPull() {
+        if (rackRunning) {
+            rackJob?.cancel()
+            return
+        }
+        val near = settings.rackFocusWaypointNear ?: return
+        val far = settings.rackFocusWaypointFar ?: return
+        if (!rackFocusEnabled) return
+        rackJob =
+            captureScope.launch {
+                rackRunning = true
+                try {
+                    if (commandDialMode != CommandDialMode.M) {
+                        commandDialMode = CommandDialMode.M
+                        HudSettings.saveCommandDialMode(context, CommandDialMode.M)
+                    }
+                    controller.ensureManualFocusForDialM()
+                    RackFocusPull.run(context, near, far, settings.rackFocusDurationMs) { diopters ->
+                        controller.setPreviewFocusManualDiopters(diopters)
+                        manualFocusUi.onRackDiopters(diopters)
+                    }
+                } finally {
+                    rackRunning = false
+                    rackJob = null
+                }
+            }
+    }
+    DisposableEffect(Unit) {
+        onDispose { rackJob?.cancel() }
+    }
     val onApplyFocalMmSlotGuarded: (FocalMmSlot) -> Unit = { slot ->
         if (macroLensLocked && slot != FocalMmSlot.M14) {
             captureScope.pnsShowSnackbar(
@@ -3861,6 +4552,33 @@ private fun PreviewEngineContent(
             recordStartElapsedMs = null
         }
     }
+    val density = LocalDensity.current
+    val pillarBarWidthDp =
+        remember(previewFinderPx, previewContentPx, density) {
+            computePillarBarWidthDp(previewFinderPx, previewContentPx, density)
+        }
+    val videoPillarHudActive =
+        !primaryPhoto &&
+            isRecording &&
+            settings.showVideoPillarHud &&
+            pillarBarWidthDp >= VideoPillarHudMinWidthDp
+    val powerThermalContext =
+        remember(
+            primaryPhoto,
+            isRecording,
+            selectedFps,
+            settings.enableResearchDcgHDR,
+            adbAutomationVideoDcg,
+            adbForcePowerThermalOverlay,
+        ) {
+            PreviewHighDrainMode.Context(
+                videoPrimary = !primaryPhoto,
+                isRecording = isRecording,
+                selectedFps = selectedFps,
+                enableResearchDcgHdr = settings.enableResearchDcgHDR || adbAutomationVideoDcg,
+                adbForceOverlay = adbForcePowerThermalOverlay,
+            )
+        }
     val previewStatusLine =
         previewStatusBarLine(
             capturePipelineHint = capturePipelineHint,
@@ -3896,6 +4614,21 @@ private fun PreviewEngineContent(
         if (cap != prev) {
             onSetFps(cap)
             Log.i("PNS.Preview", "QR scan: preview fps set to $cap for YUV decode (was $prev)")
+        }
+    }
+    // Night dial JPEG stack needs hardware JPEG reader (preview ≤119 fps).
+    LaunchedEffect(commandDialMode, selectedFps, fpsOptions) {
+        if (commandDialMode != CommandDialMode.Night) return@LaunchedEffect
+        if (selectedFps < 120) return@LaunchedEffect
+        val cap = fpsOptions.asSequence().map { it.targetFps }.filter { it < 120 }.maxOrNull()
+        if (cap == null) {
+            Log.w("PNS.Preview", "NightScape: no fps ladder entry below 120; JPEG stack unavailable")
+            return@LaunchedEffect
+        }
+        val prev = selectedFps
+        if (cap != prev) {
+            onSetFps(cap)
+            Log.i("PNS.Preview", "NightScape: preview fps set to $cap for JPEG stack (was $prev)")
         }
     }
     var qrDecodedText by remember { mutableStateOf<String?>(null) }
@@ -3977,27 +4710,54 @@ private fun PreviewEngineContent(
     }
 
     var previewHistogramBins by remember { mutableStateOf<IntArray?>(null) }
+    var previewHistogramRgb by remember { mutableStateOf<PreviewLumaHistogram.RgbHistogramBins?>(null) }
+    var zslHistogramActive by remember { mutableStateOf(false) }
     DisposableEffect(controller) {
-        controller.setPreviewHistogramListener { previewHistogramBins = it }
+        controller.setPreviewHistogramUiListener { luma, rgb, fromZsl ->
+            previewHistogramBins = luma
+            previewHistogramRgb = rgb
+            zslHistogramActive = fromZsl
+        }
         onDispose {
-            controller.setPreviewHistogramListener(null)
+            controller.setPreviewHistogramUiListener(null)
+            previewHistogramRgb = null
+            zslHistogramActive = false
         }
     }
 
-    LaunchedEffect(settings.showHistogram, controller) {
-        controller.setPreviewHistogramEnabled(settings.showHistogram)
+    LaunchedEffect(
+        settings.showHistogram,
+        settings.showHistogramDuringVideo,
+        settings.showRgbHistogram,
+        primaryPhoto,
+        controller,
+    ) {
+        controller.setPreviewHistogramEnabled(settings.wantsPreviewHistogramPipeline(primaryPhoto))
     }
 
     var highlightClipZebraFrame by remember { mutableStateOf<HighlightClipZebraFrame?>(null) }
+    var falseColorFrame by remember { mutableStateOf<FalseColorFrame?>(null) }
     DisposableEffect(controller) {
         controller.setHighlightClipZebraListener { highlightClipZebraFrame = it }
+        controller.setFalseColorListener { falseColorFrame = it }
         onDispose {
             controller.setHighlightClipZebraListener(null)
+            controller.setFalseColorListener(null)
             highlightClipZebraFrame = null
+            falseColorFrame = null
         }
     }
-    LaunchedEffect(settings.showHighlightClipZebra, controller) {
-        controller.setHighlightClipZebraEnabled(settings.showHighlightClipZebra)
+    LaunchedEffect(
+        settings.showHighlightClipZebra,
+        settings.falseColorMode,
+        settings.zebraIreThreshold,
+        controller,
+    ) {
+        val mode = settings.falseColorModeEnum()
+        val zebraOn = settings.wantsHighlightClipZebraEffective()
+        controller.setHighlightClipZebraEnabled(zebraOn)
+        controller.setFalseColorEnabled(mode.wantsFalseColor())
+        controller.setZebraIreThresholdPercent(settings.zebraIreThreshold)
     }
 
     // Sony-Photography-Pro chrome rotation: each rail icon / settings cube counter-rotates
@@ -4068,9 +4828,49 @@ private fun PreviewEngineContent(
         remember(previewReadoutIso, previewReadoutExposureNs, selectedCameraId) {
             controller.readoutAeCoupling()
         }
-    LaunchedEffect(primaryPhoto, selectedFps, settings.videoShutterAngle) {
+    val manualSensorReadout =
+        remember(readoutAeCoupling) {
+            readoutAeCoupling == ReadoutAeCoupling.LOCKED_ISO_AUTO_SS ||
+                readoutAeCoupling == ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ||
+                readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH
+        }
+    val stabChipLabel =
+        remember(
+            selectedCameraId,
+            settings,
+            selectedFps,
+            macroVideoActive,
+            adbAutomationVideoStabilization,
+            manualSensorReadout,
+        ) {
+            val camId = selectedCameraId ?: return@remember null
+            val chars = runCatching { cameraManager.getCameraCharacteristics(camId) }.getOrNull() ?: return@remember null
+            val forceStab = macroVideoActive || adbAutomationVideoStabilization
+            val effectiveSettings =
+                if (forceStab) {
+                    settings.copy(
+                        enableVideoStabilizationPreview = true,
+                        enableLensOpticalStabilization = true,
+                    )
+                } else {
+                    settings
+                }
+            VideoEffectsProcessor.readoutLabel(
+                chars,
+                effectiveSettings,
+                Range(selectedFps, selectedFps),
+                manualSensor = manualSensorReadout && !forceStab,
+            )
+        }
+    LaunchedEffect(stabChipLabel) {
+        val label = stabChipLabel ?: return@LaunchedEffect
+        delay(3_000)
+        Log.i("PNS.ChromeUx", "stabChip=$label")
+        PnsAdbLog.i(context, "stabChip=$label")
+    }
+    LaunchedEffect(primaryPhoto, effectiveVideoShutterFps, selectedCameraId, settings.videoShutterAngle) {
         if (!primaryPhoto) {
-            controller.applyVideoShutterAnglePreset(settings.videoShutterAngleEnum(), selectedFps)
+            controller.applyVideoShutterAnglePreset(settings.videoShutterAngleEnum(), effectiveVideoShutterFps)
         }
     }
 
@@ -4362,12 +5162,19 @@ private fun PreviewEngineContent(
                     selectedFps = selectedFps,
                     recordStartElapsedMs = recordStartElapsedMs,
                     sampleAudioAmplitude = { controller.peekInAppVideoAudioAmplitude() },
+                    recordingHudInPillarBars = videoPillarHudActive,
                     modifier = Modifier.fillMaxSize(),
                 )
                 PreviewSelfieRingIndicator(
                     visible = frontCameraActive || dualVideoSelfieRing,
                     modifier = Modifier.fillMaxSize(),
                 )
+                if (showWifiDirectTetherBanner) {
+                    WifiDirectTetherBanner(
+                        port = TetheredCaptureServer.DEFAULT_PORT,
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                }
             }
             PreviewChromeSectionDivider()
             // Share vertical space with the chrome rail ([PreviewChromeFinderFlexWeight] : rail).
@@ -4446,7 +5253,10 @@ private fun PreviewEngineContent(
                             sensorOrientationDeg = sensorOrientationDeg,
                             staticPreviewRotationDeg = chrome.staticPreviewRotationDeg,
                             previewHistogramBins = previewHistogramBins,
+                            previewHistogramRgb = previewHistogramRgb,
+                            zslHistogramActive = zslHistogramActive,
                             highlightClipZebraFrame = highlightClipZebraFrame,
+                            falseColorFrame = falseColorFrame,
                             previewMirrorHorizontally = controller.previewMirrorHorizontally(),
                             onSwitchToFrontCamera = onSwitchToFrontCamera,
                             onSwitchToRearCamera = onSwitchToRearCamera,
@@ -4468,7 +5278,34 @@ private fun PreviewEngineContent(
                                     adbAutomationVideoRawSec > 0,
                             eyeOverlayCalibratorActive = eyeOverlayCalibratorActive,
                             eyeOverlayMarkerSizeScale = faceOverlayCalibration.markerSizeScale,
+                            suppressBottomPowerThermalOverlay = videoPillarHudActive,
+                            suppressBottomStorageOverlay = videoPillarHudActive,
                         )
+                        if (videoPillarHudActive) {
+                            VideoSidePanels(
+                                active = true,
+                                pillarBarWidthDp = pillarBarWidthDp,
+                                showTimecode = settings.showTimecode,
+                                showPowerThermal = settings.showPowerThermalOverlay,
+                                showStorageRemaining = settings.showStorageRemainingOverlay,
+                                isRecording = isRecording,
+                                videoPrimary = !primaryPhoto,
+                                selectedFps = selectedFps,
+                                recordStartElapsedMs = recordStartElapsedMs,
+                                highDrainContext = powerThermalContext,
+                                videoEncodeSize = videoEncodeSize,
+                                rawVideoLane =
+                                    settings.videoEncodeLane == VideoEncodeLane.Raw ||
+                                        adbAutomationVideoRawSec > 0,
+                                enableResearchDcgHdr =
+                                    settings.enableResearchDcgHDR || adbAutomationVideoDcg,
+                                adbPreviewVideoDcg = adbAutomationVideoDcg,
+                                adbPreviewVideoTenBit = adbAutomationVideoTenBit,
+                                adbStorageAvailableBytes = adbStorageAvailableBytes,
+                                sampleAudioAmplitudeStereo = { controller.peekInAppVideoAudioAmplitudeStereo() },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                         if (eyeOverlayCalibratorActive) {
                             FaceOverlayCalibratorPanel(
                                 calibration = faceOverlayCalibration,
@@ -4558,8 +5395,11 @@ private fun PreviewEngineContent(
                 composedStillIntent = composedStillIntent,
                 menu = readoutMenuSnapshot,
                 readoutAeCoupling = readoutAeCoupling,
+                aeLocked = aeLocked,
+                onToggleAeLock = { controller.toggleAeLock() },
                 videoShutterAngleLabel =
                     if (!primaryPhoto) settings.videoShutterAngleEnum().chipLabel() else null,
+                videoShutterAngle = settings.videoShutterAngleEnum(),
                 fpsOptions = fpsOptions,
                 fpsTargetEditable = fpsTargetEditable,
                 videoResSelectorVisible = fpsTargetEditable,
@@ -4569,6 +5409,16 @@ private fun PreviewEngineContent(
                 onPickIso = { iso -> controller.setReadoutManualIso(iso) },
                 onPickIsoBand = { band -> controller.setReadoutIsoBand(band) },
                 onPickShutter = { ns -> controller.setReadoutManualShutter(ns) },
+                onPickVideoShutterAngle = { angle ->
+                    if (!primaryPhoto) {
+                        hudState.update(settings.copy(videoShutterAngle = angle.name))
+                        if (angle == VideoShutterAngle.Free) {
+                            controller.setReadoutManualShutter(null)
+                        } else {
+                            controller.applyVideoShutterAnglePreset(angle, effectiveVideoShutterFps)
+                        }
+                    }
+                },
                 onPickAwb = { mode -> controller.setReadoutManualAwbMode(mode) },
                 onPickFps = onSetFps,
                 stillLut = settings.stillsLut(),
@@ -4597,8 +5447,11 @@ private fun PreviewEngineContent(
                 capturePipelineHint = capturePipelineHint,
                 lastStillPostReadout = lastStillPostReadout,
                 primaryPhoto = primaryPhoto,
+                showMacroVideoBadge = macroVideoActive,
+                stabChipLabel = stabChipLabel,
                 focusChipValue = focusChipValue,
                 onFocusChipClick = { focusModePickerOpen = true },
+                onFocusChipLongClick = { rackWaypointSheetOpen = true },
                 modifier =
                     Modifier
                         .fillMaxWidth()
@@ -4647,6 +5500,43 @@ private fun PreviewEngineContent(
                     },
                 )
             }
+            if (rackWaypointSheetOpen) {
+                RackFocusWaypointSheet(
+                    onDismiss = { rackWaypointSheetOpen = false },
+                    currentDiopters = manualFocusUi.rackDiopters,
+                    maxDiopters = manualFocusUi.rackMaxDiopters,
+                    waypointNear = settings.rackFocusWaypointNear,
+                    waypointFar = settings.rackFocusWaypointFar,
+                    durationMs = settings.rackFocusDurationMs,
+                    rackEnabled = rackFocusEnabled,
+                    rackRunning = rackRunning,
+                    onSetNear = {
+                        val next = settings.copy(rackFocusWaypointNear = manualFocusUi.rackDiopters)
+                        hudState.update(next)
+                        HudSettings.save(context, next)
+                    },
+                    onSetFar = {
+                        val next = settings.copy(rackFocusWaypointFar = manualFocusUi.rackDiopters)
+                        hudState.update(next)
+                        HudSettings.save(context, next)
+                    },
+                    onClearWaypoints = {
+                        val next =
+                            settings.copy(
+                                rackFocusWaypointNear = null,
+                                rackFocusWaypointFar = null,
+                            )
+                        hudState.update(next)
+                        HudSettings.save(context, next)
+                    },
+                    onPickDurationMs = { ms ->
+                        val next = settings.copy(rackFocusDurationMs = RackFocusPull.coerceDurationMs(ms))
+                        hudState.update(next)
+                        HudSettings.save(context, next)
+                    },
+                    onRack = { toggleRackFocusPull() },
+                )
+            }
             PreviewChromeSectionDivider()
             PreviewRightRail(
                 modifier =
@@ -4659,6 +5549,7 @@ private fun PreviewEngineContent(
                 onApplyFocalMmSlot = onApplyFocalMmSlotGuarded,
                 onOpenDeveloperMenu = onOpenDeveloperMenu,
                 seedOpenAboutSheet = seedOpenAboutSheet,
+                seedOpenSettingsRail = seedOpenSettingsRail,
                 fpsOptions = fpsOptions,
                 selectedFps = selectedFps,
                 onSetFps = onSetFps,
@@ -4887,7 +5778,10 @@ private fun PreviewMainViewport(
     staticPreviewRotationDeg: Int,
     /** Latest luma histogram for overlay (null when disabled or not yet sampled). */
     previewHistogramBins: IntArray?,
+    previewHistogramRgb: PreviewLumaHistogram.RgbHistogramBins? = null,
+    zslHistogramActive: Boolean = false,
     highlightClipZebraFrame: HighlightClipZebraFrame?,
+    falseColorFrame: FalseColorFrame? = null,
     previewMirrorHorizontally: Boolean,
     onSwitchToFrontCamera: () -> Unit,
     onSwitchToRearCamera: () -> Unit,
@@ -4914,6 +5808,10 @@ private fun PreviewMainViewport(
     rawVideoLane: Boolean = false,
     eyeOverlayCalibratorActive: Boolean = false,
     eyeOverlayMarkerSizeScale: Float = 1f,
+    /** When pillar-bar HUD shows thermal, hide the bottom-start overlay duplicate. */
+    suppressBottomPowerThermalOverlay: Boolean = false,
+    /** When pillar-bar HUD is active, hide bottom-start storage remaining chip. */
+    suppressBottomStorageOverlay: Boolean = false,
 ) {
     // The OUTER box is the full-width finder above the chrome grid (no side rails).
     //
@@ -4959,6 +5857,8 @@ private fun PreviewMainViewport(
         val reportPreviewTilePx = rememberUpdatedState(onPreviewTilePx)
         val reportPreviewContentSized = rememberUpdatedState(onPreviewContentSized)
         val hudForPeakingUniforms = rememberUpdatedState(hudState.current)
+        val hudForVideoColorUniforms = rememberUpdatedState(hudState.current)
+        val videoPrimaryForColor = rememberUpdatedState(videoPrimaryPreview)
         val forcePeakingForManualVideo = remember { mutableStateOf(false) }
         SideEffect {
             forcePeakingForManualVideo.value =
@@ -4977,6 +5877,13 @@ private fun PreviewMainViewport(
                             hudForPeakingUniforms.value,
                             forceForManualVideo = forcePeakingForManualVideo.value,
                         )
+                    },
+                    videoColorProfileMode = {
+                        if (!videoPrimaryForColor.value) {
+                            0f
+                        } else {
+                            hudForVideoColorUniforms.value.videoColorProfileEnum().previewGlMode()
+                        }
                     },
                     onSurfaceTextureAvailable = { st, w, h ->
                         controller.onSurfaceTextureAvailable(st, w, h)
@@ -5366,6 +6273,7 @@ private fun PreviewMainViewport(
                     modifier = Modifier.fillMaxSize(),
                     hudState = hudState,
                     compositionGuide = compositionGuide,
+                    primaryPhoto = !videoPrimaryPreview,
                     isRecording = isRecording,
                     eyeMarks = eyeMarks,
                     faceTrackBoxes = faceTrackBoxes,
@@ -5382,7 +6290,10 @@ private fun PreviewMainViewport(
                     showHorizonLevel = false, // drawn outside the rotated box (gravity-locked)
                     showVideoTallyPip = false, // tally pip is chrome; drawn outside the rotated box
                     previewHistogramBins = previewHistogramBins,
+                    previewHistogramRgb = previewHistogramRgb,
+                    zslHistogramActive = zslHistogramActive,
                     highlightClipZebraFrame = highlightClipZebraFrame,
+                    falseColorFrame = falseColorFrame,
                     previewBufferWidthPx = bufW,
                     previewBufferHeightPx = bufH,
                     previewMirrorHorizontally = previewMirrorHorizontally,
@@ -5459,7 +6370,7 @@ private fun PreviewMainViewport(
                             rotationZ = uiRotationDeg
                             transformOrigin = TransformOrigin(0.5f, 0.5f)
                         },
-                visible = true,
+                visible = isRecording && !suppressBottomStorageOverlay,
                 videoPrimary = videoPrimaryPreview,
                 isRecording = isRecording,
                 encodeWidth = encodeSizeForStorage.width,
@@ -5482,7 +6393,7 @@ private fun PreviewMainViewport(
                             rotationZ = uiRotationDeg
                             transformOrigin = TransformOrigin(0.5f, 0.5f)
                         },
-                visible = true,
+                visible = !suppressBottomPowerThermalOverlay,
                 highDrainContext = powerThermalContext,
                 hudShowPowerThermal = settings.showPowerThermalOverlay,
             )
@@ -5885,7 +6796,19 @@ private fun performQuickActionToggle(
             hudState.update(h.copy(enableVideoStabilizationPreview = !h.enableVideoStabilizationPreview))
             Log.i("PNS.ChromeUx", "eis=${!h.enableVideoStabilizationPreview}")
         }
+        ChromeGridQuickAction.CycleFalseColor -> Unit
     }
+}
+
+private fun applyFalseColorQuickMode(mode: FalseColorMode, hudState: HudSettingsState) {
+    val h = hudState.current
+    hudState.update(
+        h.copy(
+            falseColorMode = mode.storageId,
+            showHighlightClipZebra = mode == FalseColorMode.ZebraOnly,
+        ),
+    )
+    Log.i("PNS.ChromeUx", "falseColorMode=${mode.storageId}")
 }
 
 @Composable
@@ -6145,6 +7068,32 @@ private fun ChromeGridQuickActionPopup(
                     )
                 }
             }
+            ChromeGridQuickAction.CycleFalseColor -> {
+                PnsChromeMenuItem(
+                    label = "Off",
+                    selected = hud.falseColorModeEnum() == FalseColorMode.Off,
+                    onClick = {
+                        applyFalseColorQuickMode(FalseColorMode.Off, hudState)
+                        onDismissRequest()
+                    },
+                )
+                PnsChromeMenuItem(
+                    label = "Zebra only",
+                    selected = hud.falseColorModeEnum() == FalseColorMode.ZebraOnly,
+                    onClick = {
+                        applyFalseColorQuickMode(FalseColorMode.ZebraOnly, hudState)
+                        onDismissRequest()
+                    },
+                )
+                PnsChromeMenuItem(
+                    label = "Exposure bands",
+                    selected = hud.falseColorModeEnum() == FalseColorMode.FalseColor,
+                    onClick = {
+                        applyFalseColorQuickMode(FalseColorMode.FalseColor, hudState)
+                        onDismissRequest()
+                    },
+                )
+            }
             ChromeGridQuickAction.ToggleLensOis,
             ChromeGridQuickAction.ToggleVideoEis,
             -> Unit
@@ -6186,6 +7135,7 @@ private fun PreviewChromeScrollSlot(
     onOpenDeveloperMenuFromSettingsLongPress: () -> Unit,
     hudState: HudSettingsState,
     chromePrefs: PreviewChromePreferencesState,
+    compositionGuide: CompositionGuideSettings,
     uiRotationDeg: Float,
     fineLocationGranted: Boolean,
     onPendingEnableGeotagChange: (Boolean) -> Unit,
@@ -6204,7 +7154,9 @@ private fun PreviewChromeScrollSlot(
                 onClick = { onToggleShortcutTitle(spec.title) },
                 contentDescription = spec.contentDescription,
                 imageVector = spec.icon,
-                selected = expandedKey == spec.title,
+                selected =
+                    expandedKey == spec.title ||
+                        expandShortcutTileSelected(spec.title, hud, compositionGuide),
                 modifier = rot.then(Modifier.fillMaxSize()),
                 chromeChipStyle = true,
                 fillMaxTile = true,
@@ -6221,8 +7173,9 @@ private fun PreviewChromeScrollSlot(
             var qsMenuExpanded by remember { mutableStateOf(false) }
             val menuOnlyQs = spec.kind == ChromeGridQuickAction.ExtraShutterMenu
             val cycleFlashQs = spec.kind == ChromeGridQuickAction.CycleFlash
+            val cycleFalseColorQs = spec.kind == ChromeGridQuickAction.CycleFalseColor
             val cycleShutterQs = spec.kind == ChromeGridQuickAction.TimerStub
-            val binaryQs = !menuOnlyQs && !cycleFlashQs && !cycleShutterQs
+            val binaryQs = !menuOnlyQs && !cycleFlashQs && !cycleFalseColorQs && !cycleShutterQs
             val selectedQuick =
                 when (spec.kind) {
                     ChromeGridQuickAction.ToggleHistogram ->
@@ -6239,6 +7192,8 @@ private fun PreviewChromeScrollSlot(
                         chromePrefs.current.maxBrightnessInPreview
                     ChromeGridQuickAction.ToggleDndInPreview ->
                         chromePrefs.current.dndWhileInPreview
+                    ChromeGridQuickAction.CycleFalseColor ->
+                        hud.falseColorModeEnum() != FalseColorMode.Off
                     ChromeGridQuickAction.ExtraShutterMenu ->
                         chromePrefs.current.tapPreviewToCapture ||
                             chromePrefs.current.volumeKeysCapture
@@ -6273,6 +7228,8 @@ private fun PreviewChromeScrollSlot(
                         "${spec.contentDescription}, ${shutterCaptureModeLabel(shutterMode, chrome)}"
                     ChromeGridQuickAction.CycleFlash ->
                         "${spec.contentDescription}, current mode ${chromePrefs.current.previewFlashMode}"
+                    ChromeGridQuickAction.CycleFalseColor ->
+                        "${spec.contentDescription}, ${hud.falseColorModeEnum().label}"
                     else ->
                         "${spec.contentDescription}, ${if (selectedQuick) "on" else "off"}"
                 }
@@ -6290,6 +7247,10 @@ private fun PreviewChromeScrollSlot(
                                 val next = c.previewFlashMode.cycle()
                                 chromePrefs.update(c.copy(previewFlashMode = next))
                                 Log.i("PNS.ChromeUx", "flashMode=${next.name}")
+                            }
+                            ChromeGridQuickAction.CycleFalseColor -> {
+                                val next = hudState.current.falseColorModeEnum().cycleNext()
+                                applyFalseColorQuickMode(next, hudState)
                             }
                             else -> {
                                 if (binaryQs) {
@@ -6314,7 +7275,7 @@ private fun PreviewChromeScrollSlot(
                     chromeChipStyle = true,
                     fillMaxTile = true,
                     onLongClick =
-                        if (binaryQs || cycleFlashQs || cycleShutterQs) {
+                        if (binaryQs || cycleFlashQs || cycleFalseColorQs || cycleShutterQs) {
                             {
                                 if (cycleFlashQs &&
                                     !PnsUiHintsStore.hasSeenFlashLongPressMenuTip(context.applicationContext)
@@ -6360,10 +7321,12 @@ private fun PreviewChromeGrid7x3(
     onToggleShortcutTitle: (String) -> Unit,
     hudState: HudSettingsState,
     chromePrefs: PreviewChromePreferencesState,
+    compositionGuide: CompositionGuideSettingsState,
     uiRotationDeg: Float,
     fineLocationGranted: Boolean,
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
+    onKickPreviewPipeline: () -> Unit,
     onOpenDeveloperMenuFromSettingsLongPress: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -6384,7 +7347,7 @@ private fun PreviewChromeGrid7x3(
     LaunchedEffect(Unit) {
         val gridUx =
             "grid7x3=layout shortcutRows=2 settingsAt=r2c6=true " +
-                "quickActions=timer,histogram,horizon,eyeAf,tally,bright,dnd,extraShutter,flash,saveLoc " +
+                "quickActions=timer,horizon,eyeAf,dnd,flash,overlays,videoQs " +
                 "quickGrid=focalRow7_iconTiles_matchFpsChip_scrolledSlots targetFpsOnReadout=true"
         Log.i("PNS.ChromeUx", gridUx)
     }
@@ -6479,6 +7442,7 @@ private fun PreviewChromeGrid7x3(
                                             onOpenDeveloperMenuFromSettingsLongPress,
                                         hudState = hudState,
                                         chromePrefs = chromePrefs,
+                                        compositionGuide = compositionGuide.current,
                                         uiRotationDeg = uiRotationDeg,
                                         fineLocationGranted = fineLocationGranted,
                                         onPendingEnableGeotagChange = onPendingEnableGeotagChange,
@@ -6520,37 +7484,208 @@ private fun GuidesFramingMenuContent(
                     onClick = { onPaneChange("grid") },
                 )
             }
-            "crop" -> {
-                val currentCrop = compositionGuide.current.cropGuide
-                for (opt in CropGuideAspect.entries) {
-                    FpsQuickChip(
-                        label = opt.label,
-                        selected = opt == currentCrop,
-                        requiresRoot = false,
-                        onClick = {
-                            compositionGuide.update(compositionGuide.current.copy(cropGuide = opt))
-                            onPaneChange(null)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-            "grid" -> {
-                val currentGrid = compositionGuide.current.gridMode
-                for (opt in GridOverlayMode.entries) {
-                    FpsQuickChip(
-                        label = opt.label,
-                        selected = opt == currentGrid,
-                        requiresRoot = false,
-                        onClick = {
-                            compositionGuide.update(compositionGuide.current.copy(gridMode = opt))
-                            onPaneChange(null)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+            "crop" -> CropGuidePickerContent(compositionGuide, onPaneChange)
+            "grid" -> FramingGridPickerContent(compositionGuide, onPaneChange)
             else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun CropGuidePickerContent(
+    compositionGuide: CompositionGuideSettingsState,
+    onDone: (String?) -> Unit,
+) {
+    val currentCrop = compositionGuide.current.cropGuide
+    for (opt in CropGuideAspect.entries) {
+        FpsQuickChip(
+            label = opt.label,
+            selected = opt == currentCrop,
+            requiresRoot = false,
+            onClick = {
+                compositionGuide.update(compositionGuide.current.copy(cropGuide = opt))
+                onDone(null)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun FramingGridPickerContent(
+    compositionGuide: CompositionGuideSettingsState,
+    onDone: (String?) -> Unit,
+) {
+    val currentGrid = compositionGuide.current.gridMode
+    for (opt in GridOverlayMode.entries) {
+        FpsQuickChip(
+            label = opt.label,
+            selected = opt == currentGrid,
+            requiresRoot = false,
+            onClick = {
+                compositionGuide.update(compositionGuide.current.copy(gridMode = opt))
+                onDone(null)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun OverlaysQsMenuContent(
+    compositionGuide: CompositionGuideSettingsState,
+    hudState: HudSettingsState,
+    pane: String?,
+    onPaneChange: (String?) -> Unit,
+) {
+    val hud = hudState.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        when (pane) {
+            null -> {
+                ChromeSettingsIntroText(
+                    "Histogram, peaking, false color, crop, and framing overlays on the live finder.",
+                )
+                PreviewRailSettingToggle(
+                    title = "Histogram",
+                    subtitle = "Luma (and optional RGB) strip on the finder.",
+                    checked = hud.showHistogram,
+                    onCheckedChange = { on ->
+                        hudState.update(hud.copy(showHistogram = on))
+                    },
+                )
+                PreviewRailSettingToggle(
+                    title = "RGB histogram",
+                    subtitle = "Requires histogram on.",
+                    checked = hud.showRgbHistogram,
+                    onCheckedChange = { on ->
+                        hudState.update(hud.copy(showRgbHistogram = on))
+                    },
+                )
+                RailSettingsMenuEntryCard(
+                    title = "Focus peaking",
+                    subtitle =
+                        if (hud.focusPeakingColor == FocusPeakingColor.Off) {
+                            "Off"
+                        } else {
+                            "${hud.focusPeakingColor.displayName} · ${hud.focusPeakingStrength.displayName}"
+                        },
+                    onClick = { onPaneChange("peaking") },
+                )
+                RailSettingsMenuEntryCard(
+                    title = "False color / zebra",
+                    subtitle = hud.falseColorModeEnum().label,
+                    onClick = { onPaneChange("falseColor") },
+                )
+                RailSettingsMenuEntryCard(
+                    title = "Crop guide",
+                    subtitle = compositionGuide.current.cropGuide.label,
+                    onClick = { onPaneChange("crop") },
+                )
+                RailSettingsMenuEntryCard(
+                    title = "Framing grid",
+                    subtitle = compositionGuide.current.gridMode.label,
+                    onClick = { onPaneChange("grid") },
+                )
+            }
+            "peaking" -> FocusPeakingSettingsPanel(hudState = hudState)
+            "falseColor" -> {
+                for (mode in FalseColorMode.entries) {
+                    FpsQuickChip(
+                        label = mode.label,
+                        selected = hud.falseColorModeEnum() == mode,
+                        requiresRoot = false,
+                        onClick = {
+                            applyFalseColorQuickMode(mode, hudState)
+                            onPaneChange(null)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            "crop" -> CropGuidePickerContent(compositionGuide, onPaneChange)
+            "grid" -> FramingGridPickerContent(compositionGuide, onPaneChange)
+            else -> Unit
+        }
+    }
+}
+
+@Composable
+private fun VideoQsMenuContent(
+    hudState: HudSettingsState,
+    onKickPreviewPipeline: () -> Unit,
+) {
+    val hud = hudState.current
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ChromeSettingsIntroText("Video tally, lens OIS, and preview EIS.")
+        PreviewRailSettingToggle(
+            title = "Video tally",
+            subtitle = "Recording indicator on the finder while rolling.",
+            checked = hud.showVideoTally,
+            onCheckedChange = { on -> hudState.update(hud.copy(showVideoTally = on)) },
+        )
+        PreviewRailSettingToggle(
+            title = "Optical stabilization (OIS)",
+            subtitle = "Lens hardware stabilization when advertised.",
+            checked = hud.enableLensOpticalStabilization,
+            onCheckedChange = { on ->
+                hudState.update(hud.copy(enableLensOpticalStabilization = on))
+                Log.i("PNS.ChromeUx", "ois=$on")
+                onKickPreviewPipeline()
+            },
+        )
+        PreviewRailSettingToggle(
+            title = "Electronic stabilization (EIS)",
+            subtitle = "Preview / video EIS when fps is below HFR.",
+            checked = hud.enableVideoStabilizationPreview,
+            onCheckedChange = { on ->
+                hudState.update(hud.copy(enableVideoStabilizationPreview = on))
+                Log.i("PNS.ChromeUx", "eis=$on")
+                onKickPreviewPipeline()
+            },
+        )
+    }
+}
+
+@Composable
+private fun FocusPeakingSettingsPanel(hudState: HudSettingsState) {
+    val color = hudState.current.focusPeakingColor
+    val strength = hudState.current.focusPeakingStrength
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "False color on high-contrast edges in the GL preview (luminance gradient).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.62f),
+        )
+        Text(
+            "Color",
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White.copy(alpha = 0.92f),
+        )
+        for (opt in FocusPeakingColor.entries) {
+            FocusPeakingOptionRow(
+                label = opt.displayName,
+                selected = opt == color,
+                swatchColor = if (opt == FocusPeakingColor.Off) null else opt.toOverlayColor(),
+                onClick = {
+                    hudState.update(hudState.current.copy(focusPeakingColor = opt))
+                },
+            )
+        }
+        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+        Text(
+            "Sensitivity",
+            style = MaterialTheme.typography.titleSmall,
+            color = Color.White.copy(alpha = 0.92f),
+        )
+        for (opt in FocusPeakingStrength.entries) {
+            FocusPeakingOptionRow(
+                label = opt.displayName,
+                selected = opt == strength,
+                swatchColor = null,
+                onClick = {
+                    hudState.update(hudState.current.copy(focusPeakingStrength = opt))
+                },
+            )
         }
     }
 }
@@ -6731,6 +7866,23 @@ private fun VideoSettingsRailSheetContent(
                 },
             )
         }
+        PreviewRailSectionTitle("Color profile (video)")
+        Text(
+            "HLG uses HEVC Main10 + BT.2020 HLG VUI; flat/cine is preview + BT.709 encode.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.62f),
+        )
+        for (profile in VideoColorProfile.entries) {
+            FocusPeakingOptionRow(
+                label = profile.label,
+                selected = hud.videoColorProfileEnum() == profile,
+                swatchColor = null,
+                onClick = {
+                    hudState.update(hud.copy(videoColorProfile = profile.storageId))
+                    onKickPreviewPipeline()
+                },
+            )
+        }
     }
 }
 
@@ -6778,8 +7930,6 @@ private fun FocusPeakingSettingsDialog(
     onDismiss: () -> Unit,
     hudState: HudSettingsState,
 ) {
-    val color = hudState.current.focusPeakingColor
-    val strength = hudState.current.focusPeakingStrength
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -6807,53 +7957,7 @@ private fun FocusPeakingSettingsDialog(
                         Text("Close", color = Color.White.copy(alpha = 0.85f))
                     }
                 }
-                Text(
-                    "False color on high-contrast edges in the GL preview (luminance gradient). " +
-                        "This is not a Camera2 autofocus readout — use still sharpness / PNS.StillBoundary for AF triage.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.62f),
-                )
-                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-                Text(
-                    "Color",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White.copy(alpha = 0.92f),
-                )
-                for (opt in FocusPeakingColor.entries) {
-                    FocusPeakingOptionRow(
-                        label = opt.displayName,
-                        selected = opt == color,
-                        swatchColor = if (opt == FocusPeakingColor.Off) null else opt.toOverlayColor(),
-                        onClick = {
-                            hudState.update(
-                                hudState.current.copy(focusPeakingColor = opt),
-                            )
-                        },
-                    )
-                }
-                HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-                Text(
-                    "Sensitivity",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White.copy(alpha = 0.92f),
-                )
-                Text(
-                    "Edge threshold in the GLES preview shader (works in photo and video).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.55f),
-                )
-                for (opt in FocusPeakingStrength.entries) {
-                    FocusPeakingOptionRow(
-                        label = opt.displayName,
-                        selected = opt == strength,
-                        swatchColor = null,
-                        onClick = {
-                            hudState.update(
-                                hudState.current.copy(focusPeakingStrength = opt),
-                            )
-                        },
-                    )
-                }
+                FocusPeakingSettingsPanel(hudState = hudState)
             }
         }
     }
@@ -7200,6 +8304,7 @@ private fun PreviewRightRail(
     onApplyFocalMmSlot: (FocalMmSlot) -> Unit,
     onOpenDeveloperMenu: () -> Unit,
     seedOpenAboutSheet: Boolean = false,
+    seedOpenSettingsRail: Boolean = false,
     fpsOptions: List<PreviewFpsSupport.QuickFpsOption>,
     selectedFps: Int,
     onSetFps: (Int) -> Unit,
@@ -7236,8 +8341,8 @@ private fun PreviewRightRail(
     var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
     var aboutHalHfrMaxByCameraId by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
     var expandedKey by rememberSaveable { mutableStateOf<String?>(null) }
-    /** Nested pane for the Guides tile dialog ("crop" / "grid"). */
-    var guidesPane by rememberSaveable { mutableStateOf<String?>(null) }
+    /** Nested pane for the Overlays tile dialog. */
+    var overlaysPane by rememberSaveable { mutableStateOf<String?>(null) }
     /** Settings ▸ Guides & framing nested pane. */
     var settingsGuidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubPage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -7245,7 +8350,7 @@ private fun PreviewRightRail(
     BackHandler(enabled = expandedKey != null) {
         expandedKey = null
         settingsSubPage = null
-        guidesPane = null
+        overlaysPane = null
         settingsGuidesPane = null
         settingsSearchQuery = ""
     }
@@ -7254,6 +8359,13 @@ private fun PreviewRightRail(
             Log.i("PNS.ChromeUx", "settingsAbout=open adbSeed=true")
             expandedKey = "Settings"
             settingsSubPage = "about"
+        }
+    }
+    LaunchedEffect(seedOpenSettingsRail) {
+        if (seedOpenSettingsRail) {
+            Log.i("PNS.ChromeUx", "settingsRail=open adbSeed=true")
+            expandedKey = "Settings"
+            settingsSubPage = null
         }
     }
     LaunchedEffect(fpsTargetEditable) {
@@ -7271,8 +8383,8 @@ private fun PreviewRightRail(
         if (expandedKey != "Settings") {
             settingsSubPage = null
         }
-        if (expandedKey != "Guides") {
-            guidesPane = null
+        if (expandedKey != "Overlays") {
+            overlaysPane = null
         }
     }
     LaunchedEffect(settingsSubPage) {
@@ -7322,17 +8434,19 @@ private fun PreviewRightRail(
             fineLocationGranted = fineLocationGranted,
             onPendingEnableGeotagChange = onPendingEnableGeotagChange,
             onRequestLocationForGeotag = onRequestLocationForGeotag,
+            compositionGuide = compositionGuide,
+            onKickPreviewPipeline = onKickPreviewPipeline,
             onOpenDeveloperMenuFromSettingsLongPress = {
                 expandedKey = null
                 settingsSubPage = null
-                guidesPane = null
+                overlaysPane = null
                 settingsGuidesPane = null
                 onOpenDeveloperMenu()
             },
         )
         expandedKey?.let { key ->
             val showNestedBack =
-                (key == "Guides" && guidesPane != null) ||
+                (key == "Overlays" && overlaysPane != null) ||
                     (key == "Settings" && settingsSubPage != null)
             val sheetTitle =
                 when {
@@ -7349,11 +8463,13 @@ private fun PreviewRightRail(
                     key == "Settings" && settingsSubPage == "hud" -> "HUD & readouts"
                     key == "Settings" && settingsSubPage == "quick" -> "Quick settings"
                     key == "Settings" && settingsSubPage == "about" -> "About & heritage"
-                    key == "Guides" ->
-                        when (guidesPane) {
+                    key == "Overlays" ->
+                        when (overlaysPane) {
                             "crop" -> "Crop guide"
                             "grid" -> "Framing grid"
-                            else -> "Guides"
+                            "peaking" -> "Focus peaking"
+                            "falseColor" -> "False color / zebra"
+                            else -> "Overlays"
                         }
                     else -> key
                 }
@@ -7361,7 +8477,7 @@ private fun PreviewRightRail(
                 onDismissRequest = {
                     expandedKey = null
                     settingsSubPage = null
-                    guidesPane = null
+                    overlaysPane = null
                     settingsGuidesPane = null
                     settingsSearchQuery = ""
                 },
@@ -7394,8 +8510,8 @@ private fun PreviewRightRail(
                                 TextButton(
                                     onClick = {
                                         when {
-                                            key == "Guides" && guidesPane != null ->
-                                                guidesPane = null
+                                            key == "Overlays" && overlaysPane != null ->
+                                                overlaysPane = null
                                             key == "Settings" &&
                                                 settingsSubPage == "guides" &&
                                                 settingsGuidesPane != null ->
@@ -7417,7 +8533,7 @@ private fun PreviewRightRail(
                                 onClick = {
                                     expandedKey = null
                                     settingsSubPage = null
-                                    guidesPane = null
+                                    overlaysPane = null
                                     settingsGuidesPane = null
                                     settingsSearchQuery = ""
                                 },
@@ -7523,11 +8639,17 @@ private fun PreviewRightRail(
                                     else -> Unit
                                 }
                             }
-                            "Guides" ->
-                                GuidesFramingMenuContent(
+                            "Overlays" ->
+                                OverlaysQsMenuContent(
                                     compositionGuide = compositionGuide,
-                                    pane = guidesPane,
-                                    onPaneChange = { guidesPane = it },
+                                    hudState = hudState,
+                                    pane = overlaysPane,
+                                    onPaneChange = { overlaysPane = it },
+                                )
+                            "Video QS" ->
+                                VideoQsMenuContent(
+                                    hudState = hudState,
+                                    onKickPreviewPipeline = onKickPreviewPipeline,
                                 )
                             "Preview & keys" -> {
                                 PreviewKeysRailSheetContent(
@@ -7579,6 +8701,7 @@ private fun PreviewCenterOverlay(
     modifier: Modifier = Modifier,
     hudState: HudSettingsState,
     compositionGuide: CompositionGuideSettingsState,
+    primaryPhoto: Boolean,
     isRecording: Boolean,
     eyeMarks: List<EyeMark>,
     faceTrackBoxes: List<FaceTrackBoxView>,
@@ -7595,7 +8718,10 @@ private fun PreviewCenterOverlay(
     showHorizonLevel: Boolean = true,
     showVideoTallyPip: Boolean = true,
     previewHistogramBins: IntArray? = null,
+    previewHistogramRgb: PreviewLumaHistogram.RgbHistogramBins? = null,
+    zslHistogramActive: Boolean = false,
     highlightClipZebraFrame: HighlightClipZebraFrame? = null,
+    falseColorFrame: FalseColorFrame? = null,
     previewBufferWidthPx: Int = 0,
     previewBufferHeightPx: Int = 0,
     previewMirrorHorizontally: Boolean = false,
@@ -7671,13 +8797,27 @@ private fun PreviewCenterOverlay(
             grid = guides.gridMode,
             modifier = Modifier.fillMaxSize(),
         )
-        if (settings.showHighlightClipZebra &&
+        if (settings.wantsHighlightClipZebraEffective() &&
             highlightClipZebraFrame != null &&
             previewBufferWidthPx > 0 &&
             previewBufferHeightPx > 0
         ) {
             HighlightClipZebraOverlay(
                 frame = highlightClipZebraFrame,
+                bufferWidthPx = previewBufferWidthPx,
+                bufferHeightPx = previewBufferHeightPx,
+                coverCrop = previewCoverCrop,
+                mirrorHorizontally = previewMirrorHorizontally,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        if (settings.falseColorModeEnum().wantsFalseColor() &&
+            falseColorFrame != null &&
+            previewBufferWidthPx > 0 &&
+            previewBufferHeightPx > 0
+        ) {
+            FalseColorOverlay(
+                frame = falseColorFrame,
                 bufferWidthPx = previewBufferWidthPx,
                 bufferHeightPx = previewBufferHeightPx,
                 coverCrop = previewCoverCrop,
@@ -7710,8 +8850,14 @@ private fun PreviewCenterOverlay(
                     },
             )
         }
-        if (settings.showHistogram) {
+        if (settings.wantsHistogramOverlayVisible(primaryPhoto, isRecording)) {
             val bins = previewHistogramBins ?: PreviewHistogramPendingBins
+            val rgbBins =
+                if (previewHistogramRgb != null && (zslHistogramActive || settings.showRgbHistogram)) {
+                    previewHistogramRgb
+                } else {
+                    null
+                }
             Box(
                 modifier =
                     Modifier
@@ -7730,8 +8876,20 @@ private fun PreviewCenterOverlay(
                 ) {
                     PreviewHistogramOverlay(
                         bins = bins,
+                        rgbBins = rgbBins,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    if (zslHistogramActive) {
+                        Text(
+                            text = "ZSL",
+                            color = Color(0xFF8FD4FF),
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(start = 2.dp, top = 1.dp),
+                        )
+                    }
                 }
             }
         }
@@ -7761,6 +8919,25 @@ private sealed class InAppVideoRecordingUiEvent {
 /** Logcat tag for [PreviewController.captureRawStill] failures (always logged; not gated by [PnsAdbLog]). */
 private object CaptureStillLog {
     const val TAG = "PNS.CaptureStill"
+}
+
+private fun applyAdbReadoutExposureProbe(
+    controller: PreviewController,
+    iso: Int?,
+    shutterNs: Long?,
+    cameraId: String,
+    context: Context,
+) {
+    if (iso == null && shutterNs == null) return
+    iso?.let {
+        controller.setReadoutManualIso(it)
+        PnsAdbLog.i(context, "preview seeded readoutIso=$it cameraId=$cameraId (adb)")
+    }
+    shutterNs?.let {
+        controller.setReadoutManualShutter(it)
+        PnsAdbLog.i(context, "preview seeded readoutShutterNs=$it cameraId=$cameraId (adb)")
+    }
+    controller.adbReadoutChaseProof = true
 }
 
 private class PreviewController(
@@ -8102,6 +9279,9 @@ private class PreviewController(
 
     @Volatile private var manualAwbModeOverride: Int? = null
 
+    /** Sprint **15.26** — [CaptureRequest.CONTROL_AE_LOCK] on preview repeating request (AF unchanged). */
+    @Volatile private var aeLocked: Boolean = false
+
     /** Manual focus distance (diopters) when [commandDialMode] is [CommandDialMode.M] or [previewFocusSelection] is manual. */
     @Volatile private var manualFocusDiopters: Float? = null
 
@@ -8204,6 +9384,20 @@ private class PreviewController(
 
     @Volatile
     var adbAutomationVideoStabilization: Boolean = false
+
+    @Volatile private var liveHudSettings: HudSettings? = null
+
+    fun setLiveHudSettings(settings: HudSettings) {
+        liveHudSettings = settings
+    }
+
+    /** Sprint **15.31** — video + **MACRO** dial forces EIS/OIS via [readHudCapturePrefs]. */
+    @Volatile
+    private var macroVideoActive: Boolean = false
+
+    /** Video tray active — align preview stream to encode aspect before record starts. */
+    @Volatile
+    private var videoPrimarySession: Boolean = false
 
     @Volatile
     var adbAutomationVideoAv1: Boolean = false
@@ -8360,6 +9554,10 @@ private class PreviewController(
 
     private var lastHighlightMeterAdbLogMs: Long = 0L
 
+    private var lastZslHistogramAdbLogMs: Long = 0L
+
+    private var lastFaceMeterAeSubLogMs: Long = 0L
+
     private var commandDialMode: CommandDialMode = CommandDialMode.M
 
     @Volatile
@@ -8440,9 +9638,19 @@ private class PreviewController(
 
     private var lastReadoutChaseLogWallMs: Long = 0L
 
-    private val readoutChaseHistMinIntervalMs: Long = 50L
+    private val readoutChaseHistMinIntervalMs: Long = 33L
 
-    private val readoutChaseRefreshMinGapMs: Long = 150L
+    private val readoutChaseRefreshMinGapMs: Long = 66L
+
+    private var readoutChaseRefreshPending: Boolean = false
+
+    private val readoutChaseRefreshRunnable =
+        Runnable {
+            readoutChaseRefreshPending = false
+            if (!wantsReadoutExposureChase()) return@Runnable
+            lastReadoutChaseRefreshWallMs = SystemClock.elapsedRealtime()
+            refreshRepeatingPreviewOnly()
+        }
 
     private var hudFaceOverlayEnabled: Boolean = false
 
@@ -8498,13 +9706,30 @@ private class PreviewController(
     @Volatile
     private var highlightClipZebraEnabled: Boolean = false
 
+    @Volatile
+    private var falseColorEnabled: Boolean = false
+
+    @Volatile
+    private var zebraIreThresholdPercent: Int = 95
+
     private var lastZebraProcessWallMs: Long = 0L
+
+    private var lastFalseColorProcessWallMs: Long = 0L
 
     private val zebraMinIntervalMs: Long = 180L
 
+    private val falseColorMinIntervalMs: Long = 180L
+
     private var previewHistogramListener: ((IntArray?) -> Unit)? = null
 
+    /** Sprint **15.18** — luma + optional RGB + ZSL ring badge. */
+    private var previewHistogramUiListener: (
+        (IntArray?, PreviewLumaHistogram.RgbHistogramBins?, Boolean) -> Unit
+    )? = null
+
     private var highlightClipZebraListener: ((HighlightClipZebraFrame?) -> Unit)? = null
+
+    private var falseColorListener: ((FalseColorFrame?) -> Unit)? = null
 
     /** Sprint **14.4** — live ZXing decode on preview YUV when dial is [CommandDialMode.Qr]. */
     private var qrScanListener: ((text: String?, format: String?) -> Unit)? = null
@@ -8522,8 +9747,60 @@ private class PreviewController(
         previewHistogramListener = listener
     }
 
+    fun setPreviewHistogramUiListener(
+        listener: ((IntArray?, PreviewLumaHistogram.RgbHistogramBins?, Boolean) -> Unit)?,
+    ) {
+        previewHistogramUiListener = listener
+    }
+
+    private fun postPreviewHistogramUi(
+        luma: IntArray?,
+        rgb: PreviewLumaHistogram.RgbHistogramBins?,
+        fromZslRing: Boolean,
+    ) {
+        val camHandler = handler ?: return
+        camHandler.post {
+            if (!previewHistogramEnabled) return@post
+            previewHistogramListener?.invoke(luma)
+            previewHistogramUiListener?.invoke(luma, rgb, fromZslRing)
+        }
+    }
+
+    private fun histogramFromZslRawImage(
+        image: android.media.Image,
+    ): Pair<IntArray, PreviewLumaHistogram.RgbHistogramBins>? {
+        if (image.format != android.graphics.ImageFormat.RAW_SENSOR) return null
+        val plane = image.planes.getOrNull(0) ?: return null
+        if (plane.pixelStride != 2) return null
+        val camId = selectedCameraId ?: return null
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return null
+        val cfa =
+            chars.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT)
+                ?: CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB
+        val buf = plane.buffer.duplicate().apply { rewind() }
+        val rgb =
+            PreviewLumaHistogram.reduceRawSensorRgb(
+                buffer = buf,
+                width = image.width,
+                height = image.height,
+                rowStride = plane.rowStride,
+                pixelStride = plane.pixelStride,
+                cfa = cfa,
+            ) ?: return null
+        return PreviewLumaHistogram.lumaHistogramFromRgb(rgb) to rgb
+    }
+
     fun setHighlightClipZebraListener(listener: ((HighlightClipZebraFrame?) -> Unit)?) {
         highlightClipZebraListener = listener
+    }
+
+    fun setFalseColorListener(listener: ((FalseColorFrame?) -> Unit)?) {
+        falseColorListener = listener
+    }
+
+    fun setZebraIreThresholdPercent(irePercent: Int) {
+        zebraIreThresholdPercent =
+            irePercent.coerceIn(PreviewLumaHistogram.IRE_MIN, PreviewLumaHistogram.IRE_MAX)
     }
 
     /** When toggled, may rebuild the capture session to add/remove the YUV analysis surface. */
@@ -8531,7 +9808,14 @@ private class PreviewController(
         if (previewHistogramEnabled == enabled) return
         previewHistogramEnabled = enabled
         if (!enabled) {
-            handler?.post { previewHistogramListener?.invoke(null) }
+            handler?.post {
+                previewHistogramListener?.invoke(null)
+                previewHistogramUiListener?.invoke(null, null, false)
+            }
+        }
+        if (videoController.isRecorderPresent() || rawVideoController.isRecording) {
+            Log.i(tag, "setPreviewHistogramEnabled=$enabled skipMaybeRestart (recording)")
+            return
         }
         maybeRestart()
     }
@@ -8542,6 +9826,15 @@ private class PreviewController(
         highlightClipZebraEnabled = enabled
         if (!enabled) {
             handler?.post { highlightClipZebraListener?.invoke(null) }
+        }
+        maybeRestart()
+    }
+
+    fun setFalseColorEnabled(enabled: Boolean) {
+        if (falseColorEnabled == enabled) return
+        falseColorEnabled = enabled
+        if (!enabled) {
+            handler?.post { falseColorListener?.invoke(null) }
         }
         maybeRestart()
     }
@@ -8741,6 +10034,7 @@ private class PreviewController(
             manualIsoOverride = null
             manualExposureNsOverride = null
             manualAwbModeOverride = null
+            aeLocked = false
             previewShaderWbRgb.set(floatArrayOf(1f, 1f, 1f))
             notifyReadoutWbShaderChanged()
             val phys = previewSurfacePhysicalCameraId
@@ -8783,7 +10077,7 @@ private class PreviewController(
                     )
                     videoController.tearDownForCloseCamera()
                 }
-                if (desiredFps >= 120) {
+                if (desiredFps >= 120 || videoPrimarySession) {
                     maybeRestartBody()
                 }
             }
@@ -8804,8 +10098,39 @@ private class PreviewController(
     fun setFocalCrop(mode: FocalMode?) {
         if (focalCropMode == mode) return
         focalCropMode = mode
+        FocusBreathingCompensator.reset()
         Log.d(tag, "setFocalCrop mode=${mode?.name ?: "null"}")
         maybeRestart()
+    }
+
+    private fun isTeleFocalSession(): Boolean {
+        when (focalCropMode) {
+            FocalMode.Portrait85,
+            FocalMode.LongTele150,
+            -> return true
+            else -> Unit
+        }
+        val camId = selectedCameraId ?: return false
+        val roles = BackCameraRoleResolver.resolve(cm, cameraIds())
+        return camId == roles.tele
+    }
+
+    private fun focusBreathingConfig(): FocusBreathingCompensator.Config {
+        val hud = readHudCapturePrefs()
+        return FocusBreathingCompensator.Config(
+            active =
+                hud.enableFocusBreathingComp &&
+                    commandDialMode == CommandDialMode.M &&
+                    wantsManualFocusDistance() &&
+                    isTeleFocalSession(),
+            k = hud.focusBreathingCompK,
+        )
+    }
+
+    private fun maybeUpdateFocusBreathing(diopters: Float?) {
+        if (FocusBreathingCompensator.onFocusDistance(diopters, focusBreathingConfig())) {
+            refreshRepeatingPreviewOnlyBody()
+        }
     }
 
     /** BUILD_PLAN §4: highlight metering uses a YUV analysis surface when dial is [CommandDialMode.H]. */
@@ -8862,6 +10187,7 @@ private class PreviewController(
         previewFocusSelection = PreviewFocusSelection.ManualDistance
         manualFocusDiopters = ManualFocusDistance.clamp(diopters, range.maxDiopters)
         logManualFocusPeakingDiag(chars, camId, range)
+        maybeUpdateFocusBreathing(manualFocusDiopters)
         Log.i(
             "PNS.ChromeUx",
             "focusMode=${PreviewFocusMode.chromeUxLogValue(previewFocusSelection, manualFocusDiopters)} " +
@@ -8873,6 +10199,8 @@ private class PreviewController(
     fun setCommandDialMode(mode: CommandDialMode) {
         if (commandDialMode == mode) return
         commandDialMode = mode
+        aeLocked = false
+        FocusBreathingCompensator.reset()
         if (mode != CommandDialMode.Dual) {
             setDualVideoActive(false)
         }
@@ -8886,6 +10214,8 @@ private class PreviewController(
         Log.d(tag, "setCommandDialMode mode=$mode")
         maybeRestart()
     }
+
+    fun peekCommandDialMode(): CommandDialMode = commandDialMode
 
     fun setDualVideoActive(active: Boolean) {
         if (dualVideoActive == active) return
@@ -9567,6 +10897,26 @@ private class PreviewController(
     fun readoutAeCoupling(): ReadoutAeCoupling =
         ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride)
 
+    fun isAeLocked(): Boolean = aeLocked
+
+    fun toggleAeLock(): Boolean {
+        if (!aeLocked && wantsReadoutExposureChase()) {
+            Log.i("PNS.ChromeUx", "aeLock=ignored (readout exposure chase active)")
+            return false
+        }
+        aeLocked = !aeLocked
+        Log.i("PNS.ChromeUx", "aeLock=$aeLocked")
+        refreshRepeatingPreviewOnly()
+        return aeLocked
+    }
+
+    fun setAeLocked(locked: Boolean) {
+        if (aeLocked == locked) return
+        aeLocked = locked
+        Log.i("PNS.ChromeUx", "aeLock=$aeLocked")
+        refreshRepeatingPreviewOnly()
+    }
+
     fun readoutMenuSnapshot(): ReadoutMenuSnapshot {
         val camId = selectedCameraId ?: return ReadoutMenuSnapshot.EMPTY
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
@@ -9594,14 +10944,37 @@ private class PreviewController(
     }
 
     /** Sprint **15.11** — lock shutter from angle preset; ISO stays auto when only SS is set. */
-    fun applyVideoShutterAnglePreset(angle: VideoShutterAngle, fps: Int) {
-        val ns = angle.exposureNsForFps(fps)
-        if (ns == null) {
-            if (manualExposureNsOverride != null) setReadoutManualShutter(null)
-            return
-        }
+    fun applyVideoShutterAnglePreset(angle: VideoShutterAngle, sessionFps: Int) {
+        val ns = angle.exposureNsForFps(sessionFps) ?: return
         setReadoutManualShutter(ns)
-        Log.i(tag, "readoutManual videoShutterAngle=${angle.name} ssNs=$ns fps=$fps")
+        Log.i(tag, "readoutManual videoShutterAngle=${angle.name} ssNs=$ns sessionFps=$sessionFps")
+    }
+
+    fun captureReadoutState(): PreviewTrayReadoutSnapshot =
+        PreviewTrayReadoutSnapshot(
+            manualIso = manualIsoOverride,
+            manualExposureNs = manualExposureNsOverride,
+            manualAwbMode = manualAwbModeOverride,
+            aeLocked = aeLocked,
+            isoBand = readoutIsoBand,
+        )
+
+    fun restoreReadoutState(snapshot: PreviewTrayReadoutSnapshot) {
+        runOnCameraThread {
+            manualIsoOverride = snapshot.manualIso
+            manualExposureNsOverride = snapshot.manualExposureNs
+            manualAwbModeOverride = snapshot.manualAwbMode
+            aeLocked = snapshot.aeLocked
+            readoutIsoBand = snapshot.isoBand
+            previewShaderWbRgb.set(ReadoutAwbPreviewShaderGains.rgbForMode(snapshot.manualAwbMode))
+            notifyReadoutWbShaderChanged()
+            if (snapshot.manualIso == null && snapshot.manualExposureNs == null) {
+                readoutChaseExposureNs = null
+                readoutChaseIso = null
+                readoutChaseMedianEma = Double.NaN
+            }
+            refreshRepeatingPreviewOnly()
+        }
     }
 
     fun setReadoutManualIsoExposure(
@@ -9615,31 +10988,77 @@ private class PreviewController(
 
     /** Adjust ISO only; keeps the current manual shutter selection (or auto). */
     fun setReadoutManualIso(iso: Int?) {
-        manualIsoOverride = iso
-        if (iso != null && manualExposureNsOverride == null) {
-            readoutChaseExposureNs =
-                previewMetadata.get().exposureNs ?: readoutChaseExposureNs
+        runOnCameraThread {
+            val chaseBefore = wantsReadoutExposureChase()
+            manualIsoOverride = iso
+            if (iso != null && manualExposureNsOverride == null) {
+                readoutChaseExposureNs =
+                    previewMetadata.get().exposureNs ?: readoutChaseExposureNs
+            }
+            if (iso == null && manualExposureNsOverride != null) {
+                readoutChaseIso = previewMetadata.get().iso ?: readoutChaseIso
+                readoutChaseMedianEma = Double.NaN
+                if (aeLocked) {
+                    aeLocked = false
+                    Log.i("PNS.ChromeUx", "aeLock=false (ISO auto with locked shutter)")
+                }
+            }
+            if (iso == null && manualExposureNsOverride == null) {
+                readoutChaseExposureNs = null
+                readoutChaseIso = null
+                readoutChaseMedianEma = Double.NaN
+            }
+            refreshRepeatingPreviewOnly()
+            scheduleReadoutChaseSessionRestartIfNeeded(chaseBefore)
         }
-        if (iso == null && manualExposureNsOverride == null) {
-            readoutChaseExposureNs = null
-            readoutChaseIso = null
-            readoutChaseMedianEma = Double.NaN
-        }
-        refreshRepeatingPreviewOnly()
     }
 
     /** Adjust shutter only; keeps the current manual ISO selection (or auto). */
     fun setReadoutManualShutter(exposureNs: Long?) {
-        manualExposureNsOverride = exposureNs
-        if (exposureNs != null && manualIsoOverride == null) {
-            readoutChaseIso = previewMetadata.get().iso ?: readoutChaseIso
+        runOnCameraThread {
+            val chaseBefore = wantsReadoutExposureChase()
+            manualExposureNsOverride = exposureNs
+            if (exposureNs != null && manualIsoOverride == null) {
+                readoutChaseIso = previewMetadata.get().iso ?: readoutChaseIso
+                readoutChaseMedianEma = Double.NaN
+                if (aeLocked) {
+                    aeLocked = false
+                    Log.i("PNS.ChromeUx", "aeLock=false (locked shutter, ISO auto)")
+                }
+            }
+            if (manualIsoOverride == null && manualExposureNsOverride == null) {
+                readoutChaseExposureNs = null
+                readoutChaseIso = null
+                readoutChaseMedianEma = Double.NaN
+            }
+            refreshRepeatingPreviewOnly()
+            scheduleReadoutChaseSessionRestartIfNeeded(chaseBefore)
         }
-        if (manualIsoOverride == null && manualExposureNsOverride == null) {
-            readoutChaseExposureNs = null
-            readoutChaseIso = null
-            readoutChaseMedianEma = Double.NaN
+    }
+
+    private inline fun runOnCameraThread(crossinline block: () -> Unit) {
+        val h = handler
+        if (h != null) {
+            if (Looper.myLooper() == h.looper) {
+                block()
+            } else {
+                h.post { block() }
+            }
+        } else {
+            block()
         }
-        refreshRepeatingPreviewOnly()
+    }
+
+    /** After locking one AE axis, attach YUV for histogram chase once the first session has settled. */
+    private fun scheduleReadoutChaseSessionRestartIfNeeded(chaseBefore: Boolean) {
+        if (chaseBefore || !wantsReadoutExposureChase()) return
+        val h = handler
+        val delayMs = 1200L
+        if (h != null) {
+            h.postDelayed({ maybeRestart() }, delayMs)
+        } else {
+            mainHandler.postDelayed({ maybeRestart() }, delayMs)
+        }
     }
 
     fun setReadoutManualAwbMode(mode: Int?) {
@@ -9734,6 +11153,7 @@ private class PreviewController(
 
     /** RAW DNG path requires non-HFR session with [ImageReader] attached (BUILD_PLAN §4). */
     fun canCaptureRawStill(): Boolean {
+        if (isTimelapseVideoSessionActive()) return false
         val selected = selectedCameraId?.takeIf { it.isNotBlank() } ?: return false
         return imagingProfileForStreams !is ImagingProfile.JpegOnly &&
             rawImageReader != null &&
@@ -9763,6 +11183,26 @@ private class PreviewController(
     /** Hardware JPEG-only still ([ImagingProfile.JpegOnly]); no RAW surface. */
     fun canCaptureJpegHardwareStill(): Boolean =
         imagingProfileForStreams is ImagingProfile.JpegOnly && canCaptureIndependentTonalStill()
+
+    /** Sprint **15.27** — intervalometer video frame (hardware JPEG bytes only). */
+    fun canCaptureTimelapseJpeg(): Boolean {
+        val selected = selectedCameraId?.takeIf { it.isNotBlank() } ?: return false
+        return jpegImageReader != null &&
+            session != null &&
+            device != null &&
+            device?.id == selected &&
+            desiredFps < 120 &&
+            sessionCommittedGeneration == generation &&
+            !captureSessionAsyncConfigurePending &&
+            !cameraDeviceOpenPending
+    }
+
+    /** Sprint **15.29** — Night dial stack (alias of timelapse JPEG readiness + IMG JPEG tier). */
+    fun canCaptureNightScape(): Boolean =
+        canCaptureTimelapseJpeg() && composedCapturePlan.tonal != null
+
+    private fun isTimelapseVideoSessionActive(): Boolean =
+        TimeLapseMode.isTimelapseVideoSession(readHudCapturePrefs())
 
     /** Single still: RAW DNG and/or independent tonal. */
     fun canCaptureStill(): Boolean = canCaptureRawStill() || canCaptureIndependentTonalStill()
@@ -10126,6 +11566,7 @@ private class PreviewController(
                 videoFormat = videoFormat,
                 onEvent = onEvent,
                 forceMediaCodecGlComposite = dualVideoActive,
+                videoColorProfile = HudSettings.load(appContext).videoColorProfileEnum(),
             )
 
             when (result) {
@@ -10348,6 +11789,7 @@ private class PreviewController(
                 characteristics,
                 captureResult,
                 location = loc,
+                colorSpaceTarget = profile.colorSpace,
             )
             LutCaptureSidecars.writeBundledLutSidecarIfNeeded(
                 appContext.applicationContext,
@@ -10761,6 +12203,27 @@ private class PreviewController(
             cam.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
                 addTarget(previewSurf)
                 addTarget(reader.surface)
+                if (ProShotLeafStillCaptureRequest.applies(chars)) {
+                    val useDigitalCrop = focalCropMode != null && desiredFps < 120
+                    val modeForCrop = if (useDigitalCrop) focalCropMode else null
+                    val cropRect = scalerCropRectForSession(chars, camId, modeForCrop)
+                    ProShotLeafStillCaptureRequest.applyToStillCapture(
+                        this,
+                        chars,
+                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(
+                            appContext,
+                            camId,
+                        ),
+                        cropRect,
+                    )
+                    PreviewStillCaptureHints.applyJpegOrientationIfSupported(
+                        this,
+                        chars,
+                        surfaceRotation,
+                    )
+                    PreviewStillCaptureHints.applyJpegGpsIfSupported(this, chars, locForStillRequest)
+                    return@apply
+                }
                 applyScalerCropAndMetering(
                     this,
                     chars,
@@ -10941,7 +12404,7 @@ private class PreviewController(
                             allowPhysicalTotalResultPairing = false,
                         )
                     val (dngChars, dngResult) =
-                        DngMetadataResolver.pairForDngCreator(
+                        ProShotDngCreatorPair.forSave(
                             cm,
                             camId,
                             chars,
@@ -10976,7 +12439,8 @@ private class PreviewController(
                         handle.output,
                         orientationDegrees = orient,
                         location = loc,
-                        softwareDescription = dngSoftwareDescription,
+                        softwareDescription =
+                            dngSoftwareDescriptionForSave(appContext, camId, stillsLut),
                         uniqueCameraModel = dngUniqueCameraModelForSave(camId, stillsLut),
                         sessionCameraId = camId,
                         wideCalibrationCharacteristics = wideCalChars,
@@ -11458,6 +12922,205 @@ private class PreviewController(
     }
 
     /**
+     * Sprint **15.27** — hardware JPEG bytes for intervalometer video (no MediaStore still).
+     */
+    fun captureTimelapseJpegFrame(
+        appContext: Context,
+        surfaceRotation: Int,
+        onResult: (Result<ByteArray>) -> Unit,
+    ) {
+        if (!canCaptureTimelapseJpeg()) {
+            mainHandler.post {
+                onResult(
+                    Result.failure(
+                        IllegalStateException(
+                            "Timelapse JPEG path not ready (enable JPEG in IMG, preview ≤119 fps)",
+                        ),
+                    ),
+                )
+            }
+            return
+        }
+        val tonalBundle =
+            composedCapturePlan.tonal
+                ?: run {
+                    mainHandler.post {
+                        onResult(
+                            Result.failure(
+                                IllegalStateException("Enable JPEG in IMG menu for time-lapse video"),
+                            ),
+                        )
+                    }
+                    return
+                }
+        captureIndependentTonalStill(
+            appContext,
+            CaptureHaptics(appContext),
+            surfaceRotation,
+            tonalBundle = tonalBundle,
+            onTimelapseJpegBytes = onResult,
+            onResult = { result ->
+                result.exceptionOrNull()?.let { err ->
+                    onResult(Result.failure(err))
+                }
+            },
+        )
+    }
+
+    /** Sprint **15.29** — Night dial multi-frame JPEG stack → AVIF/JXL. */
+    @Suppress("LongMethod")
+    fun captureNightScapeStack(
+        appContext: Context,
+        haptics: CaptureHaptics,
+        surfaceRotation: Int,
+        frameCount: Int,
+        tonalBundle: StillCaptureBundle,
+        stillsLut: LutCatalog = LutCatalog.None,
+        adbValidationShotLabel: String? = null,
+        onProgress: ((Int, Int) -> Unit)? = null,
+        onResult: (Result<RawStillSaveSuccess>) -> Unit,
+    ) {
+        val total = NightScapeCapture.normalizeFrameCount(frameCount)
+        val gapMs = NightScapeCapture.FRAME_GAP_MS
+        if (!canCaptureNightScape()) {
+            mainHandler.post {
+                onResult(
+                    Result.failure(
+                        IllegalStateException(
+                            "NightScape needs JPEG in IMG, preview ≤119 fps, and a ready session",
+                        ),
+                    ),
+                )
+            }
+            return
+        }
+        if (!captureBusy.compareAndSet(false, true)) {
+            mainHandler.post {
+                onResult(Result.failure(IllegalStateException("Capture already in progress")))
+            }
+            return
+        }
+        val collected = ArrayList<NightScapeCapture.FramePayload>(total)
+        val bgHandler = handler
+        Log.i(NightScapeCapture.TAG, "stack begin frames=$total gapMs=$gapMs")
+        if (adbValidationShotLabel != null) {
+            PnsAdbLog.i(appContext, "nightScape begin frames=$total gapMs=$gapMs")
+        }
+        fun finishFailure(t: Throwable) {
+            releaseCaptureBusy()
+            lastStatus = "NightScape failed: ${t.message?.take(48) ?: t::class.java.simpleName}"
+            Log.w(NightScapeCapture.TAG, "stack ok=false err=${t.message}", t)
+            if (adbValidationShotLabel != null) {
+                PnsAdbLog.i(appContext, "nightScape ok=false err=${t.message}")
+            }
+            mainHandler.post { onResult(Result.failure(t)) }
+        }
+        fun captureFrame(index: Int) {
+            val frameNum = index + 1
+            NightScapeCapture.logFrameProgress(frameNum, total)
+            onProgress?.let { mainHandler.post { it(frameNum, total) } }
+            lastStatus = "NightScape frame $frameNum/$total…"
+            captureIndependentTonalStill(
+                appContext = appContext,
+                haptics = haptics,
+                surfaceRotation = surfaceRotation,
+                tonalBundle = tonalBundle,
+                stillsLut = stillsLut,
+                adbValidationShotLabel = adbValidationShotLabel?.let { "$it $frameNum/$total" },
+                manageCaptureBusy = false,
+                stillRequestOverride = { builder, chars ->
+                    NightScapeCapture.applyMaxHalSensitivity(builder, chars)
+                },
+                onHardwareJpegFrame = { frameResult ->
+                    frameResult.fold(
+                        onSuccess = { (bytes, result) ->
+                            collected += NightScapeCapture.FramePayload(bytes, result)
+                            if (frameNum < total) {
+                                val next = Runnable { captureFrame(index + 1) }
+                                bgHandler?.postDelayed(next, gapMs)
+                                    ?: mainHandler.postDelayed({ captureFrame(index + 1) }, gapMs)
+                            } else {
+                                lastStatus = "NightScape stacking $total frames…"
+                                companionJpegExecutor.execute {
+                                    try {
+                                        val stacked =
+                                            NightScapeCapture.stackJpegFrames(collected.map { it.jpegBytes })
+                                                ?: throw IllegalStateException("NightScape stack failed")
+                                        val lastResult = collected.last().captureResult
+                                        val chars =
+                                            checkNotNull(
+                                                runCatching {
+                                                    cm.getCameraCharacteristics(selectedCameraId!!)
+                                                }.getOrNull(),
+                                            ) { "No characteristics" }
+                                        val orient =
+                                            RawCaptureSupport.orientationClockwiseDegForDng(chars, surfaceRotation)
+                                        val storageProfile = storageProfileFromBundle(tonalBundle)
+                                        val softwareJpegQuality = readHudCapturePrefs().softwareJpegCompanionQuality
+                                        val outcome =
+                                            IndependentTonalStillSaver.saveFromStackedRgb888(
+                                                appContext = appContext,
+                                                storageProfile = storageProfile,
+                                                tonalBundle = tonalBundle,
+                                                rgb888 = stacked.rgb888,
+                                                width = stacked.width,
+                                                height = stacked.height,
+                                                stillsLut = stillsLut,
+                                                characteristics = chars,
+                                                captureResult = lastResult,
+                                                orientationDegrees = orient,
+                                                softwareJpegQuality = softwareJpegQuality,
+                                                filenameSuffix = "nightscape",
+                                            )
+                                        val uri = checkNotNull(outcome.uri) { "NightScape save failed" }
+                                        val displayName = outcome.displayName ?: uri.toString()
+                                        Log.i(
+                                            NightScapeCapture.TAG,
+                                            "stack ok=true frames=$total saved=$displayName ext=${tonalBundle.tonalContainer.fileExtension}",
+                                        )
+                                        if (adbValidationShotLabel != null) {
+                                            PnsAdbLog.i(
+                                                appContext,
+                                                "nightScape ok=true saved=$displayName frames=$total",
+                                            )
+                                        }
+                                        mainHandler.post {
+                                            publishLastStillPostReadout(
+                                                StillPostReadoutExtract.from(
+                                                    lastResult,
+                                                    tonalBundle.tonalContainer.fileExtension.uppercase(),
+                                                    sessionPreviewDynamicRangeShort,
+                                                ),
+                                            )
+                                            lastStatus = "Preview running (normal)"
+                                            releaseCaptureBusy()
+                                            onResult(
+                                                Result.success(
+                                                    RawStillSaveSuccess(
+                                                        dngUriString = uri.toString(),
+                                                        tonalUriString = uri.toString(),
+                                                    ),
+                                                ),
+                                            )
+                                        }
+                                    } catch (t: Throwable) {
+                                        finishFailure(t)
+                                    }
+                                }
+                            }
+                        },
+                        onFailure = { t -> finishFailure(t) },
+                    )
+                },
+                onResult = { result ->
+                    result.exceptionOrNull()?.let { finishFailure(it) }
+                },
+            )
+        }
+        captureFrame(0)
+    }
+
+    /**
      * Separate hardware JPEG still → independent AVIF/JXL (or downgrade JPEG) per IMG **-JPEG-** tier.
      */
     @Suppress("LongMethod", "CyclomaticComplexMethod")
@@ -11469,18 +13132,34 @@ private class PreviewController(
         stillsLut: LutCatalog = LutCatalog.None,
         adbValidationShotLabel: String? = null,
         onTonalReady: ((Uri?) -> Unit)? = null,
+        onTimelapseJpegBytes: ((Result<ByteArray>) -> Unit)? = null,
+        onHardwareJpegFrame: ((Result<Pair<ByteArray, TotalCaptureResult>>) -> Unit)? = null,
+        stillRequestOverride: ((CaptureRequest.Builder, CameraCharacteristics) -> Unit)? = null,
+        manageCaptureBusy: Boolean = true,
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
         val shotTag = adbValidationShotLabel
-        if (!captureBusy.compareAndSet(false, true)) {
-            Log.w(CaptureStillLog.TAG, "captureIndependentTonalStill ok=false err=capture_busy label=${shotTag ?: "-"}")
-            mainHandler.post {
-                if (shotTag != null) {
-                    PnsAdbLog.i(appContext, "captureIndependentTonalStill $shotTag ok=false err=capture_busy")
+        val timelapseOnly = onTimelapseJpegBytes != null || onHardwareJpegFrame != null
+        fun releaseBusyIfManaged() {
+            if (manageCaptureBusy) releaseCaptureBusy()
+        }
+        if (manageCaptureBusy) {
+            if (!captureBusy.compareAndSet(false, true)) {
+                Log.w(CaptureStillLog.TAG, "captureIndependentTonalStill ok=false err=capture_busy label=${shotTag ?: "-"}")
+                mainHandler.post {
+                    if (shotTag != null) {
+                        PnsAdbLog.i(appContext, "captureIndependentTonalStill $shotTag ok=false err=capture_busy")
+                    }
+                    val err = IllegalStateException("Capture already in progress")
+                    if (timelapseOnly) {
+                        onTimelapseJpegBytes?.invoke(Result.failure(err))
+                        onHardwareJpegFrame?.invoke(Result.failure(err))
+                    } else {
+                        onResult(Result.failure(err))
+                    }
                 }
-                onResult(Result.failure(IllegalStateException("Capture already in progress")))
+                return
             }
-            return
         }
         val cam = device
         val sess = session
@@ -11490,7 +13169,7 @@ private class PreviewController(
         val jpegPathIncomplete =
             cam == null || sess == null || jReader == null || previewSurf == null
         if (jpegPathIncomplete || camId.isNullOrBlank()) {
-            releaseCaptureBusy()
+            releaseBusyIfManaged()
             Log.w(
                 CaptureStillLog.TAG,
                 "captureIndependentTonalStill ok=false err=camera_or_jpeg_not_ready label=${shotTag ?: "-"} " +
@@ -11503,24 +13182,43 @@ private class PreviewController(
                         "captureIndependentTonalStill $shotTag ok=false err=camera_or_jpeg_not_ready",
                     )
                 }
-                onResult(
-                    Result.failure(
-                        IllegalStateException("Camera not ready or tonal JPEG path unavailable (use preview ≤119 fps)"),
-                    ),
-                )
+                val err =
+                    IllegalStateException("Camera not ready or tonal JPEG path unavailable (use preview ≤119 fps)")
+                if (timelapseOnly) {
+                    onTimelapseJpegBytes?.invoke(Result.failure(err))
+                    onHardwareJpegFrame?.invoke(Result.failure(err))
+                } else {
+                    onResult(Result.failure(err))
+                }
             }
             return
         }
         val bgHandler = handler
         if (bgHandler == null) {
-            releaseCaptureBusy()
-            mainHandler.post { onResult(Result.failure(IllegalStateException("No camera handler"))) }
+            releaseBusyIfManaged()
+            mainHandler.post {
+                val err = IllegalStateException("No camera handler")
+                if (timelapseOnly) {
+                    onTimelapseJpegBytes?.invoke(Result.failure(err))
+                    onHardwareJpegFrame?.invoke(Result.failure(err))
+                } else {
+                    onResult(Result.failure(err))
+                }
+            }
             return
         }
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
         if (chars == null) {
-            releaseCaptureBusy()
-            mainHandler.post { onResult(Result.failure(IllegalStateException("No characteristics"))) }
+            releaseBusyIfManaged()
+            mainHandler.post {
+                val err = IllegalStateException("No characteristics")
+                if (timelapseOnly) {
+                    onTimelapseJpegBytes?.invoke(Result.failure(err))
+                    onHardwareJpegFrame?.invoke(Result.failure(err))
+                } else {
+                    onResult(Result.failure(err))
+                }
+            }
             return
         }
         val manualSensorStill = manualIsoOverride != null || manualExposureNsOverride != null
@@ -11597,6 +13295,7 @@ private class PreviewController(
                     readHudCapturePrefs(),
                     skipColorCorrection = manualAwbAlreadySetsColorCorrection(),
                 )
+                stillRequestOverride?.invoke(this, chars)
             }.build()
 
         lastStatus = buildString {
@@ -11623,7 +13322,7 @@ private class PreviewController(
             pendingResult.set(null)
             bgHandler.post { resumePreviewRepeatingIfPossible() }
             lastStatus = "JPEG still capture failed: ${t.message?.take(48) ?: t::class.java.simpleName}"
-            releaseCaptureBusy()
+            releaseBusyIfManaged()
             Log.w(
                 CaptureStillLog.TAG,
                 "captureJpegHardwareStill ok=false err=${t.message ?: t::class.java.simpleName} label=${shotTag ?: "-"}",
@@ -11632,7 +13331,14 @@ private class PreviewController(
             if (shotTag != null) {
                 PnsAdbLog.i(appContext, "captureJpegHardwareStill $shotTag ok=false err=${t.message}")
             }
-            mainHandler.post { onResult(Result.failure(t)) }
+            mainHandler.post {
+                if (timelapseOnly) {
+                    onTimelapseJpegBytes?.invoke(Result.failure(t))
+                    onHardwareJpegFrame?.invoke(Result.failure(t))
+                } else {
+                    onResult(Result.failure(t))
+                }
+            }
         }
 
         stillWatchdog = Runnable {
@@ -11671,8 +13377,23 @@ private class PreviewController(
                     return
                 }
             runCatching { jpegImg.close() }
+            releaseBusyIfManaged()
+            onHardwareJpegFrame?.let { deliver ->
+                mainHandler.post {
+                    deliver(Result.success(jpegBytes to result))
+                }
+                return
+            }
+            onTimelapseJpegBytes?.let { deliver ->
+                mainHandler.post {
+                    lastStatus = "Preview running (normal)"
+                    deliver(Result.success(jpegBytes))
+                    Log.i(TimeLapseVideoEncoder.TAG, "timelapse jpeg bytes=${jpegBytes.size}")
+                }
+                return
+            }
             pendingTonalEncodes.incrementAndGet()
-            releaseCaptureBusy()
+            releaseBusyIfManaged()
             mainHandler.post { lastStatus = "Processing tonal still…" }
             val orient = RawCaptureSupport.orientationClockwiseDegForDng(chars, surfaceRotation)
             val storageProfile = storageProfileFromBundle(tonalBundle)
@@ -12038,6 +13759,22 @@ private class PreviewController(
                 if (needJpeg) {
                     addTarget(checkNotNull(jReader).surface)
                 }
+                if (ProShotLeafStillCaptureRequest.applies(chars)) {
+                    val useDigitalCrop = focalCropMode != null && desiredFps < 120
+                    val modeForCrop = if (useDigitalCrop) focalCropMode else null
+                    val cropRect = scalerCropRectForSession(chars, camId, modeForCrop)
+                    ProShotLeafStillCaptureRequest.applyToStillCapture(
+                        this,
+                        chars,
+                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(
+                            appContext,
+                            camId,
+                        ),
+                        cropRect,
+                    )
+                    set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeComp)
+                    return@apply
+                }
                 applyScalerCropAndMetering(this, chars, camId, null)
                 applyReadoutManualExposureAndWb(this, chars, camId)
                 PreviewFlashPolicy.applyStillFlashKeys(
@@ -12223,7 +13960,7 @@ private class PreviewController(
                                                     allowPhysicalTotalResultPairing = false,
                                                 )
                                             val paired =
-                                                DngMetadataResolver.pairForDngCreator(
+                                                ProShotDngCreatorPair.forSave(
                                                     cm,
                                                     camId,
                                                     chars,
@@ -12264,7 +14001,12 @@ private class PreviewController(
                                                 handle.output,
                                                 orientationDegrees = orient,
                                                 location = loc,
-                                                softwareDescription = dngSoftwareDescription,
+                                                softwareDescription =
+                                                    dngSoftwareDescriptionForSave(
+                                                        appContext,
+                                                        camId,
+                                                        stillsLut,
+                                                    ),
                                                 uniqueCameraModel =
                                                     dngUniqueCameraModelForSave(camId, stillsLut),
                                                 sessionCameraId = camId,
@@ -12439,7 +14181,7 @@ private class PreviewController(
                                     allowPhysicalTotalResultPairing = false,
                                 )
                             val paired =
-                                DngMetadataResolver.pairForDngCreator(
+                                ProShotDngCreatorPair.forSave(
                                     cm,
                                     camId,
                                     chars,
@@ -12476,7 +14218,8 @@ private class PreviewController(
                                 handle.output,
                                 orientationDegrees = orient,
                                 location = loc,
-                                softwareDescription = dngSoftwareDescription,
+                                softwareDescription =
+                                    dngSoftwareDescriptionForSave(appContext, camId, stillsLut),
                                 uniqueCameraModel = dngUniqueCameraModelForSave(camId, stillsLut),
                                 sessionCameraId = camId,
                                 wideCalibrationCharacteristics = wideCalCharsBracket2,
@@ -12675,6 +14418,7 @@ private class PreviewController(
             s.startsWith("Saving still", ignoreCase = true) -> s
             s.startsWith("Processing tonal", ignoreCase = true) -> s
             s.startsWith("Bracket shot", ignoreCase = true) -> s
+            s.startsWith("NightScape", ignoreCase = true) -> s
             else -> null
         }
     }
@@ -12703,6 +14447,8 @@ private class PreviewController(
 
     /** Sprint **14.2** — live audio meters in [PreviewTopStatusBar] while in-app video records. */
     fun peekInAppVideoAudioAmplitude(): Int = videoController.peekAudioAmplitude()
+
+    fun peekInAppVideoAudioAmplitudeStereo(): Pair<Int, Int> = videoController.peekAudioAmplitudeStereo()
 
     fun hintInAppVideoMediaCodecPath(wants: Boolean) {
         videoController.hintMediaCodecPath(wants)
@@ -12781,9 +14527,25 @@ private class PreviewController(
         }
     }
 
-    fun previewMeterIso(): Int? = previewMetadata.get().iso
+    fun previewMeterIso(): Int? =
+        when (readoutAeCoupling()) {
+            ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ->
+                readoutChaseIso ?: previewMetadata.get().iso
+            ReadoutAeCoupling.MANUAL_BOTH -> manualIsoOverride ?: previewMetadata.get().iso
+            ReadoutAeCoupling.LOCKED_ISO_AUTO_SS -> manualIsoOverride ?: previewMetadata.get().iso
+            ReadoutAeCoupling.AUTO -> previewMetadata.get().iso
+        }
 
-    fun previewMeterExposureNs(): Long? = previewMetadata.get().exposureNs
+    fun previewMeterExposureNs(): Long? =
+        when (readoutAeCoupling()) {
+            ReadoutAeCoupling.LOCKED_ISO_AUTO_SS ->
+                readoutChaseExposureNs ?: previewMetadata.get().exposureNs
+            ReadoutAeCoupling.MANUAL_BOTH ->
+                manualExposureNsOverride ?: previewMetadata.get().exposureNs
+            ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ->
+                manualExposureNsOverride ?: previewMetadata.get().exposureNs
+            ReadoutAeCoupling.AUTO -> previewMetadata.get().exposureNs
+        }
 
     /** WB value for the readout chip: manual override when set, otherwise last preview result. */
     fun previewReadoutAwbMode(): Int? =
@@ -13021,6 +14783,7 @@ private class PreviewController(
         lastTeleRouteAdbKey = null
         lastTrackerLockedLogged = null
         tapMeteringRect = null
+        aeLocked = false
         loggedFaceDetectCaps = false
         loggedFaceStatisticsSample = false
         loggedAdbTrackerPipelineReady = false
@@ -13176,7 +14939,7 @@ private class PreviewController(
             when {
                 dualVideoActive && inAppVideoRecordingArmed ->
                     DualVideoRecordingController.compositeRecordSize()
-                inAppVideoRecordingArmed && desiredFps < 120 ->
+                (inAppVideoRecordingArmed || videoPrimarySession) && desiredFps < 120 ->
                     resolveInAppVideoRecordSize()
                 else -> null
             }
@@ -13572,7 +15335,13 @@ private class PreviewController(
         }
         val gen = generation
         sessionPreviewDynamicRangeShort = null
-        val map = runCatching { cm.getCameraCharacteristics(camId).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) }.getOrNull()
+        val charsForSession = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+        val multiResSupported = DualIsoVideoMerger.probeMultiResStreamConfigurationMap(charsForSession)
+        DualIsoVideoMerger.logSessionProbe(
+            multiResSupported,
+            readHudCapturePrefs().dualIsoVideoActive(multiResSupported),
+        )
+        val map = charsForSession?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
         val target = pickHighSpeedTarget(map, desiredFps)
 
         // Constrained HS + aligned record/preview sizes ([resolveInAppVideoRecordSize], [desiredHighSpeedSize])
@@ -13639,9 +15408,10 @@ private class PreviewController(
                 configureJpegCompanionReader(mapForStreams, surfaces)
             }
 
-            // When [automationSuppressFacePipeline] is true (ADB bracket automation), skip YUV analysis
-            // surfaces unless the face HUD still needs them — extra YUV + H dial forced session churn and
-            // RAW still HAL timeouts on some devices (e.g. CPH2655 with wantYuv=true while suppressFace=true).
+            }
+
+            // YUV analysis must stay attached during in-app video record when readout chase (or H/face/hist)
+            // is active — [videoController.isRecorderPresent] only gates RAW/JPEG still surfaces.
             val wantYuv =
                 !lifecycleBackgroundPaused &&
                     (
@@ -13685,9 +15455,13 @@ private class PreviewController(
                     append(if (displayHz != null) "%.1f".format(displayHz) else "?")
                     append(" desiredFps=").append(desiredFps)
                     append(" dial=").append(commandDialMode.name)
+                    append(" aeCoupling=")
+                    append(ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride).name)
+                    append(" wantChase=").append(wantsReadoutExposureChase())
                     append(" useHighSpeed=").append(false)
                     append(" wantYuv=").append(wantYuv)
                     append(" yuvAttached=").append(yuvImageReader != null)
+                    append(" recordSurface=").append(videoController.isRecorderPresent())
                     append(" suppressFacePipeline=").append(automationSuppressFacePipeline)
                     append(" sessionGen=").append(gen)
                 },
@@ -13699,12 +15473,12 @@ private class PreviewController(
                     "displayHz" to (if (displayHz != null) "%.1f".format(displayHz) else "?"),
                     "wantYuv" to wantYuv.toString(),
                     "yuvAttached" to (yuvImageReader != null).toString(),
+                    "recordSurface" to videoController.isRecorderPresent().toString(),
                     "useHighSpeed" to "false",
                     "sessGen" to gen.toString(),
                     "suppressFace" to automationSuppressFacePipeline.toString(),
                 ),
             )
-            }
         }
 
         val chosenPreviewDr: Long? =
@@ -14235,6 +16009,11 @@ private class PreviewController(
                 applyFaceDetectMode(this, chars)
                 applyMacroVendorCloseupOnRequest(this, chars, camId)
                 applyReadoutManualExposureAndWb(this, chars, camId)
+                PreviewAeLock.applyToRequest(
+                    this,
+                    chars,
+                    aeLocked && !wantsReadoutExposureChase(),
+                )
                 PreviewFlashPolicy.applyPreviewFlashHardwareKeys(
                     this,
                     chars,
@@ -14316,12 +16095,27 @@ private class PreviewController(
     }
 
     private fun readHudCapturePrefs(): HudSettings {
-        val base = HudSettings.load(appContext)
-        if (!adbAutomationVideoStabilization) return base
-        return base.copy(
-            enableVideoStabilizationPreview = true,
-            enableLensOpticalStabilization = true,
-        )
+        val base = liveHudSettings ?: HudSettings.load(appContext)
+        if (macroVideoActive || adbAutomationVideoStabilization) {
+            return base.copy(
+                enableVideoStabilizationPreview = true,
+                enableLensOpticalStabilization = true,
+            )
+        }
+        return base
+    }
+
+    fun setMacroVideoActive(active: Boolean) {
+        if (macroVideoActive == active) return
+        macroVideoActive = active
+        maybeRestart()
+    }
+
+    fun setVideoPrimarySession(active: Boolean) {
+        if (videoPrimarySession == active) return
+        videoPrimarySession = active
+        Log.i("PNS.VideoEncode", "videoPrimarySession=$active")
+        maybeRestart()
     }
 
     private fun buildPreviewCaptureRequest(
@@ -14416,6 +16210,12 @@ private class PreviewController(
         lastReadoutChaseProcessWallMs = now
         val coupling =
             ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride)
+        if (adbReadoutChaseProof && lastReadoutChaseLogWallMs == 0L) {
+            Log.i(
+                tag,
+                "readoutChase armed coupling=$coupling iso=${readoutChaseIso} ss=${readoutChaseExposureNs}",
+            )
+        }
         val camId = selectedCameraId ?: return
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
         val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
@@ -14465,10 +16265,26 @@ private class PreviewController(
                     "coupling=$coupling medianEma=${"%.1f".format(medianEma)}",
             )
         }
-        if (applied && now - lastReadoutChaseRefreshWallMs >= readoutChaseRefreshMinGapMs) {
-            lastReadoutChaseRefreshWallMs = now
-            handler?.post { refreshRepeatingPreviewOnly() }
+        if (applied) {
+            scheduleReadoutChasePreviewRefresh(now)
         }
+    }
+
+    /** Push the latest chase ISO/SS to the HAL, coalesced to [readoutChaseRefreshMinGapMs]. */
+    private fun scheduleReadoutChasePreviewRefresh(now: Long) {
+        val gapElapsed = now - lastReadoutChaseRefreshWallMs
+        val h = handler ?: return
+        if (gapElapsed >= readoutChaseRefreshMinGapMs) {
+            lastReadoutChaseRefreshWallMs = now
+            readoutChaseRefreshPending = false
+            h.removeCallbacks(readoutChaseRefreshRunnable)
+            h.post { refreshRepeatingPreviewOnly() }
+            return
+        }
+        if (readoutChaseRefreshPending) return
+        readoutChaseRefreshPending = true
+        val delayMs = (readoutChaseRefreshMinGapMs - gapElapsed).coerceAtLeast(1L)
+        h.postDelayed(readoutChaseRefreshRunnable, delayMs)
     }
 
     private fun applyReadoutManualExposureAndWb(
@@ -14726,7 +16542,9 @@ private class PreviewController(
             } else {
                 faceHudMlSmoothedMeteringPrimary ?: pickPrimaryFaceBox(faceHudMlRawBoxes)
             }
-        scheduleFacePriorityMeteringSync(meteringPrimary)
+        val eyesForMeter =
+            eyesForHud.map { it.position.x to it.position.y }
+        scheduleFacePriorityMeteringSync(meteringPrimary, eyesForMeter)
         val boxesForOverlay = if (eyesForHud.isNotEmpty()) emptyList() else boxesForHud
         mainHandler.post {
             faceHudOverlayListener?.invoke(FaceHudOverlayState(eyesForHud, boxesForOverlay))
@@ -14746,9 +16564,12 @@ private class PreviewController(
         return h
     }
 
-    /** Drive CAF/AE-weighted regions toward the primary face (Auto / H / BKT); tap always wins. */
+    /** Drive CAF/AE-weighted regions toward the primary face (Auto / H / BKT / video+overlay); tap wins. */
     private fun allowsFacePriorityMetering(): Boolean {
         if (wantsManualFocusDistance()) return false
+        if (inAppVideoRecordingArmed && hudFaceOverlayEnabled && !automationSuppressFacePipeline) {
+            return true
+        }
         return when (commandDialMode) {
             CommandDialMode.Auto, CommandDialMode.H, CommandDialMode.BKT -> true
             CommandDialMode.M, CommandDialMode.S,
@@ -14758,17 +16579,23 @@ private class PreviewController(
         }
     }
 
-    private fun scheduleFacePriorityMeteringSync(primary: FaceTrackBoxBuffer?) {
+    private fun scheduleFacePriorityMeteringSync(
+        primary: FaceTrackBoxBuffer?,
+        eyesBuffer: List<Pair<Float, Float>> = emptyList(),
+    ) {
         ensureThread()
         val h = handler ?: return
         if (android.os.Looper.myLooper() == h.looper) {
-            syncFacePriorityMeteringBody(primary)
+            syncFacePriorityMeteringBody(primary, eyesBuffer)
         } else {
-            h.post { syncFacePriorityMeteringBody(primary) }
+            h.post { syncFacePriorityMeteringBody(primary, eyesBuffer) }
         }
     }
 
-    private fun syncFacePriorityMeteringBody(primary: FaceTrackBoxBuffer?) {
+    private fun syncFacePriorityMeteringBody(
+        primary: FaceTrackBoxBuffer?,
+        eyesBuffer: List<Pair<Float, Float>> = emptyList(),
+    ) {
         if (!hudFaceOverlayEnabled || automationSuppressFacePipeline || !allowsFacePriorityMetering()) {
             if (facePriorityMeteringRect != null) {
                 facePriorityMeteringRect = null
@@ -14799,8 +16626,15 @@ private class PreviewController(
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
         val active = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: return
         val rect =
-            meteringRectangleFromBufferFaceBox(primary, buf.width, buf.height, chars, camId, active)
-                ?: return
+            meteringRectangleFromBufferFaceBox(
+                primary,
+                buf.width,
+                buf.height,
+                chars,
+                camId,
+                active,
+                eyesBuffer,
+            ) ?: return
         val sig = faceMeteringSignature(rect)
         if (sig == lastFaceMeteringSig) return
         lastFaceMeteringSig = sig
@@ -14815,6 +16649,7 @@ private class PreviewController(
         chars: CameraCharacteristics,
         camId: String,
         active: Rect,
+        eyesBuffer: List<Pair<Float, Float>> = emptyList(),
     ): MeteringRectangle? {
         if (bufW <= 0 || bufH <= 0) return null
         val useDigitalCrop = focalCropMode != null && desiredFps < 120
@@ -14822,12 +16657,31 @@ private class PreviewController(
         val crop = scalerCropRectForSession(chars, camId, modeForCrop)
         if (crop.width() <= 0 || crop.height() <= 0) return null
 
+        val faceBuf =
+            FacePriorityMetering.BufferRectF(
+                left = box.left,
+                top = box.top,
+                right = box.right,
+                bottom = box.bottom,
+            )
+        val eyeSub = FacePriorityMetering.eyeSubRegionInFace(faceBuf, eyesBuffer)
+        val meterBox =
+            FaceTrackBoxBuffer(
+                left = eyeSub.left,
+                top = eyeSub.top,
+                right = eyeSub.right,
+                bottom = eyeSub.bottom,
+                trackingLocked = box.trackingLocked,
+            )
+
         fun nx(x: Float) = (x / bufW.toFloat()).coerceIn(0f, 1f)
         fun ny(y: Float) = (y / bufH.toFloat()).coerceIn(0f, 1f)
-        var leftF = crop.left + nx(box.left) * crop.width()
-        var rightF = crop.left + nx(box.right) * crop.width()
-        var topF = crop.top + ny(box.top) * crop.height()
-        var bottomF = crop.top + ny(box.bottom) * crop.height()
+        var leftF = crop.left + nx(meterBox.left) * crop.width()
+        var rightF = crop.left + nx(meterBox.right) * crop.width()
+        var topF = crop.top + ny(meterBox.top) * crop.height()
+        var bottomF = crop.top + ny(meterBox.bottom) * crop.height()
+        val faceHBuf = box.bottom - box.top
+        val meterHBuf = meterBox.bottom - meterBox.top
         if (leftF > rightF) {
             val t = leftF
             leftF = rightF
@@ -14865,6 +16719,16 @@ private class PreviewController(
         w = kotlin.math.min(w, active.right - l)
         h = kotlin.math.min(h, active.bottom - t)
         if (w < 1 || h < 1 || l + w > active.right || t + h > active.bottom) return null
+        if (meterHBuf < faceHBuf * 0.95f) {
+            val wall = SystemClock.elapsedRealtime()
+            if (wall - lastFaceMeterAeSubLogMs >= 2500L) {
+                lastFaceMeterAeSubLogMs = wall
+                Log.i(
+                    FacePriorityMetering.TAG,
+                    "aeSub=true eyeRectSensor=$l,$t-${l + w},${t + h} faceHBuf=${"%.0f".format(faceHBuf)} meterHBuf=${"%.0f".format(meterHBuf)}",
+                )
+            }
+        }
         return MeteringRectangle(l, t, w, h, MeteringRectangle.METERING_WEIGHT_MAX)
     }
 
@@ -15294,9 +17158,15 @@ private class PreviewController(
                 return
             }
             val req = buildPreviewCaptureRequest(cam, surf, fpsRange, camId)
-            runCatching { sess.stopRepeating() }
-                .exceptionOrNull()
-                ?.let { Log.w(tag, "refreshRepeatingPreviewOnly stopRepeating: ${it.message}") }
+            val recordingActive =
+                inAppVideoRecordingArmed &&
+                    videoController.isRecorderStarted() &&
+                    !hfrEncoderOnlyRecordActive
+            if (!recordingActive) {
+                runCatching { sess.stopRepeating() }
+                    .exceptionOrNull()
+                    ?.let { Log.w(tag, "refreshRepeatingPreviewOnly stopRepeating: ${it.message}") }
+            }
             sess.setRepeatingRequest(req, fpsMeasuringCallback(), h)
         } catch (e: CameraAccessException) {
             Log.w(tag, "refreshRepeatingPreviewOnly failed: ${e.reason}")
@@ -15321,13 +17191,14 @@ private class PreviewController(
         }
         val wantHighlight = wantsHighlightMetering()
         val wantHist = previewHistogramEnabled
-        val wantZebra = highlightClipZebraEnabled && desiredFps < 120
+        val wantZebra = highlightClipZebraEnabled
+        val wantFalseColor = falseColorEnabled
         val wantChase = wantsReadoutExposureChase()
         val wantFaceHud = hudFaceOverlayEnabled && !automationSuppressFacePipeline
         val wantSmileStill = smileStillEnabled && !automationSuppressFacePipeline
         val wantFace = wantFaceHud || wantSmileStill
         val wantQr = wantsQrScan()
-        if (!wantHighlight && !wantHist && !wantFace && !wantZebra && !wantQr && !wantChase) {
+        if (!wantHighlight && !wantHist && !wantFace && !wantZebra && !wantFalseColor && !wantQr && !wantChase) {
             reader.acquireLatestImage()?.close()
             return
         }
@@ -15362,7 +17233,7 @@ private class PreviewController(
             reader.acquireLatestImage()?.close()
             return
         }
-        if (histOk && (wantHighlight || wantHist || wantZebra || wantChase)) {
+        if (histOk && (wantHighlight || wantHist || wantZebra || wantFalseColor || wantChase)) {
             lastHighlightProcessWallMs = now
         }
         if (!yuvAnalysisInFlight.compareAndSet(false, true)) {
@@ -15506,7 +17377,21 @@ private class PreviewController(
                 }
 
                 fun runHistogramAndHighlightIfNeeded() {
-                    if (!wantHighlight && !wantHist && !wantZebra && !wantChase) return
+                    if (!wantHighlight && !wantHist && !wantZebra && !wantFalseColor && !wantChase) return
+
+                    val hud = readHudCapturePrefs()
+                    val zslHist: Pair<IntArray, PreviewLumaHistogram.RgbHistogramBins>? =
+                        if (wantHist && wantsZslStillRing()) {
+                            zslStillRing?.peekLastFrame()?.image?.let { raw ->
+                                runCatching { histogramFromZslRawImage(raw) }
+                                    .onFailure { e ->
+                                        Log.w(tag, "zsl rgbHistogram reduce failed: ${e.message}")
+                                    }
+                                    .getOrNull()
+                            }
+                        } else {
+                            null
+                        }
 
                     val plane = image.planes[0]
                     val buf = plane.buffer
@@ -15514,6 +17399,9 @@ private class PreviewController(
                     val ps = plane.pixelStride
                     if (ps != 1) {
                         Log.w(tag, "YUV Y plane pixelStride=$ps (expected 1); skipping histogram sample")
+                        if (wantHist && zslHist != null) {
+                            postPreviewHistogramUi(zslHist.first, zslHist.second, fromZslRing = true)
+                        }
                         return
                     }
                     val bytes = ByteArray(buf.remaining())
@@ -15523,8 +17411,34 @@ private class PreviewController(
                     val rowStride = plane.rowStride
                     val hist: IntArray? =
                         if ((wantHist || wantHighlight || wantChase) && w > 0 && h > 0) {
-                            runCatching { PreviewLumaHistogram.reduceYuv420Y(bytes, w, h, rowStride) }
-                                .onFailure { e -> Log.w(tag, "histogram reduce failed: ${e.message}") }
+                            zslHist?.first
+                                ?: runCatching { PreviewLumaHistogram.reduceYuv420Y(bytes, w, h, rowStride) }
+                                    .onFailure { e -> Log.w(tag, "histogram reduce failed: ${e.message}") }
+                                    .getOrNull()
+                        } else {
+                            null
+                        }
+                    val rgbFromYuv: PreviewLumaHistogram.RgbHistogramBins? =
+                        if (wantHist && hud.showRgbHistogram && zslHist == null && w > 0 && h > 0 && image.planes.size >= 3) {
+                            runCatching {
+                                val u = image.planes[1]
+                                val v = image.planes[2]
+                                val uBuf = u.buffer.duplicate().apply { rewind() }
+                                val vBuf = v.buffer.duplicate().apply { rewind() }
+                                val uBytes = ByteArray(uBuf.remaining()).also { uBuf.get(it) }
+                                val vBytes = ByteArray(vBuf.remaining()).also { vBuf.get(it) }
+                                PreviewLumaHistogram.reduceYuv420RGB(
+                                    yPlane = bytes,
+                                    uPlane = uBytes,
+                                    vPlane = vBytes,
+                                    width = w,
+                                    height = h,
+                                    yRowStride = rowStride,
+                                    uvRowStride = u.rowStride,
+                                    uvPixelStride = u.pixelStride,
+                                )
+                            }
+                                .onFailure { e -> Log.w(tag, "rgbHistogram reduce failed: ${e.message}") }
                                 .getOrNull()
                         } else {
                             null
@@ -15536,13 +17450,15 @@ private class PreviewController(
                         val wall = SystemClock.elapsedRealtime()
                         if (wall - lastZebraProcessWallMs >= zebraMinIntervalMs) {
                             lastZebraProcessWallMs = wall
+                            val threshold =
+                                PreviewLumaHistogram.irePercentToThresholdUnsigned(zebraIreThresholdPercent)
                             runCatching {
                                 PreviewLumaHistogram.buildClipZebraGridYuv420Y(
                                     bytes,
                                     w,
                                     h,
                                     rowStride,
-                                    thresholdUnsigned = HIGHLIGHT_CLIP_ZEBRA_THRESHOLD_UNSIGNED,
+                                    thresholdUnsigned = threshold,
                                 )
                             }
                                 .onSuccess { grid ->
@@ -15553,6 +17469,23 @@ private class PreviewController(
                                     }
                                 }
                                 .onFailure { e -> Log.w(tag, "zebra grid failed: ${e.message}") }
+                        }
+                    }
+                    if (wantFalseColor && w > 0 && h > 0) {
+                        val wall = SystemClock.elapsedRealtime()
+                        if (wall - lastFalseColorProcessWallMs >= falseColorMinIntervalMs) {
+                            lastFalseColorProcessWallMs = wall
+                            runCatching {
+                                PreviewLumaHistogram.buildFalseColorGridYuv420Y(bytes, w, h, rowStride)
+                            }
+                                .onSuccess { grid ->
+                                    val camHandler = handler ?: return
+                                    camHandler.post {
+                                        if (!falseColorEnabled || yuvImageReader == null) return@post
+                                        falseColorListener?.invoke(grid)
+                                    }
+                                }
+                                .onFailure { e -> Log.w(tag, "falseColor grid failed: ${e.message}") }
                         }
                     }
                     if (wantHighlight && hist != null) {
@@ -15614,10 +17547,20 @@ private class PreviewController(
                     }
                     if (wantHist && hist != null) {
                         val snap = hist.copyOf()
-                        val camHandler = handler ?: return
-                        camHandler.post {
-                            if (!previewHistogramEnabled) return@post
-                            previewHistogramListener?.invoke(snap)
+                        val rgb =
+                            when {
+                                zslHist != null -> zslHist.second
+                                rgbFromYuv != null -> rgbFromYuv
+                                else -> null
+                            }
+                        val fromZsl = zslHist != null
+                        postPreviewHistogramUi(snap, rgb, fromZsl)
+                        if (fromZsl) {
+                            val wall = SystemClock.elapsedRealtime()
+                            if (wall - lastZslHistogramAdbLogMs >= 4000L) {
+                                lastZslHistogramAdbLogMs = wall
+                                Log.i(tag, "zsl rgbHistogram active bins=${PreviewLumaHistogram.pixelCount(snap)}")
+                            }
                         }
                     }
                 }
@@ -15630,7 +17573,18 @@ private class PreviewController(
                     runMlFaceHudIfNeeded()
                 } else {
                     runMlFaceHudIfNeeded()
-                    if (!wantHighlight && !wantHist && !wantQr) return@execute
+                    if (
+                        !ReadoutExposureChase.needsYuvHistogramSample(
+                            wantHighlight,
+                            wantHist,
+                            wantZebra,
+                            wantFalseColor,
+                            wantChase,
+                        ) &&
+                        !wantQr
+                    ) {
+                        return@execute
+                    }
                     runHistogramAndHighlightIfNeeded()
                 }
                 runQrScanIfNeeded()
@@ -15669,12 +17623,20 @@ private class PreviewController(
     ) {
         val useDigitalCrop = focalCropMode != null && desiredFps < 120
         val modeForCrop = if (useDigitalCrop) focalCropMode else null
-        val cropRect = scalerCropRectForSession(chars, camId, modeForCrop)
+        var cropRect = scalerCropRectForSession(chars, camId, modeForCrop)
+        val breathingScale = FocusBreathingCompensator.currentScale()
+        if (breathingScale > 1.001f && cropRect.width() > 0 && cropRect.height() > 0) {
+            val active = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+            if (active != null) {
+                cropRect = FocusBreathingCompensator.applyScaleToCrop(cropRect, active, breathingScale)
+            }
+        }
         if (cropRect.width() > 0 && cropRect.height() > 0) {
             req.set(CaptureRequest.SCALER_CROP_REGION, cropRect)
             Log.d(
                 tag,
-                "SCALER_CROP_REGION=${cropRect.left},${cropRect.top}-${cropRect.right},${cropRect.bottom} mode=${modeForCrop?.name ?: "full"}",
+                "SCALER_CROP_REGION=${cropRect.left},${cropRect.top}-${cropRect.right},${cropRect.bottom} " +
+                    "mode=${modeForCrop?.name ?: "full"} breathingScale=${"%.4f".format(breathingScale)}",
             )
         }
         val tap = tapMeteringRect
@@ -16185,6 +18147,9 @@ private class PreviewController(
 
             private fun onCaptureResult(result: TotalCaptureResult) {
                 lastPreviewTotalCaptureResult = result
+                if (wantsManualFocusDistance() && isTeleFocalSession()) {
+                    maybeUpdateFocusBreathing(result.get(CaptureResult.LENS_FOCUS_DISTANCE))
+                }
                 feedZslRingResult(result)
                 lastPreviewControlAfState = result.get(CaptureResult.CONTROL_AF_STATE)
                 if (stillBoundaryDiagEnabled()) {

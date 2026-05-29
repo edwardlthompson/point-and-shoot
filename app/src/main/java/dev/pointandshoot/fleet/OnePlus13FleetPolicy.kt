@@ -123,19 +123,50 @@ object OnePlus13FleetPolicy {
     fun hdrStillShotCount(): Int = hdrStillBracketPattern().shotCount
 
     /**
-     * ProShot does minimal post-[DngCreator] TIFF edits. [StillCaptureMetadata] IFD0/EXIF patches
-     * after save are a prime A/B for aux green cast (triangulation matrix priority 1).
+     * ProShot does minimal post-[DngCreator] TIFF edits. Skip [StillCaptureMetadata.applyToDngUri]
+     * on all rear leaf ids (UW / wide / tele) so DNGs stay DngCreator + still IQ only.
      */
     fun skipStillMetadataApplyOnLeafDng(sessionCameraId: String): Boolean {
         if (!appliesToDevice()) return false
-        return sessionCameraId in
-            setOf(CANONICAL_UW, CANONICAL_WIDE, CANONICAL_TELE)
+        return sessionCameraId in setOf(CANONICAL_UW, CANONICAL_WIDE, CANONICAL_TELE)
     }
+
+    /** ProShot does not stamp P&S LUT/software auxiliary strings on leaf DNGs. */
+    fun skipDngSoftwareDescriptionOnLeaf(sessionCameraId: String): Boolean =
+        useProShotPureDngSave() &&
+            sessionCameraId in setOf(CANONICAL_UW, CANONICAL_WIDE, CANONICAL_TELE)
 
     /**
      * Wide (cam **2**) DNG: [DngCreator] only — HAL color tags are trustworthy on LYT-808.
      */
-    fun useProShotPureDngSave(): Boolean = appliesToDevice()
+    fun useProShotPureDngSave(): Boolean = useProShotPureDngSaveWhen(appliesToDevice())
+
+    internal fun useProShotPureDngSaveWhen(deviceApplies: Boolean): Boolean = deviceApplies
+
+    /**
+     * Leaf still [CaptureRequest] mirrors ProShot decompile (crop + still IQ + HAL AE only).
+     * See [dev.pointandshoot.ProShotLeafStillCaptureRequest].
+     */
+    fun useExactProShotLeafStillCaptureRequest(): Boolean =
+        useExactProShotLeafStillCaptureRequestWhen(appliesToDevice())
+
+    internal fun useExactProShotLeafStillCaptureRequestWhen(deviceApplies: Boolean): Boolean =
+        useProShotPureDngSaveWhen(deviceApplies)
+
+    /**
+     * Bisect-only — copying ProShot reference CM/FM/ASN onto different RAW pixels worsened green cast
+     * (May 2026 USB). Shipped path: [useProShotPureDngSave] + [StillCaptureIqPolicy] only.
+     */
+    fun useProShotReferenceCalibration(): Boolean = false
+
+    /**
+     * Bisect-only — post-save ASN/FM reconcile on aux leaf. Off when [useProShotPureDngSave] ships
+     * (matches ProShot: `DngCreator` only, no TIFF color surgery).
+     */
+    fun useOp13LeafAuxColorReconcile(): Boolean = false
+
+    /** @see useOp13LeafAuxColorReconcile */
+    fun useUwProShotAsnReconcile(): Boolean = useOp13LeafAuxColorReconcile()
 
     /**
      * **13.3h bisect only** — wide CM/FM on aux DNGs broke ACR openability (see `docs/DNG_OPENABILITY_REGRESSIONS.md` R2).

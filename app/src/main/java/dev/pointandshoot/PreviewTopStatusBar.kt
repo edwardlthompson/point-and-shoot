@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,16 +36,19 @@ fun PreviewTopStatusBar(
     selectedFps: Int,
     recordStartElapsedMs: Long?,
     sampleAudioAmplitude: () -> Int,
+    /** When true, timecode + PPM meters render in pillar bars instead of this band. */
+    recordingHudInPillarBars: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val showTc = showTimecode && (videoPrimary || isRecording)
-    val showMeters = isRecording && videoPrimary
+    val showTc = showTimecode && isRecording && videoPrimary && !recordingHudInPillarBars
+    val showMeters = isRecording && videoPrimary && !recordingHudInPillarBars
 
-    LaunchedEffect(showTc, showMeters, statusLine, isRecording, videoPrimary) {
+    LaunchedEffect(showTc, showMeters, statusLine, isRecording, videoPrimary, recordingHudInPillarBars) {
         Log.i(
             "PNS.ChromeUx",
             "statusBar=visible recording=$isRecording videoPrimary=$videoPrimary " +
-                "timecode=$showTc audioMeters=$showMeters status=${statusLine?.take(48) ?: ""}",
+                "timecode=$showTc audioMeters=$showMeters pillarHud=$recordingHudInPillarBars " +
+                "status=${statusLine?.take(48) ?: ""}",
         )
     }
 
@@ -88,9 +92,11 @@ fun PreviewTopStatusBar(
                 )
             }
             if (showMeters) {
-                PpmAudioMeter(
-                    levelLinear = sampleAudioAmplitude().coerceIn(0, 32767) / 32767f,
-                    modifier = Modifier.height(28.dp),
+                LivePpmAudioMeter(
+                    active = true,
+                    sampleAudioAmplitude = sampleAudioAmplitude,
+                    layout = PpmMeterLayout.Vertical,
+                    modifier = Modifier.width(10.dp).height(28.dp),
                 )
             }
         }

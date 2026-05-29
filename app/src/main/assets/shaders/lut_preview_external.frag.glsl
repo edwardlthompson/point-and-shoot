@@ -18,6 +18,39 @@ uniform vec3 uReadoutWbRgb;
 uniform float uPeakingEnabled;
 uniform vec3 uPeakingRgb;
 uniform float uPeakingSensitivity;
+// Sprint 15.16 — 0=SDR, 1=HLG preview, 2=flat/cine (matches VideoColorProfile.previewGlMode).
+uniform float uVideoColorProfile;
+
+float hlgToLinear(float e) {
+    if (e <= 0.5) {
+        return e * e / 3.0;
+    }
+    return (exp((e - 0.55991073) / 0.17883277) + 0.28466892) / 12.0;
+}
+
+float linearToSrgb(float l) {
+    if (l <= 0.0031308) {
+        return l * 12.92;
+    }
+    return 1.055 * pow(l, 1.0 / 2.4) - 0.055;
+}
+
+vec3 applyVideoColorProfile(vec3 c) {
+    if (uVideoColorProfile < 0.5) {
+        return c;
+    }
+    if (uVideoColorProfile < 1.5) {
+        return vec3(
+            linearToSrgb(hlgToLinear(c.r)),
+            linearToSrgb(hlgToLinear(c.g)),
+            linearToSrgb(hlgToLinear(c.b))
+        );
+    }
+    c = c + 0.04 * (1.0 - c);
+    float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c = mix(vec3(lum), c, 0.75);
+    return c / (c + 0.18);
+}
 
 vec3 sampleLut(vec3 src) {
     float scale = (uLutSize - 1.0) / uLutSize;
@@ -28,6 +61,7 @@ vec3 sampleLut(vec3 src) {
 
 void main() {
     vec3 src = clamp(texture(uSourceTex, vOesTexCoord).rgb * uReadoutWbRgb, 0.0, 1.0);
+    src = applyVideoColorProfile(src);
     vec3 mixed = mix(src, sampleLut(src), uLutEnabled);
     if (uPeakingEnabled > 0.5) {
         float L = dot(mixed, vec3(0.299, 0.587, 0.114));

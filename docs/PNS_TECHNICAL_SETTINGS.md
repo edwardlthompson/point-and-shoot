@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-26 (M15 offline agent pass — video shrink-to-fit, gallery 3:4, DNG EXIF focal, PPM meters, host DNG gates).
+**Last synced with tree:** 2026-05-28 (M15 — OP13 aux ASN+FM reconcile, `pns_dng_exif_verify.ps1`, aux color metric in analyze script).
 
 **Related deep dives (not duplicated here):**
 
@@ -60,7 +60,7 @@
 | **S** | S | Street: AF at **infinity**; tap preview to refocus. |
 | **BKT** | BKT | AE bracket burst (3/5/7); RAW12 + `GroupingID` when enabled. |
 | **Macro** | MACRO | Close-up focus (&lt;10 cm class); session/macro probes. |
-| **Night** | NIGHT | CameraX **NIGHT** extension when `CameraXExtensionProbe` reports available (hidden on dial otherwise). |
+| **Night** | NIGHT | **NightScape** — burst **4/6/8** hardware JPEGs at max ISO + **≤1 s** exposure → block-align → average → **AVIF/JXL** per IMG tier (`NightScapeCapture.kt`, `HudSettings.nightScapeFrameCount`). Progress: `PNS.NightScape frame=N/M`. Requires preview **≤119 fps** + JPEG in IMG. |
 | **Bokeh** | BOKEH | CameraX **BOKEH** extension when available. |
 | **Qr** | QR | Live ZXing on YUV (photo programs); **not** on rotary dial UI — separate entry. |
 
@@ -148,7 +148,13 @@ Band filters menu stops and clamps picks. **Band ceiling lock** (`isoLockFromBan
 
 **ProShot leaf still metering** (`applyProShotPreviewExposureFromResult`) is **not** applied when `wantsReadoutExposureChase()` — avoids HAL re-metering over locked ISO.
 
-### 3.4 Focus mode picker (Sprint 14.8)
+### 3.5 Preview AE lock (Sprint 15.26)
+
+**Separate from §3.1 chip coupling:** long-press **ISO** or **Ss** chip toggles `PreviewController.aeLocked` → `CaptureRequest.CONTROL_AE_LOCK` on repeating preview (AF unchanged). Amber **12 dp** padlock beside ISO when active. Clears on camera id change, command dial change, or `closeCamera`. Log: `PNS.ChromeUx aeLock=true|false`. ADB: `--ez pns_preview_ae_lock true` → `pns_ae_lock_verify.ps1`.
+
+**Incompatible with readout chase:** AE lock is ignored (and cleared when arming locked-shutter / auto-ISO) while `wantsReadoutExposureChase()` — preview AE lock would freeze the auto axis.
+
+### 3.6 Focus mode picker (Sprint 14.8)
 
 **Code:** `PreviewFocusMode.kt`, `PreviewFocusModePickerDialog.kt`, readout **AF** chip, `PreviewController.setPreviewFocusSelection`.
 
@@ -164,7 +170,9 @@ Band filters menu stops and clamps picks. **Band ceiling lock** (`isoLockFromBan
 
 **Macro program:** Forces **ultra-wide** (`macroMode autoSwitchUW`); focal slots other than **14 mm** disabled; HAL `CONTROL_AF_MODE_MACRO` when advertised; OPLUS `com.oplus.macro.closeup.enable` on UW when available. Logs: `PNS.ChromeUx focusMode=`, `macroMode afMode=MACRO`.
 
-ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus_verify.ps1` (dial **MACRO**).
+**Macro video (Sprint 15.31):** Video tray + dial **MACRO** — same UW/macro program, preview/record fps capped at **60**, EIS + OIS forced via HUD override, readout badge **MACRO VIDEO** (amber). Workflow preset **`macro_video`**. Log: `PNS.ChromeUx macroVideo=true`. Gate: `pns_macro_video_verify.ps1`.
+
+ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus_verify.ps1` (dial **MACRO** photo); macro video: `--ez pns_preview_primary_photo false --es pns_preview_dial MACRO`.
 
 ---
 
@@ -177,20 +185,22 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 | Constant | Value | Meaning |
 |----------|-------|---------|
 | `TARGET_MEDIAN_BIN` | **34** | **Single** luminance target for preview, DNG, and tonal still (May 2026 USB parity; was 40 then 56). |
-| `MEDIAN_DEADBAND_BINS` | **10** | No chase adjust if ‖medianEma − target‖ &lt; 10 |
-| `MEDIAN_EMA_ALPHA` | **0.22** | Histogram median smoothing |
-| `LUMINANCE_BLEND_ALPHA` | **0.14** | Per-sample blend toward equilibrium |
+| `MEDIAN_DEADBAND_BINS` | **6** | No chase adjust if ‖medianEma − target‖ &lt; 6 |
+| `MEDIAN_EMA_ALPHA` | **0.32** | Histogram median smoothing |
+| `LUMINANCE_BLEND_ALPHA` | **0.28** | Per-sample blend toward equilibrium |
 | `MIN_EV_STEP` | **0.04** | Minimum EV step (H-EV chase path) |
 | `MAX_EV_STEP` | **0.10** | Max EV step per YUV frame (H-EV chase) |
-| `MIN_SIGNIFICANT_EXPOSURE_RATIO` | **1.023** | ~1/15 stop — min ratio to push HAL refresh |
-| `MIN_SIGNIFICANT_ISO_RATIO` | **1.023** | Same for ISO axis |
+| `MIN_SIGNIFICANT_EXPOSURE_RATIO` | **1.012** | ~1/30 stop — min ratio to push HAL refresh |
+| `MIN_SIGNIFICANT_ISO_RATIO` | **1.012** | Same for ISO axis |
 
 ### 4.2 Controller timing
 
 | Setting | Value |
 |---------|-------|
-| YUV histogram min interval | **50 ms** (~20 Hz) — `readoutChaseHistMinIntervalMs` |
-| HAL repeating refresh min gap | **150 ms** — `readoutChaseRefreshMinGapMs` |
+| YUV histogram min interval | **33 ms** (~30 Hz) — `readoutChaseHistMinIntervalMs` |
+| HAL repeating refresh min gap | **66 ms** (~15 Hz) — `readoutChaseRefreshMinGapMs` |
+| Readout chip poll (Compose) | **100 ms** when one axis locked + auto chase; else **350 ms** |
+| YUV during in-app video record | **Attached** when `wantsReadoutExposureChase()` (or H/face/hist); RAW/JPEG still surfaces stay off while recorder is present |
 | Chase state | `readoutChaseExposureNs` (locked ISO), `readoutChaseIso` (locked SS) |
 
 ### 4.3 One exposure knob (DNG + tonal still)
@@ -229,7 +239,9 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 **Diagnostics:** `Log.i(PNS.CaptureStill, "dng save diag …")` with `DngMetadataResolution.toDiagSummary()`.
 
-**Post-save / creator metadata (Sprint 15.14):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` (ISO, exposure, f-number, **focal rational**, **FocalLengthIn35mmFilm 0xA405**) + IFD0 DateTime **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock).
+**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock). On OP13 rear leaf (**2/3/4**), `skipStillMetadataApplyOnLeafDng` skips post-save EXIF patches (ProShot parity). Leaf DNGs also skip P&S software auxiliary strings (`skipDngSoftwareDescriptionOnLeaf`).
+
+**OP13 leaf DNG (shipped May 2026):** `ProShotLeafStillCaptureRequest` + `ProShotDngCreatorPair` mirror ProShot decompile: crop + still IQ (lens shading map, edge/NR/tonemap/aberration/distortion) + **HAL AE** on still — **no** readout manual ISO, no `applyProShotPreviewExposureFromResult` AE latch, no post-save TIFF reconcile. Code: `useExactProShotLeafStillCaptureRequest()`, `useOp13LeafAuxColorReconcile=false`, `useProShotReferenceCalibration=false`.
 
 ### 5.3 Advanced capture modes (Sprint CC.1)
 
@@ -237,6 +249,7 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 |---------|---------|----------|
 | Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` | Shutter runs [PreviewController.captureComposedStillBurst] (composed IMG path). |
 | Intervalometer | `intervalometerIntervalSec` + `intervalometerRunning` | Timed stills while preview is open (photo mode, not recording). |
+| Time-lapse output | `timeLapseMode` (`Off` / `Photo` / `Video`) | **Video:** hardware JPEG frames → H.264 MP4 @ 30 fps (`TimeLapseVideoEncoder`, PTS = frame × 1/30 s). Blocks RAW DNG + normal video rec while active. Requires JPEG tier in IMG menu. Log: `PNS.TimeLapse`. |
 | Pre-capture buffer | `preCaptureBufferEnabled` | Enables [ZslStillFrameRing] on preview RAW; Standard stills use ZSL ring when on. |
 
 **ADB:** `--ei pns_preview_burst_count N` + `--ei pns_preview_burst_interval_ms MS`. Gate: `scripts/pns_capture_modes_test.ps1`.
@@ -247,6 +260,7 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 |---------|---------|----------|
 | Picture profiles | `HudSettings.selectedPictureProfileId` + `ProPictureProfiles` | Presets apply stills/video LUT, JPEG ISP bias, optional `ImagingProfile` (e.g. Ultra RAW). |
 | Tethered capture | `tetheredCaptureEnabled` | Loopback HTTP on **127.0.0.1:28765** — `GET /status`, `POST /capture`, `POST /flash?mode=auto\|torch\|off`. |
+| Wi‑Fi Direct tether | `wifiDirectTetherEnabled` | Dual bind **0.0.0.0:28765** + loopback; mDNS **`_pns-tether._tcp`**; see **`docs/TETHER_API.md`**. Log: `wifiDirectBound=true` |
 | Flash strength | `previewFlashStrengthPercent` (**25–100**) | Maps to `CaptureRequest.FLASH_STRENGTH_LEVEL` when HAL advertises (API 35+). |
 | Calibration I/O | `ColorCalibrationTools` | Export newest `CalibrationProfileStorage` profile to `files/color_calibration/`; SAF import JSON. Chart capture remains **Calibrate** screen (not a RAW editor). |
 
@@ -309,9 +323,10 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | **150 mm** | `LongTele150` digital crop on **mid-tele** sensor — **not** `longTeleId` |
 | Open camera | Prefer **physical tele id** when in `cameraIdList` (`tid to mode`) over logical **0** first |
 | Fleet policy enum | **No** second tele routing policy / persisted prefs (dodge path only) |
-| First-launch scan | `FleetCameraStartupScan` → `files/fleet_focal_map.json`; slots **&lt;12 MP** → `grayscaled=true` on focal strip |
+| First-launch scan | `FleetCameraStartupScan` → `files/fleet_focal_map.json` (legacy); **M16** consolidates into `files/fleet_device_matrix.json` **`product.focalSlots`** |
+| Fleet matrix (M16) | `FleetDeviceMatrixBuilder` quick tier on hub probe → `fleet_device_matrix.json`; invalidates on fingerprint + `appVersionCode` — `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` |
 
-**Verification:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` — do **not** run parallel with `pns_photo_capture_verify` on one device.
+**Verification:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` — do **not** run parallel with `pns_photo_capture_verify` on one device. **Primary fleet USB device:** CPH2583 (see `AGENTS.md`).
 
 ---
 
@@ -334,9 +349,12 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 
 | Setting | Default | Notes |
 |---------|---------|-------|
-| `showHistogram` | **false** | Enables YUV analysis stream when on |
-| `showRgbHistogram` | **false** | Requires histogram |
-| `showHighlightClipZebra` | **false** | ~0.95 luma zebra |
+| `showHistogram` | **false** | Enables YUV analysis stream when on (photo-primary) |
+| `showHistogramDuringVideo` | **false** | Video-primary: arms YUV + shows luma histogram overlay **while recording** only |
+| `showRgbHistogram` | **false** | Requires histogram pipeline |
+| `showHighlightClipZebra` | **false** | Near-clip zebra (legacy toggle; syncs with `falseColorMode`) |
+| `falseColorMode` | **off** | `off` / `zebra` / `false_color` — zebra + false-color bands on YUV analysis |
+| `zebraIreThreshold` | **95** | IRE % (75–100) → luma threshold for zebra grid |
 | `showHighlightWeightedMeter` | **true** | H-mode-related UI |
 | `enablePostRawSensitivityBoost` | **false** | See §5.4 |
 | `enableLensOpticalStabilization` | **true** | Preview + still policy in `PreviewStabilization` |
@@ -389,6 +407,8 @@ Command dial default on fresh install: **`CommandDialMode.M`** in probe/preview 
 | Setting | Value |
 |---------|-------|
 | 8-bit HEVC VUI | **BT.709 limited** on **MediaCodec** path (all 8-bit HEVC fps, incl. ≤60); log `PNS.MCVideoRec colorVui=bt709`. H.264 ≤60 stays **MediaRecorder**. |
+| Video color profile | **M15.16** — [VideoColorProfile] in `HudSettings` (`sdr` / `hlg` / `flat_cine`). **HLG** → MediaCodec **Main10** + `colorVui=bt2020-hlg`; preview applies HLG→linear→sRGB in `lut_preview_external.frag.glsl`. **Flat/cine** → preview tone curve + BT.709 limited encode. Settings → Video rail. |
+| Still ICC (JPEG) | **M15.17** — [IccProfileBuilder] + [JpegIccEmbedder] APP2 `ICC_PROFILE` after EXIF on JPEG stills (`StillCaptureMetadata.applyToJpegUri`, uses [ImagingProfile.colorSpace]). **Not** on DNG. AVIF: `AvifStillMuxer` `colr` `prof` when `iccProfileBytes` set (Kotlin mux); native AVIF remains CICP `nclx`. |
 | H.264 @ 60 (reference) | Typically bt470bg / smpte170m (device-dependent) |
 | In-app preview cap FPS | `VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS` |
 | Gate scripts | `scripts/pns_video_codec_color_compare.ps1` (H.264 @60 MR + 8-bit HEVC @60/@30 MC; `colorVui=bt709` + ffprobe) → `scripts/pns_hfr_color_compare_frames.ps1` (wraps gate + `scripts/video_codec_yuv_compare.py`; mean Cb/Cr Δ &lt; 8) |
@@ -397,7 +417,13 @@ Command dial default on fresh install: **`CommandDialMode.M`** in probe/preview 
 | 8K session negotiate | While recording (non-HFR), clamp encode size to HAL **MediaRecorder** outputs; align preview **SurfaceTexture** buffer to record size when listed (`InAppVideoRecordingSupport.pickPreviewSizeAlignedToRecord`); log `PNS.VideoEncode eightKNegotiation` |
 | 8K picker gate | `InAppVideoFormatSelection` requires HAL MR/ST **and** encoder `supports8k` for 8K rows; orange banner when probe or HAL missing |
 | Preview stream fit | Always **contain** (shrink-to-fit) in the finder — no user toggle. GLES: [lut_preview_external.vert.glsl] `viewToBufferUv` + raw [SurfaceTexture] matrix; layout footprint uses [previewBufferDimensionsForDisplay] (portrait 3:4). Tap/HUD: [mapViewToBufferWithExternalOesPreview] / [mapBufferToViewWithExternalOesPreview] on the GL content box. USB gate: `scripts/pns_preview_jpeg_framing_gate.ps1` |
-| PPM audio meters | `PpmAudioMeter` in `PreviewTopStatusBar` when `audioMeters=true` during video record |
+| PPM audio meters | `PpmAudioMeter` in `PreviewTopStatusBar` when `audioMeters=true` during video record; when **pillar-bar HUD** is active (`showVideoPillarHud`, letterbox ≥24dp), meters move to the right pillar and top-bar `audioMeters=false` |
+| Pillar-bar video HUD | **M15.23** — `showVideoPillarHud`; left pillar = timecode + thermal rotated **+90° CW** (landscape record); right pillar = **horizontal** PPM (quiet→loud left→right); `LivePpmAudioMeter` polls amplitude ~50 ms |
+| Video audio source | **M15.24** — `videoAudioSource` in Settings → Video; `PNS.MCVideoRec audioSource=` log |
+| Focus breathing comp | **M15.28** — `enableFocusBreathingComp` + `focusBreathingCompK` (default **0.005**); M dial + tele slot + manual focus widens `SCALER_CROP_REGION` when diopters rack (EMA). Log: `PNS.FocusBreathing` |
+| Rack focus waypoints | **M15.36** — `rackFocusWaypointNear` / `rackFocusWaypointFar` + `rackFocusDurationMs` (500–3000 ms); long-press **AF** readout chip; **▶ Rack** on M dial. Log: `PNS.RackFocus rackFocus from=` |
+| Dual ISO video (experimental) | **M15.38** — `dualIsoVideoEnabled`; probes `SCALER_MULTI_RESOLUTION_STREAM_CONFIGURATION_MAP` on session create (API 31+). Toggle greyed when probe fails. [DualIsoVideoMerger] pass-through stub only. Log: `PNS.DualIso multiResSupported=` |
+| False color / zebra QS | **M15.21** — grid **r2c1** (`CycleFalseColor`): tap cycles off → zebra → exposure bands; long-press menu |
 | Dual video automation | `pns_preview_dial=DUAL` + `pns_preview_video_fps=30` + `pns_preview_automation_in_app_video_sec`; app waits for `dualGlRecordArmed` before record duration (`pns_dual_video_verify.ps1`) |
 
 Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / resolution prefs).
@@ -409,7 +435,10 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | Pref / behavior | Default | Notes |
 |-----------------|---------|-------|
 | `audioHiFiCapture` | **false** | When true: prefer **96 kHz** then 48 kHz; AAC **256 kbps**; PCM **16-bit** stereo |
-| `audioWindNoiseReduction` | **true** | `NoiseSuppressor` on `AudioRecord` session when available |
+| `videoAudioSource` | **camcorder** | Mic path for in-app record — Settings → Video (`HudSettings`) |
+| `audioGainDb` | **0** | In-app MediaCodec mic gain (−12…+12 dB, 0.5 step); `PNS.MCVideoRec audioGainDb=` log |
+| `windNoiseFilterEnabled` | **false** | When true **and** source is Camcorder: `NoiseSuppressor` + `AcousticEchoCanceler` after `AudioRecord.startRecording()` (`PNS.Audio` `windFilter=on`) |
+| `audioWindNoiseReduction` | **true** | Legacy FAB toggle — `PreviewChromePreferences`; in-app MediaCodec path uses `windNoiseFilterEnabled` instead |
 | `audioPreferExternalInput` | **true** | `AudioRecord.setPreferredDevice` for USB / wired / BT SCO |
 | `shutterSoundPackKey` | **mechanical** | `mechanical`, `digital`, `vintage`, `silent` — CC0 samples via `SoundPool` (`res/raw/shutter_*.ogg`; see `assets/sounds/shutter_cc0/SOURCE.txt`) |
 
@@ -456,13 +485,21 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_adaptive_battery_pct` | PO.2 gate: override battery % for [PreviewAdaptiveFpsPolicy] |
 | `pns_preview_adaptive_thermal_status` | PO.2 gate: override [PowerManager] thermal status int |
 | `pns_preview_audio_hifi` | AS.1 — session seed `audioHiFiCapture` |
-| `pns_preview_audio_wind` | AS.1 — session seed `audioWindNoiseReduction` |
+| `pns_preview_audio_wind` | AS.1 — session seed `audioWindNoiseReduction` (chrome) + maps to `windNoiseFilterEnabled` when `pns_preview_wind_noise_filter` absent |
+| `pns_preview_wind_noise_filter` | 15.25 — session seed `HudSettings.windNoiseFilterEnabled` |
+| `pns_preview_timelapse_mode` | 15.27 — `off` / `photo` / `video` → `HudSettings.timeLapseMode` |
+| `pns_preview_timelapse_running` | 15.27 — seed `intervalometerRunning` |
+| `pns_preview_timelapse_interval_sec` | 15.27 — seed `intervalometerIntervalSec` (normalized to CC.1 options) |
+| `pns_preview_focus_breathing_comp` | 15.28 — seed `HudSettings.enableFocusBreathingComp` |
+| `pns_preview_automation_focus_rack_sec` | 15.28 — sweep manual focus diopters for gate (`PNS.FocusBreathing`) |
 | `pns_preview_shutter_sound_pack` | AS.2 — session seed shutter pack key |
 | `pns_preview_theme_mode` | **UX.1** — `System` / `Light` / `Dark` → `UxSettings` + `PnsTheme` |
 | `pns_preview_workflow_preset` | **UX.3** — built-in `street` / `portrait` / `video_log` (dial + imaging + photo/video tray + optional FPS) |
 | `pns_preview_open_gallery` | **UX.2/UX.3** — open bespoke gallery overlay on cold preview |
 | `pns_preview_gallery_batch_share` | **UX.3** — int ≥ 2: auto-select N indexed items and `ACTION_SEND_MULTIPLE` |
 | `pns_preview_readout_shutter_ns` | **M15.10** — lock shutter speed (ns) so ISO chase emits `PNS.Cam readoutChase` logs |
+| `pns_preview_open_settings` | **M15.8** — open chrome Settings rail (`settingsRail=open` in `PNS.ChromeUx`) |
+| `pns_preview_video_shutter_angle` | **M15.11** — video-primary: apply [VideoShutterAngle] preset (`Angle180`, …); logs `readoutManual videoShutterAngle=` |
 | `pns_preview_platform_share_probe` | **IP.1** — [SharingManager] share probe on first indexed capture |
 | `pns_preview_platform_file_provider_probe` | **IP.1** — FileProvider authority probe |
 | `pns_preview_platform_widget_probe` | **IP.1** — log widget + installed external viewers |
@@ -543,6 +580,8 @@ Log: `PNS.PowerThermal longRunningPaused=true/false`.
 **Gallery return:** `restartMainActivityCold` when tray opens external viewer successfully; else `kickPreviewPipelineRestart()` + optional `GLSurfaceView.post { requestLayout() }`.
 
 **Tray surface restore:** `PreviewLastSurfacePrefs` (`pns_preview_last_surface.xml`) stores the last **Photo** / **Video** / in-app **Gallery** tray surface. Cold start restores it unless ADB `pns_preview_primary_photo`, `MediaStore` video capture intents, or still/video return contracts override. Saved on tray changes and `ON_STOP` via `LaunchedEffect` in `PreviewEngineScreen`.
+
+**Tray mode settings (photo vs video):** `PreviewTrayModeStore` (`pns_tray_mode_settings.xml`) snapshots per-tray readout overrides (ISO / shutter / AWB / AE lock / ISO band), target FPS, OIS, EIS, and video shutter-angle preset. On Photo ↔ Video FAB toggle, the outgoing mode is saved and the incoming mode is restored (`PNS.ChromeUx trayModeRestore=…`). Video locked SS from shutter-angle presets no longer carries into photo mode. **STAB chip** reflects live HUD toggles synced to [PreviewController] (`setLiveHudSettings`); EIS is hidden when manual sensor / locked shutter blocks preview EIS (same rule as [PreviewStabilization.applyToRequest]). Labels: **OIS** / **EIS** / **OIS+EIS** when active; **Off** when advertised but disabled. Readout strip auto-scales chip typography to fit AF + STAB + LUT chips (incl. angle-prefixed SS); bottom tray height **76 dp** (was 92).
 
 **PO.1 memory (Sprint PO.1):** `PnsBitmapGuard` (`PNS.Bitmap`) tracks gallery/tray bitmap recycle; `PnsMediaStoreGallery` (`PNS.GalleryIndex`) indexes `DCIM/Point & Shoot` via `RELATIVE_PATH` + `QUERY_ARG_LIMIT` (lazy EXIF on selection); preview session logs `PNS.MemoryProfiler` (10 s interval, CSV under app external `memory_profiles/`). Gate: `scripts/pns_memory_profiler.ps1`.
 

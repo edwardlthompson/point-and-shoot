@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "scanMeta": {
+    "scanTier": "full",
+    "appVersionCode": 14003,
+    "fingerprintSha256Prefix": "fixture",
+    "scanDurationMs": 1
+  },
+  "device": {
+    "manufacturer": "Fixture",
+    "model": "GATE_TEST",
+    "device": "gate_test"
+  },
+  "cameras": [
+    {
+      "cameraId": "2",
+      "hfrMaxFpsAt1080": 120,
+      "rawPickEffective": "RAW_SENSOR",
+      "featureGates": {
+        "raw": { "advertised": true, "sessionOk": true, "appEnabled": true },
+        "hfr": { "advertised": true, "sessionOk": false, "appEnabled": false },
+        "face": { "advertised": true, "sessionOk": true, "appEnabled": true }
+      }
+    },
+    {
+      "cameraId": "3",
+      "hfrMaxFpsAt1080": 480,
+      "rawPickEffective": "RAW_SENSOR",
+      "featureGates": {
+        "raw": { "advertised": true, "sessionOk": true, "appEnabled": true },
+        "hfr": { "advertised": true, "sessionOk": true, "appEnabled": true },
+        "face": { "advertised": false, "sessionOk": false, "appEnabled": false }
+      }
+    }
+  ],
+  "product": {
+    "fleetProfiles": {
+      "policyId": ""
+    }
+  },
+  "appendix": {}
+}

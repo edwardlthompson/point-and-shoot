@@ -4,8 +4,10 @@ import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.StreamConfigurationMap
+import android.util.Log
 import android.util.Range
 import android.util.Size
+import dev.pointandshoot.fleet.FleetCapabilityGate
 
 /**
  * Shared FPS catalog for quick settings: merges advertised Camera2 targets with
@@ -49,11 +51,23 @@ object PreviewFpsSupport {
             }
         }
 
+        val matrixHfrCeiling = FleetCapabilityGate.matrixHfrFpsCeiling(context, cameraId)
         return merged.sorted().map { fps ->
-            QuickFpsOption(
-                targetFps = fps,
-                requiresRoot = !canAchieveWithoutRoot(cm, cameraId, map, fps),
-            )
+            val stockAchievable = canAchieveWithoutRoot(cm, cameraId, map, fps)
+            val requiresRoot =
+                when {
+                    matrixHfrCeiling != null && fps > matrixHfrCeiling -> true
+                    else -> !stockAchievable
+                }
+            QuickFpsOption(targetFps = fps, requiresRoot = requiresRoot)
+        }.also { opts ->
+            matrixHfrCeiling?.let { ceiling ->
+                val maxStock = maxStockTargetFromOptions(opts)
+                Log.d(
+                    "PNS.FleetGate",
+                    "fpsPicker cameraId=$cameraId matrixHfrCeiling=$ceiling maxStock=$maxStock",
+                )
+            }
         }
     }
 

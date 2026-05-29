@@ -1,124 +1,135 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Sprint 13.9 ADB gate: RGB histogram verification.
-    Launches preview with histogram enabled via ADB, records for WaitSec seconds,
-    then checks logcat for:
-      1. YUV analysis frame processed (histogram path entered)
-      2. No rgbHistogram reduce failures
-      3. Recording started and stopped cleanly (standard gate)
-      4. No camera errors
-    Writes results to hfr-runs\rgb_histogram_verify_<timestamp>\results.json
+  Sprint **15.18** — ZSL ring RGB histogram + "ZSL" badge with pre-capture buffer enabled.
+
+  Patches HUD prefs (histogram + RGB + pre-capture buffer), cold-starts photo preview,
+  waits for ZSL ring + histogram path, screencaps finder overlay.
+
+.EXAMPLE
+  .\scripts\pns_rgb_histogram_verify.ps1 -Serial b5214fc6
 #>
 param(
-    [int]$RecordSec = 6,
-    [string]$Serial = ""
+    [string]$Serial = "",
+    [int]$SettleSec = 20,
+    [switch]$SkipAssemble,
+    [switch]$SkipInstall
 )
 
-Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$repo = Split-Path -Parent $PSScriptRoot
+. (Join-Path $repo "scripts\pns_resolve_adb.ps1") -PrependToPath -Quiet
 
-$stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$outDir = "hfr-runs\rgb_histogram_verify_$stamp"
-New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-
-function Invoke-AdbCmd {
-    if ($Serial -ne "") {
-        & adb -s $Serial @args
-    } else {
-        & adb @args
+function Read-Serial {
+    param([string]$S)
+    if ($S) { return $S }
+    $envFile = Join-Path $repo "scripts\pns_adb_device.env"
+    if (Test-Path $envFile) {
+        Get-Content $envFile | ForEach-Object {
+            if ($_ -match '^\s*PNS_ADB_SERIAL\s*=\s*(.+)\s*$') { return $Matches[1].Trim() }
+        }
     }
+    throw "Set PNS_ADB_SERIAL or -Serial"
 }
 
-Write-Host "=== PNS RGB Histogram Verify (Sprint 13.9) ===" -ForegroundColor Cyan
+function Set-HudBoolPref {
+    param([string]$Xml, [string]$Name, [bool]$Value)
+    $v = if ($Value) { "true" } else { "false" }
+    $pattern = "<boolean name=`"$Name`" value=`"[^`"]*`" />"
+    $replacement = "<boolean name=`"$Name`" value=`"$v`" />"
+    if ($Xml -match [regex]::Escape($Name)) {
+        return ($Xml -replace $pattern, $replacement)
+    }
+    return ($Xml -replace "</map>", "    $replacement`r`n</map>")
+}
 
-# Force-stop, enable histogram + RGB via shared prefs ADB write, clear logcat
-Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
-Start-Sleep -Milliseconds 600
+$Serial = Read-Serial $Serial
+$pkg = "dev.pointandshoot"
+$outDir = Join-Path $repo "hfr-runs\rgb_histogram_verify_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-# Enable showHistogram + showRgbHistogram in HUD settings via ADB content provider
-Invoke-AdbCmd shell "am start -n dev.pointandshoot/.MainActivity --es pns_screen preview --ei pns_preview_automation_in_app_video_sec $RecordSec" 2>&1 | Out-Null
+Write-Host "=== PNS RGB / ZSL Histogram Verify (Sprint 15.18) ===" -ForegroundColor Cyan
 
-# Let the app initialise, then push the prefs (app must be running to ensure prefs file exists)
-Start-Sleep -Seconds 3
+if (-not $SkipAssemble) {
+    & (Join-Path $repo "scripts\pns_gradlew.ps1") :app:assembleDebug
+}
+$apk = Join-Path $repo "app\build\outputs\apk\debug\app-debug.apk"
+if (-not $SkipInstall) {
+    adb -s $Serial install -r -t $apk | Out-Null
+    adb -s $Serial shell pm grant $pkg android.permission.CAMERA 2>$null | Out-Null
+}
 
-Invoke-AdbCmd shell "settings put global pns_override_show_histogram 1" 2>$null
+$hudPath = "/data/data/$pkg/shared_prefs/pns_hud_settings.xml"
+$hud = (adb -s $Serial shell "run-as $pkg cat $hudPath" 2>&1) -join "`n"
+if ($hud -notmatch "<map>") { throw "missing pns_hud_settings.xml" }
+$hud = Set-HudBoolPref $hud "show_histogram" $true
+$hud = Set-HudBoolPref $hud "show_rgb_histogram" $true
+$hud = Set-HudBoolPref $hud "pre_capture_buffer_enabled" $true
+$tmpHud = [System.IO.Path]::GetTempFileName() + ".xml"
+[System.IO.File]::WriteAllText($tmpHud, $hud, [System.Text.UTF8Encoding]::new($false))
+adb -s $Serial push $tmpHud /data/local/tmp/pns_hud_hist.xml | Out-Null
+adb -s $Serial shell "run-as $pkg cp /data/local/tmp/pns_hud_hist.xml $hudPath" | Out-Null
+Remove-Item $tmpHud -Force -ErrorAction SilentlyContinue
 
-# Toggle histogram via simulated adb am broadcast (app reads HudSettings from prefs on each composable recompose)
-# The most reliable path is: stop, write prefs directly, relaunch
-Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
-Start-Sleep -Milliseconds 400
+adb -s $Serial shell am force-stop $pkg 2>$null | Out-Null
+adb -s $Serial logcat -c 2>$null | Out-Null
 
-# Write SharedPreferences directly (root not required — app private prefs path via run-as)
-$prefsPath = "/data/data/dev.pointandshoot/shared_prefs/pns_hud_settings.xml"
-$runAs = "run-as dev.pointandshoot"
-Invoke-AdbCmd shell "$runAs cat $prefsPath" 2>&1 | Out-Null
-
-# Patch prefs: set show_histogram and show_rgb_histogram to true
-$patchResult = Invoke-AdbCmd shell "$runAs sh -c 'grep -q show_histogram /data/data/dev.pointandshoot/shared_prefs/pns_hud_settings.xml && echo exists || echo missing'" 2>&1
-Write-Host "  Prefs probe: $patchResult"
-
-Invoke-AdbCmd logcat -c 2>$null
-
-Write-Host "Launching app with in-app video for ${RecordSec}s..."
-Invoke-AdbCmd shell am start -n "dev.pointandshoot/.MainActivity" `
+adb -s $Serial shell am start -W -n "$pkg/.MainActivity" `
+    --activity-clear-task `
     --es pns_screen preview `
-    --ei pns_preview_automation_in_app_video_sec $RecordSec `
-    --ez pns_adb_override_show_histogram true 2>&1 | Out-Null
+    --ez pns_preview_primary_photo true `
+    --es pns_preview_imaging_profile standard_pro `
+    --ei pns_preview_camera_id 2 2>&1 | Out-Null
 
-$totalWait = $RecordSec + 16
-Write-Host "Waiting ${totalWait}s for recording to complete..."
-Start-Sleep -Seconds $totalWait
+Write-Host "Waiting ${SettleSec}s for ZSL ring + histogram..."
+Start-Sleep -Seconds $SettleSec
 
-$logLines = (Invoke-AdbCmd logcat -d -v threadtime 2>&1) -join "`n"
-$logLines | Set-Content "$outDir\logcat.txt" -Encoding UTF8
+$capPath = Join-Path $outDir "preview_histogram_screencap.png"
+& (Join-Path $repo "scripts\pns_device_screencap.ps1") -Serial $Serial -OutPath $capPath | Out-Host
 
-# --- Gate checks ---
-$recordStart    = $logLines -match "start in-app video automation|inAppVideoShellRequest"
-$videoStopped   = $logLines -match "finished in-app video automation|inAppVideoStopped"
-$yuvProcessed   = $logLines -match "histogram reduce|reduceYuv420|mlFaceHud|rgbHistogram|previewHistogram"
-$noRgbFail      = -not ($logLines -match "rgbHistogram reduce failed")
-$camErrors      = $logLines -match "CAMERA_DISCONNECTED|onError.*cameraId"
-$noStartFail    = -not ($logLines -match "inAppVideoAutomation recorderMissingOrFailed")
+$logPath = Join-Path $outDir "logcat.txt"
+adb -s $Serial logcat -d -v threadtime -s PNS.Cam:I PNS.PreviewSessionCtx:I AndroidRuntime:E 2>&1 |
+    Out-File -Encoding utf8 $logPath
+$logRaw = Get-Content $logPath -Raw
+
+$preCapture = $logRaw -match "preCaptureBuffer enabled"
+$zslRing = $logRaw -match "zsl still ring|zslStillRing|ringCapacity="
+$noRgbFail = -not ($logRaw -match "zsl rgbHistogram reduce failed")
+$wantYuv = $logRaw -match "wantYuv=true"
+$screencapOk = Test-Path $capPath
+$camErrors = $logRaw -match "CAMERA_DISCONNECTED|onError.*cameraId|FATAL EXCEPTION"
+
+$overallPass = $preCapture -and $noRgbFail -and $screencapOk -and -not $camErrors
+
+$result = [ordered]@{
+    timestamp = (Get-Date -Format "yyyyMMdd_HHmmss")
+    passed = $overallPass
+    preCaptureBufferLog = [bool]$preCapture
+    zslRingLog = [bool]$zslRing
+    wantYuv = [bool]$wantYuv
+    noZslRgbFail = [bool]$noRgbFail
+    screencap = $capPath
+    cameraErrors = [bool]$camErrors
+}
+$result | ConvertTo-Json | Set-Content (Join-Path $outDir "results.json") -Encoding UTF8
+
+adb -s $Serial shell am force-stop $pkg 2>$null | Out-Null
 
 Write-Host ""
 Write-Host "Gate results:"
-Write-Host "  Recording started   : $recordStart"
-Write-Host "  Recording stopped   : $videoStopped"
-Write-Host "  YUV analysis active : $yuvProcessed"
-Write-Host "  No RGB reduce fail  : $noRgbFail"
-Write-Host "  No start failures   : $noStartFail"
-Write-Host "  Camera errors       : $camErrors"
+Write-Host "  preCaptureBuffer log : $preCapture"
+Write-Host "  ZSL ring activity    : $zslRing"
+Write-Host "  wantYuv              : $wantYuv"
+Write-Host "  No ZSL RGB fail      : $noRgbFail"
+Write-Host "  Screencap saved      : $screencapOk"
+Write-Host "  Camera errors        : $camErrors"
 Write-Host ""
 
-$overallPass = $recordStart -and $videoStopped -and $noRgbFail -and $noStartFail -and -not $camErrors
-
-$result = [ordered]@{
-    timestamp       = $stamp
-    passed          = $overallPass
-    recordingStart  = $recordStart
-    recordingStopped = $videoStopped
-    yuvAnalysisActive = $yuvProcessed
-    noRgbReduceFail = $noRgbFail
-    noStartFailure  = $noStartFail
-    cameraErrors    = $camErrors
-}
-$result | ConvertTo-Json | Set-Content "$outDir\results.json" -Encoding UTF8
-
 if ($overallPass) {
-    Write-Host "GATE: PASS" -ForegroundColor Green
-    Write-Host "  RGB histogram computation running without errors during recording." -ForegroundColor Gray
-    Write-Host "  Visual confirmation: histogram overlay shows R/G/B channels in colour." -ForegroundColor Gray
+    Write-Host "GATE: PASS — screencap at $capPath (visual: RGB histogram + ZSL badge)" -ForegroundColor Green
 } else {
-    Write-Host "GATE: FAIL" -ForegroundColor Red
-    if (-not $recordStart)   { Write-Host "  FAIL: recording did not start" -ForegroundColor Red }
-    if (-not $videoStopped)  { Write-Host "  FAIL: recording did not stop cleanly" -ForegroundColor Red }
-    if (-not $noRgbFail)     { Write-Host "  FAIL: rgbHistogram reduce failed in logcat" -ForegroundColor Red }
-    if (-not $noStartFail)   { Write-Host "  FAIL: recorder start failure detected" -ForegroundColor Red }
-    if ($camErrors)          { Write-Host "  FAIL: camera errors detected" -ForegroundColor Red }
+    Write-Host "GATE: FAIL — $outDir" -ForegroundColor Red
+    exit 1
 }
-
-# Force-stop (battery rule)
-Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
 
 Write-Host "Artifacts: $outDir"

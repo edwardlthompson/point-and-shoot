@@ -18,10 +18,24 @@ class CaptureMediaFamilyTest {
     }
 
     @Test
+    fun isMacroVideo_videoMacroDialOnly() {
+        assertTrue(CaptureMediaFamily.isMacroVideo(primaryPhoto = false, dial = CommandDialMode.Macro))
+        assertTrue(CaptureMediaFamily.isMacroVideo(CaptureMediaFamily.Video, CommandDialMode.Macro))
+        assertTrue(!CaptureMediaFamily.isMacroVideo(primaryPhoto = true, dial = CommandDialMode.Macro))
+        assertTrue(!CaptureMediaFamily.isMacroVideo(primaryPhoto = false, dial = CommandDialMode.Auto))
+    }
+
+    @Test
     fun commandDialModesFor_videoSubsetOfPhoto() {
         val video = CaptureMediaFamily.commandDialModesFor(CaptureMediaFamily.Video)
         assertEquals(
-            listOf(CommandDialMode.Auto, CommandDialMode.M, CommandDialMode.S, CommandDialMode.Dual),
+            listOf(
+                CommandDialMode.Auto,
+                CommandDialMode.M,
+                CommandDialMode.S,
+                CommandDialMode.Macro,
+                CommandDialMode.Dual,
+            ),
             video,
         )
         val photo = CaptureMediaFamily.commandDialModesFor(CaptureMediaFamily.Photo)

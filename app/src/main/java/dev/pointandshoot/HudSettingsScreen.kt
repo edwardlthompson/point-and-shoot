@@ -165,6 +165,10 @@ fun HudRailSheetContent(
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             rows.forEach { row -> HudToggle(row) }
         }
+        ZebraIreThresholdSection(
+            ire = settings.zebraIreThreshold,
+            onIreChange = { v -> patchHud { it.copy(zebraIreThreshold = v) } },
+        )
         WhiteBalanceReadoutInfoCard()
         CompositionGuideQuickControls()
         TextButton(
@@ -230,6 +234,15 @@ private fun HudSettingsScreenContent(
     var gateLines by remember { mutableStateOf<List<String>>(emptyList()) }
     LaunchedEffect(cameraGranted, ctx) {
         gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
+    }
+    var dualIsoMultiResSupported by remember { mutableStateOf(false) }
+    LaunchedEffect(cameraGranted, ctx) {
+        dualIsoMultiResSupported =
+            if (cameraGranted) {
+                DualIsoVideoMerger.probeMultiResFromContext(ctx)
+            } else {
+                false
+            }
     }
 
     val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, patchHud) }
@@ -371,6 +384,55 @@ private fun HudSettingsScreenContent(
                     onScaleChange = { pct -> onUpdate(settings.copy(videoBitrateScalePercent = pct)) },
                 )
             }
+            item(key = "video_audio_source") {
+                VideoAudioSourceSection(
+                    selected = settings.videoAudioSourceEnum(),
+                    onSelect = { src -> onUpdate(settings.copy(videoAudioSource = src.storageId)) },
+                )
+            }
+            item(key = "video_audio_gain") {
+                VideoAudioGainSection(
+                    gainDb = settings.audioGainDb,
+                    onGainChange = { db -> onUpdate(settings.copy(audioGainDb = db)) },
+                )
+            }
+            item(key = "video_wind_noise_filter") {
+                VideoWindNoiseFilterSection(
+                    enabled = settings.windNoiseFilterEnabled,
+                    camcorderSource = settings.videoAudioSourceEnum() == VideoAudioSource.Camcorder,
+                    onChange = { on -> onUpdate(settings.copy(windNoiseFilterEnabled = on)) },
+                )
+            }
+            item(key = "video_dual_iso") {
+                VideoDualIsoSection(
+                    enabled = settings.dualIsoVideoEnabled,
+                    multiResSupported = dualIsoMultiResSupported,
+                    onChange = { on -> onUpdate(settings.copy(dualIsoVideoEnabled = on)) },
+                )
+            }
+            item(key = "video_focus_breathing") {
+                VideoFocusBreathingSection(
+                    enabled = settings.enableFocusBreathingComp,
+                    k = settings.focusBreathingCompK,
+                    onEnabledChange = { on -> onUpdate(settings.copy(enableFocusBreathingComp = on)) },
+                    onKChange = { k -> onUpdate(settings.copy(focusBreathingCompK = k)) },
+                )
+            }
+            item(key = "rack_focus_waypoints_info") {
+                RackFocusWaypointsInfoSection()
+            }
+            item(key = "video_histogram_during_recording") {
+                VideoHistogramDuringRecordingSection(
+                    enabled = settings.showHistogramDuringVideo,
+                    onChange = { on -> onUpdate(settings.copy(showHistogramDuringVideo = on)) },
+                )
+            }
+            item(key = "zebra_ire_threshold") {
+                ZebraIreThresholdSection(
+                    ire = settings.zebraIreThreshold,
+                    onIreChange = { v -> onUpdate(settings.copy(zebraIreThreshold = v)) },
+                )
+            }
             items(rows, key = { it.title }) { row -> HudToggle(row) }
             item(key = "wb_readout_info") {
                 WhiteBalanceReadoutInfoCard()
@@ -408,6 +470,37 @@ private fun WhiteBalanceReadoutInfoCard() {
 }
 
 @Composable
+private fun ZebraIreThresholdSection(
+    ire: Int,
+    onIreChange: (Int) -> Unit,
+) {
+    val clamped = ire.coerceIn(PreviewLumaHistogram.IRE_MIN, PreviewLumaHistogram.IRE_MAX)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Zebra IRE threshold ($clamped)",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text = "75–100 IRE maps to near-clip luma on the YUV analysis grid (Sprint 15.21).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        androidx.compose.material3.Slider(
+            value = clamped.toFloat(),
+            onValueChange = { v ->
+                onIreChange(v.toInt().coerceIn(PreviewLumaHistogram.IRE_MIN, PreviewLumaHistogram.IRE_MAX))
+            },
+            valueRange = PreviewLumaHistogram.IRE_MIN.toFloat()..PreviewLumaHistogram.IRE_MAX.toFloat(),
+            steps = PreviewLumaHistogram.IRE_MAX - PreviewLumaHistogram.IRE_MIN - 1,
+        )
+    }
+}
+
+@Composable
 private fun VideoBitrateScaleSection(
     scalePercent: Int,
     onScaleChange: (Int) -> Unit,
@@ -434,6 +527,265 @@ private fun VideoBitrateScaleSection(
                 HudSettings.VIDEO_BITRATE_SCALE_MAX.toFloat(),
             steps = 9,
         )
+    }
+}
+
+@Composable
+private fun VideoAudioGainSection(
+    gainDb: Float,
+    onGainChange: (Float) -> Unit,
+) {
+    val gain = HudSettings.coerceAudioGainDb(gainDb)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Recording audio gain",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "Boost or cut mic level for in-app MediaCodec video (−12 to +12 dB). " +
+                    "Applied to PCM before AAC encode.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Text(
+            text = "${"%.1f".format(gain)} dB (${"%.2f".format(HudSettings.audioGainDbToLinear(gain))}×)",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White,
+        )
+        androidx.compose.material3.Slider(
+            value = gain,
+            onValueChange = { v -> onGainChange(HudSettings.coerceAudioGainDb(v)) },
+            valueRange = HudSettings.AUDIO_GAIN_DB_MIN..HudSettings.AUDIO_GAIN_DB_MAX,
+            steps = 47,
+        )
+    }
+}
+
+@Composable
+private fun VideoWindNoiseFilterSection(
+    enabled: Boolean,
+    camcorderSource: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Wind noise filter",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "When enabled with Camcorder audio source, attaches NoiseSuppressor and " +
+                    "AcousticEchoCanceler after recording starts.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        androidx.compose.material3.Switch(
+            checked = enabled,
+            onCheckedChange = onChange,
+            enabled = camcorderSource,
+        )
+        if (!camcorderSource) {
+            Text(
+                text = "Requires Camcorder audio source.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.55f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoDualIsoSection(
+    enabled: Boolean,
+    multiResSupported: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Dual ISO video (experimental)",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "Infrastructure only — probes SCALER_MULTI_RESOLUTION_STREAM_CONFIGURATION_MAP on " +
+                    "session create. Merge is pass-through until a future release.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        androidx.compose.material3.Switch(
+            checked = enabled,
+            onCheckedChange = onChange,
+            enabled = multiResSupported,
+        )
+        if (!multiResSupported) {
+            Text(
+                text = "Not supported on this device (multi-res stream map unavailable).",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.55f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun VideoAudioSourceSection(
+    selected: VideoAudioSource,
+    onSelect: (VideoAudioSource) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Video audio source",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "Mic path for in-app MediaCodec / MediaRecorder capture. Unprocessed requires API 24+ " +
+                    "(falls back to camcorder on older devices).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        VideoAudioSource.entries.forEach { source ->
+            OutlinedButton(
+                onClick = { onSelect(source) },
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                    androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor =
+                            if (source == selected) {
+                                PnsColors.PhotoOrange
+                            } else {
+                                Color.White.copy(alpha = 0.85f)
+                            },
+                    ),
+            ) {
+                Text(
+                    text = if (source == selected) "${source.label} (active)" else source.label,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RackFocusWaypointsInfoSection() {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Rack focus waypoints",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "Long-press the AF readout chip on the preview strip to set near/far waypoints " +
+                    "and run a smooth rack on the M dial (or manual distance mode).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+    }
+}
+
+@Composable
+private fun VideoHistogramDuringRecordingSection(
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Histogram during video recording",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "Keeps the YUV analysis stream armed in video mode and shows the luma histogram " +
+                    "overlay while recording. Does not restart the capture session mid-record.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Show histogram while recording",
+                description = "Bottom-right luma histogram during in-app video record.",
+                enabled = enabled,
+                onChange = onChange,
+            ),
+        )
+    }
+}
+
+@Composable
+private fun VideoFocusBreathingSection(
+    enabled: Boolean,
+    k: Float,
+    onEnabledChange: (Boolean) -> Unit,
+    onKChange: (Float) -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            text = "Focus breathing compensation (15.28)",
+            style = MaterialTheme.typography.titleSmall,
+            color = PnsColors.PhotoOrange,
+        )
+        Text(
+            text =
+                "M dial + tele focal slot + manual focus: subtly widens preview crop when focus racks " +
+                    "closer to counter lens breathing. Log: PNS.FocusBreathing.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Focus breathing compensation",
+                description = "Tele manual-focus crop nudge (M dial).",
+                enabled = enabled,
+                onChange = onEnabledChange,
+            ),
+        )
+        Text(
+            "Compensation strength (k)",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(0.003f to "Light", 0.005f to "Normal", 0.008f to "Strong").forEach { (value, label) ->
+                val sel = kotlin.math.abs(k - value) < 0.0005f
+                OutlinedButton(
+                    onClick = { onKChange(value) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        label,
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -494,6 +846,14 @@ private fun hudToggleRows(
             description = "Solid record-red border while video is recording.",
             enabled = settings.showVideoTally,
             onChange = { checked -> patch { it.copy(showVideoTally = checked) } },
+        ),
+        HudToggleRow(
+            title = "Pillar-bar video HUD",
+            description =
+                "During 16:9 video recording, show timecode + battery/thermal in the left " +
+                    "letterbox pillar and PPM audio meters in the right pillar (when wide enough).",
+            enabled = settings.showVideoPillarHud,
+            onChange = { checked -> patch { it.copy(showVideoPillarHud = checked) } },
         ),
         HudToggleRow(
             title = "Timecode (HH:MM:SS:FF)",
@@ -575,9 +935,60 @@ private fun hudToggleRows(
         HudToggleRow(
             title = "Highlight clip zebra (YUV)",
             description =
-                "Diagonal hatch where preview Y ≥ ~0.95 (near clip). Uses analysis stream; off by default.",
+                "Diagonal hatch where preview Y exceeds the IRE threshold below. Uses analysis stream; off by default.",
             enabled = settings.showHighlightClipZebra,
-            onChange = { checked -> patch { it.copy(showHighlightClipZebra = checked) } },
+            onChange = { checked ->
+                patch {
+                    it.copy(
+                        showHighlightClipZebra = checked,
+                        falseColorMode =
+                            if (checked && it.falseColorModeEnum() == FalseColorMode.Off) {
+                                FalseColorMode.ZebraOnly.storageId
+                            } else if (!checked && it.falseColorModeEnum() == FalseColorMode.ZebraOnly) {
+                                FalseColorMode.Off.storageId
+                            } else {
+                                it.falseColorMode
+                            },
+                    )
+                }
+            },
+        ),
+        HudToggleRow(
+            title = "False color: Off",
+            description = "No zebra or false-color YUV overlay.",
+            enabled = settings.falseColorModeEnum() == FalseColorMode.Off,
+            onChange = { on ->
+                if (!on) return@HudToggleRow
+                patch { it.copy(falseColorMode = FalseColorMode.Off.storageId, showHighlightClipZebra = false) }
+            },
+        ),
+        HudToggleRow(
+            title = "False color: Zebra only",
+            description = "Near-clip zebra at any preview FPS when YUV analysis is active.",
+            enabled = settings.falseColorModeEnum() == FalseColorMode.ZebraOnly,
+            onChange = { on ->
+                if (!on) return@HudToggleRow
+                patch {
+                    it.copy(
+                        falseColorMode = FalseColorMode.ZebraOnly.storageId,
+                        showHighlightClipZebra = true,
+                    )
+                }
+            },
+        ),
+        HudToggleRow(
+            title = "False color: Exposure bands",
+            description = "Blue shadows, orange highs, red clip on YUV analysis grid.",
+            enabled = settings.falseColorModeEnum() == FalseColorMode.FalseColor,
+            onChange = { on ->
+                if (!on) return@HudToggleRow
+                patch {
+                    it.copy(
+                        falseColorMode = FalseColorMode.FalseColor.storageId,
+                        showHighlightClipZebra = false,
+                    )
+                }
+            },
         ),
         HudToggleRow(
             title = "Focus peaking (preview / video)",
@@ -801,6 +1212,25 @@ private fun AdvancedCaptureHudSection(
                 }
             }
         }
+        Text(
+            "NightScape frames (Night dial)",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AdvancedCaptureSettings.nightScapeFrameCountOptions.forEach { n ->
+                val sel = settings.nightScapeFrameCount == n
+                OutlinedButton(
+                    onClick = { onUpdate(settings.copy(nightScapeFrameCount = n)) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        "$n",
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
         Text("Intervalometer", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             AdvancedCaptureSettings.intervalometerSecOptions.forEach { sec ->
@@ -839,6 +1269,26 @@ private fun AdvancedCaptureHudSection(
                 },
             ),
         )
+        Text(
+            "Time-lapse output",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TimeLapseMode.entries.forEach { mode ->
+                val sel = settings.timeLapseModeEnum() == mode
+                OutlinedButton(
+                    onClick = { onUpdate(settings.copy(timeLapseMode = mode.storageId)) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        mode.label,
+                        fontSize = 11.sp,
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
         HudToggle(
             HudToggleRow(
                 title = "Pre-capture buffer",
@@ -1051,6 +1501,43 @@ private fun ProFeaturesHudSection(
                     val next = settings.copy(tetheredCaptureEnabled = on)
                     hudState.update(next)
                     HudSettings.save(ctx.applicationContext, next)
+                },
+            ),
+        )
+        val wifiDirectPermLauncher =
+            rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestMultiplePermissions(),
+            ) { grants ->
+                val ok = WifiDirectTetherSupport.requiredPermissions().all { grants[it] == true }
+                if (!ok) {
+                    Toast.makeText(ctx, "Wi‑Fi tether needs location + nearby Wi‑Fi permissions", Toast.LENGTH_LONG).show()
+                }
+            }
+        HudToggle(
+            HudToggleRow(
+                title = "Wi‑Fi Direct tether (LAN)",
+                description =
+                    "HTTP on 0.0.0.0:${TetheredCaptureServer.DEFAULT_PORT} + mDNS ${WifiDirectTetherSupport.NSD_SERVICE_TYPE} " +
+                        "(same API as loopback tether). Requires location + nearby Wi‑Fi.",
+                enabled = settings.wifiDirectTetherEnabled,
+                onChange = { on ->
+                    if (on) {
+                        val missing = WifiDirectTetherSupport.missingPermissions(ctx)
+                        if (missing.isNotEmpty()) {
+                            wifiDirectPermLauncher.launch(missing.toTypedArray())
+                        }
+                        val next =
+                            settings.copy(
+                                wifiDirectTetherEnabled = true,
+                                tetheredCaptureEnabled = true,
+                            )
+                        hudState.update(next)
+                        HudSettings.save(ctx.applicationContext, next)
+                    } else {
+                        val next = settings.copy(wifiDirectTetherEnabled = false)
+                        hudState.update(next)
+                        HudSettings.save(ctx.applicationContext, next)
+                    }
                 },
             ),
         )

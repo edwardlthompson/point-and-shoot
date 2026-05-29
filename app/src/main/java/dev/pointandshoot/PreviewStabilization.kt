@@ -23,13 +23,35 @@ object PreviewStabilization {
     /** AE target FPS upper bound at or above this value disables preview EIS (HFR path). */
     internal const val HFR_PREVIEW_EIS_DISABLE_FPS = 120
 
-    internal fun pickOpticalStabilizationMode(avail: IntArray): Int? {
-        if (avail.isEmpty()) return null
-        return when {
-            avail.contains(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON) ->
-                CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
-            else -> null
+    /**
+     * Pick an OIS mode from HAL characteristics when possible; when the request key is advertised but
+     * characteristics only list OFF (common on some OEM wide lenses), fall back to ON so user intent
+     * and the readout chip stay aligned with [applyToRequest].
+     */
+    internal fun resolveOpticalStabilizationMode(
+        avail: IntArray,
+        oisRequestKeyAvailable: Boolean,
+    ): Int? {
+        pickOpticalStabilizationMode(avail)?.let { return it }
+        return if (oisRequestKeyAvailable) {
+            CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+        } else {
+            null
         }
+    }
+
+    internal fun pickOpticalStabilizationMode(avail: IntArray): Int? {
+        if (avail.isEmpty()) {
+            // Some HALs expose the request key without listing modes in characteristics.
+            return CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+        }
+        if (avail.contains(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON)) {
+            return CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+        }
+        if (avail.any { it != CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_OFF }) {
+            return CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE_ON
+        }
+        return null
     }
 
     internal fun pickVideoStabilizationMode(avail: IntArray): Int? {
@@ -74,7 +96,11 @@ object PreviewStabilization {
                     }.onFailure { Log.w(TAG, "LENS_OPTICAL_STABILIZATION_MODE OFF (still): ${it.message}") }
                 }
                 settings.enableLensOpticalStabilization -> {
-                    val mode = pickOpticalStabilizationMode(avail)
+                    val mode =
+                        resolveOpticalStabilizationMode(
+                            avail,
+                            oisRequestKeyAvailable = true,
+                        )
                     if (mode != null) {
                         runCatching { builder.set(CaptureRequest.LENS_OPTICAL_STABILIZATION_MODE, mode) }
                             .onFailure { Log.w(TAG, "LENS_OPTICAL_STABILIZATION_MODE: ${it.message}") }

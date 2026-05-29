@@ -40,7 +40,13 @@ object DngBayerAsShotNeutral {
         characteristics: CameraCharacteristics,
         image: Image,
         captureResult: TotalCaptureResult? = null,
-    ): FloatArray? {
+    ): FloatArray? = estimateWithBayerRatios(characteristics, image, captureResult)?.asn
+
+    fun estimateWithBayerRatios(
+        characteristics: CameraCharacteristics,
+        image: Image,
+        captureResult: TotalCaptureResult? = null,
+    ): BayerAsnEstimate? {
         if (image.format != ImageFormat.RAW_SENSOR) return null
         val plane = image.planes.getOrNull(0) ?: return null
         if (plane.pixelStride != 2) {
@@ -50,7 +56,7 @@ object DngBayerAsShotNeutral {
         val w = image.width
         val h = image.height
         if (w < 64 || h < 64) return null
-        return estimateFromPlane(
+        return estimateWithStatsFromPlane(
             characteristics,
             w,
             h,
@@ -68,9 +74,15 @@ object DngBayerAsShotNeutral {
     fun estimateFromDngBytes(
         dng: ByteArray,
         characteristics: CameraCharacteristics,
-    ): FloatArray? {
+    ): FloatArray? = estimateWithBayerRatiosFromDngBytes(dng, characteristics)?.asn
+
+    /** ASN plus center-crop Bayer R/G and B/G (for ProShot reference WB alignment). */
+    fun estimateWithBayerRatiosFromDngBytes(
+        dng: ByteArray,
+        characteristics: CameraCharacteristics,
+    ): BayerAsnEstimate? {
         val strip = parseRowStripLayout(dng) ?: return null
-        return estimateFromPlane(
+        return estimateWithStatsFromPlane(
             characteristics,
             strip.width,
             strip.height,
@@ -84,6 +96,12 @@ object DngBayerAsShotNeutral {
         )
     }
 
+    data class BayerAsnEstimate(
+        val asn: FloatArray,
+        val bayerRg: Float,
+        val bayerBg: Float,
+    )
+
     private fun estimateFromPlane(
         characteristics: CameraCharacteristics,
         w: Int,
@@ -95,10 +113,34 @@ object DngBayerAsShotNeutral {
         source: String,
         dng: ByteArray? = null,
         stripLayout: RowStripLayout? = null,
-    ): FloatArray? {
+    ): FloatArray? = estimateWithStatsFromPlane(
+        characteristics,
+        w,
+        h,
+        rowStride,
+        pixelStride,
+        buf,
+        captureResult,
+        source,
+        dng,
+        stripLayout,
+    )?.asn
+
+    private fun estimateWithStatsFromPlane(
+        characteristics: CameraCharacteristics,
+        w: Int,
+        h: Int,
+        rowStride: Int,
+        pixelStride: Int,
+        buf: ByteBuffer?,
+        captureResult: TotalCaptureResult?,
+        source: String,
+        dng: ByteArray? = null,
+        stripLayout: RowStripLayout? = null,
+    ): BayerAsnEstimate? {
         val black = blackLevel(characteristics, captureResult, stripLayout)
         val order = cfaTryOrder(characteristics)
-        var bestAsn: FloatArray? = null
+        var best: BayerAsnEstimate? = null
         var bestScore = 0.0
         for (cfa in order) {
             val sample =
@@ -112,26 +154,59 @@ object DngBayerAsShotNeutral {
             val meanR = (sample.sumR / sample.countR).coerceAtLeast(1.0)
             val meanG = (sample.sumG / sample.countG).coerceAtLeast(1.0)
             val meanB = (sample.sumB / sample.countB).coerceAtLeast(1.0)
-            // All four CFAs tie on log spread; prefer the layout where G is brightest vs R/B.
-            val score = meanG / maxOf(meanR, meanB)
+            val score = cfaLayoutScore(meanR, meanG, meanB)
             if (score > bestScore) {
                 bestScore = score
-                bestAsn = sample.toAsn()
+                best =
+                    BayerAsnEstimate(
+                        asn = sample.toAsn(),
+                        bayerRg = (meanR / meanG).toFloat(),
+                        bayerBg = (meanB / meanG).toFloat(),
+                    )
             }
         }
-        if (bestAsn == null) {
+        if (best == null) {
             Log.w(TAG, "estimate failed all CFA layouts $source ${w}x$h black=$black")
             return null
         }
         Log.i(
             TAG,
-            "estimate ok $source asnWB R=%.3f B=%.3f score=$bestScore".format(
-                1f / bestAsn[0].coerceAtLeast(1e-6f),
-                1f / bestAsn[2].coerceAtLeast(1e-6f),
+            "estimate ok $source asnWB R=%.3f B=%.3f rg=%.4f bg=%.4f score=$bestScore".format(
+                1f / best.asn[0].coerceAtLeast(1e-6f),
+                1f / best.asn[2].coerceAtLeast(1e-6f),
+                best.bayerRg,
+                best.bayerBg,
             ),
         )
-        return bestAsn
+        return best
     }
+
+    /**
+     * Nudge [asn] (max-normalized) so Bayer R/G and B/G align with ProShot reference capture.
+     */
+    fun adjustAsnToTargetBayerRatios(
+        asn: FloatArray,
+        currentRg: Float,
+        currentBg: Float,
+        targetRg: Float,
+        targetBg: Float,
+    ): FloatArray {
+        require(asn.size == 3)
+        val rg = currentRg.coerceAtLeast(1e-6f)
+        val bg = currentBg.coerceAtLeast(1e-6f)
+        val asnRg = asn[0] / asn[1].coerceAtLeast(1e-6f)
+        val asnBg = asn[2] / asn[1].coerceAtLeast(1e-6f)
+        val rgScale = (targetRg / rg).coerceIn(0.82f, 1.22f)
+        val bgScale = (targetBg / bg).coerceIn(0.82f, 1.22f)
+        val newRg = asnRg * rgScale
+        val newBg = asnBg * bgScale
+        val max = maxOf(newRg, 1f, newBg)
+        return floatArrayOf(newRg / max, 1f / max, newBg / max)
+    }
+
+    /** Gray-card / leaf rear: R/G and B/G usually sit in this band when CFA is correct. */
+    fun bayerRatiosPlausibleForProShotAlign(rg: Float, bg: Float): Boolean =
+        rg in 0.78f..1.12f && bg in 0.78f..1.45f
 
     /** @see [asnFromChannelMeans] */
     internal fun asnFromChannelMeans(meanR: Float, meanG: Float, meanB: Float): FloatArray =
@@ -143,6 +218,17 @@ object DngBayerAsShotNeutral {
         return buildList {
             if (hinted != null) add(hinted)
             CFA_CANDIDATES.forEach { cfa -> if (cfa != hinted) add(cfa) }
+        }
+    }
+
+    /** Gray-card / neutral scene: channel ratios land in this band when CFA phase is correct. */
+    private fun cfaLayoutScore(meanR: Double, meanG: Double, meanB: Double): Double {
+        val rg = meanR / meanG
+        val bg = meanB / meanG
+        return if (bayerRatiosPlausibleForProShotAlign(rg.toFloat(), bg.toFloat())) {
+            1_000.0 - kotlin.math.abs(rg - 1.0) - kotlin.math.abs(bg - 1.0)
+        } else {
+            meanG / maxOf(meanR, meanB)
         }
     }
 

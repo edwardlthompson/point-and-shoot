@@ -95,6 +95,9 @@ class MainActivity : ComponentActivity() {
             HudSettings.saveImagingProfile(this, seeded)
             PnsAdbLog.i(applicationContext, "preview adb seed imagingProfile=${seeded.id}")
         }
+        if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY, false) == true) {
+            PnsAdbLog.i(applicationContext, "preview adb btMediaKeyAutomation extra=true")
+        }
 
         // We handle merged cutout + gesture insets in Compose via rememberSystemInsetsDp.
         WindowCompat.setDecorFitsSystemWindows(window, false)

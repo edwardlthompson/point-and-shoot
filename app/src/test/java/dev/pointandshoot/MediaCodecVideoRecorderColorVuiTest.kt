@@ -40,6 +40,23 @@ class MediaCodecVideoRecorderColorVuiTest {
     }
 
     @Test
+    fun colorVuiTag_hlgMain10_isBt2020Hlg() {
+        assertEquals(
+            "bt2020-hlg",
+            MediaCodecVideoRecorder.colorVuiTagForConfig(
+                MediaCodecVideoRecorder.Config(
+                    width = 1920,
+                    height = 1080,
+                    fps = 60,
+                    bitrate = 30_000_000,
+                    isTenBit = true,
+                    videoColorProfile = VideoColorProfile.Hlg,
+                ),
+            ),
+        )
+    }
+
+    @Test
     fun colorVuiTag_hdr10_isBt2020Pq() {
         assertEquals(
             "bt2020-pq",

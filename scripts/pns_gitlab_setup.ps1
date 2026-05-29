@@ -35,17 +35,32 @@ param(
 
     [string]$GitLabGroup = "",
     [string]$ProjectName = "",
-    [switch]$Verify,
+    [switch]$Verify
 )
 
 $ErrorActionPreference = "Stop"
 
 if ($Verify) {
-    if (-not $env:ANDROID_KEYSTORE_BASE64) {
-        Write-Host "GITLAB VERIFY: SKIP (ANDROID_KEYSTORE_BASE64 not set in environment)"
+    $token = if ($GitLabToken) { $GitLabToken } else { $env:GITLAB_TOKEN }
+    $projectId = $env:GITLAB_PROJECT_ID
+    if (-not $token -or -not $projectId) {
+        if (-not $env:ANDROID_KEYSTORE_BASE64) {
+            Write-Host "GITLAB VERIFY: SKIP (set GITLAB_TOKEN + GITLAB_PROJECT_ID for API check, or ANDROID_KEYSTORE_BASE64 locally)"
+            exit 0
+        }
+        Write-Host "GITLAB VERIFY: PASS (ANDROID_KEYSTORE_BASE64 set locally; API verify skipped — no GITLAB_TOKEN/PROJECT_ID)"
         exit 0
     }
-    Write-Host "GITLAB VERIFY: PASS (ANDROID_KEYSTORE_BASE64 is set; confirm masked=true in GitLab UI)"
+    $headers = @{ "PRIVATE-TOKEN" = $token }
+    $vars = Invoke-RestMethod -Uri "https://gitlab.com/api/v4/projects/$projectId/variables" -Headers $headers -Method Get
+    $ks = $vars | Where-Object { $_.key -eq "ANDROID_KEYSTORE_BASE64" } | Select-Object -First 1
+    if (-not $ks) {
+        Write-Host "GITLAB VERIFY: FAIL (ANDROID_KEYSTORE_BASE64 variable not found on project $projectId)"
+        exit 1
+    }
+    $masked = [bool]$ks.masked
+    Write-Host "GITLAB VERIFY: $(if ($masked) { 'PASS' } else { 'FAIL' }) ANDROID_KEYSTORE_BASE64 masked=$masked"
+    if (-not $masked) { exit 1 }
     exit 0
 }
 

@@ -38,9 +38,17 @@ object Op13LeafStillColorCorrection {
     internal fun appliesCaptureTimeGainsWhen(
         deviceApplies: Boolean,
         sessionCameraId: String,
+        proShotPureDngSave: Boolean = OnePlus13FleetPolicy.useProShotPureDngSave(),
+        uwProShotAsnReconcile: Boolean = OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile(),
+        proShotReferenceCalibration: Boolean = OnePlus13FleetPolicy.useProShotReferenceCalibration(),
     ): Boolean {
         if (!deviceApplies) return false
-        if (OnePlus13FleetPolicy.useProShotPureDngSave()) return false
+        if (proShotPureDngSave) {
+            // Only UW gets capture-time WB gain correction. Tele's HAL gains appear closer to truth
+            // and the static scale table over-corrects on CPH2655 (see structural_verify tele ASN).
+            return (uwProShotAsnReconcile || proShotReferenceCalibration) &&
+                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW
+        }
         if (DngSaveBisectState.skipOp13CaptureTimeColorGains) return false
         return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
             sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
@@ -81,7 +89,12 @@ object Op13LeafStillColorCorrection {
                 req.set(CaptureRequest.COLOR_CORRECTION_MODE, CameraMetadata.COLOR_CORRECTION_MODE_FAST)
         }
         req.set(CaptureRequest.COLOR_CORRECTION_GAINS, corrected)
-        if (!OnePlus13FleetPolicy.useProShotPureDngSave()) {
+        val stashPending =
+            !OnePlus13FleetPolicy.useProShotPureDngSave() ||
+                ((OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile() ||
+                    OnePlus13FleetPolicy.useProShotReferenceCalibration()) &&
+                    sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW)
+        if (stashPending) {
             pendingCorrectedGains = sessionCameraId to corrected
         }
         val wb = DngForwardMatrixFix.getWbCorrection(Build.MODEL?.lowercase().orEmpty(), sessionCameraId)

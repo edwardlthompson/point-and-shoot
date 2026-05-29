@@ -22,7 +22,14 @@ param(
     [string[]]$ExtraAmArgs = @(),
     # Sprint 13.3f — hard-fail when color parity vs tests/fixtures/proshot_cph2655 is required.
     # Default off: 13.3g only requires capture 3/3 + dng_desktop_open_gate.py PASS.
-    [switch]$RequireProshotParity
+    [switch]$RequireProshotParity,
+    # Sprint 15.15 — hard-fail when uw_delta > 0.12 (scripts/dng_color_metric.py).
+    [switch]$RequireColorMetric,
+    # Sprint 15.15 — hard-fail when P&S luma/channels differ >20% from ProShot fixture refs (same-scene only).
+    [switch]$RequireAestheticGate,
+    # If set, reads ISO/ExposureTime from ProShot reference DNGs and seeds matching
+    # readout overrides on each lens capture (helps "match ProShot" on the same scene).
+    [switch]$MatchProShotExposure
 )
 
 $ErrorActionPreference = "Stop"
@@ -119,6 +126,26 @@ $report.Add("Preview dial (ADB): $PreviewDial")
 $report.Add("Focal slots: M14 (UW), M23 (wide ref), M73 (native tele)")
 $report.Add("=" * 72)
 
+$proshotExposure = $null
+if ($MatchProShotExposure) {
+    $uwRef = Join-Path $projRoot "tests\fixtures\proshot_cph2655\proshot_uw_cam3.dng"
+    $wideRef = Join-Path $projRoot "tests\fixtures\proshot_cph2655\proshot_wide_cam2.dng"
+    $teleRef = Join-Path $projRoot "tests\fixtures\proshot_cph2655\proshot_tele_cam4.dng"
+    $py = Join-Path $PSScriptRoot "proshot_ref_extract_exposure.py"
+    if ((Test-Path -LiteralPath $uwRef) -and (Test-Path -LiteralPath $wideRef) -and (Test-Path -LiteralPath $teleRef) -and (Test-Path -LiteralPath $py)) {
+        try {
+            $j = & python $py $uwRef $wideRef $teleRef 2>&1 | Out-String
+            $proshotExposure = $j | ConvertFrom-Json
+            Write-Host "[capture_analyze] ProShot exposure seed: uw iso=$($proshotExposure.uw.iso) ssNs=$($proshotExposure.uw.shutter_ns) wide iso=$($proshotExposure.wide.iso) ssNs=$($proshotExposure.wide.shutter_ns) tele iso=$($proshotExposure.tele.iso) ssNs=$($proshotExposure.tele.shutter_ns)" -ForegroundColor Cyan
+        } catch {
+            Write-Host "[capture_analyze] WARN: failed to read ProShot exposure JSON: $($_.Exception.Message)" -ForegroundColor Yellow
+            $proshotExposure = $null
+        }
+    } else {
+        Write-Host "[capture_analyze] WARN: MatchProShotExposure requested but ProShot fixtures (or helper) missing." -ForegroundColor Yellow
+    }
+}
+
 foreach ($slot in $slots) {
     $mm = $slot.mm
     $label = $slot.label
@@ -141,6 +168,20 @@ foreach ($slot in $slots) {
         "--es", "pns_preview_focal_mm_slot", $mm,
         "--ez", "pns_preview_jpeg_companion", "false"
     )
+    if ($proshotExposure) {
+        $seed =
+            switch ($label) {
+                "uw" { $proshotExposure.uw }
+                "wide" { $proshotExposure.wide }
+                "tele" { $proshotExposure.tele }
+                default { $null }
+            }
+        if ($seed -and $seed.iso -and $seed.shutter_ns) {
+            $amArgs += @("--ei", "pns_preview_readout_iso", [string]$seed.iso)
+            $amArgs += @("--el", "pns_preview_readout_shutter_ns", [string]$seed.shutter_ns)
+            $report.Add("ProShot exposure seed M${mm} ($label): iso=$($seed.iso) shutterNs=$($seed.shutter_ns)")
+        }
+    }
     if (-not $NoFast) {
         $amArgs += @("--ez", "pns_preview_raw_still_fast", "true")
     }
@@ -336,6 +377,27 @@ $gate = @{
 $gate | ConvertTo-Json | Set-Content (Join-Path $outDir "gate_result.json") -Encoding UTF8
 
 Write-Host ""
+Write-Host "[capture_analyze] dng_color_metric.py (Sprint 15.15)..." -ForegroundColor Cyan
+$colorMetricPy = Join-Path $PSScriptRoot "dng_color_metric.py"
+$colorMetricJson = Join-Path $outDir "color_metric.json"
+$colorMetricPass = $true
+if (Test-Path -LiteralPath $colorMetricPy) {
+    $colorOut = & python $colorMetricPy --json $uwPath $widePath $telePath 2>&1 | Out-String
+    Write-Host $colorOut
+    if ($colorOut.Trim().StartsWith("{")) {
+        $colorOut.Trim() | Set-Content $colorMetricJson -Encoding UTF8
+    }
+    if ($LASTEXITCODE -ne 0) {
+        $colorMetricPass = $false
+        if ($RequireColorMetric) {
+            Write-Host "FAIL: dng_color_metric uw_delta > 0.12 (or tele)" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "WARN: dng_color_metric FAIL (Phase 1/2 tuning)" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
 Write-Host "[capture_analyze] dng_proshot_parity_gate.py (Sprint 13.3f; informational unless -RequireProshotParity)..." -ForegroundColor Cyan
 $parityPy = Join-Path $PSScriptRoot "dng_proshot_parity_gate.py"
 $parityJson = Join-Path $outDir "proshot_parity_gate.json"
@@ -351,6 +413,23 @@ if (Test-Path $parityPy) {
             exit 1
         }
         Write-Host "WARN: ProShot parity gate FAIL (expected until Sprint 13.3f fixture refresh)" -ForegroundColor Yellow
+    }
+}
+
+Write-Host ""
+Write-Host "[capture_analyze] pns_dng_aesthetic_gate.py (Sprint 15.15; vs ProShot fixtures)..." -ForegroundColor Cyan
+$aestheticPy = Join-Path $PSScriptRoot "pns_dng_aesthetic_gate.py"
+$aestheticJson = Join-Path $outDir "dng_aesthetic_gate.json"
+$aestheticPass = $true
+if (Test-Path -LiteralPath $aestheticPy) {
+    & python $aestheticPy --ps-dir $outDir --json-out $aestheticJson 2>&1 | Out-Host
+    if ($LASTEXITCODE -ne 0) {
+        $aestheticPass = $false
+        if ($RequireAestheticGate) {
+            Write-Host "FAIL: dng_aesthetic_gate (P&S vs proshot_cph2655 fixtures >20%)" -ForegroundColor Red
+            exit 1
+        }
+        Write-Host "WARN: dng_aesthetic_gate FAIL (different scene vs gray-card refs - back-to-back capture for strict pass)" -ForegroundColor Yellow
     }
 }
 

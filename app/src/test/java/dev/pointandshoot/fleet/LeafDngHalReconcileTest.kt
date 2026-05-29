@@ -38,13 +38,32 @@ class LeafDngHalReconcileTest {
     }
 
     @Test
-    fun shouldNotReconcileWhen_proShotPureDngSave_withoutWideCal() {
+    fun proShotPureDng_uwAndTeleAsnFm_whenM15AuxColorFlag() {
+        assertTrue(
+            LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
+                deviceApplies = true,
+                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                proShotPureDngSave = true,
+                uwProShotAsnReconcile = true,
+            ),
+        )
+        assertTrue(
+            LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
+                deviceApplies = true,
+                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_TELE,
+                proShotPureDngSave = true,
+                uwProShotAsnReconcile = true,
+            ),
+        )
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = "3",
+                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
+                uwProShotAsnReconcile = false,
             ),
         )
     }

@@ -49,5 +49,7 @@ Together, **A + B** satisfy “**≥2 extra device classes**” in the **documen
 
 ## Related automation
 
-- **`scripts/pns_deep_caps_diff.ps1`** — summarizes **device**, per-**cameraId** **max HFR**, **DR profile** summary, **`maxNumOutputRaw`**, **`rawCapabilityAdvertised`** for side-by-side fleet review.
+- **`files/fleet_device_matrix.json`** (Milestone **16**) — fleet **source of truth** after hub shallow/full scan. Host: **`scripts/pns_fleet_matrix_scan.ps1`**, **`scripts/pns_fleet_matrix_diff.ps1`**, **`scripts/fleet_matrix_schema_validate.py`**.
+- **`scripts/pns_deep_caps_diff.ps1`** — legacy side-by-side for standalone **`deep_caps_*.json`** pulls; for fleet review prefer **`pns_fleet_matrix_diff.ps1`** on matrix JSON (full tier embeds deep caps under **`appendix.deepCaps`**).
 - **`scripts/pns_fixture_dng_gates.ps1`** — host DNG openability on committed ProShot reference fixtures (no device).
+- **`scripts/pns_op13_regression_pack.ps1`** — optional OP13 lane (matrix + aux DNG + parity); not a default gate on **CPH2583**.

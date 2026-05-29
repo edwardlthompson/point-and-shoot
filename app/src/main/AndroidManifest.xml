@@ -28,6 +28,8 @@
     <!-- Sprint IP.2 — LAN media transfer + optional social webhook POST -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Sprint 15.37 — LAN tether discovery (NSD / Wi‑Fi Direct companion) -->
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
 
     <application
         android:name=".PnsApplication"

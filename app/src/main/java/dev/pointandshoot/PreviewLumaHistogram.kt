@@ -1,5 +1,8 @@
 package dev.pointandshoot
 
+import android.hardware.camera2.CameraCharacteristics
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
@@ -183,6 +186,77 @@ object PreviewLumaHistogram {
         )
     }
 
+    /** Sprint **15.21** — map IRE % (75–100) to 8-bit Y near-clip threshold. */
+    fun irePercentToThresholdUnsigned(irePercent: Int): Int {
+        val ire = irePercent.coerceIn(IRE_MIN, IRE_MAX)
+        return ((ire * 255) + 50) / 100
+    }
+
+    /**
+     * False-color bands on preview Y (Sprint **15.21**): blue &lt;35, normal 35–100 (clear),
+     * orange 180–210, red &gt;210. Uses max Y per cell (same grid as zebra).
+     */
+    fun buildFalseColorGridYuv420Y(
+        plane: ByteArray,
+        width: Int,
+        height: Int,
+        rowStride: Int,
+        cellSizePx: Int = 12,
+    ): FalseColorFrame {
+        require(width > 0 && height > 0) {
+            "preview dimensions must be positive (was ${width}x$height)"
+        }
+        require(rowStride >= width) {
+            "rowStride ($rowStride) must be >= width ($width)"
+        }
+        require(cellSizePx >= 4) { "cellSizePx must be >= 4 (was $cellSizePx)" }
+        val minBytes = rowStride.toLong() * (height - 1).toLong() + width.toLong()
+        require(plane.size.toLong() >= minBytes) {
+            "Y plane too short: have ${plane.size}, need >= $minBytes for ${width}x$height (stride=$rowStride)"
+        }
+
+        val cols = ceil(width / cellSizePx.toDouble()).toInt().coerceAtLeast(1)
+        val rows = ceil(height / cellSizePx.toDouble()).toInt().coerceAtLeast(1)
+        val tints = IntArray(cols * rows)
+        for (row in 0 until rows) {
+            val y0 = row * cellSizePx
+            val y1 = min(y0 + cellSizePx, height)
+            for (col in 0 until cols) {
+                val x0 = col * cellSizePx
+                val x1 = min(x0 + cellSizePx, width)
+                var maxY = 0
+                for (cy in y0 until y1) {
+                    val base = cy * rowStride
+                    for (cx in x0 until x1) {
+                        val v = plane[base + cx].toInt() and 0xFF
+                        if (v > maxY) maxY = v
+                    }
+                }
+                tints[row * cols + col] = falseColorArgbForLuma(maxY)
+            }
+        }
+        return FalseColorFrame(
+            sourceWidth = width,
+            sourceHeight = height,
+            cellSizePx = cellSizePx,
+            cols = cols,
+            rows = rows,
+            cellArgb = tints,
+        )
+    }
+
+    /** ARGB tint for a cell; 0 = leave preview visible (normal band). */
+    internal fun falseColorArgbForLuma(y: Int): Int =
+        when {
+            y < 35 -> 0x990040FF.toInt() // blue shadow
+            y <= 100 -> 0
+            y <= 210 -> if (y >= 180) 0x99FF8800.toInt() else 0 // orange high
+            else -> 0x99FF2020.toInt() // red clip
+        }
+
+    const val IRE_MIN: Int = 75
+    const val IRE_MAX: Int = 100
+
     /**
      * Sum every bin (sanity / unit-test helper). Equivalent to
      * `width * height` for [reduceY8] / [reduceYuv420Y]; for the
@@ -274,5 +348,138 @@ object PreviewLumaHistogram {
             row += safeStep
         }
         return RgbHistogramBins(rHist, gHist, bHist)
+    }
+
+    /**
+     * Sprint **15.18** — same as [reduceRgb] (YUV_420_888 plane contract).
+     */
+    fun reduceYuv420RGB(
+        yPlane: ByteArray,
+        uPlane: ByteArray,
+        vPlane: ByteArray,
+        width: Int,
+        height: Int,
+        yRowStride: Int,
+        uvRowStride: Int,
+        uvPixelStride: Int,
+        step: Int = 2,
+    ): RgbHistogramBins =
+        reduceRgb(
+            yPlane,
+            uPlane,
+            vPlane,
+            width,
+            height,
+            yRowStride,
+            uvRowStride,
+            uvPixelStride,
+            step,
+        )
+
+    /**
+     * Luma histogram from the max of R/G/B channel histograms (overlay reference under RGB stack).
+     */
+    fun lumaHistogramFromRgb(rgb: RgbHistogramBins): IntArray {
+        val out = IntArray(BIN_COUNT)
+        for (i in 0 until BIN_COUNT) {
+            out[i] = maxOf(rgb.r[i], rgb.g[i], rgb.b[i])
+        }
+        return out
+    }
+
+    /**
+     * Sprint **15.18** — sparse RGGB sample from [ImageFormat.RAW_SENSOR] (ZSL ring), scaled to 8-bit bins.
+     */
+    fun reduceRawSensorRgb(
+        buffer: ByteBuffer,
+        width: Int,
+        height: Int,
+        rowStride: Int,
+        pixelStride: Int,
+        cfa: Int = CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB,
+        blackLevel: Float = 64f,
+        step: Int = 4,
+    ): RgbHistogramBins? {
+        if (width < 32 || height < 32 || pixelStride != 2) return null
+        val buf = buffer.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+        val limit = buf.limit()
+        val rHist = IntArray(BIN_COUNT)
+        val gHist = IntArray(BIN_COUNT)
+        val bHist = IntArray(BIN_COUNT)
+        val side = (min(width, height) * DEFAULT_CENTER_FRAC).toInt().coerceAtLeast(16)
+        val left = max(0, (width - side) / 2)
+        val top = max(0, (height - side) / 2)
+        val right = min(width, left + side)
+        val bottom = min(height, top + side)
+        val safeStep = step.coerceAtLeast(2)
+        var y = top
+        while (y < bottom) {
+            var x = left
+            while (x < right) {
+                val raw = readRaw16(buf, x, y, rowStride, pixelStride, limit) - blackLevel
+                val bin = (raw.toInt().coerceAtLeast(0) shr 8).coerceIn(0, 255)
+                when (cfaColorAt(cfa, x, y)) {
+                    CfaColor.R -> rHist[bin]++
+                    CfaColor.G -> gHist[bin]++
+                    CfaColor.B -> bHist[bin]++
+                }
+                x += safeStep
+            }
+            y += safeStep
+        }
+        if (rHist.sum() + gHist.sum() + bHist.sum() == 0) return null
+        return RgbHistogramBins(rHist, gHist, bHist)
+    }
+
+    private enum class CfaColor { R, G, B }
+
+    private fun cfaColorAt(cfa: Int, x: Int, y: Int): CfaColor {
+        val evenX = x and 1 == 0
+        val evenY = y and 1 == 0
+        return when (cfa) {
+            CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB ->
+                when {
+                    evenY && evenX -> CfaColor.R
+                    !evenY && !evenX -> CfaColor.B
+                    else -> CfaColor.G
+                }
+            CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_GRBG ->
+                when {
+                    evenY && !evenX -> CfaColor.R
+                    !evenY && evenX -> CfaColor.B
+                    else -> CfaColor.G
+                }
+            CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_GBRG ->
+                when {
+                    !evenY && evenX -> CfaColor.R
+                    evenY && !evenX -> CfaColor.B
+                    else -> CfaColor.G
+                }
+            CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_BGGR ->
+                when {
+                    !evenY && !evenX -> CfaColor.R
+                    evenY && evenX -> CfaColor.B
+                    else -> CfaColor.G
+                }
+            else ->
+                when {
+                    evenY && evenX -> CfaColor.R
+                    !evenY && !evenX -> CfaColor.B
+                    else -> CfaColor.G
+                }
+        }
+    }
+
+    private fun readRaw16(
+        buf: ByteBuffer,
+        x: Int,
+        y: Int,
+        rowStride: Int,
+        pixelStride: Int,
+        limit: Int,
+    ): Float {
+        val idx = y * rowStride + x * pixelStride
+        if (idx + 2 > limit) return 0f
+        return (buf.getShort(idx).toInt() and 0xFFFF).toFloat()
     }
 }

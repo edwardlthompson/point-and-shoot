@@ -11,14 +11,34 @@ import dev.pointandshoot.fleet.OnePlus13FleetPolicy
  */
 object StillCaptureIqPolicy {
 
+    /**
+     * ProShot still IQ only — used by [ProShotLeafStillCaptureRequest] (no duplicate pipeline pass).
+     */
+    fun applyProShotLeafStillIq(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        profile: FleetCameraProfile?,
+    ) {
+        applyProShotStillPipeline(req, chars)
+        if (!shouldApplyLensShading(profile, chars)) return
+        applyLensShadingMapAndMode(req, chars, profile)
+    }
+
     fun applyToStillCaptureRequest(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
         profile: FleetCameraProfile?,
     ) {
         val proShotLeaf =
-            OnePlus13FleetPolicy.useProShotPureDngSave() && isLeafBackCharacteristics(chars)
+            OnePlus13FleetPolicy.useExactProShotLeafStillCaptureRequest() &&
+                isLeafBackCharacteristics(chars)
         if (proShotLeaf) {
+            applyProShotLeafStillIq(req, chars, profile)
+            return
+        }
+        val legacyProShotLeaf =
+            OnePlus13FleetPolicy.useProShotPureDngSave() && isLeafBackCharacteristics(chars)
+        if (legacyProShotLeaf) {
             applyProShotStillPipeline(req, chars)
         } else if (
             MotionCamInspiredStillPolicy.applyProShotOpticalCorrectionOnLeaf() &&
@@ -27,6 +47,14 @@ object StillCaptureIqPolicy {
         ) {
             applyProShotOpticalCorrection(req, chars)
         }
+        applyLensShadingMapAndMode(req, chars, profile)
+    }
+
+    private fun applyLensShadingMapAndMode(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        profile: FleetCameraProfile? = null,
+    ) {
         if (!shouldApplyLensShading(profile, chars)) return
         val mapModes =
             chars.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES)

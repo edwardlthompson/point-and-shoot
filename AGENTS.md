@@ -12,6 +12,44 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 ---
 
+## CRITICAL — Fleet capability matrix (Milestone 16)
+
+**Primary USB device:** OnePlus 12 **CPH2583** — not CPH2655 unless running the **optional OP13 regression** lane. See **`BUILD_PLAN.md`** pinned fleet note and **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
+
+**Source of truth:** `files/fleet_device_matrix.json` (`FleetDeviceMatrix` schema v1). Built by **`FleetDeviceMatrixBuilder`** (quick tier on Diagnostics hub shallow scan; full tier in **16.1**). Invalidates on **`fingerprintSha256Prefix`** + **`appVersionCode`** change (same policy as shallow cache).
+
+| Artifact | Role |
+|----------|------|
+| `fleet/FleetDeviceMatrix.kt` | Schema constants, `scanMeta`, validation |
+| `fleet/FleetDeviceMatrixStore.kt` | Persist + `fleet_device_matrix_history/` rotation |
+| `fleet/FleetDeviceMatrixBuilder.kt` | Quick scan orchestration |
+| Log tag **`PNS.FleetMatrix`** | `scanTier=quick|full` after hub probe / full rescan |
+
+**Host scripts (16.3):** `scripts/pns_fleet_matrix_scan.ps1` · `scripts/pns_fleet_matrix_diff.ps1` · matrix checks in `pns_shallow_scan_hub_validate.ps1`
+
+**Fleet policy (16.4):** Default **`GenericFleetPolicy`** — no `policyId` on new SKUs. **`OnePlus13FleetPolicyPlugin`** opt-in via `FleetPolicyPreferences` or ADB `--ez pns_legacy_op13_fleet_policy true`.
+
+**Agent rules:**
+
+1. **No new CPH2655-only** feature gates or policy without **`FleetDevicePolicy` plugin** + USB proof on an onboarded SKU row.
+2. Fleet-affecting changes → hub matrix rescan or **`pns_fleet_matrix_scan.ps1`**; attach **`pns_fleet_matrix_diff.ps1`** output in PR notes.
+3. **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`** = legacy device plugin — not default fleet behavior.
+4. DNG **loadability** and **metadata pairing** locks remain (`.cursor/rules/dng-*-lock.mdc`); matrix supplies **policy / advertised / sessionOk** flags.
+
+**Docs:** `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` · `docs/FLEET_REFERENCE_M10_8.md` (streams → matrix). **Rule:** `.cursor/rules/fleet-generic-policy.mdc`.
+
+**Execution order:** `BUILD_PLAN.md` **Priority 1 — Fleet** **16.0** onward before treating OP13-only DNG parity as a global ship blocker.
+
+---
+
+## CRITICAL — Agent regression memory (whack-a-mole prevention)
+
+**Before** capture / DNG / GLES preview / fleet / session changes: read **`docs/AGENT_REGRESSION_MEMORY.md`** (grep your target files). **After** any USB-proven fix or reverted experiment: **append a `REG-*` row** in the same commit (`Do not`, `Proves OK`, `Also test`).
+
+**Rule:** `.cursor/rules/agent-regression-memory.mdc` · Deep bisect tables: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 · DNG loadability: **`docs/DNG_OPENABILITY_REGRESSIONS.md`**
+
+---
+
 ## CRITICAL — sequential RAW / `pns_preview_raw_count` and preview session wiring
 
 **Never** set **`automationSuppressFacePipeline = true`** for **`adbSequentialRawStills > 0`** alone (sequential RAW-only / `pns_preview_raw_count`). That path must keep the **same H-dial YUV / face-pipeline behavior** as manual H capture; suppressing it forced **`wantYuv=false`** and broke RAW still session create on **CPH2655-class** stacks (`CAMERA_DISCONNECTED`). **Only `adbBracketPattern != null`** should enable **`automationSuppressFacePipeline`**. See **`README.md`** STOP banner, **`BUILD_PLAN.md`** item **11** (hard rule), and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top). After any capture-session change: **`scripts/pns_photo_capture_verify.ps1`** or **`scripts/pns_capture_pipeline_verify.ps1`** on USB; after bulk restore from the bisect doc: **`scripts/pns_capture_restore_verified.ps1`**.
@@ -240,6 +278,10 @@ Use these from repo root unless a script documents otherwise.
 | `pns_raw_regression_bisect.ps1` | **USB automation:** snapshot `RawCaptureSupport.kt` + `PreviewEngineScreen.kt`, run **`pns_photo_capture_verify`** on baseline, then re-apply **one** suspect regression at a time (wrong default RAW tier order, `desiredFps` default 120, gated H-dial YUV), rebuild, re-verify; writes **`hfr-runs/raw_regression_bisect_*/results.json`** + **`report.md`**. Exit **1** if baseline fails (bisect inconclusive on that device). Dot-source **`pns_resolve_adb.ps1 -PrependToPath`** first on Windows if PATH adb differs from SDK. |
 | `pns_raw_capture_matrix.ps1` | **20-cell** matrix (optional **`-Quick`** for 4 cells): **`pns_preview_imaging_profile`** × **`pns_preview_raw_stream`** (`default`, `raw_sensor_first`, `raw12_only`, `raw_sensor_only`, `raw10_only`) × **`pns_preview_jpeg_companion`**, plus optional **`-CameraId`**. Artifacts **`hfr-runs/raw_capture_matrix_*`** (`matrix.csv`, `matrix.md`, per-cell logcat). See **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**. |
 | `pns_deep_caps_diff.ps1` | Host-side **Markdown** diff of two **`deep_caps_*.json`** pulls (**HFR max**, **HDR DR** summary, **`maxNumOutputRaw`**, **`rawCapabilityAdvertised`** per `cameraId`). See **`docs/FLEET_REFERENCE_M10_8.md`** (Milestone **10.8** fleet evidence). |
+| `pns_fleet_matrix_scan.ps1` | Milestone **16.3** — cold **`pns_screen=probehub`** + optional **`-ScanTier full`**, pull **`files/fleet_device_matrix.json`** → **`hfr-runs/fleet_matrix_*`**, assert **`PNS.FleetMatrix scanTier=`** + **`schemaVersion=1`**; runs **`fleet_matrix_schema_validate.py`** when Python on PATH; **`-Redact`** writes **`hal_dumpsys_media_camera_redacted.txt`** when full-tier appendix includes HAL excerpt. |
+| `pns_fleet_matrix_diff.ps1` | Milestone **16.3** — Markdown diff of two **`fleet_device_matrix.json`** files (HFR, RAW, roles, **`featureGates`**, encoder stub). |
+| `fleet_matrix_schema_validate.py` | Milestone **16.12** — structural validation of pulled matrix JSON (schema v1, sorted **`cameraId`** on full tier). |
+| `pns_op13_regression_pack.ps1` | Milestone **16.7** — optional OP13 lane: **`pns_fleet_matrix_scan -LegacyOp13FleetPolicy`** + **`pns_aux_dng_capture_analyze`** + parity (not default on CPH2583). |
 | `pns_gen_camera2_keys_reference.ps1` | Regenerate **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** from **`local.properties` → sdk.dir** `platforms/android-<N>/android.jar`; **`<N>` = `compileSdk`** parsed from **`app/build.gradle.kts`** (override **`-ApiLevel`**). |
 | `pns_ae_highlight_probe_adb.ps1` | Cold-start **`pns_screen=probehub`** + **`pns_auto_export_probe`**, pull **`PROBE_EXPORT_LATEST.md`**, write **`ae_highlight_probe_summary.txt`** + **`ae_highlight_probe.json`** (`summary` path); optional **`-AlsoRootCapabilityAdb`**. **Debuggable APK** required for `run-as`. |
 | `pns_face_meter_probe.ps1` | Cold-start **`pns_screen=facemeter`** + **`pns_autofacemeter`**, wait for **`FACE_METER_PROBE_DONE`** in **`PNS.SWEEP_SIGNAL`**, pull **`face_meter_probe_*.{md,json}`** (face / eye / metering inventory). Artifacts under **`hfr-runs\face_meter_probe_*`**. |
@@ -355,6 +397,8 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 | `.cursor/rules/preview-chrome-ui-lock.mdc` | **Frozen** preview chrome layout — behavioral fixes only unless the user explicitly changes UI. |
 | `.cursor/rules/preview-readout-video-mode-lock.mdc` | **Locked** photo vs video readout chips + `PreviewTopStatusBar` wiring — see **`docs/M14_READOUT_STATUS_BAR.md`**. |
 | `.cursor/rules/pns-technical-settings.mdc` | **`docs/PNS_TECHNICAL_SETTINGS.md`** must stay in sync with settings/constants/mode behavior changes. |
+| `.cursor/rules/fleet-generic-policy.mdc` | **Fleet matrix SoT**; CPH2583 primary; OP13 optional regression; no new OP13-only gates without plugin. |
+| `.cursor/rules/agent-regression-memory.mdc` | Read/update **`docs/AGENT_REGRESSION_MEMORY.md`** before risky edits; append row after proven fixes. |
 | `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |
 
 ---

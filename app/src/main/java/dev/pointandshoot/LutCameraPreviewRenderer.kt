@@ -28,6 +28,8 @@ class LutCameraPreviewRenderer(
     /** Focus-peaking uniforms for `lut_preview_external.frag.glsl` (read each draw frame). */
     private val focusPeakingUniforms: () -> FocusPeakingGlUniforms =
         { FocusPeakingGlUniforms(false, 0f, 0f, 0f, 0f) },
+    /** Sprint **15.16** — [VideoColorProfile.previewGlMode] (0 = SDR). */
+    private val videoColorProfileMode: () -> Float = { 0f },
     private val onSurfaceTextureAvailable: (SurfaceTexture, Int, Int) -> Unit,
     private val onSurfaceTextureSizeChanged: (Int, Int) -> Unit,
     private val onSurfaceTextureDestroyed: (SurfaceTexture) -> Unit,
@@ -582,6 +584,7 @@ class LutCameraPreviewRenderer(
             lut = lut,
             readoutWbRgb = readoutWb,
             focusPeaking = if (applyLut) focusPeakingUniforms() else FocusPeakingGlUniforms.disabled(),
+            videoColorProfileMode = if (applyLut) videoColorProfileMode() else 0f,
         )
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesId)

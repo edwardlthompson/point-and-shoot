@@ -47,14 +47,17 @@ try {
     Start-Sleep -Milliseconds 600
     Invoke-AdbCmd logcat -c 2>$null
 
-    Write-Host "Launch: video-primary avail=$StorageAvailableBytes fps=$VideoFps..."
+    Write-Host "Launch: video-primary record + avail=$StorageAvailableBytes fps=$VideoFps..."
+    $recSec = 6
     Invoke-AdbCmd shell am start -n "dev.pointandshoot/.MainActivity" `
+        --activity-clear-task `
         --es pns_screen preview `
         --ez pns_preview_primary_photo false `
         --ei pns_preview_video_fps $VideoFps `
+        --ei pns_preview_automation_in_app_video_sec $recSec `
         --el pns_preview_storage_available_bytes $StorageAvailableBytes 2>&1 | Out-Null
 
-    $waitSec = 12
+    $waitSec = [Math]::Max(8, $recSec + 4)
     Write-Host "Waiting ${waitSec}s..."
     Start-Sleep -Seconds $waitSec
 

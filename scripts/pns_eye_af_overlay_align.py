@@ -230,7 +230,14 @@ def main() -> int:
         "w": int(rgb.shape[1]),
         "h": int(rgb.shape[0]),
         "markers": [{"x": m.x, "y": m.y} for m in markers],
-        "face_box": None if not face_box else {"x0": face_box[0], "y0": face_box[1], "x1": face_box[2], "y1": face_box[3]},
+        "face_box": None
+        if not face_box
+        else {
+            "x0": int(face_box[0]),
+            "y0": int(face_box[1]),
+            "x1": int(face_box[2]),
+            "y1": int(face_box[3]),
+        },
         "eyes": [{"x": e.x, "y": e.y} for e in eyes],
         "score": {},
         "pass": False,

@@ -34,4 +34,94 @@ class VideoEffectsProcessorTest {
             ),
         )
     }
+
+    @Test
+    fun readoutLabel_oisAndEis() {
+        assertEquals(
+            "OIS+EIS",
+            VideoEffectsProcessor.readoutLabel(
+                VideoEffectsProcessor.StabilizationState(
+                    oisOn = true,
+                    eisOn = true,
+                    oisAdvertised = true,
+                    eisAdvertised = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun readoutLabel_oisOnly() {
+        assertEquals(
+            "OIS",
+            VideoEffectsProcessor.readoutLabel(
+                VideoEffectsProcessor.StabilizationState(
+                    oisOn = true,
+                    eisOn = false,
+                    oisAdvertised = true,
+                    eisAdvertised = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun readoutLabel_oisOnly_offOnlyCharacteristics() {
+        assertEquals(
+            "OIS",
+            VideoEffectsProcessor.readoutLabel(
+                VideoEffectsProcessor.StabilizationState(
+                    oisOn = true,
+                    eisOn = false,
+                    oisAdvertised = true,
+                    eisAdvertised = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun readoutLabel_eisBlockedByManualSensor() {
+        assertEquals(
+            "OIS",
+            VideoEffectsProcessor.readoutLabel(
+                VideoEffectsProcessor.StabilizationState(
+                    oisOn = true,
+                    eisOn = false,
+                    oisAdvertised = true,
+                    eisAdvertised = true,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun readoutLabel_advertisedButOff() {
+        assertEquals(
+            "Off",
+            VideoEffectsProcessor.readoutLabel(
+                VideoEffectsProcessor.StabilizationState(
+                    oisOn = false,
+                    eisOn = false,
+                    oisAdvertised = true,
+                    eisAdvertised = false,
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun readoutLabel_noneHidden() {
+        assertEquals(
+            null,
+            VideoEffectsProcessor.readoutLabel(
+                VideoEffectsProcessor.StabilizationState(
+                    oisOn = false,
+                    eisOn = false,
+                    oisAdvertised = false,
+                    eisAdvertised = false,
+                ),
+            ),
+        )
+    }
 }

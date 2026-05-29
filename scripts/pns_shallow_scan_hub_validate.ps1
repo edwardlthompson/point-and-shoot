@@ -101,6 +101,8 @@ function Test-AdbAuthorizedDevice {
 
 $reShallow = [regex]'Shallow scan:\s+\d+ms\s+cameras=\d+\s+degraded=(true|false)'
 $reProbeBuilt = [regex]'Probe built \(\d+ chars\)'
+$reFleetMatrix = [regex]'scanTier=(quick|full)'
+$matrixFileName = "fleet_device_matrix.json"
 
 function Invoke-AssembleDebugIfNeeded {
     param([bool]$Force)
@@ -183,10 +185,10 @@ try {
     # `*:S` first silences all tags; then allow-list hub + probe INFO lines. Do not use `-t` here: huge `PNS.Probe`
     # markdown dumps can push the hub line out of a short tail even when filters are applied first on-device.
     if ($Serial) {
-        & adb -s $Serial logcat -d "*:S" "PNS.ProbeHub:I" "PNS.Probe:I" 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
+        & adb -s $Serial logcat -d "*:S" "PNS.ProbeHub:I" "PNS.Probe:I" "PNS.FleetMatrix:I" 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
     }
     else {
-        & adb logcat -d "*:S" "PNS.ProbeHub:I" "PNS.Probe:I" 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
+        & adb logcat -d "*:S" "PNS.ProbeHub:I" "PNS.Probe:I" "PNS.FleetMatrix:I" 2>&1 | Set-Content -LiteralPath $logPath -Encoding utf8
     }
 }
 finally {
@@ -211,7 +213,36 @@ if ($matched.Length -eq 0) {
 }
 $shallowOk = $matched.Length -gt 0
 $builtOk = $reProbeBuilt.IsMatch($logText)
-$pass = $shallowOk -and $builtOk
+$matchedFleet = ""
+foreach ($line in ($logText -split "`r?`n")) {
+    if ($line -match "PNS\.FleetMatrix" -and $reFleetMatrix.IsMatch($line)) {
+        $matchedFleet = $line.Trim()
+        break
+    }
+}
+$fleetMatrixLogOk = $matchedFleet.Length -gt 0
+
+$matrixOut = Join-Path $OutDir $matrixFileName
+$matrixPulled = $false
+$matrixSchemaOk = $false
+try {
+    if ($Serial) {
+        & adb -s $Serial exec-out run-as $pkg cat "files/$matrixFileName" | Set-Content -LiteralPath $matrixOut -Encoding utf8
+    }
+    else {
+        & adb exec-out run-as $pkg cat "files/$matrixFileName" | Set-Content -LiteralPath $matrixOut -Encoding utf8
+    }
+    if ((Test-Path -LiteralPath $matrixOut) -and ((Get-Item -LiteralPath $matrixOut).Length -gt 64)) {
+        $matrixPulled = $true
+        $matrix = Get-Content -LiteralPath $matrixOut -Raw -Encoding UTF8 | ConvertFrom-Json
+        $matrixSchemaOk = ($matrix.schemaVersion -eq 1)
+    }
+}
+catch {
+    Write-Warning "[shallow_scan_hub] fleet matrix pull failed: $_"
+}
+
+$pass = $shallowOk -and $builtOk -and $matrixPulled -and $matrixSchemaOk -and $fleetMatrixLogOk
 
 $obj = [ordered]@{
     schema             = "pns.shallow_scan_hub_validate.v1"
@@ -220,6 +251,11 @@ $obj = [ordered]@{
     shallowScanHubOk   = $shallowOk
     probeBuiltOk       = $builtOk
     matchedShallowLine = $matched
+    fleetMatrixLogOk     = $fleetMatrixLogOk
+    matchedFleetLine     = $matchedFleet
+    matrixPulled         = $matrixPulled
+    matrixSchemaOk       = $matrixSchemaOk
+    matrixRelPath        = $matrixFileName
     waitSec            = $WaitSec
     timestampUtc       = [DateTime]::UtcNow.ToString("o")
     outDir             = $OutDir
@@ -228,10 +264,12 @@ $obj = [ordered]@{
 }
 $jsonPath = Join-Path $OutDir "shallow_scan_hub_validate.json"
 $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding utf8
-Write-Host "[shallow_scan_hub] Wrote $jsonPath pass=$pass shallowOk=$shallowOk builtOk=$builtOk"
+Write-Host "[shallow_scan_hub] Wrote $jsonPath pass=$pass shallowOk=$shallowOk builtOk=$builtOk matrix=$matrixPulled schema=$matrixSchemaOk fleetLog=$fleetMatrixLogOk"
+
+Invoke-AdbIgnore @("shell", "am", "force-stop", $pkg)
 
 if (-not $pass) {
-    Write-Host "[shallow_scan_hub] FAIL: expected PNS.ProbeHub Shallow scan line + PNS.Probe Probe built in $logPath"
+    Write-Host "[shallow_scan_hub] FAIL: expected PNS.ProbeHub Shallow scan + Probe built + fleet matrix (schemaVersion=1) + PNS.FleetMatrix in $logPath"
     exit 1
 }
 

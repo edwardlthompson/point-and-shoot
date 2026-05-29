@@ -1,5 +1,6 @@
 package dev.pointandshoot.fleet
 
+import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
@@ -40,6 +41,18 @@ object LeafDngHalReconcile {
     fun usesAsnOnlyReconcile(sessionCameraId: String?): Boolean =
         useAsnOnlyPath(sessionCameraId)
 
+    fun usesProShotReferenceCalibration(sessionCameraId: String?): Boolean =
+        useProShotReferenceCalibrationPath(sessionCameraId)
+
+    /** Live [Image] Bayer stats — DngCreator row-strip layout mis-reads CFA on CPH2655. */
+    fun shouldEstimateBayerBeforeWrite(sessionCameraId: String?): Boolean {
+        if (sessionCameraId == null) return false
+        if (useProShotReferenceCalibrationPath(sessionCameraId)) return true
+        if (useAsnOnlyPath(sessionCameraId)) return true
+        return shouldReconcileLeafDngMetadata(sessionCameraId) &&
+            preferBayerAsnForSession(sessionCameraId)
+    }
+
     /**
      * Legacy ASN-only reconcile (bisect). Default OP13 aux uses [applyHalColorCalibrationReconcile].
      */
@@ -49,11 +62,22 @@ object LeafDngHalReconcile {
         sessionCameraId: String,
         proShotPureDngSave: Boolean = OnePlus13FleetPolicy.useProShotPureDngSave(),
         wideLeafCalibrationForAuxDng: Boolean = OnePlus13FleetPolicy.useWideLeafCalibrationForAuxDng(),
+        uwProShotAsnReconcile: Boolean = OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile(),
+        proShotReferenceCalibration: Boolean = OnePlus13FleetPolicy.useProShotReferenceCalibration(),
     ): Boolean {
         DngSaveBisectState.forceLeafHalReconcile?.let { forced ->
             return forced &&
                 deviceApplies &&
                 sessionCameraId in leafRearIds
+        }
+        if (
+            deviceApplies &&
+            proShotReferenceCalibration &&
+            proShotPureDngSave &&
+            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
+                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+        ) {
+            return true
         }
         if (
             deviceApplies &&
@@ -63,7 +87,16 @@ object LeafDngHalReconcile {
         ) {
             return true
         }
-        if (deviceApplies && proShotPureDngSave) {
+        if (
+            deviceApplies &&
+            proShotPureDngSave &&
+            uwProShotAsnReconcile &&
+            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
+                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+        ) {
+            return true
+        }
+        if (deviceApplies && proShotPureDngSave && !proShotReferenceCalibration) {
             return false
         }
         if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_WIDE) {
@@ -98,8 +131,20 @@ object LeafDngHalReconcile {
         rawImage: Image,
         sessionCameraId: String?,
         preWriteBayerAsn: FloatArray? = null,
+        preWriteBayerEstimate: DngBayerAsShotNeutral.BayerAsnEstimate? = null,
         wideCalibrationCharacteristics: CameraCharacteristics? = null,
+        assetContext: Context? = null,
     ): ByteArray {
+        if (useProShotReferenceCalibrationPath(sessionCameraId)) {
+            return applyProShotReferenceCalibrationReconcile(
+                original,
+                sessionCameraId!!,
+                assetContext,
+                characteristics,
+                captureResult,
+                preWriteBayerEstimate,
+            )
+        }
         if (useWideLeafCalibrationPath(sessionCameraId, wideCalibrationCharacteristics)) {
             return applyWideLeafCalibrationReconcile(
                 original,
@@ -117,7 +162,20 @@ object LeafDngHalReconcile {
             )
         }
         if (useAsnOnlyPath(sessionCameraId)) {
-            return applyOp13AsnOnlyReconcile(original, captureResult, sessionCameraId)
+            val bayerAsn =
+                if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE) {
+                    preWriteBayerAsn
+                        ?: DngBayerAsShotNeutral.estimateFromDngBytes(original, characteristics)
+                } else {
+                    preWriteBayerAsn
+                }
+            val saneBayerAsn = bayerAsn?.takeIf { isSaneAsnForDesktopOpenGate(it) }
+            return applyOp13AsnOnlyReconcile(
+                original,
+                captureResult,
+                sessionCameraId,
+                preWriteBayerAsn = saneBayerAsn,
+            )
         }
         return applyLegacyAsnReconcile(
             original,
@@ -129,7 +187,123 @@ object LeafDngHalReconcile {
         )
     }
 
+    private fun isSaneAsnForDesktopOpenGate(asn: FloatArray): Boolean {
+        if (asn.size < 3) return false
+        val r = asn[0].coerceAtLeast(1e-6f)
+        val b = asn[2].coerceAtLeast(1e-6f)
+        val wbR = 1f / r
+        val wbB = 1f / b
+        // Match desktop-open gate bounds (see scripts/dng_desktop_open_gate.py).
+        return wbR in 0.45f..2.8f && wbB in 0.45f..2.8f
+    }
+
+    private fun useProShotReferenceCalibrationPath(sessionCameraId: String?): Boolean {
+        if (!OnePlus13FleetPolicy.useProShotReferenceCalibration()) return false
+        if (sessionCameraId == null) return false
+        // Wide (LYT-808): HAL CM/FM/ASN are trustworthy — aux only needs ProShot profile + Bayer ASN.
+        return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
+            sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
+    }
+
+    private fun applyProShotReferenceCalibrationReconcile(
+        original: ByteArray,
+        sessionCameraId: String,
+        assetContext: Context?,
+        characteristics: CameraCharacteristics,
+        captureResult: TotalCaptureResult,
+        preWriteBayerEstimate: DngBayerAsShotNeutral.BayerAsnEstimate? = null,
+    ): ByteArray {
+        val ctx = assetContext?.applicationContext
+        if (ctx == null) {
+            Log.w(TAG, "proshot-ref cal skipped: no assetContext cam=$sessionCameraId")
+            return original
+        }
+        val slot = ProShotReferenceCalibration.forCameraId(ctx, sessionCameraId)
+        if (slot == null) {
+            Log.w(TAG, "proshot-ref cal skipped: no slot for cam=$sessionCameraId")
+            return original
+        }
+        val cm2Before =
+            TiffDngColorMatrixPatch.readMatrixElement00(
+                original,
+                TiffDngColorMatrixPatch.TAG_COLOR_MATRIX2,
+            )
+        var bytes =
+            TiffDngColorMatrixPatch.patchCalibrationFromProShotReference(
+                original,
+                slot.colorMatrix1(),
+                slot.colorMatrix2(),
+                slot.forwardMatrix1(),
+                slot.forwardMatrix2(),
+            )
+        val model = Build.MODEL?.lowercase().orEmpty()
+        DngForwardMatrixFix.get(model, sessionCameraId)?.let { fmOverride ->
+            bytes = TiffDngColorMatrixPatch.patchForwardMatrix(bytes, fmOverride)
+            Log.i(TAG, "proshot-ref ForwardMatrix override cam=$sessionCameraId")
+        }
+        bytes = patchProShotReferenceAsShotNeutral(
+            bytes,
+            characteristics,
+            captureResult,
+            sessionCameraId,
+            slot,
+            preWriteBayerEstimate,
+        )
+        val cm2After =
+            TiffDngColorMatrixPatch.readMatrixElement00(
+                bytes,
+                TiffDngColorMatrixPatch.TAG_COLOR_MATRIX2,
+            )
+        Log.i(
+            TAG,
+            "proshot-ref cal patched cam=$sessionCameraId cm2_before=$cm2Before cm2_after=$cm2After",
+        )
+        return bytes
+    }
+
+    /**
+     * ProShot CM/FM tags are copied from reference DNGs; ASN must track **this** capture's Bayer
+     * (static ProShot ASN on different RAW causes green cast in ACR).
+     */
+    private fun patchProShotReferenceAsShotNeutral(
+        bytes: ByteArray,
+        characteristics: CameraCharacteristics,
+        captureResult: TotalCaptureResult,
+        sessionCameraId: String,
+        slot: ProShotReferenceCalibration.Slot,
+        @Suppress("UNUSED_PARAMETER") preWriteBayerEstimate: DngBayerAsShotNeutral.BayerAsnEstimate? = null,
+    ): ByteArray {
+        // Same gray-card scene as bundled refs: ProShot ASN + per-id FM override (above) is the
+        // ACR/Lightroom path. Bayer strip/readback on CPH2655 mis-phases CFA; HAL gains stay on
+        // the still request for UW raw pixels only.
+        return patchAsnFromProShotReferenceRationals(bytes, slot, sessionCameraId)
+    }
+
+    private fun patchAsnFromProShotReferenceRationals(
+        bytes: ByteArray,
+        slot: ProShotReferenceCalibration.Slot,
+        sessionCameraId: String,
+    ): ByteArray {
+        val nd = slot.asnRationalNd
+        if (nd.size != 6) return bytes
+        val r = nd[0].toFloat() / nd[1].coerceAtLeast(1L)
+        val g = nd[2].toFloat() / nd[3].coerceAtLeast(1L)
+        val b = nd[4].toFloat() / nd[5].coerceAtLeast(1L)
+        val asn = normalizeAsShotNeutralTriplet(r, g, b)
+        Log.w(TAG, "proshot-ref ASN fallback bundled ProShot cam=$sessionCameraId")
+        return TiffDngColorMatrixPatch.patchAsShotNeutralFromFloats(bytes, asn)
+    }
+
     private fun useAsnOnlyPath(sessionCameraId: String?): Boolean {
+        if (useProShotReferenceCalibrationPath(sessionCameraId)) return false
+        if (
+            OnePlus13FleetPolicy.useProShotPureDngSave() &&
+            OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile() &&
+            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
+                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+        ) {
+            return true
+        }
         if (OnePlus13FleetPolicy.useProShotPureDngSave()) return false
         if (DngSaveBisectState.forceLegacyAsnReconcile) return false
         if (sessionCameraId == null) return false
@@ -215,30 +389,52 @@ object LeafDngHalReconcile {
         original: ByteArray,
         captureResult: TotalCaptureResult,
         sessionCameraId: String?,
+        preWriteBayerAsn: FloatArray? = null,
     ): ByteArray {
+        var bytes = original
+        if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE && preWriteBayerAsn != null) {
+            bytes =
+                TiffDngColorMatrixPatch.patchAsShotNeutralFromFloats(
+                    bytes,
+                    preWriteBayerAsn,
+                )
+            Log.i(TAG, "asn-only AsShotNeutral from Bayer (pre-write) cam=$sessionCameraId")
+        } else {
         val correctedStillGains =
             sessionCameraId?.let { Op13LeafStillColorCorrection.takePendingCorrectedGains(it) }
         if (correctedStillGains != null) {
-            val bytes = TiffDngColorMatrixPatch.patchAsShotNeutral(original, correctedStillGains)
+            bytes = TiffDngColorMatrixPatch.patchAsShotNeutral(bytes, correctedStillGains)
             Log.i(
                 TAG,
                 "asn-only AsShotNeutral from Op13 corrected still-request gains cam=$sessionCameraId",
             )
-            return bytes
+        } else {
+            val gains = captureResult.get(CaptureResult.COLOR_CORRECTION_GAINS)
+            if (gains != null) {
+                val forPatch =
+                    if (DngSaveBisectState.skipHalWbGainCorrection) {
+                        gains
+                    } else if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE) {
+                        // CPH2655 tele: static WB scale table over-corrects; keep raw HAL gains.
+                        gains
+                    } else {
+                        applyHalWbGainCorrection(gains, sessionCameraId)
+                    }
+                Log.i(TAG, "asn-only AsShotNeutral from COLOR_CORRECTION_GAINS cam=$sessionCameraId")
+                bytes = TiffDngColorMatrixPatch.patchAsShotNeutral(bytes, forPatch)
+            } else {
+                Log.w(TAG, "asn-only skipped: no Op13 gains or COLOR_CORRECTION_GAINS cam=$sessionCameraId")
+            }
         }
-        val gains = captureResult.get(CaptureResult.COLOR_CORRECTION_GAINS)
-        if (gains != null) {
-            val forPatch =
-                if (DngSaveBisectState.skipHalWbGainCorrection) {
-                    gains
-                } else {
-                    applyHalWbGainCorrection(gains, sessionCameraId)
-                }
-            Log.i(TAG, "asn-only AsShotNeutral from COLOR_CORRECTION_GAINS cam=$sessionCameraId")
-            return TiffDngColorMatrixPatch.patchAsShotNeutral(original, forPatch)
         }
-        Log.w(TAG, "asn-only skipped: no Op13 gains or COLOR_CORRECTION_GAINS cam=$sessionCameraId")
-        return original
+        if (OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile()) {
+            val model = Build.MODEL?.lowercase().orEmpty()
+            DngForwardMatrixFix.get(model, sessionCameraId)?.let { fmOverride ->
+                bytes = TiffDngColorMatrixPatch.patchForwardMatrix(bytes, fmOverride)
+                Log.i(TAG, "asn+fm ForwardMatrix override cam=$sessionCameraId")
+            }
+        }
+        return bytes
     }
 
     private fun applyHalColorCalibrationReconcile(

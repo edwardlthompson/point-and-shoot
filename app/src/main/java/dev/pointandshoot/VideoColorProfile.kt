@@ -19,6 +19,14 @@ enum class VideoColorProfile(val storageId: String, val label: String) {
 
     fun requiresTenBitHevc(): Boolean = this == Hlg
 
+    /** GLES `uVideoColorProfile` — 0 = SDR, 1 = HLG preview, 2 = flat/cine. */
+    fun previewGlMode(): Float =
+        when (this) {
+            Sdr -> 0f
+            Hlg -> 1f
+            FlatCine -> 2f
+        }
+
     companion object {
         fun fromStorage(id: String?): VideoColorProfile =
             entries.firstOrNull { it.storageId == id } ?: Sdr

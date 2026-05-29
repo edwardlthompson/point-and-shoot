@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
+import kotlin.math.pow
 
 /**
  * Granular Pro-HUD element toggles per BUILD_PLAN §5 (Phase 2): "Settings > HUD".
@@ -37,8 +38,14 @@ data class HudSettings(
     val showHistogram: Boolean = false,        // disabled by default - cost vs benefit on small phones
     /** Sprint 13.9: Extend luma histogram to RGB channels when enabled. Requires [showHistogram]. */
     val showRgbHistogram: Boolean = false,
+    /** Sprint **15.34**: Luma histogram overlay while video-primary preview is recording. Off by default. */
+    val showHistogramDuringVideo: Boolean = false,
     /** Near-clip zebra (~0.95 luma) from YUV analysis; optional aid on highlight-hostile sensors. */
     val showHighlightClipZebra: Boolean = false,
+    /** Sprint **15.21** — [FalseColorMode.storageId]: off / zebra / false_color. */
+    val falseColorMode: String = FalseColorMode.Off.storageId,
+    /** Sprint **15.21** — zebra IRE % (75–100) → luma threshold via [PreviewLumaHistogram.irePercentToThresholdUnsigned]. */
+    val zebraIreThreshold: Int = 95,
     val showHighlightWeightedMeter: Boolean = true,
     val showEyeAfOverlay: Boolean = true,
     /**
@@ -187,6 +194,8 @@ data class HudSettings(
     val burstModeEnabled: Boolean = false,
     val burstShotCount: Int = 5,
     val burstIntervalMs: Int = 350,
+    /** Sprint **15.29** — Night dial stack depth (4 / 6 / 8 JPEG frames). */
+    val nightScapeFrameCount: Int = 6,
     /** Sprint **CC.1** — 0 = off; paired with [intervalometerRunning] on preview. */
     val intervalometerIntervalSec: Int = 0,
     val intervalometerRunning: Boolean = false,
@@ -196,6 +205,8 @@ data class HudSettings(
     val selectedPictureProfileId: String? = null,
     /** Sprint **CC.3** — loopback HTTP tether on port [TetheredCaptureServer.DEFAULT_PORT]. */
     val tetheredCaptureEnabled: Boolean = false,
+    /** Sprint **15.37** — bind tether on **0.0.0.0** + NSD `_pns-tether._tcp` for LAN / Wi‑Fi Direct. */
+    val wifiDirectTetherEnabled: Boolean = false,
     /**
      * Sprint **CC.3** — scales [CaptureRequest.FLASH_STRENGTH_LEVEL] when HAL advertises strength (API 35+).
      * **100** = HAL default clamped to max; **25** = minimum useful level.
@@ -203,8 +214,59 @@ data class HudSettings(
     val previewFlashStrengthPercent: Int = 100,
     /** Sprint **15.11** — video shutter-angle preset (see [VideoShutterAngle]). */
     val videoShutterAngle: String = VideoShutterAngle.Free.name,
+    /** Sprint **15.16** — preview + encoder color intent ([VideoColorProfile]). */
+    val videoColorProfile: String = VideoColorProfile.Sdr.storageId,
+    /** Sprint **15.23** — timecode + thermal + PPM in 16:9 letterbox pillars while recording. */
+    val showVideoPillarHud: Boolean = true,
+    /** Sprint **15.24** — in-app video [AudioRecord] / MediaRecorder source. */
+    val videoAudioSource: String = VideoAudioSource.Camcorder.storageId,
+    /** Sprint **15.25** — wind noise filter (NS + AEC) when source is Camcorder. */
+    val windNoiseFilterEnabled: Boolean = false,
+    /** Sprint **15.35** — in-app video mic gain in dB (−12…+12, 0.5 step). Applied in MediaCodec PCM loop. */
+    val audioGainDb: Float = 0f,
+    /** Sprint **15.27** — intervalometer output: still sequence vs H.264 MP4. */
+    val timeLapseMode: String = TimeLapseMode.Off.storageId,
+    /** Sprint **15.28** — tele manual-focus breathing crop compensation (M dial). */
+    val enableFocusBreathingComp: Boolean = false,
+    val focusBreathingCompK: Float = 0.005f,
+    /** Sprint **15.36** — rack focus waypoint diopters (null = unset). */
+    val rackFocusWaypointNear: Float? = null,
+    val rackFocusWaypointFar: Float? = null,
+    val rackFocusDurationMs: Int = RackFocusPull.DEFAULT_DURATION_MS,
+    /** Sprint **15.38** — dual-ISO HDR video (experimental; requires multi-res stream map). */
+    val dualIsoVideoEnabled: Boolean = false,
 ) {
     fun videoShutterAngleEnum(): VideoShutterAngle = VideoShutterAngle.fromStorage(videoShutterAngle)
+
+    fun videoColorProfileEnum(): VideoColorProfile = VideoColorProfile.fromStorage(videoColorProfile)
+
+    fun videoAudioSourceEnum(): VideoAudioSource = VideoAudioSource.fromStorage(videoAudioSource)
+
+    fun timeLapseModeEnum(): TimeLapseMode = TimeLapseMode.fromStorage(timeLapseMode)
+
+    /** True when wind NS/AEC may attach on the in-app video mic path. */
+    fun windNoiseFilterActive(): Boolean =
+        windNoiseFilterEnabled && videoAudioSourceEnum() == VideoAudioSource.Camcorder
+
+    /** True when dual-ISO video may attach on session create (HAL multi-res map required). */
+    fun dualIsoVideoActive(multiResSupported: Boolean): Boolean =
+        dualIsoVideoEnabled && DualIsoVideoMerger.isSupportedOnDevice(multiResSupported)
+
+    /** Linear PCM multiplier for [audioGainDb] (20·log10). */
+    fun audioGainLinear(): Float = audioGainDbToLinear(coerceAudioGainDb(audioGainDb))
+
+    fun falseColorModeEnum(): FalseColorMode = FalseColorMode.fromStorage(falseColorMode)
+
+    fun wantsHighlightClipZebraEffective(): Boolean =
+        showHighlightClipZebra || falseColorModeEnum().wantsZebra()
+
+    /** YUV histogram analysis in preview (photo [showHistogram] or video [showHistogramDuringVideo]). */
+    fun wantsPreviewHistogramPipeline(primaryPhoto: Boolean): Boolean =
+        showHistogram || (!primaryPhoto && showHistogramDuringVideo)
+
+    /** Finder overlay: photo when [showHistogram]; video only while recording. */
+    fun wantsHistogramOverlayVisible(primaryPhoto: Boolean, isRecording: Boolean): Boolean =
+        showHistogram || (!primaryPhoto && showHistogramDuringVideo && isRecording)
     /** Resolve the currently-active stills LUT, falling back to None on rename / removal. */
     fun stillsLut(): LutCatalog = resolveLut(selectedLutForStills)
 
@@ -225,8 +287,11 @@ data class HudSettings(
         private const val KEY_FPS = "show_fps_readout"
         private const val KEY_ISO_SHUTTER = "show_iso_shutter_readout"
         private const val KEY_HISTOGRAM = "show_histogram"
+        private const val KEY_HISTOGRAM_DURING_VIDEO = "show_histogram_during_video"
         private const val KEY_RGB_HISTOGRAM = "show_rgb_histogram"
         private const val KEY_HIGHLIGHT_CLIP_ZEBRA = "show_highlight_clip_zebra"
+        private const val KEY_FALSE_COLOR_MODE = "false_color_mode"
+        private const val KEY_ZEBRA_IRE_THRESHOLD = "zebra_ire_threshold"
         private const val KEY_HIGHLIGHT_METER = "show_highlight_meter"
         private const val KEY_EYE_AF = "show_eye_af_overlay"
         private const val KEY_FACE_ALIGN_CROSSHAIR = "show_face_alignment_debug_crosshair"
@@ -258,19 +323,50 @@ data class HudSettings(
         private const val KEY_BURST_MODE = "burst_mode_enabled"
         private const val KEY_BURST_COUNT = "burst_shot_count"
         private const val KEY_BURST_INTERVAL_MS = "burst_interval_ms"
+        private const val KEY_NIGHTSCAPE_FRAME_COUNT = "nightscape_frame_count"
         private const val KEY_INTERVALOMETER_SEC = "intervalometer_interval_sec"
         private const val KEY_INTERVALOMETER_RUNNING = "intervalometer_running"
         private const val KEY_PRECAPTURE_BUFFER = "pre_capture_buffer_enabled"
         private const val KEY_PICTURE_PROFILE = "selected_picture_profile_id"
         private const val KEY_TETHERED_CAPTURE = "tethered_capture_enabled"
+        private const val KEY_WIFI_DIRECT_TETHER = "wifi_direct_tether_enabled"
         private const val KEY_PREVIEW_FLASH_STRENGTH = "preview_flash_strength_percent"
         private const val KEY_VIDEO_SHUTTER_ANGLE = "video_shutter_angle"
+        private const val KEY_VIDEO_COLOR_PROFILE = "video_color_profile"
+        private const val KEY_VIDEO_PILLAR_HUD = "show_video_pillar_hud"
+        private const val KEY_VIDEO_AUDIO_SOURCE = "video_audio_source"
+        private const val KEY_WIND_NOISE_FILTER = "wind_noise_filter_enabled"
+        private const val KEY_AUDIO_GAIN_DB = "video_audio_gain_db"
+        private const val KEY_TIME_LAPSE_MODE = "time_lapse_mode"
+        private const val KEY_FOCUS_BREATHING_COMP = "enable_focus_breathing_comp"
+        private const val KEY_FOCUS_BREATHING_K = "focus_breathing_comp_k"
+        private const val KEY_RACK_WP_NEAR_SET = "rack_focus_wp_near_set"
+        private const val KEY_RACK_WP_NEAR = "rack_focus_wp_near"
+        private const val KEY_RACK_WP_FAR_SET = "rack_focus_wp_far_set"
+        private const val KEY_RACK_WP_FAR = "rack_focus_wp_far"
+        private const val KEY_RACK_DURATION_MS = "rack_focus_duration_ms"
+        private const val KEY_DUAL_ISO_VIDEO = "dual_iso_video_enabled"
+        const val FOCUS_BREATHING_K_MIN = 0.001f
+        const val FOCUS_BREATHING_K_MAX = 0.02f
         private const val KEY_SMILE_STILL = "enable_smile_triggered_still"
         private const val KEY_SCENE_VENDOR_HINTS = "show_scene_vendor_hints"
         private const val KEY_VIDEO_BITRATE_SCALE = "video_bitrate_scale_percent"
 
         const val VIDEO_BITRATE_SCALE_MIN = 50
         const val VIDEO_BITRATE_SCALE_MAX = 150
+
+        const val AUDIO_GAIN_DB_MIN = -12f
+        const val AUDIO_GAIN_DB_MAX = 12f
+
+        /** Round to nearest 0.5 dB and clamp to [AUDIO_GAIN_DB_MIN]…[AUDIO_GAIN_DB_MAX]. */
+        fun coerceAudioGainDb(db: Float): Float {
+            val stepped = kotlin.math.round(db * 2f) / 2f
+            return stepped.coerceIn(AUDIO_GAIN_DB_MIN, AUDIO_GAIN_DB_MAX)
+        }
+
+        /** dB → linear gain for PCM multiply (0 dB = 1.0). */
+        fun audioGainDbToLinear(db: Float): Float =
+            10.0.pow((coerceAudioGainDb(db) / 20.0).toDouble()).toFloat()
 
         const val PREVIEW_FLASH_STRENGTH_MIN = 25
         const val PREVIEW_FLASH_STRENGTH_MAX = 100
@@ -399,8 +495,16 @@ data class HudSettings(
                 showFpsReadout = prefs.getBoolean(KEY_FPS, defaults.showFpsReadout),
                 showIsoShutterReadout = prefs.getBoolean(KEY_ISO_SHUTTER, defaults.showIsoShutterReadout),
                 showHistogram = prefs.getBoolean(KEY_HISTOGRAM, defaults.showHistogram),
+                showHistogramDuringVideo =
+                    prefs.getBoolean(KEY_HISTOGRAM_DURING_VIDEO, defaults.showHistogramDuringVideo),
                 showRgbHistogram = prefs.getBoolean(KEY_RGB_HISTOGRAM, defaults.showRgbHistogram),
                 showHighlightClipZebra = prefs.getBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, defaults.showHighlightClipZebra),
+                falseColorMode =
+                    prefs.getString(KEY_FALSE_COLOR_MODE, defaults.falseColorMode)
+                        ?: defaults.falseColorMode,
+                zebraIreThreshold =
+                    prefs.getInt(KEY_ZEBRA_IRE_THRESHOLD, defaults.zebraIreThreshold)
+                        .coerceIn(PreviewLumaHistogram.IRE_MIN, PreviewLumaHistogram.IRE_MAX),
                 showHighlightWeightedMeter = prefs.getBoolean(KEY_HIGHLIGHT_METER, defaults.showHighlightWeightedMeter),
                 showEyeAfOverlay = prefs.getBoolean(KEY_EYE_AF, defaults.showEyeAfOverlay),
                 showFaceAlignmentDebugCrosshair =
@@ -453,6 +557,10 @@ data class HudSettings(
                     AdvancedCaptureSettings.normalizeBurstIntervalMs(
                         prefs.getInt(KEY_BURST_INTERVAL_MS, defaults.burstIntervalMs),
                     ),
+                nightScapeFrameCount =
+                    AdvancedCaptureSettings.normalizeNightScapeFrameCount(
+                        prefs.getInt(KEY_NIGHTSCAPE_FRAME_COUNT, defaults.nightScapeFrameCount),
+                    ),
                 intervalometerIntervalSec =
                     AdvancedCaptureSettings.normalizeIntervalometerSec(
                         prefs.getInt(KEY_INTERVALOMETER_SEC, defaults.intervalometerIntervalSec),
@@ -465,12 +573,52 @@ data class HudSettings(
                     prefs.getString(KEY_PICTURE_PROFILE, defaults.selectedPictureProfileId),
                 tetheredCaptureEnabled =
                     prefs.getBoolean(KEY_TETHERED_CAPTURE, defaults.tetheredCaptureEnabled),
+                wifiDirectTetherEnabled =
+                    prefs.getBoolean(KEY_WIFI_DIRECT_TETHER, defaults.wifiDirectTetherEnabled),
                 previewFlashStrengthPercent =
                     prefs.getInt(KEY_PREVIEW_FLASH_STRENGTH, defaults.previewFlashStrengthPercent)
                         .coerceIn(PREVIEW_FLASH_STRENGTH_MIN, PREVIEW_FLASH_STRENGTH_MAX),
                 videoShutterAngle =
                     prefs.getString(KEY_VIDEO_SHUTTER_ANGLE, defaults.videoShutterAngle)
                         ?: defaults.videoShutterAngle,
+                videoColorProfile =
+                    prefs.getString(KEY_VIDEO_COLOR_PROFILE, defaults.videoColorProfile)
+                        ?: defaults.videoColorProfile,
+                showVideoPillarHud =
+                    prefs.getBoolean(KEY_VIDEO_PILLAR_HUD, defaults.showVideoPillarHud),
+                videoAudioSource =
+                    prefs.getString(KEY_VIDEO_AUDIO_SOURCE, defaults.videoAudioSource)
+                        ?: defaults.videoAudioSource,
+                windNoiseFilterEnabled =
+                    prefs.getBoolean(KEY_WIND_NOISE_FILTER, defaults.windNoiseFilterEnabled),
+                audioGainDb =
+                    coerceAudioGainDb(prefs.getFloat(KEY_AUDIO_GAIN_DB, defaults.audioGainDb)),
+                timeLapseMode =
+                    prefs.getString(KEY_TIME_LAPSE_MODE, defaults.timeLapseMode)
+                        ?: defaults.timeLapseMode,
+                enableFocusBreathingComp =
+                    prefs.getBoolean(KEY_FOCUS_BREATHING_COMP, defaults.enableFocusBreathingComp),
+                focusBreathingCompK =
+                    prefs.getFloat(KEY_FOCUS_BREATHING_K, defaults.focusBreathingCompK)
+                        .coerceIn(FOCUS_BREATHING_K_MIN, FOCUS_BREATHING_K_MAX),
+                rackFocusWaypointNear =
+                    if (prefs.getBoolean(KEY_RACK_WP_NEAR_SET, false)) {
+                        prefs.getFloat(KEY_RACK_WP_NEAR, 0f)
+                    } else {
+                        null
+                    },
+                rackFocusWaypointFar =
+                    if (prefs.getBoolean(KEY_RACK_WP_FAR_SET, false)) {
+                        prefs.getFloat(KEY_RACK_WP_FAR, 0f)
+                    } else {
+                        null
+                    },
+                rackFocusDurationMs =
+                    RackFocusPull.coerceDurationMs(
+                        prefs.getInt(KEY_RACK_DURATION_MS, defaults.rackFocusDurationMs),
+                    ),
+                dualIsoVideoEnabled =
+                    prefs.getBoolean(KEY_DUAL_ISO_VIDEO, defaults.dualIsoVideoEnabled),
             )
         }
 
@@ -486,8 +634,17 @@ data class HudSettings(
                 .putBoolean(KEY_FPS, settings.showFpsReadout)
                 .putBoolean(KEY_ISO_SHUTTER, settings.showIsoShutterReadout)
                 .putBoolean(KEY_HISTOGRAM, settings.showHistogram)
+                .putBoolean(KEY_HISTOGRAM_DURING_VIDEO, settings.showHistogramDuringVideo)
                 .putBoolean(KEY_RGB_HISTOGRAM, settings.showRgbHistogram)
                 .putBoolean(KEY_HIGHLIGHT_CLIP_ZEBRA, settings.showHighlightClipZebra)
+                .putString(KEY_FALSE_COLOR_MODE, settings.falseColorModeEnum().storageId)
+                .putInt(
+                    KEY_ZEBRA_IRE_THRESHOLD,
+                    settings.zebraIreThreshold.coerceIn(
+                        PreviewLumaHistogram.IRE_MIN,
+                        PreviewLumaHistogram.IRE_MAX,
+                    ),
+                )
                 .putBoolean(KEY_HIGHLIGHT_METER, settings.showHighlightWeightedMeter)
                 .putBoolean(KEY_EYE_AF, settings.showEyeAfOverlay)
                 .putBoolean(KEY_FACE_ALIGN_CROSSHAIR, settings.showFaceAlignmentDebugCrosshair)
@@ -533,11 +690,13 @@ data class HudSettings(
                 .putBoolean(KEY_BURST_MODE, settings.burstModeEnabled)
                 .putInt(KEY_BURST_COUNT, settings.burstShotCount)
                 .putInt(KEY_BURST_INTERVAL_MS, settings.burstIntervalMs)
+                .putInt(KEY_NIGHTSCAPE_FRAME_COUNT, settings.nightScapeFrameCount)
                 .putInt(KEY_INTERVALOMETER_SEC, settings.intervalometerIntervalSec)
                 .putBoolean(KEY_INTERVALOMETER_RUNNING, settings.intervalometerRunning)
                 .putBoolean(KEY_PRECAPTURE_BUFFER, settings.preCaptureBufferEnabled)
                 .putString(KEY_PICTURE_PROFILE, settings.selectedPictureProfileId)
                 .putBoolean(KEY_TETHERED_CAPTURE, settings.tetheredCaptureEnabled)
+                .putBoolean(KEY_WIFI_DIRECT_TETHER, settings.wifiDirectTetherEnabled)
                 .putInt(
                     KEY_PREVIEW_FLASH_STRENGTH,
                     settings.previewFlashStrengthPercent.coerceIn(
@@ -546,6 +705,23 @@ data class HudSettings(
                     ),
                 )
                 .putString(KEY_VIDEO_SHUTTER_ANGLE, settings.videoShutterAngleEnum().name)
+                .putString(KEY_VIDEO_COLOR_PROFILE, settings.videoColorProfileEnum().storageId)
+                .putBoolean(KEY_VIDEO_PILLAR_HUD, settings.showVideoPillarHud)
+                .putString(KEY_VIDEO_AUDIO_SOURCE, settings.videoAudioSourceEnum().storageId)
+                .putBoolean(KEY_WIND_NOISE_FILTER, settings.windNoiseFilterEnabled)
+                .putFloat(KEY_AUDIO_GAIN_DB, coerceAudioGainDb(settings.audioGainDb))
+                .putString(KEY_TIME_LAPSE_MODE, settings.timeLapseModeEnum().storageId)
+                .putBoolean(KEY_FOCUS_BREATHING_COMP, settings.enableFocusBreathingComp)
+                .putFloat(
+                    KEY_FOCUS_BREATHING_K,
+                    settings.focusBreathingCompK.coerceIn(FOCUS_BREATHING_K_MIN, FOCUS_BREATHING_K_MAX),
+                )
+                .putBoolean(KEY_RACK_WP_NEAR_SET, settings.rackFocusWaypointNear != null)
+                .putFloat(KEY_RACK_WP_NEAR, settings.rackFocusWaypointNear ?: 0f)
+                .putBoolean(KEY_RACK_WP_FAR_SET, settings.rackFocusWaypointFar != null)
+                .putFloat(KEY_RACK_WP_FAR, settings.rackFocusWaypointFar ?: 0f)
+                .putInt(KEY_RACK_DURATION_MS, RackFocusPull.coerceDurationMs(settings.rackFocusDurationMs))
+                .putBoolean(KEY_DUAL_ISO_VIDEO, settings.dualIsoVideoEnabled)
                 .commit()
         }
 

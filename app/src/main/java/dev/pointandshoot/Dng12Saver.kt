@@ -137,17 +137,20 @@ class Dng12Saver(
         if (!stamp50708 && !reconcileLeaf) {
             creator.writeImage(destination, image)
         } else {
-            val preWriteBayerAsn =
+            val preWriteBayerEstimate =
                 if (
                     reconcileLeaf &&
-                    !LeafDngHalReconcile.usesHalColorCalibration(sessionCameraId) &&
-                    !LeafDngHalReconcile.usesAsnOnlyReconcile(sessionCameraId) &&
-                    !LeafDngHalReconcile.usesWideLeafCalibrationReconcile(sessionCameraId)
+                    LeafDngHalReconcile.shouldEstimateBayerBeforeWrite(sessionCameraId)
                 ) {
-                    DngBayerAsShotNeutral.estimate(characteristics, image, captureResult)
+                    DngBayerAsShotNeutral.estimateWithBayerRatios(
+                        characteristics,
+                        image,
+                        captureResult,
+                    )
                 } else {
                     null
                 }
+            val preWriteBayerAsn = preWriteBayerEstimate?.asn
             val baos = ByteArrayOutputStream()
             creator.writeImage(baos, image)
             var rawBytes = baos.toByteArray()
@@ -160,7 +163,9 @@ class Dng12Saver(
                         image,
                         sessionCameraId = sessionCameraId,
                         preWriteBayerAsn = preWriteBayerAsn,
+                        preWriteBayerEstimate = preWriteBayerEstimate,
                         wideCalibrationCharacteristics = wideCalibrationCharacteristics,
+                        assetContext = adbValidationContext,
                     )
                 adbValidationContext?.let {
                     PnsAdbLog.i(it, "dng leaf HAL reconcile ok cam=$sessionCameraId")

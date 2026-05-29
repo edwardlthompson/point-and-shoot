@@ -46,6 +46,11 @@ import android.hardware.camera2.CameraMetadata
 import dev.pointandshoot.fleet.FleetCameraProfileBuilder
 import dev.pointandshoot.fleet.FleetCameraProfileStore
 import dev.pointandshoot.fleet.FleetCameraProfiles
+import dev.pointandshoot.fleet.FleetDeviceMatrixBuilder
+import dev.pointandshoot.fleet.FleetDeviceMatrixStore
+import dev.pointandshoot.fleet.FleetProbeMatrixMarkdown
+import dev.pointandshoot.fleet.FleetMatrixHubScreen
+import dev.pointandshoot.fleet.FleetPolicyPreferences
 
 private const val TAG = "PNS.Probe"
 /** Single-line shallow metadata summary for ADB gates (`scripts/pns_shallow_scan_hub_validate.ps1`). */
@@ -113,6 +118,8 @@ const val EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS = "pns_preview_burst_interval_ms"
 
 /** Sprint **CC.3** — loopback tether (`pns_preview_tether`). */
 const val EXTRA_PNS_PREVIEW_TETHER = "pns_preview_tether"
+/** Sprint **15.37** — LAN tether + NSD (`pns_preview_wifi_direct_tether`). */
+const val EXTRA_PNS_PREVIEW_WIFI_DIRECT_TETHER = "pns_preview_wifi_direct_tether"
 
 /** Sprint **CC.3** — picture profile id (`pns_preview_picture_profile`, e.g. `cinematic`). */
 const val EXTRA_PNS_PREVIEW_PICTURE_PROFILE = "pns_preview_picture_profile"
@@ -224,8 +231,13 @@ const val EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT = "pns_preview_focal_mm_slot"
 const val EXTRA_PNS_PREVIEW_READOUT_ISO = "pns_preview_readout_iso"
 /** Sprint **15.10** — lock shutter speed (ns) so ISO chase can be proven over ADB. */
 const val EXTRA_PNS_PREVIEW_READOUT_SHUTTER_NS = "pns_preview_readout_shutter_ns"
+/** Sprint **15.11** — video shutter-angle preset (`Angle180`, …) for `pns_shutter_angle_verify.ps1`. */
+const val EXTRA_PNS_PREVIEW_VIDEO_SHUTTER_ANGLE = "pns_preview_video_shutter_angle"
 /** Sprint **15.1** — ADB seed: enable eye AF HUD overlay on preview start. */
 const val EXTRA_PNS_PREVIEW_EYE_AF_OVERLAY = "pns_preview_eye_af_overlay"
+
+/** Sprint **15.19** — after preview settles, synthesize media play/pause → `shutterFired source=bt_media`. */
+const val EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY = "pns_preview_automation_bt_media_key"
 
 /**
  * Optional **`--ez pns_preview_primary_photo false`** with [PNS_SCREEN_PREVIEW]: cold-start **video-primary**
@@ -239,6 +251,24 @@ const val EXTRA_PNS_PREVIEW_AUDIO_HIFI = "pns_preview_audio_hifi"
 /** Sprint **AS.1** — wind noise suppression on video record path. */
 const val EXTRA_PNS_PREVIEW_AUDIO_WIND = "pns_preview_audio_wind"
 
+/** Sprint **15.25** — HudSettings wind noise filter (Camcorder + NS/AEC). */
+const val EXTRA_PNS_PREVIEW_WIND_NOISE_FILTER = "pns_preview_wind_noise_filter"
+
+/** Sprint **15.26** — seed preview AE lock (`pns_preview_ae_lock`). */
+const val EXTRA_PNS_PREVIEW_AE_LOCK = "pns_preview_ae_lock"
+
+/** Sprint **15.27** — intervalometer time-lapse automation seeds. */
+const val EXTRA_PNS_PREVIEW_TIMELAPSE_MODE = "pns_preview_timelapse_mode"
+const val EXTRA_PNS_PREVIEW_TIMELAPSE_RUNNING = "pns_preview_timelapse_running"
+const val EXTRA_PNS_PREVIEW_TIMELAPSE_INTERVAL_SEC = "pns_preview_timelapse_interval_sec"
+const val EXTRA_PNS_PREVIEW_TIMELAPSE_AUTO_STOP_SEC = "pns_preview_timelapse_auto_stop_sec"
+
+/** Sprint **15.28** — focus breathing compensation toggle + automation rack. */
+const val EXTRA_PNS_PREVIEW_FOCUS_BREATHING_COMP = "pns_preview_focus_breathing_comp"
+const val EXTRA_PNS_PREVIEW_AUTOMATION_FOCUS_RACK_SEC = "pns_preview_automation_focus_rack_sec"
+/** Sprint **15.36** — run waypoint rack pull once after preview settles (`pns_preview_rack_focus_pull`). */
+const val EXTRA_PNS_PREVIEW_RACK_FOCUS_PULL = "pns_preview_rack_focus_pull"
+
 /** Sprint **AS.2** — shutter pack: `mechanical`, `digital`, `vintage`, `silent`. */
 const val EXTRA_PNS_PREVIEW_SHUTTER_SOUND_PACK = "pns_preview_shutter_sound_pack"
 
@@ -250,6 +280,9 @@ const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC = "pns_preview_automatio
 
 /** Sprint **14.11** gate: open in-preview [AboutScreen] overlay on cold preview (`pns_about_links_verify.ps1`). */
 const val EXTRA_PNS_PREVIEW_SHOW_ABOUT = "pns_preview_show_about"
+
+/** Sprint **15.8** gate: open chrome Settings rail on cold preview (`pns_settings_rail_screencap.ps1`). */
+const val EXTRA_PNS_PREVIEW_OPEN_SETTINGS = "pns_preview_open_settings"
 
 /**
  * Debug APK + [PNS_SCREEN_PREVIEW]: target FPS for in-app video automation.
@@ -390,6 +423,15 @@ const val EXTRA_PNS_PREVIEW_SCENE_VENDOR_HINTS = "pns_preview_scene_vendor_hints
  */
 const val EXTRA_PNS_AUTO_EXPORT_PROBE = "pns_auto_export_probe"
 
+/**
+ * Fleet matrix scan tier for host automation (**16.3**): `quick` (default on probehub) or `full`.
+ * Typical ADB: `--es pns_screen probehub --es pns_fleet_matrix_scan full`
+ */
+const val EXTRA_PNS_FLEET_MATRIX_SCAN = "pns_fleet_matrix_scan"
+
+/** When true, enables [OnePlus13FleetPolicyPlugin] for this process (developer / regression lane). */
+const val EXTRA_PNS_LEGACY_OP13_FLEET_POLICY = "pns_legacy_op13_fleet_policy"
+
 /** Stable filename written when [EXTRA_PNS_AUTO_EXPORT_PROBE] is true. */
 const val PROBE_EXPORT_LATEST_FILE = "PROBE_EXPORT_LATEST.md"
 
@@ -473,6 +515,7 @@ fun CameraCapabilitiesProbe(
     var showEncoderProbe by remember { mutableStateOf(false) }
     var showLegacyCamera1 by remember { mutableStateOf(false) }
     var showDeepCaps by remember { mutableStateOf(false) }
+    var showFleetMatrix by remember { mutableStateOf(false) }
     var showSessionMatrix by remember { mutableStateOf(false) }
     var showHdrDcgRuntime by remember { mutableStateOf(false) }
     var showCaptureLatency by remember { mutableStateOf(false) }
@@ -517,6 +560,13 @@ fun CameraCapabilitiesProbe(
     }
 
     val activity = context as? ComponentActivity
+    // Do not `remember` ADB intent extras — cold `am start --es pns_fleet_matrix_scan full` must be read fresh
+    // (same stale-cache class as preview automation extras below).
+    val fleetMatrixScanTier =
+        activity?.intent?.getStringExtra(EXTRA_PNS_FLEET_MATRIX_SCAN)?.lowercase()?.trim()
+    val legacyOp13FleetPolicy =
+        activity?.intent?.getBooleanExtra(EXTRA_PNS_LEGACY_OP13_FLEET_POLICY, false) ?: false
+    var fleetMatrixFullScanDone by remember { mutableStateOf(false) }
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
     val intentExhaustiveHfrOnly = activity?.intent?.getBooleanExtra(EXTRA_PNS_EXHAUSTIVE_HFR_ONLY, false) ?: false
     val effectiveIncludeLogical = exhaustiveIncludeLogical || intentIncludeLogical
@@ -539,6 +589,7 @@ fun CameraCapabilitiesProbe(
             "QR / barcode scan" -> showQrScan = true
             "Legacy Camera1 probe" -> showLegacyCamera1 = true
             "Deep capabilities" -> showDeepCaps = true
+            "Device capability matrix" -> showFleetMatrix = true
             "Face / eye / metering probe" -> showFaceMeterProbe = true
             "Session configuration matrix" -> showSessionMatrix = true
             "HDR / dynamic range runtime" -> showHdrDcgRuntime = true
@@ -790,6 +841,24 @@ fun CameraCapabilitiesProbe(
         }
     }
 
+    LaunchedEffect(legacyOp13FleetPolicy) {
+        if (legacyOp13FleetPolicy) {
+            FleetPolicyPreferences.setLegacyOp13Enabled(appCtx, true)
+            FleetCameraProfiles.invalidateMemoryCache()
+        }
+    }
+
+    // Do not key on [fleetMatrixFullScanDone] — setting it true at start used to cancel this effect immediately.
+    LaunchedEffect(hasCameraPermission, fleetMatrixScanTier) {
+        if (!hasCameraPermission || fleetMatrixScanTier != "full" || fleetMatrixFullScanDone) return@LaunchedEffect
+        fleetMatrixFullScanDone = true
+        Log.i(FleetDeviceMatrixBuilder.TAG, "scanTier=full starting (adb pns_fleet_matrix_scan)")
+        withContext(Dispatchers.IO) {
+            runCatching { FleetDeviceMatrixBuilder.buildFullAndSave(appCtx) }
+                .onFailure { e -> Log.e(FleetDeviceMatrixBuilder.TAG, "scanTier=full failed", e) }
+        }
+    }
+
     if (showMapping) {
         DodgeMappingScreen(onBackToProbe = { showMapping = false })
         return
@@ -813,6 +882,7 @@ fun CameraCapabilitiesProbe(
         val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
         val adbReadoutIsoProbe = activity?.intent.previewReadoutIsoProbeExtra()
         val adbReadoutShutterNsProbe = activity?.intent.previewReadoutShutterNsProbeExtra()
+        val adbVideoShutterAngleProbe = activity?.intent.previewVideoShutterAngleExtra()
         val intentPrimaryPhotoSeed =
             activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) }
                 ?.getBooleanExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, true)
@@ -840,6 +910,24 @@ fun CameraCapabilitiesProbe(
             if (trustIntentForPreviewPipeline) activity?.intent.previewAudioHiFiExtra() else null
         val adbAudioWindSeed =
             if (trustIntentForPreviewPipeline) activity?.intent.previewAudioWindExtra() else null
+        val adbWindNoiseFilterSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewWindNoiseFilterExtra() else null
+        val adbAeLockSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewAeLockExtra() else null
+        val adbTimelapseModeSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewTimelapseModeExtra() else null
+        val adbTimelapseRunningSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewTimelapseRunningExtra() else null
+        val adbTimelapseIntervalSecSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewTimelapseIntervalSecExtra() else null
+        val adbTimelapseAutoStopSecSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewTimelapseAutoStopSecExtra() else null
+        val adbFocusBreathingCompSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewFocusBreathingCompExtra() else null
+        val adbAutomationFocusRackSec =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewAutomationFocusRackSecExtra() else null
+        val adbRackFocusPull =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewRackFocusPullExtra() else false
         val adbShutterSoundPackSeed =
             if (trustIntentForPreviewPipeline) activity?.intent.previewShutterSoundPackExtra() else null
         val adbComposedStillSmoke =
@@ -938,6 +1026,12 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
+        val adbAutomationBtMediaKey =
+            if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY, false) ?: false
+            } else {
+                false
+            }
         val adbDngBisectActive =
             if (trustIntentForPreviewPipeline) {
                 DngSaveBisectState.applyFromPreviewIntent(activity?.intent)
@@ -969,6 +1063,12 @@ fun CameraCapabilitiesProbe(
         val adbTetherEnabled =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_TETHER, false) ?: false
+            } else {
+                false
+            }
+        val adbWifiDirectTether =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_WIFI_DIRECT_TETHER, false) ?: false
             } else {
                 false
             }
@@ -1162,6 +1262,12 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
+        val adbOpenSettingsRail =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_OPEN_SETTINGS, false) ?: false
+            } else {
+                false
+            }
         val adbSequentialRawStills = if (trustIntentForPreviewPipeline) adbRawCountRaw else 0
         val adbBracketPattern = if (trustIntentForPreviewPipeline) adbBracketRaw else null
         val adbRawStreamPreference = if (useIntentAutomationPipeline) adbRawStreamFromIntent else null
@@ -1219,6 +1325,15 @@ fun CameraCapabilitiesProbe(
             adbJpegCompanionSeed = adbJpegCompanionSeed,
             adbAudioHiFiSeed = adbAudioHiFiSeed,
             adbAudioWindSeed = adbAudioWindSeed,
+            adbWindNoiseFilterSeed = adbWindNoiseFilterSeed,
+            adbAeLockSeed = adbAeLockSeed,
+            adbTimelapseModeSeed = adbTimelapseModeSeed,
+            adbTimelapseRunningSeed = adbTimelapseRunningSeed,
+            adbTimelapseIntervalSecSeed = adbTimelapseIntervalSecSeed,
+            adbTimelapseAutoStopSecSeed = adbTimelapseAutoStopSecSeed,
+            adbFocusBreathingCompSeed = adbFocusBreathingCompSeed,
+            adbAutomationFocusRackSec = adbAutomationFocusRackSec,
+            adbRackFocusPull = adbRackFocusPull,
             adbShutterSoundPackSeed = adbShutterSoundPackSeed,
             adbComposedStillSmoke = adbComposedStillSmoke,
             adbSeedCameraId = adbSeedCameraId,
@@ -1228,7 +1343,9 @@ fun CameraCapabilitiesProbe(
             adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
             adbInitialSelfTimerSec = adbSelfTimerSec,
             adbFocalMmSlotProbe = adbFocalMmSlotProbe,
+            adbReadoutIsoProbe = adbReadoutIsoProbe,
             adbReadoutShutterNsProbe = adbReadoutShutterNsProbe,
+            adbVideoShutterAngleProbe = adbVideoShutterAngleProbe,
             adbEyeAfOverlaySeed = adbEyeAfOverlaySeed,
             imageCaptureReturn = imageCaptureReturn,
             videoCaptureReturn = videoCaptureReturn,
@@ -1243,11 +1360,13 @@ fun CameraCapabilitiesProbe(
             adbAutomationVideoCodecOrdinal = adbAutomationVideoCodecOrdinal,
             adbAutomationVideoStabilization = adbAutomationVideoStabilization,
             adbAutomationVideoRawSec = adbAutomationVideoRawSec,
+            adbAutomationBtMediaKey = adbAutomationBtMediaKey,
             adbDngBisectActive = adbDngBisectActive,
             adbStillCaptureMode = adbStillCaptureMode,
             adbBurstStillCount = adbBurstStillCount,
             adbBurstIntervalMs = adbBurstIntervalMs,
             adbTetherEnabled = adbTetherEnabled,
+            adbWifiDirectTether = adbWifiDirectTether,
             adbPictureProfileId = adbPictureProfileId,
             adbFlashStrengthPercent = adbFlashStrengthPercent,
             adbCalExportSmoke = adbCalExportSmoke,
@@ -1278,6 +1397,7 @@ fun CameraCapabilitiesProbe(
             adbVideoBitrateScalePercent = adbVideoBitrateScalePercent,
             adbSceneVendorHints = adbSceneVendorHints,
             adbShowAboutOverlay = adbShowAboutOverlay,
+            adbOpenSettingsRail = adbOpenSettingsRail,
             themeMode = themeMode,
             onThemeModeChange = onThemeModeChange,
         )
@@ -1297,6 +1417,11 @@ fun CameraCapabilitiesProbe(
             onBack = { showLegacyCamera1 = false },
             startAuto = autoLegacyCamera1,
         )
+        return
+    }
+
+    if (showFleetMatrix) {
+        FleetMatrixHubScreen(onBack = { showFleetMatrix = false })
         return
     }
 
@@ -1514,6 +1639,10 @@ fun CameraCapabilitiesProbe(
                 showDebugMenu = false
                 showDeepCaps = true
             },
+            onShowFleetMatrix = {
+                showDebugMenu = false
+                showFleetMatrix = true
+            },
             onShowFaceMeterProbe = {
                 showDebugMenu = false
                 showFaceMeterProbe = true
@@ -1667,6 +1796,7 @@ fun CameraCapabilitiesProbe(
         onShowEncoderProbe = { showEncoderProbe = true },
         onShowLegacyCamera1 = { showLegacyCamera1 = true },
         onShowDeepCaps = { showDeepCaps = true },
+        onShowFleetMatrix = { showFleetMatrix = true },
         onShowFaceMeterProbe = { showFaceMeterProbe = true },
         onShowQrScan = { showQrScan = true },
         onShowSessionMatrix = { showSessionMatrix = true },
@@ -1880,6 +2010,22 @@ internal fun buildProbeReport(context: Context, scanBudgetMs: Long = 4000L): Str
     FleetCameraProfileStore.appendProbeMarkdown(sb, fleetSnap)
     FleetCameraProfileStore.appendCatalogMarkdown(sb, context.applicationContext, probeHiddenIds = false)
     FleetCameraProfiles.invalidateMemoryCache()
+
+    val matrixBuilt =
+        FleetDeviceMatrixBuilder.buildQuick(
+            context.applicationContext,
+            prebuiltCameras = camerasJson,
+            prebuiltShallowRoot = shallowRoot,
+            prebuiltDegraded = scanDegraded,
+        )
+    FleetDeviceMatrixStore.save(context.applicationContext, matrixBuilt.root)
+    Log.i(
+        FleetDeviceMatrixBuilder.TAG,
+        "scanTier=quick cameras=${matrixBuilt.cameraCount} degraded=${matrixBuilt.degraded} " +
+            "ms=${matrixBuilt.scanDurationMs}",
+    )
+
+    FleetProbeMatrixMarkdown.appendSummary(sb, context.applicationContext)
 
     return sb.toString()
 }
@@ -2216,6 +2362,8 @@ private fun Intent?.previewDialModeExtra(): CommandDialMode? {
         "S" -> CommandDialMode.S
         "BKT" -> CommandDialMode.BKT
         "MACRO" -> CommandDialMode.Macro
+        "NIGHT" -> CommandDialMode.Night
+        "BOKEH" -> CommandDialMode.Bokeh
         "QR" -> CommandDialMode.Qr
         "DUAL" -> CommandDialMode.Dual
         else -> null
@@ -2314,6 +2462,9 @@ internal fun Intent?.previewReadoutShutterNsProbeExtra(): Long? =
         null
     }
 
+internal fun Intent?.previewVideoShutterAngleExtra(): String? =
+    this?.getStringExtra(EXTRA_PNS_PREVIEW_VIDEO_SHUTTER_ANGLE)?.trim()?.takeIf { it.isNotBlank() }
+
 internal fun Intent?.previewEyeAfOverlayExtra(): Boolean? =
     if (this != null && hasExtra(EXTRA_PNS_PREVIEW_EYE_AF_OVERLAY)) {
         getBooleanExtra(EXTRA_PNS_PREVIEW_EYE_AF_OVERLAY, false)
@@ -2334,6 +2485,61 @@ internal fun Intent?.previewAudioWindExtra(): Boolean? =
     } else {
         null
     }
+
+internal fun Intent?.previewWindNoiseFilterExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_WIND_NOISE_FILTER)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_WIND_NOISE_FILTER, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewAeLockExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_AE_LOCK)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_AE_LOCK, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewTimelapseModeExtra(): String? =
+    this?.getStringExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_MODE)?.trim()?.takeIf { it.isNotBlank() }
+
+internal fun Intent?.previewTimelapseRunningExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_RUNNING)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_RUNNING, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewTimelapseIntervalSecExtra(): Int? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_INTERVAL_SEC)) {
+        getIntExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_INTERVAL_SEC, 0)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewTimelapseAutoStopSecExtra(): Int? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_AUTO_STOP_SEC)) {
+        getIntExtra(EXTRA_PNS_PREVIEW_TIMELAPSE_AUTO_STOP_SEC, 0).coerceIn(0, 120)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewFocusBreathingCompExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_FOCUS_BREATHING_COMP)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_FOCUS_BREATHING_COMP, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewAutomationFocusRackSecExtra(): Int? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_AUTOMATION_FOCUS_RACK_SEC)) {
+        getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_FOCUS_RACK_SEC, 0).coerceIn(0, 60)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewRackFocusPullExtra(): Boolean =
+    this?.getBooleanExtra(EXTRA_PNS_PREVIEW_RACK_FOCUS_PULL, false) == true
 
 internal fun Intent?.previewShutterSoundPackExtra(): String? =
     this?.getStringExtra(EXTRA_PNS_PREVIEW_SHUTTER_SOUND_PACK)?.trim()?.takeIf { it.isNotBlank() }

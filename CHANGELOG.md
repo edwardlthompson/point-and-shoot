@@ -4,6 +4,33 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
+_(Nothing yet — see [0.14.0-beta.4].)_
+
+## [0.14.0-beta.4] - 2026-05-29
+
+Pre-release for **Milestone 16** (fleet device capability matrix) and **Milestone 17** planning (capability catalog, device-tailored UI). Primary fleet USB device: OnePlus 12 **CPH2583**.
+
+**Release notes:** **APK:** `Point-and-Shoot_0.14.0-beta.4.apk`
+
+### Added
+
+- **Milestone 16 — Fleet device capability matrix** — `files/fleet_device_matrix.json` (schema v1) with quick/full scan tiers, per-camera feature gates (RAW/HFR/face/DCG-ZSL), encoder slice, deep caps + session matrix appendix, focal slots, fleet policy plugins (`FleetDeviceMatrixBuilder`, `FleetMatrixHubScreen`). Host: `scripts/pns_fleet_matrix_scan.ps1`, `pns_fleet_matrix_diff.ps1`, `fleet_matrix_schema_validate.py`. Docs: `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md`, `docs/FLEET_DEVICE_VERIFY_MATRIX.md`.
+- **Milestone 17 (planning)** — Active in `BUILD_PLAN.md`: extend matrix with `capabilityCatalog` slice + `fleet_device_capability_summary.md` (ADB-pullable human SoT), device-tailored UI (hide unavailable; root-only blue + toast), unified Engineering Hub capability browser, hub search + setting highlight, 1080p@30 video format fix.
+- **Sprint 15.37 — Wi-Fi Direct tethered shooting** — `wifiDirectTetherEnabled`, `TetherNsdRegistrar`, `WifiDirectTetherBanner`; `docs/TETHER_API.md`.
+- **Sprint 15.38 — Dual-ISO video HLG infrastructure** — `dualIsoVideoEnabled`, multi-res stream probe (`PNS.DualIso`).
+- **M15 video/HUD polish** — PPM audio meters, pillar-bar video HUD, false-color/zebra QS, rack focus, focus breathing comp, video shutter angle, time lapse, nightscape, preview AE lock, JPEG ICC embed, spatial audio probe, wind noise filter, face-priority metering.
+- **Agent regression memory** — `docs/AGENT_REGRESSION_MEMORY.md` + `.cursor/rules/agent-regression-memory.mdc`.
+
+### Changed
+
+- **Milestone H.7 — CPH2583 DNG color (owner sign-off 2026-05-29)** — ACR/Lightroom wide + UW + tele; verify matrix DNG column **PASS**.
+- **Fleet program** — Primary USB development device **CPH2583** (OnePlus 12); OP13 optional regression lane only. Generic fleet policy default (`fleet-generic-policy.mdc`).
+- **BUILD_PLAN_COMPLETED.md** — Feature-category index (22 areas); M13–M16 archived.
+
+### Fixed
+
+- **Milestone H agent sweep** — `pns_milestone_h_host_gate.ps1`; `pns_gitlab_setup.ps1` PS 5.1 fix; `pns_eye_af_overlay_align.py` numpy JSON bug.
+
 ## [0.14.0-beta.3] - 2026-05-23
 
 Pre-release for **120 fps HFR in-app video** live finder + focal-matched monitor crop on OnePlus 13 **`8bf09993`**.

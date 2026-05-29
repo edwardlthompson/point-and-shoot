@@ -158,6 +158,31 @@ class PreviewLumaHistogramTest {
     }
 
     @Test
+    fun `ire 95 maps to near default zebra threshold`() {
+        assertEquals(242, PreviewLumaHistogram.irePercentToThresholdUnsigned(95))
+    }
+
+    @Test
+    fun `false color grid tints shadow and highlight cells`() {
+        val cell = 8
+        val plane = ByteArray(64 * 64)
+        plane[0] = 20.toByte()
+        plane[(cell - 1) * 64 + (cell - 1)] = 200.toByte()
+        val grid =
+            PreviewLumaHistogram.buildFalseColorGridYuv420Y(
+                plane,
+                width = 64,
+                height = 64,
+                rowStride = 64,
+                cellSizePx = cell,
+            )
+        assertTrue(grid.cellArgb[0] != 0)
+        assertTrue(grid.cellArgb[0] and 0xFF000000.toInt() != 0)
+        val last = grid.cols * grid.rows - 1
+        assertTrue(grid.cellArgb[last] != 0)
+    }
+
+    @Test
     fun `histogram feeds HighlightMeter end-to-end`() {
         // Uniform luma at default highlight ceiling: brightest occupied bin == target ⇒ 0 EV.
         val plane = ByteArray(256)
@@ -180,5 +205,54 @@ class PreviewLumaHistogramTest {
         val hist = IntArray(PreviewLumaHistogram.BIN_COUNT) { if (it < 10) it else 0 }
         // Sum of 0..9 = 45
         assertEquals(45L, PreviewLumaHistogram.pixelCount(hist))
+    }
+
+    @Test
+    fun `reduceYuv420RGB flat neutral YUV yields equal channel peaks`() {
+        val w = 16
+        val h = 16
+        val y = ByteArray(w * h) { 128.toByte() }
+        val u = ByteArray(w * h / 4) { 128.toByte() }
+        val v = ByteArray(w * h / 4) { 128.toByte() }
+        val rgb =
+            PreviewLumaHistogram.reduceYuv420RGB(
+                yPlane = y,
+                uPlane = u,
+                vPlane = v,
+                width = w,
+                height = h,
+                yRowStride = w,
+                uvRowStride = w / 2,
+                uvPixelStride = 1,
+                step = 1,
+            )
+        val peakR = rgb.r.indices.maxByOrNull { rgb.r[it] } ?: -1
+        val peakG = rgb.g.indices.maxByOrNull { rgb.g[it] } ?: -1
+        val peakB = rgb.b.indices.maxByOrNull { rgb.b[it] } ?: -1
+        assertEquals(peakR, peakG)
+        assertEquals(peakG, peakB)
+        assertTrue(rgb.r[peakR] > 0)
+    }
+
+    @Test
+    fun `reduceYuv420RGB delegates to reduceRgb`() {
+        val rgb = reduceYuv420RgbNeutral16()
+        val direct = reduceYuv420RgbNeutral16(useAlias = false)
+        assertTrue(rgb.r.contentEquals(direct.r))
+        assertTrue(rgb.g.contentEquals(direct.g))
+        assertTrue(rgb.b.contentEquals(direct.b))
+    }
+
+    private fun reduceYuv420RgbNeutral16(useAlias: Boolean = true): PreviewLumaHistogram.RgbHistogramBins {
+        val w = 16
+        val h = 16
+        val y = ByteArray(w * h) { 128.toByte() }
+        val u = ByteArray(w * h / 4) { 128.toByte() }
+        val v = ByteArray(w * h / 4) { 128.toByte() }
+        return if (useAlias) {
+            PreviewLumaHistogram.reduceYuv420RGB(y, u, v, w, h, w, w / 2, 1, step = 1)
+        } else {
+            PreviewLumaHistogram.reduceRgb(y, u, v, w, h, w, w / 2, 1, step = 1)
+        }
     }
 }

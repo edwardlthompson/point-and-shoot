@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/edwardlthompson/point-and-shoot/fleet_device_matrix.schema.json",
+  "title": "FleetDeviceMatrix",
+  "description": "Point & Shoot fleet capability matrix v1 (Milestone 16)",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "scanMeta",
+    "device",
+    "cameras",
+    "product",
+    "appendix"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "scanMeta": {
+      "type": "object",
+      "required": [
+        "scanTier",
+        "appVersionCode",
+        "sdkInt",
+        "fingerprintSha256Prefix",
+        "scanDurationMs"
+      ],
+      "properties": {
+        "scanTier": { "enum": ["quick", "full"] },
+        "appVersionCode": { "type": "integer" },
+        "sdkInt": { "type": "integer" },
+        "securityPatch": { "type": "string" },
+        "fingerprintSha256Prefix": { "type": "string", "minLength": 8 },
+        "scanDurationMs": { "type": "integer", "minimum": 0 },
+        "scanOrderingVersion": { "type": "integer" },
+        "mediaPerformanceClass": { "type": ["integer", "null"] },
+        "firstApiLevel": { "type": ["integer", "null"] },
+        "vendorApiLevel": { "type": ["integer", "null"] }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["manufacturer", "model", "device"],
+      "properties": {
+        "manufacturer": { "type": "string" },
+        "model": { "type": "string" },
+        "device": { "type": "string" }
+      }
+    },
+    "cameras": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["cameraId"],
+        "properties": {
+          "cameraId": { "type": "string" },
+          "hfrMaxFpsAt1080": { "type": "integer" },
+          "rawPickEffective": { "type": "string" },
+          "featureGates": { "type": "object" }
+        }
+      }
+    },
+    "product": { "type": "object" },
+    "cameraX": {},
+    "runtimeProbes": {},
+    "complianceRollup": { "type": ["object", "null"] },
+    "encoder": {},
+    "appendix": { "type": "object" }
+  }
+}

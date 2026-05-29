@@ -4,8 +4,8 @@ import android.hardware.camera2.CaptureResult
 import android.util.Size
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,8 +15,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -45,7 +49,6 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.media.MediaRecorder
-import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -71,7 +74,9 @@ private fun maxReadoutValueWidthDp(
     return with(density) { maxPx.toDp() }
 }
 
-private val ReadoutChipGap = 6.dp
+private val ReadoutChipGap = 4.dp
+private val ReadoutChipHorizontalPadding = 4.dp
+private val ReadoutChipWidthSlack = 8.dp
 
 private const val ReadoutMinFontScale = 0.56f
 
@@ -90,118 +95,171 @@ private fun chipOuterWidthPx(
 ): Int {
     val labelW = textMeasurer.measure(AnnotatedString(label), labelStyle).size.width
     val vminPx = with(density) { valueMinWidthDp.roundToPx() }
-    return max(labelW, vminPx) + with(density) { 16.dp.roundToPx() }
+    return max(labelW, vminPx) + with(density) { ReadoutChipWidthSlack.roundToPx() }
 }
 
-private fun isoCandidateStrings(menu: ReadoutMenuSnapshot): Set<String> =
-    buildSet {
-        add("—")
-        add("Auto")
-        add("102400")
-        menu.isoChoices.forEach { add(if (it == null) "Auto" else it.toString()) }
-    }
+private fun displayValueWidthDp(
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    style: TextStyle,
+    display: String,
+    density: androidx.compose.ui.unit.Density,
+): Dp = maxReadoutValueWidthDp(textMeasurer, style, listOf(display), density)
 
-private fun ssCandidateStrings(menu: ReadoutMenuSnapshot): Set<String> =
-    buildSet {
-        add("—")
-        add("Auto")
-        add("30.0s")
-        add("1/8000")
-        menu.exposureChoices.forEach {
-            add(if (it == null) "Auto" else PreviewReadoutFormat.formatShutter(it))
+private val ReadoutLutChipLabel = "LUT"
+
+/** RES chip is disabled in UI (`if (false && includeVideoRes)`); do not reserve row width for it. */
+private const val ReadoutResChipRendered = false
+
+private fun readoutChipMinPxList(
+    scale: Float,
+    density: androidx.compose.ui.unit.Density,
+    textMeasurer: androidx.compose.ui.text.TextMeasurer,
+    baseLabelTypography: TextStyle,
+    primaryPhoto: Boolean,
+    includeVideoRes: Boolean,
+    focusChipValue: String,
+    stabChipLabel: String?,
+    aeLocked: Boolean,
+    isoDisplay: String,
+    ssDisplay: String,
+    awbDisplay: String,
+    stillLutIndex: String,
+    videoLutIndex: String,
+    imgDisplay: String,
+    videoResDisplay: String,
+): List<Int> {
+    val ls = baseLabelTypography.scaledFont(scale)
+    val vs = ls.copy(fontFamily = FontFamily.Monospace)
+    val lockExtraPx =
+        if (aeLocked) {
+            with(density) { (12.dp + 2.dp).roundToPx() }
+        } else {
+            0
         }
+    val chips =
+        buildList {
+            add(Triple("ISO", isoDisplay, lockExtraPx))
+            add(Triple("SS", ssDisplay, 0))
+            add(Triple("WB", awbDisplay, 0))
+            add(Triple("AF", focusChipValue, 0))
+            if (!stabChipLabel.isNullOrBlank()) {
+                add(Triple("STAB", stabChipLabel, 0))
+            }
+            if (ReadoutResChipRendered && includeVideoRes) {
+                add(Triple("RES", videoResDisplay, 0))
+            }
+            if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
+                add(Triple(ReadoutLutChipLabel, stillLutIndex, 0))
+            }
+            if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
+                add(Triple(ReadoutLutChipLabel, videoLutIndex, 0))
+            }
+            if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
+                add(Triple("IMG", imgDisplay, 0))
+            }
+        }
+    return chips.map { (label, value, extraPx) ->
+        val valueMin = displayValueWidthDp(textMeasurer, vs, value, density)
+        chipOuterWidthPx(textMeasurer, density, label, ls, valueMin) + extraPx
     }
+}
 
-private fun wbCandidateStrings(menu: ReadoutMenuSnapshot): Set<String> =
-    buildSet {
-        add("—")
-        add("AWB")
-        add("SHD")
-        add("?99999")
-        menu.awbChoices.forEach { add(PreviewReadoutFormat.awbModeLabel(it)) }
+private fun distributeReadoutChipWidthsPx(
+    rowWidthPx: Int,
+    chipMinPxList: List<Int>,
+    gapPx: Int,
+    reservedLeadingPx: Int = 0,
+): List<Int> {
+    if (chipMinPxList.isEmpty()) return emptyList()
+    val gapTotal = gapPx * (chipMinPxList.size - 1).coerceAtLeast(0)
+    val budget = (rowWidthPx - reservedLeadingPx - gapTotal).coerceAtLeast(0)
+    val sumMin = chipMinPxList.sum()
+    val extraEach =
+        if (chipMinPxList.isEmpty()) {
+            0
+        } else {
+            ((budget - sumMin) / chipMinPxList.size).coerceAtLeast(0)
+        }
+    val remainder = (budget - sumMin - extraEach * chipMinPxList.size).coerceAtLeast(0)
+    return chipMinPxList.mapIndexed { index, min ->
+        min + extraEach + if (index == chipMinPxList.lastIndex) remainder else 0
     }
+}
+
+private data class ReadoutChipLayout(
+    val iso: Dp,
+    val ss: Dp,
+    val wb: Dp,
+    val af: Dp,
+    val stab: Dp?,
+    val videoLut: Dp?,
+    val stillLut: Dp?,
+    val img: Dp?,
+    val res: Dp?,
+)
 
 private fun computeReadoutFontScale(
     maxWidthPx: Int,
     density: androidx.compose.ui.unit.Density,
     textMeasurer: androidx.compose.ui.text.TextMeasurer,
     baseLabelTypography: TextStyle,
-    menu: ReadoutMenuSnapshot,
-    stillLutIndex: String,
-    videoLutIndex: String,
     primaryPhoto: Boolean,
     includeVideoRes: Boolean,
+    focusChipValue: String,
+    stabChipLabel: String?,
+    showMacroVideoBadge: Boolean,
+    aeLocked: Boolean,
+    isoDisplay: String,
+    ssDisplay: String,
+    awbDisplay: String,
+    stillLutIndex: String,
+    videoLutIndex: String,
+    imgDisplay: String,
+    videoResDisplay: String,
 ): Float {
-    if (maxWidthPx <= 0) return 1f
+    if (maxWidthPx <= 0) return ReadoutMinFontScale
+
+    val widthBudgetPx = maxWidthPx.coerceAtLeast(1)
 
     fun rowWidthPx(scale: Float): Int {
-        val ls = baseLabelTypography.scaledFont(scale)
-        val vs = ls.copy(fontFamily = FontFamily.Monospace)
-        val isoMin = maxReadoutValueWidthDp(textMeasurer, vs, isoCandidateStrings(menu), density)
-        val ssMin = maxReadoutValueWidthDp(textMeasurer, vs, ssCandidateStrings(menu), density)
-        val wbMin = maxReadoutValueWidthDp(textMeasurer, vs, wbCandidateStrings(menu), density)
-        val fpsMin = maxReadoutValueWidthDp(textMeasurer, vs, listOf("9999fps", "—fps"), density)
-        val resMin =
-            if (includeVideoRes) {
-                maxReadoutValueWidthDp(textMeasurer, vs, listOf("3840×2160", "1080p", "8888p"), density)
-            } else {
-                0.dp
-            }
-        val lutStillMin =
-            if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
-                maxReadoutValueWidthDp(textMeasurer, vs, listOf(stillLutIndex, "999"), density)
-            } else {
-                0.dp
-            }
-        val lutVideoMin =
-            if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
-                maxReadoutValueWidthDp(textMeasurer, vs, listOf(videoLutIndex, "999"), density)
-            } else {
-                0.dp
-            }
-        val imgStrings = listOf("DNG", "DNG+", "JPG")
-        val imgMin =
-            if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
-                maxReadoutValueWidthDp(textMeasurer, vs, imgStrings, density)
-            } else {
-                0.dp
-            }
         val gapPx = with(density) { ReadoutChipGap.roundToPx() }
-        var rowPx =
-            chipOuterWidthPx(textMeasurer, density, "ISO", ls, isoMin) +
-                chipOuterWidthPx(textMeasurer, density, "Ss", ls, ssMin) +
-                chipOuterWidthPx(textMeasurer, density, "WB", ls, wbMin) +
-                chipOuterWidthPx(textMeasurer, density, "FPS", ls, fpsMin) +
-                if (includeVideoRes) {
-                    chipOuterWidthPx(textMeasurer, density, "RES", ls, resMin)
-                } else {
-                    0
-                }
-        if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
-            rowPx += chipOuterWidthPx(textMeasurer, density, "Still", ls, lutStillMin)
-        }
-        if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
-            rowPx += chipOuterWidthPx(textMeasurer, density, "Video", ls, lutVideoMin)
-        }
-        if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
-            rowPx += chipOuterWidthPx(textMeasurer, density, "IMG", ls, imgMin)
-        }
-        var chipCount = 5 // ISO, Ss, WB, FPS, AF
-        if (includeVideoRes) chipCount++
-        if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) chipCount++
-        if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) chipCount++
-        if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) chipCount++
-        rowPx += gapPx * (chipCount - 1)
-        return rowPx
+        val chipMinPxList =
+            readoutChipMinPxList(
+                scale,
+                density,
+                textMeasurer,
+                baseLabelTypography,
+                primaryPhoto,
+                includeVideoRes,
+                focusChipValue,
+                stabChipLabel,
+                aeLocked,
+                isoDisplay,
+                ssDisplay,
+                awbDisplay,
+                stillLutIndex,
+                videoLutIndex,
+                imgDisplay,
+                videoResDisplay,
+            )
+        val macroPx =
+            if (showMacroVideoBadge) {
+                with(density) { (textMeasurer.measure(AnnotatedString("MACRO VIDEO"), baseLabelTypography.scaledFont(scale)).size.width + 4.dp.roundToPx()) }
+            } else {
+                0
+            }
+        return macroPx +
+            chipMinPxList.sum() +
+            gapPx * (chipMinPxList.size - 1).coerceAtLeast(0)
     }
 
-    if (rowWidthPx(1f) <= maxWidthPx) return 1f
+    if (rowWidthPx(1f) <= widthBudgetPx) return 1f
 
     var lo = ReadoutMinFontScale
     var hi = 1f
     repeat(14) {
         val mid = (lo + hi) / 2f
-        if (rowWidthPx(mid) <= maxWidthPx) {
+        if (rowWidthPx(mid) <= widthBudgetPx) {
             lo = mid
         } else {
             hi = mid
@@ -269,11 +327,16 @@ fun PreviewReadoutStrip(
     /** When false, FPS readout stays visible but the target FPS menu is disabled (photo-primary tray). */
     fpsTargetEditable: Boolean = true,
     readoutAeCoupling: ReadoutAeCoupling = ReadoutAeCoupling.AUTO,
+    /** Sprint **15.26** — [CaptureRequest.CONTROL_AE_LOCK] active; long-press ISO/Ss toggles. */
+    aeLocked: Boolean = false,
+    onToggleAeLock: () -> Unit = {},
     /** When set in video mode, prefixed on the SS chip (e.g. `180°`). */
     videoShutterAngleLabel: String? = null,
+    videoShutterAngle: VideoShutterAngle = VideoShutterAngle.Free,
     onPickIsoBand: (ReadoutIsoBand) -> Unit = {},
     onPickIso: (Int?) -> Unit,
     onPickShutter: (Long?) -> Unit,
+    onPickVideoShutterAngle: (VideoShutterAngle) -> Unit = {},
     onPickAwb: (Int) -> Unit,
     onPickFps: (Int) -> Unit,
     stillLut: LutCatalog,
@@ -297,9 +360,14 @@ fun PreviewReadoutStrip(
     onPickVideoEncodeSize: (Size) -> Unit = {},
     /** Hide wrong-mode LUT chip and IMG chip: true = photo, false = video. */
     primaryPhoto: Boolean = true,
+    /** Sprint **15.31** — amber badge when video tray + **MACRO** dial. */
+    showMacroVideoBadge: Boolean = false,
+    /** Sprint **15.32** — OIS/EIS readout chip; hidden when null. */
+    stabChipLabel: String? = null,
     /** Sprint **14.8** — tap opens HAL focus-mode picker (CAF / manual distance / …). */
     focusChipValue: String = "CAF",
     onFocusChipClick: () -> Unit = {},
+    onFocusChipLongClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isVideoMode = PreviewReadoutChipMode.isVideoMode(primaryPhoto)
@@ -329,12 +397,6 @@ fun PreviewReadoutStrip(
             else -> PreviewReadoutFormat.formatShutter(exposureNs)
         }
     val awb = PreviewReadoutFormat.awbModeLabel(awbMode)
-    val fpsDisplay =
-        if (measuredFps > 0.05) {
-            "${ceil(measuredFps).toInt()}fps"
-        } else {
-            "—fps"
-        }
     val textMeasurer = rememberTextMeasurer()
     val density = LocalDensity.current
     val baseLabelTypography = MaterialTheme.typography.labelSmall
@@ -366,32 +428,49 @@ fun PreviewReadoutStrip(
                 .fillMaxWidth()
                 .height(PreviewReadoutStripHeight)
                 .background(Color.Black.copy(alpha = 0.88f))
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start,
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val maxPx = constraints.maxWidth
+            if (maxPx <= 0) return@BoxWithConstraints
             val scale =
                 remember(
                     maxPx,
-                    menu,
                     stillLutIndex,
                     videoLutIndex,
                     baseLabelTypography,
                     primaryPhoto,
                     includeVideoRes,
+                    focusChipValue,
+                    stabChipLabel,
+                    showMacroVideoBadge,
+                    aeLocked,
+                    isoText,
+                    ss,
+                    awb,
+                    rawChipValue,
+                    videoEncodeShortLabel,
                 ) {
                     computeReadoutFontScale(
                         maxPx,
                         density,
                         textMeasurer,
                         baseLabelTypography,
-                        menu,
-                        stillLutIndex,
-                        videoLutIndex,
                         primaryPhoto,
                         includeVideoRes,
+                        focusChipValue,
+                        stabChipLabel,
+                        showMacroVideoBadge,
+                        aeLocked,
+                        isoText,
+                        ss,
+                        awb,
+                        stillLutIndex,
+                        videoLutIndex,
+                        rawChipValue,
+                        videoEncodeShortLabel,
                     )
                 }
             val labelStyle = remember(scale, baseLabelTypography) { baseLabelTypography.scaledFont(scale) }
@@ -401,93 +480,186 @@ fun PreviewReadoutStrip(
                     valueStyle.copy(color = PnsColors.PhotoOrange.copy(alpha = 0.98f))
                 }
             val isoValueMinWidth =
-                remember(scale, menu, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(textMeasurer, valueStyle, isoCandidateStrings(menu), density)
+                remember(scale, isoText, textMeasurer, valueStyle, density) {
+                    displayValueWidthDp(textMeasurer, valueStyle, isoText, density)
                 }
             val ssValueMinWidth =
-                remember(scale, menu, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(textMeasurer, valueStyle, ssCandidateStrings(menu), density)
+                remember(scale, ss, textMeasurer, valueStyle, density) {
+                    displayValueWidthDp(textMeasurer, valueStyle, ss, density)
                 }
             val wbValueMinWidth =
-                remember(scale, menu, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(textMeasurer, valueStyle, wbCandidateStrings(menu), density)
+                remember(scale, awb, textMeasurer, valueStyle, density) {
+                    displayValueWidthDp(textMeasurer, valueStyle, awb, density)
                 }
-            val fpsValueMinWidth =
-                remember(scale, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(textMeasurer, valueStyle, listOf("9999fps", "—fps"), density)
+            val focusValueMinWidth =
+                remember(scale, focusChipValue, textMeasurer, valueStyle, density) {
+                    displayValueWidthDp(textMeasurer, valueStyle, focusChipValue, density)
                 }
-            val resValueMinWidth =
-                remember(scale, includeVideoRes, videoEncodeShortLabel, textMeasurer, valueStyle, density) {
-                    if (!includeVideoRes) {
+
+            val stabValueMinWidth =
+                remember(scale, stabChipLabel, textMeasurer, valueStyle, density) {
+                    if (stabChipLabel.isNullOrBlank()) {
                         0.dp
                     } else {
-                        val opts =
-                            buildSet {
-                                add(videoEncodeShortLabel)
-                                add("3840×2160")
-                                add("1080p")
-                            }
-                        maxReadoutValueWidthDp(textMeasurer, valueStyle, opts, density)
+                        displayValueWidthDp(textMeasurer, valueStyle, stabChipLabel, density)
                     }
                 }
             val lutStillValueMinWidth =
                 remember(scale, stillLutIndex, textMeasurer, lutValueStyle, density) {
-                    maxReadoutValueWidthDp(
-                        textMeasurer,
-                        lutValueStyle,
-                        listOf(stillLutIndex, "999"),
-                        density,
-                    )
+                    displayValueWidthDp(textMeasurer, lutValueStyle, stillLutIndex, density)
                 }
             val lutVideoValueMinWidth =
                 remember(scale, videoLutIndex, textMeasurer, lutValueStyle, density) {
-                    maxReadoutValueWidthDp(
-                        textMeasurer,
-                        lutValueStyle,
-                        listOf(videoLutIndex, "999"),
-                        density,
-                    )
+                    displayValueWidthDp(textMeasurer, lutValueStyle, videoLutIndex, density)
                 }
-            val imgValueStrings = listOf("DNG", "DNG+", "DNG12", "DNG12+", "JPG", "JPG+")
             val imgValueMinWidth =
                 remember(scale, rawChipValue, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(textMeasurer, valueStyle, imgValueStrings, density)
+                    displayValueWidthDp(textMeasurer, valueStyle, rawChipValue, density)
                 }
-            val focusValueMinWidth =
-                remember(scale, focusChipValue, textMeasurer, valueStyle, density) {
-                    maxReadoutValueWidthDp(
-                        textMeasurer,
-                        valueStyle,
-                        listOf(focusChipValue, "CAF-P", "CAF-V", "MAC", "EDOF", "∞"),
+            val chipMinPxList =
+                remember(
+                    scale,
+                    maxPx,
+                    primaryPhoto,
+                    includeVideoRes,
+                    focusChipValue,
+                    stabChipLabel,
+                    aeLocked,
+                    isoText,
+                    ss,
+                    awb,
+                    stillLutIndex,
+                    videoLutIndex,
+                    rawChipValue,
+                    videoEncodeShortLabel,
+                    showMacroVideoBadge,
+                ) {
+                    readoutChipMinPxList(
+                        scale,
                         density,
+                        textMeasurer,
+                        baseLabelTypography,
+                        primaryPhoto,
+                        includeVideoRes,
+                        focusChipValue,
+                        stabChipLabel,
+                        aeLocked,
+                        isoText,
+                        ss,
+                        awb,
+                        stillLutIndex,
+                        videoLutIndex,
+                        rawChipValue,
+                        videoEncodeShortLabel,
+                    )
+                }
+            val macroBadgePx =
+                remember(showMacroVideoBadge, scale, labelStyle) {
+                    if (!showMacroVideoBadge) {
+                        0
+                    } else {
+                        with(density) {
+                            (textMeasurer.measure(AnnotatedString("MACRO VIDEO"), labelStyle).size.width +
+                                4.dp.roundToPx())
+                        }
+                    }
+                }
+            val gapPx = with(density) { ReadoutChipGap.roundToPx() }
+            val chipWidthsPx =
+                remember(maxPx, chipMinPxList, macroBadgePx, gapPx) {
+                    distributeReadoutChipWidthsPx(maxPx, chipMinPxList, gapPx, macroBadgePx)
+                }
+            val chipLayout =
+                remember(
+                    chipWidthsPx,
+                    density,
+                    stabChipLabel,
+                    primaryPhoto,
+                    includeVideoRes,
+                ) {
+                    var idx = 0
+                    fun takeWidth(): Dp = with(density) { chipWidthsPx[idx++].toDp() }
+                    ReadoutChipLayout(
+                        iso = takeWidth(),
+                        ss = takeWidth(),
+                        wb = takeWidth(),
+                        af = takeWidth(),
+                        stab = if (!stabChipLabel.isNullOrBlank()) takeWidth() else null,
+                        videoLut =
+                            if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
+                                takeWidth()
+                            } else {
+                                null
+                            },
+                        stillLut =
+                            if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
+                                takeWidth()
+                            } else {
+                                null
+                            },
+                        img =
+                            if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
+                                takeWidth()
+                            } else {
+                                null
+                            },
+                        res =
+                            if (ReadoutResChipRendered && includeVideoRes) {
+                                takeWidth()
+                            } else {
+                                null
+                            },
                     )
                 }
 
             Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(ReadoutChipGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-            Box {
-                ReadoutMetricChip(
-                    label = "ISO",
-                    value = isoText,
-                    valueMinWidth = isoValueMinWidth,
-                    labelStyle = labelStyle,
-                    valueStyle = valueStyle,
-                    onClick = { isoMenu = true },
-                    accessibilityLabel =
-                        when (readoutAeCoupling) {
-                            ReadoutAeCoupling.LOCKED_ISO_AUTO_SS ->
-                                "ISO locked at $isoText, shutter automatic. Opens ISO menu."
-                            ReadoutAeCoupling.MANUAL_BOTH ->
-                                "ISO locked at $isoText. Opens ISO menu."
-                            else -> "ISO. Current $isoText. Opens ISO menu."
-                        },
+            if (showMacroVideoBadge) {
+                Text(
+                    text = "MACRO VIDEO",
+                    style = labelStyle,
+                    color = PnsColors.WarnAmber.copy(alpha = 0.98f),
+                    modifier = Modifier.padding(end = 2.dp),
                 )
+            }
+            Box(modifier = Modifier.width(chipLayout.iso)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    if (aeLocked) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lock,
+                            contentDescription = "AE locked",
+                            tint = PnsColors.WarnAmber.copy(alpha = 0.95f),
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                    ReadoutMetricChip(
+                        label = "ISO",
+                        value = isoText,
+                        valueMinWidth = isoValueMinWidth,
+                        labelStyle = labelStyle,
+                        valueStyle = valueStyle,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        onClick = { isoMenu = true },
+                        onLongClick = onToggleAeLock,
+                        accessibilityLabel =
+                            when {
+                                aeLocked ->
+                                    "ISO $isoText, AE locked. Long press to unlock. Tap for ISO menu."
+                                readoutAeCoupling == ReadoutAeCoupling.LOCKED_ISO_AUTO_SS ->
+                                    "ISO locked at $isoText, shutter automatic. Opens ISO menu."
+                                readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH ->
+                                    "ISO locked at $isoText. Opens ISO menu."
+                                else -> "ISO. Current $isoText. Long press to lock AE. Opens ISO menu."
+                            },
+                    )
+                }
                 PnsChromeDropdownMenu(expanded = isoMenu, onDismissRequest = { isoMenu = false }) {
                     Text(
                         text = "ISO band (${menu.isoBand.menuLabel})",
@@ -528,24 +700,53 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            Box {
+            Box(modifier = Modifier.width(chipLayout.ss)) {
                 ReadoutMetricChip(
-                    label = "Ss",
+                    label = "SS",
                     value = ss,
                     valueMinWidth = ssValueMinWidth,
                     labelStyle = labelStyle,
                     valueStyle = valueStyle,
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = { ssMenu = true },
+                    onLongClick = onToggleAeLock,
                     accessibilityLabel =
-                        when (readoutAeCoupling) {
-                            ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ->
+                        when {
+                            aeLocked ->
+                                "Shutter $ss, AE locked. Long press to unlock. Opens shutter menu."
+                            readoutAeCoupling == ReadoutAeCoupling.LOCKED_SS_AUTO_ISO ->
                                 "Shutter locked at $ss, ISO automatic. Opens shutter menu."
-                            ReadoutAeCoupling.MANUAL_BOTH ->
+                            readoutAeCoupling == ReadoutAeCoupling.MANUAL_BOTH ->
                                 "Shutter locked at $ss. Opens shutter menu."
-                            else -> "Shutter speed. Current $ss. Opens shutter menu."
+                            else -> "Shutter speed. Current $ss. Long press to lock AE. Opens shutter menu."
                         },
                 )
                 PnsChromeDropdownMenu(expanded = ssMenu, onDismissRequest = { ssMenu = false }) {
+                    if (isVideoMode) {
+                        for (angle in VideoShutterAngle.entries) {
+                            val subtitle =
+                                if (angle == VideoShutterAngle.Free) {
+                                    "No shutter-angle lock (manual shutter speed)"
+                                } else {
+                                    "Lock shutter to ${angle.label} of frame interval (auto ISO)"
+                                }
+                            val title =
+                                if (angle == videoShutterAngle) {
+                                    "${angle.label} (selected)"
+                                } else {
+                                    angle.label
+                                }
+                            PnsChromeDetailMenuItem(
+                                title = title,
+                                subtitle = subtitle,
+                                onClick = {
+                                    onPickVideoShutterAngle(angle)
+                                    ssMenu = false
+                                },
+                            )
+                        }
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
+                    }
                     for (choice in menu.exposureChoices) {
                         if (choice == null) {
                             PnsChromePlainMenuItem(
@@ -569,13 +770,14 @@ fun PreviewReadoutStrip(
                     }
                 }
             }
-            Box {
+            Box(modifier = Modifier.width(chipLayout.wb)) {
                 ReadoutMetricChip(
                     label = "WB",
                     value = awb,
                     valueMinWidth = wbValueMinWidth,
                     labelStyle = labelStyle,
                     valueStyle = valueStyle,
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = { awbMenu = true },
                     accessibilityLabel = "White balance. Current $awb. Opens WB menu.",
                 )
@@ -619,20 +821,37 @@ fun PreviewReadoutStrip(
                 valueMinWidth = focusValueMinWidth,
                 labelStyle = labelStyle,
                 valueStyle = valueStyle,
+                modifier = Modifier.width(chipLayout.af),
                 onClick = onFocusChipClick,
+                onLongClick = onFocusChipLongClick,
                 accessibilityLabel = "Focus mode. Current $focusChipValue. Opens focus mode picker.",
             )
+            if (!stabChipLabel.isNullOrBlank()) {
+                ReadoutMetricChip(
+                    label = "STAB",
+                    value = stabChipLabel,
+                    valueMinWidth = stabValueMinWidth,
+                    labelStyle = labelStyle,
+                    valueStyle = valueStyle,
+                    modifier = Modifier.width(chipLayout.stab!!),
+                    enabled = false,
+                    onClick = {},
+                    accessibilityLabel = "Stabilization. Current $stabChipLabel.",
+                )
+            }
             if (PreviewReadoutChipMode.showVideoLutChip(primaryPhoto)) {
-            Box {
+            Box(modifier = Modifier.width(chipLayout.videoLut!!)) {
                 ReadoutLutChip(
-                    label = "Video",
+                    label = ReadoutLutChipLabel,
                     scope = LutCatalog.Scope.Video,
                     current = videoLut,
                     labelStyle = labelStyle,
                     valueStyle = lutValueStyle,
                     valueMinWidth = lutVideoValueMinWidth,
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = { videoLutMenu = true },
-                    accessibilityLabel = "Video LUT. Index ${videoLut.indexInScope(LutCatalog.Scope.Video)} (${videoLut.displayName}).",
+                    accessibilityLabel =
+                        "Video LUT. Index ${videoLut.indexInScope(LutCatalog.Scope.Video)} (${videoLut.displayName}).",
                 )
                 PnsChromeDropdownMenu(expanded = videoLutMenu, onDismissRequest = { videoLutMenu = false }) {
                     for (entry in videoLutChoices) {
@@ -647,14 +866,15 @@ fun PreviewReadoutStrip(
                 }
             }
             }
-            if (false /* RES chip superseded by tray VideoFormat FAB */ && includeVideoRes) {
-                Box {
+            if (false /* RES chip superseded by tray VideoFormat FAB */ && ReadoutResChipRendered && includeVideoRes) {
+                Box(modifier = Modifier.width(chipLayout.res!!)) {
                     ReadoutMetricChip(
                         label = "RES",
                         value = videoEncodeShortLabel,
-                        valueMinWidth = resValueMinWidth,
+                        valueMinWidth = displayValueWidthDp(textMeasurer, valueStyle, videoEncodeShortLabel, density),
                         labelStyle = labelStyle,
                         valueStyle = valueStyle,
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = { videoResMenu = true },
                         accessibilityLabel =
                             "Video encode resolution. Current $videoEncodeShortLabel. Opens resolution menu.",
@@ -676,16 +896,18 @@ fun PreviewReadoutStrip(
                 }
             }
             if (PreviewReadoutChipMode.showStillLutChip(primaryPhoto)) {
-            Box {
+            Box(modifier = Modifier.width(chipLayout.stillLut!!)) {
                 ReadoutLutChip(
-                    label = "Still",
+                    label = ReadoutLutChipLabel,
                     scope = LutCatalog.Scope.Stills,
                     current = stillLut,
                     labelStyle = labelStyle,
                     valueStyle = lutValueStyle,
                     valueMinWidth = lutStillValueMinWidth,
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = { stillLutMenu = true },
-                    accessibilityLabel = "Still capture LUT. Index ${stillLut.indexInScope(LutCatalog.Scope.Stills)} (${stillLut.displayName}).",
+                    accessibilityLabel =
+                        "Still capture LUT. Index ${stillLut.indexInScope(LutCatalog.Scope.Stills)} (${stillLut.displayName}).",
                 )
                 PnsChromeDropdownMenu(expanded = stillLutMenu, onDismissRequest = { stillLutMenu = false }) {
                     for (entry in stillLutChoices) {
@@ -701,13 +923,14 @@ fun PreviewReadoutStrip(
             }
             }
             if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
-                Box {
+                Box(modifier = Modifier.width(chipLayout.img!!)) {
                     ReadoutMetricChip(
                         label = "IMG",
                         value = rawChipValue,
                         valueMinWidth = imgValueMinWidth,
                         labelStyle = labelStyle,
                         valueStyle = valueStyle,
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = { imgMenu = true },
                         accessibilityLabel = rawChipA11y,
                     )
@@ -849,7 +1072,7 @@ fun PreviewReadoutStrip(
     }
 }
 
-val PreviewReadoutStripHeight = 40.dp
+val PreviewReadoutStripHeight = 44.dp
 
 @Composable
 private fun ReadoutLutChip(
@@ -859,6 +1082,7 @@ private fun ReadoutLutChip(
     labelStyle: TextStyle,
     valueStyle: TextStyle,
     valueMinWidth: Dp,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     accessibilityLabel: String,
 ) {
@@ -866,8 +1090,8 @@ private fun ReadoutLutChip(
     val shape = RoundedCornerShape(8.dp)
     Column(
         modifier =
-            Modifier
-                .widthIn(min = valueMinWidth + 16.dp)
+            modifier
+                .widthIn(min = valueMinWidth + ReadoutChipWidthSlack)
                 .semantics { contentDescription = accessibilityLabel }
                 .clip(shape)
                 .border(1.dp, Color.White.copy(alpha = 0.28f), shape)
@@ -876,13 +1100,15 @@ private fun ReadoutLutChip(
                     indication = null,
                     onClick = onClick,
                 ).background(Color.Black.copy(alpha = 0.45f))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
+                .padding(horizontal = ReadoutChipHorizontalPadding, vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             text = label,
             style = labelStyle,
             color = Color.White.copy(alpha = 0.55f),
+            maxLines = 1,
+            overflow = TextOverflow.Clip,
         )
         Text(
             text = current.indexInScope(scope).toString(),
@@ -902,26 +1128,41 @@ private fun ReadoutMetricChip(
     valueMinWidth: Dp,
     labelStyle: TextStyle,
     valueStyle: TextStyle,
+    modifier: Modifier = Modifier,
     enabled: Boolean = true,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     accessibilityLabel: String,
 ) {
     val interaction = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(8.dp)
+    val clickModifier =
+        if (onLongClick != null) {
+            Modifier.combinedClickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            )
+        } else {
+            Modifier.clickable(
+                enabled = enabled,
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+        }
     Column(
         modifier =
-            Modifier
-                .widthIn(min = valueMinWidth + 16.dp)
+            modifier
+                .widthIn(min = valueMinWidth + ReadoutChipWidthSlack)
                 .semantics { contentDescription = accessibilityLabel }
                 .clip(shape)
                 .border(1.dp, Color.White.copy(alpha = 0.28f), shape)
-                .clickable(
-                    enabled = enabled,
-                    interactionSource = interaction,
-                    indication = null,
-                    onClick = onClick,
-                ).background(Color.Black.copy(alpha = 0.45f))
-                .padding(horizontal = 8.dp, vertical = 3.dp),
+                .then(clickModifier)
+                .background(Color.Black.copy(alpha = 0.45f))
+                .padding(horizontal = ReadoutChipHorizontalPadding, vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -935,6 +1176,7 @@ private fun ReadoutMetricChip(
             style = valueStyle,
             color = Color.White.copy(alpha = 0.94f),
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
     }

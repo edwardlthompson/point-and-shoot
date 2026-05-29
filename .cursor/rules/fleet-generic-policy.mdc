@@ -1,0 +1,38 @@
+---
+description: Fleet capability matrix as source of truth; OP13 archived for default gates
+globs:
+alwaysApply: true
+---
+
+# Fleet program (Milestone 16 — locked direction)
+
+## Source of truth
+
+- **Per-device capabilities:** `files/fleet_device_matrix.json` built by `FleetDeviceMatrixBuilder` (`dev.pointandshoot.fleet`).
+- **Onboarding / USB gates:** `docs/FLEET_DEVICE_VERIFY_MATRIX.md` — one row per **SKU**, not one USB serial as global truth.
+- **Schema / ops:** `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md`, `AGENTS.md` **CRITICAL — Fleet**.
+
+## Do not (default path)
+
+- Add new **`CPH2655` / OnePlus 13-only** branches, gates, or BUILD_PLAN Priority-1 work without **`FleetDevicePolicy` plugin** + maintainer USB proof.
+- Treat **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`** or **`DODGE_PROFILE.md`** as the fleet default for new SKUs — they are **legacy / product-specific** references.
+- Use **`fleet_focal_map.json`** or **`deep_caps_*.json`** alone as fleet SoT — matrix supersedes (**16.11**).
+
+## Primary vs regression device
+
+- **Primary USB development device:** OnePlus 12 **CPH2583** (`scripts/pns_adb_device.env` — local serial only).
+- **OP13 (CPH2655):** optional **`pns_*_op13_regression`** lane only; ProShot fixtures stay for host CI.
+
+## When changing fleet caps
+
+1. Run **`pns_fleet_matrix_scan.ps1`** (when script exists) or hub probe export after **Rescan**.
+2. Attach **`pns_fleet_matrix_diff.ps1`** output or hub JSON snippet in PR notes when matrix-affecting.
+3. **`pns_capture_pipeline_verify.ps1`** on **primary device** if capture session / RAW path touched.
+
+## Unchanged locks
+
+- DNG **loadability** (no `ExifInterface` on DNG, strip layout): `.cursor/rules/dng-save-pipeline-lock.mdc`
+- DNG **metadata pairing** / RAW stream map: `.cursor/rules/dng-logical-multicam-metadata-lock.mdc`
+- Dodge **tele 73/85/150**: `.cursor/rules/dodge-tele-focal-routing.mdc`
+
+Matrix drives **advertised / sessionOk / appEnabled** policy flags; it does not override those locks without maintainer sign-off.

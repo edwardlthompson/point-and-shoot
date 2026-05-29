@@ -296,6 +296,8 @@ object AvifStillMuxer {
         val heightPx: Int,
         val bitDepths: IntArray,
         val cicp: Cicp,
+        /** When set (API 34+ Kotlin mux path), `colr` uses ICC `prof` instead of CICP `nclx`. */
+        val iccProfileBytes: ByteArray? = null,
         val av1Bitstream: ByteArray,
         val av1Configuration: Av1CodecConfiguration.Config,
         val rotation: AvifAuxiliaryBoxes.Rotation? = null,
@@ -315,6 +317,11 @@ object AvifStillMuxer {
             require(heightPx >= 1) { "heightPx must be >= 1; got $heightPx" }
             require(bitDepths.isNotEmpty()) { "bitDepths must not be empty" }
             require(av1Bitstream.isNotEmpty()) { "av1Bitstream must not be empty" }
+            if (iccProfileBytes != null) {
+                require(iccProfileBytes.isNotEmpty()) {
+                    "iccProfileBytes must be null or non-empty"
+                }
+            }
             if (exifPayload != null) {
                 require(exifPayload.isNotEmpty()) {
                     "exifPayload must be null or non-empty; got 0-byte payload"
@@ -370,7 +377,9 @@ object AvifStillMuxer {
         val pixiIdx = ipcoBuilder.add(pixiBox)
         associations.add(ItemPropertyAssociation.Association(propertyIndex = pixiIdx, essential = true))
 
-        val colrPayload = AvifColrPayload.encodeNclxPayload(input.cicp)
+        val colrPayload =
+            input.iccProfileBytes?.let { AvifColrPayload.encodeProfPayload(it) }
+                ?: AvifColrPayload.encodeNclxPayload(input.cicp)
         val colrBox = IsobmffBox.encodeBox("colr", colrPayload)
         val colrIdx = ipcoBuilder.add(colrBox)
         associations.add(ItemPropertyAssociation.Association(propertyIndex = colrIdx, essential = true))

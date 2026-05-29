@@ -8,6 +8,9 @@ object AdvancedCaptureSettings {
 
     val burstIntervalMsOptions: List<Int> = listOf(150, 350, 800)
 
+    /** Sprint **15.29** — NightScape stack depth (Night dial). */
+    val nightScapeFrameCountOptions: List<Int> = listOf(4, 6, 8)
+
     /** 0 = intervalometer off. */
     val intervalometerSecOptions: List<Int> = listOf(0, 1, 2, 5, 10, 30, 60)
 
@@ -16,6 +19,9 @@ object AdvancedCaptureSettings {
 
     fun normalizeBurstIntervalMs(raw: Int): Int =
         burstIntervalMsOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 350
+
+    fun normalizeNightScapeFrameCount(raw: Int): Int =
+        nightScapeFrameCountOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 6
 
     fun normalizeIntervalometerSec(raw: Int): Int =
         intervalometerSecOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 0

@@ -76,6 +76,9 @@ class ZslStillFrameRing(
     /** Latest complete pair (image + result), without removing. */
     fun peekBestForStill(): ZslStillFrameSlot? = completeSlots().maxByOrNull { it.sequence }?.toSlot()
 
+    /** Sprint **15.18** — alias for histogram / metering peek (same as [peekBestForStill]). */
+    fun peekLastFrame(): ZslStillFrameSlot? = peekBestForStill()
+
     /**
      * Removes and returns the best complete pair; closes all other buffered [Image]s.
      */

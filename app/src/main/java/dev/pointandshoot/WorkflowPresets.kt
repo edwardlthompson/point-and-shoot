@@ -75,6 +75,14 @@ object WorkflowPresets {
                 primaryPhoto = false,
                 fps = 60,
             ),
+            WorkflowPreset(
+                id = "macro_video",
+                label = "Macro video",
+                commandDialMode = CommandDialMode.Macro,
+                imagingProfileId = ImagingProfile.StandardPro.id,
+                primaryPhoto = false,
+                fps = CaptureMediaFamily.MACRO_VIDEO_MAX_FPS,
+            ),
         )
 
     fun all(context: Context): List<WorkflowPreset> {

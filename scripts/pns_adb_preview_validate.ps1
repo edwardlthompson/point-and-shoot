@@ -625,7 +625,15 @@ if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
         return [System.IO.File]::ReadAllText($p)
     }
     $jpegText = Read-LogText "logcat_jpeg_only_x1.txt"
-    $jpegOk = $jpegText -match "captureJpegHardwareStill 1/1 ok=true"
+    $jpegHwOk = $jpegText -match "captureJpegHardwareStill 1/1 ok=true"
+    # Fleet-friendly fallback: some devices don't surface a hardware JPEG ImageReader session for
+    # `jpeg_only`, but still save a JPEG successfully via the independent-tonal path.
+    $jpegIndependentOk = $jpegText -match "captureIndependentTonalStill 1/1 ok=true"
+    $jpegOk = ($jpegHwOk -or $jpegIndependentOk)
+    $jpegPath =
+        if ($jpegHwOk) { "hardware_jpeg" }
+        elseif ($jpegIndependentOk) { "independent_tonal" }
+        else { "none" }
     $hdrText = Read-LogText "logcat_m10_hdr_preview_session_log.txt"
     $hdrSeedOk = $hdrText -match "PNS.AdbValidation: preview adb seed hdr10LivePreview=true"
     $hdrDrOk = $hdrText -match "PNS.AdbValidation: previewSessionDynamicRange profile="
@@ -634,17 +642,20 @@ if (-not $SuperMacroOnly -and -not $Milestone6Pack -and -not $ChromeUxPack) {
         generatedAtUtc         = [DateTime]::UtcNow.ToString("o")
         outDir                 = $OutDir
         jpegOnlyStillOk        = [bool]$jpegOk
+        jpegOnlyStillPath      = $jpegPath
+        jpegOnlyHardwareOk     = [bool]$jpegHwOk
+        jpegOnlyIndependentOk  = [bool]$jpegIndependentOk
         hdrPreviewSeedOk       = [bool]$hdrSeedOk
         hdrSessionDynamicRangeOk = [bool]$hdrDrOk
         jpegOnlyLogArtifact    = "logcat_jpeg_only_x1.txt"
         hdrPreviewLogArtifact  = "logcat_m10_hdr_preview_session_log.txt"
-        notes                  = "hdrSessionDynamicRangeOk is device-dependent (HAL may omit line when HDR preview unsupported)."
+        notes                  = "jpegOnlyStillOk passes when either captureJpegHardwareStill or captureIndependentTonalStill succeeds (fleet fallback). hdrSessionDynamicRangeOk is device-dependent (HAL may omit line when HDR preview unsupported)."
     }
     $m10Json = Join-Path $OutDir "m10_build_plan_host_hooks.json"
     $m10Obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $m10Json -Encoding utf8
     Write-Host "[adb_preview_validate] m10_build_plan_host_hooks jpegOk=$jpegOk hdrSeedOk=$hdrSeedOk hdrDrOk=$hdrDrOk -> $m10Json"
     if (-not $jpegOk) {
-        throw "jpeg_only_x1 gate: expected PNS.AdbValidation line 'captureJpegHardwareStill 1/1 ok=true' in logcat_jpeg_only_x1.txt"
+        throw "jpeg_only_x1 gate: expected PNS.AdbValidation line 'captureJpegHardwareStill 1/1 ok=true' OR 'captureIndependentTonalStill 1/1 ok=true' in logcat_jpeg_only_x1.txt"
     }
     if (-not $hdrSeedOk) {
         throw "m10_hdr_preview_session_log gate: expected PNS.AdbValidation 'preview adb seed hdr10LivePreview=true' in logcat_m10_hdr_preview_session_log.txt"

@@ -212,6 +212,55 @@ object TiffDngColorMatrixPatch {
      * Reconcile CM1/CM2/FM1/FM2 in **IFD0** from [CameraCharacteristics] (Android [DngCreator]
      * places ForwardMatrix in IFD0; sub-IFD path in [patch] may be a no-op).
      */
+    /**
+     * Replaces IFD0 CM1/CM2/FM1/FM2 and AsShotNeutral with values from a ProShot reference capture
+     * (same tag layout as [patchCalibrationTagsIfd0] / [patchAsShotNeutralFromFloats]).
+     */
+    fun patchCalibrationFromProShotReference(
+        original: ByteArray,
+        colorMatrix1: Array<Rational>,
+        colorMatrix2: Array<Rational>,
+        forwardMatrix1: Array<Rational>,
+        forwardMatrix2: Array<Rational>,
+    ): ByteArray =
+        runCatching {
+            patchProShotReferenceInternal(
+                original,
+                colorMatrix1,
+                colorMatrix2,
+                forwardMatrix1,
+                forwardMatrix2,
+            )
+        }.getOrElse { original }
+
+    private fun patchProShotReferenceInternal(
+        original: ByteArray,
+        colorMatrix1: Array<Rational>,
+        colorMatrix2: Array<Rational>,
+        forwardMatrix1: Array<Rational>,
+        forwardMatrix2: Array<Rational>,
+    ): ByteArray {
+        require(original.size >= 8) { "buffer too small" }
+        val buf = original.copyOf()
+        val bb = ByteBuffer.wrap(buf).order(ByteOrder.LITTLE_ENDIAN)
+        bb.position(0)
+        require(bb.short == 0x4949.toShort()) { "not little-endian TIFF" }
+        require(bb.short == 42.toShort()) { "not TIFF 42" }
+        val ifd0Offset = bb.int.toLong() and 0xFFFF_FFFFL
+        overwriteSRationalTagsFromRationals(
+            bb,
+            buf,
+            ifd0Offset,
+            mapOf(
+                TAG_COLOR_MATRIX1 to colorMatrix1,
+                TAG_COLOR_MATRIX2 to colorMatrix2,
+                TAG_FORWARD_MATRIX1 to forwardMatrix1,
+                TAG_FORWARD_MATRIX2 to forwardMatrix2,
+            ),
+        )
+        return buf
+    }
+
     fun patchCalibrationTagsIfd0(
         original: ByteArray,
         characteristics: CameraCharacteristics,

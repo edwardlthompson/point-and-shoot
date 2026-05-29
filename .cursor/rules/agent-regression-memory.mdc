@@ -1,0 +1,37 @@
+---
+description: Read and update AGENT_REGRESSION_MEMORY before risky capture/DNG/preview/fleet changes
+globs:
+alwaysApply: true
+---
+
+# Agent regression memory
+
+## Before editing (mandatory for these areas)
+
+Read **`docs/AGENT_REGRESSION_MEMORY.md`** (grep by file name or area) when changing:
+
+- `PreviewEngineScreen.kt`, `RawCaptureSupport.kt`, session create / stream config
+- `Dng12Saver.kt`, `StillCaptureMetadata.kt`, `LeafDngHalReconcile.kt`, DNG TIFF patches
+- `LutCameraPreviewRenderer.kt`, `PreviewMainViewport`, GLES preview / resume
+- `fleet/*`, `FleetCameraProfileBuilder.kt`, focal routing, capability gates
+- Chrome layout locked in **`preview-chrome-ui-lock.mdc`** (behavioral only)
+
+Also check **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 and the relevant **`.cursor/rules/*-lock.mdc`**.
+
+## After a USB-proven fix or reverted attempt
+
+Append one **`REG-YYYYMMDD-NNN`** row to **`docs/AGENT_REGRESSION_MEMORY.md`** in the **same commit** as the code change:
+
+- **Do not** — what must not return without fresh proof
+- **Proves OK** — script name and/or log tag (`PNS.CaptureStill`, `PNS.FleetMatrix`, …)
+- **Also test** — cross-subsystem gates (e.g. capture change → pipeline verify **and** chrome gate if readout touched)
+
+## Primary fleet device
+
+Default USB proof: **CPH2583** (OnePlus 12). **CPH2655** only for optional OP13 regression — see **`AGENTS.md`** CRITICAL — Fleet.
+
+## Do not
+
+- Delete ledger rows (supersede instead).
+- Close a BUILD_PLAN sprint without updating the ledger when the fix was regression-driven.
+- Run **`pns_chrome_ux_gate`** and **`pns_photo_capture_verify`** in parallel on one device.

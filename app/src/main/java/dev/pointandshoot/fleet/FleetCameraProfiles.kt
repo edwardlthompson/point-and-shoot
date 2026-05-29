@@ -29,14 +29,16 @@ object FleetCameraProfiles {
     fun profileForCameraId(context: Context, cameraId: String): FleetCameraProfile? =
         snapshot(context).profile(cameraId)
 
-    fun resolvedRoles(cm: CameraManager, ids: List<String>): BackCameraRoleResolver.Roles {
-        val enumerated = BackCameraRoleResolver.resolveEnumerated(cm, ids)
-        return OnePlus13FleetPolicy.mergeRoles(enumerated, ids)
-    }
-
     fun resolvedRoles(context: Context, ids: List<String>): BackCameraRoleResolver.Roles {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        return resolvedRoles(cm, ids)
+        val enumerated = BackCameraRoleResolver.resolveEnumerated(cm, ids)
+        return FleetDevicePolicySelector.active(context.applicationContext).mergeRoles(enumerated, ids)
+    }
+
+    /** @deprecated Prefer [resolvedRoles] with [Context] so fleet policy plugins apply. */
+    fun resolvedRoles(cm: CameraManager, ids: List<String>): BackCameraRoleResolver.Roles {
+        val enumerated = BackCameraRoleResolver.resolveEnumerated(cm, ids)
+        return GenericFleetPolicy.mergeRoles(enumerated, ids)
     }
 
     fun invalidateMemoryCache() {

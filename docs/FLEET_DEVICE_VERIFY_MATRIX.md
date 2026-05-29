@@ -1,0 +1,30 @@
+# Fleet device verification matrix
+
+Per-onboarded-SKU checklist for Milestone **16.8**. Update a row after matrix rescan, capture/video gates, or chrome UX proof on that device.
+
+**Primary development device:** OnePlus 12 **CPH2583** (`b5214fc6`). **OP13 regression** (CPH2655 `8bf09993`) is optional — see `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
+
+| SKU | Serial | Matrix quick | Matrix full | Shallow hub | Capture verify | Video verify | Chrome UX | DNG aux (if RAW) | Last rescan (UTC) | Notes |
+|-----|--------|--------------|-------------|-------------|----------------|--------------|-----------|------------------|-------------------|-------|
+| **CPH2583** | `b5214fc6` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 2026-05-29 | DNG: `aux_dng_capture_analyze_20260529_015653` (3/3, open gate PASS); **H.7** owner ACR sign-off 2026-05-29. **15.14** exiftool gate pending (install ExifTool). |
+| **CPH2655** (OP13 regression) | `8bf09993` | — | — | — | — | — | — | — | — | Archived primary; use `-LegacyOp13FleetPolicy` / plugin for DNG parity lane only. |
+
+## Column definitions
+
+| Column | Script / signal |
+|--------|-----------------|
+| Matrix quick | `scripts/pns_fleet_matrix_scan.ps1 -ScanTier quick` → `fleet_matrix_scan.json` `pass=true` |
+| Matrix full | `scripts/pns_fleet_matrix_scan.ps1 -ScanTier full` → `scanTierObserved=full` |
+| Shallow hub | `scripts/pns_shallow_scan_hub_validate.ps1` |
+| Capture verify | `scripts/pns_capture_pipeline_verify.ps1` or `pns_photo_capture_verify.ps1` |
+| Video verify | `scripts/pns_in_app_video_verify.ps1` |
+| Chrome UX | `scripts/pns_chrome_ux_gate.ps1` |
+| DNG aux | `scripts/pns_aux_dng_capture_analyze.ps1` (OP13 / plugin lane) |
+| Video matrix | `scripts/pns_video_matrix_verify.ps1` — picker tiers + ffprobe (see matrix `encoder.verifyScripts`) |
+| Codec color | `scripts/pns_video_codec_color_compare.ps1` — H.264 vs HEVC VUI |
+
+Matrix **`encoder`** slice (full/quick scan) lists **surfaceEncoding** and best rows from latest on-device **`enc_probe_*.json`** when present.
+
+## Rescan
+
+See **`docs/FLEET_DEVICE_CAPABILITY_MATRIX.md`** (playbook §16.3 / **16.9**).

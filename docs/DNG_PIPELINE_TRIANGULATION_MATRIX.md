@@ -26,10 +26,11 @@ Legend: **S** = same across all three (or same on OP13 leaf ids) · **D** = diff
 | **Still: neutral / HQ CC skip** | No | — | Only logical+aux pin | **S** off on leaf | **S** |
 | **Preview JPEG hints on still** | Unknown | — | `PreviewJpegProcessingHints` | **P** — same | Bisect off for RAW still |
 | **`SCALER_CROP_REGION` still** | Yes (digital tele) | Yes | Yes (dodge tele) | **S** | Unlikely color root |
-| **Post-`writeImage` ASN patch** | None | N/A | **OFF** when `useProShotPureDngSave()` (13.3g) | **OFF** (MotionCam path) | **S** with ProShot — shipped May 2026 |
-| **Post-`writeImage` CM/FM TIFF** | None | N/A | **OFF** (L9); wide-cal bisect **13.3h** only | **S** | Ruled out; see **`docs/DNG_OPENABILITY_REGRESSIONS.md`** |
-| **`ExifInterface` on DNG** | No | N/A | **Skipped** on leaf (`skipStillMetadataApplyOnLeafDng`) | **S** | Ruled out for openability |
-| **`StillCaptureMetadata` IFD0** | Minimal / OEM | N/A | **Skipped** on leaf (13.3g) | **P** on non-leaf only | Bisect **L7** if color still fails |
+| **Post-`writeImage` ASN patch** | None | N/A | **OFF** (`useOp13LeafAuxColorReconcile=false`) | **OFF** (MotionCam path) | **S** with ProShot — May 2026 |
+| **Post-`writeImage` CM/FM TIFF** | None | N/A | **OFF** (`useProShotReferenceCalibration=false`) | **S** | Ruled out; see **`docs/DNG_OPENABILITY_REGRESSIONS.md`** |
+| **Still request (leaf)** | ProShot still IQ + HAL AE | Native | **`ProShotLeafStillCaptureRequest`** (no readout manual latch) | **D** vs old P&S stack | May 2026 USB |
+| **`ExifInterface` on DNG** | No | N/A | **Skipped** on all leaf **2/3/4** | **S** | Ruled out for openability |
+| **`StillCaptureMetadata` IFD0** | Minimal / OEM | N/A | **Skipped** on all leaf | **P** on non-leaf only | Bisect **L7** if color still fails |
 | **UniqueCameraModel 50708** | Unknown | N/A | **Skipped** on OP13 leaf (`skipUniqueCameraModelOnLeafDng`) | **P** | Openability gate + ACR |
 | **`DngLutMetadata` / software tag** | Unknown | N/A | `setDescription` + sidecar JSON | **P** | Low risk |
 | **Imaging profile (Std / Ultra)** | Product modes | Product modes | `ImagingProfile` → DNG mode | **P** | Same across slots in matrix runs |
@@ -75,7 +76,7 @@ Automation: `pns_aux_dng_capture_analyze.ps1` + `structural_verify.py` (WB/FM) +
 
 ## USB bisect results (`hfr-runs/dng_matrix_bisect_20260519_030756`)
 
-Objective metric: `scripts/dng_color_metric.py` — `render_green_delta_vs_wide` (lower is better; gate ≤0.12).
+Objective metric: `scripts/dng_color_metric.py` — `wb_green_delta_vs_wide` (lower is better; gate ≤0.12; computed from RAW channel means + DNG ASN gains so it reflects in-place ASN patches even when HAL CM2 is suspicious).
 
 | Step | Change | uw_delta | tele_delta | tele_ok |
 |------|--------|----------|------------|---------|

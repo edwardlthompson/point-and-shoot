@@ -61,22 +61,23 @@ def analyze_file(path: Path) -> dict:
         g = (g1 + g2) / 2.0
         mid = max((r + b) / 2.0, 1.0)
         raw_green_index = (g - mid) / mid
-        rgb = raw.postprocess(
-            use_camera_wb=True,
-            output_bps=8,
-            no_auto_bright=True,
-            bright=1.0,
-            user_flip=False,
-        )
-    flat = rgb.reshape(-1, 3).astype(np.float64)
-    mr, mg, mb = flat.mean(axis=0)
-    render_mid = max((mr + mb) / 2.0, 1.0)
-    render_green = (mg - render_mid) / render_mid
+
+    # "WB green bias" is computed *without* rawpy postprocess, using RAW channel means
+    # plus DNG ASN-derived gains when available. This tracks our in-place ASN work even
+    # when the HAL CM2 is wrong for aux sensors (rawpy tends to lean on CM2).
+    if asn is not None:
+        gain_r, gain_b = asn
+        wr = r * gain_r
+        wb = b * gain_b
+        wmid = max((wr + wb) / 2.0, 1.0)
+        wb_green_index = (g - wmid) / wmid
+    else:
+        wb_green_index = raw_green_index
+
     out = {
         "path": str(path),
         "raw_green_index": round(raw_green_index, 4),
-        "render_green": round(float(render_green), 4),
-        "render_rgb_mean": [round(mr, 2), round(mg, 2), round(mb, 2)],
+        "wb_green_index": round(float(wb_green_index), 4),
     }
     if asn:
         out["asn_wb_r"] = round(asn[0], 3)
@@ -99,18 +100,18 @@ def main() -> int:
         "wide": analyze_file(wide_p),
         "tele": analyze_file(tele_p),
     }
-    ref_rg = slots["wide"]["render_green"]
+    ref_wb = slots["wide"]["wb_green_index"]
     ref_raw = slots["wide"]["raw_green_index"]
     for key in ("uw", "tele"):
-        slots[key]["render_green_delta_vs_wide"] = round(
-            slots[key]["render_green"] - ref_rg, 4
+        slots[key]["wb_green_delta_vs_wide"] = round(
+            slots[key]["wb_green_index"] - ref_wb, 4
         )
         slots[key]["raw_green_index_delta_vs_wide"] = round(
             slots[key]["raw_green_index"] - ref_raw, 4
         )
-    # Heuristic gate: aux render green within 0.12 of wide (tune with device truth)
-    uw_ok = abs(slots["uw"]["render_green_delta_vs_wide"]) <= 0.12
-    tele_ok = abs(slots["tele"]["render_green_delta_vs_wide"]) <= 0.12
+    # Heuristic gate: aux WB green within 0.12 of wide (tune with device truth)
+    uw_ok = abs(slots["uw"]["wb_green_delta_vs_wide"]) <= 0.12
+    tele_ok = abs(slots["tele"]["wb_green_delta_vs_wide"]) <= 0.12
     result = {
         "slots": slots,
         "color_metric_gate": {
@@ -122,20 +123,19 @@ def main() -> int:
     if emit_json:
         print(json.dumps(result, indent=2))
     else:
-        print("=== DNG color metric (render_green vs wide) ===")
+        print("=== DNG color metric (wb_green_index vs wide) ===")
         for key in ("uw", "wide", "tele"):
             s = slots[key]
             print(
-                f"  {key:5s}: render_green={s['render_green']:+.4f} "
-                f"raw_green_index={s['raw_green_index']:+.4f} "
-                f"rgb={s['render_rgb_mean']}"
+                f"  {key:5s}: wb_green_index={s['wb_green_index']:+.4f} "
+                f"raw_green_index={s['raw_green_index']:+.4f}"
             )
         print(
-            f"  uw   delta vs wide: {slots['uw']['render_green_delta_vs_wide']:+.4f} "
+            f"  uw   delta vs wide: {slots['uw']['wb_green_delta_vs_wide']:+.4f} "
             f"[{'OK' if uw_ok else 'FAIL'}]"
         )
         print(
-            f"  tele delta vs wide: {slots['tele']['render_green_delta_vs_wide']:+.4f} "
+            f"  tele delta vs wide: {slots['tele']['wb_green_delta_vs_wide']:+.4f} "
             f"[{'OK' if tele_ok else 'FAIL'}]"
         )
         print(f"COLOR_METRIC_GATE: {'PASS' if result['color_metric_gate']['pass'] else 'FAIL'}")

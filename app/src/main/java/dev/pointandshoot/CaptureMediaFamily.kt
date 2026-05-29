@@ -10,8 +10,18 @@ enum class CaptureMediaFamily {
     ;
 
     companion object {
+        /** Sprint **15.31** — macro video caps preview/record fps for stable EIS on UW. */
+        const val MACRO_VIDEO_MAX_FPS = 60
+
         fun fromPrimaryPhoto(primaryPhoto: Boolean): CaptureMediaFamily =
             if (primaryPhoto) Photo else Video
+
+        /** Video tray + **MACRO** dial (Sprint **15.31**). */
+        fun isMacroVideo(primaryPhoto: Boolean, dial: CommandDialMode): Boolean =
+            !primaryPhoto && dial == CommandDialMode.Macro
+
+        fun isMacroVideo(family: CaptureMediaFamily, dial: CommandDialMode): Boolean =
+            family == Video && dial == CommandDialMode.Macro
 
         /** Modes shown in the Mode dial when the tray is in video capture (no RAW bracket / highlight metering). */
         fun commandDialModesFor(family: CaptureMediaFamily): List<CommandDialMode> =
@@ -30,6 +40,7 @@ enum class CaptureMediaFamily {
                         CommandDialMode.Auto,
                         CommandDialMode.M,
                         CommandDialMode.S,
+                        CommandDialMode.Macro,
                         CommandDialMode.Dual,
                     )
             }

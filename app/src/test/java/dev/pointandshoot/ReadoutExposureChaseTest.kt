@@ -16,7 +16,7 @@ class ReadoutExposureChaseTest {
 
     @Test
     fun adjustExposureNs_deadbandHoldsSteady() {
-        val ema = (ReadoutExposureChase.TARGET_MEDIAN_BIN + 6).toDouble()
+        val ema = (ReadoutExposureChase.TARGET_MEDIAN_BIN + 4).toDouble()
         val r = ReadoutExposureChase.adjustExposureNs(50_000_000L, ema, expRange = null)
         assertFalse(r.applied)
         assertEquals(50_000_000L, r.value)
@@ -57,5 +57,27 @@ class ReadoutExposureChaseTest {
     @Test
     fun darkenExposureNs_twoStopsHalves() {
         assertEquals(10_000_000L, ReadoutExposureChase.darkenExposureNs(40_000_000L, 2.0, null))
+    }
+
+    @Test
+    fun needsYuvHistogramSample_trueForChaseOnly() {
+        assertTrue(
+            ReadoutExposureChase.needsYuvHistogramSample(
+                wantHighlight = false,
+                wantHist = false,
+                wantZebra = false,
+                wantFalseColor = false,
+                wantChase = true,
+            ),
+        )
+        assertFalse(
+            ReadoutExposureChase.needsYuvHistogramSample(
+                wantHighlight = false,
+                wantHist = false,
+                wantZebra = false,
+                wantFalseColor = false,
+                wantChase = false,
+            ),
+        )
     }
 }

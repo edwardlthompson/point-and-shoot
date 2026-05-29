@@ -36,7 +36,7 @@ object FocalLensStripSupport {
     fun digitalEqSlotsEnabledForWide(context: Context, ids: List<String>): Boolean {
         if (ids.isEmpty()) return false
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val wide = FleetCameraProfiles.resolvedRoles(cm, ids).wide ?: return false
+        val wide = FleetCameraProfiles.resolvedRoles(context, ids).wide ?: return false
         val arr =
             runCatching {
                 cm.getCameraCharacteristics(wide).get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
@@ -73,7 +73,7 @@ object FocalLensStripSupport {
         pair: Pair<String, FocalMode?>,
     ): String {
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val roles = FleetCameraProfiles.resolvedRoles(cm, ids)
+        val roles = FleetCameraProfiles.resolvedRoles(context, ids)
         val telePhysical = telePhysicalForPreviewPin(slot, roles)
         val uwPhysical = ultraWidePhysicalForPreviewPin(slot, roles)
         val physical =

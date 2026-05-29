@@ -12,7 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 /**
- * Sprint **CC.3** — loopback HTTP control for desktop tethering (`adb reverse tcp:28765 tcp:28765`).
+ * Sprint **CC.3** / **15.37** — HTTP control for desktop tethering.
+ *
+ * Loopback (**127.0.0.1**) for `adb reverse tcp:28765 tcp:28765`.
+ * Optional LAN bind (**0.0.0.0**) when [start] is called with `lanBind=true` (Wi‑Fi / Wi‑Fi Direct peers).
  *
  *   GET  /status  → JSON snapshot
  *   POST /capture → fire still callback
@@ -39,44 +42,94 @@ class TetheredCaptureServer(
     var onFlashMode: ((PreviewFlashMode) -> Unit)? = null
 
     private val running = AtomicBoolean(false)
-    private var serverSocket: ServerSocket? = null
-    private var worker: Thread? = null
+    @Volatile
+    var lanBound: Boolean = false
+        private set
+    private var loopbackSocket: ServerSocket? = null
+    private var lanSocket: ServerSocket? = null
+    private var loopbackWorker: Thread? = null
+    private var lanWorker: Thread? = null
 
-    fun start() {
-        if (!running.compareAndSet(false, true)) return
-        worker =
-            thread(name = "PNS.Tether", isDaemon = true) {
-                try {
-                    val ss = ServerSocket()
-                    ss.reuseAddress = true
-                    ss.bind(
-                        InetSocketAddress(InetAddress.getByName("127.0.0.1"), port),
-                        4,
-                    )
-                    serverSocket = ss
-                    Log.i(TAG, "listening port=$port")
-                    while (running.get()) {
-                        val client = runCatching { ss.accept() }.getOrNull() ?: break
-                        runCatching { handleClient(client) }
-                            .onFailure { e -> Log.w(TAG, "client error: ${e.message}") }
-                        runCatching { client.close() }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "server stopped: ${e.message}")
-                } finally {
-                    runCatching { serverSocket?.close() }
-                    serverSocket = null
-                    running.set(false)
+    fun start(lanBind: Boolean = false) {
+        synchronized(StartLock) {
+            if (running.get()) {
+                if (lanBind && !lanBound) {
+                    startLanListener()
                 }
+                return
+            }
+            if (!running.compareAndSet(false, true)) return
+            lanBound = false
+            loopbackWorker =
+                thread(name = "PNS.TetherLoop", isDaemon = true) {
+                    acceptLoop(bindHost = LOOPBACK_HOST, onBound = { loopbackSocket = it })
+                }
+            if (lanBind) {
+                startLanListener()
+            }
+        }
+    }
+
+    private fun startLanListener() {
+        if (lanBound) return
+        lanWorker =
+            thread(name = "PNS.TetherLan", isDaemon = true) {
+                acceptLoop(bindHost = LAN_HOST, onBound = { ss ->
+                    lanSocket = ss
+                    lanBound = true
+                    Log.i(TAG, "wifiDirectBound=true port=$port")
+                })
             }
     }
 
     fun stop() {
-        running.set(false)
-        runCatching { serverSocket?.close() }
-        worker?.join(500)
-        worker = null
-        Log.i(TAG, "stopped")
+        synchronized(StartLock) {
+            running.set(false)
+            runCatching { loopbackSocket?.close() }
+            runCatching { lanSocket?.close() }
+            loopbackSocket = null
+            lanSocket = null
+            lanBound = false
+            loopbackWorker?.join(500)
+            lanWorker?.join(500)
+            loopbackWorker = null
+            lanWorker = null
+            Log.i(TAG, "stopped")
+        }
+    }
+
+    private fun acceptLoop(bindHost: String, onBound: (ServerSocket) -> Unit) {
+        var ss: ServerSocket? = null
+        try {
+            ss = ServerSocket()
+            ss.reuseAddress = true
+            ss.bind(InetSocketAddress(InetAddress.getByName(bindHost), port), 8)
+            onBound(ss)
+            Log.i(TAG, "listening host=$bindHost port=$port")
+            while (running.get()) {
+                val client = runCatching { ss.accept() }.getOrNull() ?: break
+                runCatching { handleClient(client) }
+                    .onFailure { e -> Log.w(TAG, "client error: ${e.message}") }
+                runCatching { client.close() }
+            }
+        } catch (e: Exception) {
+            if (bindHost == LAN_HOST) {
+                Log.w(TAG, "lan bind failed: ${e.message}")
+            } else {
+                Log.w(TAG, "loopback bind failed: ${e.message}")
+            }
+        } finally {
+            runCatching { ss?.close() }
+            if (bindHost == LAN_HOST) {
+                lanBound = false
+                lanSocket = null
+            } else {
+                loopbackSocket = null
+            }
+            if (bindHost == LOOPBACK_HOST) {
+                running.set(false)
+            }
+        }
     }
 
     private fun handleClient(socket: Socket) {
@@ -155,5 +208,8 @@ class TetheredCaptureServer(
         const val TAG = "PNS.Tether"
         /** Avoid **18765** — `adb reverse tcp:18765` binds that port on-device and breaks bind. */
         const val DEFAULT_PORT = 28765
+        private const val LOOPBACK_HOST = "127.0.0.1"
+        private const val LAN_HOST = "0.0.0.0"
+        private val StartLock = Any()
     }
 }

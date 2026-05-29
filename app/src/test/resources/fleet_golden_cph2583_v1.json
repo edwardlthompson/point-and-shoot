@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "scanMeta": {
+    "generatedAtEpochMs": 1780017351000,
+    "scanTier": "full",
+    "appVersionCode": 14003,
+    "sdkInt": 36,
+    "securityPatch": "2026-04-01",
+    "fingerprintSha256Prefix": "961221c0f0bc2eee",
+    "scanDurationMs": 530,
+    "scanOrderingVersion": 1,
+    "mediaPerformanceClass": 34,
+    "firstApiLevel": 34,
+    "vendorApiLevel": null
+  },
+  "device": {
+    "manufacturer": "OnePlus",
+    "model": "CPH2583",
+    "device": "OP595DL1"
+  },
+  "cameras": [
+    {
+      "cameraId": "2",
+      "hfrMaxFpsAt1080": 480,
+      "rawPickEffective": "RAW_SENSOR",
+      "featureGates": {
+        "hfr": { "advertised": true, "sessionOk": true, "appEnabled": true },
+        "raw": { "advertised": true, "sessionOk": true, "appEnabled": true }
+      }
+    },
+    {
+      "cameraId": "3",
+      "hfrMaxFpsAt1080": 240,
+      "rawPickEffective": "RAW_SENSOR",
+      "featureGates": {
+        "hfr": { "advertised": true, "sessionOk": true, "appEnabled": true },
+        "raw": { "advertised": true, "sessionOk": true, "appEnabled": true }
+      }
+    }
+  ],
+  "product": {
+    "focalSlots": [],
+    "fleetProfiles": { "policyId": "" }
+  },
+  "cameraX": null,
+  "runtimeProbes": null,
+  "complianceRollup": {
+    "note": "informational — not a shipping gate (16.12)",
+    "mediaPerformanceClass": 34,
+    "sdkInt": 36
+  },
+  "encoder": null,
+  "appendix": {}
+}

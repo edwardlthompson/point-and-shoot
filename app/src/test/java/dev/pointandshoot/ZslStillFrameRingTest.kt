@@ -12,6 +12,7 @@ class ZslStillFrameRingTest {
         assertEquals(2, ring.size())
         assertEquals(0, ring.completeCount())
         assertNull(ring.peekBestForStill())
+        assertNull(ring.peekLastFrame())
         assertNull(ring.takeBestForStill())
     }
 

@@ -219,6 +219,12 @@ object PnsAacEncoderSupport {
                 setInteger(MediaFormat.KEY_BIT_RATE, profile.aacBitrateBps)
                 setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
                 setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, maxInputSize)
+            }.also { configured ->
+                MediaCodecVideoRecorder.applySpatialAudioMetadata(
+                    configured,
+                    profile.channelConfig,
+                    profile.pcmEncoding,
+                )
             }
         return runCatching {
             codec.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)

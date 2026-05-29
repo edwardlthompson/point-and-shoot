@@ -23,6 +23,7 @@ import androidx.core.content.ContextCompat
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
+import kotlin.math.roundToInt
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -201,11 +202,45 @@ class MediaCodecVideoRecorder(
                     config.hdrProfile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
             return when {
                 isHdr10Profile -> "bt2020-pq"
+                config.videoColorProfile == VideoColorProfile.Hlg && config.isTenBit -> "bt2020-hlg"
                 // Surface-input HFR is Camera2 SDR 8-bit; HLG tags on Main10 look wrong in players.
                 config.isTenBit -> "bt709"
                 else -> "bt709"
             }
         }
+
+        /**
+         * Sprint **15.30** — stereo channel mask + PCM encoding on AAC [MediaFormat] (API 28+).
+         */
+        internal fun applySpatialAudioMetadata(
+            format: MediaFormat,
+            channelMask: Int = AudioFormat.CHANNEL_IN_STEREO,
+            pcmEncoding: Int = AudioFormat.ENCODING_PCM_16BIT,
+        ): MediaFormat {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                runCatching { format.setInteger(MediaFormat.KEY_CHANNEL_MASK, channelMask) }
+                runCatching { format.setInteger(MediaFormat.KEY_PCM_ENCODING, pcmEncoding) }
+            }
+            return format
+        }
+
+        /** Log label for [applySpatialAudioMetadata] (JVM-testable). */
+        internal fun spatialAudioMetaLogLabel(channelMask: Int): String =
+            when (channelMask) {
+                AudioFormat.CHANNEL_IN_STEREO -> "stereo"
+                AudioFormat.CHANNEL_IN_MONO -> "mono"
+                else -> "chMask=$channelMask"
+            }
+
+        /**
+         * Copy encoder output format and attach spatial metadata before [MediaMuxer.addTrack].
+         */
+        internal fun enrichAudioMuxerFormat(
+            encoderOutput: MediaFormat,
+            channelMask: Int,
+            pcmEncoding: Int,
+        ): MediaFormat =
+            applySpatialAudioMetadata(MediaFormat(encoderOutput), channelMask, pcmEncoding)
 
         /** AV1 requires WebM mux on API 34+; HEVC/H.264 stay MP4. */
         fun muxerOutputFormatFor(config: Config): Int {
@@ -300,8 +335,15 @@ class MediaCodecVideoRecorder(
         val encoderKind: VideoEncoderKind = VideoEncoderKind.HEVC,
         /** Clockwise rotation for gallery players ([MediaMuxer.setOrientationHint]). */
         val orientationHintDegrees: Int = 0,
+        /** Sprint **15.16** — HLG / flat-cine intent (VUI + preview; not DCG/HDR10). */
+        val videoColorProfile: VideoColorProfile = VideoColorProfile.Sdr,
+        /** Sprint **15.24** — [AudioRecord] / MediaRecorder mic source. */
+        val audioSource: VideoAudioSource = VideoAudioSource.Camcorder,
+        /** Sprint **15.35** — mic gain in dB applied to PCM before AAC encode. */
+        val audioGainDb: Float = 0f,
     ) {
         val effectiveEncoder: String get() = encoderName ?: pickEncoder(this)
+        val audioGainLinear: Float get() = HudSettings.audioGainDbToLinear(audioGainDb)
     }
 
     /** Current recorder state. */
@@ -343,16 +385,30 @@ class MediaCodecVideoRecorder(
     private var audioTrack = -1
     private var audioThread: Thread? = null
     private val peakAmplitude = AtomicInteger(0)
+    private val peakAmplitudeLeft = AtomicInteger(0)
+    private val peakAmplitudeRight = AtomicInteger(0)
     @Volatile private var pendingAudioFormat: MediaFormat? = null
     @Volatile private var audioCaptureStarted = false
+    private var audioWindNoiseSuppression = false
     /** PCM / AudioRecord rate (hi-fi may be 96 kHz). */
     private var audioSampleRateHz: Int = 44_100
     private var audioChannelCount: Int = 2
+    private var audioChannelMask: Int = AudioFormat.CHANNEL_IN_STEREO
+    private var audioPcmEncoding: Int = AudioFormat.ENCODING_PCM_16BIT
+    /** PCM multiply from [Config.audioGainDb] (1f = unity). */
+    private var audioGainLinear: Float = 1f
     /** AAC encoder output rate from [MediaCodec] format (often 44.1 kHz when capture is 96 kHz). */
     @Volatile private var audioEncoderSampleRateHz: Int = 0
 
     /** Peak amplitude since last call (0..32767), resets on read. */
     fun peekAmplitude(): Int = peakAmplitude.getAndSet(0)
+
+    /** L/R peak amplitudes since last call (0..32767 each), reset on read. */
+    fun peekAmplitudeStereo(): Pair<Int, Int> {
+        val left = peakAmplitudeLeft.getAndSet(0)
+        val right = peakAmplitudeRight.getAndSet(0)
+        return left to right
+    }
 
     /** True after [MediaMuxer.start] and the video track is registered (first encoded frame path). */
     fun isMuxerReady(): Boolean = muxerStarted
@@ -401,6 +457,7 @@ class MediaCodecVideoRecorder(
         audioPtsOriginUs = -1L
         audioCaptureStarted = false
         audioEncoderSampleRateHz = 0
+        audioGainLinear = config.audioGainLinear
 
         val codecName = config.effectiveEncoder
 
@@ -409,8 +466,18 @@ class MediaCodecVideoRecorder(
             val chrome = PreviewChromePreferences.load(appContext)
             AudioEffects.lightCompressionEnabled = chrome.audioLightCompression
             AudioEffects.voiceoverDuckingEnabled = chrome.audioVoiceoverDucking
-            val profile = PnsAudioCaptureSupport.resolve(appContext, chrome)
+            val profile =
+                PnsAudioCaptureSupport.resolve(appContext, chrome, config.audioSource)
             PnsAudioCaptureSupport.logInputDevices(appContext)
+            Log.i(TAG, "audioSource=${config.audioSource.logTag()}")
+            Log.i(
+                TAG,
+                "audioGainDb=${config.audioGainDb} gainLinear=$audioGainLinear",
+            )
+            PnsAdbLog.i(
+                appContext,
+                "audioGainDb=${config.audioGainDb} gainLinear=$audioGainLinear",
+            )
             Log.i(TAG, "audioCapturePrepare ${PnsAudioCaptureSupport.diagSummary(profile)}")
             PnsAdbLog.i(appContext, "audioCapturePrepare ${PnsAudioCaptureSupport.diagSummary(profile)}")
             startAudioCapture(profile)
@@ -621,7 +688,9 @@ class MediaCodecVideoRecorder(
         if (audioCaptureStarted) return
         if (audioRecord == null || audioCodec == null) return
         audioCaptureStarted = true
-        runCatching { audioRecord?.startRecording() }
+        val ar = audioRecord ?: return
+        runCatching { ar.startRecording() }
+        PnsAudioCaptureSupport.attachCaptureEffects(ar, audioWindNoiseSuppression)
         startAudioFeedThread()
         nudgeAudioMuxerReady()
         Log.i(TAG, "audio PCM capture started with first video frame")
@@ -697,6 +766,8 @@ class MediaCodecVideoRecorder(
                 profile.copy(sampleRateHz = pick.captureSampleRateHz)
             }
         audioChannelCount = recordProfile.channelCount.coerceAtLeast(1)
+        audioChannelMask = recordProfile.channelConfig
+        audioPcmEncoding = recordProfile.pcmEncoding
         val minBuf =
             AudioRecord.getMinBufferSize(
                 recordProfile.sampleRateHz,
@@ -716,15 +787,26 @@ class MediaCodecVideoRecorder(
                     return
                 }
         audioRecord = ar
+        audioWindNoiseSuppression = recordProfile.windNoiseSuppression
         Log.i(
             TAG,
-            "audio capture prepared ${PnsAudioCaptureSupport.diagSummary(recordProfile)} " +
+            "audioSource=${recordProfile.audioSource.logTag()} " +
+                "audio capture prepared ${PnsAudioCaptureSupport.diagSummary(recordProfile)} " +
                 "encoder=${pick.codecName} muxRate=${pick.muxSampleRateHz}",
         )
         PnsAdbLog.i(
             appContext,
             "audioEncoderPick name=${pick.codecName} capture=${pick.captureSampleRateHz} " +
                 "mux=${pick.muxSampleRateHz} hiFi=${profile.hiFiMode}",
+        )
+        Log.i(
+            TAG,
+            "spatialAudioMeta=${spatialAudioMetaLogLabel(recordProfile.channelConfig)} " +
+                "pcm=${recordProfile.pcmEncoding}",
+        )
+        PnsAdbLog.i(
+            appContext,
+            "spatialAudioMeta=${spatialAudioMetaLogLabel(recordProfile.channelConfig)}",
         )
         primeAudioEncoderForMuxer()
     }
@@ -765,9 +847,34 @@ class MediaCodecVideoRecorder(
                 val read = ar.read(buf, 0, buf.size)
                 if (read <= 0) continue
                 AudioEffects.applyPcmProcessing(buf, read)
+                if (audioGainLinear != 1f) {
+                    applyPcmGainInPlace(buf, read, audioGainLinear)
+                }
                 var peak = 0
-                for (i in 0 until read) { val v = kotlin.math.abs(buf[i].toInt()); if (v > peak) peak = v }
+                var peakL = 0
+                var peakR = 0
+                if (channels >= 2) {
+                    var i = 0
+                    while (i + 1 < read) {
+                        val l = kotlin.math.abs(buf[i].toInt())
+                        val r = kotlin.math.abs(buf[i + 1].toInt())
+                        if (l > peakL) peakL = l
+                        if (r > peakR) peakR = r
+                        if (l > peak) peak = l
+                        if (r > peak) peak = r
+                        i += 2
+                    }
+                } else {
+                    for (i in 0 until read) {
+                        val v = kotlin.math.abs(buf[i].toInt())
+                        if (v > peak) peak = v
+                        if (v > peakL) peakL = v
+                        if (v > peakR) peakR = v
+                    }
+                }
                 peakAmplitude.getAndUpdate { cur -> if (peak > cur) peak else cur }
+                peakAmplitudeLeft.getAndUpdate { cur -> if (peakL > cur) peakL else cur }
+                peakAmplitudeRight.getAndUpdate { cur -> if (peakR > cur) peakR else cur }
                 val pcm = buf.copyOf(read)
                 val ptsUs = presentationUs
                 // [AudioRecord.read] returns shorts; stereo = 2 shorts per frame — do not treat each short as a sample.
@@ -813,7 +920,12 @@ class MediaCodecVideoRecorder(
                 outIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
                     synchronized(muxerLock) {
                         if (!muxerFinalized.get() && !muxerStarted && audioTrack < 0) {
-                            pendingAudioFormat = ac.outputFormat
+                            pendingAudioFormat =
+                                enrichAudioMuxerFormat(
+                                    ac.outputFormat,
+                                    audioChannelMask,
+                                    audioPcmEncoding,
+                                )
                             val encRate =
                                 runCatching {
                                     ac.outputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
@@ -828,7 +940,11 @@ class MediaCodecVideoRecorder(
                                         "(mux PTS uses encoder timestamps, not sample-rate scale)",
                                 )
                             }
-                            Log.i(TAG, "audio output format ready ${ac.outputFormat}")
+                            Log.i(
+                                TAG,
+                                "audio output format ready $pendingAudioFormat " +
+                                    "spatialAudioMeta=${spatialAudioMetaLogLabel(audioChannelMask)}",
+                            )
                         }
                     }
                     tryStartMuxerIfReady()
@@ -1023,4 +1139,16 @@ class MediaCodecVideoRecorder(
 
     /** True while [State.Prepared] or [State.Recording]. */
     val isActive: Boolean get() = state is State.Prepared || state == State.Recording
+
+    private fun applyPcmGainInPlace(buffer: ShortArray, count: Int, gainLinear: Float) {
+        if (gainLinear == 1f || count <= 0) return
+        for (i in 0 until count) {
+            val scaled =
+                (buffer[i].toInt() * gainLinear)
+                    .toDouble()
+                    .roundToInt()
+                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+            buffer[i] = scaled.toShort()
+        }
+    }
 }

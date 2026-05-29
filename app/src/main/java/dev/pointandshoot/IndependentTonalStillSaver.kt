@@ -120,6 +120,69 @@ object IndependentTonalStillSaver {
         }
     }
 
+    /**
+     * Sprint **15.29** — stacked RGB888 from NightScape (same tonal encode path as hardware JPEG).
+     */
+    fun saveFromStackedRgb888(
+        appContext: Context,
+        storageProfile: ImagingProfile,
+        tonalBundle: StillCaptureBundle,
+        rgb888: ByteArray,
+        width: Int,
+        height: Int,
+        stillsLut: LutCatalog,
+        characteristics: CameraCharacteristics,
+        captureResult: TotalCaptureResult,
+        orientationDegrees: Int,
+        softwareJpegQuality: Int,
+        filenameSuffix: String? = "nightscape",
+    ): SaveOutcome {
+        if (width <= 0 || height <= 0) return SaveOutcome(null, null, null)
+        val rgb = rgb888.copyOf()
+        StillCaptureColorApply.applyToRgb888InPlace(appContext, rgb, width, height, stillsLut)
+        val decision = EncoderRoute.decide(tonalBundle, NativeEncoders.isAvailable)
+        val loc = null
+        return when {
+            decision.tonalWritten == TonalContainer.JpegXl12Bit && !decision.fallbackJpeg ->
+                writeNativeJxl(
+                    appContext,
+                    storageProfile,
+                    rgb,
+                    width,
+                    height,
+                    characteristics,
+                    captureResult,
+                    loc,
+                    filenameSuffix,
+                )
+            decision.tonalWritten == TonalContainer.Avif10BitHdr && !decision.fallbackJpeg ->
+                writeNativeAvif(
+                    appContext,
+                    storageProfile,
+                    rgb,
+                    width,
+                    height,
+                    characteristics,
+                    captureResult,
+                    loc,
+                    filenameSuffix,
+                )
+            else ->
+                writeFallbackJpeg(
+                    appContext,
+                    storageProfile,
+                    rgb,
+                    width,
+                    height,
+                    characteristics,
+                    captureResult,
+                    softwareJpegQuality,
+                    filenameSuffix,
+                    downgradeReason = decision.downgradeReason,
+                )
+        }
+    }
+
     internal fun copyJpegImageToByteArray(image: Image): ByteArray {
         val buf = image.planes[0].buffer
         val bytes = ByteArray(buf.remaining())
@@ -327,6 +390,7 @@ object IndependentTonalStillSaver {
                 characteristics,
                 captureResult,
                 location = null,
+                colorSpaceTarget = storageProfile.colorSpace,
             )
             Log.i(TAG, "tonal still saved as JPEG displayName=$displayName downgrade=${downgradeReason != null}")
             SaveOutcome(uri, displayName, downgradeReason)
@@ -365,13 +429,26 @@ object IndependentTonalStillSaver {
             val uri = handle.uri
             handle.close()
             handle = null
-            StillCaptureMetadata.applyToJpegUri(
-                appContext.applicationContext,
-                uri,
-                characteristics,
-                captureResult,
-                location = location,
-            )
+            when (kind) {
+                CaptureStorage.CaptureKind.Avif10BitHdr ->
+                    StillCaptureMetadata.applyToAvifUri(
+                        appContext.applicationContext,
+                        uri,
+                        characteristics,
+                        captureResult,
+                        location = location,
+                        colorSpaceTarget = storageProfile.colorSpace,
+                    )
+                else ->
+                    StillCaptureMetadata.applyToJpegUri(
+                        appContext.applicationContext,
+                        uri,
+                        characteristics,
+                        captureResult,
+                        location = location,
+                        colorSpaceTarget = storageProfile.colorSpace,
+                    )
+            }
             Log.i(TAG, "tonal still saved kind=${kind.extension} displayName=$displayName")
             SaveOutcome(uri, displayName, downgradeMessage)
         } catch (t: Throwable) {

@@ -12,6 +12,10 @@ import kotlin.math.roundToInt
 
 /**
  * Sprint **15.13** — first-launch focal map from [CameraCharacteristics] (35 mm equiv + MP gate).
+ *
+ * **Fleet SoT (16.11):** focal slots for agents/UI policy live in `files/fleet_device_matrix.json`
+ * under `product.focalSlots`. This file is a **compat mirror** for first-launch UI; do not treat
+ * `fleet_focal_map.json` as the canonical fleet artifact.
  */
 object FleetCameraStartupScan {
     const val TAG = "PNS.FleetScan"

@@ -21,6 +21,8 @@ object FleetDeviceMatrix {
     const val KEY_RUNTIME_PROBES = "runtimeProbes"
     const val KEY_COMPLIANCE_ROLLUP = "complianceRollup"
     const val KEY_ENCODER = "encoder"
+    const val KEY_CAPABILITY_CATALOG = "capabilityCatalog"
+    const val KEY_CATALOG_VERSION = "catalogVersion"
     const val KEY_APPENDIX = "appendix"
 
     enum class ScanTier(val json: String) {

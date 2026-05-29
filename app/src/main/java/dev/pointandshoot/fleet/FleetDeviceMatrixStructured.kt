@@ -46,6 +46,7 @@ object FleetDeviceMatrixStructured {
         merged.put("featureGates", featureGates(shallow, deepCam, sessionCam, fleetProfile))
         merged.put("fleetPolicy", fleetProfile?.toJson() ?: JSONObject.NULL)
         merged.put("performanceProbes", performanceProbes(sessionCam))
+        deepCam?.optJSONArray("faceDetectModes")?.let { merged.put("faceDetectModes", it) }
         if (deepCam?.has(LensInfoSummaryJson.KEY_LENS_INFO) == true) {
             merged.put(LensInfoSummaryJson.KEY_LENS_INFO, deepCam.optJSONObject(LensInfoSummaryJson.KEY_LENS_INFO))
         }

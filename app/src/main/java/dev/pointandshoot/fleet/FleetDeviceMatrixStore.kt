@@ -12,6 +12,7 @@ import org.json.JSONObject
  */
 object FleetDeviceMatrixStore {
     const val MATRIX_FILE_NAME = "fleet_device_matrix.json"
+    const val SUMMARY_FILE_NAME = "fleet_device_capability_summary.md"
     const val HISTORY_DIR_NAME = "fleet_device_matrix_history"
 
     fun matrixFile(context: Context): File =
@@ -50,6 +51,22 @@ object FleetDeviceMatrixStore {
         if (meta.optString("fingerprintSha256Prefix") != liveFingerprintPrefix()) return null
         if (meta.optLong("appVersionCode", -1L) != currentVersionCode(context)) return null
         return root
+    }
+
+
+    fun summaryFile(context: Context): File =
+        File(context.applicationContext.filesDir, SUMMARY_FILE_NAME)
+
+    /** Persist matrix JSON + human-readable summary markdown (Milestone **17.1**). */
+    fun saveWithArtifacts(context: Context, root: JSONObject, rotatePreviousToHistory: Boolean = false) {
+        val withCatalog =
+            if (root.has(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG)) {
+                root
+            } else {
+                CameraCapabilityCatalogBuilder.attachTo(root)
+            }
+        save(context, withCatalog, rotatePreviousToHistory)
+        summaryFile(context).writeText(FleetCapabilitySummaryMarkdown.render(withCatalog))
     }
 
     fun save(context: Context, root: JSONObject, rotatePreviousToHistory: Boolean = false) {

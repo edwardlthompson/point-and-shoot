@@ -217,7 +217,7 @@ object FleetDeviceMatrixBuilder {
             }
         }
         val built = buildQuick(context)
-        FleetDeviceMatrixStore.save(context, built.root, rotatePreviousToHistory = forceRescan)
+        FleetDeviceMatrixStore.saveWithArtifacts(context, CameraCapabilityCatalogBuilder.attachTo(built.root), rotatePreviousToHistory = forceRescan)
         Log.i(
             TAG,
             "scanTier=quick cameras=${built.cameraCount} degraded=${built.degraded} ms=${built.scanDurationMs}",
@@ -236,7 +236,7 @@ object FleetDeviceMatrixBuilder {
             runCatching { JSONObject(it.readText()) }.getOrNull()
         }
         val built = buildFull(context, onProgress)
-        FleetDeviceMatrixStore.save(context, built.root, rotatePreviousToHistory = true)
+        FleetDeviceMatrixStore.saveWithArtifacts(context, CameraCapabilityCatalogBuilder.attachTo(built.root), rotatePreviousToHistory = true)
         val diffSummary = built.diff?.summaryLines?.joinToString("; ") ?: "none"
         Log.i(
             TAG,

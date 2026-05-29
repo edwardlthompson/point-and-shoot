@@ -203,12 +203,12 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ### Sprint 17.1 — Extend matrix SoT (no duplicate file)
 
-- [ ] **[AGENT]** Schema **v1.1** (backward compatible): optional top-level `capabilityCatalog` in `fleet_device_matrix.json`
-- [ ] **[AGENT]** `CameraCapabilityCatalog.kt` + `CameraCapabilityCatalogBuilder.kt` — ~200 product rows bound to existing matrix probes
-- [ ] **[AGENT]** `FleetCapabilitySummaryMarkdown.kt` — write `files/fleet_device_capability_summary.md` on every quick/full save
-- [ ] **[AGENT]** Extend `DeepCapsProbeCore.streamConfigToJson` — JPEG/RAW/YUV/HEIC/MR sizes; `aspectRatios[]`; promote `faceDetectModes` to structured `cameras[]`
-- [ ] **[AGENT]** Extend `scripts/pns_fleet_matrix_scan.ps1` — pull `fleet_device_capability_summary.md`
-- [ ] **[AGENT]** `docs/CAMERA_CAPABILITY_CATALOG.md` — taxonomy + matrix key mapping
+- [x] **[AGENT]** Schema **v1.1** (backward compatible): optional top-level `capabilityCatalog` in `fleet_device_matrix.json`
+- [x] **[AGENT]** `CameraCapabilityCatalog.kt` + `CameraCapabilityCatalogBuilder.kt` — ~200 product rows bound to existing matrix probes
+- [x] **[AGENT]** `FleetCapabilitySummaryMarkdown.kt` — write `files/fleet_device_capability_summary.md` on every quick/full save
+- [x] **[AGENT]** Extend `DeepCapsProbeCore.streamConfigToJson` — JPEG/RAW/YUV/HEIC/MR sizes; `aspectRatios[]`; promote `faceDetectModes` to structured `cameras[]`
+- [x] **[AGENT]** Extend `scripts/pns_fleet_matrix_scan.ps1` — pull `fleet_device_capability_summary.md`
+- [x] **[AGENT]** `docs/CAMERA_CAPABILITY_CATALOG.md` — taxonomy + matrix key mapping
 
 **Gate:** JVM `CameraCapabilityCatalogBuilderTest` against `fleet_matrix_gate_minimal.json`; host script pulls JSON + summary.
 

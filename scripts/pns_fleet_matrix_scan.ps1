@@ -235,6 +235,26 @@ if ($pulled) {
     }
 }
 
+
+$summaryFile = "fleet_device_capability_summary.md"
+$summaryOut = Join-Path $OutDir $summaryFile
+$summaryPulled = $false
+if ($pulled) {
+    try {
+        if ($Serial) {
+            & adb -s $Serial exec-out run-as $pkg cat "files/$summaryFile" | Set-Content -LiteralPath $summaryOut -Encoding utf8
+        } else {
+            & adb exec-out run-as $pkg cat "files/$summaryFile" | Set-Content -LiteralPath $summaryOut -Encoding utf8
+        }
+        if ((Test-Path -LiteralPath $summaryOut) -and ((Get-Item -LiteralPath $summaryOut).Length -gt 32)) {
+            $summaryPulled = $true
+            Write-Host "[fleet_matrix] Pulled summary -> $summaryOut"
+        }
+    } catch {
+        Write-Warning "[fleet_matrix] summary pull failed: $_"
+    }
+}
+
 $tierOk = ($scanTierObserved -eq $ScanTier) -or ($ScanTier -eq "quick" -and $scanTierObserved -eq "quick")
 
 $schemaValidateOk = $false
@@ -299,6 +319,8 @@ $gate = [ordered]@{
     timestampUtc      = [DateTime]::UtcNow.ToString("o")
     outDir            = $OutDir
     matrixRelPath     = $matrixFile
+    summaryRelPath    = $summaryFile
+    summaryPulled     = $summaryPulled
     logcatRelPath     = "logcat_fleet_matrix.txt"
     serial            = $(if ($Serial) { $Serial } else { "default" })
     halRedactExtracted = $halExtracted

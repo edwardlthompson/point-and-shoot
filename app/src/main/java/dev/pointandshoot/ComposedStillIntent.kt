@@ -90,6 +90,13 @@ data class ComposedStillIntent(
     fun wantsTonalStill(): Boolean = jpeg != ImgMenuTier.Off
 
     /**
+     * When RAW and **-JPEG-** tiers match (both Ultra or both Standard), one shutter press emits
+     * DNG + hardware JPEG sidecar on the same capture request — not a second still for AVIF/JXL.
+     */
+    fun wantsMatchedTierJpegSidecar(): Boolean =
+        wantsRawDng() && wantsTonalStill() && raw == jpeg
+
+    /**
      * **-JPEG-** tier that drives hardware JPEG ISP + software re-encode quality for the
      * independent tonal still (never a RAW+JPEG companion surface on the DNG request).
      */
@@ -107,11 +114,14 @@ data class ComposedStillIntent(
      * Split capture plan: optional RAW DNG bundle + optional independent tonal bundle.
      * [EncoderRoute.decide] on each part decides native AVIF/JXL vs standalone JPEG fallback.
      */
-    fun resolveCapturePlan(): ComposedCapturePlan =
-        ComposedCapturePlan(
+    fun resolveCapturePlan(): ComposedCapturePlan {
+        val sidecar = wantsMatchedTierJpegSidecar()
+        return ComposedCapturePlan(
             raw = resolveRawBundle(),
-            tonal = resolveTonalBundle(),
+            tonal = if (sidecar) null else resolveTonalBundle(),
+            jpegSidecarPreset = if (sidecar) jpegEncodePreset() else null,
         )
+    }
 
     /** Legacy single bundle — prefer [resolveCapturePlan] for capture wiring. */
     fun resolveBundle(): StillCaptureBundle {
@@ -210,13 +220,18 @@ fun ComposedStillIntent.coerceNoOffOff(): ComposedStillIntent =
         copy(jpeg = ImgMenuTier.Standard)
     }
 
-/** Independent RAW vs tonal outputs for one shutter press (no companion surfaces). */
+/** Independent RAW vs tonal outputs for one shutter press. */
 data class ComposedCapturePlan(
     val raw: StillCaptureBundle?,
     val tonal: StillCaptureBundle?,
+    /** Same-tier DNG + JPEG: one still request, hardware JPEG sidecar (not AVIF/JXL). */
+    val jpegSidecarPreset: ImgMenuJpegEncodePreset? = null,
 ) {
     init {
         require(raw != null || tonal != null) { "At least one of raw or tonal must be set" }
+        require(jpegSidecarPreset == null || tonal == null) {
+            "jpegSidecarPreset and independent tonal plan are mutually exclusive"
+        }
     }
 }
 

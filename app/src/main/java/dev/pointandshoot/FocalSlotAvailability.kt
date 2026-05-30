@@ -23,4 +23,22 @@ object FocalSlotAvailability {
         val mp = megapixelsFromActiveArray(activeArrayWidthPx, activeArrayHeightPx)
         return mp >= MIN_MEGAPIXELS_FOR_DIGITAL_EQ_SLOTS && mp.isFinite()
     }
+
+    /** Per-slot MP after digital crop on wide sensor (M18.7). */
+    fun effectiveMpForStaticSlot(activeArrayWidthPx: Int, activeArrayHeightPx: Int, eqMm: Int): Double {
+        val base = megapixelsFromActiveArray(activeArrayWidthPx, activeArrayHeightPx)
+        if (base <= 0.0) return 0.0
+        val factor =
+            when (eqMm) {
+                35 -> 1.0
+                50 -> 0.72
+                85 -> 0.42
+                150 -> 0.24
+                else -> 1.0
+            }
+        return base * factor * factor
+    }
+
+    fun staticSlotEnabled(activeArrayWidthPx: Int, activeArrayHeightPx: Int, eqMm: Int): Boolean =
+        effectiveMpForStaticSlot(activeArrayWidthPx, activeArrayHeightPx, eqMm) >= MIN_MEGAPIXELS_FOR_DIGITAL_EQ_SLOTS
 }

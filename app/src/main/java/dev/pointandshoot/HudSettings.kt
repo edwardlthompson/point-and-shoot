@@ -222,6 +222,9 @@ data class HudSettings(
     val videoAudioSource: String = VideoAudioSource.Camcorder.storageId,
     /** Sprint **15.25** — wind noise filter (NS + AEC) when source is Camcorder. */
     val windNoiseFilterEnabled: Boolean = false,
+    /** M19.4 — anamorphic desqueeze metadata on encode (viewers read SAR). */
+    val anamorphicDesqueezeEnabled: Boolean = false,
+    val anamorphicSqueezeFactor: Double = AnamorphicVideoMetadata.DEFAULT_SQUEEZE,
     /** Sprint **15.35** — in-app video mic gain in dB (−12…+12, 0.5 step). Applied in MediaCodec PCM loop. */
     val audioGainDb: Float = 0f,
     /** Sprint **15.27** — intervalometer output: still sequence vs H.264 MP4. */
@@ -346,6 +349,8 @@ data class HudSettings(
         private const val KEY_RACK_WP_FAR = "rack_focus_wp_far"
         private const val KEY_RACK_DURATION_MS = "rack_focus_duration_ms"
         private const val KEY_DUAL_ISO_VIDEO = "dual_iso_video_enabled"
+        private const val KEY_ANAMORPHIC_DESQUEEZE = "anamorphic_desqueeze_enabled"
+        private const val KEY_ANAMORPHIC_SQUEEZE = "anamorphic_squeeze_factor"
         const val FOCUS_BREATHING_K_MIN = 0.001f
         const val FOCUS_BREATHING_K_MAX = 0.02f
         private const val KEY_SMILE_STILL = "enable_smile_triggered_still"
@@ -619,6 +624,10 @@ data class HudSettings(
                     ),
                 dualIsoVideoEnabled =
                     prefs.getBoolean(KEY_DUAL_ISO_VIDEO, defaults.dualIsoVideoEnabled),
+                anamorphicDesqueezeEnabled =
+                    prefs.getBoolean(KEY_ANAMORPHIC_DESQUEEZE, defaults.anamorphicDesqueezeEnabled),
+                anamorphicSqueezeFactor =
+                    prefs.getFloat(KEY_ANAMORPHIC_SQUEEZE, defaults.anamorphicSqueezeFactor.toFloat()).toDouble(),
             )
         }
 
@@ -722,6 +731,8 @@ data class HudSettings(
                 .putFloat(KEY_RACK_WP_FAR, settings.rackFocusWaypointFar ?: 0f)
                 .putInt(KEY_RACK_DURATION_MS, RackFocusPull.coerceDurationMs(settings.rackFocusDurationMs))
                 .putBoolean(KEY_DUAL_ISO_VIDEO, settings.dualIsoVideoEnabled)
+                .putBoolean(KEY_ANAMORPHIC_DESQUEEZE, settings.anamorphicDesqueezeEnabled)
+                .putFloat(KEY_ANAMORPHIC_SQUEEZE, settings.anamorphicSqueezeFactor.toFloat())
                 .commit()
         }
 

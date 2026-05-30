@@ -5,6 +5,7 @@ import android.hardware.camera2.CameraMetadata
 import android.os.Build
 import dev.pointandshoot.CameraXExtensionProbe
 import dev.pointandshoot.LensInfoSummaryJson
+import dev.pointandshoot.MediaCodecCapabilityProbe
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -32,6 +33,7 @@ object FleetDeviceMatrixStructured {
         sessionCam: JSONObject?,
         fleetProfile: FleetCameraProfile?,
         cc: CameraCharacteristics?,
+        deviceGates: DeviceFeatureGates.Slice? = null,
     ): JSONObject {
         val cameraId = shallow.optString("cameraId")
         val merged = JSONObject(shallow.toString())
@@ -43,7 +45,7 @@ object FleetDeviceMatrixStructured {
         merged.put("timestampSource", timestampSourceLabel(cc))
         merged.put("tenBitDynamicRange", tenBitDynamicRange(deepCam))
         merged.put("rawReadiness", rawReadiness(shallow, deepCam, cc))
-        merged.put("featureGates", featureGates(shallow, deepCam, sessionCam, fleetProfile))
+        merged.put("featureGates", featureGates(shallow, deepCam, sessionCam, fleetProfile, deviceGates))
         merged.put("fleetPolicy", fleetProfile?.toJson() ?: JSONObject.NULL)
         merged.put("performanceProbes", performanceProbes(sessionCam))
         deepCam?.optJSONArray("faceDetectModes")?.let { merged.put("faceDetectModes", it) }
@@ -224,6 +226,7 @@ object FleetDeviceMatrixStructured {
         deepCam: JSONObject?,
         sessionCam: JSONObject?,
         fleetProfile: FleetCameraProfile?,
+        deviceGates: DeviceFeatureGates.Slice? = null,
     ): JSONObject {
         val caps = jsonIntArray(deepCam?.optJSONArray("availableCapabilities"))
         val rawAdvertised = caps.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_RAW)
@@ -251,11 +254,31 @@ object FleetDeviceMatrixStructured {
         val dcgSessionOk = fleetProfile?.supportsDcgSession == true || dcgAdvertised
         val dcgAppEnabled = fleetProfile?.supportsDcgSession == true
 
+        val encProbe = MediaCodecCapabilityProbe.probeSyncSafe()
+        val av1Advertised = encProbe.supportsAv1
+        val av1SessionOk = av1Advertised
+        val hevc10Advertised = encProbe.supportsMain10 || encProbe.encoders.isNotEmpty()
+        val hevc10SessionOk = hevc10Advertised
+        val uhd60Advertised = shallow.optInt("hfrMaxFpsAt1080", 0) >= 60
+        val uhd60SessionOk = uhd60Advertised && hfrSessionOk
+        val rawVideoAdvertised = rawAdvertised
+        val rawVideoSessionOk = rawSessionOk
+        val dualGate = deviceGates?.dualVideo ?: FeatureGate(false, false, false)
+        val meltGate = deviceGates?.multicamMelt ?: FeatureGate(false, false, false)
+        val pipGate = deviceGates?.pipPreview ?: FeatureGate(false, false, false)
+
         return JSONObject().apply {
             put("raw", FeatureGate(rawAdvertised, rawSessionOk, rawAppEnabled).toJson())
             put("hfr", FeatureGate(hfrAdvertised, hfrSessionOk, hfrAppEnabled).toJson())
             put("face", FeatureGate(faceAdvertised, faceSessionOk, faceAppEnabled).toJson())
             put("dcgZsl", FeatureGate(dcgAdvertised, dcgSessionOk, dcgAppEnabled).toJson())
+            put("av1", FeatureGate(av1Advertised, av1SessionOk, av1Advertised).toJson())
+            put("hevc10", FeatureGate(hevc10Advertised, hevc10SessionOk, hevc10Advertised).toJson())
+            put("uhd60", FeatureGate(uhd60Advertised, uhd60SessionOk, uhd60Advertised).toJson())
+            put("rawVideo", FeatureGate(rawVideoAdvertised, rawVideoSessionOk, rawVideoAdvertised).toJson())
+            put("dualVideo", dualGate.toJson())
+            put("multicamMelt", meltGate.toJson())
+            put("pipPreview", pipGate.toJson())
         }
     }
 

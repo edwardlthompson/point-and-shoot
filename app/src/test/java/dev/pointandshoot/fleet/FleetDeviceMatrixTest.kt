@@ -30,6 +30,18 @@ class FleetDeviceMatrixTest {
     }
 
     @Test
+    fun validRoot_acceptsSchemaV1() {
+        val v1 =
+            JSONObject().apply {
+                put(FleetDeviceMatrix.KEY_SCHEMA_VERSION, 1)
+                put(FleetDeviceMatrix.KEY_SCAN_META, JSONObject().put("scanTier", "quick"))
+                put(FleetDeviceMatrix.KEY_DEVICE, FleetDeviceMatrix.deviceBlock("OEM", "MODEL", "device"))
+                put(FleetDeviceMatrix.KEY_CAMERAS, JSONArray())
+            }
+        assertTrue(FleetDeviceMatrix.isValidRoot(v1))
+    }
+
+    @Test
     fun validRoot_requiresSchemaAndCameras() {
         val invalid = JSONObject().put(FleetDeviceMatrix.KEY_SCHEMA_VERSION, 99)
         assertFalse(FleetDeviceMatrix.isValidRoot(invalid))
@@ -226,5 +238,37 @@ class FleetDeviceMatrixTest {
         val diff = FleetDeviceMatrixDiff.diff(null, cur)
         assertFalse(diff.hasChanges)
         assertTrue(diff.summaryLines.first().contains("baseline"))
+    }
+
+    @Test
+    fun needsFullRescan_nullOrQuick_true() {
+        assertTrue(FleetDeviceMatrix.needsFullRescan(null))
+        val quick =
+            JSONObject().apply {
+                put(FleetDeviceMatrix.KEY_SCAN_META, JSONObject().put("scanTier", "quick"))
+                put(FleetDeviceMatrix.KEY_APPENDIX, JSONObject())
+            }
+        assertTrue(FleetDeviceMatrix.needsFullRescan(quick))
+    }
+
+    @Test
+    fun needsFullRescan_fullWithDeepCapsAndCatalog_false() {
+        val json = javaClass.getResource("/fleet_matrix_gate_minimal.json")!!.readText()
+        val root = CameraCapabilityCatalogBuilder.attachTo(JSONObject(json))
+        root.optJSONObject(FleetDeviceMatrix.KEY_SCAN_META)?.put("scanTier", "full")
+        root.optJSONObject(FleetDeviceMatrix.KEY_APPENDIX)?.put(
+            "deepCaps",
+            JSONObject().put("cameras", JSONArray().put(JSONObject().put("cameraId", "2"))),
+        )
+        assertFalse(FleetDeviceMatrix.needsFullRescan(root))
+    }
+
+    @Test
+    fun withCatalogIfMissing_attachesWhenAbsent() {
+        val json = javaClass.getResource("/fleet_matrix_gate_minimal.json")!!.readText()
+        val root = JSONObject(json)
+        assertFalse(root.has(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG))
+        val attached = FleetDeviceMatrix.withCatalogIfMissing(root)
+        assertTrue(attached.has(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG))
     }
 }

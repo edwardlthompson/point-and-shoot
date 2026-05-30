@@ -32,11 +32,16 @@ fun PreviewCommandDialDropdownMenu(
     primaryPhoto: Boolean,
     selectedMode: CommandDialMode,
     onModeSelected: (CommandDialMode) -> Unit,
+    visibilityCtx: dev.pointandshoot.fleet.FleetUiVisibilityGate.VisibilityContext? = null,
     modifier: Modifier = Modifier,
 ) {
     val family = CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto)
     val sectionTitle = CaptureMediaFamily.commandDialMenuSectionTitle(family)
-    val modes = CaptureMediaFamily.commandDialModesFor(family)
+    val allModes = CaptureMediaFamily.commandDialModesFor(family)
+    val modes =
+        visibilityCtx?.let { ctx ->
+            dev.pointandshoot.fleet.FleetChromeVisibility.filterCommandDialModes(allModes, ctx)
+        } ?: allModes
 
     LaunchedEffect(expanded, sectionTitle) {
         if (expanded) {

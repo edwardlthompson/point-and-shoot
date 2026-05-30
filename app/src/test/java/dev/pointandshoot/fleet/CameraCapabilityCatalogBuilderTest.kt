@@ -10,6 +10,19 @@ import dev.pointandshoot.Feature
 class CameraCapabilityCatalogBuilderTest {
 
     @Test
+    fun registry_meetsM18RowTarget() {
+        assertTrue(
+            "M18 catalog target >= 165 distinct rows (got ${CameraCapabilityCatalog.registry.size})",
+            CameraCapabilityCatalog.registry.size >= 165,
+        )
+    }
+
+    @Test
+    fun catalogVersion_isV3() {
+        assertEquals(3, CameraCapabilityCatalog.CATALOG_VERSION)
+    }
+
+    @Test
     fun buildFromFixture_hasCatalogRows() {
         val json = javaClass.getResource("/fleet_matrix_gate_minimal.json")!!.readText()
         val root = JSONObject(json)

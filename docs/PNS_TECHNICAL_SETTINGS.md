@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-28 (M15 — OP13 aux ASN+FM reconcile, `pns_dng_exif_verify.ps1`, aux color metric in analyze script).
+**Last synced with tree:** 2026-05-29 (M17 — fleet UI visibility, hub search, 1080p@30 video format rescan).
 
 **Related deep dives (not duplicated here):**
 
@@ -44,6 +44,7 @@
 11. [Automation & ADB intent extras](#11-automation--adb-intent-extras)
 12. [GLES preview geometry](#12-gles-preview-geometry)
 13. [Diagnostics log tags](#13-diagnostics-log-tags)
+14. [Fleet UI visibility (M17)](#14-fleet-ui-visibility-m17)
 
 ---
 
@@ -207,7 +208,7 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 **Do not** apply a separate RAW-only EV offset. `captureRawStill` and `captureIndependentTonalStill` both call `applyReadoutManualExposureAndWb` with the same `readoutChaseExposureNs` / `readoutChaseIso` (tonal path: `forStillCapture = true`, no extra darken).
 
-**Architecture:** IMG matrix uses **independent** captures (DNG request, then tonal hardware JPEG) — parity requires the **same chase state** on both requests, not `RAW_STILL_EXTRA_DARKEN_STOPS`.
+**Architecture:** IMG matrix uses **independent** captures when RAW and JPEG tiers **differ** (DNG request, then tonal hardware JPEG). When tiers **match** (both Standard or both Ultra), one still request emits **DNG + JPEG sidecar** on the same exposure. Parity requires the **same chase state** on both paths, not `RAW_STILL_EXTRA_DARKEN_STOPS`.
 
 **USB parity script:** `scripts/pns_readout_jpeg_dng_parity.ps1` + `scripts/readout_jpeg_dng_luminance_compare.py`.
 
@@ -341,6 +342,18 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | Finder aspect | **3:4** width:height, full width | Style guide |
 | Grid | **7×3** + focal row + 2 sticky shortcut rows | `previewChromeGridSlots` |
 
+**Fleet UI visibility (M17):** Consumer chrome reads **`FleetUiVisibilityGate`** + **`FleetChromeVisibility`** (catalog id → surface). Unavailable features → **hidden** (empty grid cell / no toggle row). Root-only → **`PnsColors.RootAccentBlue`** + **`FleetUiVisibilityGate.showRootOnlyToast`**. Evaluation order: per-camera `featureGates` → matrix `capabilityCatalog.deviceSupported` → live **`CapabilityGate`**. Log tag **`PNS.FleetVisibility`**. Engineering hub keeps full inventory in **Device capability matrix** + **`ProbeHubSearch`**. Rule: `.cursor/rules/fleet-ui-visibility.mdc`.
+
+| Surface | Gate helper | Catalog ids (examples) |
+|---------|-------------|------------------------|
+| QS quick actions | `quickActionFeatureId()` | `face.eye_af`, `hud.histogram`, `hud.zebra`, `lens.ois`, `lens.eis` |
+| Mode dial menu | `FleetChromeVisibility.filterCommandDialModes` | `hud.highlight_meter`, `still.bracket`, `preview.qr`, `video.dual`, … |
+| Focal row | hide slot when `!focalSlotInteractionEnabled` | `lens.multi` |
+| Settings rails | per-toggle `FleetUiVisibilityGate.visible` | overlays, video QS, capture tools, FPS rail |
+| Readout STAB / IMG | `showReadoutStabChip` / `showReadoutImgChip` | `lens.ois`, `lens.eis`, `raw.dng` |
+| Video format picker | `FleetChromeVisibility.filterVideoFormats` | `video.h264`, `video.hevc`, `video.hfr`, `video.regular.1080p30` |
+| Hub search pick | `ProbeHubSearch` → `PNS.ProbeHub settingsSearchPick` | scroll + 3× orange pulse via `rememberSettingHighlightFlash` |
+
 ---
 
 ## 9. HudSettings defaults
@@ -446,7 +459,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **HFR honesty (≥120 fps):** On CPH2655-class devices, constrained HS + Qualcomm HEVC delivers about **half** the target unique frame rate (e.g. ~60 unique/s at 120 fps). **`VideoRecordingController.lacksTrueHfrUniqueFrames`** hides **HEVC-family** and **AV1** picker rows at **≥120 fps** until hardware + unique-frame proof exists. **H.264 @ 120/240/480** remains when the camera HS table supports it. **AV1 ≤60** when `MediaCodecCapabilityProbe` lists an encoder. No mux frame duplication. USB AV1@120 artifact: `hfr-runs/av1_hfr_verify_*`. See **`docs/VIDEO_MODE_MATRIX.md`**.
 
-**Format picker matrix (device-truth):** [`VideoFormatPresets.catalogTierSizes`] = HAL HS ∪ exact HEVC/H.264 perf sizes ∪ `MediaRecorder` outputs, ∩ canonical [`ALL_TIERS`]. [`fpsOptionsForResolution`] uses **exact** encoder points per size (no inherited 480 on 8K). [`InAppVideoFormatSelection.isFormatAvailableOnDevice`] keeps a row only when **labeled** WxH+fps+codec are all real: HFR = exact [`hasExactHighSpeedFps`] **and** exact H.264 encoder perf (no `pickHighSpeedVideoTarget` fallback); H.264 ≤60 = exact H.264 perf **and** [`supportsMediaRecorderOutputSize`]; HEVC/10-bit/DCG ≤60 = exact HEVC perf. Stale prefs migrate via `videoFormatCatalogMigrate`. **Video truth** banner in [`VideoFormatPickerSheet`] from [`buildVideoTruth`] (per active `cameraId` HS map). **CPH2655:** 480 only UW @ 1080p/720p; wide/tele max 240 HAL; **no 4K @ ≥120** in picker.
+**Format picker matrix (device-truth):** [`VideoFormatPresets.catalogTierSizes`] = HAL HS ∪ exact HEVC/H.264 perf sizes ∪ `MediaRecorder` outputs, ∩ canonical [`ALL_TIERS`]. [`fpsOptionsForResolution`] uses **exact** encoder points per size **plus baseline 30 fps** when HAL lists [`MediaRecorder`] output for that size (M17). [`InAppVideoFormatSelection.isFormatAvailableOnDevice`] keeps a row only when **labeled** WxH+fps+codec are all real: HFR = exact [`hasExactHighSpeedFps`] **and** exact H.264 encoder perf; **H.264 ≤60** = [`supportsMediaRecorderOutputSize`] on active camera (exact H.264 perf not required at ≤60); HEVC/10-bit/DCG ≤60 = exact HEVC perf. **`MediaCodecCapabilityProbe`** probes **1080p@30** tier; **`invalidateAndReprobe()`** on fleet matrix rescan (`FleetDeviceMatrixBuilder`); preview reloads catalog on matrix `scanMeta.generatedAtEpochMs` change (ON_RESUME). Stale prefs migrate via `videoFormatCatalogMigrate`. **CPH2655:** 480 only UW @ 1080p/720p; wide/tele max 240 HAL; **no 4K @ ≥120** in picker.
 | `shutterSoundVolume` | **0.85** | App shutter loudness (0…1), not system media volume |
 | `shutterHapticSync` | **false** | When true, haptic with shutter sound; else haptic at readout complete |
 | `audioLightCompression` | **false** | Soft-knee PCM compression in MediaCodec audio thread |
@@ -458,7 +471,9 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **Spatial / multi-track:** `SpatialAudio` logs surround capability; in-app record stays stereo — `AudioEffects.multiTrackPolicy()` logs **unsupported**.
 
-**Gallery:** `VideoCaptureMetadata` embeds capture **fps** + audio in MediaStore **DESCRIPTION**; `mergeFrameRateForDisplay` prefers embedded capture tier when retriever fps is **&lt;75%** of embedded (fixes ~30 fps labels on 120 fps HFR clips). HFR mux finalize writes **target** fps into description when `effectiveFps ≥ target/2`. **Hi-Fi FAB:** `PnsAacEncoderSupport.maxHiFiMuxSampleRateHz` probes AAC encoders once per process — menu shows **48 kHz** / **96 kHz** etc. for this device, not a static “96 kHz when supported”.
+**Gallery:** `VideoCaptureMetadata` embeds **measured** fps (frame count ÷ duration or retriever capture-framerate) in MediaStore **DESCRIPTION** after finalize; `mergeFrameRateForDisplay` prefers measured rate over the capture target so 4K@60 picks that mux ~30 are not labeled 60. MediaCodec mux finalize writes **effective** mux fps into description. **Hi-Fi FAB:** `PnsAacEncoderSupport.maxHiFiMuxSampleRateHz` probes AAC encoders once per process — menu shows **48 kHz** / **96 kHz** etc. for this device, not a static “96 kHz when supported”.
+
+**4K @ 60 (UHD60, fleet):** When **3840×2160 SurfaceTexture** preview caps ~30 fps but the HAL lists **MediaRecorder @ 4K** and H.264 encoder perf @ 60 (`UltraHd60RecordSupport.isCatalogTierSupported`), the picker offers **H.264 3840×2160@60**. Record path: **interleaved** REGULAR session — max-60-fps ST preview (typically **1920×1080**) + **MediaRecorder** @ 4K on the same camera — plus session template **AE 60–60** (`UltraHd60SessionParameters`). Do **not** align preview to 4K for this tier. Log: `PNS.UltraHd60 uhd60Interleaved`. USB **CPH2583:** measured **~59 fps**, ~63 MB / 8 s. Encoder-only MR/MC REGULAR sessions receive no frames on this HAL class.
 
 **Video format FAB:** `VideoFormatPickerSheet` step **A — Audio** (Hi-Fi, wind NS, external mic, compression, ducking) — persists via `PreviewChromePreferences`.
 
@@ -606,6 +621,28 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 | `PNS.Workflow` | Workflow preset apply |
 | `PNS.Gallery` | In-app gallery batch share |
 | `PNS.CloudBackup` | SAF folder backup copies + sync |
+| `PNS.FleetMatrix` | Fleet matrix quick/full scan tier, camera count |
+| `PNS.FleetVisibility` | Consumer chrome hide / root-only tap (`hidden`, `rootOnlyTap`) |
+| `PNS.ProbeHub` | Engineering hub search picks (`settingsSearchPick`) |
+| `PNS.VideoCapProbe` | MediaCodec perf matrix; `capProbeInvalidate` on rescan |
+
+---
+
+## 14. Fleet UI visibility (M17)
+
+**Code:** `fleet/FleetUiVisibilityGate.kt`, `fleet/FleetChromeVisibility.kt`, `fleet/CameraCapabilityCatalog.kt`
+
+| Policy | Behavior |
+|--------|----------|
+| `HideWhenUnavailable` | Do not compose consumer control (empty QS cell) |
+| `RootOnly` | Show blue chip/toggle; tap → standardized toast until SU granted |
+| `ShowDisabledEngineering` | Visible in engineering contexts only (hub catalog) |
+
+**Matrix artifacts:** `files/fleet_device_matrix.json` (`capabilityCatalog` slice) + `files/fleet_device_capability_summary.md` (ADB pull). Hub: **Device capability matrix** (`FleetMatrixHubScreen`) — Summary · By camera · Features · Raw JSON.
+
+**Hub search:** `ProbeHubSearch.kt` indexes hub menu + catalog + chrome settings; pick navigates to matrix Features tab, HUD/settings, or preview settings rail with **`rememberSettingHighlightFlash`** (3× pulse).
+
+**Do not:** Remove locked 7×3 slot definitions when hiding features; use empty `Box`. Do not add CPH2655-only visibility branches without `FleetDevicePolicy` plugin.
 
 ---
 
@@ -615,5 +652,7 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 |------|--------|
 | 2026-05-21 | Initial source-of-truth doc: H mode, readout chase, session locks, fleet pointers. |
 | 2026-05-21 | Parity: removed **RAW-only** darken; **TARGET_MEDIAN_BIN = 40** (single knob for DNG + tonal). |
+
+| 2026-05-29 | M17: fleet UI visibility gate, hub search/highlight, 1080p@30 video format + probe invalidation on matrix rescan. |
 
 *Append rows here when this file is updated for traceability.*

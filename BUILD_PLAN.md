@@ -36,6 +36,11 @@
 | `scripts/pns_adb_device.env` (gitignored) | Default **`PNS_ADB_SERIAL`** |
 | `scripts/pns_fleet_matrix_scan.ps1` | USB full matrix pull → `hfr-runs/fleet_matrix_*` (M16) |
 | `scripts/pns_fleet_matrix_diff.ps1` | Host diff two matrix JSONs (M16) |
+| `scripts/pns_fleet_parity_sweep.ps1` | **Fleet Parity Sweep** — `-Mode Quick\|Full\|Delta` required (M18.6) |
+| `scripts/pns_fleet_regression_pack.ps1` | Tiered matrix + parity Quick + catalog gate (M18.4) |
+| `scripts/pns_m18_gate.ps1` | Milestone 18 one-shot host + USB gate |
+| `scripts/pns_fleet_macro_export.ps1` | Cross-device macro benchmark CSV (M18.4) |
+| `scripts/pns_capability_catalog_gate.ps1` | Host catalog row / descriptor gate (M18.5) |
 
 Full script index: **`AGENTS.md`**. **Primary fleet USB device:** OnePlus 12 **CPH2583** (not CPH2655 unless OP13 regression lane).
 
@@ -53,7 +58,10 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone 14 — Preview polish & pro UX** | **Archived** — **14.1–14.13** → completed file; **H.8** subjective |
 | **Milestone 15** | **Archived** — agent sprints **15.0–15.B**, **15.14**, **15.16–15.38** done; residual **[HUMAN]** in **Milestone H** |
 | **Milestone 16** | **Archived** — **16.0–16.13** + USB gate **PASS** on CPH2583 (2026-05-29); supersedes **15.13** SoT |
-| **Milestone 17** | **Active** — fleet capability catalog, device-tailored UI, hub search; extends M16 matrix (no duplicate SoT) |
+| **Milestone 17** | **Archived** — capability catalog + hub search + chrome visibility (**2026-05-29**) |
+| **Milestone 18** | **Archived** — catalog v3, matrix schema v2, Fleet Parity Sweep, focal row, regression pack (**2026-05-30**) |
+| **Milestone 19** | **Archived** — format/color picker, VP9/RAW/dual-ISO, ProRes probe (**2026-05-30**) |
+| **Milestone 20** | **Active** — concurrent capture (dual video + Multicam Melt + PiP) |
 | **Milestone H** | **Active** — residual **[HUMAN]** work; **H.7** closed **CPH2583** (owner 2026-05-29); OP13 lane optional |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 | **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
@@ -63,13 +71,96 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 ### Future features (deferred — unscheduled)
 
-- **OpenCamera-style toolbox** — former Sprint 10.14; descoped unless product requests.
-- **Anamorphic desqueeze preview** — horizontal GLES stretch + ProRes anamorphic metadata.
-- **Live LUT preview on gallery viewer** — non-destructive GLES LUT on saved stills.
-- **Full dual-ISO HDR video merge** — `DualIsoVideoMerger` log-domain blend + HLG remap (deferred from 15.38).
-- **RAW NightScape stacking** — extend 15.29 JPEG stacking to RAW burst → 12-bit DNG.
-- **Wi-Fi Direct companion browser UI** — minimal web UI from `TetheredCaptureServer` (extends 15.37).
-- **Push notifications for tether** — SSE/WebSocket on tether server (extends 15.37).
+Items below moved into **Milestone 19** sprints where noted; this list stays empty until new product requests land.
+
+---
+
+## Milestone 18 — Fleet max-out framework *(archived 2026-05-30)*
+
+**Objective:** Universal device capability taxonomy, **Fleet Parity Sweep** benchmark, matrix schema v2, fleet-adaptive focal row, multi-device regression pack.
+
+**Docs:** `docs/CAMERA_CAPABILITY_TAXONOMY.md` · `docs/FLEET_PARITY_SWEEP.md` · `docs/FLEET_MULTI_DEVICE_TEST_REGIMENT.md`
+
+**Device gate (CPH2583 `b5214fc6`):** `pns_fleet_matrix_scan.ps1` pass (`hfr-runs/fleet_matrix_20260530_024009/`); `pns_fleet_parity_sweep.ps1 -Mode Quick` pass (`hfr-runs/parity_sweep_20260530_024345/`); `pns_chrome_ux_gate.ps1 -FocalMmSlot 85/150` pass; `pns_capability_catalog_gate.ps1` pass; fleet JVM tests pass.
+
+### Sprint 18.0 — Schema + docs
+
+- [x] **[AGENT]** `docs/CAMERA_CAPABILITY_TAXONOMY.md` + matrix schema v2 notes
+- [x] **[AGENT]** `docs/FLEET_PARITY_SWEEP.md` + `docs/FLEET_MULTI_DEVICE_TEST_REGIMENT.md`
+- [x] **[AGENT]** `BUILD_PLAN.md` M18/M19/M20 active; archive M17 pointer
+
+### Sprint 18.6 — Fleet Parity Sweep (FPS)
+
+- [x] **[AGENT]** `FleetParitySweep.kt` + `FleetDeliveryProbe.kt` + JVM tests
+- [x] **[AGENT]** `scripts/pns_fleet_parity_sweep.ps1` — **`-Mode` required** (exit 2 without)
+- [x] **[AGENT]** In-app hub mode sheet + `PNS.FleetParity parityCell=` log emission per catalog row
+- [x] **[ADB]** `-Mode Quick` smoke on **CPH2583**; attach `hfr-runs/parity_sweep_*`
+
+### Sprint 18.1 — Catalog expansion
+
+- [x] **[AGENT]** `CameraCapabilityCatalog` v3 rows (~165+ distinct; expansion + evaluators)
+- [x] **[AGENT]** Evaluators for new rows; `CameraCapabilityCatalogExpansion.kt`
+
+### Sprint 18.7 — Fleet-adaptive focal row
+
+- [x] **[AGENT]** `FleetFocalRowPolicy.kt` + matrix `product.focalRow` parser + tests
+- [x] **[AGENT]** Wire native UW/Wide/Tele labels + static 35/50/85/150 N/A chips (behavior only; chrome layout lock)
+- [x] **[ADB]** `pns_chrome_ux_gate.ps1 -FocalMmSlot 85` + 150 on CPH2583
+
+### Sprint 18.4/18.5 — Regression pack + CI
+
+- [x] **[AGENT]** `pns_fleet_regression_pack.ps1` + `pns_capability_catalog_gate.ps1`
+- [x] **[AGENT]** `pns_m18_gate.ps1` + `pns_fleet_macro_export.ps1`
+- [x] **[AGENT]** `docs/FLEET_PARITY_LATEST.json` + history JSONL from parity script
+
+**M18 gate:** `pns_capability_catalog_gate.ps1` + `pns_fleet_regression_pack.ps1 -Tier all` + parity Quick USB on primary SKU — **PASS** (2026-05-30).
+
+---
+
+## Milestone 19 — Feature max-out *(archived 2026-05-30)*
+
+**Objective:** Ship committed formats, quality-first pickers, video/still pipelines from max-out list.
+
+**Host gate:** `scripts/pns_m19_gate.ps1` — M19 JVM tests + catalog gate (+ USB tier-2 regression when device online).
+
+### Sprint 19.6 — Format + color picker
+
+- [x] **[AGENT]** `ColorQualityIndex.kt` + `FormatQualityDescriptor.kt` + `VideoFormatQualityRank.kt`
+- [x] **[AGENT]** Video picker: fps **desc**, Max presets, codec quality rows, **VideoAudioSource** in sheet
+- [x] **[AGENT]** Color-space step (CQI) in still + video pickers; filter downstream rows
+- [x] **[AGENT]** `StillFormatPickerSheet.kt` + HEIC / Motion Photo / TIFF export scaffolds
+
+### Sprint 19.1 — Video pipelines
+
+- [x] **[AGENT]** RAW video `.mcraw` in main format picker (matrix-gated)
+- [x] **[AGENT]** Dual-ISO HDR merge production path
+- [x] **[AGENT]** VP9 WebM encoder path (below AV1; matrix-gated)
+
+### Sprint 19.4 — ProRes + anamorphic
+
+- [x] **[AGENT]** ProRes probe-only catalog row + anamorphic metadata (no HW encode)
+
+**M19 gate:** `pns_m19_gate.ps1` + `pns_fleet_regression_pack.ps1` tier 2 — host JVM **PASS** (2026-05-30).
+
+---
+
+## Milestone 20 — Concurrent capture *(archived 2026-05-30)*
+
+**Host gate:** `scripts/pns_m20_gate.ps1` — M20 JVM tests + dual record 5s + pip/multicam USB smoke + tier-2 regression.
+
+### Sprint 20.1 — Dual video reliability
+
+- [x] **[AGENT]** HAL-derived `dualVideo` matrix gates + front health recovery + mandatory `-RecordSec 5` gate
+
+### Sprint 20.2 — Multicam Melt
+
+- [x] **[AGENT]** `MulticamMeltRecordingController` + thermal caps + parity cells + USB arm smoke
+
+### Sprint 20.3 — PiP preview (optional)
+
+- [x] **[AGENT]** Concurrent rear+rear PiP inset preview + `pns_preview_pip` ADB gate
+
+**M20 gate:** `pns_m20_gate.ps1` + parity Quick includes `video.dual` / `video.multicam_melt` / `preview.pip`.
 
 ---
 
@@ -79,7 +170,7 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 |---------|----------|
 | **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | Shipped work index **by app feature** (22 categories); not milestone/sprint layout |
 
-**Open in this file:** **Milestone 17** + **Milestone H** (M15 agent sprints archived)
+**Open in this file:** **Milestone H** only (M17–M20 archived 2026-05-30)
 
 ### Archiving completed work — procedure
 
@@ -184,80 +275,6 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ---
 
-## Milestone 17 — Fleet capability catalog & device-tailored UI
-
-**Objective:** Extend M16 `files/fleet_device_matrix.json` into the **single per-device SoT** with a human-readable ADB-pullable summary, exhaustive capability inventory (resolutions, ratios, formats, fps, focal lengths, face/eye tracking), and device-tailored UI — **hide** unavailable features on consumer chrome; **root-only** items shown in blue with toast on tap. Engineering Hub: searchable master checklist + jump-to-setting highlight. **No duplicate matrix artifact.**
-
-**Depends on:** Milestone 16 (fleet matrix). **Primary USB:** CPH2583. No CPH2655-only visibility forks without `FleetDevicePolicy` plugin.
-
-**On-device artifacts (after scan):**
-
-| File | Role |
-|------|------|
-| `files/fleet_device_matrix.json` | Machine SoT (schema v1.1 adds `capabilityCatalog` slice) |
-| `files/fleet_device_capability_summary.md` | Human-readable summary for PC debugging via ADB |
-
-**UI visibility policy (locked M17):** Unavailable on device → **hidden** (QS, dial, settings, readout, tray). Root-only → **blue** (`PnsColors.RootAccentBlue`); tap → toast. Engineering Hub catalog shows full inventory with device/app checkmarks.
-
-**Docs:** `docs/CAMERA_CAPABILITY_CATALOG.md` · `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md`
-
-### Sprint 17.1 — Extend matrix SoT (no duplicate file)
-
-- [x] **[AGENT]** Schema **v1.1** (backward compatible): optional top-level `capabilityCatalog` in `fleet_device_matrix.json`
-- [x] **[AGENT]** `CameraCapabilityCatalog.kt` + `CameraCapabilityCatalogBuilder.kt` — ~200 product rows bound to existing matrix probes
-- [x] **[AGENT]** `FleetCapabilitySummaryMarkdown.kt` — write `files/fleet_device_capability_summary.md` on every quick/full save
-- [x] **[AGENT]** Extend `DeepCapsProbeCore.streamConfigToJson` — JPEG/RAW/YUV/HEIC/MR sizes; `aspectRatios[]`; promote `faceDetectModes` to structured `cameras[]`
-- [x] **[AGENT]** Extend `scripts/pns_fleet_matrix_scan.ps1` — pull `fleet_device_capability_summary.md`
-- [x] **[AGENT]** `docs/CAMERA_CAPABILITY_CATALOG.md` — taxonomy + matrix key mapping
-
-**Gate:** JVM `CameraCapabilityCatalogBuilderTest` against `fleet_matrix_gate_minimal.json`; host script pulls JSON + summary.
-
-### Sprint 17.2 — Visibility gate (hide / root-blue / toast)
-
-- [ ] **[AGENT]** `FleetUiVisibilityGate.kt` — `visible(id)`, `rootOnly(id)`, `visibilityTier(id)`
-- [ ] **[AGENT]** Consumer chrome: hide when unavailable; root-only → blue + toast
-- [ ] **[AGENT]** Log `PNS.FleetVisibility`; `.cursor/rules/fleet-ui-visibility.mdc`
-
-**Gate:** JVM tests; eye-AF tile absent when face detect empty; root FPS chip blue + toast when SU not granted.
-
-### Sprint 17.3 — Unified Device Capability Matrix hub
-
-- [ ] **[AGENT]** Merge `FleetMatrixHubScreen` + catalog → **Device Capability Matrix** (single hub entry)
-- [ ] **[AGENT]** Tabs: Summary · By camera · Features (searchable) · Raw JSON
-- [ ] **[AGENT]** Copy ADB pull paths; Export JSON + summary; "New device — Rescan full" banner when deep caps missing
-
-**Gate:** Hub screenshot; summary.md matches JSON on CPH2583 pull.
-
-### Sprint 17.4 — Engineering Hub search + setting highlight
-
-- [ ] **[AGENT]** `ProbeHubSearch.kt` — hub menu + catalog rows
-- [ ] **[AGENT]** `rememberSettingHighlightFlash()` — 3× background pulse; extend `ChromeSettingsSearchHit` with `settingKey`
-
-**Gate:** Hub search → HUD/settings row scroll + flash; log `PNS.ProbeHub settingsSearchPick`.
-
-### Sprint 17.5 — Chrome visibility audit
-
-- [ ] **[AGENT]** Wire QS grid, mode dial, settings rail, readout, focal row, video format picker through `FleetUiVisibilityGate`
-
-**Gate:** `pns_chrome_ux_gate.ps1`; no ghost content-desc for hidden features.
-
-### Sprint 17.6 — Video FPS fix & rescan invalidation
-
-- [ ] **[AGENT]** `MediaCodecCapabilityProbe` — 1080p@30 tier; baseline fps union; `invalidateAndReprobe()` on rescan
-- [ ] **[AGENT]** `InAppVideoFormatSelection` — H.264 ≤60 MediaRecorder path when HAL MR size ok
-
-**Gate:** USB CPH2583 — 1080p@30 in format picker after rescan without app restart.
-
-### Sprint 17.7 — Docs & milestone gate
-
-- [ ] **[AGENT]** Update `PNS_TECHNICAL_SETTINGS.md`, `FLEET_DEVICE_CAPABILITY_MATRIX.md`, `AGENT_REGRESSION_MEMORY.md`, `CHANGELOG.md`
-
-**Milestone 17 gate:** `pns_verify_toolchain.ps1 -RunTests` + `pns_fleet_matrix_scan.ps1` pulls JSON + summary + CPH2583 chrome gate.
-
-**Archive on close:** Index under **Fleet capability matrix & device policy** in `BUILD_PLAN_COMPLETED.md`.
-
----
-
 ## Appendix A — Verification protocol (abbreviated)
 
 1. `pns_verify_toolchain.ps1 -RunTests` → PASSED  
@@ -296,5 +313,5 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ## Document control
 
-- **Version:** Active plan **2026-05-29** — **M13–M16** + **BG/AS/UX/CC/IP** archived; active: **Milestone 17** + **Milestone H**.
+- **Version:** Active plan **2026-05-29** — **M13–M17** archived; active: **M18–M20** + **Milestone H**.
 - **Owner:** Project maintainer approves Milestone H closures.

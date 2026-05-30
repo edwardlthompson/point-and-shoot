@@ -74,9 +74,17 @@ fun PreviewRailSettingToggle(
     subtitle: String?,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    settingKey: String? = null,
+    highlightFlash: SettingHighlightFlashState? = null,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp)
+                .then(
+                    highlightFlash?.applyHighlight(Modifier, settingKey) ?: Modifier,
+                ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {

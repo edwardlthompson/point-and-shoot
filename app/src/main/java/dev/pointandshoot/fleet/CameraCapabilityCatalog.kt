@@ -2,9 +2,9 @@ package dev.pointandshoot.fleet
 
 import org.json.JSONObject
 
-/** Master capability taxonomy (Milestone **17.1**). */
+/** Master capability taxonomy (Milestone **17.1** + **18.1** expansion). */
 object CameraCapabilityCatalog {
-    const val CATALOG_VERSION: Int = 1
+    const val CATALOG_VERSION: Int = 3
 
     enum class SourceLayer(val label: String) {
         Camera2("Camera2"),
@@ -39,6 +39,7 @@ object CameraCapabilityCatalog {
         val appStatus: AppStatus = AppStatus.Shipped,
         val surfacing: List<String> = emptyList(),
         val rootOnly: Boolean = false,
+        val sweepSkipReason: String? = null,
     )
 
     data class EvaluatedRow(
@@ -61,47 +62,74 @@ object CameraCapabilityCatalog {
                 if (sessionOk != null) put("sessionOk", sessionOk)
                 if (row.surfacing.isNotEmpty()) put("surfacing", row.surfacing)
                 if (detail.isNotEmpty()) put("detail", detail)
+                row.sweepSkipReason?.let { put("sweepSkipReason", it) }
             }
     }
 
-    val registry: List<CatalogRow> = listOf(
-        CatalogRow("raw.dng", "RAW DNG capture", "Still capture", SourceLayer.Product, "raw dng still", surfacing = listOf("dial_H", "settings")),
-        CatalogRow("raw.ultra_max", "Ultra-Max imaging profile", "Still capture", SourceLayer.Product, "ultra max 12bit"),
-        CatalogRow("still.bracket", "Exposure bracketing (BKT dial)", "Still capture", SourceLayer.Product, "bracket bkt", surfacing = listOf("mode_dial")),
-        CatalogRow("still.zsl", "ZSL still capture", "Still capture", SourceLayer.Camera2, "zsl zero shutter lag"),
-        CatalogRow("still.avif", "10-bit AVIF still", "Still capture", SourceLayer.Product, "avif hdr 10bit"),
-        CatalogRow("still.nightscape", "Nightscape stacking", "Still capture", SourceLayer.Product, "nightscape"),
-        CatalogRow("still.intervalometer", "Intervalometer", "Still capture", SourceLayer.Product, "intervalometer timelapse"),
-        CatalogRow("video.h264", "H.264 video", "Video", SourceLayer.HalEncoder, "h264 avc", surfacing = listOf("format_picker")),
-        CatalogRow("video.hevc", "HEVC video", "Video", SourceLayer.HalEncoder, "hevc h265", surfacing = listOf("format_picker")),
-        CatalogRow("video.av1", "AV1 video", "Video", SourceLayer.HalEncoder, "av1", appStatus = AppStatus.Partial),
-        CatalogRow("video.hfr", "High-speed video (120+ fps)", "Video", SourceLayer.Camera2, "hfr 120 240 480", surfacing = listOf("fps_rail", "format_picker")),
-        CatalogRow("video.regular.1080p30", "1080p @ 30 fps (regular)", "Video", SourceLayer.HalEncoder, "1080p 30fps", surfacing = listOf("format_picker")),
-        CatalogRow("video.dcg_hdr", "HDR / DCG video", "Video", SourceLayer.Camera2, "dcg hdr10"),
-        CatalogRow("video.raw", "RAW video", "Video", SourceLayer.Product, "raw video", appStatus = AppStatus.Partial),
-        CatalogRow("video.dual", "Dual video composite", "Video", SourceLayer.Product, "dual video", surfacing = listOf("mode_dial")),
-        CatalogRow("video.timelapse", "Time lapse video", "Video", SourceLayer.Product, "timelapse"),
-        CatalogRow("face.detect", "Face detection", "Face & AF", SourceLayer.Camera2, "face detect"),
-        CatalogRow("face.eye_af", "Eye-AF overlay", "Face & AF", SourceLayer.Product, "eye af", surfacing = listOf("qs_grid", "settings")),
-        CatalogRow("face.priority_ae", "Face-priority AE", "Face & AF", SourceLayer.Product, "face priority ae"),
-        CatalogRow("af.manual", "Manual focus (M dial)", "Face & AF", SourceLayer.Camera2, "manual focus", surfacing = listOf("mode_dial")),
-        CatalogRow("af.rack", "Rack focus pull", "Face & AF", SourceLayer.Product, "rack focus"),
-        CatalogRow("af.macro", "Super Macro", "Face & AF", SourceLayer.Product, "macro", surfacing = listOf("mode_dial")),
-        CatalogRow("lens.multi", "Focal slots / multi-cam", "Lens", SourceLayer.Product, "focal uw tele", surfacing = listOf("focal_row")),
-        CatalogRow("lens.ois", "Optical stabilization", "Lens", SourceLayer.Camera2, "ois", surfacing = listOf("settings")),
-        CatalogRow("lens.eis", "Electronic stabilization", "Lens", SourceLayer.Camera2, "eis", surfacing = listOf("settings")),
-        CatalogRow("hud.zebra", "Zebra / false color", "Preview HUD", SourceLayer.Product, "zebra false color", surfacing = listOf("qs_grid")),
-        CatalogRow("hud.histogram", "Histogram", "Preview HUD", SourceLayer.Product, "histogram", surfacing = listOf("settings")),
-        CatalogRow("hud.highlight_meter", "Highlight metering (H)", "Preview HUD", SourceLayer.Product, "highlight h dial", surfacing = listOf("mode_dial")),
-        CatalogRow("hud.focus_peaking", "Focus peaking", "Preview HUD", SourceLayer.Product, "peaking"),
-        CatalogRow("preview.qr", "QR scan mode", "Preview HUD", SourceLayer.Product, "qr scan", surfacing = listOf("mode_dial")),
-        CatalogRow("camerax.night", "CameraX NIGHT", "CameraX", SourceLayer.CameraX, "night", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
-        CatalogRow("camerax.bokeh", "CameraX BOKEH", "CameraX", SourceLayer.CameraX, "bokeh", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
-        CatalogRow("camerax.hdr", "CameraX HDR", "CameraX", SourceLayer.CameraX, "hdr extension", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
-        CatalogRow("root.vendor_keys", "Vendor key probe", "Root", SourceLayer.Root, "root vendor", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, appStatus = AppStatus.ProbeOnly),
-        CatalogRow("root.cpu_governor", "CPU governor pin", "Root", SourceLayer.Root, "root cpu", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, appStatus = AppStatus.ProbeOnly),
-        CatalogRow("root.hfr_unlock", "HFR above matrix ceiling", "Root", SourceLayer.Root, "root hfr fps", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, surfacing = listOf("fps_rail")),
-        CatalogRow("fleet.matrix", "Device capability matrix", "Fleet", SourceLayer.Product, "fleet matrix", visibilityPolicy = VisibilityPolicy.AlwaysShow, surfacing = listOf("engineering_hub")),
-        CatalogRow("fleet.deep_caps", "Deep caps probe", "Fleet", SourceLayer.Product, "deep caps", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
-    )
+    private val baseRegistry: List<CatalogRow> =
+        listOf(
+            CatalogRow("raw.dng", "RAW DNG capture", "Still capture", SourceLayer.Product, "raw dng still", surfacing = listOf("dial_H", "settings")),
+            CatalogRow("raw.ultra_max", "Ultra-Max imaging profile", "Still capture", SourceLayer.Product, "ultra max 12bit"),
+            CatalogRow("still.bracket", "Exposure bracketing (BKT dial)", "Still capture", SourceLayer.Product, "bracket bkt", surfacing = listOf("mode_dial")),
+            CatalogRow("still.zsl", "ZSL still capture", "Still capture", SourceLayer.Camera2, "zsl zero shutter lag"),
+            CatalogRow("still.avif", "10-bit AVIF still", "Still capture", SourceLayer.Product, "avif hdr 10bit"),
+            CatalogRow("still.nightscape", "Nightscape stacking", "Still capture", SourceLayer.Product, "nightscape"),
+            CatalogRow("still.intervalometer", "Intervalometer", "Still capture", SourceLayer.Product, "intervalometer timelapse"),
+            CatalogRow("video.h264", "H.264 video", "Video", SourceLayer.HalEncoder, "h264 avc", surfacing = listOf("format_picker")),
+            CatalogRow("video.hevc", "HEVC video", "Video", SourceLayer.HalEncoder, "hevc h265", surfacing = listOf("format_picker")),
+            CatalogRow("video.av1", "AV1 video", "Video", SourceLayer.HalEncoder, "av1", appStatus = AppStatus.Partial),
+            CatalogRow("video.hfr", "High-speed video (120+ fps)", "Video", SourceLayer.Camera2, "hfr 120 240 480", surfacing = listOf("fps_rail", "format_picker")),
+            CatalogRow("video.regular.1080p30", "1080p @ 30 fps (regular)", "Video", SourceLayer.HalEncoder, "1080p 30fps", surfacing = listOf("format_picker")),
+            CatalogRow("video.dcg_hdr", "HDR / DCG video", "Video", SourceLayer.Camera2, "dcg hdr10"),
+            CatalogRow("video.raw", "RAW video", "Video", SourceLayer.Product, "raw video", appStatus = AppStatus.Partial),
+            CatalogRow("video.raw_picker", "RAW video in format picker", "Video", SourceLayer.Product, "raw mcraw picker", appStatus = AppStatus.Partial, surfacing = listOf("format_picker")),
+            CatalogRow("video.dual", "Dual video composite", "Video", SourceLayer.Product, "dual video", surfacing = listOf("mode_dial")),
+            CatalogRow("video.timelapse", "Time lapse video", "Video", SourceLayer.Product, "timelapse"),
+            CatalogRow("face.detect", "Face detection", "Face & AF", SourceLayer.Camera2, "face detect"),
+            CatalogRow("face.eye_af", "Eye-AF overlay", "Face & AF", SourceLayer.Product, "eye af", surfacing = listOf("qs_grid", "settings")),
+            CatalogRow("face.priority_ae", "Face-priority AE", "Face & AF", SourceLayer.Product, "face priority ae"),
+            CatalogRow("af.manual", "Manual focus (M dial)", "Face & AF", SourceLayer.Camera2, "manual focus", surfacing = listOf("mode_dial")),
+            CatalogRow("af.rack", "Rack focus pull", "Face & AF", SourceLayer.Product, "rack focus"),
+            CatalogRow("af.macro", "Super Macro", "Face & AF", SourceLayer.Product, "macro", surfacing = listOf("mode_dial")),
+            CatalogRow("lens.multi", "Focal slots / multi-cam", "Lens", SourceLayer.Product, "focal uw tele", surfacing = listOf("focal_row")),
+            CatalogRow("lens.ois", "Optical stabilization", "Lens", SourceLayer.Camera2, "ois", surfacing = listOf("settings")),
+            CatalogRow("lens.eis", "Electronic stabilization", "Lens", SourceLayer.Camera2, "eis", surfacing = listOf("settings")),
+            CatalogRow("hud.zebra", "Zebra / false color", "Preview HUD", SourceLayer.Product, "zebra false color", surfacing = listOf("qs_grid")),
+            CatalogRow("hud.histogram", "Histogram", "Preview HUD", SourceLayer.Product, "histogram", surfacing = listOf("settings")),
+            CatalogRow("hud.highlight_meter", "Highlight metering (H)", "Preview HUD", SourceLayer.Product, "highlight h dial", surfacing = listOf("mode_dial")),
+            CatalogRow("hud.focus_peaking", "Focus peaking", "Preview HUD", SourceLayer.Product, "peaking"),
+            CatalogRow("preview.qr", "QR scan mode", "Preview HUD", SourceLayer.Product, "qr scan", surfacing = listOf("mode_dial")),
+            CatalogRow("camerax.night", "CameraX NIGHT", "CameraX", SourceLayer.CameraX, "night", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
+            CatalogRow("camerax.bokeh", "CameraX BOKEH", "CameraX", SourceLayer.CameraX, "bokeh", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
+            CatalogRow("camerax.hdr", "CameraX HDR", "CameraX", SourceLayer.CameraX, "hdr extension", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
+            CatalogRow("root.vendor_keys", "Vendor key probe", "Root", SourceLayer.Root, "root vendor", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, appStatus = AppStatus.ProbeOnly),
+            CatalogRow("root.cpu_governor", "CPU governor pin", "Root", SourceLayer.Root, "root cpu", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, appStatus = AppStatus.ProbeOnly),
+            CatalogRow("root.hfr_unlock", "HFR above matrix ceiling", "Root", SourceLayer.Root, "root hfr fps", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, surfacing = listOf("fps_rail")),
+            CatalogRow("fleet.matrix", "Device capability matrix", "Fleet", SourceLayer.Product, "fleet matrix", visibilityPolicy = VisibilityPolicy.AlwaysShow, surfacing = listOf("engineering_hub")),
+            CatalogRow("fleet.deep_caps", "Deep caps probe", "Fleet", SourceLayer.Product, "deep caps", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
+            CatalogRow("fleet.parity_sweep", "Fleet Parity Sweep", "Fleet", SourceLayer.Product, "parity sweep fps", appStatus = AppStatus.Partial, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering, surfacing = listOf("engineering_hub")),
+            CatalogRow("video.vp9", "VP9 WebM video", "Video", SourceLayer.HalEncoder, "vp9 webm", appStatus = AppStatus.Partial, surfacing = listOf("format_picker")),
+            CatalogRow("video.dual_iso", "Dual-ISO HDR merge", "Video", SourceLayer.Product, "dual iso hdr", appStatus = AppStatus.Partial),
+            CatalogRow("video.uhd60", "4K @ 60 fps regular", "Video", SourceLayer.HalEncoder, "uhd60 4k60", surfacing = listOf("format_picker")),
+            CatalogRow("still.heic", "HEIC still export", "Still capture", SourceLayer.Product, "heic", appStatus = AppStatus.Partial),
+            CatalogRow("still.motion_photo", "Motion Photo", "Still capture", SourceLayer.Product, "motion photo", appStatus = AppStatus.Partial),
+            CatalogRow("still.tiff16", "TIFF 16-bit export", "Still capture", SourceLayer.Product, "tiff 16bit export", appStatus = AppStatus.Partial),
+            CatalogRow("video.prores_probe", "ProRes probe", "Video", SourceLayer.Product, "prores anamorphic", appStatus = AppStatus.ProbeOnly),
+            CatalogRow("lens.focal_row", "Fleet adaptive focal row", "Lens", SourceLayer.Product, "focal row 7 slot", surfacing = listOf("focal_row")),
+            CatalogRow("lens.uw", "Ultra-wide native", "Lens", SourceLayer.Camera2, "uw ultra wide"),
+            CatalogRow("lens.wide", "Wide native", "Lens", SourceLayer.Camera2, "wide main"),
+            CatalogRow("lens.tele", "Tele native", "Lens", SourceLayer.Camera2, "tele"),
+            CatalogRow("dial.monochrome", "Monochrome sensor dial", "Still capture", SourceLayer.Product, "monochrome bw", appStatus = AppStatus.Planned, surfacing = listOf("mode_dial")),
+            CatalogRow("audio.hifi", "Hi-Fi AAC capture", "Audio", SourceLayer.Product, "hifi aac 96k", surfacing = listOf("format_picker")),
+            CatalogRow("audio.external_mic", "External mic preference", "Audio", SourceLayer.Product, "external mic usb", surfacing = listOf("format_picker")),
+            CatalogRow("audio.spatial", "Spatial audio", "Audio", SourceLayer.Product, "spatial audio", appStatus = AppStatus.Partial),
+            CatalogRow("preview.pip", "Concurrent PiP preview", "Preview HUD", SourceLayer.Product, "pip dual preview", appStatus = AppStatus.Partial),
+            CatalogRow("video.multicam_melt", "Multicam Melt record", "Video", SourceLayer.Product, "multicam melt 4 cam", appStatus = AppStatus.Partial),
+            CatalogRow("product.format_picker", "Format quality picker", "Fleet", SourceLayer.Product, "format picker cqi", surfacing = listOf("format_picker")),
+            CatalogRow("tether.http", "Tether HTTP status", "Fleet", SourceLayer.Product, "tether http"),
+            CatalogRow("tether.wifi_direct", "Wi-Fi Direct tether", "Fleet", SourceLayer.Product, "wifi direct"),
+        )
+
+    val registry: List<CatalogRow> =
+        (baseRegistry + CameraCapabilityCatalogExpansion.expandedRows()).distinctBy { it.id }
 }

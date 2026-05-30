@@ -1,4 +1,4 @@
-# Point & Shoot — completed work (by feature)
+﻿# Point & Shoot — completed work (by feature)
 
 Shipped tasks grouped by **app area** for manual review. Open human gates: **[BUILD_PLAN.md](BUILD_PLAN.md)** (*Milestone H*). USB artifacts: `hfr-runs/`. Technical settings: [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md).
 
@@ -165,6 +165,8 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - Update `docs/PNS_TECHNICAL_SETTINGS.md` §7 (`FleetCameraStartupScan`)
 - USB **`8bf09993`**: capture **3/3** + openability **PASS** (`hfr-runs/aux_dng_capture_analyze_20260519_235745/`)
 - Wire `FocalLensStripSupport` to gray out unavailable slots
+- **Milestone 18 (closed 2026-05-30)** — `CameraCapabilityCatalog` v3 + expansion evaluators; matrix schema **v2** + `product.focalRow` + extended `featureGates`; **Fleet Parity Sweep** (`FleetParitySweepRunner`, hub mode sheet, `PNS.FleetParity parityCell=`); fleet-adaptive focal row (N/A static slots); `FleetUiVisibilityGate` AV1/HEVC10/UHD60/rawVideo/dualVideo; scripts `pns_fleet_parity_sweep.ps1`, `pns_fleet_regression_pack.ps1`, `pns_m18_gate.ps1`, `pns_fleet_macro_export.ps1`, `pns_capability_catalog_gate.ps1`; docs `CAMERA_CAPABILITY_TAXONOMY.md`, `FLEET_PARITY_SWEEP.md`, `FLEET_MULTI_DEVICE_TEST_REGIMENT.md`; gate: regression pack + parity Quick + chrome 85/150 on **CPH2583** (`b5214fc6`)
+- **Milestone 17 (closed 2026-05-29)** — `capabilityCatalog` + `fleet_device_capability_summary.md`; `FleetUiVisibilityGate` / `FleetChromeVisibility`; `FleetMatrixHubScreen` tabs + `ProbeHubSearch` + `rememberSettingHighlightFlash`; full chrome visibility audit; `MediaCodecCapabilityProbe.invalidateAndReprobe()` + 1080p@30 / H.264 MR path; docs §14 `PNS_TECHNICAL_SETTINGS.md`; gate: toolchain + fleet matrix scan + chrome UX on **CPH2583**
 
 ---
 
@@ -414,6 +416,7 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - `pns_ai_features_verify.ps1` **USB_PASS** on **`8bf09993`** (`hfr-runs/ai_features_verify_20260520_075142/`) — scene probe, bitrate **24883200 → 31104000** (**100% < 125%**), smile synthetic + DNG…
 - `pns_dual_video_verify.ps1 -RecordSec 5` **USB_PASS** on **8bf09993** (`inAppVideoSaved ok=true`).
 - `pns_dual_video_verify.ps1 -RecordSec 5` PASS + `inAppVideoSaved ok=true`
+- **Milestone 20 (2026-05-30)** — `DeviceFeatureGates` HAL concurrency slice on matrix `product.concurrencyGates`; dual front health auto-recover; `MulticamMeltRecordingController` + thermal caps; concurrent rear PiP inset (`ConcurrentPipPreviewController`, `pns_preview_pip`); parity Quick cells `video.dual` / `video.multicam_melt` / `preview.pip`; `pns_m20_gate.ps1`.
 - `pns_focus_peaking_verify.ps1` **PASS** on **8bf09993**.
 - `pns_in_app_video_verify.ps1` PASS + logcat `macroVideo=true`
 - `pns_in_app_video_verify.ps1` PASS; logcat `PNS.DualIso multiResSupported=` — CPH2583 **`b5214fc6`** (2026-05-29)

@@ -70,7 +70,7 @@ internal class VideoRecordingController(
             if (fps < HFR_THRESHOLD_FPS) return false
             return when (codec) {
                 VideoCodec.H264 -> false
-                VideoCodec.AV1 -> true
+                VideoCodec.AV1, VideoCodec.VP9 -> true
                 VideoCodec.H265,
                 VideoCodec.H265_10BIT,
                 VideoCodec.DCG,
@@ -99,6 +99,16 @@ internal class VideoRecordingController(
      */
     @Volatile var wantsMediaCodecPath: Boolean = false
         private set
+
+    /**
+     * Encoder-only record (HFR HS or UHD60 REGULAR): defer [awaitMuxerReady] off the camera
+     * handler so [startRepeating] can run in the same [onConfigured] callback.
+     */
+    @Volatile private var encoderOnlyMcRecordHint: Boolean = false
+
+    fun hintEncoderOnlyMcRecord(active: Boolean) {
+        encoderOnlyMcRecordHint = active
+    }
 
     /**
      * After a start failure, blocks further start attempts until [applyShellLocked]
@@ -285,6 +295,7 @@ internal class VideoRecordingController(
         if (!wantRecord) {
             // Stop recording
             startFailureHold = false
+            encoderOnlyMcRecordHint = false
             // Keep [wantsMediaCodecPath] — Compose [hintInAppVideoMediaCodecPath] owns the HFR hint.
             val hadMc = mcRecorder != null
             val hadMr = mediaRecorder != null
@@ -312,7 +323,17 @@ internal class VideoRecordingController(
         // Sprint **15.4**: 8K is not reliable on MediaRecorder (corrupt / moov-less MP4 observed on CPH2655);
         // route 8K through MediaCodec so muxer setup and track finalization are explicit.
         val useMediaCodecFor8k = videoFormat.resolution.width >= 7680 || videoFormat.resolution.height >= 4320
-        val useMediaCodecForHlg = videoColorProfile == VideoColorProfile.Hlg && !videoFormat.isDcg
+        val ultraHd60H264Mr =
+            !isHfr &&
+                desiredFps == UltraHd60RecordSupport.TARGET_FPS &&
+                size.width >= UltraHd60RecordSupport.UHD_WIDTH &&
+                videoFormat.codec == VideoCodec.H264 &&
+                !videoFormat.isTenBit &&
+                !videoFormat.isDcg
+        val useMediaCodecForHlg =
+            videoColorProfile == VideoColorProfile.Hlg &&
+                !videoFormat.isDcg &&
+                !ultraHd60H264Mr
         val useMediaCodecPath =
             forceMediaCodecGlComposite ||
                 isHfr ||
@@ -322,6 +343,9 @@ internal class VideoRecordingController(
                 useHevcMediaCodecForSdrColor ||
                 useMediaCodecFor8k ||
                 useMediaCodecForHlg
+        if (ultraHd60H264Mr && !useMediaCodecPath) {
+            Log.i(TAG, "UHD60: MediaRecorder path (HAL 4K@60 via MR output class)")
+        }
         // Signal immediately so createSession can skip useHighSpeed before recorder is prepared
         wantsMediaCodecPath = useMediaCodecPath
         if (forceMediaCodecGlComposite) {
@@ -519,6 +543,7 @@ internal class VideoRecordingController(
         val encoderKind =
             when (videoFormat.codec) {
                 VideoCodec.AV1 -> MediaCodecVideoRecorder.VideoEncoderKind.AV1
+                VideoCodec.VP9 -> MediaCodecVideoRecorder.VideoEncoderKind.VP9
                 VideoCodec.H264 -> MediaCodecVideoRecorder.VideoEncoderKind.H264
                 else -> MediaCodecVideoRecorder.VideoEncoderKind.HEVC
             }
@@ -549,6 +574,11 @@ internal class VideoRecordingController(
                 mcTenBitSurfaceInput ||
                 (videoColorProfile == VideoColorProfile.Hlg && !videoFormat.isDcg)
         val hud = HudSettings.load(appContext)
+        if (hud.anamorphicDesqueezeEnabled) {
+            AnamorphicVideoMetadata.logApply(
+                AnamorphicVideoMetadata.fromSqueezeFactor(hud.anamorphicSqueezeFactor),
+            )
+        }
         val audioSource = hud.videoAudioSourceEnum()
         val audioGainDb = hud.audioGainDb
         val config = MediaCodecVideoRecorder.Config(
@@ -603,13 +633,20 @@ internal class VideoRecordingController(
                 SpatialAudio.diag(appContext)
             }
             mc.start()
-            val hfrMc = wantsMediaCodecPath && targetFpsForMcWait() >= 120
+            val deferMuxWait =
+                wantsMediaCodecPath &&
+                    (targetFpsForMcWait() >= HFR_THRESHOLD_FPS || encoderOnlyMcRecordHint)
             val muxReady =
-                if (hfrMc) {
-                    // HS burst starts after [maybeStartRecorder]; do not block the session callback.
+                if (deferMuxWait) {
+                    // HS / encoder-only burst starts after [maybeStartRecorder]; do not block session callback.
+                    val waitMs = if (targetFpsForMcWait() >= HFR_THRESHOLD_FPS) 20_000L else 8_000L
                     mainHandler.post {
-                        val ready = mc.awaitMuxerReady(20_000L)
-                        Log.i(TAG, "MediaCodec HFR muxReady(deferred)=$ready")
+                        val ready = mc.awaitMuxerReady(waitMs)
+                        Log.i(
+                            TAG,
+                            "MediaCodec muxReady(deferred)=$ready encoderOnly=$encoderOnlyMcRecordHint " +
+                                "fps=${targetFpsForMcWait()}",
+                        )
                     }
                     false
                 } else {
@@ -619,7 +656,7 @@ internal class VideoRecordingController(
                         }
                     }
                 }
-            Log.i(TAG, "MediaCodecVideoRecorder started muxReady=$muxReady hfrDeferred=$hfrMc")
+            Log.i(TAG, "MediaCodecVideoRecorder started muxReady=$muxReady deferMuxWait=$deferMuxWait")
             Log.i(
                 "PNS.ChromeUx",
                 "videoRecordMcHfr interleavedPreviewRecord=true livePreview=hfrInterleaved muxReady=$muxReady",
@@ -690,7 +727,13 @@ internal class VideoRecordingController(
         var out: Uri? = null
         if (uri != null) {
             runCatching {
-                CaptureStorage.finalizePendingVideoInsert(appContext, uri, recordingCaptureInfo)
+                val meta =
+                    VideoCaptureMetadata.reconcileCaptureInfoWithMeasured(
+                        appContext,
+                        uri,
+                        recordingCaptureInfo,
+                    )
+                CaptureStorage.finalizePendingVideoInsert(appContext, uri, meta)
                 recordingCaptureInfo = null
                 out = uri
                 Log.i(TAG, "inAppVideoSaved uri=$uri")

@@ -34,15 +34,30 @@ object FocalLensStripSupport {
         }
 
     fun digitalEqSlotsEnabledForWide(context: Context, ids: List<String>): Boolean {
-        if (ids.isEmpty()) return false
-        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val wide = FleetCameraProfiles.resolvedRoles(context, ids).wide ?: return false
-        val arr =
-            runCatching {
-                cm.getCameraCharacteristics(wide).get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
-            }.getOrNull()
-                ?: return false
+        val arr = wideActiveArray(context, ids) ?: return false
         return FocalSlotAvailability.digitalEqSlotsEnabled(arr.width(), arr.height())
+    }
+
+    fun wideActiveArray(context: Context, ids: List<String>): android.graphics.Rect? {
+        if (ids.isEmpty()) return null
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val wide = FleetCameraProfiles.resolvedRoles(context, ids).wide ?: return null
+        return runCatching {
+            cm.getCameraCharacteristics(wide).get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+        }.getOrNull()
+    }
+
+    fun staticSlotEnabledForWide(context: Context, ids: List<String>, slot: FocalMmSlot): Boolean {
+        val arr = wideActiveArray(context, ids) ?: return false
+        val eqMm =
+            when (slot) {
+                FocalMmSlot.M35 -> 35
+                FocalMmSlot.M50 -> 50
+                FocalMmSlot.M85 -> 85
+                FocalMmSlot.M150 -> 150
+                else -> return true
+            }
+        return FocalSlotAvailability.staticSlotEnabled(arr.width(), arr.height(), eqMm)
     }
 
     /** First advertised native focal length (mm) for the routed camera (uses physical id when tele is pinned under a logical parent). */
@@ -127,7 +142,46 @@ object FocalLensStripSupport {
         if (resolveFocalMmSlot(context, slot, ids) == null) return false
         if (fleetScanGraysOutSlot(context, slot, ids)) return false
         if (selectedCameraId == "1" && isTeleSlot(slot)) return false
-        if (isDigitalEqPolicySlot(slot) && !digitalEqOkOnWide) return false
+        if (isDigitalEqPolicySlot(slot)) {
+            if (!digitalEqOkOnWide && !staticSlotEnabledForWide(context, ids, slot)) return false
+            if (!staticSlotEnabledForWide(context, ids, slot)) return false
+        }
         return true
+    }
+
+    /** Display label + N/A from matrix policy when available (M18.7). */
+    data class FocalChipPresentation(
+        val labelMm: String,
+        val subLabel: String?,
+        val enabled: Boolean,
+    )
+
+    fun focalChipPresentation(
+        context: Context,
+        slot: FocalMmSlot,
+        slotIndex: Int,
+        ids: List<String>,
+        selectedCameraId: String?,
+        matrix: org.json.JSONObject?,
+    ): FocalChipPresentation {
+        val spec = dev.pointandshoot.fleet.FleetFocalRowPolicy.parseFromProduct(
+            matrix?.optJSONObject(dev.pointandshoot.fleet.FleetDeviceMatrix.KEY_PRODUCT),
+        )
+        val policySlots = dev.pointandshoot.fleet.FleetFocalRowPolicy.buildSlots(spec)
+        val policy = policySlots.getOrNull(slotIndex)
+        val digitalEqOk = digitalEqSlotsEnabledForWide(context, ids)
+        val enabled =
+            focalSlotInteractionEnabled(context, slot, ids, selectedCameraId, digitalEqOk)
+        val label =
+            policy?.labelMm?.takeIf { it.isNotBlank() }
+                ?: slot.labelMm
+        val sub =
+            when {
+                !enabled -> policy?.subLabel ?: "N/A"
+                else ->
+                    nativeFocalLengthMmForSlot(context, slot, ids)?.let { formatShortNativeFocalMm(it) }
+                        ?: policy?.subLabel
+            }
+        return FocalChipPresentation(label, sub, enabled)
     }
 }

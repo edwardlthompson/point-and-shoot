@@ -16,7 +16,7 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Primary USB device:** OnePlus 12 **CPH2583** — not CPH2655 unless running the **optional OP13 regression** lane. See **`BUILD_PLAN.md`** pinned fleet note and **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
 
-**Source of truth:** `files/fleet_device_matrix.json` (`FleetDeviceMatrix` schema v1). Built by **`FleetDeviceMatrixBuilder`** (quick tier on Diagnostics hub shallow scan; full tier in **16.1**). Invalidates on **`fingerprintSha256Prefix`** + **`appVersionCode`** change (same policy as shallow cache).
+**Source of truth:** `files/fleet_device_matrix.json` (`FleetDeviceMatrix` schema **v1–v2**; v2 adds optional `product.focalRow`). Built by **`FleetDeviceMatrixBuilder`** (quick tier on Diagnostics hub shallow scan; full tier in **16.1**). Invalidates on **`fingerprintSha256Prefix`** + **`appVersionCode`** change (same policy as shallow cache).
 
 | Artifact | Role |
 |----------|------|
@@ -38,7 +38,33 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Docs:** `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` · `docs/FLEET_REFERENCE_M10_8.md` (streams → matrix). **Rule:** `.cursor/rules/fleet-generic-policy.mdc`.
 
-**Execution order:** `BUILD_PLAN.md` **Priority 1 — Fleet** **16.0** onward before treating OP13-only DNG parity as a global ship blocker.
+**Execution order:** `BUILD_PLAN.md` **Milestone 18** onward for parity sweep + catalog max-out before treating OP13-only DNG parity as a global ship blocker.
+
+---
+
+## CRITICAL — Fleet Parity Sweep (Milestone 18.6)
+
+**Name:** Fleet Parity Sweep (FPS) · log tag **`PNS.FleetParity`** · script **`scripts/pns_fleet_parity_sweep.ps1`**
+
+**`-Mode` is required:** `Quick` | `Full` | `Delta`. Script exits **2** without `-Mode` (except `-Help` or human `-Interactive`).
+
+**Agent rule:** If the user asks to run parity sweep / FPS **without** naming a mode → **AskQuestion** with Quick / Full / Delta labels. **Do not** default silently. If they say "full parity sweep" or "quick FPS", map it and skip AskQuestion.
+
+| Mode | Use |
+|------|-----|
+| `Quick` | CI smoke (~3–5 min); scripted row coverage |
+| `Full` | Every catalog row; optional `-IncludeRecord`; delivery verify |
+| `Delta` | Rows changed since last catalog/matrix version |
+
+```powershell
+.\scripts\pns_fleet_parity_sweep.ps1 -Mode Quick
+.\scripts\pns_fleet_parity_sweep.ps1 -Mode Full -IncludeRecord
+.\scripts\pns_fleet_regression_pack.ps1 -Tier all
+```
+
+**Artifacts:** `hfr-runs/parity_sweep_*/parity_report.json` · `docs/FLEET_PARITY_LATEST.json` · `docs/FLEET_PARITY_HISTORY.jsonl` · Full mode: `delivery_mismatch.md`
+
+**Docs:** `docs/FLEET_PARITY_SWEEP.md` · `docs/CAMERA_CAPABILITY_TAXONOMY.md`
 
 ---
 
@@ -278,7 +304,13 @@ Use these from repo root unless a script documents otherwise.
 | `pns_raw_regression_bisect.ps1` | **USB automation:** snapshot `RawCaptureSupport.kt` + `PreviewEngineScreen.kt`, run **`pns_photo_capture_verify`** on baseline, then re-apply **one** suspect regression at a time (wrong default RAW tier order, `desiredFps` default 120, gated H-dial YUV), rebuild, re-verify; writes **`hfr-runs/raw_regression_bisect_*/results.json`** + **`report.md`**. Exit **1** if baseline fails (bisect inconclusive on that device). Dot-source **`pns_resolve_adb.ps1 -PrependToPath`** first on Windows if PATH adb differs from SDK. |
 | `pns_raw_capture_matrix.ps1` | **20-cell** matrix (optional **`-Quick`** for 4 cells): **`pns_preview_imaging_profile`** × **`pns_preview_raw_stream`** (`default`, `raw_sensor_first`, `raw12_only`, `raw_sensor_only`, `raw10_only`) × **`pns_preview_jpeg_companion`**, plus optional **`-CameraId`**. Artifacts **`hfr-runs/raw_capture_matrix_*`** (`matrix.csv`, `matrix.md`, per-cell logcat). See **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**. |
 | `pns_deep_caps_diff.ps1` | Host-side **Markdown** diff of two **`deep_caps_*.json`** pulls (**HFR max**, **HDR DR** summary, **`maxNumOutputRaw`**, **`rawCapabilityAdvertised`** per `cameraId`). See **`docs/FLEET_REFERENCE_M10_8.md`** (Milestone **10.8** fleet evidence). |
-| `pns_fleet_matrix_scan.ps1` | Milestone **16.3** — cold **`pns_screen=probehub`** + optional **`-ScanTier full`**, pull **`files/fleet_device_matrix.json`** → **`hfr-runs/fleet_matrix_*`**, assert **`PNS.FleetMatrix scanTier=`** + **`schemaVersion=1`**; runs **`fleet_matrix_schema_validate.py`** when Python on PATH; **`-Redact`** writes **`hal_dumpsys_media_camera_redacted.txt`** when full-tier appendix includes HAL excerpt. |
+| `pns_fleet_matrix_scan.ps1` | Milestone **16.3** — cold **`pns_screen=probehub`** + optional **`-ScanTier full`**, pull **`files/fleet_device_matrix.json`** → **`hfr-runs/fleet_matrix_*`**, assert **`PNS.FleetMatrix scanTier=`** + **`schemaVersion`**; runs **`fleet_matrix_schema_validate.py`** when Python on PATH; **`-Redact`** writes **`hal_dumpsys_media_camera_redacted.txt`** when full-tier appendix includes HAL excerpt. |
+| `pns_fleet_parity_sweep.ps1` | Milestone **18.6** — **`-Mode Quick\|Full\|Delta` required**; matrix refresh + parity ADB extras; **`parity_report.json`** + **`docs/FLEET_PARITY_LATEST.json`**. |
+| `pns_fleet_parity_diff.ps1` | Host diff two **`parity_report.json`** files. |
+| `pns_fleet_regression_pack.ps1` | Milestone **18.4** — tier 1 matrix + tier 2 parity Quick + catalog gate. |
+| `pns_m18_gate.ps1` | Milestone **18** one-shot — catalog gate + `pns_verify_toolchain.ps1 -RunTests` + regression pack (`-Serial` for USB). |
+| `pns_fleet_macro_export.ps1` | Milestone **18.4** — cross-device CSV from latest matrix + parity artifacts. |
+| `pns_capability_catalog_gate.ps1` | Milestone **18.5** — host catalog version + row count + format descriptor gate. |
 | `pns_fleet_matrix_diff.ps1` | Milestone **16.3** — Markdown diff of two **`fleet_device_matrix.json`** files (HFR, RAW, roles, **`featureGates`**, encoder stub). |
 | `fleet_matrix_schema_validate.py` | Milestone **16.12** — structural validation of pulled matrix JSON (schema v1, sorted **`cameraId`** on full tier). |
 | `pns_op13_regression_pack.ps1` | Milestone **16.7** — optional OP13 lane: **`pns_fleet_matrix_scan -LegacyOp13FleetPolicy`** + **`pns_aux_dng_capture_analyze`** + parity (not default on CPH2583). |

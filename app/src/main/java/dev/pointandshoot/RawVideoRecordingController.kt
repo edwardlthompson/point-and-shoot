@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.Image
 import android.net.Uri
 import android.util.Log
+import dev.pointandshoot.fleet.FleetCapabilityGate
 import dev.pointandshoot.fleet.OnePlus13FleetPolicy
 
 /**
@@ -26,9 +27,12 @@ class RawVideoRecordingController(
     private var framesWritten: Int = 0
 
     fun fleetSupportsRawVideo(cameraId: String?): Boolean {
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return false
         val id = cameraId?.trim().orEmpty()
         if (id.isEmpty()) return false
+        FleetCapabilityGate.featureGate(appContext, id, "rawVideo")?.let { gate ->
+            return gate.appEnabled && gate.sessionOk
+        }
+        if (!OnePlus13FleetPolicy.appliesToDevice()) return false
         return id == OnePlus13FleetPolicy.CANONICAL_WIDE ||
             id == OnePlus13FleetPolicy.CANONICAL_UW ||
             id == OnePlus13FleetPolicy.CANONICAL_TELE
@@ -40,6 +44,7 @@ class RawVideoRecordingController(
         width: Int,
         height: Int,
         imageFormat: Int,
+        dualIsoMerge: Boolean = false,
     ): Boolean {
         if (isRecording) return true
         if (!fleetSupportsRawVideo(cameraId)) {
@@ -60,14 +65,15 @@ class RawVideoRecordingController(
                     width = width,
                     height = height,
                     imageFormat = imageFormat,
+                    dualIsoMerge = dualIsoMerge,
                 )
             this.width = width
             this.height = height
             this.format = imageFormat
             isRecording = true
             framesWritten = 0
-            Log.i(TAG, "rawVideoStart ${width}x$height format=$imageFormat")
-            PnsAdbLog.i(appContext, "rawVideoStart format=$imageFormat ${width}x$height")
+            Log.i(TAG, "rawVideoStart ${width}x$height format=$imageFormat dualIso=$dualIsoMerge")
+            PnsAdbLog.i(appContext, "rawVideoStart format=$imageFormat ${width}x$height dualIso=$dualIsoMerge")
             true
         }.getOrElse { e ->
             Log.e(TAG, "rawVideo start failed", e)

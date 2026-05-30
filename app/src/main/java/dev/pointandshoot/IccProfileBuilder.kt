@@ -11,6 +11,9 @@ object IccProfileBuilder {
         when (target) {
             ColorSpaceTarget.DisplayP3 -> buildDisplayP3Profile()
             ColorSpaceTarget.Rec2020 -> buildRec2020Profile()
+            ColorSpaceTarget.ProPhotoRgb -> buildRgbHeaderProfile(profileDesc = "ProPhoto RGB")
+            ColorSpaceTarget.AdobeRgb1998 -> buildRgbHeaderProfile(profileDesc = "Adobe RGB (1998)")
+            ColorSpaceTarget.SrgbRec709 -> buildRgbHeaderProfile(profileDesc = "sRGB IEC61966-2.1")
         }
 
     /** @deprecated use [forColorSpaceTarget] */

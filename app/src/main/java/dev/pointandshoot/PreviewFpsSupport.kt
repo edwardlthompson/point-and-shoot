@@ -134,4 +134,31 @@ object PreviewFpsSupport {
             ?: maxStockTargetFromOptions(opts)
             ?: 60
     }
+
+    /**
+     * Normal preview AE ranges often cap **4K preview** at 30 fps while the **encoder** still has an
+     * exact H.264 performance point at 60 (CPH2583-class). Do not run [clampFpsToAchievableWithoutRoot]
+     * on the video record target when the encode tier is probe-validated.
+     */
+    fun shouldSkipLensFpsClampForVideoEncode(
+        encodeWidth: Int,
+        encodeHeight: Int,
+        desiredFps: Int,
+        highSpeedMap: StreamConfigurationMap?,
+    ): Boolean {
+        if (desiredFps <= 0 || encodeWidth <= 0 || encodeHeight <= 0) return false
+        val supportsAv1 = MediaCodecCapabilityProbe.supportsAv1Encoder()
+        val h264 =
+            VideoFormat(
+                codec = VideoCodec.H264,
+                resolution = Size(encodeWidth, encodeHeight),
+                frameRate = desiredFps,
+                bitrate = 0,
+            )
+        return InAppVideoFormatSelection.isFormatAvailableOnDevice(
+            h264,
+            highSpeedMap,
+            supportsAv1,
+        )
+    }
 }

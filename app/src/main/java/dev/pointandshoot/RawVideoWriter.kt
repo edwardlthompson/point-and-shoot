@@ -18,6 +18,7 @@ class RawVideoWriter(
     val width: Int,
     val height: Int,
     val imageFormat: Int,
+    private val dualIsoMerge: Boolean = false,
 ) {
     private var frameCount: Int = 0
     private var totalPayloadBytes: Long = 0
@@ -58,11 +59,12 @@ class RawVideoWriter(
         val frameHeader = ByteBuffer.allocate(FRAME_HEADER_BYTES).order(ByteOrder.LITTLE_ENDIAN)
         frameHeader.putInt(frameCount)
         frameHeader.putLong(timestampNs)
-        frameHeader.putInt(payload.size)
+        val writePayload = if (dualIsoMerge) DualIsoVideoMerger.merge(payload) else payload
+        frameHeader.putInt(writePayload.size)
         out.write(frameHeader.array(), 0, frameHeader.position())
-        out.write(payload)
+        out.write(writePayload)
         frameCount++
-        totalPayloadBytes += payload.size
+        totalPayloadBytes += writePayload.size
     }
 
     @Synchronized

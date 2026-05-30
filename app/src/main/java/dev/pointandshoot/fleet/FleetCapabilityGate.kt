@@ -34,7 +34,12 @@ object FleetCapabilityGate {
         loadMatrix(context)?.let { maxHfrAt1080(it, cameraId) }
 
     fun featureGate(matrix: JSONObject, cameraId: String, family: String): GateTriple? {
-        val gate = findCamera(matrix, cameraId)?.optJSONObject("featureGates")?.optJSONObject(family) ?: return null
+        val gate =
+            findCamera(matrix, cameraId)?.optJSONObject("featureGates")?.optJSONObject(family)
+                ?: matrix.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                    ?.optJSONObject("concurrencyGates")
+                    ?.optJSONObject(family)
+                ?: return null
         return GateTriple(
             advertised = gate.optBoolean("advertised", false),
             sessionOk = gate.optBoolean("sessionOk", false),

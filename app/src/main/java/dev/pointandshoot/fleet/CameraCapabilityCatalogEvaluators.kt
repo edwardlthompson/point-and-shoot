@@ -1,0 +1,229 @@
+package dev.pointandshoot.fleet
+
+import dev.pointandshoot.MediaCodecCapabilityProbe
+import dev.pointandshoot.ProResProbe
+import org.json.JSONObject
+
+/**
+ * Expanded catalog evaluators (Milestone **18.1** / **18.2**).
+ */
+internal object CameraCapabilityCatalogEvaluators {
+
+    fun evaluate(row: CameraCapabilityCatalog.CatalogRow, root: JSONObject): Triple<Boolean, Boolean?, String> =
+        when {
+            row.id == "raw.dng" -> gateTriple(root, "raw")
+            row.id == "video.hfr" || row.id.startsWith("video.hfr.") -> gateTriple(root, "hfr")
+            row.id == "face.detect" || row.id == "face.eye_af" || row.id == "face.priority_ae" -> gateTriple(root, "face")
+            row.id == "video.dcg_hdr" -> gateTriple(root, "dcgZsl")
+            row.id == "video.av1" || row.id.startsWith("video.av1.") -> gateTriple(root, "av1")
+            row.id == "video.hevc" || row.id.startsWith("video.hevc.") -> gateTriple(root, "hevc10")
+            row.id == "video.uhd60" -> gateTriple(root, "uhd60")
+            row.id == "video.raw" || row.id == "video.raw_picker" -> gateTriple(root, "rawVideo")
+            row.id == "video.vp9" -> {
+                val ok = MediaCodecCapabilityProbe.probeSyncSafe().supportsVp9
+                Triple(ok, null, "vp9Encoder=$ok")
+            }
+            row.id == "video.prores_probe" -> {
+                val probe = ProResProbe.probeSync()
+                Triple(probe.advertised, null, probe.detail)
+            }
+            row.id == "video.dual_iso" -> Triple(true, null, "merge=production")
+            row.id == "video.anamorphic" -> Triple(true, null, "anamorphicSar=metadata")
+            row.id == "video.dual" -> gateTriple(root, "dualVideo")
+            row.id == "video.multicam_melt" -> gateTriple(root, "multicamMelt")
+            row.id == "preview.pip" -> gateTriple(root, "pipPreview")
+            row.id == "video.regular.1080p30" -> regular1080p30(root)
+            row.id.startsWith("camerax.") -> cameraXMode(root, row.id.removePrefix("camerax.").uppercase())
+            row.id == "lens.multi" -> Triple(focalSlotCount(root) > 0, null, "focalSlots=${focalSlotCount(root)}")
+            row.id == "lens.focal_row" || row.id == "lens.fleet_focal_row" ->
+                Triple(hasFocalRow(root), null, "focalRow=${hasFocalRow(root)}")
+            row.id == "lens.uw" -> rolePresent(root, "uw")
+            row.id == "lens.wide" -> rolePresent(root, "wide")
+            row.id == "lens.tele" -> rolePresent(root, "tele")
+            row.id == "lens.ois" -> lensHasOis(root)
+            row.id == "lens.eis" -> lensHasEis(root)
+            row.id == "fleet.matrix" -> Triple(true, null, "matrix present")
+            row.id == "fleet.parity_sweep" -> Triple(true, null, "parity runner shipped")
+            row.id == "root.hfr_unlock" -> Triple(anyHfrAbove60(root), null, "matrix HFR ceiling")
+            row.id.startsWith("tether.") -> Triple(true, null, "tether product row")
+            row.id.startsWith("perf.") -> perfProbe(root, row.id)
+            row.id.startsWith("audio.") -> Triple(true, null, "audio product row")
+            row.id.startsWith("encoder.") -> encoderProbe(row.id)
+            else -> Triple(defaultProductSupported(row), null, "")
+        }
+
+    private fun gateTriple(root: JSONObject, key: String): Triple<Boolean, Boolean?, String> {
+        val gates = firstCameraGate(root, key) ?: return Triple(false, false, "no gate")
+        val adv = gates.optBoolean("advertised", false)
+        val sess = gates.optBoolean("sessionOk", false)
+        val app = gates.optBoolean("appEnabled", false)
+        return Triple(adv, sess, "advertised=$adv sessionOk=$sess appEnabled=$app")
+    }
+
+    private fun regular1080p30(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val enc = root.optJSONObject(FleetDeviceMatrix.KEY_ENCODER)
+        val hasMr = anyStreamSize(root, 1920, 1080) || anyStreamSize(root, 1080, 1920)
+        val encRow = encoderHasFps(enc, 30)
+        return Triple(hasMr || encRow, null, "halMr=$hasMr enc30=$encRow")
+    }
+
+    private fun cameraXMode(root: JSONObject, label: String): Triple<Boolean, Boolean?, String> {
+        val cx = root.optJSONObject(FleetDeviceMatrix.KEY_CAMERA_X) ?: return Triple(false, null, "no cameraX slice")
+        val byCam = cx.optJSONObject("availableByCamera") ?: return Triple(false, null, "empty")
+        var found = false
+        val keys = byCam.keys()
+        while (keys.hasNext()) {
+            val modes = byCam.optJSONArray(keys.next()) ?: continue
+            for (i in 0 until modes.length()) {
+                if (modes.optJSONObject(i)?.optString("label") == label) {
+                    found = true
+                    break
+                }
+            }
+        }
+        return Triple(found, null, if (found) "mode=$label" else "absent")
+    }
+
+    private fun focalSlotCount(root: JSONObject): Int =
+        root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONArray("focalSlots")?.length() ?: 0
+
+    private fun hasFocalRow(root: JSONObject): Boolean =
+        root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.has("focalRow") == true
+
+    private fun rolePresent(root: JSONObject, role: String): Triple<Boolean, Boolean?, String> {
+        val focalRow = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("focalRow")
+        val id =
+            when (role) {
+                "uw" -> focalRow?.optString("uwCameraId")
+                "wide" -> focalRow?.optString("wideCameraId")
+                "tele" -> focalRow?.optString("teleCameraId")
+                else -> null
+            }
+        return Triple(!id.isNullOrBlank(), null, "$role=$id")
+    }
+
+    private fun perfProbe(root: JSONObject, id: String): Triple<Boolean, Boolean?, String> {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return Triple(false, null, "no cameras")
+        for (i in 0 until cams.length()) {
+            val perf = cams.optJSONObject(i)?.optJSONObject("performanceProbes") ?: continue
+            val openMs = perf.optLong("openCameraMs", -1L)
+            if (openMs >= 0) return Triple(true, null, "openCameraMs=$openMs")
+        }
+        return Triple(id == "perf.battery_adaptive_fps", null, "no perf probes")
+    }
+
+    private fun encoderProbe(id: String): Triple<Boolean, Boolean?, String> {
+        val slug = id.removePrefix("encoder.").replace('_', '.')
+        val probe = MediaCodecCapabilityProbe.probeSyncSafe()
+        val ok =
+            when {
+                slug.contains("avc") -> true
+                slug.contains("hevc") -> probe.encoders.isNotEmpty()
+                slug.contains("av1") -> probe.supportsAv1
+                slug.contains("vp9") -> probe.supportsVp9
+                else -> false
+            }
+        return Triple(ok, null, "encoder=$slug")
+    }
+
+    private fun anyHfrAbove60(root: JSONObject): Boolean {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return false
+        for (i in 0 until cams.length()) {
+            if (cams.optJSONObject(i)?.optInt("hfrMaxFpsAt1080", 0) ?: 0 > 60) return true
+        }
+        return false
+    }
+
+    private fun anyStreamSize(root: JSONObject, w: Int, h: Int): Boolean {
+        val deep = root.optJSONObject(FleetDeviceMatrix.KEY_APPENDIX)?.optJSONObject("deepCaps") ?: return false
+        val cams = deep.optJSONArray("cameras") ?: return false
+        for (i in 0 until cams.length()) {
+            val map = cams.optJSONObject(i)?.optJSONObject("streamConfigurationMap") ?: continue
+            if (sizesContain(map, w, h)) return true
+        }
+        return false
+    }
+
+    private fun sizesContain(map: JSONObject, w: Int, h: Int): Boolean {
+        fun checkArr(key: String): Boolean {
+            val arr = map.optJSONObject("outputSizesByFormat")?.optJSONArray(key)
+                ?: map.optJSONObject("outputSizes")?.optJSONArray(key)
+                ?: return false
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val ww = o.optInt("w")
+                val hh = o.optInt("h")
+                if ((ww == w && hh == h) || (ww == h && hh == w)) return true
+            }
+            return false
+        }
+        return checkArr("mediaRecorder") || checkArr("surfaceTexture")
+    }
+
+    private fun encoderHasFps(enc: JSONObject?, fps: Int): Boolean {
+        if (enc == null) return false
+        val best = enc.optJSONArray("bestByCameraFps") ?: return false
+        for (i in 0 until best.length()) {
+            val o = best.optJSONObject(i) ?: continue
+            if (o.optInt("fps", -1) == fps) return true
+        }
+        return false
+    }
+
+    private fun lensHasOis(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return Triple(false, null, "no cameras")
+        for (i in 0 until cams.length()) {
+            val lens = cams.optJSONObject(i)?.optJSONObject("lensInfo") ?: continue
+            val modes = lens.optJSONArray("opticalStabilizationModes") ?: continue
+            for (j in 0 until modes.length()) {
+                val m = modes.optString(j)
+                if (m.isNotBlank() && !m.equals("OFF", ignoreCase = true)) {
+                    return Triple(true, null, "ois=$m")
+                }
+            }
+        }
+        return Triple(false, null, "ois=off")
+    }
+
+    private fun lensHasEis(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return Triple(false, null, "no cameras")
+        for (i in 0 until cams.length()) {
+            val modes = cams.optJSONObject(i)?.optJSONArray("capabilitiesNormalized") ?: continue
+            for (j in 0 until modes.length()) {
+                if (modes.optString(j).contains("EIS", ignoreCase = true)) {
+                    return Triple(true, null, "eis=advertised")
+                }
+            }
+        }
+        return Triple(false, null, "eis=off")
+    }
+
+    private fun firstCameraGate(root: JSONObject, key: String): JSONObject? {
+        root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("concurrencyGates")?.optJSONObject(key)?.let {
+            return it
+        }
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return null
+        for (i in 0 until cams.length()) {
+            val g = cams.optJSONObject(i)?.optJSONObject("featureGates")?.optJSONObject(key)
+            if (g != null) return g
+        }
+        return null
+    }
+
+    private fun defaultProductSupported(row: CameraCapabilityCatalog.CatalogRow): Boolean =
+        when (row.appStatus) {
+            CameraCapabilityCatalog.AppStatus.Shipped,
+            CameraCapabilityCatalog.AppStatus.Partial,
+            ->
+                row.id.startsWith("still.") ||
+                    row.id.startsWith("video.") ||
+                    row.id.startsWith("hud.") ||
+                    row.id.startsWith("af.") ||
+                    row.id.startsWith("preview.") ||
+                    row.id.startsWith("dial.") ||
+                    row.id.startsWith("focal.")
+            CameraCapabilityCatalog.AppStatus.ProbeOnly -> false
+            CameraCapabilityCatalog.AppStatus.Planned -> false
+            CameraCapabilityCatalog.AppStatus.NotApplicable -> false
+        }
+}

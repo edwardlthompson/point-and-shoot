@@ -151,6 +151,32 @@
 - **Touches:** `BackCameraRoleResolver.kt`, `SensorCropGeometry.kt`, `PreviewEngineScreen.kt`
 - **Conflicts with:** Milestone 16 generic `product` slots (**16.4**)
 
+### REG-20260529-001 — Consumer chrome ghost content-desc for hidden features
+
+- **Status:** active
+- **Area:** chrome | fleet
+- **Symptom:** Accessibility / UX gate sees toggles or focal chips labeled “unavailable” for features matrix marks unsupported
+- **Cause:** Chrome showed disabled controls instead of **hiding** per M17 policy; focal row kept chips with `", unavailable"` in contentDescription
+- **Fix shipped:** M17 **`FleetUiVisibilityGate`** + **`FleetChromeVisibility`** — empty QS/focal cells, filtered mode dial / format picker / settings rails; readout STAB/IMG gated
+- **Do not:** Reintroduce disabled-but-visible catalog features on consumer chrome; do not remove 7×3 slot definitions when hiding
+- **Proves OK:** `scripts/pns_chrome_ux_gate.ps1`; log `PNS.FleetVisibility hidden feature=`
+- **Also test:** `pns_fleet_matrix_scan.ps1` after matrix-affecting changes; hub `ProbeHubSearch` pick → `PNS.ProbeHub settingsSearchPick`
+- **Touches:** `PreviewEngineScreen.kt`, `FleetChromeVisibility.kt`, `PreviewReadoutStrip.kt`, `PreviewCommandDialDropdownMenu.kt`
+- **Conflicts with:** `preview-chrome-ui-lock.mdc` (geometry locked; behavioral hide only)
+
+### REG-20260529-002 — 1080p@30 missing from video format picker after rescan
+
+- **Status:** active
+- **Area:** video | fleet
+- **Symptom:** H.264 1080p@30 absent until cold restart; probe cache stale after hub matrix rescan
+- **Cause:** `MediaCodecCapabilityProbe` omitted 1080p@30 tier; H.264 ≤60 required exact encoder perf point; probe cache not invalidated on matrix save
+- **Fix shipped:** Probe tier + MR baseline fps union; `invalidateAndReprobe()` in `FleetDeviceMatrixBuilder`; H.264 ≤60 via `supportsMediaRecorderOutputSize`; preview watches matrix epoch on ON_RESUME
+- **Do not:** Require exact H.264 perf point for ≤60 fps when HAL MR lists the size; do not skip probe invalidation on matrix rescan
+- **Proves OK:** `PNS.VideoCapProbe capProbeInvalidate`; video format catalog refresh after hub rescan on CPH2583
+- **Also test:** `pns_video_capability_probe.ps1`; `pns_chrome_ux_gate.ps1` in video mode
+- **Touches:** `MediaCodecCapabilityProbe.kt`, `InAppVideoFormatSelection.kt`, `FleetDeviceMatrixBuilder.kt`, `PreviewEngineScreen.kt`
+- **Conflicts with:** none
+
 ---
 
 ## Superseded / historical

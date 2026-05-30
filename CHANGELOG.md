@@ -4,9 +4,20 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
+_(Nothing yet.)_
+
+## [0.14.0-beta.5] - 2026-05-30
+
+Pre-release for **Milestones 17–20** (fleet catalog/UI, max-out framework, format pickers, concurrent capture). Primary fleet USB device: OnePlus 12 **CPH2583**.
+
+**Release notes:** **APK:** `Point-and-Shoot_0.14.0-beta.5.apk`
+
 ### Added
 
-- **Sprint 17.1 — Fleet capability catalog slice** — `capabilityCatalog` + `catalogVersion` on `fleet_device_matrix.json`; `files/fleet_device_capability_summary.md` (ADB-pullable human SoT); `CameraCapabilityCatalog` / `CameraCapabilityCatalogBuilder` / `FleetCapabilitySummaryMarkdown`; extended deep caps stream map (JPEG/RAW/MR sizes, aspect ratios, face detect modes on structured cameras); `pns_fleet_matrix_scan.ps1` pulls summary markdown.
+- **Milestone 18 — Fleet max-out framework** — `CameraCapabilityCatalog` v3 (~165+ rows) + evaluators; matrix **schema v2** + `product.focalRow`; expanded `featureGates`; **Fleet Parity Sweep** hub + ADB; fleet-adaptive focal row; `pns_fleet_regression_pack.ps1`, `pns_m18_gate.ps1`.
+- **Milestone 19 — Feature max-out** — CQI color-space step in video + still pickers; `StillFormatPickerSheet` + HEIC/Motion Photo/TIFF scaffolds; RAW `.mcraw` in format picker; dual-ISO production merge; VP9 WebM; ProRes probe + anamorphic SAR metadata; `pns_m19_gate.ps1`.
+- **Milestone 20 — Concurrent capture** — HAL-derived `DeviceFeatureGates`; dual front health recovery; Multicam Melt thermal scaffold; concurrent rear PiP inset preview; `pns_m20_gate.ps1`.
+- **Milestone 17 — Fleet capability catalog & device-tailored UI** — `FleetUiVisibilityGate` / `FleetChromeVisibility`; unified **Device capability matrix** hub; `ProbeHubSearch` + setting highlight; 1080p@30 video format fix.
 
 _(See [0.14.0-beta.4] for prior release.)_
 

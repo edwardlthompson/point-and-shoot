@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import dev.pointandshoot.fleet.FleetUiVisibilityGate
 import kotlin.math.roundToInt
 
 /**
@@ -52,6 +53,10 @@ fun HudRailSheetContent(
     onThemeModeChange: (PnsThemeMode) -> Unit = {},
     onPictureProfileImaging: ((ImagingProfile) -> Unit)? = null,
     onApplyWorkflowPreset: ((WorkflowPreset) -> Unit)? = null,
+    activeCameraId: String? = null,
+    cameraIds: List<String> = emptyList(),
+    highlightSettingKey: String? = null,
+    onHighlightConsumed: () -> Unit = {},
 ) {
     val settings = hudState.current
     val onUpdate: (HudSettings) -> Unit = { hudState.update(it) }
@@ -67,9 +72,21 @@ fun HudRailSheetContent(
         gateLines = if (cameraGranted) CapabilityGateBridge.uiLines(ctx) else emptyList()
     }
     var developerUnlocked by remember { mutableStateOf(false) }
+    val appCtx = ctx.applicationContext
+    val visibilityCtx =
+        remember(activeCameraId, cameraIds) {
+            FleetUiVisibilityGate.buildContext(appCtx, activeCameraId, cameraIds)
+        }
+    val showEyeAfOverlay =
+        FleetUiVisibilityGate.visible("face.eye_af", visibilityCtx)
     val rows: List<HudToggleRow> =
-        remember(settings, developerUnlocked) {
-            hudToggleRows(settings, patchHud, includeResearch = developerUnlocked)
+        remember(settings, developerUnlocked, showEyeAfOverlay) {
+            hudToggleRows(
+                settings,
+                patchHud,
+                includeResearch = developerUnlocked,
+                showEyeAfOverlay = showEyeAfOverlay,
+            )
         }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -148,6 +165,14 @@ fun HudRailSheetContent(
         )
         }
 
+    val highlightFlash = rememberSettingHighlightFlash()
+    LaunchedEffect(highlightSettingKey) {
+        val key = highlightSettingKey ?: return@LaunchedEffect
+        delay(120)
+        highlightFlash.request(key)
+        onHighlightConsumed()
+    }
+
         PreviewRailSectionTitle("HUD elements")
         HudStillCaptureModeRow(
             mode = settings.stillCaptureMode,
@@ -163,7 +188,7 @@ fun HudRailSheetContent(
             onImagingProfile = onPictureProfileImaging,
         )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            rows.forEach { row -> HudToggle(row) }
+            rows.forEach { row -> HudToggle(row, highlightFlash = highlightFlash) }
         }
         ZebraIreThresholdSection(
             ire = settings.zebraIreThreshold,
@@ -197,6 +222,8 @@ fun HudSettingsScreen(
     onThemeModeChange: (PnsThemeMode) -> Unit = {},
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus = HudSettingsFocus.None,
+    highlightSettingKey: String? = null,
+    onHighlightConsumed: () -> Unit = {},
     onReplayWelcomeTips: (() -> Unit)? = null,
 ) {
     val state = rememberHudSettings()
@@ -208,6 +235,8 @@ fun HudSettingsScreen(
         onThemeModeChange = onThemeModeChange,
         onBack = onBack,
         initialFocus = initialFocus,
+        highlightSettingKey = highlightSettingKey,
+        onHighlightConsumed = onHighlightConsumed,
         onReplayWelcomeTips = onReplayWelcomeTips,
     )
 }
@@ -220,6 +249,8 @@ private fun HudSettingsScreenContent(
     onThemeModeChange: (PnsThemeMode) -> Unit,
     onBack: () -> Unit,
     initialFocus: HudSettingsFocus,
+    highlightSettingKey: String? = null,
+    onHighlightConsumed: () -> Unit = {},
     onReplayWelcomeTips: (() -> Unit)?,
 ) {
     val settings = hudState.current
@@ -245,7 +276,37 @@ private fun HudSettingsScreenContent(
             }
     }
 
-    val rows: List<HudToggleRow> = remember(settings) { hudToggleRows(settings, patchHud) }
+    val appCtx = ctx.applicationContext
+    val cameraIds =
+        remember(cameraGranted) {
+            if (!cameraGranted) {
+                emptyList()
+            } else {
+                runCatching {
+                    val cm = appCtx.getSystemService(android.content.Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+                    cm.cameraIdList.toList()
+                }.getOrDefault(emptyList())
+            }
+        }
+    val visibilityCtx =
+        remember(cameraIds) {
+            FleetUiVisibilityGate.buildContext(appCtx, activeCameraId = null, cameraIds)
+        }
+    val showEyeAfOverlay =
+        FleetUiVisibilityGate.visible("face.eye_af", visibilityCtx)
+
+    val highlightFlash = rememberSettingHighlightFlash()
+    LaunchedEffect(highlightSettingKey) {
+        val key = highlightSettingKey ?: return@LaunchedEffect
+        delay(120)
+        highlightFlash.request(key)
+        onHighlightConsumed()
+    }
+
+    val rows: List<HudToggleRow> =
+        remember(settings, showEyeAfOverlay) {
+            hudToggleRows(settings, patchHud, showEyeAfOverlay = showEyeAfOverlay)
+        }
 
     Column(
         modifier = Modifier
@@ -331,6 +392,7 @@ private fun HudSettingsScreenContent(
         )
 
         val listState = rememberLazyListState()
+        val highlightFlash = rememberSettingHighlightFlash()
         LaunchedEffect(initialFocus, rows) {
             if (initialFocus == HudSettingsFocus.None) return@LaunchedEffect
             delay(80)
@@ -346,6 +408,17 @@ private fun HudSettingsScreenContent(
             if (index >= 0) {
                 listState.scrollToItem(index)
             }
+        }
+
+        LaunchedEffect(highlightSettingKey, rows) {
+            val key = highlightSettingKey ?: return@LaunchedEffect
+            delay(80)
+            val rowIndex = rows.indexOfFirst { it.settingKey == key }
+            if (rowIndex >= 0) {
+                listState.scrollToItem(13 + rowIndex)
+            }
+            highlightFlash.request(key)
+            onHighlightConsumed()
         }
 
         LazyColumn(
@@ -433,7 +506,7 @@ private fun HudSettingsScreenContent(
                     onIreChange = { v -> onUpdate(settings.copy(zebraIreThreshold = v)) },
                 )
             }
-            items(rows, key = { it.title }) { row -> HudToggle(row) }
+            items(rows, key = { it.settingKey ?: it.title }) { row -> HudToggle(row, highlightFlash = highlightFlash) }
             item(key = "wb_readout_info") {
                 WhiteBalanceReadoutInfoCard()
             }
@@ -620,8 +693,8 @@ private fun VideoDualIsoSection(
         )
         Text(
             text =
-                "Infrastructure only — probes SCALER_MULTI_RESOLUTION_STREAM_CONFIGURATION_MAP on " +
-                    "session create. Merge is pass-through until a future release.",
+                "Dual ISO video — probes SCALER_MULTI_RESOLUTION_STREAM_CONFIGURATION_MAP and " +
+                    "applies log-domain short/long merge on RAW video frames when enabled.",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.7f),
         )
@@ -832,6 +905,7 @@ private fun hudToggleRows(
     settings: HudSettings,
     patch: ((HudSettings) -> HudSettings) -> Unit,
     includeResearch: Boolean = false,
+    showEyeAfOverlay: Boolean = true,
 ): List<HudToggleRow> {
     val rows =
         listOf(
@@ -846,6 +920,7 @@ private fun hudToggleRows(
             description = "Solid record-red border while video is recording.",
             enabled = settings.showVideoTally,
             onChange = { checked -> patch { it.copy(showVideoTally = checked) } },
+            settingKey = "hud.video_tally",
         ),
         HudToggleRow(
             title = "Pillar-bar video HUD",
@@ -878,12 +953,14 @@ private fun hudToggleRows(
             description = "Live capture / preview frame rate, useful for HFR debugging.",
             enabled = settings.showFpsReadout,
             onChange = { checked -> patch { it.copy(showFpsReadout = checked) } },
+            settingKey = "hud.fps_readout",
         ),
         HudToggleRow(
             title = "ISO + shutter readout",
             description = "Exposure values for the in-flight CaptureRequest.",
             enabled = settings.showIsoShutterReadout,
             onChange = { checked -> patch { it.copy(showIsoShutterReadout = checked) } },
+            settingKey = "hud.iso_shutter",
         ),
         HudToggleRow(
             title = "Highlight-weighted meter",
@@ -891,12 +968,23 @@ private fun hudToggleRows(
             enabled = settings.showHighlightWeightedMeter,
             onChange = { checked -> patch { it.copy(showHighlightWeightedMeter = checked) } },
         ),
-        HudToggleRow(
-            title = "Eye-AF overlay",
-            description = "Sony-style green pupil rectangles when face detect is FULL.",
-            enabled = settings.showEyeAfOverlay,
-            onChange = { checked -> patch { it.copy(showEyeAfOverlay = checked) } },
-        ),
+    )
+    val eyeAfRows =
+        if (showEyeAfOverlay) {
+            listOf(
+                HudToggleRow(
+                    title = "Eye-AF overlay",
+                    description = "Sony-style green pupil rectangles when face detect is FULL.",
+                    enabled = settings.showEyeAfOverlay,
+                    onChange = { checked -> patch { it.copy(showEyeAfOverlay = checked) } },
+                    settingKey = "hud.eye_af",
+                ),
+            )
+        } else {
+            emptyList()
+        }
+    val tail =
+        listOf(
         HudToggleRow(
             title = "Face alignment crosshair (14.5 debug)",
             description =
@@ -925,12 +1013,14 @@ private fun hudToggleRows(
             description = "Accelerometer line on the preview only (Sony Photography Pro style).",
             enabled = settings.showHorizonLevel,
             onChange = { checked -> patch { it.copy(showHorizonLevel = checked) } },
+            settingKey = "hud.horizon",
         ),
         HudToggleRow(
             title = "Histogram (experimental)",
             description = "RGB histogram overlay; off by default until perf is profiled.",
             enabled = settings.showHistogram,
             onChange = { checked -> patch { it.copy(showHistogram = checked) } },
+            settingKey = "hud.histogram",
         ),
         HudToggleRow(
             title = "Highlight clip zebra (YUV)",
@@ -1150,10 +1240,11 @@ private fun hudToggleRows(
             onChange = { checked -> patch { it.copy(waitForAfFocusBeforeStill = checked) } },
         ),
     )
+    val allRows = rows + eyeAfRows + tail
     return if (includeResearch) {
-        rows
+        allRows
     } else {
-        rows.filter { !it.title.startsWith("Research:") }
+        allRows.filter { !it.title.startsWith("Research:") }
     }
 }
 
@@ -1162,6 +1253,7 @@ private data class HudToggleRow(
     val description: String,
     val enabled: Boolean,
     val onChange: (Boolean) -> Unit,
+    val settingKey: String? = null,
 )
 
 @Composable
@@ -1643,9 +1735,12 @@ private fun HudStillCaptureModeRow(
 }
 
 @Composable
-private fun HudToggle(row: HudToggleRow) {
+private fun HudToggle(row: HudToggleRow, highlightFlash: SettingHighlightFlashState? = null) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(highlightFlash?.applyHighlight(Modifier, row.settingKey) ?: Modifier),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

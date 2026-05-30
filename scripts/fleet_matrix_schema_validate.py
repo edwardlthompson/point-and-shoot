@@ -24,6 +24,7 @@ REQUIRED_SCAN_META = (
     "fingerprintSha256Prefix",
 )
 REQUIRED_DEVICE = ("manufacturer", "model", "device")
+VALID_SCHEMA_VERSIONS = frozenset({1, 2})
 VALID_SCAN_TIERS = frozenset({"quick", "full"})
 
 
@@ -39,8 +40,8 @@ def _pass(msg: str = "") -> None:
 
 
 def validate_root(root: dict[str, Any]) -> None:
-    if root.get("schemaVersion") != 1:
-        _fail(f"schemaVersion must be 1, got {root.get('schemaVersion')!r}")
+    if root.get("schemaVersion") not in VALID_SCHEMA_VERSIONS:
+        _fail(f"schemaVersion must be 1 or 2, got {root.get('schemaVersion')!r}")
     for key in REQUIRED_ROOT:
         if key not in root:
             _fail(f"missing root key {key!r}")

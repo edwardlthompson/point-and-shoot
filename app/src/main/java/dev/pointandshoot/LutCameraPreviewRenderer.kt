@@ -60,6 +60,8 @@ class LutCameraPreviewRenderer(
     private val lastLutRequested: AtomicReference<Lut3D?> = AtomicReference(null)
     private val geometry = AtomicReference(Geometry(1, 1, 0, 0, 0, 0, coverCrop = true))
     private val dualSplitEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
+    /** Milestone **20.3** — concurrent rear+rear inset (reuses aux OES path). */
+    private val pipInsetEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
     private val hfrYuvMonitorEnabled = java.util.concurrent.atomic.AtomicBoolean(false)
     private var hfrYuvProgram: HfrYuvMonitorShaderProgram? = null
     private var hfrYuvQuadBuffer: FloatBuffer? = null
@@ -198,7 +200,25 @@ class LutCameraPreviewRenderer(
         onFrontSurfaceReady: ((SurfaceTexture, Int, Int) -> Unit)?,
     ) {
         dualSplitEnabled.set(enabled)
+        if (enabled) pipInsetEnabled.set(false)
         onDualFrontReady.set(onFrontSurfaceReady)
+        glSurfaceViewRef?.queueEvent {
+            if (enabled) {
+                ensureFrontOesTextureOnGlThread()
+            } else {
+                releaseFrontOesOnGlThread()
+            }
+        }
+    }
+
+    /** Concurrent rear+rear PiP inset (Milestone **20.3**). */
+    fun setPipInsetEnabled(
+        enabled: Boolean,
+        onAuxSurfaceReady: ((SurfaceTexture, Int, Int) -> Unit)?,
+    ) {
+        pipInsetEnabled.set(enabled)
+        if (enabled) dualSplitEnabled.set(false)
+        onDualFrontReady.set(onAuxSurfaceReady)
         glSurfaceViewRef?.queueEvent {
             if (enabled) {
                 ensureFrontOesTextureOnGlThread()
@@ -345,13 +365,14 @@ class LutCameraPreviewRenderer(
         val yuvFrame = if (yuvMonitorMode) pendingHfrYuvFrame.getAndSet(null) else null
 
         val dual = dualSplitEnabled.get()
+        val pip = pipInsetEnabled.get()
         val rearSynced = syncRearOesTexture()
 
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         val g = geometry.get()
         val frontOk =
-            if (dual) {
+            if (dual || pip) {
                 syncFrontOesTextureForDual()
             } else {
                 false
@@ -361,6 +382,22 @@ class LutCameraPreviewRenderer(
                 drawStackedComposite(prog, g, frontReady = true)
             } else if (g.bufferW > 0 && g.bufferH > 0) {
                 // Front not ready yet — full rear finder (avoid black/streak split).
+                drawOesToViewport(
+                    prog = prog,
+                    g = g,
+                    oesId = oesTextureId,
+                    matrix = stMatrix,
+                    viewX = 0,
+                    viewY = 0,
+                    viewW = g.viewW,
+                    viewH = g.viewH,
+                    applyLut = true,
+                )
+            }
+        } else if (pip) {
+            if (frontOk) {
+                drawPipInsetComposite(prog, g, auxReady = true)
+            } else if (g.bufferW > 0 && g.bufferH > 0) {
                 drawOesToViewport(
                     prog = prog,
                     g = g,
@@ -498,6 +535,53 @@ class LutCameraPreviewRenderer(
                 readoutWb = IDENTITY_WB,
             )
         }
+        GLES20.glViewport(0, 0, g.viewW, g.viewH)
+    }
+
+    /** Top-right inset aux rear preview (~28% width). */
+    private fun drawPipInsetComposite(prog: LutExternalOesShaderProgram, g: Geometry, auxReady: Boolean) {
+        drawOesToViewport(
+            prog = prog,
+            g = g,
+            oesId = oesTextureId,
+            matrix = stMatrix,
+            viewX = 0,
+            viewY = 0,
+            viewW = g.viewW,
+            viewH = g.viewH,
+            applyLut = true,
+        )
+        if (!auxReady || frontOesTextureId == 0) return
+        val insetW = (g.viewW * ConcurrentPipPreviewController.INSET_WIDTH_FRACTION).toInt().coerceAtLeast(1)
+        val insetH = (insetW * 4) / 3
+        val margin = (g.viewW * 0.04f).toInt().coerceAtLeast(4)
+        val fb = frontBufferSize.get()
+        val auxBufW = fb[0].takeIf { it > 0 } ?: g.bufferW
+        val auxBufH = fb[1].takeIf { it > 0 } ?: g.bufferH
+        val auxGeo =
+            Geometry(
+                viewW = insetW,
+                viewH = insetH,
+                bufferW = auxBufW,
+                bufferH = auxBufH,
+                aspectW = auxBufW,
+                aspectH = auxBufH,
+                coverCrop = false,
+            )
+        val insetY = g.viewH - insetH - margin
+        clearSubViewport(margin, insetY, insetW, insetH)
+        drawOesToViewport(
+            prog = prog,
+            g = auxGeo,
+            oesId = frontOesTextureId,
+            matrix = frontStMatrix,
+            viewX = margin,
+            viewY = insetY,
+            viewW = insetW,
+            viewH = insetH,
+            applyLut = false,
+            readoutWb = IDENTITY_WB,
+        )
         GLES20.glViewport(0, 0, g.viewW, g.viewH)
     }
 

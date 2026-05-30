@@ -112,6 +112,9 @@ enum class TonalContainer(val displayName: String, val mimeType: String, val fil
 }
 
 enum class ColorSpaceTarget(val displayName: String) {
-    DisplayP3("Display P3"),
     Rec2020("Rec. 2020"),
+    ProPhotoRgb("ProPhoto RGB"),
+    AdobeRgb1998("Adobe RGB (1998)"),
+    DisplayP3("Display P3"),
+    SrgbRec709("sRGB / Rec.709"),
 }

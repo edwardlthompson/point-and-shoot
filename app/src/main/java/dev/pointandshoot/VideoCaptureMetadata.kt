@@ -14,6 +14,8 @@ import android.provider.MediaStore
 
 import android.util.Log
 
+import kotlin.math.roundToInt
+
 
 
 /**
@@ -128,7 +130,7 @@ object VideoCaptureMetadata {
 
 
 
-    /** After mux finalize — MediaStore description carries codec + capture FPS for gallery/system UI. */
+    /** After mux finalize — MediaStore description carries codec + **measured** capture FPS for gallery/system UI. */
 
     fun applyAfterFinalize(context: Context, uri: Uri, info: CaptureInfo) {
 
@@ -136,7 +138,9 @@ object VideoCaptureMetadata {
 
         runCatching {
 
-            val desc = buildDescription(info)
+            val reconciled = reconcileCaptureInfoWithMeasured(app, uri, info) ?: info
+
+            val desc = buildDescription(reconciled)
 
             val values =
 
@@ -170,31 +174,10 @@ object VideoCaptureMetadata {
 
             retriever.setDataSource(context, uri)
 
-            val fpsRaw =
-
-                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
-
-                    ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)
-
-                        ?.let { frameCountStr ->
-
-                            val frames = frameCountStr.toLongOrNull() ?: return@let null
-
-                            val durationMs =
-
-                                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-
-                                    ?.toLongOrNull()
-
-                                    ?: return@let null
-
-                            if (durationMs <= 0L) return@let null
-
-                            val fps = frames * 1000.0 / durationMs
-
-                            if (fps > 0.0) "%.0f".format(fps) else null
-
-                        }
+            val measuredFps = probeMeasuredFrameRateFromRetriever(retriever)
+            val fpsRaw = measuredFps?.let { fps ->
+                if (fps == fps.toInt().toFloat()) fps.toInt().toString() else "%.1f".format(fps)
+            }
 
             val durationMs =
 
@@ -351,9 +334,60 @@ object VideoCaptureMetadata {
 
 
     /**
-     * Gallery / readout FPS. [MediaMetadataRetriever] often reports 60 for HFR MP4 while the
-     * capture-time MediaStore description still has the true rate (e.g. 120fps).
+     * Measured playback rate from the saved file (frame count ÷ duration, or capture-framerate key).
+     * Prefer this over the capture **target** when they disagree (e.g. 4K@60 selected but mux ~30).
      */
+    fun probeMeasuredFrameRateFps(context: Context, uri: Uri): Float? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(context, uri)
+            probeMeasuredFrameRateFromRetriever(retriever)
+        } catch (e: Exception) {
+            Log.w(TAG, "probeMeasuredFrameRateFps failed uri=$uri: ${e.message}")
+            null
+        } finally {
+            runCatching { retriever.release() }
+        }
+    }
+
+    internal fun probeMeasuredFrameRateFromRetriever(retriever: MediaMetadataRetriever): Float? {
+        val captureFps =
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+                ?.trim()
+                ?.toFloatOrNull()
+                ?.takeIf { it > 0f }
+        if (captureFps != null) {
+            return captureFps
+        }
+        val frames =
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)
+                ?.toLongOrNull()
+        val durationMs =
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+        if (frames != null && durationMs != null && durationMs > 0L) {
+            return frames * 1000f / durationMs
+        }
+        return null
+    }
+
+    /** Rewrites [CaptureInfo.captureFps] from the saved file when mux/encoder delivered a different rate. */
+    fun reconcileCaptureInfoWithMeasured(
+        context: Context,
+        uri: Uri,
+        info: CaptureInfo?,
+    ): CaptureInfo? {
+        if (info == null) return null
+        val measured = probeMeasuredFrameRateFps(context, uri) ?: return info
+        val fps = measured.roundToInt().coerceIn(1, 480)
+        return if (fps != info.captureFps) {
+            Log.i(TAG, "video metadata measuredFps=$fps target=${info.captureFps} uri=$uri")
+            info.copy(captureFps = fps)
+        } else {
+            info
+        }
+    }
+
+    /** Gallery / readout FPS — measured file rate when available; embedded target is fallback only. */
     internal fun mergeFrameRateForDisplay(
         embeddedCaptureFps: Int?,
         retrieverFpsRaw: String?,
@@ -362,11 +396,6 @@ object VideoCaptureMetadata {
         val retrieved = retrieverFpsRaw?.trim()?.toFloatOrNull()
         val chosen =
             when {
-                // HFR MP4: frame-count÷duration often ~30–60 while MediaStore description has true capture tier.
-                embedded != null && embedded > 0f && retrieved != null && retrieved > 0f &&
-                    retrieved < embedded * 0.75f -> embedded
-                embedded != null && embedded > 0f &&
-                    (retrieved == null || embedded >= retrieved - 0.5f) -> embedded
                 retrieved != null && retrieved > 0f -> retrieved
                 embedded != null && embedded > 0f -> embedded
                 else -> null

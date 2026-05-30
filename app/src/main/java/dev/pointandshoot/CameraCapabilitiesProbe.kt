@@ -257,6 +257,12 @@ const val EXTRA_PNS_PREVIEW_WIND_NOISE_FILTER = "pns_preview_wind_noise_filter"
 /** Sprint **15.26** — seed preview AE lock (`pns_preview_ae_lock`). */
 const val EXTRA_PNS_PREVIEW_AE_LOCK = "pns_preview_ae_lock"
 
+/** Milestone **20.3** — concurrent rear+rear PiP preview (`pns_preview_pip`). */
+const val EXTRA_PNS_PREVIEW_PIP = "pns_preview_pip"
+
+/** Milestone **20.2** — Multicam Melt scaffold arm (`pns_preview_multicam_melt`). */
+const val EXTRA_PNS_PREVIEW_MULTICAM_MELT = "pns_preview_multicam_melt"
+
 /** Sprint **15.27** — intervalometer time-lapse automation seeds. */
 const val EXTRA_PNS_PREVIEW_TIMELAPSE_MODE = "pns_preview_timelapse_mode"
 const val EXTRA_PNS_PREVIEW_TIMELAPSE_RUNNING = "pns_preview_timelapse_running"
@@ -429,6 +435,11 @@ const val EXTRA_PNS_AUTO_EXPORT_PROBE = "pns_auto_export_probe"
  */
 const val EXTRA_PNS_FLEET_MATRIX_SCAN = "pns_fleet_matrix_scan"
 
+/** Fleet Parity Sweep (M18.6): `--ez pns_auto_parity_sweep true --es pns_parity_sweep_mode quick|full|delta` */
+const val EXTRA_PNS_AUTO_PARITY_SWEEP = "pns_auto_parity_sweep"
+const val EXTRA_PNS_PARITY_SWEEP_MODE = "pns_parity_sweep_mode"
+const val EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD = "pns_parity_sweep_include_record"
+
 /** When true, enables [OnePlus13FleetPolicyPlugin] for this process (developer / regression lane). */
 const val EXTRA_PNS_LEGACY_OP13_FLEET_POLICY = "pns_legacy_op13_fleet_policy"
 
@@ -541,6 +552,8 @@ fun CameraCapabilitiesProbe(
     var showDebugMenu by remember { mutableStateOf(false) }
     var showEyeOverlayCalibrator by remember { mutableStateOf(false) }
     var previewLaunchedFromDebug by remember { mutableStateOf(false) }
+    var fleetMatrixFeaturesQuery by remember { mutableStateOf<String?>(null) }
+    var hudHighlightSettingKey by remember { mutableStateOf<String?>(null) }
     var probeHubNavEpoch by remember { mutableIntStateOf(0) }
 
     var shallowRescanSeq by remember {
@@ -622,6 +635,33 @@ fun CameraCapabilitiesProbe(
                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
             }
             else -> Log.w(TAG_PROBE_HUB, "Unknown probe hub entry title=$title")
+        }
+    }
+
+    fun handleProbeHubSearchPick(pick: ProbeHubSearchPick, dismissDebugMenu: Boolean) {
+        if (dismissDebugMenu) showDebugMenu = false
+        when (pick) {
+            is ProbeHubSearchPick.HubMenu -> navigateProbeFromTitle(pick.title, dismissDebugMenu = dismissDebugMenu)
+            is ProbeHubSearchPick.CatalogFeature -> {
+                fleetMatrixFeaturesQuery = pick.displayName
+                showFleetMatrix = true
+            }
+            is ProbeHubSearchPick.ChromeSetting -> {
+                val hit = pick.hit
+                Log.i(
+                    TAG_PROBE_HUB,
+                    "settingsSearchPick title=${hit.title} subPage=${hit.subPage} key=${hit.settingKey}",
+                )
+                if (hit.subPage == "hud" && hit.settingKey != null) {
+                    hudHighlightSettingKey = hit.settingKey
+                    hudSettingsFocus = HudSettingsFocus.None
+                    showHudSettings = true
+                } else {
+                    PendingChromeSettingsNavigation.stash(hit)
+                    previewLaunchedFromDebug = true
+                    showPreviewEngine = true
+                }
+            }
         }
     }
 
@@ -759,6 +799,13 @@ fun CameraCapabilitiesProbe(
             showNativeDiagnostics = true
         } else if (launchScreen == SCREEN_ROOT_SETTINGS) {
             showRootSettings = true
+        }
+    }
+
+    LaunchedEffect(hasCameraPermission, launchScreen, fleetMatrixScanTier) {
+        val autoParity = activity?.intent?.getBooleanExtra(EXTRA_PNS_AUTO_PARITY_SWEEP, false) == true
+        if (autoParity || (launchScreen == PNS_SCREEN_PROBE_HUB && !fleetMatrixScanTier.isNullOrBlank())) {
+            showFleetMatrix = true
         }
     }
 
@@ -914,6 +961,18 @@ fun CameraCapabilitiesProbe(
             if (trustIntentForPreviewPipeline) activity?.intent.previewWindNoiseFilterExtra() else null
         val adbAeLockSeed =
             if (trustIntentForPreviewPipeline) activity?.intent.previewAeLockExtra() else null
+        val adbPipPreviewSeed =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_PIP, false) ?: false
+            } else {
+                false
+            }
+        val adbMulticamMeltSeed =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_MULTICAM_MELT, false) ?: false
+            } else {
+                false
+            }
         val adbTimelapseModeSeed =
             if (trustIntentForPreviewPipeline) activity?.intent.previewTimelapseModeExtra() else null
         val adbTimelapseRunningSeed =
@@ -1327,6 +1386,8 @@ fun CameraCapabilitiesProbe(
             adbAudioWindSeed = adbAudioWindSeed,
             adbWindNoiseFilterSeed = adbWindNoiseFilterSeed,
             adbAeLockSeed = adbAeLockSeed,
+            adbPipPreviewSeed = adbPipPreviewSeed,
+            adbMulticamMeltSeed = adbMulticamMeltSeed,
             adbTimelapseModeSeed = adbTimelapseModeSeed,
             adbTimelapseRunningSeed = adbTimelapseRunningSeed,
             adbTimelapseIntervalSecSeed = adbTimelapseIntervalSecSeed,
@@ -1421,7 +1482,13 @@ fun CameraCapabilitiesProbe(
     }
 
     if (showFleetMatrix) {
-        FleetMatrixHubScreen(onBack = { showFleetMatrix = false })
+        FleetMatrixHubScreen(
+            onBack = {
+                showFleetMatrix = false
+                fleetMatrixFeaturesQuery = null
+            },
+            initialFeaturesQuery = fleetMatrixFeaturesQuery,
+        )
         return
     }
 
@@ -1530,8 +1597,11 @@ fun CameraCapabilitiesProbe(
             onBack = {
                 showHudSettings = false
                 hudSettingsFocus = HudSettingsFocus.None
+                hudHighlightSettingKey = null
             },
             initialFocus = hudSettingsFocus,
+            highlightSettingKey = hudHighlightSettingKey,
+            onHighlightConsumed = { hudHighlightSettingKey = null },
             onReplayWelcomeTips = {
                 WelcomePrefs.resetPermissionOnboardingForDebug(context.applicationContext)
                 showHudSettings = false
@@ -1746,6 +1816,7 @@ fun CameraCapabilitiesProbe(
                 ProbeHubRecentsStore.toggleFavoriteTitle(appCtx, t)
                 probeHubNavEpoch++
             },
+            onProbeHubSearchPick = { pick -> handleProbeHubSearchPick(pick, dismissDebugMenu = true) },
         )
         return
     }
@@ -1849,6 +1920,7 @@ fun CameraCapabilitiesProbe(
             ProbeHubRecentsStore.toggleFavoriteTitle(appCtx, t)
             probeHubNavEpoch++
         },
+        onProbeHubSearchPick = { pick -> handleProbeHubSearchPick(pick, dismissDebugMenu = false) },
     )
 }
 

@@ -1,5 +1,8 @@
 package dev.pointandshoot.fleet
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -10,12 +13,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,8 +37,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.app.Activity
+import dev.pointandshoot.EXTRA_PNS_AUTO_PARITY_SWEEP
+import dev.pointandshoot.EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD
+import dev.pointandshoot.EXTRA_PNS_PARITY_SWEEP_MODE
 import dev.pointandshoot.ProbeLiveLogPanel
 import dev.pointandshoot.appendProbeLine
 import dev.pointandshoot.asPaddingValues
@@ -47,11 +60,28 @@ import org.json.JSONObject
 
 private const val TAG = "PNS.FleetMatrixHub"
 
+private enum class MatrixHubTab(val label: String) {
+    Summary("Summary"),
+    ByCamera("By camera"),
+    Features("Features"),
+    RawJson("Raw JSON"),
+}
+
+private val AdbPullMatrix =
+    "adb exec-out run-as dev.pointandshoot cat files/${FleetDeviceMatrixStore.MATRIX_FILE_NAME}"
+private val AdbPullSummary =
+    "adb exec-out run-as dev.pointandshoot cat files/${FleetDeviceMatrixStore.SUMMARY_FILE_NAME}"
+
 /**
- * Engineering hub — fleet device capability matrix (Milestone **16.2**).
+ * Engineering hub — unified **Device capability matrix** (Milestones **16.2** + **17.3**).
+ *
+ * Merges fleet matrix JSON, capability catalog, and human summary in one screen.
  */
 @Composable
-fun FleetMatrixHubScreen(onBack: () -> Unit) {
+fun FleetMatrixHubScreen(
+    onBack: () -> Unit,
+    initialFeaturesQuery: String? = null,
+) {
     val context = LocalContext.current
     val appCtx = context.applicationContext
     val scope = rememberCoroutineScope()
@@ -61,13 +91,78 @@ fun FleetMatrixHubScreen(onBack: () -> Unit) {
     var isRunning by remember { mutableStateOf(false) }
     val scanLines = remember { mutableStateListOf<String>() }
     var reloadNonce by remember { mutableIntStateOf(0) }
+    var selectedTab by remember {
+        mutableIntStateOf(
+            if (!initialFeaturesQuery.isNullOrBlank()) MatrixHubTab.Features.ordinal else MatrixHubTab.Summary.ordinal,
+        )
+    }
+    var featuresQuery by remember(initialFeaturesQuery) { mutableStateOf(initialFeaturesQuery.orEmpty()) }
+    var showParitySheet by remember { mutableStateOf(false) }
+    var lastParitySummary by remember { mutableStateOf<String?>(null) }
+
+    fun runParity(mode: FleetParitySweepRunner.Mode, includeRecord: Boolean) {
+        if (isRunning) return
+        isRunning = true
+        showParitySheet = false
+        status = "Parity sweep ${mode.wire}…"
+        scanLines.clear()
+        scanLines.add("${Instant.now()} — parity ${mode.wire}")
+        scope.launch {
+            try {
+                val root =
+                    withContext(Dispatchers.IO) {
+                        var m = matrix ?: FleetDeviceMatrixStore.loadValid(appCtx)
+                        if (m == null) {
+                            FleetDeviceMatrixBuilder.buildQuickAndSave(appCtx, forceRescan = true)
+                            m = FleetDeviceMatrixStore.loadValid(appCtx)
+                        }
+                        m
+                    } ?: throw IllegalStateException("no matrix")
+                val report =
+                    withContext(Dispatchers.Default) {
+                        FleetParitySweepRunner.run(appCtx, root, mode, includeRecord)
+                    }
+                val gaps = report.gapCounts[FleetParitySweep.GapClass.GAP_ADVERTISED_NOT_PROVEN] ?: 0
+                val mismatch = report.gapCounts[FleetParitySweep.GapClass.GAP_DELIVERY_MISMATCH] ?: 0
+                lastParitySummary = "cells=${report.cells.size} gaps=$gaps mismatch=$mismatch"
+                status = "Parity ${mode.wire} OK — $lastParitySummary"
+                scanLines.appendProbeLine(status)
+                scanLines.appendProbeLine(FleetParitySweepRunner.writeClosurePlan(report))
+                val outDir = appCtx.getExternalFilesDir(null) ?: appCtx.filesDir
+                val reportFile = File(outDir, "parity_report_${mode.wire}.json")
+                reportFile.writeText(report.toJson().toString(2), Charsets.UTF_8)
+                scanLines.appendProbeLine("Wrote ${reportFile.name}")
+            } catch (e: Throwable) {
+                status = "Parity failed: ${e.message}"
+                Log.e(TAG, "parity sweep failed", e)
+            } finally {
+                isRunning = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val act = context as? Activity ?: return@LaunchedEffect
+        if (!act.intent.getBooleanExtra(EXTRA_PNS_AUTO_PARITY_SWEEP, false)) return@LaunchedEffect
+        val modeWire = act.intent.getStringExtra(EXTRA_PNS_PARITY_SWEEP_MODE)?.lowercase()?.trim() ?: "quick"
+        val mode =
+            when (modeWire) {
+                "full" -> FleetParitySweepRunner.Mode.FULL
+                "delta" -> FleetParitySweepRunner.Mode.DELTA
+                else -> FleetParitySweepRunner.Mode.QUICK
+            }
+        val includeRecord = act.intent.getBooleanExtra(EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD, false)
+        runParity(mode, includeRecord)
+    }
 
     fun reloadFromDisk() {
-        matrix = FleetDeviceMatrixStore.loadValid(appCtx)
-            ?: runCatching {
-                val f = FleetDeviceMatrixStore.matrixFile(appCtx)
-                if (f.exists()) JSONObject(f.readText()) else null
-            }.getOrNull()
+        val raw =
+            FleetDeviceMatrixStore.loadValid(appCtx)
+                ?: runCatching {
+                    val f = FleetDeviceMatrixStore.matrixFile(appCtx)
+                    if (f.exists()) JSONObject(f.readText()) else null
+                }.getOrNull()
+        matrix = raw?.let { FleetDeviceMatrix.withCatalogIfMissing(it) }
         status = FleetDeviceMatrixStore.summaryLine(appCtx)
     }
 
@@ -133,7 +228,14 @@ fun FleetMatrixHubScreen(onBack: () -> Unit) {
         }
     }
 
-    fun exportJson() {
+    fun copyToClipboard(label: String, text: String) {
+        val mgr = appCtx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        mgr.setPrimaryClip(ClipData.newPlainText(label, text))
+        status = "Copied: $label"
+        scope.launch { scanLines.appendProbeLine(status) }
+    }
+
+    fun exportArtifacts() {
         val root = matrix ?: return
         scope.launch(Dispatchers.IO) {
             val ts =
@@ -141,10 +243,12 @@ fun FleetMatrixHubScreen(onBack: () -> Unit) {
                     .withZone(ZoneId.systemDefault())
                     .format(Instant.now())
             val dir = appCtx.getExternalFilesDir(null) ?: appCtx.filesDir
-            val out = File(dir, "fleet_device_matrix_$ts.json")
-            out.writeText(root.toString(2), Charsets.UTF_8)
+            val jsonOut = File(dir, "fleet_device_matrix_$ts.json")
+            val mdOut = File(dir, "fleet_device_capability_summary_$ts.md")
+            jsonOut.writeText(root.toString(2), Charsets.UTF_8)
+            mdOut.writeText(FleetCapabilitySummaryMarkdown.render(root), Charsets.UTF_8)
             withContext(Dispatchers.Main) {
-                status = "Exported ${out.name} (${out.length()} bytes)"
+                status = "Exported ${jsonOut.name} + ${mdOut.name}"
                 scanLines.appendProbeLine(status)
             }
         }
@@ -156,8 +260,13 @@ fun FleetMatrixHubScreen(onBack: () -> Unit) {
                 .fillMaxSize()
                 .background(Color(0xFF121212))
                 .padding(insets.asPaddingValues(extra = 16.dp)),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Text(
+            "Device capability matrix",
+            style = MaterialTheme.typography.titleLarge,
+            color = Color.White,
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -170,27 +279,393 @@ fun FleetMatrixHubScreen(onBack: () -> Unit) {
                 Text("Rescan full")
             }
         }
-        OutlinedButton(onClick = { exportJson() }, enabled = matrix != null && !isRunning, modifier = Modifier.fillMaxWidth()) {
-            Text("Export JSON")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlinedButton(
+                onClick = { exportArtifacts() },
+                enabled = matrix != null && !isRunning,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Export JSON + summary")
+            }
+            Button(
+                onClick = { showParitySheet = true },
+                enabled = matrix != null && !isRunning,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text("Run Parity Sweep")
+            }
         }
-        Text(
-            "Rescan playbook: docs/FLEET_DEVICE_CAPABILITY_MATRIX.md (when app/OS/fleet code changes)",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.55f),
-        )
+        lastParitySummary?.let {
+            Text("Last parity: $it", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        }
+        if (showParitySheet) {
+            FleetParityModeSheet(
+                onDismiss = { showParitySheet = false },
+                onRun = { mode, include -> runParity(mode, include) },
+            )
+        }
         Text(status, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f))
-        matrix?.let { root ->
-            MatrixSummaryCard(root)
-            DiffCard(root)
-            EncoderCard(root.optJSONObject(FleetDeviceMatrix.KEY_ENCODER))
-            CameraTable(root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS))
+
+        if (FleetDeviceMatrix.needsFullRescan(matrix)) {
+            NewDeviceRescanBanner(
+                onRescanFull = { launchFull() },
+                enabled = !isRunning,
+            )
         }
-        ProbeLiveLogPanel(
-            title = "Scan log",
-            lines = scanLines,
+
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            edgePadding = 0.dp,
+        ) {
+            MatrixHubTab.entries.forEachIndexed { index, tab ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(tab.label) },
+                )
+            }
+        }
+
+        matrix?.let { root ->
+            when (MatrixHubTab.entries[selectedTab]) {
+                MatrixHubTab.Summary ->
+                    SummaryTabContent(
+                        root = root,
+                        onCopyAdb = { label, cmd -> copyToClipboard(label, cmd) },
+                        modifier = Modifier.weight(1f),
+                    )
+                MatrixHubTab.ByCamera ->
+                    ByCameraTabContent(
+                        root = root,
+                        modifier = Modifier.weight(1f),
+                    )
+                MatrixHubTab.Features ->
+                    FeaturesTabContent(
+                        root = root,
+                        modifier = Modifier.weight(1f),
+                        initialQuery = featuresQuery,
+                        onQueryChange = { featuresQuery = it },
+                    )
+                MatrixHubTab.RawJson ->
+                    RawJsonTabContent(
+                        root = root,
+                        modifier = Modifier.weight(1f),
+                    )
+            }
+        } ?: Text("No matrix on disk — run Quick refresh.", color = Color.White.copy(alpha = 0.7f))
+
+        if (scanLines.isNotEmpty()) {
+            ProbeLiveLogPanel(
+                title = "Scan log",
+                lines = scanLines,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NewDeviceRescanBanner(onRescanFull: () -> Unit, enabled: Boolean) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF3D2E14)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                "New device or incomplete scan",
+                style = MaterialTheme.typography.titleSmall,
+                color = Color(0xFFFFCC80),
+            )
+            Text(
+                "Run Rescan full for stream/format inventory, face-detect modes, and the feature catalog. " +
+                    "Quick tier alone is not enough for chrome visibility or video format gates.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.88f),
+            )
+            Button(onClick = onRescanFull, enabled = enabled) { Text("Rescan full") }
+        }
+    }
+}
+
+@Composable
+private fun SummaryTabContent(
+    root: JSONObject,
+    onCopyAdb: (label: String, command: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val summaryMd = remember(root) { FleetCapabilitySummaryMarkdown.render(root) }
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        MatrixSummaryCard(root)
+        DiffCard(root)
+        EncoderCard(root.optJSONObject(FleetDeviceMatrix.KEY_ENCODER))
+        AdbPullCard(onCopyAdb = onCopyAdb)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Human summary (markdown)", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                Text(
+                    summaryMd,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = Color.White.copy(alpha = 0.82f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdbPullCard(onCopyAdb: (label: String, command: String) -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A2433)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("ADB pull paths", style = MaterialTheme.typography.titleSmall, color = Color.White)
+            AdbPathRow("Matrix JSON", AdbPullMatrix, onCopyAdb)
+            AdbPathRow("Summary markdown", AdbPullSummary, onCopyAdb)
+            Text(
+                "Host: scripts/pns_fleet_matrix_scan.ps1 pulls both after hub scan.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.5f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdbPathRow(label: String, command: String, onCopy: (String, String) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Color(0xFFAAEECC))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                command,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White.copy(alpha = 0.78f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            OutlinedButton(onClick = { onCopy(label, command) }) { Text("Copy") }
+        }
+    }
+}
+
+@Composable
+private fun ByCameraTabContent(root: JSONObject, modifier: Modifier = Modifier) {
+    LazyColumn(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item {
+            Text(
+                "Structured cameras[] + deep caps stream hints when full tier is present.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.62f),
+            )
+        }
+        val cameras = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: JSONArray()
+        items((0 until cameras.length()).toList()) { i ->
+            val cam = cameras.optJSONObject(i) ?: return@items
+            CameraDetailCard(cam, root)
+        }
+    }
+}
+
+@Composable
+private fun CameraDetailCard(cam: JSONObject, root: JSONObject) {
+    val id = cam.optString("cameraId")
+    val deepStream = findDeepStream(root, id)
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Camera $id · ${cam.optString("lensFacing")}", color = Color(0xFFAAEECC))
+            Text(
+                "HFR@1080=${cam.opt("hfrMaxFpsAt1080")} · RAW=${cam.optString("rawPickEffective")} · ${cam.optString("hardwareLevel")}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.85f),
+            )
+            cam.optJSONObject("featureGates")?.let { g ->
+                Text(
+                    gateLine("RAW", g.optJSONObject("raw")) +
+                        " · " + gateLine("HFR", g.optJSONObject("hfr")) +
+                        " · " + gateLine("face", g.optJSONObject("face")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.72f),
+                )
+            }
+            val faceModes = cam.optJSONArray("faceDetectModes")
+            if (faceModes != null && faceModes.length() > 0) {
+                Text(
+                    "Face detect modes: ${(0 until faceModes.length()).joinToString(",") { faceModes.optInt(it).toString() }}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.72f),
+                )
+            }
+            deepStream?.let { stream ->
+                val byFmt = stream.optJSONObject("outputSizesByFormat")
+                if (byFmt != null) {
+                    Text("Stream formats (deep caps):", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.6f))
+                    val keys = byFmt.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        val arr = byFmt.optJSONArray(k) ?: continue
+                        Text(
+                            "  $k: ${arr.length()} sizes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.68f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturesTabContent(
+    root: JSONObject,
+    modifier: Modifier = Modifier,
+    initialQuery: String = "",
+    onQueryChange: (String) -> Unit = {},
+) {
+    var query by remember(initialQuery) { mutableStateOf(initialQuery) }
+    val rows = remember(root) { catalogRowsFrom(root) }
+    val filtered =
+        remember(rows, query) {
+            if (query.isBlank()) {
+                rows
+            } else {
+                val q = query.trim().lowercase()
+                rows.filter { row ->
+                    row.optString("displayName").lowercase().contains(q) ||
+                        row.optString("id").lowercase().contains(q) ||
+                        row.optString("category").lowercase().contains(q) ||
+                        row.optString("sourceLayer").lowercase().contains(q)
+                }
+            }
+        }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = {
+                query = it
+                onQueryChange(it)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search features…") },
+            singleLine = true,
+        )
+        Text(
+            "${filtered.size} / ${rows.size} catalog rows",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.62f),
+        )
+        LazyColumn(
             modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            items(filtered, key = { it.optString("id") }) { row ->
+                CatalogFeatureCard(row)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatalogFeatureCard(row: JSONObject) {
+    val supported = row.optBoolean("deviceSupported")
+    val rootOnly = row.optBoolean("rootOnly")
+    Card(
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    when {
+                        rootOnly -> Color(0xFF1A2840)
+                        supported -> Color(0xFF1E3A2F)
+                        else -> Color(0xFF2A2222)
+                    },
+            ),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(row.optString("displayName"), color = Color.White)
+            Text(
+                row.optString("id"),
+                style = MaterialTheme.typography.labelSmall,
+                fontFamily = FontFamily.Monospace,
+                color = Color.White.copy(alpha = 0.55f),
+            )
+            Text(
+                "${row.optString("category")} · ${row.optString("sourceLayer")} · app=${row.optString("appStatus")}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.78f),
+            )
+            Text(
+                buildString {
+                    append(if (supported) "On device" else "Not on device")
+                    append(" · policy=${row.optString("visibilityPolicy")}")
+                    if (rootOnly) append(" · root-only")
+                    row.optString("detail").takeIf { it.isNotEmpty() }?.let { append(" · $it") }
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFAAEECC),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RawJsonTabContent(root: JSONObject, modifier: Modifier = Modifier) {
+    val jsonText = remember(root) { root.toString(2) }
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+        Text(
+            "Pretty-printed matrix JSON (includes capabilityCatalog when built).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.62f),
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        Text(
+            jsonText,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White.copy(alpha = 0.82f),
         )
     }
+}
+
+private fun catalogRowsFrom(root: JSONObject): List<JSONObject> {
+    val withCatalog = FleetDeviceMatrix.withCatalogIfMissing(root)
+    val arr = withCatalog.optJSONArray(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG) ?: return emptyList()
+    return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
+}
+
+private fun findDeepStream(root: JSONObject, cameraId: String): JSONObject? {
+    val deep = root.optJSONObject(FleetDeviceMatrix.KEY_APPENDIX)?.optJSONObject("deepCaps") ?: return null
+    val cams = deep.optJSONArray("cameras") ?: return null
+    for (i in 0 until cams.length()) {
+        val c = cams.optJSONObject(i) ?: continue
+        if (c.optString("cameraId") == cameraId) return c.optJSONObject("streamConfigurationMap")
+    }
+    return null
 }
 
 @Composable
@@ -204,6 +679,10 @@ private fun MatrixSummaryCard(root: JSONObject) {
             Text("Summary", style = MaterialTheme.typography.titleSmall, color = Color.White)
             Text("Tier: ${meta?.optString("scanTier") ?: "?"}", color = Color.White.copy(alpha = 0.85f))
             Text("Cameras: ${FleetDeviceMatrix.cameraCount(root)}", color = Color.White.copy(alpha = 0.85f))
+            Text(
+                "Catalog rows: ${root.optJSONArray(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG)?.length() ?: 0}",
+                color = Color.White.copy(alpha = 0.85f),
+            )
             Text("Scan ms: ${meta?.optLong("scanDurationMs") ?: 0}", color = Color.White.copy(alpha = 0.85f))
             Text(
                 "Device: ${root.optJSONObject(FleetDeviceMatrix.KEY_DEVICE)?.optString("model") ?: "?"}",
@@ -256,11 +735,6 @@ private fun EncoderCard(encoder: JSONObject?) {
                     )
                 }
             }
-            Text(
-                "USB: pns_video_matrix_verify.ps1 · pns_video_codec_color_compare.ps1",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.5f),
-            )
         }
     }
 }
@@ -279,52 +753,6 @@ private fun DiffCard(root: JSONObject) {
             for (i in 0 until lines.length()) {
                 Text(lines.optString(i), color = Color.White.copy(alpha = 0.88f), maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
-        }
-    }
-}
-
-@Composable
-private fun CameraTable(cameras: JSONArray?) {
-    if (cameras == null || cameras.length() == 0) return
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.06f)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Text("Per camera", style = MaterialTheme.typography.titleSmall, color = Color.White)
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.White.copy(alpha = 0.12f))
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items((0 until cameras.length()).toList()) { i ->
-                    val cam = cameras.optJSONObject(i) ?: return@items
-                    CameraRow(cam)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CameraRow(cam: JSONObject) {
-    val id = cam.optString("cameraId")
-    val gates = cam.optJSONObject("featureGates")
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text("Camera $id · ${cam.optString("lensFacing")}", color = Color(0xFFAAEECC))
-        Text(
-            "HFR@1080=${cam.opt("hfrMaxFpsAt1080")} · RAW=${cam.opt("rawPickEffective")} · ${cam.opt("hardwareLevel")}",
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.White.copy(alpha = 0.82f),
-        )
-        gates?.let { g ->
-            Text(
-                gateLine("RAW", g.optJSONObject("raw")) +
-                    " · " + gateLine("HFR", g.optJSONObject("hfr")) +
-                    " · " + gateLine("face", g.optJSONObject("face")),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.72f),
-            )
         }
     }
 }

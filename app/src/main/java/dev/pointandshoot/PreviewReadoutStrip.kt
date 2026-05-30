@@ -364,6 +364,12 @@ fun PreviewReadoutStrip(
     showMacroVideoBadge: Boolean = false,
     /** Sprint **15.32** — OIS/EIS readout chip; hidden when null. */
     stabChipLabel: String? = null,
+    /** Milestone **17.5** — fleet gate for STAB chip (defaults to showing when label set). */
+    showStabChip: Boolean = true,
+    /** Milestone **17.5** — fleet gate for IMG chip in photo mode. */
+    showImgChipOverride: Boolean = true,
+    /** M19.6 — long-press opens [StillFormatPickerSheet]. */
+    onImgChipLongClick: () -> Unit = {},
     /** Sprint **14.8** — tap opens HAL focus-mode picker (CAF / manual distance / …). */
     focusChipValue: String = "CAF",
     onFocusChipClick: () -> Unit = {},
@@ -826,7 +832,7 @@ fun PreviewReadoutStrip(
                 onLongClick = onFocusChipLongClick,
                 accessibilityLabel = "Focus mode. Current $focusChipValue. Opens focus mode picker.",
             )
-            if (!stabChipLabel.isNullOrBlank()) {
+            if (showStabChip && !stabChipLabel.isNullOrBlank()) {
                 ReadoutMetricChip(
                     label = "STAB",
                     value = stabChipLabel,
@@ -922,7 +928,7 @@ fun PreviewReadoutStrip(
                 }
             }
             }
-            if (PreviewReadoutChipMode.showImgChip(primaryPhoto)) {
+            if (PreviewReadoutChipMode.showImgChip(primaryPhoto) && showImgChipOverride) {
                 Box(modifier = Modifier.width(chipLayout.img!!)) {
                     ReadoutMetricChip(
                         label = "IMG",
@@ -932,6 +938,7 @@ fun PreviewReadoutStrip(
                         valueStyle = valueStyle,
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { imgMenu = true },
+                        onLongClick = onImgChipLongClick,
                         accessibilityLabel = rawChipA11y,
                     )
                     PnsChromeDropdownMenu(expanded = imgMenu, onDismissRequest = { imgMenu = false }) {

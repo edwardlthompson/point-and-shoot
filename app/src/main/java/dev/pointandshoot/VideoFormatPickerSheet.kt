@@ -38,12 +38,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -108,10 +106,15 @@ private fun resolutionShortLabel(w: Int, h: Int): String = when {
 fun VideoFormatPickerSheet(
     formats: List<VideoFormat>,
     selectedFormat: VideoFormat?,
-    videoTruth: InAppVideoFormatSelection.VideoTruth?,
+    halSupports8kCapture: Boolean = false,
+    rawVideoAvailable: Boolean = false,
+    rawVideoSelected: Boolean = false,
     chrome: PreviewChromePreferences,
     patchChrome: ((PreviewChromePreferences) -> PreviewChromePreferences) -> Unit,
+    hud: HudSettings,
+    patchHud: (HudSettings) -> Unit,
     onSelect: (VideoFormat) -> Unit,
+    onSelectRawVideo: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -128,38 +131,50 @@ fun VideoFormatPickerSheet(
                 MediaCodecCapabilityProbe.probeSync()
             }
     }
+    val colorSpaces = remember { ColorQualityIndex.videoSpacesForPicker() }
+    var pickedColorOrdinal by remember(chrome.inAppVideoColorSpaceOrdinal) {
+        mutableIntStateOf(
+            chrome.inAppVideoColorSpaceOrdinal.takeIf { it >= 0 }
+                ?: colorSpaces.indexOfFirst { it.id == "rec709" }.coerceAtLeast(0),
+        )
+    }
+    val pickedColorSpace = colorSpaces.getOrNull(pickedColorOrdinal)
+    val filteredFormats =
+        remember(formats, pickedColorSpace) {
+            ColorQualityIndex.filterVideoFormats(formats, pickedColorSpace)
+        }
     val pickerLists8k =
-        remember(formats) {
-            formats.any { it.resolution.width >= 7680 || it.resolution.height >= 4320 }
+        remember(filteredFormats) {
+            filteredFormats.any { it.resolution.width >= 7680 || it.resolution.height >= 4320 }
         }
     val hiFiKhzLabel =
         remember(hiFiMuxRateHz) {
             if (hiFiMuxRateHz > 0) "${hiFiMuxRateHz / 1000} kHz" else "…"
         }
 
-    // Derive all distinct aspects, resolutions, fps, codecs from the full format list
-    val allAspects = remember(formats) {
-        formats.map { videoAspectRatio(it.resolution.width, it.resolution.height) }
+    // Derive all distinct aspects, resolutions, fps, codecs from the filtered format list
+    val allAspects = remember(filteredFormats) {
+        filteredFormats.map { videoAspectRatio(it.resolution.width, it.resolution.height) }
             .distinctBy { it.label }.sortedBy { it.label }
     }
 
     // Picker state — initialise from selectedFormat if available
-    var pickedAspect by remember(selectedFormat, formats) {
+    var pickedAspect by remember(selectedFormat, filteredFormats) {
         mutableStateOf(
             selectedFormat?.let { videoAspectRatio(it.resolution.width, it.resolution.height) }
                 ?: allAspects.firstOrNull { it.label == "16:9" } ?: allAspects.firstOrNull()
         )
     }
-    var pickedResolution by remember(selectedFormat, formats) {
+    var pickedResolution by remember(selectedFormat, filteredFormats) {
         mutableStateOf(selectedFormat?.resolution)
     }
     var pickedFps by remember(selectedFormat) { mutableStateOf(selectedFormat?.frameRate) }
     var pickedCodec by remember(selectedFormat) { mutableStateOf(selectedFormat?.codec) }
 
     // Derived filtered lists for each step
-    val aspectFormats = remember(formats, pickedAspect) {
-        val a = pickedAspect ?: return@remember formats
-        formats.filter { videoAspectRatio(it.resolution.width, it.resolution.height).label == a.label }
+    val aspectFormats = remember(filteredFormats, pickedAspect) {
+        val a = pickedAspect ?: return@remember filteredFormats
+        filteredFormats.filter { videoAspectRatio(it.resolution.width, it.resolution.height).label == a.label }
     }
     val availableResolutions = remember(aspectFormats) {
         aspectFormats.map { it.resolution }.distinctBy { "${it.width}x${it.height}" }
@@ -170,14 +185,20 @@ fun VideoFormatPickerSheet(
         aspectFormats.filter { it.resolution.width == r.width && it.resolution.height == r.height }
     }
     val availableFps = remember(resolutionFormats) {
-        resolutionFormats.map { it.frameRate }.distinct().sorted()
+        resolutionFormats.map { it.frameRate }.distinct().sortedDescending()
     }
     val fpsFormats = remember(resolutionFormats, pickedFps) {
         val f = pickedFps ?: return@remember resolutionFormats
         resolutionFormats.filter { it.frameRate == f }
     }
     val availableCodecs = remember(fpsFormats) {
-        fpsFormats.map { it.codec }.distinct().sortedBy { it.ordinal }
+        FormatQualityRegistry.sortVideoCodecs(fpsFormats.map { it.codec }.distinct())
+    }
+
+    val maxPresets = remember(filteredFormats) {
+        VideoFormatQualityRank.ResolutionBucket.entries.mapNotNull { bucket ->
+            VideoFormatQualityRank.pickBestForBucket(filteredFormats, bucket)?.let { bucket to it }
+        }
     }
 
     // Auto-correct picker state when available options shrink
@@ -236,6 +257,7 @@ fun VideoFormatPickerSheet(
                             .background(PnsColors.PhotoOrange.copy(alpha = 0.15f))
                             .border(1.dp, PnsColors.PhotoOrange.copy(alpha = 0.60f), RoundedCornerShape(8.dp))
                             .clickable {
+                                patchChrome { it.copy(inAppVideoColorSpaceOrdinal = pickedColorOrdinal) }
                                 onSelect(resolvedFormat)
                                 onDismiss()
                             }
@@ -252,49 +274,18 @@ fun VideoFormatPickerSheet(
             }
             HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
 
-            val halLists8k =
-                videoTruth?.lines?.any { it.contains("HAL capture outputs=yes", ignoreCase = true) } == true
-            if (pickerLists8k && (mcCaps?.supports8k != true || !halLists8k)) {
+            if (pickerLists8k && (mcCaps?.supports8k != true || !halSupports8kCapture)) {
                 Text(
                     text =
                         "8K is not available on this device (encoder max ${mcCaps?.maxFps8k ?: 0} fps @ 8K; " +
-                            "HAL capture=${if (halLists8k) "yes" else "no"}). Choose 4K or lower.",
+                            "HAL capture=${if (halSupports8kCapture) "yes" else "no"}). Choose 4K or lower.",
                     style = MaterialTheme.typography.bodySmall,
                     color = PnsColors.PhotoOrange.copy(alpha = 0.9f),
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
 
-            videoTruth?.lines?.takeIf { it.isNotEmpty() }?.let { truthLines ->
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 10.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.06f))
-                            .border(1.dp, VideoFormatColors.HfrAmber.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                ) {
-                    Text(
-                        text = "Video truth (this camera)",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = VideoFormatColors.HfrAmber,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    truthLines.forEach { line ->
-                        Text(
-                            text = "· $line",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.78f),
-                            lineHeight = 18.sp,
-                        )
-                    }
-                }
-            }
-
-            if (formats.isEmpty()) {
+            if (filteredFormats.isEmpty() && !rawVideoAvailable) {
                 Text(
                     text = "No formats available for current settings.",
                     style = MaterialTheme.typography.bodySmall,
@@ -305,6 +296,89 @@ fun VideoFormatPickerSheet(
             }
 
             LazyColumn(contentPadding = PaddingValues(bottom = 8.dp)) {
+
+                // ── Step 0: Color space (CQI) ─────────────────────────────────
+                item {
+                    PickerSectionHeader(
+                        step = "0",
+                        label = "Color space",
+                        selected = pickedColorSpace?.displayName,
+                    )
+                }
+                items(items = colorSpaces, key = { "cspace_${it.id}" }) { space ->
+                    val idx = colorSpaces.indexOf(space)
+                    val isSel = idx == pickedColorOrdinal
+                    PickerOptionRow(
+                        label = space.displayName,
+                        sublabel = "Filters codecs below",
+                        isSelected = isSel,
+                        accentColor = PnsColors.PhotoOrange,
+                    ) {
+                        pickedColorOrdinal = idx
+                        patchChrome { it.copy(inAppVideoColorSpaceOrdinal = idx) }
+                        pickedResolution = null
+                        pickedFps = null
+                        pickedCodec = null
+                    }
+                }
+
+                if (rawVideoAvailable) {
+                    item {
+                        PickerSectionHeader(
+                            step = "R",
+                            label = "RAW video",
+                            selected = if (rawVideoSelected) ".mcraw" else null,
+                        )
+                    }
+                    item {
+                        PickerOptionRow(
+                            label = "RAW · .mcraw",
+                            sublabel = "Sensor dump lane (matrix-gated)",
+                            isSelected = rawVideoSelected,
+                            accentColor = Color(0xFF80DEEA),
+                            badge = "RAW",
+                        ) {
+                            onSelectRawVideo()
+                            onDismiss()
+                        }
+                    }
+                }
+
+                // ── Max presets (highest quality per resolution bucket) ───────
+                if (maxPresets.isNotEmpty()) {
+                    item {
+                        PickerSectionHeader(
+                            step = "★",
+                            label = "Max quality presets",
+                            selected = null,
+                        )
+                    }
+                    items(items = maxPresets, key = { "max_${it.first.name}" }) { (bucket, format) ->
+                        val desc = FormatQualityRegistry.forVideoCodec(format.codec)
+                        PickerOptionRow(
+                            label = bucket.label,
+                            sublabel =
+                                buildString {
+                                    append(format.getLabel())
+                                    append(" · ")
+                                    append(format.frameRate)
+                                    append(" fps")
+                                    desc?.let {
+                                        append(" · ")
+                                        append(it.bitDepthLabel)
+                                    }
+                                },
+                            rightLabel = format.getBitrateLabel(),
+                            isSelected = resolvedFormat == format,
+                            accentColor = PnsColors.PhotoOrange,
+                        ) {
+                            pickedAspect = videoAspectRatio(format.resolution.width, format.resolution.height)
+                            pickedResolution = format.resolution
+                            pickedFps = format.frameRate
+                            pickedCodec = format.codec
+                        }
+                    }
+                }
 
                 // ── Step 1: Aspect Ratio ──────────────────────────────────────
                 item {
@@ -359,16 +433,20 @@ fun VideoFormatPickerSheet(
                 items(items = availableCodecs, key = { "codec_${it.name}" }) { codec ->
                     val isSel = codec == pickedCodec
                     val fmt = fpsFormats.firstOrNull { it.codec == codec }
+                    val desc = FormatQualityRegistry.forVideoCodec(codec)
                     val accent = when {
                         fmt?.isDcg == true -> VideoFormatColors.DcgPurple
                         fmt?.isTenBit == true -> VideoFormatColors.TenBitTeal
                         codec == VideoCodec.AV1 -> Color(0xFF82B1FF)
+                        codec == VideoCodec.VP9 -> Color(0xFF80CBC4)
                         else -> Color.White
                     }
                     PickerOptionRow(
                         label = codecLabel(codec),
-                        sublabel = fmt?.getQualityHint(),
-                        rightLabel = fmt?.getBitrateLabel(),
+                        sublabel =
+                            desc?.let { "${it.containerLabel} · ${it.compressionLabel}" }
+                                ?: fmt?.getQualityHint(),
+                        rightLabel = fmt?.getBitrateLabel() ?: desc?.bitrateMbpsHint?.let { "$it Mbps" },
                         isSelected = isSel,
                         accentColor = accent,
                         badge = when {
@@ -388,10 +466,22 @@ fun VideoFormatPickerSheet(
                         label = "Audio",
                         selected =
                             buildString {
+                                append(hud.videoAudioSourceEnum().label)
+                                append(" · ")
                                 if (chrome.audioHiFiCapture) append("Hi-Fi $hiFiKhzLabel ")
                                 append("${if (chrome.audioWindNoiseReduction) "wind NS" else "wind off"}")
                             }.trim(),
                     )
+                }
+                items(items = VideoAudioSource.entries, key = { "audsrc_${it.name}" }) { source ->
+                    val isSel = hud.videoAudioSourceEnum() == source
+                    PickerOptionRow(
+                        label = source.label,
+                        isSelected = isSel,
+                        accentColor = Color.White,
+                    ) {
+                        patchHud(hud.copy(videoAudioSource = source.storageId))
+                    }
                 }
                 item {
                     VideoAudioSettingRow(
@@ -449,12 +539,19 @@ private fun VideoAudioSettingRow(
     subtitle: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    showSwitch: Boolean = true,
 ) {
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable { onCheckedChange(!checked) }
+                .then(
+                    if (showSwitch) {
+                        Modifier.clickable { onCheckedChange(!checked) }
+                    } else {
+                        Modifier
+                    },
+                )
                 .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -472,7 +569,9 @@ private fun VideoAudioSettingRow(
                 fontSize = 11.sp,
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        if (showSwitch) {
+            Switch(checked = checked, onCheckedChange = onCheckedChange)
+        }
     }
 }
 
@@ -482,6 +581,7 @@ private fun codecLabel(codec: VideoCodec): String = when (codec) {
     VideoCodec.H265_10BIT -> "H.265 10-bit"
     VideoCodec.DCG -> "H.265 DCG HDR"
     VideoCodec.AV1 -> "AV1"
+    VideoCodec.VP9 -> "VP9 WebM"
 }
 
 @Composable

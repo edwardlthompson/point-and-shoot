@@ -134,4 +134,23 @@ Per-SKU checklists: **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
 
 See **`AGENTS.md`** — **CRITICAL — Fleet capability matrix** and **`.cursor/rules/fleet-generic-policy.mdc`**.
 
+## Milestone 17 — capability catalog & device-tailored UI
+
+| Artifact | Path / code |
+|----------|-------------|
+| Catalog slice | `capabilityCatalog` + `catalogVersion` in `fleet_device_matrix.json` |
+| Human summary | `files/fleet_device_capability_summary.md` (pulled by `pns_fleet_matrix_scan.ps1`) |
+| Catalog builder | `CameraCapabilityCatalog.kt`, `CameraCapabilityCatalogBuilder.kt` |
+| UI visibility | `FleetUiVisibilityGate.kt`, `FleetChromeVisibility.kt` — hide unavailable consumer chrome; root-only blue + toast |
+| Hub UI | `FleetMatrixHubScreen` (Summary · By camera · Features · Raw JSON); `ProbeHubSearch.kt` |
+| Encoder rescan | `MediaCodecCapabilityProbe.invalidateAndReprobe()` on matrix quick/full save |
+
+**Consumer chrome policy:** Matrix `capabilityCatalog.deviceSupported` + per-camera `featureGates` drive **hide** vs **show**. Engineering hub shows full inventory (including probe-only rows). Log tags: `PNS.FleetVisibility`, `PNS.ProbeHub`.
+
+**Video format (17.6):** Probe includes **1080p@30** tier; H.264 ≤60 fps rows allowed when HAL **MediaRecorder** lists the size; preview refreshes format catalog when `scanMeta.generatedAtEpochMs` changes after rescan (no app restart).
+
+**Docs:** `docs/CAMERA_CAPABILITY_CATALOG.md` · `docs/PNS_TECHNICAL_SETTINGS.md` §8 / §10 / §14 · `.cursor/rules/fleet-ui-visibility.mdc`
+
+**Milestone 17 gate (2026-05-29):** `pns_verify_toolchain.ps1 -RunTests` (M17 JVM tests PASS; full host gate has pre-existing detekt/license/`WorkflowPresetsTest` drift) + `pns_fleet_matrix_scan.ps1 -Serial b5214fc6` → `hfr-runs/fleet_matrix_20260529_231715/` (pass=True, JSON + summary) + `pns_chrome_ux_gate.ps1 -Serial b5214fc6 -SkipHost` → `hfr-runs/chrome_ux_gate_20260529_232129/` (pass=True, `teleFocalSlotOk=true`) + `pns_video_capability_probe.ps1` → `h264PerfPoint 1920x1080@30fps` on **CPH2583** (`b5214fc6`).
+
 

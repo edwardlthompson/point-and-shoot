@@ -21,6 +21,7 @@ enum class VideoCodec {
     H265_10BIT, // HEVC 10-bit "RAW-like" / HLG10
     DCG,        // Vendor HDR mode (requires HEVC Main10HDR10)
     AV1,        // AV1 8-bit (c2.qti.av1.encoder where available)
+    VP9,        // VP9 WebM (matrix-gated; below AV1 in picker)
 }
 
 data class VideoFormat(
@@ -33,7 +34,7 @@ data class VideoFormat(
 ) {
     fun getMediaRecorderVideoEncoder(): Int = when (codec) {
         VideoCodec.H264 -> MediaRecorder.VideoEncoder.H264
-        VideoCodec.H265, VideoCodec.H265_10BIT, VideoCodec.DCG, VideoCodec.AV1 -> {
+        VideoCodec.H265, VideoCodec.H265_10BIT, VideoCodec.DCG, VideoCodec.AV1, VideoCodec.VP9 -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
                 MediaRecorder.VideoEncoder.HEVC
             } else {
@@ -48,22 +49,27 @@ data class VideoFormat(
         VideoCodec.H265_10BIT -> "H.265 10-bit"
         VideoCodec.DCG -> "DCG"
         VideoCodec.AV1 -> "AV1"
+        VideoCodec.VP9 -> "VP9"
     }
 
     fun getBitrateLabel(): String = "${bitrate / 1_000_000} Mbps"
 
-    fun getQualityHint(): String = when (codec) {
+    fun getQualityHint(): String = FormatQualityRegistry.forVideoCodec(codec)?.let {
+        "${it.bitDepthLabel} · ${it.compressionLabel}"
+    } ?: when (codec) {
         VideoCodec.H264 -> "Standard compatibility"
         VideoCodec.H265 -> "25% smaller files"
         VideoCodec.H265_10BIT -> "Best quality — HLG10"
         VideoCodec.DCG -> "Maximum dynamic range — HDR10"
         VideoCodec.AV1 -> "Next-gen — best compression"
+        VideoCodec.VP9 -> "WebM compatibility"
     }
 
     /** True when recording uses [MediaCodecVideoRecorder] (HFR, 10-bit, DCG, AV1, or 8-bit HEVC SDR). */
     val requiresMediaCodec: Boolean
         get() =
             codec == VideoCodec.AV1 ||
+                codec == VideoCodec.VP9 ||
                 isTenBit ||
                 isDcg ||
                 frameRate > VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS ||
@@ -114,7 +120,8 @@ object VideoFormatPresets {
             VideoCodec.H265 -> 0.07
             VideoCodec.H265_10BIT -> 0.15
             VideoCodec.DCG -> 0.18
-            VideoCodec.AV1 -> 0.05  // AV1 achieves better quality at lower bitrate
+            VideoCodec.AV1 -> 0.05
+            VideoCodec.VP9 -> 0.06
         }
         val computed = (width.toLong() * height * fps * bpp).toInt()
         // Absolute caps to prevent absurd values at extreme fps × resolution combos
@@ -141,6 +148,7 @@ object VideoFormatPresets {
         supportsTenBit: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU,
         supportsDcg: Boolean = false,
         supportsAv1: Boolean = false,
+        supportsVp9: Boolean = false,
     ): List<VideoFormat> {
         val formats = mutableListOf<VideoFormat>()
 
@@ -207,6 +215,21 @@ object VideoFormatPresets {
             }
         }
 
+        if (supportsVp9 &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+            fps < 120 &&
+            !VideoRecordingController.lacksTrueHfrUniqueFrames(fps, VideoCodec.VP9)
+        ) {
+            formats.add(
+                VideoFormat(
+                    codec = VideoCodec.VP9,
+                    resolution = resolution,
+                    frameRate = fps,
+                    bitrate = calculateBitrate(resolution.width, resolution.height, fps, VideoCodec.VP9),
+                ),
+            )
+        }
+
         return formats
     }
 
@@ -243,6 +266,7 @@ object VideoFormatPresets {
     fun getHardwareTiers(
         supportsDcg: Boolean = false,
         supportsAv1: Boolean = false,
+        supportsVp9: Boolean = false,
         highSpeedMap: StreamConfigurationMap? = null,
         mediaRecorderSizes: List<Size>? = null,
     ): List<VideoFormat> {
@@ -261,6 +285,7 @@ object VideoFormatPresets {
                         supportsTenBit = tenBit,
                         supportsDcg = supportsDcg,
                         supportsAv1 = supportsAv1,
+                        supportsVp9 = supportsVp9,
                     )
                 )
             }

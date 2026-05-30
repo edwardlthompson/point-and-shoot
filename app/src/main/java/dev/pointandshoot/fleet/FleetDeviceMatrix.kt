@@ -9,7 +9,8 @@ import org.json.JSONObject
  * Structured slices are queryable by agents and host scripts; heavy dumps live under [KEY_APPENDIX].
  */
 object FleetDeviceMatrix {
-    const val SCHEMA_VERSION: Int = 1
+    const val SCHEMA_VERSION: Int = 2
+    const val SCHEMA_VERSION_MIN: Int = 1
     const val SCAN_ORDERING_VERSION: Int = 1
 
     const val KEY_SCHEMA_VERSION = "schemaVersion"
@@ -30,11 +31,13 @@ object FleetDeviceMatrix {
         FULL("full"),
     }
 
-    fun isValidRoot(root: JSONObject): Boolean =
-        root.optInt(KEY_SCHEMA_VERSION, -1) == SCHEMA_VERSION &&
+    fun isValidRoot(root: JSONObject): Boolean {
+        val schema = root.optInt(KEY_SCHEMA_VERSION, -1)
+        return schema in SCHEMA_VERSION_MIN..SCHEMA_VERSION &&
             root.has(KEY_SCAN_META) &&
             root.has(KEY_DEVICE) &&
             root.optJSONArray(KEY_CAMERAS) != null
+    }
 
     fun deviceBlock(manufacturer: String, model: String, device: String): JSONObject =
         JSONObject().apply {
@@ -88,6 +91,26 @@ object FleetDeviceMatrix {
         root.optJSONObject(KEY_SCAN_META)?.optLong("appVersionCode", -1L) ?: -1L
 
     fun cameraCount(root: JSONObject): Int = root.optJSONArray(KEY_CAMERAS)?.length() ?: 0
+
+    /** True when quick tier only, deep caps absent, or catalog not yet built (Milestone **17.3** banner). */
+    fun needsFullRescan(root: JSONObject?): Boolean {
+        if (root == null) return true
+        if (parseScanTier(root) != ScanTier.FULL) return true
+        val deep =
+            root.optJSONObject(KEY_APPENDIX)?.optJSONObject("deepCaps")
+                ?: return true
+        val cams = deep.optJSONArray("cameras")
+        if (cams == null || cams.length() == 0) return true
+        val catalog = root.optJSONArray(KEY_CAPABILITY_CATALOG)
+        return catalog == null || catalog.length() == 0
+    }
+
+    fun withCatalogIfMissing(root: JSONObject): JSONObject =
+        if (root.has(KEY_CAPABILITY_CATALOG)) {
+            root
+        } else {
+            CameraCapabilityCatalogBuilder.attachTo(root)
+        }
 
     fun defaultDeviceBlock(): JSONObject =
         deviceBlock(

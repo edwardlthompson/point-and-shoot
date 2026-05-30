@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.util.Log
+import dev.pointandshoot.fleet.FleetUiVisibilityGate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -93,6 +94,8 @@ fun QuickSettingsRailSheetContent(
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
     onKickPreviewPipeline: () -> Unit,
+    visibilityCtx: FleetUiVisibilityGate.VisibilityContext,
+    highlightFlash: SettingHighlightFlashState? = null,
 ) {
     val chrome = chromePrefs.current
     val hud = hudState.current
@@ -102,6 +105,7 @@ fun QuickSettingsRailSheetContent(
         )
         ShutterModeRailSection(chromePrefs = chromePrefs, hudState = hudState)
         PreviewRailSectionTitle("Overlays")
+        if (FleetUiVisibilityGate.visible("hud.histogram", visibilityCtx)) {
         PreviewRailSettingToggle(
             title = "Histogram",
             subtitle = null,
@@ -109,7 +113,10 @@ fun QuickSettingsRailSheetContent(
             onCheckedChange = { on ->
                 hudState.update(hud.copy(showHistogram = on))
             },
+            settingKey = "hud.histogram",
+            highlightFlash = highlightFlash,
         )
+        }
         PreviewRailSettingToggle(
             title = "Horizon level",
             subtitle = null,
@@ -117,15 +124,21 @@ fun QuickSettingsRailSheetContent(
             onCheckedChange = { on ->
                 hudState.update(hud.copy(showHorizonLevel = on))
             },
+            settingKey = "hud.horizon",
+            highlightFlash = highlightFlash,
         )
-        PreviewRailSettingToggle(
-            title = "Eye-AF overlay",
-            subtitle = null,
-            checked = hud.showEyeAfOverlay,
-            onCheckedChange = { on ->
-                hudState.update(hud.copy(showEyeAfOverlay = on))
-            },
-        )
+        if (FleetUiVisibilityGate.visible("face.eye_af", visibilityCtx)) {
+            PreviewRailSettingToggle(
+                title = "Eye-AF overlay",
+                subtitle = null,
+                checked = hud.showEyeAfOverlay,
+                onCheckedChange = { on ->
+                    hudState.update(hud.copy(showEyeAfOverlay = on))
+                },
+                settingKey = "hud.eye_af",
+                highlightFlash = highlightFlash,
+            )
+        }
         PreviewRailSettingToggle(
             title = "Video tally",
             subtitle = null,
@@ -133,6 +146,8 @@ fun QuickSettingsRailSheetContent(
             onCheckedChange = { on ->
                 hudState.update(hud.copy(showVideoTally = on))
             },
+            settingKey = "hud.video_tally",
+            highlightFlash = highlightFlash,
         )
         PreviewRailSectionTitle("Preview & capture")
         PreviewRailSettingToggle(
@@ -185,6 +200,7 @@ fun QuickSettingsRailSheetContent(
             },
         )
         PreviewRailSectionTitle("Stabilization")
+        if (FleetUiVisibilityGate.visible("lens.ois", visibilityCtx)) {
         PreviewRailSettingToggle(
             title = "Optical stabilization (OIS)",
             subtitle = null,
@@ -193,7 +209,11 @@ fun QuickSettingsRailSheetContent(
                 hudState.update(hud.copy(enableLensOpticalStabilization = on))
                 onKickPreviewPipeline()
             },
+            settingKey = "video.ois",
+            highlightFlash = highlightFlash,
         )
+        }
+        if (FleetUiVisibilityGate.visible("lens.eis", visibilityCtx)) {
         PreviewRailSettingToggle(
             title = "Electronic stabilization (EIS)",
             subtitle = null,
@@ -202,7 +222,10 @@ fun QuickSettingsRailSheetContent(
                 hudState.update(hud.copy(enableVideoStabilizationPreview = on))
                 onKickPreviewPipeline()
             },
+            settingKey = "video.eis",
+            highlightFlash = highlightFlash,
         )
+        }
         PreviewRailSectionTitle("Flash (rear)")
         Text(
             "Mode: ${chrome.previewFlashMode.name}",

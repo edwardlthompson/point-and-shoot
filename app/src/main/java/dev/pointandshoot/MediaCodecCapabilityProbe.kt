@@ -29,8 +29,19 @@ object MediaCodecCapabilityProbe {
     private const val MIME_HEVC = MediaFormat.MIMETYPE_VIDEO_HEVC
     private const val MIME_AVC = MediaFormat.MIMETYPE_VIDEO_AVC
     private const val MIME_AV1 = MediaFormat.MIMETYPE_VIDEO_AV1
+    private const val MIME_VP9 = "video/x-vnd.on2.vp9"
 
     @Volatile private var cached: CapabilityMatrix? = null
+    @Volatile private var probeGeneration: Int = 0
+
+    /** Clears cached probe results (Milestone **17.6** — call after fleet matrix rescan). */
+    fun invalidateAndReprobe() {
+        cached = null
+        probeGeneration++
+        Log.i(TAG, "capProbeInvalidate gen=$probeGeneration")
+    }
+
+    fun probeGeneration(): Int = probeGeneration
 
     /**
      * A resolution + fps combination confirmed as a hardware performance-point guarantee.
@@ -64,11 +75,14 @@ object MediaCodecCapabilityProbe {
         /** Sprint **VF.1** — at least one hardware [MIME_AV1] encoder (e.g. `c2.qti.av1.encoder`). */
         val supportsAv1: Boolean = false,
         val av1EncoderNames: List<String> = emptyList(),
+        /** M19.1 — VP9 WebM encoder (below AV1 in picker). */
+        val supportsVp9: Boolean = false,
+        val vp9EncoderNames: List<String> = emptyList(),
     ) {
         fun summary(): String = buildString {
             append("encoders=${encoders.size} ")
             append("main10=$supportsMain10 hdr10=$supportsHdr10 hdr10plus=$supportsHdr10Plus ")
-            append("yuvp010=$supportsYuvP010 av1=$supportsAv1 ")
+            append("yuvp010=$supportsYuvP010 av1=$supportsAv1 vp9=$supportsVp9 ")
             append("1080p_max=${maxFps1080p}fps 4k_max=${maxFps4k}fps 8k_max=${maxFps8k}fps ")
             append("hevc_perf=${performancePoints.size} h264_perf=${h264PerformancePoints.size}")
         }
@@ -96,6 +110,31 @@ object MediaCodecCapabilityProbe {
      */
     fun probeSync(): CapabilityMatrix = cached ?: runProbe().also { cached = it }
 
+    /** JVM-safe wrapper — unit tests and host-side catalog evaluators use this. */
+    fun probeSyncSafe(): CapabilityMatrix =
+        try {
+            probeSync()
+        } catch (_: Throwable) {
+            emptyCapabilityMatrix()
+        }
+
+    private fun emptyCapabilityMatrix(): CapabilityMatrix =
+        CapabilityMatrix(
+            encoders = emptyList(),
+            performancePoints = emptyList(),
+            supportsMain10 = false,
+            supportsHdr10 = false,
+            supportsHdr10Plus = false,
+            supportsYuvP010 = false,
+            maxFps1080p = 0,
+            maxFps4k = 0,
+            maxFps8k = 0,
+            supports4k = false,
+            supports8k = false,
+            supportsAv1 = false,
+            supportsVp9 = false,
+        )
+
     @Suppress("LongMethod", "TooGenericExceptionCaught", "MagicNumber")
     private fun runProbe(): CapabilityMatrix {
         val list = MediaCodecList(MediaCodecList.ALL_CODECS)
@@ -119,9 +158,10 @@ object MediaCodecCapabilityProbe {
         val probeTiers: List<Triple<Int, Int, Int>> = listOf(
             Triple(7680, 4320, 24), Triple(7680, 4320, 30), Triple(7680, 4320, 48),
             Triple(3840, 2160, 30), Triple(3840, 2160, 60), Triple(3840, 2160, 120),
-            Triple(1920, 1080, 60), Triple(1920, 1080, 120), Triple(1920, 1080, 240),
+            Triple(1920, 1080, 30), Triple(1920, 1080, 60), Triple(1920, 1080, 120),
+            Triple(1920, 1080, 240),
             Triple(1920, 1080, 480),
-            Triple(1280, 720, 60), Triple(1280, 720, 120),
+            Triple(1280, 720, 30), Triple(1280, 720, 60), Triple(1280, 720, 120),
         )
 
         for (codec in hevcEncoders) {
@@ -255,6 +295,14 @@ object MediaCodecCapabilityProbe {
                 .sorted()
         val supportsAv1 = av1EncoderNames.isNotEmpty()
 
+        val vp9EncoderNames =
+            list.codecInfos
+                .filter { it.isEncoder && !it.isAlias && MIME_VP9 in it.supportedTypes }
+                .map { it.name }
+                .distinct()
+                .sorted()
+        val supportsVp9 = vp9EncoderNames.isNotEmpty()
+
         val matrix = CapabilityMatrix(
             encoders = encoderInfos,
             performancePoints = allPerformancePoints.distinctBy { "${it.width}x${it.height}@${it.fps}" },
@@ -271,11 +319,16 @@ object MediaCodecCapabilityProbe {
             supports8k = maxFps8k > 0,
             supportsAv1 = supportsAv1,
             av1EncoderNames = av1EncoderNames,
+            supportsVp9 = supportsVp9,
+            vp9EncoderNames = vp9EncoderNames,
         )
 
         Log.i(TAG, "capProbeResult ${matrix.summary()}")
         if (supportsAv1) {
             Log.i(TAG, "av1Encoders=${av1EncoderNames.joinToString(",")}")
+        }
+        if (supportsVp9) {
+            Log.i(TAG, "vp9Encoders=${vp9EncoderNames.joinToString(",")}")
         }
         for (enc in matrix.encoders) {
             Log.i(TAG, "encoder name=${enc.name} maxRes=${enc.maxWidth}x${enc.maxHeight} " +
@@ -323,7 +376,13 @@ object MediaCodecCapabilityProbe {
                 ?.map { it.fps }
                 .orEmpty()
         val fromHs = InAppVideoRecordingSupport.highSpeedFpsForEncodeSize(highSpeedMap, width, height)
-        val merged = (fromHevc + fromH264 + fromHs).distinct().sorted()
+        val baseline =
+            if (InAppVideoRecordingSupport.supportsMediaRecorderOutputSize(highSpeedMap, width, height)) {
+                listOf(30)
+            } else {
+                emptyList()
+            }
+        val merged = (baseline + fromHevc + fromH264 + fromHs).distinct().sorted()
         return merged.ifEmpty { defaultFpsOptions(width, height) }
     }
 
@@ -347,4 +406,7 @@ object MediaCodecCapabilityProbe {
     /** QTI HW AV1 (e.g. `c2.qti.av1.encoder`) — required for HFR AV1; SW encoder cannot sustain 120fps. */
     fun supportsHardwareAv1Encoder(): Boolean =
         cached?.av1EncoderNames?.any { it.contains("qti", ignoreCase = true) } == true
+
+    /** M19.1 — VP9 WebM encoder in [MediaCodecList]. */
+    fun supportsVp9Encoder(): Boolean = cached?.supportsVp9 == true
 }

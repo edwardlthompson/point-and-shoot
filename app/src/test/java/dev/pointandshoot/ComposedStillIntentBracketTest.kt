@@ -10,20 +10,33 @@ import org.junit.Test
 class ComposedStillIntentBracketTest {
 
     @Test
-    fun rawPlusJpeg_resolvesIndependentPlans() {
+    fun rawPlusJpeg_matchingTier_usesSidecarPlan() {
         val intent =
             ComposedStillIntent(
                 raw = ImgMenuTier.Standard,
                 jpeg = ImgMenuTier.Standard,
                 hdrWhenJpegOff = ImgMenuTier.Standard,
             )
+        assertTrue(intent.wantsMatchedTierJpegSidecar())
         val plan = intent.resolveCapturePlan()
         assertEquals(RawMode.LosslessCompressedDng, plan.raw!!.rawMode)
-        assertEquals(TonalContainer.Avif10BitHdr, plan.tonal!!.tonalContainer)
-        val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = true)
-        val tonalDecision = EncoderRoute.decide(plan.tonal!!, nativeAvailable = true)
-        assertEquals(1, rawDecision.fileCountForCapture)
-        assertEquals(1, tonalDecision.fileCountForCapture)
+        assertEquals(null, plan.tonal)
+        assertEquals(92, plan.jpegSidecarPreset!!.softwareJpegCompanionQuality)
+    }
+
+    @Test
+    fun rawPlusJpeg_mixedTier_keepsIndependentTonal() {
+        val intent =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Standard,
+                jpeg = ImgMenuTier.Ultra,
+                hdrWhenJpegOff = ImgMenuTier.Standard,
+            )
+        assertFalse(intent.wantsMatchedTierJpegSidecar())
+        val plan = intent.resolveCapturePlan()
+        assertEquals(RawMode.LosslessCompressedDng, plan.raw!!.rawMode)
+        assertEquals(TonalContainer.JpegXl12Bit, plan.tonal!!.tonalContainer)
+        assertEquals(null, plan.jpegSidecarPreset)
     }
 
     @Test
@@ -58,7 +71,7 @@ class ComposedStillIntentBracketTest {
     }
 
     @Test
-    fun ultraRawUltraJpeg_separateBundles() {
+    fun ultraRawUltraJpeg_sidecarNotDualTonal() {
         val intent =
             ComposedStillIntent(
                 raw = ImgMenuTier.Ultra,
@@ -67,7 +80,8 @@ class ComposedStillIntentBracketTest {
             )
         val plan = intent.resolveCapturePlan()
         assertEquals(RawMode.UncompressedRaw12Dng, plan.raw!!.rawMode)
-        assertEquals(TonalContainer.JpegXl12Bit, plan.tonal!!.tonalContainer)
+        assertEquals(null, plan.tonal)
+        assertEquals(100, plan.jpegSidecarPreset!!.softwareJpegCompanionQuality)
         assertTrue(intent.wantsRawDng())
         assertTrue(intent.wantsTonalStill())
     }

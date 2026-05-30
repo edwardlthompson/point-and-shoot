@@ -81,6 +81,10 @@ data class PreviewChromePreferences(
     val inAppVideoCodecOrdinal: Int = -1,
     /** Last user-selected video frame rate; 0 = not set (use default). */
     val inAppVideoFps: Int = 0,
+    /** M19.6 — [ColorQualityIndex.VideoColorSpace] ordinal; -1 = default (Rec709 SDR). */
+    val inAppVideoColorSpaceOrdinal: Int = -1,
+    /** M19.6 — [ColorSpaceTarget] ordinal for still export color space; -1 = profile default. */
+    val stillColorSpaceOrdinal: Int = -1,
     /** Sprint AS.1 — 96 kHz / float PCM + 256 kbps AAC when the device supports it. */
     val audioHiFiCapture: Boolean = false,
     /** Sprint AS.1 — [android.media.audiofx.NoiseSuppressor] on video record audio. */
@@ -133,6 +137,8 @@ data class PreviewChromePreferences(
         private const val KEY_IN_APP_VIDEO_ENC_H = "in_app_video_encode_h"
         private const val KEY_IN_APP_VIDEO_CODEC = "in_app_video_codec_ordinal"
         private const val KEY_IN_APP_VIDEO_FPS = "in_app_video_fps"
+        private const val KEY_IN_APP_VIDEO_COLOR_SPACE = "in_app_video_color_space"
+        private const val KEY_STILL_COLOR_SPACE = "still_color_space"
         private const val KEY_AUDIO_HIFI = "audio_hifi_capture"
         private const val KEY_AUDIO_WIND_NS = "audio_wind_noise_reduction"
         private const val KEY_AUDIO_EXT_MIC = "audio_prefer_external_input"
@@ -199,6 +205,10 @@ data class PreviewChromePreferences(
                     prefs.getInt(KEY_IN_APP_VIDEO_CODEC, defaults.inAppVideoCodecOrdinal),
                 inAppVideoFps =
                     prefs.getInt(KEY_IN_APP_VIDEO_FPS, defaults.inAppVideoFps).coerceAtLeast(0),
+                inAppVideoColorSpaceOrdinal =
+                    prefs.getInt(KEY_IN_APP_VIDEO_COLOR_SPACE, defaults.inAppVideoColorSpaceOrdinal),
+                stillColorSpaceOrdinal =
+                    prefs.getInt(KEY_STILL_COLOR_SPACE, defaults.stillColorSpaceOrdinal),
                 audioHiFiCapture = prefs.getBoolean(KEY_AUDIO_HIFI, defaults.audioHiFiCapture),
                 audioWindNoiseReduction = prefs.getBoolean(KEY_AUDIO_WIND_NS, defaults.audioWindNoiseReduction),
                 audioPreferExternalInput = prefs.getBoolean(KEY_AUDIO_EXT_MIC, defaults.audioPreferExternalInput),
@@ -233,6 +243,8 @@ data class PreviewChromePreferences(
                 .putInt(KEY_IN_APP_VIDEO_ENC_H, value.inAppVideoEncodeHeight.coerceAtLeast(0))
                 .putInt(KEY_IN_APP_VIDEO_CODEC, value.inAppVideoCodecOrdinal)
                 .putInt(KEY_IN_APP_VIDEO_FPS, value.inAppVideoFps.coerceAtLeast(0))
+                .putInt(KEY_IN_APP_VIDEO_COLOR_SPACE, value.inAppVideoColorSpaceOrdinal)
+                .putInt(KEY_STILL_COLOR_SPACE, value.stillColorSpaceOrdinal)
                 .putBoolean(KEY_AUDIO_HIFI, value.audioHiFiCapture)
                 .putBoolean(KEY_AUDIO_WIND_NS, value.audioWindNoiseReduction)
                 .putBoolean(KEY_AUDIO_EXT_MIC, value.audioPreferExternalInput)

@@ -223,7 +223,7 @@ $policyId = ""
 if ($pulled) {
     try {
         $matrix = Get-Content -LiteralPath $matrixOut -Raw -Encoding UTF8 | ConvertFrom-Json
-        $schemaOk = ($matrix.schemaVersion -eq 1)
+        $schemaOk = ($matrix.schemaVersion -eq 1 -or $matrix.schemaVersion -eq 2)
         $scanTierObserved = "$($matrix.scanMeta.scanTier)"
         $cameraCount = @($matrix.cameras).Count
         if ($null -ne $matrix.product.fleetProfiles.policyId) {

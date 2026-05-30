@@ -8,6 +8,7 @@ import android.util.Log
 import dev.pointandshoot.CameraXExtensionProbe
 import dev.pointandshoot.DeviceCameraCapabilityCache
 import dev.pointandshoot.FleetCameraStartupScan
+import dev.pointandshoot.MediaCodecCapabilityProbe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -39,10 +40,10 @@ object FleetDeviceMatrixBuilder {
     ): BuildResult {
         val t0 = System.nanoTime()
         val app = context.applicationContext
+        val cm = app.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         var degraded = prebuiltDegraded ?: false
         val camerasJson =
             prebuiltCameras ?: run {
-                val cm = app.getSystemService(Context.CAMERA_SERVICE) as CameraManager
                 val arr = JSONArray()
                 for (id in cm.cameraIdList.sorted()) {
                     val cc = runCatching { cm.getCameraCharacteristics(id) }.getOrNull()
@@ -65,7 +66,7 @@ object FleetDeviceMatrixBuilder {
                 ?: DeviceCameraCapabilityCache.buildRoot(app, camerasJson, degraded)
         val fleetSnap = FleetCameraProfileBuilder.buildSnapshot(app)
         val focalEntries = FleetCameraStartupScan.scanNow(app)
-        val product = buildProductJson(fleetSnap, focalEntries)
+        val product = buildProductJson(app, fleetSnap, focalEntries, DeviceFeatureGates.build(cm))
         val durationMs = (System.nanoTime() - t0) / 1_000_000L
         val meta = scanMetaQuick(app, durationMs)
         val appendix =
@@ -122,6 +123,7 @@ object FleetDeviceMatrixBuilder {
             val fleetSnap = FleetCameraProfileBuilder.buildSnapshot(app)
             val profileById = fleetSnap.profiles.associateBy { it.cameraId }
             val focalEntries = FleetCameraStartupScan.scanNow(app)
+            val deviceGates = DeviceFeatureGates.build(cm)
 
             val structuredCameras = JSONArray()
             for (id in cm.cameraIdList.sorted()) {
@@ -148,12 +150,13 @@ object FleetDeviceMatrixBuilder {
                         sessionCam = sessionCam,
                         fleetProfile = profileById[id],
                         cc = cc,
+                        deviceGates = deviceGates,
                     ),
                 )
             }
 
             val shallowRoot = DeviceCameraCapabilityCache.buildRoot(app, structuredCameras, degraded)
-            val product = buildProductJson(fleetSnap, focalEntries)
+            val product = buildProductJson(app, fleetSnap, focalEntries, deviceGates)
             val durationMs = (System.nanoTime() - t0) / 1_000_000L
             val meta = scanMetaFull(app, durationMs)
             val appendix =
@@ -218,6 +221,9 @@ object FleetDeviceMatrixBuilder {
         }
         val built = buildQuick(context)
         FleetDeviceMatrixStore.saveWithArtifacts(context, CameraCapabilityCatalogBuilder.attachTo(built.root), rotatePreviousToHistory = forceRescan)
+        if (forceRescan) {
+            MediaCodecCapabilityProbe.invalidateAndReprobe()
+        }
         Log.i(
             TAG,
             "scanTier=quick cameras=${built.cameraCount} degraded=${built.degraded} ms=${built.scanDurationMs}",
@@ -237,6 +243,7 @@ object FleetDeviceMatrixBuilder {
         }
         val built = buildFull(context, onProgress)
         FleetDeviceMatrixStore.saveWithArtifacts(context, CameraCapabilityCatalogBuilder.attachTo(built.root), rotatePreviousToHistory = true)
+        MediaCodecCapabilityProbe.invalidateAndReprobe()
         val diffSummary = built.diff?.summaryLines?.joinToString("; ") ?: "none"
         Log.i(
             TAG,
@@ -249,10 +256,14 @@ object FleetDeviceMatrixBuilder {
     }
 
     private fun buildProductJson(
+        context: Context,
         fleetSnap: FleetProfilesSnapshot,
         focalEntries: List<dev.pointandshoot.FleetCameraStartupScan.SlotEntry>,
-    ): JSONObject =
-        JSONObject().apply {
+        deviceGates: DeviceFeatureGates.Slice,
+    ): JSONObject {
+        val cm = context.getSystemService(android.content.Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+        val ids = cm.cameraIdList.sorted()
+        return JSONObject().apply {
             put(
                 "focalSlots",
                 JSONArray().apply {
@@ -268,8 +279,19 @@ object FleetDeviceMatrixBuilder {
                     }
                 },
             )
+            put("focalRow", FleetFocalRowProductBuilder.build(context, ids, focalEntries))
+            put("concurrencyGates", deviceGates.toJson())
             put("fleetProfiles", fleetSnap.toJson())
+            put(
+                "osFlavor",
+                JSONObject().apply {
+                    put("manufacturer", android.os.Build.MANUFACTURER)
+                    put("brand", android.os.Build.BRAND)
+                    put("sdkInt", android.os.Build.VERSION.SDK_INT)
+                },
+            )
         }
+    }
 
     private fun scanMetaQuick(context: Context, durationMs: Long): JSONObject =
         baseScanMeta(context, FleetDeviceMatrix.ScanTier.QUICK, durationMs)

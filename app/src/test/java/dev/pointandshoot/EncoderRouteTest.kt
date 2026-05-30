@@ -23,14 +23,14 @@ class EncoderRouteTest {
         val plan =
             ComposedStillIntent(
                 raw = ImgMenuTier.Standard,
-                jpeg = ImgMenuTier.Standard,
+                jpeg = ImgMenuTier.Ultra,
                 hdrWhenJpegOff = ImgMenuTier.Standard,
             ).resolveCapturePlan()
         val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = true)
         val tonalDecision = EncoderRoute.decide(plan.tonal!!, nativeAvailable = true)
         assertEquals(RawMode.LosslessCompressedDng, rawDecision.rawWritten)
         assertNull(rawDecision.tonalWritten)
-        assertEquals(TonalContainer.Avif10BitHdr, tonalDecision.tonalWritten)
+        assertEquals(TonalContainer.JpegXl12Bit, tonalDecision.tonalWritten)
         assertEquals(1, rawDecision.fileCountForCapture)
         assertEquals(1, tonalDecision.fileCountForCapture)
     }
@@ -40,13 +40,13 @@ class EncoderRouteTest {
         val plan =
             ComposedStillIntent(
                 raw = ImgMenuTier.Ultra,
-                jpeg = ImgMenuTier.Ultra,
+                jpeg = ImgMenuTier.Standard,
                 hdrWhenJpegOff = ImgMenuTier.Ultra,
             ).resolveCapturePlan()
         val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = true)
         val tonalDecision = EncoderRoute.decide(plan.tonal!!, nativeAvailable = true)
         assertEquals(RawMode.UncompressedRaw12Dng, rawDecision.rawWritten)
-        assertEquals(TonalContainer.JpegXl12Bit, tonalDecision.tonalWritten)
+        assertEquals(TonalContainer.Avif10BitHdr, tonalDecision.tonalWritten)
     }
 
     @Test
@@ -71,7 +71,7 @@ class EncoderRouteTest {
         val plan =
             ComposedStillIntent(
                 raw = ImgMenuTier.Standard,
-                jpeg = ImgMenuTier.Standard,
+                jpeg = ImgMenuTier.Ultra,
                 hdrWhenJpegOff = ImgMenuTier.Standard,
             ).resolveCapturePlan()
         val rawDecision = EncoderRoute.decide(plan.raw!!, nativeAvailable = false)

@@ -65,6 +65,7 @@ class MediaCodecVideoRecorder(
         H264,
         HEVC,
         AV1,
+        VP9,
     }
 
     companion object {
@@ -90,6 +91,9 @@ class MediaCodecVideoRecorder(
 
         /** AOSP SW AV1 encoder fallback. */
         private const val ANDROID_AV1_ENCODER = "c2.android.av1.encoder"
+
+        /** AOSP SW VP9 encoder (WebM). */
+        private const val ANDROID_VP9_ENCODER = "c2.android.vp9.encoder"
 
         /** AAC-LC samples per encoded access unit. */
         private const val AAC_SAMPLES_PER_FRAME = 1024L
@@ -119,6 +123,17 @@ class MediaCodecVideoRecorder(
                     ?: av1Names.firstOrNull()
                     ?: QTI_AV1_ENCODER
             }
+            if (config.encoderKind == VideoEncoderKind.VP9) {
+                val vp9Mime = "video/x-vnd.on2.vp9"
+                val vp9Names =
+                    list.codecInfos
+                        .filter { it.isEncoder && !it.isAlias && vp9Mime in it.supportedTypes }
+                        .map { it.name }
+                return vp9Names.firstOrNull { it.contains("qti", ignoreCase = true) }
+                    ?: vp9Names.firstOrNull { it == ANDROID_VP9_ENCODER }
+                    ?: vp9Names.firstOrNull()
+                    ?: ANDROID_VP9_ENCODER
+            }
             if (config.encoderKind == VideoEncoderKind.H264) {
                 val avcNames =
                     list.codecInfos
@@ -144,6 +159,7 @@ class MediaCodecVideoRecorder(
             when (config.encoderKind) {
                 VideoEncoderKind.H264 -> MediaFormat.MIMETYPE_VIDEO_AVC
                 VideoEncoderKind.AV1 -> MediaFormat.MIMETYPE_VIDEO_AV1
+                VideoEncoderKind.VP9 -> "video/x-vnd.on2.vp9"
                 VideoEncoderKind.HEVC -> MediaFormat.MIMETYPE_VIDEO_HEVC
             }
 
@@ -242,11 +258,11 @@ class MediaCodecVideoRecorder(
         ): MediaFormat =
             applySpatialAudioMetadata(MediaFormat(encoderOutput), channelMask, pcmEncoding)
 
-        /** AV1 requires WebM mux on API 34+; HEVC/H.264 stay MP4. */
+        /** AV1 / VP9 require WebM mux on API 34+; HEVC/H.264 stay MP4. */
         fun muxerOutputFormatFor(config: Config): Int {
-            if (config.encoderKind == VideoEncoderKind.AV1) {
+            if (config.encoderKind == VideoEncoderKind.AV1 || config.encoderKind == VideoEncoderKind.VP9) {
                 require(Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    "AV1 in-app recording requires API 34+ WebM muxer"
+                    "AV1/VP9 in-app recording requires API 34+ WebM muxer"
                 }
                 return MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
             }
@@ -500,7 +516,7 @@ class MediaCodecVideoRecorder(
             }
             val colorVui =
                 when (config.encoderKind) {
-                    VideoEncoderKind.AV1, VideoEncoderKind.H264 -> {
+                    VideoEncoderKind.AV1, VideoEncoderKind.VP9, VideoEncoderKind.H264 -> {
                         runCatching {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                 format.setInteger(MediaFormat.KEY_COLOR_STANDARD, MediaFormat.COLOR_STANDARD_BT709)
@@ -1038,12 +1054,7 @@ class MediaCodecVideoRecorder(
                 }
                 val galleryFps =
                     when {
-                        info.captureFps >= VideoRecordingController.HFR_THRESHOLD_FPS &&
-                            effectiveFps >= info.captureFps / 2 ->
-                            info.captureFps
-                        effectiveFps > 0 && effectiveFps >= info.captureFps * 9 / 10 ->
-                            effectiveFps
-                        effectiveFps > 0 -> effectiveFps
+                        frames > 1L && effectiveFps > 0 -> effectiveFps
                         else -> info.captureFps
                     }
                 if (galleryFps != info.captureFps) {

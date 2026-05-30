@@ -121,6 +121,7 @@ fun DebugMenuScreen(
     onRecordProbeHubEntry: (String) -> Unit = {},
     onLaunchProbeHubTitle: (String) -> Unit = {},
     onToggleProbeHubFavorite: (String) -> Unit = {},
+    onProbeHubSearchPick: (ProbeHubSearchPick) -> Unit = {},
 ) {
     val context = LocalContext.current
     val appCtx = context.applicationContext
@@ -173,7 +174,7 @@ fun DebugMenuScreen(
                     listOf(
                         DebugEntry(
                             "Device capability matrix",
-                            "Fleet JSON — quick + full rescan, feature gates, export (Milestone 16).",
+                            "Unified matrix + catalog — Summary, By camera, Features (search), Raw JSON; export + ADB paths (17.3).",
                             true,
                             onShowFleetMatrix,
                         ),
@@ -323,6 +324,15 @@ fun DebugMenuScreen(
             ),
         )
 
+    val hubMenuEntries =
+        remember(sections) {
+            sections.flatMap { section ->
+                section.entries.map { entry -> ProbeHubMenuEntry(entry.title, section.title) }
+            }
+        }
+    val probeHubSearchIndex = remember(hubMenuEntries) { ProbeHubSearch.buildIndex(appCtx, hubMenuEntries) }
+    var probeHubSearchQuery by remember { mutableStateOf("") }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color(0xFF121212)).padding(padding),
         contentPadding = PaddingValues(bottom = 32.dp),
@@ -363,6 +373,20 @@ fun DebugMenuScreen(
                     },
                     onToggleFavorite = onToggleProbeHubFavorite,
                 )
+                ChromeSettingsSearchField(
+                    query = probeHubSearchQuery,
+                    onQueryChange = { probeHubSearchQuery = it },
+                )
+                if (probeHubSearchQuery.isNotBlank()) {
+                    ProbeHubSearchResults(
+                        query = probeHubSearchQuery,
+                        index = probeHubSearchIndex,
+                        onPick = { hit ->
+                            probeHubSearchQuery = ""
+                            onProbeHubSearchPick(hit.pick)
+                        },
+                    )
+                }
                 val orientationProbe by OrientationProbeBridge.snapshotState
                 DebugAuxiliaryCard(title = "Logical multi-camera (preview)") {
                     var activePhys by remember {

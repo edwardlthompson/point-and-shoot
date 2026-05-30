@@ -24,6 +24,7 @@ Host: `scripts/pns_fleet_matrix_scan.ps1` pulls both after hub scan.
 - `CameraCapabilityCatalogBuilder.kt` — evaluates registry against matrix JSON
 - `FleetCapabilitySummaryMarkdown.kt` — markdown renderer
 - `FleetDeviceMatrixStore.saveWithArtifacts()` — writes JSON + summary on every scan save
+- `FleetMatrixHubScreen.kt` — unified **Device capability matrix** hub (Milestone **17.3**): Summary / By camera / Features (search) / Raw JSON tabs; ADB copy; export JSON + summary
 
 ## Rescan
 

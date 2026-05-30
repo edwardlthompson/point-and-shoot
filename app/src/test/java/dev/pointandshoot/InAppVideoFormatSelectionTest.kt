@@ -45,18 +45,4 @@ class InAppVideoFormatSelectionTest {
         assertFalse(VideoRecordingController.lacksTrueHfrUniqueFrames(60, VideoCodec.AV1))
     }
 
-    @Test
-    fun buildVideoTruth_nullMap_mentionsNoHs() {
-        val truth = InAppVideoFormatSelection.buildVideoTruth(highSpeedMap = null)
-        assertTrue(
-            truth.lines.any { it.contains("No constrained high-speed", ignoreCase = true) },
-        )
-    }
-
-    @Test
-    fun buildVideoTruth_includesHonestH264Policy() {
-        val truth = InAppVideoFormatSelection.buildVideoTruth(highSpeedMap = null)
-        assertTrue(truth.lines.any { it.contains("H.264 only", ignoreCase = true) })
-    }
-
 }

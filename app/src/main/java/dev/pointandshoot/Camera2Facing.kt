@@ -21,4 +21,12 @@ object Camera2Facing {
                 CameraMetadata.LENS_FACING_FRONT
         }.getOrDefault(false)
     }
+
+    fun isBack(cm: CameraManager, cameraId: String?): Boolean {
+        if (cameraId.isNullOrBlank()) return false
+        return runCatching {
+            cm.getCameraCharacteristics(cameraId).get(CameraCharacteristics.LENS_FACING) ==
+                CameraMetadata.LENS_FACING_BACK
+        }.getOrDefault(false)
+    }
 }

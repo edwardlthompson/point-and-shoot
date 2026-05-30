@@ -34,6 +34,7 @@ object PreviewReadoutStillPipeline {
         sessionJpegCompanionReady: Boolean,
     ): String {
         val wantsTonal = intent.wantsTonalStill()
+        val sidecar = intent.wantsMatchedTierJpegSidecar()
         val jpegTier =
             if (wantsTonal) {
                 intent.jpeg
@@ -49,18 +50,22 @@ object PreviewReadoutStillPipeline {
                 }
             ImgMenuTier.Ultra -> {
                 val base = "DNG12"
-                if (wantsTonal && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
-                    "$base+${tonalSuffix(jpegTier)}"
-                } else {
-                    base
+                when {
+                    sidecar && stillCaptureJpegCompanion && sessionJpegCompanionReady ->
+                        "$base+JPEG"
+                    wantsTonal && stillCaptureJpegCompanion && sessionJpegCompanionReady ->
+                        "$base+${tonalSuffix(jpegTier)}"
+                    else -> base
                 }
             }
             ImgMenuTier.Standard -> {
                 val base = "DNG"
-                if (wantsTonal && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
-                    "$base+${tonalSuffix(jpegTier)}"
-                } else {
-                    base
+                when {
+                    sidecar && stillCaptureJpegCompanion && sessionJpegCompanionReady ->
+                        "$base+JPEG"
+                    wantsTonal && stillCaptureJpegCompanion && sessionJpegCompanionReady ->
+                        "$base+${tonalSuffix(jpegTier)}"
+                    else -> base
                 }
             }
         }
@@ -120,13 +125,17 @@ object PreviewReadoutStillPipeline {
             ImgMenuTier.Off ->
                 "Still capture. Independent tonal still (IMG -JPEG- tier). Opens IMG menu."
             ImgMenuTier.Ultra ->
-                if (intent.wantsTonalStill() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                if (intent.wantsMatchedTierJpegSidecar() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                    "Still capture. Ultra RAW12 DNG plus JPEG sidecar (same capture). Opens IMG menu."
+                } else if (intent.wantsTonalStill() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
                     "Still capture. Ultra RAW12 DNG plus separate tonal file. Opens IMG menu."
                 } else {
                     "Still capture. Ultra RAW12 DNG only. Opens IMG menu."
                 }
             ImgMenuTier.Standard ->
-                if (intent.wantsTonalStill() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                if (intent.wantsMatchedTierJpegSidecar() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
+                    "Still capture. Lossless DNG plus JPEG sidecar (same capture). Opens IMG menu."
+                } else if (intent.wantsTonalStill() && stillCaptureJpegCompanion && sessionJpegCompanionReady) {
                     "Still capture. Lossless DNG plus separate tonal file. Opens IMG menu."
                 } else {
                     "Still capture. Lossless DNG only. Opens IMG menu."

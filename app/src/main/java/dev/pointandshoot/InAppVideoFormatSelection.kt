@@ -10,8 +10,6 @@ import android.util.Log
 
 import android.util.Size
 
-import kotlin.math.max
-
 /**
 
  * Sprint **14.1** — persisted in-app video format (codec / resolution / fps) via
@@ -26,21 +24,13 @@ object InAppVideoFormatSelection {
 
 
 
-    /** Short device/camera notes shown at the top of [VideoFormatPickerSheet]. */
-
-    data class VideoTruth(
-
-        val lines: List<String>,
-
-    )
-
-
-
     fun loadCatalog(
 
         supportsDcg: Boolean,
 
         supportsAv1: Boolean = false,
+
+        supportsVp9: Boolean = false,
 
         highSpeedMap: StreamConfigurationMap? = null,
 
@@ -62,94 +52,15 @@ object InAppVideoFormatSelection {
 
                 supportsAv1 = supportsAv1,
 
+                supportsVp9 = supportsVp9,
+
                 highSpeedMap = highSpeedMap,
 
                 mediaRecorderSizes = mrSizes,
 
             )
 
-        return filterCatalogToCaptureCapabilities(tiers, highSpeedMap, supportsAv1)
-
-    }
-
-
-
-    /**
-
-     * Human-readable matrix for the active camera (HAL HS + encoder policy).
-
-     */
-
-    fun buildVideoTruth(highSpeedMap: StreamConfigurationMap?): VideoTruth {
-
-        val lines = mutableListOf<String>()
-
-        val hs1080 =
-
-            InAppVideoRecordingSupport.highSpeedFpsForEncodeSize(highSpeedMap, 1920, 1080)
-
-        val hs720 =
-
-            InAppVideoRecordingSupport.highSpeedFpsForEncodeSize(highSpeedMap, 1280, 720)
-
-        val maxHs = max(hs1080.maxOrNull() ?: 0, hs720.maxOrNull() ?: 0)
-
-        when {
-
-            maxHs >= 480 ->
-
-                lines +=
-
-                    "This camera: up to 480 fps @ 1080p / 720p (H.264 HFR when listed below)."
-
-            maxHs >= 240 ->
-
-                lines +=
-
-                    "This camera: up to 240 fps @ 1080p / 720p — no 480 on this lens (HAL)."
-
-            maxHs >= 120 ->
-
-                lines += "This camera: up to 120 fps high-speed @ 1080p / 720p."
-
-            hs1080.isEmpty() && hs720.isEmpty() ->
-
-                lines += "No constrained high-speed video on this camera — HFR rows hidden."
-
-        }
-
-        lines += "Honest HFR: H.264 only. H.265 / 10-bit / AV1 at ≥120 fps hidden on this device."
-
-        if (hs1080.isNotEmpty()) {
-
-            lines += "HAL 1080p: ${hs1080.joinToString("/")} fps"
-
-        }
-
-        if (hs720.isNotEmpty()) {
-
-            lines += "HAL 720p: ${hs720.joinToString("/")} fps"
-
-        }
-
-        runCatching { MediaCodecCapabilityProbe.probeSync() }.getOrNull()?.let { probe ->
-            val h264Max =
-                probe.h264PerformancePoints
-                    .filter { it.width == 1920 && it.height == 1080 }
-                    .maxOfOrNull { it.fps }
-                    ?: 0
-            if (h264Max >= 480 && maxHs < 480) {
-                lines +=
-                    "Encoder supports 1080p@480 H.264, but this lens does not — switch to ultra-wide for 480."
-            }
-            val hal8k =
-                InAppVideoRecordingSupport.supportsEightKCameraOutputs(highSpeedMap)
-            lines +=
-                "8K: encoder probe max ${probe.maxFps8k} fps (supports8k=${probe.supports8k}); " +
-                    "HAL capture outputs=${if (hal8k) "yes" else "no"}."
-        }
-
-        return VideoTruth(lines)
+        return filterCatalogToCaptureCapabilities(tiers, highSpeedMap, supportsAv1, supportsVp9)
 
     }
 
@@ -175,13 +86,15 @@ object InAppVideoFormatSelection {
 
         supportsAv1: Boolean = MediaCodecCapabilityProbe.supportsAv1Encoder(),
 
+        supportsVp9: Boolean = MediaCodecCapabilityProbe.supportsVp9Encoder(),
+
     ): List<VideoFormat> {
 
         val filtered =
 
             catalog.filter { format ->
 
-                isFormatAvailableOnDevice(format, highSpeedMap, supportsAv1)
+                isFormatAvailableOnDevice(format, highSpeedMap, supportsAv1, supportsVp9)
 
             }
 
@@ -206,6 +119,8 @@ object InAppVideoFormatSelection {
         highSpeedMap: StreamConfigurationMap?,
 
         supportsAv1: Boolean,
+
+        supportsVp9: Boolean = MediaCodecCapabilityProbe.supportsVp9Encoder(),
 
     ): Boolean {
 
@@ -254,16 +169,27 @@ object InAppVideoFormatSelection {
                 -> probe.hasExactHevcPerformancePoint(w, h, fps) && halOk
                 VideoCodec.AV1 ->
                     supportsAv1 && probe.hasExactHevcPerformancePoint(w, h, fps) && halOk
+                VideoCodec.VP9 ->
+                    supportsVp9 && probe.hasExactHevcPerformancePoint(w, h, fps) && halOk && fps < 120
             }
+        }
+
+        if (
+            fps == UltraHd60RecordSupport.TARGET_FPS &&
+                UltraHd60RecordSupport.isUltraHdSize(w, h) &&
+                !UltraHd60RecordSupport.isCatalogTierSupported(highSpeedMap, w, h, fps)
+        ) {
+            return false
         }
 
         return when (format.codec) {
 
             VideoCodec.H264 ->
-
-                probe.hasExactH264PerformancePoint(w, h, fps) &&
-
-                    InAppVideoRecordingSupport.supportsMediaRecorderOutputSize(highSpeedMap, w, h)
+                InAppVideoRecordingSupport.supportsMediaRecorderOutputSize(highSpeedMap, w, h) &&
+                    (
+                        fps <= 60 ||
+                            probe.hasExactH264PerformancePoint(w, h, fps)
+                        )
 
             VideoCodec.H265 ->
 
@@ -280,6 +206,10 @@ object InAppVideoFormatSelection {
             VideoCodec.AV1 ->
 
                 supportsAv1 && probe.hasExactHevcPerformancePoint(w, h, fps)
+
+            VideoCodec.VP9 ->
+
+                supportsVp9 && fps < 120 && probe.hasExactHevcPerformancePoint(w, h, fps)
 
         }
 
@@ -413,7 +343,9 @@ object InAppVideoFormatSelection {
 
     ): VideoFormat {
 
-        val catalog = loadCatalog(supportsDcg, supportsAv1, highSpeedMap)
+        val supportsVp9 = MediaCodecCapabilityProbe.supportsVp9Encoder()
+
+        val catalog = loadCatalog(supportsDcg, supportsAv1, supportsVp9, highSpeedMap)
 
         val forcedCodec =
 
@@ -480,6 +412,8 @@ object InAppVideoFormatSelection {
                         synthFps < VideoRecordingController.HFR_THRESHOLD_FPS
 
                     VideoCodec.AV1 -> supportsAv1
+
+                    VideoCodec.VP9 -> supportsVp9
 
                     else -> false
 
@@ -604,6 +538,8 @@ object InAppVideoFormatSelection {
                 supportsDcg = supportsDcg,
 
                 supportsAv1 = supportsAv1,
+
+                supportsVp9 = MediaCodecCapabilityProbe.supportsVp9Encoder(),
 
             )
 

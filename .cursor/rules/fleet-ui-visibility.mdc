@@ -1,0 +1,34 @@
+---
+description: Fleet UI visibility gate — hide unavailable chrome, root-only blue + toast
+globs:
+alwaysApply: true
+---
+
+# Fleet UI visibility (Milestone 17.2 — locked direction)
+
+## Source of truth
+
+- **Catalog + matrix:** `files/fleet_device_matrix.json` → `capabilityCatalog` slice ([`CameraCapabilityCatalog`](app/src/main/java/dev/pointandshoot/fleet/CameraCapabilityCatalog.kt))
+- **Runtime gate:** [`FleetUiVisibilityGate`](app/src/main/java/dev/pointandshoot/fleet/FleetUiVisibilityGate.kt)
+- **Evaluation order:** per-camera `featureGates` (when `activeCameraId` set) → catalog `deviceSupported` → live `CapabilityGate` / `HardwareCaps`
+
+## Consumer chrome rules
+
+1. **Unavailable on device** → **hidden** (empty cell / no toggle row). Do **not** show greyed-out unavailable controls on consumer chrome.
+2. **Root-only** → stay visible in **`PnsColors.RootAccentBlue`**; tap shows standardized toast via `FleetUiVisibilityGate.showRootOnlyToast` until SU is granted.
+3. **7×3 grid geometry** — do **not** remove slots from `previewChromeGridSlots`; render empty `Box` when hidden ([`preview-chrome-ui-lock.mdc`](preview-chrome-ui-lock.mdc)).
+4. Log tag **`PNS.FleetVisibility`**: `hidden` (debug) and `rootOnlyTap` (info).
+
+## Engineering hub
+
+Full capability inventory (including probe-only / N/A rows) stays in Engineering / Device Capability Matrix hub — **17.3+**. Do not duplicate catalog rows in consumer Settings without visibility gate.
+
+## Scope
+
+- **17.2:** Eye-AF QS/settings hide; FPS root toast; gate module + JVM tests.
+- **17.5:** Full chrome audit (mode dial, format picker, readout, focal row, etc.).
+
+## Do not
+
+- Add CPH2655-only visibility branches without `FleetDevicePolicy` plugin + USB proof.
+- Hide features by removing grid slot definitions (breaks locked 7×3 layout).

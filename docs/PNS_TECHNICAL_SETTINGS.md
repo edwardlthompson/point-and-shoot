@@ -246,12 +246,12 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 | Setting | Storage | Behavior |
 |---------|---------|----------|
-| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` + `burstPhotoQualityProfile` | **Tap:** runs [PreviewController.captureComposedStillBurst] for configured shot count. **Photo long-press:** no longer starts continuous burst/cadence. `burstPhotoQualityProfile` controls RAW/processed mix and speed-tier quality (`Auto`, `Processed only`, `RAW burst`, `RAW + processed`); faster pace lowers quality tier, slower pace raises tier. |
+| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` + `burstPhotoQualityProfile` | **Tap:** runs [PreviewController.captureComposedStillBurst] for configured shot count. **Photo long-press:** starts/stops continuous burst on press/release; burst path uses a bounded pending-shot buffer so higher-rate shutter intent can run while processing/saving drains asynchronously. Top status band shows live effective burst fps (`Burst <effective> fps (target <fps>) q=<pending>`). Timer QS has distinct **Single**, **Timer**, and **Burst** sections. Burst speed is now fixed to a single fleet preset (**Fleet Max**, `17 ms` target) with no user slow/medium/fast tiers. Burst section keeps file-type picker (**RAW only** or **JPEG only**). Burst intent forces `photoResolutionMode=Binned`; JPEG long-press burst uses a low-latency still request variant (skip stop/restart preview repeating and heavy per-shot IQ request tuning) to prioritize cadence over per-shot still processing. ADB benchmark seeds: `pns_preview_burst_file` (`raw|jpeg`) + `pns_preview_burst_strategy` (`aggressive|paced`). |
 | Intervalometer | `intervalometerIntervalSec` + `intervalometerRunning` | Timed stills while preview is open (photo mode, not recording). |
 | Time-lapse output | `timeLapseMode` (`Off` / `Photo` / `Video`) | **Video:** hardware JPEG frames → H.264 MP4 @ 30 fps (`TimeLapseVideoEncoder`, PTS = frame × 1/30 s). Blocks RAW DNG + normal video rec while active. Requires JPEG tier in IMG menu. Log: `PNS.TimeLapse`. |
 | Pre-capture buffer | `preCaptureBufferEnabled` | Enables [ZslStillFrameRing] on preview RAW; Standard stills use ZSL ring when on. |
 
-**ADB:** `--ei pns_preview_burst_count N` + `--ei pns_preview_burst_interval_ms MS`. Gate: `scripts/pns_capture_modes_test.ps1`.
+**ADB:** `--ei pns_preview_burst_count N` + `--ei pns_preview_burst_interval_ms MS` + optional `--es pns_preview_burst_file raw|jpeg` + `--es pns_preview_burst_strategy aggressive|paced`. Gate: `scripts/pns_longpress_burst_verify.ps1`.
 
 ### 5.3.1 Pro capture (Sprint CC.3)
 

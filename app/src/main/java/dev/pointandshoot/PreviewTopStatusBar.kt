@@ -105,11 +105,13 @@ fun PreviewTopStatusBar(
 
 /** Builds the single-line status message for [PreviewTopStatusBar]. */
 fun previewStatusBarLine(
+    burstTelemetryHint: String?,
     capturePipelineHint: String?,
     focalMapCalibratingHint: Boolean,
     sessionStatus: String,
 ): String? =
     when {
+        !burstTelemetryHint.isNullOrBlank() -> burstTelemetryHint
         !capturePipelineHint.isNullOrBlank() -> capturePipelineHint
         focalMapCalibratingHint -> "Calibrating focal map…"
         sessionStatus.isNotBlank() && !sessionStatus.equals("Idle", ignoreCase = true) ->

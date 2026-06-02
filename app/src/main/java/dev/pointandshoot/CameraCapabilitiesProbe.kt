@@ -121,6 +121,10 @@ const val EXTRA_PNS_PREVIEW_BURST_COUNT = "pns_preview_burst_count"
 const val EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS = "pns_preview_burst_interval_ms"
 /** Sprint **CC.1** — scripted hold duration (ms) for long-press burst automation. */
 const val EXTRA_PNS_PREVIEW_LONGPRESS_BURST_HOLD_MS = "pns_preview_longpress_burst_hold_ms"
+/** Burst profile seed for automation (`pns_preview_burst_file`: `raw`|`jpeg`). */
+const val EXTRA_PNS_PREVIEW_BURST_FILE = "pns_preview_burst_file"
+/** Burst pipeline strategy seed for automation (`pns_preview_burst_strategy`: `aggressive`|`paced`). */
+const val EXTRA_PNS_PREVIEW_BURST_STRATEGY = "pns_preview_burst_strategy"
 
 /** Sprint **CC.3** — loopback tether (`pns_preview_tether`). */
 const val EXTRA_PNS_PREVIEW_TETHER = "pns_preview_tether"
@@ -1220,7 +1224,7 @@ fun CameraCapabilitiesProbe(
         val adbBurstIntervalMs =
             if (trustIntentForPreviewPipeline) {
                 val raw = activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS, 0) ?: 0
-                if (raw > 0) raw else 350
+                if (raw > 0) raw else 17
             } else {
                 0
             }
@@ -1230,6 +1234,24 @@ fun CameraCapabilitiesProbe(
                     .coerceAtLeast(0)
             } else {
                 0
+            }
+        val adbBurstFileProfile =
+            if (trustIntentForPreviewPipeline) {
+                when (activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_BURST_FILE)?.trim()?.lowercase()) {
+                    "raw" -> BurstPhotoQualityProfile.RawOnly
+                    "jpeg" -> BurstPhotoQualityProfile.ProcessedOnly
+                    else -> null
+                }
+            } else {
+                null
+            }
+        val adbBurstPipelineStrategy =
+            if (trustIntentForPreviewPipeline) {
+                BurstPipelineStrategy.parse(
+                    activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_BURST_STRATEGY),
+                )
+            } else {
+                null
             }
         val adbTetherEnabled =
             if (trustIntentForPreviewPipeline) {
@@ -1549,6 +1571,8 @@ fun CameraCapabilitiesProbe(
             adbBurstStillCount = adbBurstStillCount,
             adbBurstIntervalMs = adbBurstIntervalMs,
             adbLongPressBurstHoldMs = adbLongPressBurstHoldMs,
+            adbBurstFileProfile = adbBurstFileProfile,
+            adbBurstPipelineStrategy = adbBurstPipelineStrategy,
             adbTetherEnabled = adbTetherEnabled,
             adbWifiDirectTether = adbWifiDirectTether,
             adbPictureProfileId = adbPictureProfileId,

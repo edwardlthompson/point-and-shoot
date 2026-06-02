@@ -213,6 +213,78 @@
 - **Touches:** `scripts/pns_m22_gate.ps1`, `scripts/pns_capability_catalog_gate.ps1`, `scripts/pns_fleet_parity_sweep.ps1`, `scripts/parity_proof_manifest.json`, `docs/M22_PROVIDER_OWNERSHIP.json`, `BUILD_PLAN.md`
 - **Conflicts with:** REG-20260530-001
 
+### REG-20260602-002 — Photo shutter long-press burst lost tray press/release wiring
+- **Status:** active
+- **Area:** capture | chrome
+- **Symptom:** Long-press burst automation hook existed, but tray shutter only handled tap; no continuous burst while holding shutter in photo mode.
+- **Cause:** `PreviewBottomCaptureTray` did not emit long-press start/stop callbacks to the existing `startLongPressBurstCapture`/`stopLongPressBurstCapture` pipeline.
+- **Fix shipped:** Added tray shutter press-hold gesture wiring (`detectTapGestures`) to call long-press burst start on hold and stop on release; added Timer QS burst cadence presets (`Slow/Medium/Fast`) with interval-backed FPS labels; long-press loop now keeps cadence target by subtracting capture elapsed time from interval.
+- **Do not:** Revert tray shutter to tap-only behavior or add fixed post-shot delay that ignores capture elapsed time (this halves effective cadence and desyncs audible shutter pacing).
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` (`pass=True`, `fastRawOff=True`, `slowRawOn=True`, `savedAny=8`) + `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost` (`selfTimerOk=True`, `pass=True`).
+- **Also test:** `scripts/pns_capture_modes_test.ps1` when changing burst interval/count internals; `scripts/pns_photo_capture_verify.ps1` if still session wiring changes near shutter dispatch.
+- **Touches:** `PreviewEngineScreen.kt`, `ShutterCaptureMode.kt`, `PreviewChromeQuickSettings.kt`, `AdvancedCaptureSettings.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
+### REG-20260602-003 — Burst menu allowed mixed RAW+JPEG and wrong cadence tier targets
+- **Status:** active
+- **Area:** capture | chrome
+- **Symptom:** Burst could run mixed RAW+JPEG profiles and cadence presets did not match requested high/medium/slow targets; timer popup sections were blended, making mode/file/speed picks error-prone.
+- **Cause:** Legacy burst profile enum (`Auto`, `Raw+Processed`) remained selectable in burst flows; cadence options were 150/350/800 ms and burst engine clamped minimum delay to 50 ms.
+- **Fix shipped:** Timer QS split into distinct **Single**, **Timer**, and **Burst** sections; burst file type picker constrained to **RAW only** or **JPEG only**; burst cadence presets changed to 33/67/125 ms (target 30/15/8 fps); burst delay clamps lowered to 30 ms in long-press and tap burst engines.
+- **Do not:** Reintroduce `Auto`/`Raw+Processed` mixed burst capture in shutter burst menu without explicit product request and new USB proof; do not raise burst delay floor above 33 ms if 30 fps tier remains product requirement.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` (`pass=True`, `speedFast=True`, `speedMedium=True`, `speedSlow=True`, `singleFormatOnly=True`); `scripts/pns_photo_capture_verify.ps1 -Fast -SkipAssemble`; `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost`.
+- **Also test:** Manual UI persistence check after app relaunch (burst file type + cadence retained) whenever changing shutter menu wiring; capture pipeline verify if burst path touches session/capture plumbing.
+- **Touches:** `PreviewEngineScreen.kt`, `PreviewChromeQuickSettings.kt`, `ShutterCaptureMode.kt`, `AdvancedCaptureSettings.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
+### REG-20260602-004 — 30 fps burst intent needs bounded queue buffering
+- **Status:** active
+- **Area:** capture | performance
+- **Symptom:** Direct synchronous long-press burst shot loop could not maintain high-rate shutter cadence; each shot waited on full save path, collapsing practical rate under fast settings.
+- **Cause:** Capture path serialized on save completion instead of decoupling shutter intent pacing from downstream processing.
+- **Fix shipped:** Added bounded pending-shot queue for long-press burst so fast cadence can enqueue capture intent while still pipeline drains in-flight work; stop action flushes pending queue to avoid long tail lockup after release.
+- **Do not:** Revert to strict "wait for save then next shot" loop on long-press fast tier without equivalent buffering and USB proof.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` (`speedFast=True`, `speedMedium=True`, `speedSlow=True`, `singleFormatOnly=True`) plus `scripts/pns_photo_capture_verify.ps1 -Fast -SkipAssemble`.
+- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot ""` after shutter/menu edits to keep timer/burst QS wiring stable.
+- **Touches:** `PreviewEngineScreen.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
+### REG-20260602-005 — Max burst tier + status-bar effective FPS telemetry
+- **Status:** active
+- **Area:** capture | chrome | telemetry
+- **Symptom:** Burst UI had no explicit max-speed tier and no live feedback for achieved burst cadence, making "60 fps if possible" verification opaque.
+- **Cause:** Cadence presets stopped at 33 ms (~30 fps) and status bar line did not include burst runtime telemetry.
+- **Fix shipped:** Added burst cadence preset `Max` at 17 ms target (~60 fps), surfaced live top-band telemetry (`Burst <effective> fps (target <fps>) q=<pending>`), and expanded burst verification to assert max/fast/medium/slow intervals in one run.
+- **Do not:** Remove burst telemetry or max-tier preset without replacing with another user-visible achieved-rate indicator and updated USB proof script.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` (`pass=True`, `speedMax=True`, `speedFast=True`, `speedMedium=True`, `speedSlow=True`) and `scripts/pns_photo_capture_verify.ps1 -Fast`.
+- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost` after status bar/timer menu changes; keep app force-stopped after ADB runs.
+- **Touches:** `AdvancedCaptureSettings.kt`, `PreviewEngineScreen.kt`, `PreviewTopStatusBar.kt`, `PreviewChromeQuickSettings.kt`, `HudSettingsScreen.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
+### REG-20260602-006 — Long-press burst dispatch must not block on save callback
+- **Status:** active
+- **Area:** capture | performance
+- **Symptom:** Burst cadence collapsed toward "capture + save + next capture" because long-press dispatch treated `onResult` completion as the release signal for the next shot.
+- **Cause:** `captureComposedStill` returns `onResult` after downstream save/encode; burst loop waited on that callback and interpreted transient `capture_busy` as a hard failure.
+- **Fix shipped:** Long-press dispatcher now treats `capture_busy` as retry/backpressure, keeps queueing cadence intents while capture path is busy, enables a low-latency JPEG burst request variant (`burstLowLatency=true`), and forces burst intent to `photoResolutionMode=Binned`.
+- **Do not:** Revert long-press burst to strict one-shot-in-flight + stop-on-`capture_busy` behavior unless replacing with a true multi-request burst pipeline and USB proof.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` (`pass=True`, `speedMax=True`, `speedFast=True`, `speedMedium=True`, `speedSlow=True`); `scripts/pns_photo_capture_verify.ps1 -Fast -SkipAssemble`.
+- **Also test:** Manual hold burst UX in photo mode (watch status bar burst fps + shutter cadence), plus `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost` after further burst/menu/status changes.
+- **Touches:** `PreviewEngineScreen.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
+### REG-20260602-007 — Fleet-max burst mode + JPEG/RAW strategy benchmarking seeds
+- **Status:** active
+- **Area:** capture | automation
+- **Symptom:** Multiple user-selectable burst pace tiers fragmented tuning and made fleet benchmarking noisy; RAW/JPEG strategy comparisons were not scriptable in one gate.
+- **Cause:** Burst cadence UI exposed slow/medium/fast/max presets and long-press gate only validated cadence intervals, not per-format pipeline strategy throughput.
+- **Fix shipped:** Collapsed burst pace to a single `Fleet Max` preset (`17 ms` target), kept RAW/JPEG file-type selection, added ADB seeds `pns_preview_burst_file` + `pns_preview_burst_strategy`, and updated `pns_longpress_burst_verify.ps1` to sweep `jpeg/raw × aggressive/paced` in one run.
+- **Do not:** Reintroduce multiple user pace tiers without fresh fleet benchmarking evidence; keep burst benchmark seeds wired for repeatable JPEG vs RAW strategy runs.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` (`pass=True`, `jpegSeen=True`, `rawSeen=True`, `aggressiveSeen=True`, `pacedSeen=True`) + `scripts/pns_photo_capture_verify.ps1 -Fast -SkipAssemble`.
+- **Also test:** Manual long-press burst UX after timer/QS menu edits (confirm Fleet Max label + RAW/JPEG file selector) and capture pipeline verify on still-session changes.
+- **Touches:** `AdvancedCaptureSettings.kt`, `ShutterCaptureMode.kt`, `PreviewChromeQuickSettings.kt`, `PreviewEngineScreen.kt`, `CameraCapabilitiesProbe.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
 ---
 
 ## Superseded / historical

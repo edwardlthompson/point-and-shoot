@@ -37,7 +37,7 @@ object PerfBudget {
          * `ImageReader.newInstance` **maxImages** for still / metering readers (`PNS.Reader` lane).
          * See **`CAPTURE_ARCHITECTURE.md`** — bounded queue; supersede / HAL lag logs **`drop oldest`**.
          */
-        const val STILL_IMAGE_READER_MAX_IMAGES: Int = 4
+        const val STILL_IMAGE_READER_MAX_IMAGES: Int = 8
 
         /**
          * YUV analysis [android.media.ImageReader] for histogram + ML face HUD — slightly deeper

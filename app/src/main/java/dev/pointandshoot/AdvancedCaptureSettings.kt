@@ -6,7 +6,23 @@ package dev.pointandshoot
 object AdvancedCaptureSettings {
     val burstCountOptions: List<Int> = listOf(3, 5, 10, 15, 20)
 
-    val burstIntervalMsOptions: List<Int> = listOf(150, 350, 800)
+    // Target cadence presets requested for burst controls.
+    val burstIntervalMsOptions: List<Int> = listOf(17)
+
+    data class BurstCadencePreset(
+        val key: String,
+        val label: String,
+        val intervalMs: Int,
+    )
+
+    /**
+     * Ordered from slow to fast so menus can render a natural progression.
+     * These values map to the tested burst intervals already used by the capture path.
+     */
+    val burstCadencePresets: List<BurstCadencePreset> =
+        listOf(
+            BurstCadencePreset(key = "fleet_max", label = "Fleet Max", intervalMs = 17), // ~60 fps target
+        )
 
     /** Sprint **15.29** — NightScape stack depth (Night dial). */
     val nightScapeFrameCountOptions: List<Int> = listOf(4, 6, 8)
@@ -18,7 +34,9 @@ object AdvancedCaptureSettings {
         burstCountOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 5
 
     fun normalizeBurstIntervalMs(raw: Int): Int =
-        burstIntervalMsOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 350
+        burstIntervalMsOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 17
+
+    fun burstCadenceFps(intervalMs: Int): Double = 1000.0 / intervalMs.coerceAtLeast(1).toDouble()
 
     fun normalizeNightScapeFrameCount(raw: Int): Int =
         nightScapeFrameCountOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 6

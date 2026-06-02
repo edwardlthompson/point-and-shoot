@@ -193,7 +193,7 @@ data class HudSettings(
     /** Sprint **CC.1** — when true, shutter fires a burst ([burstShotCount] at [burstIntervalMs]). */
     val burstModeEnabled: Boolean = false,
     val burstShotCount: Int = 5,
-    val burstIntervalMs: Int = 350,
+    val burstIntervalMs: Int = 17,
     /**
      * Burst quality strategy for tap-burst and photo long-press burst.
      * Auto degrades quality at higher rates and restores quality at slower rates.

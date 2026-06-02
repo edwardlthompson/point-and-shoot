@@ -51,6 +51,42 @@ fun ShutterModeRailSection(
         )
     }
     Text(
+        "Burst cadence (photo long-press / burst mode)",
+        style = MaterialTheme.typography.bodySmall,
+        color = Color.White.copy(alpha = 0.72f),
+    )
+    val burstFileType = normalizeBurstFileTypeProfile(hud.burstPhotoQualityProfileEnum())
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        FocusPeakingOptionRow(
+            label = "RAW burst",
+            selected = burstFileType == BurstPhotoQualityProfile.RawOnly,
+            swatchColor = null,
+            onClick = {
+                applyBurstFileTypeProfile(BurstPhotoQualityProfile.RawOnly, chromePrefs, hudState)
+                Log.i("PNS.ChromeUx", "burstFileType=raw_only")
+            },
+        )
+        FocusPeakingOptionRow(
+            label = "JPEG burst",
+            selected = burstFileType == BurstPhotoQualityProfile.ProcessedOnly,
+            swatchColor = null,
+            onClick = {
+                applyBurstFileTypeProfile(BurstPhotoQualityProfile.ProcessedOnly, chromePrefs, hudState)
+                Log.i("PNS.ChromeUx", "burstFileType=jpeg_only")
+            },
+        )
+    }
+    val fleetPreset = AdvancedCaptureSettings.burstCadencePresets.first()
+    val fleetFps = AdvancedCaptureSettings.burstCadenceFps(fleetPreset.intervalMs)
+    Text(
+        "Burst speed: Fleet Max (${String.format("%.1f", fleetFps)} fps target)",
+        style = MaterialTheme.typography.bodySmall,
+        color = Color.White.copy(alpha = 0.72f),
+    )
+    Text(
         "Self-timer (photo mode)",
         style = MaterialTheme.typography.bodySmall,
         color = Color.White.copy(alpha = 0.72f),

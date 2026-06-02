@@ -69,6 +69,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -778,11 +779,17 @@ private fun applyPreviewTrayModeSnapshot(
     controller.restoreReadoutState(snapshot.readout)
     onFps(snapshot.targetFps)
     onPrimeTargetEqMm(snapshot.primeFocalTargetEqMm)
+    val restoredIso =
+        snapshot.readout.manualIso?.let {
+            // Keep UX diagnostics aligned with the range-checklist clamp semantics.
+            snapshot.readout.isoBand.clampPick(range = null, value = it)
+        }
     Log.i(
         "PNS.ChromeUx",
         "trayModeRestore fps=${snapshot.targetFps} ois=${snapshot.enableLensOpticalStabilization} " +
             "eis=${snapshot.enableVideoStabilizationPreview} angle=${snapshot.videoShutterAngle} " +
-            "iso=${snapshot.readout.manualIso} ss=${snapshot.readout.manualExposureNs} " +
+            "iso=${restoredIso} ss=${snapshot.readout.manualExposureNs} " +
+            "isoRange=${snapshot.readout.isoBand.menuLabel} " +
             "primeEq=${snapshot.primeFocalTargetEqMm ?: "-"}",
     )
 }
@@ -942,6 +949,10 @@ fun PreviewEngineScreen(
     adbBurstIntervalMs: Int = 0,
     /** Sprint **CC.1** — scripted long-press hold duration (ms) for burst automation. */
     adbLongPressBurstHoldMs: Int = 0,
+    /** Optional ADB burst file profile (`raw`|`jpeg`) used by burst benchmarking scripts. */
+    adbBurstFileProfile: BurstPhotoQualityProfile? = null,
+    /** Optional ADB burst pipeline strategy (`aggressive`|`paced`) for benchmark sweeps. */
+    adbBurstPipelineStrategy: BurstPipelineStrategy? = null,
     /** `pns_preview_focus_peaking` — seeds HUD peaking color (e.g. `Red`) for Sprint **13V.10** gates. */
     adbSeedFocusPeakingColor: FocusPeakingColor? = null,
     /** `pns_preview_focus_mode` — Sprint **14.8** (`auto`, `manual`, `macro`, …). */
@@ -2205,11 +2216,14 @@ fun PreviewEngineScreen(
     var stillQueueBatchTotal by remember { mutableIntStateOf(0) }
     var holdBurstActive by remember { mutableStateOf(false) }
     var holdBurstShotCount by remember { mutableIntStateOf(0) }
+    var holdBurstBufferedPending by remember { mutableIntStateOf(0) }
     var holdBurstJob by remember { mutableStateOf<Job?>(null) }
+    var burstPipelineStrategy by remember { mutableStateOf(BurstPipelineStrategy.Aggressive) }
     DisposableEffect(Unit) {
         onDispose {
             holdBurstActive = false
             holdBurstJob?.cancel()
+            BurstStatusTelemetry.reset()
             trayLongPressBurstStartRef.value = null
             trayLongPressBurstStopRef.value = null
         }
@@ -2750,7 +2764,8 @@ fun PreviewEngineScreen(
         runTrayStillBurstImpl = {
             val hud = hudState.current
             val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
-            val plan = resolveActiveComposedPlan(composedStillIntentState.value)
+            val burstIntent = resolveBurstIntent(composedStillIntentState.value, hud)
+            val plan = burstIntent.resolveCapturePlan().withStillExportOverride(adbStillExportFormat)
             controller.setComposedCapturePlan(plan)
             val blocked = controller.composedCaptureBlockedReason(plan)
             if (blocked != null) {
@@ -2788,133 +2803,153 @@ fun PreviewEngineScreen(
                 )
             }
         }
-        fun resolveBurstIntent(base: ComposedStillIntent, settings: HudSettings): ComposedStillIntent {
-            val intervalMs = settings.burstIntervalMs
-            val paceTier =
-                when {
-                    intervalMs <= 350 -> ImgMenuTier.Standard
-                    else -> ImgMenuTier.Ultra
-                }
-            return when (settings.burstPhotoQualityProfileEnum()) {
-                BurstPhotoQualityProfile.Auto ->
-                    if (intervalMs <= 150) {
-                        base.copy(
-                            raw = ImgMenuTier.Off,
-                            jpeg = ImgMenuTier.Standard,
-                            hdrWhenJpegOff = ImgMenuTier.Standard,
-                        )
-                    } else if (intervalMs <= 350) {
-                        base.copy(
-                            raw = ImgMenuTier.Standard,
-                            jpeg = ImgMenuTier.Standard,
-                            hdrWhenJpegOff = ImgMenuTier.Standard,
-                        )
-                    } else {
-                        base.copy(
-                            raw = ImgMenuTier.Ultra,
-                            jpeg = ImgMenuTier.Ultra,
-                            hdrWhenJpegOff = ImgMenuTier.Ultra,
-                        )
-                    }
-                BurstPhotoQualityProfile.ProcessedOnly ->
-                    base.copy(
-                        raw = ImgMenuTier.Off,
-                        jpeg = paceTier,
-                        hdrWhenJpegOff = paceTier,
-                    )
-                BurstPhotoQualityProfile.RawOnly ->
-                    base.copy(
-                        raw = paceTier,
-                        jpeg = ImgMenuTier.Off,
-                        hdrWhenJpegOff = paceTier,
-                    )
-                BurstPhotoQualityProfile.RawPlusProcessed ->
-                    base.copy(
-                        raw = paceTier,
-                        jpeg = paceTier,
-                        hdrWhenJpegOff = paceTier,
-                    )
-            }.coerceNoOffOff()
-        }
         fun stopLongPressBurstCapture() {
             Log.i("PNS.ChromeUx", "longPressBurst stop requested")
             holdBurstActive = false
+            holdBurstBufferedPending = 0
+            BurstStatusTelemetry.reset()
         }
         fun startLongPressBurstCapture() {
             if (holdBurstActive) return
             val initialHud = hudState.current
             Log.i(
                 "PNS.ChromeUx",
-                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=${initialHud.burstPhotoQualityProfileEnum().name}",
+                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=${initialHud.burstPhotoQualityProfileEnum().name} strategy=${burstPipelineStrategy.storageId}",
             )
             PnsAdbLog.i(
                 context,
-                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=${initialHud.burstPhotoQualityProfileEnum().name}",
+                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=${initialHud.burstPhotoQualityProfileEnum().name} strategy=${burstPipelineStrategy.storageId}",
             )
             holdBurstActive = true
             holdBurstShotCount = 0
+            holdBurstBufferedPending = 0
+            BurstStatusTelemetry.start(AdvancedCaptureSettings.burstCadenceFps(initialHud.burstIntervalMs))
             holdBurstJob?.cancel()
             holdBurstJob =
                 captureScope.launch {
+                    val strategy = burstPipelineStrategy
+                    val aggressive = strategy == BurstPipelineStrategy.Aggressive
+                    var inFlight = false
+                    fun isCaptureBusyFailureMessage(message: String?): Boolean =
+                        message?.contains("Capture already in progress", ignoreCase = true) == true
+
+                    fun dispatchBufferedShotIfPossible() {
+                        if (!aggressive && inFlight) return
+                        if (holdBurstBufferedPending <= 0) return
+                        val burstHud = hudState.current
+                        val burstIntent = resolveBurstIntent(composedStillIntentState.value, burstHud)
+                        val burstProfile = normalizeBurstFileTypeProfile(burstHud.burstPhotoQualityProfileEnum())
+                        Log.i(
+                            "PNS.ChromeUx",
+                            "longPressBurst dispatch profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} pending=${holdBurstBufferedPending}",
+                        )
+                        val plan =
+                            burstIntent
+                                .resolveCapturePlan()
+                                .withStillExportOverride(adbStillExportFormat)
+                        controller.setComposedCapturePlan(plan)
+                        val blocked = controller.composedCaptureBlockedReason(plan)
+                        if (blocked != null) {
+                            if (isCaptureBusyFailureMessage(blocked)) {
+                                return
+                            }
+                            captureScope.pnsShowSnackbar(snackbarHostState, blocked, longDuration = true)
+                            holdBurstActive = false
+                            holdBurstBufferedPending = 0
+                            BurstStatusTelemetry.reset()
+                            return
+                        }
+                        if (!aggressive) {
+                            inFlight = true
+                        }
+                        holdBurstBufferedPending--
+                        BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
+                        if (aggressive) {
+                            BurstStatusTelemetry.onCaptureCompleted()
+                        }
+                        val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
+                        controller.captureComposedStill(
+                            appContext = context.applicationContext,
+                            plan = plan,
+                            haptics = haptics,
+                            surfaceRotation = rot,
+                            dngSoftwareDescription =
+                                formatDngSoftwareLine(context, stillsLutState.value),
+                            stillsLut = stillsLutState.value,
+                            burstLowLatency = aggressive,
+                            onResult = { shotResult ->
+                                shotResult.fold(
+                                    onSuccess = { out ->
+                                        holdBurstShotCount++
+                                        if (!aggressive) {
+                                            BurstStatusTelemetry.onCaptureCompleted()
+                                        }
+                                        applyStillResultToGalleryThumb(Result.success(out))
+                                    },
+                                    onFailure = { e ->
+                                        if (isCaptureBusyFailureMessage(e.message)) {
+                                            if (holdBurstActive && holdBurstBufferedPending < 32) {
+                                                holdBurstBufferedPending++
+                                                BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
+                                            }
+                                            return@fold
+                                        }
+                                        captureScope.pnsShowSnackbar(
+                                            snackbarHostState,
+                                            PnsUserFacingErrors.stillCaptureFailure(e),
+                                            longDuration = true,
+                                        )
+                                        holdBurstActive = false
+                                        holdBurstBufferedPending = 0
+                                        BurstStatusTelemetry.reset()
+                                    },
+                                )
+                                if (!aggressive) {
+                                    inFlight = false
+                                }
+                                if (holdBurstActive || holdBurstBufferedPending > 0) {
+                                    dispatchBufferedShotIfPossible()
+                                }
+                            },
+                        )
+                    }
                     try {
                         while (isActive && holdBurstActive) {
                             val burstHud = hudState.current
-                            val burstIntent = resolveBurstIntent(composedStillIntentState.value, burstHud)
-                            val burstProfile = burstHud.burstPhotoQualityProfileEnum()
+                            val burstProfile = normalizeBurstFileTypeProfile(burstHud.burstPhotoQualityProfileEnum())
                             Log.i(
                                 "PNS.ChromeUx",
-                                "longPressBurst shot profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} raw=${burstIntent.raw} jpeg=${burstIntent.jpeg}",
+                                "longPressBurst buffer enqueue profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} pending=${holdBurstBufferedPending}",
                             )
                             PnsAdbLog.i(
                                 context,
-                                "longPressBurst shot profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} raw=${burstIntent.raw} jpeg=${burstIntent.jpeg}",
+                                "longPressBurst shot profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} raw=${if (burstProfile == BurstPhotoQualityProfile.RawOnly) "Standard" else "Off"} jpeg=${if (burstProfile == BurstPhotoQualityProfile.ProcessedOnly) "Standard" else "Off"}",
                             )
-                            val plan =
-                                burstIntent
-                                    .resolveCapturePlan()
-                                    .withStillExportOverride(adbStillExportFormat)
-                            controller.setComposedCapturePlan(plan)
-                            val blocked = controller.composedCaptureBlockedReason(plan)
-                            if (blocked != null) {
-                                captureScope.pnsShowSnackbar(snackbarHostState, blocked, longDuration = true)
-                                break
+                            val queueCap = if (aggressive) 32 else 16
+                            if (holdBurstBufferedPending < queueCap) {
+                                holdBurstBufferedPending++
+                                BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
+                            } else {
+                                Log.w("PNS.ChromeUx", "longPressBurst buffer full pending=$holdBurstBufferedPending")
                             }
-                            val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
-                            val result =
-                                suspendCancellableCoroutine<Result<RawStillSaveSuccess>> { cont ->
-                                    controller.captureComposedStill(
-                                        appContext = context.applicationContext,
-                                        plan = plan,
-                                        haptics = haptics,
-                                        surfaceRotation = rot,
-                                        dngSoftwareDescription =
-                                            formatDngSoftwareLine(context, stillsLutState.value),
-                                        stillsLut = stillsLutState.value,
-                                        onResult = { shotResult ->
-                                            if (cont.isActive) cont.resume(shotResult)
-                                        },
-                                    )
+                            dispatchBufferedShotIfPossible()
+                            val paceMs =
+                                if (aggressive) {
+                                    4L
+                                } else {
+                                    burstHud.burstIntervalMs.toLong().coerceAtLeast(16L)
                                 }
-                            result.fold(
-                                onSuccess = { out ->
-                                    holdBurstShotCount++
-                                    applyStillResultToGalleryThumb(Result.success(out))
-                                },
-                                onFailure = { e ->
-                                    captureScope.pnsShowSnackbar(
-                                        snackbarHostState,
-                                        PnsUserFacingErrors.stillCaptureFailure(e),
-                                        longDuration = true,
-                                    )
-                                    holdBurstActive = false
-                                },
-                            )
-                            if (!holdBurstActive) break
-                            delay(burstHud.burstIntervalMs.toLong().coerceAtLeast(50L))
+                            delay(paceMs)
+                        }
+                        while (isActive && (holdBurstBufferedPending > 0 || (!aggressive && inFlight))) {
+                            dispatchBufferedShotIfPossible()
+                            delay(if (aggressive) 4 else 10)
                         }
                     } finally {
                         val saved = holdBurstShotCount
                         holdBurstActive = false
+                        holdBurstBufferedPending = 0
+                        BurstStatusTelemetry.reset()
                         holdBurstJob = null
                         Log.i("PNS.ChromeUx", "longPressBurst finished saved=$saved")
                         PnsAdbLog.i(context, "longPressBurst finished saved=$saved")
@@ -3890,7 +3925,7 @@ fun PreviewEngineScreen(
         }
     }
 
-    LaunchedEffect(adbLongPressBurstHoldMs, adbBurstIntervalMs) {
+    LaunchedEffect(adbLongPressBurstHoldMs, adbBurstIntervalMs, adbBurstFileProfile, adbBurstPipelineStrategy) {
         val holdMs = adbLongPressBurstHoldMs
         if (holdMs <= 0) return@LaunchedEffect
         var waitCap = 0
@@ -3905,13 +3940,31 @@ fun PreviewEngineScreen(
         var intervalTarget = hudState.current.burstIntervalMs
         if (adbBurstIntervalMs > 0) {
             intervalTarget = AdvancedCaptureSettings.normalizeBurstIntervalMs(adbBurstIntervalMs)
+            val seededProfile =
+                when (adbBurstFileProfile) {
+                    BurstPhotoQualityProfile.RawOnly -> BurstPhotoQualityProfile.RawOnly
+                    BurstPhotoQualityProfile.ProcessedOnly,
+                    BurstPhotoQualityProfile.Auto,
+                    BurstPhotoQualityProfile.RawPlusProcessed,
+                    null,
+                    -> BurstPhotoQualityProfile.ProcessedOnly
+                }
             hudState.update(
                 hudState.current.copy(
+                    burstModeEnabled = true,
                     burstIntervalMs = intervalTarget,
+                    burstPhotoQualityProfile = seededProfile.storageId,
                 ),
             )
+            burstPipelineStrategy = adbBurstPipelineStrategy ?: BurstPipelineStrategy.Aggressive
             var settleChecks = 0
-            while (hudState.current.burstIntervalMs != intervalTarget && settleChecks < 20) {
+            while (
+                settleChecks < 20 &&
+                (
+                    hudState.current.burstIntervalMs != intervalTarget ||
+                        hudState.current.burstPhotoQualityProfileEnum() != seededProfile
+                )
+            ) {
                 delay(100)
                 settleChecks++
             }
@@ -4495,6 +4548,12 @@ fun PreviewEngineScreen(
         onCaptureDng = {
             trayStillCaptureRef.value?.invoke()
         },
+        onLongPressBurstStart = {
+            trayLongPressBurstStartRef.value?.invoke()
+        },
+        onLongPressBurstStop = {
+            trayLongPressBurstStopRef.value?.invoke()
+        },
         onBracketBurst = { pattern ->
             HudSettings.saveBracketPattern(context.applicationContext, pattern)
             fun runBracketBurst() {
@@ -4739,6 +4798,8 @@ private fun PreviewEngineContent(
     onComposedStillIntentChange: (ComposedStillIntent) -> Unit,
     onStillExportKindChange: (StillExportKind?) -> Unit,
     onCaptureDng: () -> Unit,
+    onLongPressBurstStart: () -> Unit,
+    onLongPressBurstStop: () -> Unit,
     onBracketBurst: (BracketPattern) -> Unit,
     adbInitialDial: CommandDialMode? = null,
     adbCalibrateGrabSmoke: Boolean = false,
@@ -5378,8 +5439,10 @@ private fun PreviewEngineContent(
                 adbForceOverlay = adbForcePowerThermalOverlay,
             )
         }
+    val burstTelemetryHint = BurstStatusTelemetry.hint
     val previewStatusLine =
         previewStatusBarLine(
+            burstTelemetryHint = burstTelemetryHint,
             capturePipelineHint = capturePipelineHint,
             focalMapCalibratingHint = focalMapCalibratingHint,
             sessionStatus = status,
@@ -6436,6 +6499,8 @@ private fun PreviewEngineContent(
                         showOnScreenShutter = chrome.showOnScreenShutter,
                         canCaptureRawStill = controller.canCaptureStill() && !afShutterGateActiveForUi,
                         onCaptureDng = { triggerStillCapture() },
+                        onLongPressBurstStart = onLongPressBurstStart,
+                        onLongPressBurstStop = onLongPressBurstStop,
                         isRecording = isRecording,
                         onRecordingChange = onRecordingChange,
                         onSetFps = onSetFps,
@@ -7318,6 +7383,8 @@ private fun PreviewBottomCaptureTray(
     showOnScreenShutter: Boolean,
     canCaptureRawStill: Boolean,
     onCaptureDng: () -> Unit,
+    onLongPressBurstStart: (() -> Unit)?,
+    onLongPressBurstStop: (() -> Unit)?,
     isRecording: Boolean,
     onRecordingChange: (Boolean) -> Unit,
     /** Clamps preview FPS when starting video at HFR (MediaRecorder path requires &lt;120). */
@@ -7459,15 +7526,47 @@ private fun PreviewBottomCaptureTray(
                             }
                         }
                     }
-                    FloatingActionButton(
-                        onClick = onTapShutter,
+                    var longPressBurstArmed by remember { mutableStateOf(false) }
+                    Box(
                         modifier =
                             Modifier
                                 .size(64.dp)
-                                .alpha(if (canCaptureRawStill) 1f else 0.45f),
-                        containerColor = PnsColors.PhotoOrange,
-                        contentColor = Color.Black,
-                        shape = CircleShape,
+                                .alpha(if (canCaptureRawStill) 1f else 0.45f)
+                                .clip(CircleShape)
+                                .background(PnsColors.PhotoOrange)
+                                .border(2.dp, Color.Black.copy(alpha = 0.2f), CircleShape)
+                                .pointerInput(
+                                    primaryPhoto,
+                                    canCaptureRawStill,
+                                    onLongPressBurstStart,
+                                    onLongPressBurstStop,
+                                ) {
+                                    detectTapGestures(
+                                        onTap = { onTapShutter() },
+                                        onLongPress = {
+                                            if (primaryPhoto && canCaptureRawStill && onLongPressBurstStart != null) {
+                                                longPressBurstArmed = true
+                                                onLongPressBurstStart.invoke()
+                                            }
+                                        },
+                                        onPress = {
+                                            tryAwaitRelease()
+                                            if (longPressBurstArmed) {
+                                                onLongPressBurstStop?.invoke()
+                                                longPressBurstArmed = false
+                                            }
+                                        },
+                                    )
+                                }
+                                .semantics {
+                                    contentDescription =
+                                        if (canCaptureRawStill) {
+                                            "Photo shutter. Tap to capture. Hold for burst."
+                                        } else {
+                                            "Photo shutter unavailable. Use preview at 119 fps or below and enable RAW and/or JPEG in IMG."
+                                        }
+                                },
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             "●",
@@ -7616,6 +7715,85 @@ private fun applyFalseColorQuickMode(mode: FalseColorMode, hudState: HudSettings
     Log.i("PNS.ChromeUx", "falseColorMode=${mode.storageId}")
 }
 
+private object BurstStatusTelemetry {
+    private var active by mutableStateOf(false)
+    private var targetFps by mutableStateOf(0.0)
+    private var pending by mutableIntStateOf(0)
+    private var completionTimes by mutableStateOf<List<Long>>(emptyList())
+
+    val hint: String?
+        get() {
+            if (!active && pending <= 0) return null
+            val now = SystemClock.elapsedRealtime()
+            val recent = completionTimes.filter { now - it <= 2_000L }
+            val effectiveFps =
+                if (recent.size < 2) {
+                    if (recent.isNotEmpty()) 0.5 else 0.0
+                } else {
+                    val spanMs = (recent.last() - recent.first()).coerceAtLeast(1L).toDouble()
+                    (recent.size - 1).toDouble() * 1000.0 / spanMs
+                }
+            return "Burst ${String.format("%.1f", effectiveFps)} fps (target ${String.format("%.0f", targetFps)}) q=$pending"
+        }
+
+    fun start(target: Double) {
+        active = true
+        targetFps = target
+        pending = 0
+        completionTimes = emptyList()
+    }
+
+    fun updatePending(value: Int) {
+        pending = value.coerceAtLeast(0)
+    }
+
+    fun onCaptureCompleted() {
+        val now = SystemClock.elapsedRealtime()
+        completionTimes = (completionTimes + now).takeLast(240)
+    }
+
+    fun reset() {
+        active = false
+        pending = 0
+        targetFps = 0.0
+        completionTimes = emptyList()
+    }
+}
+
+private fun resolveBurstIntent(base: ComposedStillIntent, settings: HudSettings): ComposedStillIntent {
+    val intervalMs = settings.burstIntervalMs
+    val paceTier =
+        when {
+            intervalMs <= 125 -> ImgMenuTier.Standard
+            else -> ImgMenuTier.Ultra
+        }
+    val fileType = normalizeBurstFileTypeProfile(settings.burstPhotoQualityProfileEnum())
+    return when (fileType) {
+        BurstPhotoQualityProfile.ProcessedOnly ->
+            base.copy(
+                raw = ImgMenuTier.Off,
+                jpeg = paceTier,
+                hdrWhenJpegOff = paceTier,
+                photoResolutionMode = PhotoResolutionMode.Binned,
+            )
+        BurstPhotoQualityProfile.RawOnly ->
+            base.copy(
+                raw = paceTier,
+                jpeg = ImgMenuTier.Off,
+                hdrWhenJpegOff = paceTier,
+                photoResolutionMode = PhotoResolutionMode.Binned,
+            )
+        BurstPhotoQualityProfile.Auto,
+        BurstPhotoQualityProfile.RawPlusProcessed,
+        -> base.copy(
+            raw = ImgMenuTier.Off,
+            jpeg = paceTier,
+            hdrWhenJpegOff = paceTier,
+            photoResolutionMode = PhotoResolutionMode.Binned,
+        )
+    }.coerceNoOffOff()
+}
+
 @Composable
 private fun ChromeGridQuickActionPopup(
     expanded: Boolean,
@@ -7655,6 +7833,11 @@ private fun ChromeGridQuickActionPopup(
                 )
             }
             ChromeGridQuickAction.TimerStub -> {
+                Text(
+                    text = "Single",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.68f),
+                )
                 PnsChromeMenuItem(
                     label = "Single shot",
                     selected =
@@ -7665,18 +7848,13 @@ private fun ChromeGridQuickActionPopup(
                         onDismissRequest()
                     },
                 )
-                PnsChromeMenuItem(
-                    label = "Burst",
-                    selected =
-                        ShutterCaptureMode.current(chrome, hud) == ShutterCaptureMode.Burst,
-                    onClick = {
-                        applyShutterCaptureMode(ShutterCaptureMode.Burst, chromePrefs, hudState)
-                        Log.i("PNS.ChromeUx", "shutterMode=Burst")
-                        onDismissRequest()
-                    },
-                )
                 androidx.compose.material3.HorizontalDivider(
                     color = Color.White.copy(alpha = 0.18f),
+                )
+                Text(
+                    text = "Timer",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.68f),
                 )
                 for (sec in PreviewChromePreferences.SELF_TIMER_DELAY_SEC_OPTIONS) {
                     if (sec == 0) continue
@@ -7699,6 +7877,50 @@ private fun ChromeGridQuickActionPopup(
                         },
                     )
                 }
+                androidx.compose.material3.HorizontalDivider(
+                    color = Color.White.copy(alpha = 0.18f),
+                )
+                Text(
+                    text = "Burst",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.68f),
+                )
+                PnsChromeMenuItem(
+                    label = "Burst mode",
+                    selected =
+                        ShutterCaptureMode.current(chromePrefs.current, hudState.current) == ShutterCaptureMode.Burst,
+                    onClick = {
+                        applyShutterCaptureMode(ShutterCaptureMode.Burst, chromePrefs, hudState)
+                        Log.i("PNS.ChromeUx", "shutterMode=Burst")
+                        onDismissRequest()
+                    },
+                )
+                val burstFileType = normalizeBurstFileTypeProfile(hudState.current.burstPhotoQualityProfileEnum())
+                PnsChromeMenuItem(
+                    label = "Burst file: RAW only",
+                    selected = burstFileType == BurstPhotoQualityProfile.RawOnly,
+                    onClick = {
+                        applyBurstFileTypeProfile(BurstPhotoQualityProfile.RawOnly, chromePrefs, hudState)
+                        Log.i("PNS.ChromeUx", "burstFileType=raw_only")
+                        onDismissRequest()
+                    },
+                )
+                PnsChromeMenuItem(
+                    label = "Burst file: JPEG only",
+                    selected = burstFileType == BurstPhotoQualityProfile.ProcessedOnly,
+                    onClick = {
+                        applyBurstFileTypeProfile(BurstPhotoQualityProfile.ProcessedOnly, chromePrefs, hudState)
+                        Log.i("PNS.ChromeUx", "burstFileType=jpeg_only")
+                        onDismissRequest()
+                    },
+                )
+                val fleetPreset = AdvancedCaptureSettings.burstCadencePresets.first()
+                val fleetFps = AdvancedCaptureSettings.burstCadenceFps(fleetPreset.intervalMs)
+                PnsChromeMenuItem(
+                    label = "Burst speed: Fleet Max (${String.format("%.1f", fleetFps)} fps target)",
+                    selected = true,
+                    onClick = { onDismissRequest() },
+                )
             }
             ChromeGridQuickAction.ToggleHorizonLevel -> {
                 PnsChromeMenuItem(
@@ -8024,7 +8246,7 @@ private fun PreviewChromeScrollSlot(
             val qsA11yLabel =
                 when (spec.kind) {
                     ChromeGridQuickAction.TimerStub ->
-                        "${spec.contentDescription}, ${shutterCaptureModeLabel(shutterMode, chrome)}"
+                        "${spec.contentDescription}, ${shutterCaptureModeLabel(shutterMode, chrome, hud)}"
                     ChromeGridQuickAction.CycleFlash ->
                         "${spec.contentDescription}, current mode ${chromePrefs.current.previewFlashMode}"
                     ChromeGridQuickAction.CycleFalseColor ->
@@ -12971,6 +13193,7 @@ private class PreviewController(
         dngSoftwareDescription: String? = null,
         stillsLut: LutCatalog = LutCatalog.None,
         adbValidationShotLabel: String? = null,
+        burstLowLatency: Boolean = false,
         onTonalReady: ((Uri?) -> Unit)? = null,
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
@@ -13006,6 +13229,7 @@ private class PreviewController(
                         tonalBundle = tonal,
                         stillsLut = stillsLut,
                         adbValidationShotLabel = adbValidationShotLabel,
+                        lowLatencyBurst = burstLowLatency,
                         onTonalReady = onTonalReady,
                         onResult = onResult,
                     )
@@ -13029,6 +13253,7 @@ private class PreviewController(
                                 tonalBundle = tonal,
                                 stillsLut = stillsLut,
                                 adbValidationShotLabel = adbValidationShotLabel,
+                                lowLatencyBurst = burstLowLatency,
                                 onTonalReady = onTonalReady,
                             ) { tonalResult ->
                                 tonalResult.fold(
@@ -13102,7 +13327,7 @@ private class PreviewController(
         onResult: (Result<Int>) -> Unit,
     ) {
         val count = shotCount.coerceIn(1, 30)
-        val gap = intervalMs.coerceAtLeast(50L)
+        val gap = intervalMs.coerceAtLeast(30L)
         val bgHandler = handler
         var saved = 0
         fun shoot(index: Int) {
@@ -14643,6 +14868,7 @@ private class PreviewController(
         tonalBundle: StillCaptureBundle,
         stillsLut: LutCatalog = LutCatalog.None,
         adbValidationShotLabel: String? = null,
+        lowLatencyBurst: Boolean = false,
         onTonalReady: ((Uri?) -> Unit)? = null,
         onTimelapseJpegBytes: ((Result<ByteArray>) -> Unit)? = null,
         onHardwareJpegFrame: ((Result<Pair<ByteArray, TotalCaptureResult>>) -> Unit)? = null,
@@ -14766,48 +14992,57 @@ private class PreviewController(
                     isStillCapture = true,
                     disableOisForStill = readHudCapturePrefs().disableOisForStillCapture,
                 )
-                PreviewPostRawSensitivity.applyIfCompatible(
-                    this,
-                    chars,
-                    readHudCapturePrefs(),
-                    manualIsoOverride,
-                    manualExposureNsOverride,
-                )
-                RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
-                RawStillProcessingHints.applyProShotPreviewExposureFromResult(
-                    this,
-                    chars,
-                    camId,
-                    lastPreviewTotalCaptureResult,
-                )
-                StillCaptureIqPolicy.applyToStillCaptureRequest(
-                    this,
-                    chars,
-                    dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
-                )
-                dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
-                    this,
-                    chars,
-                    camId,
-                    lastPreviewTotalCaptureResult,
-                )
-                if (commandDialMode == CommandDialMode.H && !manualSensorStill && adbValidationShotLabel == null) {
-                    RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
+                if (!lowLatencyBurst) {
+                    PreviewPostRawSensitivity.applyIfCompatible(
+                        this,
+                        chars,
+                        readHudCapturePrefs(),
+                        manualIsoOverride,
+                        manualExposureNsOverride,
+                    )
+                    RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
+                    RawStillProcessingHints.applyProShotPreviewExposureFromResult(
+                        this,
+                        chars,
+                        camId,
+                        lastPreviewTotalCaptureResult,
+                    )
+                    StillCaptureIqPolicy.applyToStillCaptureRequest(
+                        this,
+                        chars,
+                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
+                    )
+                    dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
+                        this,
+                        chars,
+                        camId,
+                        lastPreviewTotalCaptureResult,
+                    )
+                    if (commandDialMode == CommandDialMode.H && !manualSensorStill && adbValidationShotLabel == null) {
+                        RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
+                    }
+                } else {
+                    set(
+                        CaptureRequest.CONTROL_CAPTURE_INTENT,
+                        CaptureRequest.CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT,
+                    )
                 }
                 PreviewStillCaptureHints.applyJpegOrientationIfSupported(this, chars, surfaceRotation)
                 PreviewStillCaptureHints.applyJpegGpsIfSupported(this, chars, locForStillRequest)
                 PreviewStillCaptureHints.applyZslIfCompatible(
                     this,
                     chars,
-                    wantZsl = false,
+                    wantZsl = lowLatencyBurst,
                     manualSensorStill = manualSensorStill,
                 )
-                PreviewJpegProcessingHints.applyToCaptureRequest(
-                    this,
-                    chars,
-                    readHudCapturePrefs(),
-                    skipColorCorrection = manualAwbAlreadySetsColorCorrection(),
-                )
+                if (!lowLatencyBurst) {
+                    PreviewJpegProcessingHints.applyToCaptureRequest(
+                        this,
+                        chars,
+                        readHudCapturePrefs(),
+                        skipColorCorrection = manualAwbAlreadySetsColorCorrection(),
+                    )
+                }
                 stillRequestOverride?.invoke(this, chars)
             }.build()
 
@@ -14833,7 +15068,9 @@ private class PreviewController(
             clearJpegStillListener()
             runCatching { pendingJpeg.getAndSet(null)?.close() }
             pendingResult.set(null)
-            bgHandler.post { resumePreviewRepeatingIfPossible() }
+            if (!lowLatencyBurst) {
+                bgHandler.post { resumePreviewRepeatingIfPossible() }
+            }
             lastStatus = "JPEG still capture failed: ${t.message?.take(48) ?: t::class.java.simpleName}"
             releaseBusyIfManaged()
             Log.w(
@@ -14868,7 +15105,9 @@ private class PreviewController(
             if (!processed.compareAndSet(false, true)) return
             cancelStillWatchdog()
             clearJpegStillListener()
-            resumePreviewRepeatingIfPossible()
+            if (!lowLatencyBurst) {
+                resumePreviewRepeatingIfPossible()
+            }
             boundaryTimings.tAfterResumeRepeatingNs = SystemClock.elapsedRealtimeNanos()
             val jpegImg = pendingJpeg.getAndSet(null)!!
             val result = pendingResult.getAndSet(null)!!
@@ -14995,10 +15234,12 @@ private class PreviewController(
             try {
                 previewSnapAtStop =
                     if (stillBoundaryDiagEnabled()) lastPreviewBoundarySnapshot else null
-                boundaryTimings.tStopRepeatingNs = SystemClock.elapsedRealtimeNanos()
-                runCatching { sess.stopRepeating() }
-                    .exceptionOrNull()
-                    ?.let { Log.w(tag, "captureJpegHardwareStill stopRepeating: ${it.message}") }
+                if (!lowLatencyBurst) {
+                    boundaryTimings.tStopRepeatingNs = SystemClock.elapsedRealtimeNanos()
+                    runCatching { sess.stopRepeating() }
+                        .exceptionOrNull()
+                        ?.let { Log.w(tag, "captureJpegHardwareStill stopRepeating: ${it.message}") }
+                }
                 val fireStillCapture = Runnable {
                     try {
                         boundaryTimings.tFireStillCaptureNs = SystemClock.elapsedRealtimeNanos()
@@ -15041,7 +15282,9 @@ private class PreviewController(
                     }
                 }
                 val afterStopDebounceMs =
-                    if (shotTag != null) {
+                    if (lowLatencyBurst) {
+                        0L
+                    } else if (shotTag != null) {
                         maxOf(
                             RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS,
                             RAW_STILL_SCRIPTED_MIN_POST_STOP_DEBOUNCE_MS,

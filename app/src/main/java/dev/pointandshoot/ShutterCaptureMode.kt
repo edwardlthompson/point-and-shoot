@@ -52,17 +52,54 @@ fun applyShutterCaptureMode(
         }
         ShutterCaptureMode.Burst -> {
             chromePrefs.updateMutate { it.copy(selfTimerDelaySec = 0) }
-            hudState.update(hud.copy(burstModeEnabled = true))
+            val fleetInterval = AdvancedCaptureSettings.burstCadencePresets.first().intervalMs
+            hudState.update(
+                hud.copy(
+                    burstModeEnabled = true,
+                    burstIntervalMs = AdvancedCaptureSettings.normalizeBurstIntervalMs(fleetInterval),
+                ),
+            )
         }
     }
+}
+
+fun normalizeBurstFileTypeProfile(profile: BurstPhotoQualityProfile): BurstPhotoQualityProfile =
+    when (profile) {
+        BurstPhotoQualityProfile.RawOnly,
+        BurstPhotoQualityProfile.ProcessedOnly,
+        -> profile
+        BurstPhotoQualityProfile.Auto,
+        BurstPhotoQualityProfile.RawPlusProcessed,
+        -> BurstPhotoQualityProfile.ProcessedOnly
+    }
+
+fun applyBurstFileTypeProfile(
+    profile: BurstPhotoQualityProfile,
+    chromePrefs: PreviewChromePreferencesState,
+    hudState: HudSettingsState,
+) {
+    val normalized = normalizeBurstFileTypeProfile(profile)
+    applyShutterCaptureMode(ShutterCaptureMode.Burst, chromePrefs, hudState)
+    val hud = hudState.current
+    hudState.update(
+        hud.copy(
+            burstModeEnabled = true,
+            burstIntervalMs = AdvancedCaptureSettings.burstCadencePresets.first().intervalMs,
+            burstPhotoQualityProfile = normalized.storageId,
+        ),
+    )
 }
 
 fun shutterCaptureModeLabel(
     mode: ShutterCaptureMode,
     chrome: PreviewChromePreferences,
+    hud: HudSettings,
 ): String =
     when (mode) {
         ShutterCaptureMode.Single -> "Single"
         ShutterCaptureMode.Timer -> "Timer ${chrome.selfTimerDelaySec}s"
-        ShutterCaptureMode.Burst -> "Burst"
+        ShutterCaptureMode.Burst -> {
+            val fps = AdvancedCaptureSettings.burstCadenceFps(hud.burstIntervalMs)
+            "Burst ${"%.1f".format(fps)} fps"
+        }
     }

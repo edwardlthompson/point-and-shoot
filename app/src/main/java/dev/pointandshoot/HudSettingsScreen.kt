@@ -1303,20 +1303,13 @@ private fun AdvancedCaptureHudSection(
             }
         }
         Text("Burst pace", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Fast" to 150, "Normal" to 350, "Slow" to 800).forEach { (label, ms) ->
-                val sel = settings.burstIntervalMs == ms
-                OutlinedButton(
-                    onClick = { onUpdate(settings.copy(burstIntervalMs = ms)) },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        label,
-                        color = if (sel) PnsColors.PhotoOrange else Color.White,
-                    )
-                }
-            }
-        }
+        val fleetPreset = AdvancedCaptureSettings.burstCadencePresets.first()
+        val fleetFps = AdvancedCaptureSettings.burstCadenceFps(fleetPreset.intervalMs)
+        Text(
+            "Fleet max burst is fixed at ${fleetPreset.intervalMs}ms (~${String.format("%.1f", fleetFps)} fps target).",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.75f),
+        )
         Text("Burst quality", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BurstPhotoQualityProfile.entries.forEach { mode ->

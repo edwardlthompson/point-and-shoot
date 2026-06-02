@@ -20,7 +20,7 @@
 |-------|-----|
 | Preview chrome layout (frozen UI) | `docs/preview-chrome-layout-style-guide.md` |
 | Capture bisect / §4a / §2 RAW tier | `docs/REVERTED_FEATURES_RESTORE_LIST.md` |
-| OnePlus 13 RAW/DNG fleet | `docs/FLEET_ONEPLUS13_RAW_POLICY.md`, `DODGE_PROFILE.md` |
+| legacy device RAW/DNG fleet | `docs/FLEET_ONEPLUS13_RAW_POLICY.md`, `DODGE_PROFILE.md` |
 | DNG metadata pairing | `AGENTS.md` (CRITICAL — DNG metadata pairing) |
 | Dodge tele 73/85/150 | `DODGE_PROFILE.md`, `.cursor/rules/dodge-tele-focal-routing.mdc` |
 | Color / LUT pipeline | `COLOR_PIPELINE.md` |
@@ -59,13 +59,14 @@
 | **M** | M | **Manual focus distance** on preview (drag); ISO/shutter from **readout chips**, not “full manual” on the dial alone. |
 | **H** | H | **Highlight protection** — see [§2](#2-h-mode-highlight). |
 | **S** | S | Street: AF at **infinity**; tap preview to refocus. |
+| **Monochrome** | MONO | Dedicated hardware **monochrome sensor** mode (not LUT emulation). Dial option appears only when a camera advertises `REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME`; selecting it routes capture to that camera id. |
 | **BKT** | BKT | AE bracket burst (3/5/7); RAW12 + `GroupingID` when enabled. |
 | **Macro** | MACRO | Close-up focus (&lt;10 cm class); session/macro probes. |
 | **Night** | NIGHT | **NightScape** — burst **4/6/8** hardware JPEGs at max ISO + **≤1 s** exposure → block-align → average → **AVIF/JXL** per IMG tier (`NightScapeCapture.kt`, `HudSettings.nightScapeFrameCount`). Progress: `PNS.NightScape frame=N/M`. Requires preview **≤119 fps** + JPEG in IMG. |
 | **Bokeh** | BOKEH | CameraX **BOKEH** extension when available. |
 | **Qr** | QR | Live ZXing on YUV (photo programs); **not** on rotary dial UI — separate entry. |
 
-**Dial visibility:** `CommandDial` composable hides **Qr**; **Night** / **Bokeh** hidden when extension probe fails (typical LineageOS / AOSP).
+**Dial visibility:** `CommandDial` composable hides **Qr**; **Night** / **Bokeh** hidden when extension probe fails (typical LineageOS / AOSP); **MONO** appears only when a dedicated monochrome camera is detected.
 
 **Interaction with FPS:** Digital focal crops (**85** / **150** mm) apply only when `desiredFps < 120` (`PreviewController` / crop gates). At **120 fps**, tele digital equivalence is not applied the same way — see `DODGE_PROFILE.md`.
 
@@ -111,12 +112,12 @@ Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2).
 
 ### 2.4 H on RAW still
 
-- **AE lock** on still when `commandDialMode == H` and not full manual sensor / not ProShot pure leaf / not readout chase — `RawStillProcessingHints.applyAeLockIfAvailable`
-- **Readout chase active:** ProShot still metering and extra H AE lock are **skipped** (`wantsReadoutExposureChase()` gate)
+- **AE lock** on still when `commandDialMode == H` and not full manual sensor / not ReferenceCam pure leaf / not readout chase — `RawStillProcessingHints.applyAeLockIfAvailable`
+- **Readout chase active:** ReferenceCam still metering and extra H AE lock are **skipped** (`wantsReadoutExposureChase()` gate)
 
 ---
 
-## 3. Readout strip — AE coupling & ISO bands
+## 3. Readout strip — AE coupling & ISO auto range
 
 **Code:** `ReadoutIsoBand.kt`, `ReadoutAeCoupling.kt`, `ReadoutExposureCatalog.kt`, `PreviewReadoutStrip.kt`, `PreviewController` overrides.
 
@@ -131,23 +132,20 @@ Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2).
 
 **Important:** Dial **M** is **focus only**; “manual exposure” means **both readout chips locked**, not dial M alone.
 
-### 3.2 ISO bands
+### 3.2 ISO auto range checklist
 
-| Preset | Range | Enum |
-|--------|-------|------|
-| Full range | Sensor / table | `ReadoutIsoBand.FULL` |
-| 100–400 | 100…400 | `BAND_100_400` |
-| 100–800 | 100…800 | `BAND_100_800` |
-| 100–3200 | 100…3200 | `BAND_100_3200` |
-
-Band filters menu stops and clamps picks. **Band ceiling lock** (`isoLockFromBandCeilingOnly`) stays until user selects **Auto** or **Full range** (prevents ISO “breathing” at band edge).
+- ISO menu now has a **range checklist** section.
+- **Auto (sensor range)** is the top row (no custom clamp).
+- Tapping one ISO stop sets a single-stop range; tapping a second stop fills the full span (`100` then `800` => `100…800`).
+- All ISO picks / chase updates are clamped to the selected range plus HAL `SENSOR_INFO_SENSITIVITY_RANGE`.
+- Persistence token for tray restore uses `auto` or `range:min-max` (legacy enum tokens still parse for backward compatibility).
 
 ### 3.3 Applying exposure to HAL
 
 **Function:** `PreviewController.applyReadoutManualExposureAndWb`  
 **Repeating preview + JPEG still + RAW still** (when coupling ≠ AUTO) use the same **AE OFF + chase/manual** path.
 
-**ProShot leaf still metering** (`applyProShotPreviewExposureFromResult`) is **not** applied when `wantsReadoutExposureChase()` — avoids HAL re-metering over locked ISO.
+**ReferenceCam leaf still metering** (`applyProShotPreviewExposureFromResult`) is **not** applied when `wantsReadoutExposureChase()` — avoids HAL re-metering over locked ISO.
 
 ### 3.5 Preview AE lock (Sprint 15.26)
 
@@ -169,9 +167,9 @@ Band filters menu stops and clamps picks. **Band ceiling lock** (`isoLockFromBan
 
 **Manual distance drag:** Horizontal on the finder (not vertical — avoids front/rear camera swipes). No slider in the picker dialog (preview is obscured).
 
-**Macro program:** Forces **ultra-wide** (`macroMode autoSwitchUW`); focal slots other than **14 mm** disabled; HAL `CONTROL_AF_MODE_MACRO` when advertised; OPLUS `com.oplus.macro.closeup.enable` on UW when available. Logs: `PNS.ChromeUx focusMode=`, `macroMode afMode=MACRO`.
+**Macro program:** Auto-selects the best close-focus back camera for the current device (`macroMode autoSwitch cameraId=...`) — prefers macro-capable cameras by minimum-focus distance (dedicated macro when present), then falls back to close-focus UW/wide. Macro mode keeps selection on that macro camera instead of hard-locking `14 mm`; HAL `CONTROL_AF_MODE_MACRO` when advertised; OPLUS `com.oplus.macro.closeup.enable` when available. Logs: `PNS.ChromeUx focusMode=`, `macroMode afMode=MACRO`, `macroMode autoSwitch`.
 
-**Macro video (Sprint 15.31):** Video tray + dial **MACRO** — same UW/macro program, preview/record fps capped at **60**, EIS + OIS forced via HUD override, readout badge **MACRO VIDEO** (amber). Workflow preset **`macro_video`**. Log: `PNS.ChromeUx macroVideo=true`. Gate: `pns_macro_video_verify.ps1`.
+**Macro video (Sprint 15.31):** Video tray + dial **MACRO** — same macro-camera auto-selection, preview/record fps capped at **60**, EIS + OIS forced via HUD override, readout badge **MACRO VIDEO** (amber). Workflow preset **`macro_video`**. Log: `PNS.ChromeUx macroVideo=true`. Gate: `pns_macro_video_verify.ps1`.
 
 ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus_verify.ps1` (dial **MACRO** photo); macro video: `--ez pns_preview_primary_photo false --es pns_preview_dial MACRO`.
 
@@ -216,13 +214,13 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 ## 5. RAW / DNG still capture
 
-**Code:** `RawCaptureSupport.kt`, `PreviewEngineScreen.captureRawStill`, `DngMetadataResolver.kt`, `Dng12Saver.kt`, `RawStillProcessingHints.kt`, `fleet/OnePlus13FleetPolicy.kt`
+**Code:** `RawCaptureSupport.kt`, `PreviewEngineScreen.captureRawStill`, `DngMetadataResolver.kt`, `Dng12Saver.kt`, `RawStillProcessingHints.kt`, `fleet/LegacyDeviceFleetPolicy.kt`
 
 ### 5.1 Default RAW stream order (fleet)
 
 | Preference | Pick order (in-tree) | Notes |
 |------------|----------------------|-------|
-| `RawStreamPreference.Default` | **RAW12 → RAW_SENSOR → RAW10** | **§2 bisect** — RAW10-first breaks `DngCreator` on CPH2655 |
+| `RawStreamPreference.Default` | **RAW12 → RAW_SENSOR → RAW10** | **§2 bisect** — RAW10-first breaks `DngCreator` on legacy SKU |
 | `RawSensorFirst` | RAW_SENSOR → RAW12 → RAW10 | ADB / matrix |
 | `Raw12Only` / `RawSensorOnly` / `Raw10Only` | Single format | Testing |
 
@@ -236,19 +234,19 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 | `usePhysicalChildRawStreamMapForLogicalSession` | **`false`** | `pickRawOutputForPreviewSession` |
 | Pairing rule | **logical `CameraCharacteristics` + logical `TotalCaptureResult`** unless RAW outputs are **physically pinned** and USB proof opts in | `DngMetadataResolver` |
 
-**CPH2655:** Cameras **2/3/4** are independent logical IDs (empty `physicalCameraIds`); pairing is always logical+logical.
+**legacy SKU:** Cameras **2/3/4** are independent logical IDs (empty `physicalCameraIds`); pairing is always logical+logical.
 
 **Diagnostics:** `Log.i(PNS.CaptureStill, "dng save diag …")` with `DngMetadataResolution.toDiagSummary()`.
 
-**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock). On OP13 rear leaf (**2/3/4**), `skipStillMetadataApplyOnLeafDng` skips post-save EXIF patches (ProShot parity). Leaf DNGs also skip P&S software auxiliary strings (`skipDngSoftwareDescriptionOnLeaf`).
+**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock). On legacy device rear leaf (**2/3/4**), `skipStillMetadataApplyOnLeafDng` skips post-save EXIF patches (ReferenceCam parity). Leaf DNGs also skip P&S software auxiliary strings (`skipDngSoftwareDescriptionOnLeaf`).
 
-**OP13 leaf DNG (shipped May 2026):** `ProShotLeafStillCaptureRequest` + `ProShotDngCreatorPair` mirror ProShot decompile: crop + still IQ (lens shading map, edge/NR/tonemap/aberration/distortion) + **HAL AE** on still — **no** readout manual ISO, no `applyProShotPreviewExposureFromResult` AE latch, no post-save TIFF reconcile. Code: `useExactProShotLeafStillCaptureRequest()`, `useOp13LeafAuxColorReconcile=false`, `useProShotReferenceCalibration=false`.
+**legacy device leaf DNG (shipped May 2026):** `ProShotLeafStillCaptureRequest` + `ProShotDngCreatorPair` mirror ReferenceCam decompile: crop + still IQ (lens shading map, edge/NR/tonemap/aberration/distortion) + **HAL AE** on still — **no** readout manual ISO, no `applyProShotPreviewExposureFromResult` AE latch, no post-save TIFF reconcile. Code: `useExactProShotLeafStillCaptureRequest()`, `useLegacyLeafAuxColorReconcile=false`, `useProShotReferenceCalibration=false`.
 
 ### 5.3 Advanced capture modes (Sprint CC.1)
 
 | Setting | Storage | Behavior |
 |---------|---------|----------|
-| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` | Shutter runs [PreviewController.captureComposedStillBurst] (composed IMG path). |
+| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` + `burstPhotoQualityProfile` | **Tap:** runs [PreviewController.captureComposedStillBurst] for configured shot count. **Photo long-press:** no longer starts continuous burst/cadence. `burstPhotoQualityProfile` controls RAW/processed mix and speed-tier quality (`Auto`, `Processed only`, `RAW burst`, `RAW + processed`); faster pace lowers quality tier, slower pace raises tier. |
 | Intervalometer | `intervalometerIntervalSec` + `intervalometerRunning` | Timed stills while preview is open (photo mode, not recording). |
 | Time-lapse output | `timeLapseMode` (`Off` / `Photo` / `Video`) | **Video:** hardware JPEG frames → H.264 MP4 @ 30 fps (`TimeLapseVideoEncoder`, PTS = frame × 1/30 s). Blocks RAW DNG + normal video rec while active. Requires JPEG tier in IMG menu. Log: `PNS.TimeLapse`. |
 | Pre-capture buffer | `preCaptureBufferEnabled` | Enables [ZslStillFrameRing] on preview RAW; Standard stills use ZSL ring when on. |
@@ -283,15 +281,15 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 | Applied on RAW still | Only when pref **on** and **not** manual ISO/exp override |
 | Readout chase active | **Skipped** on RAW still (`!wantsReadoutExposureChase()` guard, May 2026) |
 
-### 5.5 OnePlus 13 ProShot leaf (reference)
+### 5.5 legacy device ReferenceCam leaf (reference)
 
 See `docs/FLEET_ONEPLUS13_RAW_POLICY.md`. Summary:
 
-- Shipped still backend: **`FRAMEWORK_PROSHOT`** on CPH2655/2653
+- Shipped still backend: **`FRAMEWORK_PROSHOT`** on legacy SKU/2653
 - Leaf RAW format order: **32 → 37 → 38 → 36** on opened map
 - `useProShotPureDngSave()` — `DngCreator(leaf, stillResult)` without wide-cal reconcile on leaf
 
-**ProShot + readout chase:** HAL metering / AE lock from ProShot **disabled** when `wantsReadoutExposureChase()`.
+**ReferenceCam + readout chase:** HAL metering / AE lock from ReferenceCam **disabled** when `wantsReadoutExposureChase()`.
 
 ### 5.7 Stabilization on still
 
@@ -305,7 +303,7 @@ See `docs/FLEET_ONEPLUS13_RAW_POLICY.md`. Summary:
 
 | Setting | In-tree | Rationale |
 |---------|---------|-----------|
-| `streamHints` | **`false`** | **§4a** — `true` caused RAW still timeout / `ERROR_CAMERA_DEVICE` on CPH2655 |
+| `streamHints` | **`false`** | **§4a** — `true` caused RAW still timeout / `ERROR_CAMERA_DEVICE` on legacy SKU |
 | Preview physical pin | **Output 0 only** on logical parent | RAW/JPEG unpinned — metadata/pixel parity |
 | RAW map pick | Logical `SCALER_STREAM_CONFIGURATION_MAP` | `usePhysicalChildRawStreamMapForLogicalSession = false` |
 | Aux UW/tele pin | Prefer **RAW_SENSOR** on logical map when `shouldPreferRawSensorForAuxPhysicalPreviewPin` | Avoid **Default** RAW12 trap (dark/green DNG) |
@@ -326,6 +324,8 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | Fleet policy enum | **No** second tele routing policy / persisted prefs (dodge path only) |
 | First-launch scan | `FleetCameraStartupScan` → `files/fleet_focal_map.json` (legacy); **M16** consolidates into `files/fleet_device_matrix.json` **`product.focalSlots`** |
 | Fleet matrix (M16) | `FleetDeviceMatrixBuilder` quick tier on hub probe → `fleet_device_matrix.json`; invalidates on fingerprint + `appVersionCode` — `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` |
+| Prime focal row (dynamic) | Candidate targets fixed to **14,16,20,24,28,35,40,50,85,100,135,200** (35mm eq). Each target maps to exactly one rear camera using highest effective MP; hidden if crop output would fall below **12 MP** |
+| Prime crop gating | Crop-only mapping (`target >= native`), active only below **120 fps**; at/above 120 fps row remains visible but digital crop is not applied |
 
 **Verification:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` — do **not** run parallel with `pns_photo_capture_verify` on one device. **Primary fleet USB device:** CPH2583 (see `AGENTS.md`).
 
@@ -340,7 +340,7 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | `PreviewChromeFinderFlexWeight` | **2.9f** | `PreviewEngineScreen.kt` |
 | `PreviewChromeRailFlexWeight` | **1f** | `PreviewEngineScreen.kt` |
 | Finder aspect | **3:4** width:height, full width | Style guide |
-| Grid | **7×3** + focal row + 2 sticky shortcut rows | `previewChromeGridSlots` |
+| Grid | **7×3** + horizontal-scroll focal row + 2 sticky shortcut rows | `previewChromeGridSlots` |
 
 **Fleet UI visibility (M17):** Consumer chrome reads **`FleetUiVisibilityGate`** + **`FleetChromeVisibility`** (catalog id → surface). Unavailable features → **hidden** (empty grid cell / no toggle row). Root-only → **`PnsColors.RootAccentBlue`** + **`FleetUiVisibilityGate.showRootOnlyToast`**. Evaluation order: per-camera `featureGates` → matrix `capabilityCatalog.deviceSupported` → live **`CapabilityGate`**. Log tag **`PNS.FleetVisibility`**. Engineering hub keeps full inventory in **Device capability matrix** + **`ProbeHubSearch`**. Rule: `.cursor/rules/fleet-ui-visibility.mdc`.
 
@@ -348,9 +348,10 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 |---------|-------------|------------------------|
 | QS quick actions | `quickActionFeatureId()` | `face.eye_af`, `hud.histogram`, `hud.zebra`, `lens.ois`, `lens.eis` |
 | Mode dial menu | `FleetChromeVisibility.filterCommandDialModes` | `hud.highlight_meter`, `still.bracket`, `preview.qr`, `video.dual`, … |
-| Focal row | hide slot when `!focalSlotInteractionEnabled` | `lens.multi` |
+| Focal row | dynamic prime mapping from `resolvePrimeLensAssignments`; hides unsupported targets (<12 MP effective) | `lens.multi` |
+| Tray format FABs | Left tray slot (next to gallery thumb) is mode-dependent: **Photo** always shows the still-format FAB and opens still format flow in this order: **MAX Photo preset**, then **Color space**, **Sensor resolution**, **RAW format**, **Compressed format**. Sensor resolution offers **Binned** (default stream map) and **Max resolution** (maximum-resolution stream map + `SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION` when available, with fallback to binned). RAW/compressed lists hide incompatible entries for the selected color space, keep `Off` in both lists, and sort by bit depth high→low. MAX picks highest-CQI still color space plus the highest-bit-depth RAW/compressed pair for that space (**Rec.2020 MAX now prefers TIFF 16-bit over JXL 12-bit**) and selects **Max resolution**. Tonal-only Max-resolution captures now attempt adaptive progressive tiling (`SCALER_CROP_REGION`) with overlap seam blending (`maxphoto_stitch`): grid auto-selects **1×1 / 2×1 / 2×2** from active-array vs baseline still size and blends overlapping seams while stitching. **Video** keeps Max presets first and forces highest-CQI video color space when selected. | `PreviewBottomCaptureTray`, `StillFormatPickerSheet`, `ComposedStillIntent.StillPhotoPickerMatrix`, `ComposedStillIntent.coerceForStillColorSpace`, `PreviewController.setComposedCapturePlan`, `RawCaptureSupport.pickRawOutputForPreviewSession`, `MaxPhotoTileStitch`, `VideoFormatPickerSheet` |
 | Settings rails | per-toggle `FleetUiVisibilityGate.visible` | overlays, video QS, capture tools, FPS rail |
-| Readout STAB / IMG | `showReadoutStabChip` / `showReadoutImgChip` | `lens.ois`, `lens.eis`, `raw.dng` |
+| Readout STAB | `showReadoutStabChip` | `lens.ois`, `lens.eis` |
 | Video format picker | `FleetChromeVisibility.filterVideoFormats` | `video.h264`, `video.hevc`, `video.hfr`, `video.regular.1080p30` |
 | Hub search pick | `ProbeHubSearch` → `PNS.ProbeHub settingsSearchPick` | scroll + 3× orange pulse via `rememberSettingHighlightFlash` |
 
@@ -382,8 +383,8 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | `hardwareJpegIspBias` | **0** (chart apply sets **-2**) | [PreviewJpegProcessingHints] — edge/NR/tonemap/CC modes |
 | `videoBitrateScalePercent` | **100** | 50–150% of probe table |
 | `videoShutterAngle` | **FREE** | Video-only: `FREE`, `360°`, `180°`, `90°`, `45°` → locks SS with `LOCKED_SS_AUTO_ISO`; label on SS chip |
-| Settings rail groups | Capture · Video · Focus · Display · About | `RailSettingsHomeContent`; **Developer** (long-press) hides `enableResearch*` |
-| QS grid (M15) | ISO band cycle **r1c3**, OIS **r2c3**, EIS **r2c4** | Flash **r2c5**; geotag not on grid |
+| Settings rail groups | Capture · Video · Focus · Display · About · Developer | `RailSettingsHomeContent`; **Developer settings** shortcut is pinned at the bottom of main Settings rail and opens research/diagnostic controls (`enableResearch*`). |
+| QS grid interactions (M22) | **7×2 shortcut rows** under focal row | **Tap** opens tile menu (no direct toggle/cycle on tap). **Long-press + drag** reorders tiles within the 7×2 area, with persisted order (`PreviewChromePreferences`) plus hover target/incoming-tile preview animation. |
 | `showFaceAlignmentDebugCrosshair` | **false** | Center crosshair on preview tile (HUD) |
 | Face overlay calibration | engineering only | `FaceOverlayCalibrationStore` (`pns_face_overlay_calibration`); D-pad in **Probe hub → Eye overlay calibration**; Camera2 eyes: `PreviewBufferCoordMap.activeArrayToPreviewBuffer` (same linear crop as tap); view: `FaceHudOverlayMapping.mapBufferPointToTile` on measured content host (`onPreviewContentSized`); no sensor quarter-turn / ST / nominal footprint offset (`PNS.FaceAlign` **`faceHudMap`**) |
 
@@ -436,7 +437,7 @@ Command dial default on fresh install: **`CommandDialMode.M`** in probe/preview 
 | Focus breathing comp | **M15.28** — `enableFocusBreathingComp` + `focusBreathingCompK` (default **0.005**); M dial + tele slot + manual focus widens `SCALER_CROP_REGION` when diopters rack (EMA). Log: `PNS.FocusBreathing` |
 | Rack focus waypoints | **M15.36** — `rackFocusWaypointNear` / `rackFocusWaypointFar` + `rackFocusDurationMs` (500–3000 ms); long-press **AF** readout chip; **▶ Rack** on M dial. Log: `PNS.RackFocus rackFocus from=` |
 | Dual ISO video (experimental) | **M15.38** — `dualIsoVideoEnabled`; probes `SCALER_MULTI_RESOLUTION_STREAM_CONFIGURATION_MAP` on session create (API 31+). Toggle greyed when probe fails. [DualIsoVideoMerger] pass-through stub only. Log: `PNS.DualIso multiResSupported=` |
-| False color / zebra QS | **M15.21** — grid **r2c1** (`CycleFalseColor`): tap cycles off → zebra → exposure bands; long-press menu |
+| False color / zebra QS | **M15.21 / M22** — grid tile opens mode menu on tap (`Off`, `Zebra`, `Exposure bands`); long-press participates in drag/drop reorder |
 | Dual video automation | `pns_preview_dial=DUAL` + `pns_preview_video_fps=30` + `pns_preview_automation_in_app_video_sec`; app waits for `dualGlRecordArmed` before record duration (`pns_dual_video_verify.ps1`) |
 
 Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / resolution prefs).
@@ -455,11 +456,11 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `audioPreferExternalInput` | **true** | `AudioRecord.setPreferredDevice` for USB / wired / BT SCO |
 | `shutterSoundPackKey` | **mechanical** | `mechanical`, `digital`, `vintage`, `silent` — CC0 samples via `SoundPool` (`res/raw/shutter_*.ogg`; see `assets/sounds/shutter_cc0/SOURCE.txt`) |
 
-**HFR + Hi-Fi mux (MediaCodec):** Stereo PCM timestamps use frame count (`shortsRead / channelCount`), not raw short count — fixes ~2× audio duration vs video. At **≥120 fps** video mux PTS is **uniform** (`frameIndex × 1e6 / targetFps`) so MP4 `avg_frame_rate` / system gallery match the capture target; encoder surface PTS often stays on a 60 Hz grid on CPH2655-class HS. ≤119 fps still uses encoder PTS for A/V alignment.
+**HFR + Hi-Fi mux (MediaCodec):** Stereo PCM timestamps use frame count (`shortsRead / channelCount`), not raw short count — fixes ~2× audio duration vs video. At **≥120 fps** video mux PTS is **uniform** (`frameIndex × 1e6 / targetFps`) so MP4 `avg_frame_rate` / system gallery match the capture target; encoder surface PTS often stays on a 60 Hz grid on legacy SKU-class HS. ≤119 fps still uses encoder PTS for A/V alignment.
 
-**HFR honesty (≥120 fps):** On CPH2655-class devices, constrained HS + Qualcomm HEVC delivers about **half** the target unique frame rate (e.g. ~60 unique/s at 120 fps). **`VideoRecordingController.lacksTrueHfrUniqueFrames`** hides **HEVC-family** and **AV1** picker rows at **≥120 fps** until hardware + unique-frame proof exists. **H.264 @ 120/240/480** remains when the camera HS table supports it. **AV1 ≤60** when `MediaCodecCapabilityProbe` lists an encoder. No mux frame duplication. USB AV1@120 artifact: `hfr-runs/av1_hfr_verify_*`. See **`docs/VIDEO_MODE_MATRIX.md`**.
+**HFR honesty (≥120 fps):** On legacy SKU-class devices, constrained HS + Qualcomm HEVC delivers about **half** the target unique frame rate (e.g. ~60 unique/s at 120 fps). **`VideoRecordingController.lacksTrueHfrUniqueFrames`** hides **HEVC-family** and **AV1** picker rows at **≥120 fps** until hardware + unique-frame proof exists. **H.264 @ 120/240/480** remains when the camera HS table supports it. **AV1 ≤60** when `MediaCodecCapabilityProbe` lists an encoder. No mux frame duplication. USB AV1@120 artifact: `hfr-runs/av1_hfr_verify_*`. See **`docs/VIDEO_MODE_MATRIX.md`**.
 
-**Format picker matrix (device-truth):** [`VideoFormatPresets.catalogTierSizes`] = HAL HS ∪ exact HEVC/H.264 perf sizes ∪ `MediaRecorder` outputs, ∩ canonical [`ALL_TIERS`]. [`fpsOptionsForResolution`] uses **exact** encoder points per size **plus baseline 30 fps** when HAL lists [`MediaRecorder`] output for that size (M17). [`InAppVideoFormatSelection.isFormatAvailableOnDevice`] keeps a row only when **labeled** WxH+fps+codec are all real: HFR = exact [`hasExactHighSpeedFps`] **and** exact H.264 encoder perf; **H.264 ≤60** = [`supportsMediaRecorderOutputSize`] on active camera (exact H.264 perf not required at ≤60); HEVC/10-bit/DCG ≤60 = exact HEVC perf. **`MediaCodecCapabilityProbe`** probes **1080p@30** tier; **`invalidateAndReprobe()`** on fleet matrix rescan (`FleetDeviceMatrixBuilder`); preview reloads catalog on matrix `scanMeta.generatedAtEpochMs` change (ON_RESUME). Stale prefs migrate via `videoFormatCatalogMigrate`. **CPH2655:** 480 only UW @ 1080p/720p; wide/tele max 240 HAL; **no 4K @ ≥120** in picker.
+**Format picker matrix (device-truth):** [`VideoFormatPresets.catalogTierSizes`] = HAL HS ∪ exact HEVC/H.264 perf sizes ∪ `MediaRecorder` outputs, ∩ canonical [`ALL_TIERS`]. [`fpsOptionsForResolution`] uses **exact** encoder points per size **plus baseline 30 fps** when HAL lists [`MediaRecorder`] output for that size (M17). [`InAppVideoFormatSelection.isFormatAvailableOnDevice`] keeps a row only when **labeled** WxH+fps+codec are all real: HFR = exact [`hasExactHighSpeedFps`] **and** exact H.264 encoder perf; **H.264 ≤60** = [`supportsMediaRecorderOutputSize`] on active camera (exact H.264 perf not required at ≤60); HEVC/10-bit/DCG ≤60 = exact HEVC perf. **`MediaCodecCapabilityProbe`** probes **1080p@30** tier; **`invalidateAndReprobe()`** on fleet matrix rescan (`FleetDeviceMatrixBuilder`); preview reloads catalog on matrix `scanMeta.generatedAtEpochMs` change (ON_RESUME). Stale prefs migrate via `videoFormatCatalogMigrate`. **legacy SKU:** 480 only UW @ 1080p/720p; wide/tele max 240 HAL; **no 4K @ ≥120** in picker.
 | `shutterSoundVolume` | **0.85** | App shutter loudness (0…1), not system media volume |
 | `shutterHapticSync` | **false** | When true, haptic with shutter sound; else haptic at readout complete |
 | `audioLightCompression` | **false** | Soft-knee PCM compression in MediaCodec audio thread |
@@ -487,7 +488,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 ## 11. Automation & ADB intent extras
 
-**Rule:** `automationSuppressFacePipeline = true` **only** when `adbBracketPattern != null` — **never** for sequential RAW-only (`pns_preview_raw_count`) alone (breaks YUV / RAW session on CPH2655).
+**Rule:** `automationSuppressFacePipeline = true` **only** when `adbBracketPattern != null` — **never** for sequential RAW-only (`pns_preview_raw_count`) alone (breaks YUV / RAW session on legacy SKU).
 
 | Extra | Effect |
 |-------|--------|
@@ -495,6 +496,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_raw_count=N` | Sequential RAW stills (keep face pipeline) |
 | `pns_preview_focal_mm_slot=` | Focal mm for chrome gate |
 | `pns_preview_imaging_profile` | Imaging profile override |
+| `pns_preview_still_format` | Sprint 22.3 still-export override for composed smoke (`heic`, `motion_photo`, `tiff16`, `jxl`) |
 | `pns_preview_raw_stream` | `RawStreamPreference` name |
 | `pns_screen=preview` | Cold-start preview route |
 | `pns_preview_adaptive_battery_pct` | PO.2 gate: override battery % for [PreviewAdaptiveFpsPolicy] |
@@ -502,6 +504,12 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_audio_hifi` | AS.1 — session seed `audioHiFiCapture` |
 | `pns_preview_audio_wind` | AS.1 — session seed `audioWindNoiseReduction` (chrome) + maps to `windNoiseFilterEnabled` when `pns_preview_wind_noise_filter` absent |
 | `pns_preview_wind_noise_filter` | 15.25 — session seed `HudSettings.windNoiseFilterEnabled` |
+| `pns_preview_experimental_master` | M22.9 — seed `HudSettings.enableExperimentalAppBreakingFeatures` for max-res unlock proof lane |
+| `pns_preview_experimental_max_res_unlock` | M22.9 — seed `HudSettings.enableExperimentalMaxResolutionUnlock` (CPH2583 root lane) |
+| `pns_preview_experimental_vendor_session` | M22.9 — seed `HudSettings.enableExperimentalVendorSessionKeys` (independent vendor key lane) |
+| `pns_preview_force_safe_mode` | M22.9 — force `ExperimentalSafeModeStore.safe_mode_active=true`, disable experimental flags, and verify fail-closed recovery |
+| `pns_preview_max_res_sweep_session_keys` | M22.9b — CSV vendor **session** keys to sweep on camera `2` during still session-template build (`maxResSweep scope=session ...`) |
+| `pns_preview_max_res_sweep_request_keys` | M22.9b — CSV vendor **request** keys to sweep on camera `2` during still request build (`maxResSweep scope=request ...`) |
 | `pns_preview_timelapse_mode` | 15.27 — `off` / `photo` / `video` → `HudSettings.timeLapseMode` |
 | `pns_preview_timelapse_running` | 15.27 — seed `intervalometerRunning` |
 | `pns_preview_timelapse_interval_sec` | 15.27 — seed `intervalometerIntervalSec` (normalized to CC.1 options) |
@@ -568,6 +576,34 @@ Log: `PNS.PowerThermal adaptiveFpsCap userFps=… effective=…`. Skipped while 
 
 Log: `PNS.PowerThermal longRunningPaused=true/false`.
 
+### M21 — Fleet parity sweep perf SLA (Quick / Full)
+
+**Code:** `FleetParitySweepRunner` · `scripts/pns_fleet_parity_sweep.ps1` · `scripts/pns_m21_gate.ps1`
+
+| Gate | SLA / threshold |
+|------|-----------------|
+| Quick cell count | **≥ 50** scripted catalog ids (`quickCellIds`) |
+| Quick sweep wall time | **≤ 120 s** host wait (in-app `durationMs` typically **< 2 s**) |
+| Full sweep wall time | **≤ 240 s** host wait |
+| Ship blockers | **0** blocking gaps (`shipBlockerGapCount`) for gate pass |
+| Delivery verify (`-IncludeRecord`) | **1920×1080 @ 30** default; fps **±3** (≤60) or **≥ 75%** target (HFR) — same as `pns_mediacodec_hfr_verify.ps1` / `FleetDeliveryProbe` |
+| Thermal cost | `parity_thermal_cost.md` from `dumpsys thermalservice` before/after record |
+
+**Parity perf catalog cells:** `perf.capture_latency`, `perf.cold_preview_ms`, `perf.first_frame_ms`, `perf.battery_adaptive_fps`, `perf.thermal_adaptive` — compared via matrix `performanceProbes` when full tier present; quick tier uses HAL-advertised only (`sessionOk=null`).
+
+### M22 — Proof-pack merge closure
+
+**Code:** `scripts/pns_fleet_parity_sweep.ps1` (`-IncludeProofPack`, `-IncludeRecord`) · `scripts/pns_parity_proof_pack.ps1` · `scripts/pns_m22_gate.ps1`
+
+| Gate | Requirement |
+|------|-------------|
+| Full parity with proof merge | `pns_fleet_parity_sweep.ps1 -Mode Full -IncludeRecord -IncludeProofPack` |
+| Proof manifest schema | `parity_proof_manifest.v1` (`scripts/parity_proof_manifest.json`) |
+| Proof results schema | `parity_proof_results.v1` (`proof_pack/parity_proof_results.json`) |
+| Matrix-gated rows | `skippedReason=matrix_gate:*` counts as proven in merge (`provenOk=true`, `gap=OK`) |
+| M22 closure floor | merged `OK >= 163`, `GAP_UNAUTOMATED=0`, `GAP_ADVERTISED_NOT_PROVEN=0`, `GAP_PLANNED=0` on CPH2583 |
+| Host merge fixture | `pns_fleet_parity_sweep.ps1 -HostProofPackMergeFixture` validates merge semantics in CI without USB |
+
 ---
 
 ## 12. GLES preview geometry
@@ -590,13 +626,13 @@ Log: `PNS.PowerThermal longRunningPaused=true/false`.
 - `LaunchedEffect` → `setGeometry` on buffer/generation churn
 - Controller `setPreviewBufferGeometryListener` → `queueEvent { setGeometry }`
 - `setPreviewDisplayLayoutSyncListener` / `previewLayoutSyncNonce` cold-start overrides
-- `GLSurfaceView.setPreserveEGLContextOnPause(true)` on CPH2655 (abandoned surface)
+- `GLSurfaceView.setPreserveEGLContextOnPause(true)` on legacy SKU (abandoned surface)
 
 **Gallery return:** `restartMainActivityCold` when tray opens external viewer successfully; else `kickPreviewPipelineRestart()` + optional `GLSurfaceView.post { requestLayout() }`.
 
 **Tray surface restore:** `PreviewLastSurfacePrefs` (`pns_preview_last_surface.xml`) stores the last **Photo** / **Video** / in-app **Gallery** tray surface. Cold start restores it unless ADB `pns_preview_primary_photo`, `MediaStore` video capture intents, or still/video return contracts override. Saved on tray changes and `ON_STOP` via `LaunchedEffect` in `PreviewEngineScreen`.
 
-**Tray mode settings (photo vs video):** `PreviewTrayModeStore` (`pns_tray_mode_settings.xml`) snapshots per-tray readout overrides (ISO / shutter / AWB / AE lock / ISO band), target FPS, OIS, EIS, and video shutter-angle preset. On Photo ↔ Video FAB toggle, the outgoing mode is saved and the incoming mode is restored (`PNS.ChromeUx trayModeRestore=…`). Video locked SS from shutter-angle presets no longer carries into photo mode. **STAB chip** reflects live HUD toggles synced to [PreviewController] (`setLiveHudSettings`); EIS is hidden when manual sensor / locked shutter blocks preview EIS (same rule as [PreviewStabilization.applyToRequest]). Labels: **OIS** / **EIS** / **OIS+EIS** when active; **Off** when advertised but disabled. Readout strip auto-scales chip typography to fit AF + STAB + LUT chips (incl. angle-prefixed SS); bottom tray height **76 dp** (was 92).
+**Tray mode settings (photo vs video):** `PreviewTrayModeStore` (`pns_tray_mode_settings.xml`) snapshots per-tray readout overrides (ISO / shutter / AWB / AE lock / ISO auto range), target FPS, OIS, EIS, video shutter-angle preset, and last prime focal target. On Photo ↔ Video FAB toggle, the outgoing mode is saved and the incoming mode is restored (`PNS.ChromeUx trayModeRestore=…`), including focal-target restore for each tray mode. Video locked SS from shutter-angle presets no longer carries into photo mode. **STAB chip** reflects live HUD toggles synced to [PreviewController] (`setLiveHudSettings`); EIS is hidden when manual sensor / locked shutter blocks preview EIS (same rule as [PreviewStabilization.applyToRequest]). Labels: **OIS** / **EIS** / **OIS+EIS** when active; **Off** when advertised but disabled. Readout strip auto-scales chip typography to fit AF + STAB + LUT chips (incl. angle-prefixed SS); bottom tray height **76 dp** (was 92). Still shutter taps now queue while previous captures process; top status line reports queue progress (`Still queue X/Y - pending N`).
 
 **PO.1 memory (Sprint PO.1):** `PnsBitmapGuard` (`PNS.Bitmap`) tracks gallery/tray bitmap recycle; `PnsMediaStoreGallery` (`PNS.GalleryIndex`) indexes `DCIM/Point & Shoot` via `RELATIVE_PATH` + `QUERY_ARG_LIMIT` (lazy EXIF on selection); preview session logs `PNS.MemoryProfiler` (10 s interval, CSV under app external `memory_profiles/`). Gate: `scripts/pns_memory_profiler.ps1`.
 
@@ -613,7 +649,7 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 | `PNS.ChromeUx` | Readout AE, coupling, `readoutAeApplied`, focal slot |
 | `PNS.CaptureStill` | RAW still save, **`dng save diag`** |
 | `PNS.Dng` / `PNS.DngMeta` | Color matrices, resolver pairing |
-| `PNS.ProShotStill` | ProShot leaf metering (when not chase-gated) |
+| `PNS.ProShotStill` | ReferenceCam leaf metering (when not chase-gated) |
 | `PNS.PostRawBoost` | Post-RAW sensitivity |
 | `PNS.MCVideoRec` | Video encoder color VUI |
 | `PNS.AdbValidation` | Scripted capture verify needles |
@@ -642,7 +678,7 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 
 **Hub search:** `ProbeHubSearch.kt` indexes hub menu + catalog + chrome settings; pick navigates to matrix Features tab, HUD/settings, or preview settings rail with **`rememberSettingHighlightFlash`** (3× pulse).
 
-**Do not:** Remove locked 7×3 slot definitions when hiding features; use empty `Box`. Do not add CPH2655-only visibility branches without `FleetDevicePolicy` plugin.
+**Do not:** Remove locked 7×3 slot definitions when hiding features; use empty `Box`. Do not add legacy SKU-only visibility branches without `FleetDevicePolicy` plugin.
 
 ---
 

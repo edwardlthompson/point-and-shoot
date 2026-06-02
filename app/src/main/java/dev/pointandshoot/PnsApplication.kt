@@ -20,6 +20,10 @@ class PnsApplication : Application() {
     @OptIn(DelicateCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
+        ExperimentalSafeModeStore.recordAppLaunchAttempt(this)
+        if (ExperimentalSafeModeStore.isSafeModeActive(this)) {
+            ExperimentalSafeModeStore.disableExperimentalFlags(this)
+        }
         PnsStartupTrace.recordApplicationOnCreate()
         GlobalScope.launch { MediaCodecCapabilityProbe.probe() }
         GlobalScope.launch { CameraXExtensionProbe.probe(this@PnsApplication) }

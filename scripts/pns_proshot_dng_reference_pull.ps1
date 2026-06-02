@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Pull latest ProShot DNGs from device and diff tags vs Point and Shoot baseline captures.
+  Pull latest ReferenceCam DNGs from device and diff tags vs Point and Shoot baseline captures.
 
 .EXAMPLE
-  .\scripts\pns_proshot_dng_reference_pull.ps1 -Serial 8bf09993
+  .\scripts\pns_proshot_dng_reference_pull.ps1 -Serial <serial>
   .\scripts\pns_proshot_dng_reference_pull.ps1 -DngCount 3 -PnsCompareDir hfr-runs\aux_dng_capture_analyze_20260518_020540
 #>
 param(
@@ -106,23 +106,23 @@ if ([string]::IsNullOrWhiteSpace($PnsCompareDir)) {
 }
 
 $report = [System.Collections.Generic.List[string]]::new()
-$report.Add("# ProShot vs Point and Shoot DNG tag diff")
+$report.Add("# ReferenceCam vs Point and Shoot DNG tag diff")
 $report.Add("")
 $report.Add("Timestamp UTC: $ts")
-$report.Add("ProShot package: $ProShotPackage")
+$report.Add("ReferenceCam package: $ProShotPackage")
 $report.Add("P&S compare dir: $PnsCompareDir")
 $report.Add("")
 
 $pyReport = Join-Path $PSScriptRoot "dng_tag_report.py"
 $pyStructural = Join-Path $PSScriptRoot "structural_verify.py"
 
-$report.Add("## ProShot files (newest $DngCount non-P&S DCIM DNGs)")
+$report.Add("## ReferenceCam files (newest $DngCount non-P&S DCIM DNGs)")
 foreach ($p in $pulled) {
     $report.Add("- ``$($p.local)`` remote=$($p.remote) mtime=$($p.mtime)")
 }
 $report.Add("")
 if ($pulled.Count -ge 1 -and (Test-Path $pyReport)) {
-    $report.Add("### ProShot tag summary")
+    $report.Add("### ReferenceCam tag summary")
     $report.Add("``````")
     $tagOut = & python $pyReport @($pulled.local)
     $tagOut | ForEach-Object { $report.Add($_) }
@@ -164,7 +164,7 @@ if ($PnsCompareDir -and (Test-Path $PnsCompareDir)) {
 
 if ($pulled.Count -eq 3 -and (Test-Path $pyStructural)) {
     $report.Add("")
-    $report.Add("### ProShot structural_verify (assumed order: oldest..newest of pull = uw/wide/tele if you shot in that order)")
+    $report.Add("### ReferenceCam structural_verify (assumed order: oldest..newest of pull = uw/wide/tele if you shot in that order)")
     $report.Add("Reorder files manually if needed.")
     $report.Add("``````")
     $sv2 = & python $pyStructural $pulled[0].local $pulled[1].local $pulled[2].local 2>&1
@@ -176,7 +176,7 @@ $reportPath = Join-Path $outDir "diff_report.md"
 $report | Out-File -Encoding utf8 $reportPath
 Write-Host "[proshot_ref] report -> $reportPath"
 
-# Pull ProShot APK for static analysis
+# Pull ReferenceCam APK for static analysis
 $apkDir = Join-Path $outDir "apk"
 New-Item -ItemType Directory -Force -Path $apkDir | Out-Null
 $pathLines = (AdbShell "pm path $ProShotPackage").Trim() -split "`n"

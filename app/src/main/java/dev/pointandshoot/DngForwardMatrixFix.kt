@@ -8,10 +8,10 @@ import android.util.Rational
  *
  * Matrices were derived from each camera's actual ColorMatrix2 (D65) via:
  *   FM = sRGB_D50 × pinv(CM2)
- * then validated against the captured logcat on CPH2655 (OPPO Find X8 Pro) May 2026.
+ * then validated against the captured logcat on LegacySku (OPPO Find X8 Pro) May 2026.
  *
- * **Deprecated / unwired (May 2026):** FM/ASN post-patch in [Dng12Saver] was reverted — broke wide/tele on CPH2655.
- * Do not wire without ProShot-aligned session design + USB proof. See [docs/DNG_REFERENCE_APPS.md].
+ * **Deprecated / unwired (May 2026):** FM/ASN post-patch in [Dng12Saver] was reverted — broke wide/tele on LegacySku.
+ * Do not wire without ReferenceCam-aligned session design + USB proof. See [docs/DNG_REFERENCE_APPS.md].
  *
  * **Safe no-op:** if the patch fails or the camera ID is not listed the original DNG is written.
  */
@@ -31,10 +31,10 @@ object DngForwardMatrixFix {
      * Outer key: device model prefix (Build.MODEL prefix, lower-case).
      * Inner key: camera ID string.
      *
-     * CPH2655 = OnePlus 13 dodge leaf ids ([OnePlus13FleetPolicy]): **3** UW, **2** wide, **4** tele.
+     * LegacySku = Legacy device dodge leaf ids ([LegacyFleetPolicy]): **3** UW, **2** wide, **4** tele.
      */
     private val overrides: Map<String, Map<String, FmOverride>> = mapOf(
-        "cph2655" to mapOf(
+        "legacy_sku" to mapOf(
             // UW (cam3) — FM = sRGB→XYZ_D50 × pinv(CM2_uw), computed May 2026 from v4 DNG
             "3" to FmOverride(
                 fm1 = arrayOf(
@@ -66,14 +66,14 @@ object DngForwardMatrixFix {
      * Derived from raw bayer channel mean ratios (aux R/G / wide R/G) across 3 paired
      * shots with different illuminants. Std < 2% confirms these are hardware constants.
      *
-     * CPH2655 measurements (May 2026):
+     * LegacySku measurements (May 2026):
      *   UW   R/G ratio vs wide: 1.147 → scaleR=1.147, scaleB=1.036
      *   Tele R/G ratio vs wide: 0.661 → scaleR=1.602, scaleB=1.147
      */
     data class WbCorrection(val scaleR: Float, val scaleB: Float)
 
     private val wbCorrections: Map<String, Map<String, WbCorrection>> = mapOf(
-        "cph2655" to mapOf(
+        "legacy_sku" to mapOf(
             "3" to WbCorrection(scaleR = 1.147f, scaleB = 1.036f),   // UW
             "4" to WbCorrection(scaleR = 1.602f, scaleB = 1.147f),   // Tele
         ),

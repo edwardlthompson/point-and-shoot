@@ -15,13 +15,13 @@ import dev.pointandshoot.DngSaveBisectState
 import dev.pointandshoot.TiffDngColorMatrixPatch
 
 /**
- * CPH2655 leaf DNG post-process after [android.hardware.camera2.DngCreator].
+ * LegacySku leaf DNG post-process after [android.hardware.camera2.DngCreator].
  *
- * **ProShot / MotionCam gap (May 2026):** Play Store apps do not run Bayer/gain AsShotNeutral surgery.
- * MotionCam encodes in native code with per-model profiles; ProShot relies on
+ * **ReferenceCam / MotionCam gap (May 2026):** Play Store apps do not run Bayer/gain AsShotNeutral surgery.
+ * MotionCam encodes in native code with per-model profiles; ReferenceCam relies on
  * `DngCreator(openedCameraCharacteristics, stillResult)` plus still IQ (lens shading, etc.).
  *
- * Shipped OP13 path: force IFD0 + raw-IFD **ColorMatrix / ForwardMatrix** from the **opened leaf**
+ * Shipped LegacyDevice path: force IFD0 + raw-IFD **ColorMatrix / ForwardMatrix** from the **opened leaf**
  * [CameraCharacteristics], optional per-id FM override, and **AsShotNeutral** from
  * [CaptureResult.SENSOR_NEUTRAL_COLOR_POINT] on the still result — not inverted gains or Bayer means.
  */
@@ -30,7 +30,7 @@ object LeafDngHalReconcile {
 
     fun shouldReconcileLeafDngMetadata(sessionCameraId: String): Boolean =
         shouldReconcileLeafDngMetadataWhen(
-            deviceApplies = OnePlus13FleetPolicy.appliesToDevice(),
+            deviceApplies = LegacyFleetPolicy.appliesToDevice(),
             backend = StillDngBackendPolicy.active(),
             sessionCameraId = sessionCameraId,
         )
@@ -44,7 +44,7 @@ object LeafDngHalReconcile {
     fun usesProShotReferenceCalibration(sessionCameraId: String?): Boolean =
         useProShotReferenceCalibrationPath(sessionCameraId)
 
-    /** Live [Image] Bayer stats — DngCreator row-strip layout mis-reads CFA on CPH2655. */
+    /** Live [Image] Bayer stats — DngCreator row-strip layout mis-reads CFA on LegacySku. */
     fun shouldEstimateBayerBeforeWrite(sessionCameraId: String?): Boolean {
         if (sessionCameraId == null) return false
         if (useProShotReferenceCalibrationPath(sessionCameraId)) return true
@@ -54,16 +54,16 @@ object LeafDngHalReconcile {
     }
 
     /**
-     * Legacy ASN-only reconcile (bisect). Default OP13 aux uses [applyHalColorCalibrationReconcile].
+     * Legacy ASN-only reconcile (bisect). Default LegacyDevice aux uses [applyHalColorCalibrationReconcile].
      */
     internal fun shouldReconcileLeafDngMetadataWhen(
         deviceApplies: Boolean,
         backend: StillDngBackend,
         sessionCameraId: String,
-        proShotPureDngSave: Boolean = OnePlus13FleetPolicy.useProShotPureDngSave(),
-        wideLeafCalibrationForAuxDng: Boolean = OnePlus13FleetPolicy.useWideLeafCalibrationForAuxDng(),
-        uwProShotAsnReconcile: Boolean = OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile(),
-        proShotReferenceCalibration: Boolean = OnePlus13FleetPolicy.useProShotReferenceCalibration(),
+        proShotPureDngSave: Boolean = LegacyFleetPolicy.useProShotPureDngSave(),
+        wideLeafCalibrationForAuxDng: Boolean = LegacyFleetPolicy.useWideLeafCalibrationForAuxDng(),
+        uwProShotAsnReconcile: Boolean = LegacyFleetPolicy.useLegacyLeafAuxColorReconcile(),
+        proShotReferenceCalibration: Boolean = LegacyFleetPolicy.useProShotReferenceCalibration(),
     ): Boolean {
         DngSaveBisectState.forceLeafHalReconcile?.let { forced ->
             return forced &&
@@ -74,16 +74,16 @@ object LeafDngHalReconcile {
             deviceApplies &&
             proShotReferenceCalibration &&
             proShotPureDngSave &&
-            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+            (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+                sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
             return true
         }
         if (
             deviceApplies &&
             wideLeafCalibrationForAuxDng &&
-            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+            (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+                sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
             return true
         }
@@ -91,21 +91,21 @@ object LeafDngHalReconcile {
             deviceApplies &&
             proShotPureDngSave &&
             uwProShotAsnReconcile &&
-            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+            (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+                sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
             return true
         }
         if (deviceApplies && proShotPureDngSave && !proShotReferenceCalibration) {
             return false
         }
-        if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_WIDE) {
+        if (sessionCameraId == LegacyFleetPolicy.CANONICAL_WIDE) {
             return false
         }
         if (
-            OnePlus13FleetPolicy.useOp13AsnReconcileOnly() &&
-            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+            LegacyFleetPolicy.useLegacyAsnReconcileOnly() &&
+            (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+                sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
             return true
         }
@@ -116,9 +116,9 @@ object LeafDngHalReconcile {
 
     private val leafRearIds: Set<String> =
         setOf(
-            OnePlus13FleetPolicy.CANONICAL_UW,
-            OnePlus13FleetPolicy.CANONICAL_WIDE,
-            OnePlus13FleetPolicy.CANONICAL_TELE,
+            LegacyFleetPolicy.CANONICAL_UW,
+            LegacyFleetPolicy.CANONICAL_WIDE,
+            LegacyFleetPolicy.CANONICAL_TELE,
         )
 
     fun usesWideLeafCalibrationReconcile(sessionCameraId: String?): Boolean =
@@ -163,7 +163,7 @@ object LeafDngHalReconcile {
         }
         if (useAsnOnlyPath(sessionCameraId)) {
             val bayerAsn =
-                if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE) {
+                if (sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE) {
                     preWriteBayerAsn
                         ?: DngBayerAsShotNeutral.estimateFromDngBytes(original, characteristics)
                 } else {
@@ -198,11 +198,11 @@ object LeafDngHalReconcile {
     }
 
     private fun useProShotReferenceCalibrationPath(sessionCameraId: String?): Boolean {
-        if (!OnePlus13FleetPolicy.useProShotReferenceCalibration()) return false
+        if (!LegacyFleetPolicy.useProShotReferenceCalibration()) return false
         if (sessionCameraId == null) return false
-        // Wide (LYT-808): HAL CM/FM/ASN are trustworthy — aux only needs ProShot profile + Bayer ASN.
-        return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-            sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
+        // Wide (LYT-808): HAL CM/FM/ASN are trustworthy — aux only needs ReferenceCam profile + Bayer ASN.
+        return sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+            sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE
     }
 
     private fun applyProShotReferenceCalibrationReconcile(
@@ -215,12 +215,12 @@ object LeafDngHalReconcile {
     ): ByteArray {
         val ctx = assetContext?.applicationContext
         if (ctx == null) {
-            Log.w(TAG, "proshot-ref cal skipped: no assetContext cam=$sessionCameraId")
+            Log.w(TAG, "referencecam-ref cal skipped: no assetContext cam=$sessionCameraId")
             return original
         }
         val slot = ProShotReferenceCalibration.forCameraId(ctx, sessionCameraId)
         if (slot == null) {
-            Log.w(TAG, "proshot-ref cal skipped: no slot for cam=$sessionCameraId")
+            Log.w(TAG, "referencecam-ref cal skipped: no slot for cam=$sessionCameraId")
             return original
         }
         val cm2Before =
@@ -239,7 +239,7 @@ object LeafDngHalReconcile {
         val model = Build.MODEL?.lowercase().orEmpty()
         DngForwardMatrixFix.get(model, sessionCameraId)?.let { fmOverride ->
             bytes = TiffDngColorMatrixPatch.patchForwardMatrix(bytes, fmOverride)
-            Log.i(TAG, "proshot-ref ForwardMatrix override cam=$sessionCameraId")
+            Log.i(TAG, "referencecam-ref ForwardMatrix override cam=$sessionCameraId")
         }
         bytes = patchProShotReferenceAsShotNeutral(
             bytes,
@@ -256,14 +256,14 @@ object LeafDngHalReconcile {
             )
         Log.i(
             TAG,
-            "proshot-ref cal patched cam=$sessionCameraId cm2_before=$cm2Before cm2_after=$cm2After",
+            "referencecam-ref cal patched cam=$sessionCameraId cm2_before=$cm2Before cm2_after=$cm2After",
         )
         return bytes
     }
 
     /**
-     * ProShot CM/FM tags are copied from reference DNGs; ASN must track **this** capture's Bayer
-     * (static ProShot ASN on different RAW causes green cast in ACR).
+     * ReferenceCam CM/FM tags are copied from reference DNGs; ASN must track **this** capture's Bayer
+     * (static ReferenceCam ASN on different RAW causes green cast in ACR).
      */
     private fun patchProShotReferenceAsShotNeutral(
         bytes: ByteArray,
@@ -273,8 +273,8 @@ object LeafDngHalReconcile {
         slot: ProShotReferenceCalibration.Slot,
         @Suppress("UNUSED_PARAMETER") preWriteBayerEstimate: DngBayerAsShotNeutral.BayerAsnEstimate? = null,
     ): ByteArray {
-        // Same gray-card scene as bundled refs: ProShot ASN + per-id FM override (above) is the
-        // ACR/Lightroom path. Bayer strip/readback on CPH2655 mis-phases CFA; HAL gains stay on
+        // Same gray-card scene as bundled refs: ReferenceCam ASN + per-id FM override (above) is the
+        // ACR/Lightroom path. Bayer strip/readback on LegacySku mis-phases CFA; HAL gains stay on
         // the still request for UW raw pixels only.
         return patchAsnFromProShotReferenceRationals(bytes, slot, sessionCameraId)
     }
@@ -290,26 +290,26 @@ object LeafDngHalReconcile {
         val g = nd[2].toFloat() / nd[3].coerceAtLeast(1L)
         val b = nd[4].toFloat() / nd[5].coerceAtLeast(1L)
         val asn = normalizeAsShotNeutralTriplet(r, g, b)
-        Log.w(TAG, "proshot-ref ASN fallback bundled ProShot cam=$sessionCameraId")
+        Log.w(TAG, "referencecam-ref ASN fallback bundled ReferenceCam cam=$sessionCameraId")
         return TiffDngColorMatrixPatch.patchAsShotNeutralFromFloats(bytes, asn)
     }
 
     private fun useAsnOnlyPath(sessionCameraId: String?): Boolean {
         if (useProShotReferenceCalibrationPath(sessionCameraId)) return false
         if (
-            OnePlus13FleetPolicy.useProShotPureDngSave() &&
-            OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile() &&
-            (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-                sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE)
+            LegacyFleetPolicy.useProShotPureDngSave() &&
+            LegacyFleetPolicy.useLegacyLeafAuxColorReconcile() &&
+            (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+                sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
             return true
         }
-        if (OnePlus13FleetPolicy.useProShotPureDngSave()) return false
+        if (LegacyFleetPolicy.useProShotPureDngSave()) return false
         if (DngSaveBisectState.forceLegacyAsnReconcile) return false
         if (sessionCameraId == null) return false
-        if (!OnePlus13FleetPolicy.useOp13AsnReconcileOnly()) return false
-        return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-            sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
+        if (!LegacyFleetPolicy.useLegacyAsnReconcileOnly()) return false
+        return sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+            sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE
     }
 
     private fun useWideLeafCalibrationPath(
@@ -317,9 +317,9 @@ object LeafDngHalReconcile {
         wideCalibrationCharacteristics: CameraCharacteristics? = null,
     ): Boolean {
         if (wideCalibrationCharacteristics == null || sessionCameraId == null) return false
-        if (!OnePlus13FleetPolicy.useWideLeafCalibrationForAuxDng()) return false
-        return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-            sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
+        if (!LegacyFleetPolicy.useWideLeafCalibrationForAuxDng()) return false
+        return sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+            sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE
     }
 
     /**
@@ -336,14 +336,14 @@ object LeafDngHalReconcile {
         var bytes = TiffDngColorMatrixPatch.patchCalibrationTagsIfd0(original, wideCharacteristics)
         bytes = TiffDngColorMatrixPatch.patch(bytes, wideCharacteristics)
         val correctedStillGains =
-            sessionCameraId?.let { Op13LeafStillColorCorrection.takePendingCorrectedGains(it) }
+            sessionCameraId?.let { LegacyLeafStillColorCorrection.takePendingCorrectedGains(it) }
         when {
             correctedStillGains != null -> {
                 bytes = TiffDngColorMatrixPatch.patchAsShotNeutral(bytes, correctedStillGains)
                 Log.i(
                     TAG,
                     "wide-cal AsShotNeutral from Op13 still-request gains auxCam=$sessionCameraId " +
-                        "profileCam=${OnePlus13FleetPolicy.CANONICAL_WIDE}",
+                        "profileCam=${LegacyFleetPolicy.CANONICAL_WIDE}",
                 )
             }
             else -> {
@@ -376,13 +376,13 @@ object LeafDngHalReconcile {
     }
 
     private fun useHalColorCalibrationPath(sessionCameraId: String?): Boolean {
-        if (OnePlus13FleetPolicy.useWideLeafCalibrationForAuxDng()) return false
-        if (OnePlus13FleetPolicy.useProShotPureDngSave()) return false
+        if (LegacyFleetPolicy.useWideLeafCalibrationForAuxDng()) return false
+        if (LegacyFleetPolicy.useProShotPureDngSave()) return false
         if (DngSaveBisectState.forceLegacyAsnReconcile) return false
         if (sessionCameraId == null) return false
-        if (!OnePlus13FleetPolicy.useHalColorCalibrationReconcile()) return false
-        return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_UW ||
-            sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
+        if (!LegacyFleetPolicy.useHalColorCalibrationReconcile()) return false
+        return sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
+            sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE
     }
 
     private fun applyOp13AsnOnlyReconcile(
@@ -392,7 +392,7 @@ object LeafDngHalReconcile {
         preWriteBayerAsn: FloatArray? = null,
     ): ByteArray {
         var bytes = original
-        if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE && preWriteBayerAsn != null) {
+        if (sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE && preWriteBayerAsn != null) {
             bytes =
                 TiffDngColorMatrixPatch.patchAsShotNeutralFromFloats(
                     bytes,
@@ -401,7 +401,7 @@ object LeafDngHalReconcile {
             Log.i(TAG, "asn-only AsShotNeutral from Bayer (pre-write) cam=$sessionCameraId")
         } else {
         val correctedStillGains =
-            sessionCameraId?.let { Op13LeafStillColorCorrection.takePendingCorrectedGains(it) }
+            sessionCameraId?.let { LegacyLeafStillColorCorrection.takePendingCorrectedGains(it) }
         if (correctedStillGains != null) {
             bytes = TiffDngColorMatrixPatch.patchAsShotNeutral(bytes, correctedStillGains)
             Log.i(
@@ -414,8 +414,8 @@ object LeafDngHalReconcile {
                 val forPatch =
                     if (DngSaveBisectState.skipHalWbGainCorrection) {
                         gains
-                    } else if (sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE) {
-                        // CPH2655 tele: static WB scale table over-corrects; keep raw HAL gains.
+                    } else if (sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE) {
+                        // LegacySku tele: static WB scale table over-corrects; keep raw HAL gains.
                         gains
                     } else {
                         applyHalWbGainCorrection(gains, sessionCameraId)
@@ -427,7 +427,7 @@ object LeafDngHalReconcile {
             }
         }
         }
-        if (OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile()) {
+        if (LegacyFleetPolicy.useLegacyLeafAuxColorReconcile()) {
             val model = Build.MODEL?.lowercase().orEmpty()
             DngForwardMatrixFix.get(model, sessionCameraId)?.let { fmOverride ->
                 bytes = TiffDngColorMatrixPatch.patchForwardMatrix(bytes, fmOverride)
@@ -452,7 +452,7 @@ object LeafDngHalReconcile {
             Log.i(TAG, "hal cal ForwardMatrix override cam=$sessionCameraId")
         }
         val correctedStillGains =
-            sessionCameraId?.let { Op13LeafStillColorCorrection.takePendingCorrectedGains(it) }
+            sessionCameraId?.let { LegacyLeafStillColorCorrection.takePendingCorrectedGains(it) }
         when {
             correctedStillGains != null -> {
                 bytes = TiffDngColorMatrixPatch.patchAsShotNeutral(bytes, correctedStillGains)
@@ -551,8 +551,8 @@ object LeafDngHalReconcile {
 
     private fun preferBayerAsnForSession(sessionCameraId: String?): Boolean {
         if (DngSaveBisectState.forceBayerAsnOnLeafReconcile) return true
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return false
-        return sessionCameraId == OnePlus13FleetPolicy.CANONICAL_TELE
+        if (!LegacyFleetPolicy.appliesToDevice()) return false
+        return sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE
     }
 
     fun applyHalWbGainCorrection(

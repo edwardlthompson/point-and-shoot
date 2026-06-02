@@ -61,7 +61,8 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone 17** | **Archived** — capability catalog + hub search + chrome visibility (**2026-05-29**) |
 | **Milestone 18** | **Archived** — catalog v3, matrix schema v2, Fleet Parity Sweep, focal row, regression pack (**2026-05-30**) |
 | **Milestone 19** | **Archived** — format/color picker, VP9/RAW/dual-ISO, ProRes probe (**2026-05-30**) |
-| **Milestone 20** | **Active** — concurrent capture (dual video + Multicam Melt + PiP) |
+| **Milestone 20** | **Archived** — concurrent capture (dual video + Multicam Melt + PiP) |
+| **Milestone 22** | **Active** — parity proof-pack closure + capability provider map |
 | **Milestone H** | **Active** — residual **[HUMAN]** work; **H.7** closed **CPH2583** (owner 2026-05-29); OP13 lane optional |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 | **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
@@ -164,18 +165,24 @@ Items below moved into **Milestone 19** sprints where noted; this list stays emp
 
 ---
 
+## Milestone 22 — Fleet parity proof-pack closure *(archived)*
+
+Milestone 22 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Archived milestone sprints (M15–M22)**, including Sprint **22.0–22.8** closure details and gate outcomes.
+
+---
+
 ## Completed milestones & sprints (archive)
 
 | Archive | Contents |
 |---------|----------|
 | **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | Shipped work index **by app feature** (22 categories); not milestone/sprint layout |
 
-**Open in this file:** **Milestone H** only (M17–M20 archived 2026-05-30)
+**Open in this file:** **Milestone H** (M15–M22 archived in `BUILD_PLAN_COMPLETED.md`)
 
 ### Archiving completed work — procedure
 
 1. When a sprint closes, add its completed tasks under the right **feature category** in **`BUILD_PLAN_COMPLETED.md`** (not as a new milestone section).
-2. Keep **`BUILD_PLAN.md`** as pointers + open **Milestone H** rows only.
+2. Keep **`BUILD_PLAN.md`** as pointers + open milestone rows only (currently **Milestone H**).
 3. Update **`CHANGELOG.md`** for user-visible changes.
 
 ---

@@ -48,7 +48,7 @@ class FleetCameraProfileBuilderTest {
     fun snapshotJson_roundTrip() {
         val snap =
             FleetProfilesSnapshot(
-                deviceModel = "CPH2655",
+                deviceModel = "LegacySku",
                 manufacturer = "OnePlus",
                 logicalCameraId = "0",
                 roleByCameraId = mapOf("2" to FleetCameraRole.WIDE, "3" to FleetCameraRole.ULTRA_WIDE),
@@ -71,8 +71,8 @@ class FleetCameraProfileBuilderTest {
                             largestRaw12WxH = null,
                         ),
                     ),
-                policyId = OnePlus13FleetPolicy.POLICY_ID,
-                leafRawFormatOrder = OnePlus13FleetPolicy.LEAF_RAW_FORMAT_ORDER,
+                policyId = LegacyFleetPolicy.POLICY_ID,
+                leafRawFormatOrder = LegacyFleetPolicy.LEAF_RAW_FORMAT_ORDER,
             )
         val back = FleetProfilesSnapshot.fromJson(snap.toJson())!!
         assertEquals(snap.deviceModel, back.deviceModel)

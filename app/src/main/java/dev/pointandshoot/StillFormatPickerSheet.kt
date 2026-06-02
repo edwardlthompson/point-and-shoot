@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Photo
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -30,11 +31,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +50,9 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun StillFormatPickerSheet(
     chrome: PreviewChromePreferences,
-    onApply: (PreviewChromePreferences) -> Unit,
+    composedStillIntent: ComposedStillIntent,
+    selectedExportKind: StillExportKind?,
+    onApply: (PreviewChromePreferences, ComposedStillIntent, StillExportKind?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -55,6 +61,82 @@ fun StillFormatPickerSheet(
         mutableIntStateOf(chrome.stillColorSpaceOrdinal.coerceAtLeast(0))
     }
     val pickedColor = colorSpaces.getOrNull(pickedColorOrdinal)?.first
+    val rawChoices = remember(pickedColor) { StillPhotoPickerMatrix.allowedRawFormats(pickedColor) }
+    var pickedRawFormat by remember(composedStillIntent.raw, pickedColorOrdinal) {
+        mutableStateOf(
+            rawChoices.firstOrNull { it.tier == composedStillIntent.raw } ?: rawChoices.first(),
+        )
+    }
+    if (pickedRawFormat !in rawChoices) {
+        pickedRawFormat = rawChoices.first()
+    }
+    val compressedChoices = remember(pickedColor) { StillPhotoPickerMatrix.allowedCompressedFormats(pickedColor) }
+    val resolutionModes =
+        remember {
+            listOf(PhotoResolutionMode.MaxResolution, PhotoResolutionMode.Binned) +
+                PhotoResolutionMode.entries.filterNot {
+                    it == PhotoResolutionMode.MaxResolution || it == PhotoResolutionMode.Binned
+                }
+        }
+    var pickedResolutionMode by remember(composedStillIntent.photoResolutionMode) {
+        mutableStateOf(composedStillIntent.photoResolutionMode)
+    }
+    var pickedCompressedFormat by remember(selectedExportKind, composedStillIntent.jpeg, pickedColorOrdinal) {
+        mutableStateOf(
+            compressedChoices.firstOrNull { it.exportKind == selectedExportKind } ?:
+                compressedChoices.firstOrNull { it.tier == composedStillIntent.jpeg } ?:
+                compressedChoices.first(),
+        )
+    }
+    if (pickedCompressedFormat !in compressedChoices) {
+        pickedCompressedFormat = compressedChoices.first()
+    }
+    val maxColorOrdinal =
+        remember(colorSpaces) {
+            colorSpaces
+                .withIndex()
+                .maxByOrNull { it.value.second }
+                ?.index
+                ?: 0
+        }
+    fun applySelection(
+        colorOrdinal: Int = pickedColorOrdinal,
+        rawFormat: RawFormatOption = pickedRawFormat,
+        compressedFormat: CompressedFormatOption = pickedCompressedFormat,
+        resolutionMode: PhotoResolutionMode = pickedResolutionMode,
+    ) {
+        val nextChrome = chrome.copy(stillColorSpaceOrdinal = colorOrdinal)
+        val selectedColor = colorSpaces.getOrNull(colorOrdinal)?.first
+        val rawTier = rawFormat.tier
+        val compressedTier = compressedFormat.tier
+        val nextIntent =
+            ComposedStillIntent(
+                raw = rawTier,
+                jpeg = compressedTier,
+                hdrWhenJpegOff =
+                    if (rawTier == ImgMenuTier.Ultra || compressedTier == ImgMenuTier.Ultra) {
+                        ImgMenuTier.Ultra
+                    } else {
+                        ImgMenuTier.Standard
+                    },
+                photoResolutionMode = resolutionMode,
+            ).coerceForStillColorSpace(selectedColor)
+        val resolvedExportKind =
+            when {
+                compressedFormat.exportKind != null &&
+                    nextIntent.jpeg != ImgMenuTier.Off &&
+                    StillExportScaffolds.supportsColorSpace(compressedFormat.exportKind, selectedColor) ->
+                    compressedFormat.exportKind
+                nextIntent.raw != ImgMenuTier.Off && nextIntent.jpeg == ImgMenuTier.Off -> StillExportKind.Dng
+                else -> null
+            }
+        onApply(
+            nextChrome.copy(stillExportKindOrdinal = StillExportScaffolds.toOrdinal(resolvedExportKind)),
+            nextIntent,
+            resolvedExportKind,
+        )
+        onDismiss()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -96,10 +178,7 @@ fun StillFormatPickerSheet(
                             .clip(RoundedCornerShape(8.dp))
                             .background(PnsColors.PhotoOrange.copy(alpha = 0.15f))
                             .border(1.dp, PnsColors.PhotoOrange.copy(alpha = 0.60f), RoundedCornerShape(8.dp))
-                            .clickable {
-                                onApply(chrome.copy(stillColorSpaceOrdinal = pickedColorOrdinal))
-                                onDismiss()
-                            }
+                            .clickable { applySelection() }
                             .padding(horizontal = 16.dp, vertical = 6.dp),
                 ) {
                     Text(
@@ -115,6 +194,33 @@ fun StillFormatPickerSheet(
             LazyColumn(contentPadding = PaddingValues(bottom = 8.dp)) {
                 item {
                     StillPickerSectionHeader(
+                        step = "★",
+                        label = "Max quality preset",
+                        selected = null,
+                    )
+                }
+                item {
+                    StillPickerOptionRow(
+                        label = "MAX Photo",
+                        sublabel = "Auto-pick highest CQI color space + best RAW/compressed formats",
+                        isSelected =
+                            pickedColorOrdinal == maxColorOrdinal &&
+                                pickedRawFormat.tier == ImgMenuTier.Ultra &&
+                                pickedCompressedFormat == StillPhotoPickerMatrix.maxCompressedForColor(colorSpaces.getOrNull(maxColorOrdinal)?.first) &&
+                                pickedResolutionMode == PhotoResolutionMode.MaxResolution,
+                        enabled = true,
+                    ) {
+                        applySelection(
+                            colorOrdinal = maxColorOrdinal,
+                            rawFormat = StillPhotoPickerMatrix.allowedRawFormats(colorSpaces.getOrNull(maxColorOrdinal)?.first).first(),
+                            compressedFormat = StillPhotoPickerMatrix.maxCompressedForColor(colorSpaces.getOrNull(maxColorOrdinal)?.first),
+                            resolutionMode = PhotoResolutionMode.MaxResolution,
+                        )
+                    }
+                }
+
+                item {
+                    StillPickerSectionHeader(
                         step = "C",
                         label = "Color space",
                         selected = pickedColor?.displayName,
@@ -125,7 +231,7 @@ fun StillFormatPickerSheet(
                     val isSel = idx == pickedColorOrdinal
                     StillPickerOptionRow(
                         label = ColorQualityIndex.label(target.displayName, cqi),
-                        sublabel = "Export ICC / container tagging",
+                        sublabel = "Determines RAW/compressed choices below",
                         isSelected = isSel,
                         enabled = true,
                     ) {
@@ -135,20 +241,66 @@ fun StillFormatPickerSheet(
 
                 item {
                     StillPickerSectionHeader(
-                        step = "F",
-                        label = "Export formats",
-                        selected = null,
+                        step = "S",
+                        label = "Sensor resolution",
+                        selected = pickedResolutionMode.label,
                     )
                 }
-                items(items = StillExportScaffolds.availableKinds(), key = { it.name }) { kind ->
-                    val shipped = StillExportScaffolds.isEnabled(kind)
+                items(items = resolutionModes, key = { "res_${it.name}" }) { mode ->
+                    val selected = mode == pickedResolutionMode
+                    val sublabel =
+                        when (mode) {
+                            PhotoResolutionMode.Binned ->
+                                "Default binned stream dimensions (faster captures)"
+                            PhotoResolutionMode.MaxResolution ->
+                                "Maximum-resolution stream when supported (falls back safely)"
+                        }
                     StillPickerOptionRow(
-                        label = kind.label,
-                        sublabel = StillExportScaffolds.statusLabel(kind),
-                        isSelected = shipped && kind == StillExportKind.Jpeg,
-                        enabled = shipped,
-                        badge = if (shipped) "Shipped" else "Planned",
-                    ) { }
+                        label = mode.label,
+                        sublabel = sublabel,
+                        isSelected = selected,
+                        enabled = true,
+                    ) {
+                        pickedResolutionMode = mode
+                    }
+                }
+
+                item {
+                    StillPickerSectionHeader(
+                        step = "R",
+                        label = "RAW format",
+                        selected = pickedRawFormat.label,
+                    )
+                }
+                items(items = rawChoices, key = { "raw_${it.name}" }) { option ->
+                    val selected = option == pickedRawFormat
+                    StillPickerOptionRow(
+                        label = option.label,
+                        sublabel = option.bitDepthLabel,
+                        isSelected = selected,
+                        enabled = true,
+                    ) {
+                        pickedRawFormat = option
+                    }
+                }
+
+                item {
+                    StillPickerSectionHeader(
+                        step = "J",
+                        label = "Compressed format",
+                        selected = pickedCompressedFormat.label,
+                    )
+                }
+                items(items = compressedChoices, key = { "jpeg_${it.name}" }) { option ->
+                    val selected = option == pickedCompressedFormat
+                    StillPickerOptionRow(
+                        label = option.label,
+                        sublabel = option.bitDepthLabel,
+                        isSelected = selected,
+                        enabled = true,
+                    ) {
+                        pickedCompressedFormat = option
+                    }
                 }
             }
         }
@@ -249,5 +401,33 @@ private fun StillPickerOptionRow(
                 )
             }
         }
+    }
+}
+
+/** Photo tray FAB at the same gallery-adjacent slot as video format FAB. */
+@Composable
+fun PreviewTrayStillFormatFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ring = Color.White.copy(alpha = 0.88f)
+    androidx.compose.material3.FloatingActionButton(
+        onClick = onClick,
+        modifier =
+            modifier
+                .size(52.dp)
+                .border(2.dp, ring, RoundedCornerShape(percent = 50))
+                .semantics {
+                    contentDescription = "Still format settings. Tap to choose color space, RAW format, and compressed format."
+                },
+        containerColor = PnsColors.PhotoOrange.copy(alpha = 0.88f),
+        contentColor = Color.Black.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(percent = 50),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Tune,
+            contentDescription = null,
+            modifier = Modifier.size(26.dp),
+        )
     }
 }

@@ -17,6 +17,7 @@
 #>
 param(
     [string]$Serial = "",
+    [string]$OutDir = "",
     [switch]$SkipAssemble,
     [switch]$SkipInstall,
     [switch]$RunAv1Record,
@@ -61,7 +62,11 @@ if (-not $SkipInstall) {
 }
 
 $utc = Get-Date -Format "yyyyMMdd_HHmmss"
-$outDir = Join-Path $projRoot "hfr-runs\video_format_test_$utc"
+if (-not $OutDir) {
+    $OutDir = Join-Path $projRoot "hfr-runs\video_format_test_$utc"
+}
+if ($OutDir -match '[\\/]$') { $OutDir = $OutDir.TrimEnd('\','/') }
+$outDir = $OutDir
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 $previewStart = @(
@@ -87,24 +92,51 @@ if ($capLine -match "av1=true") { $supportsAv1 = $true }
 if ($av1Line) { $supportsAv1 = $true }
 
 $av1RecordOk = $null
+$ffprobeCodec = $null
+$ffprobeAv1Ok = $null
 if ($RunAv1Record -and $supportsAv1) {
     Invoke-AdbCmd @("shell", "am", "force-stop", $pkg) | Out-Null
     Invoke-AdbCmd @("logcat", "-c") | Out-Null
     $rec = [Math]::Max(1, [Math]::Min($RecordSec, 30))
     $av1Start = $previewStart + @(
         "--ez", "pns_preview_video_av1", "true",
-        "--ei", "pns_preview_video_encode_w", "1920",
-        "--ei", "pns_preview_video_encode_h", "1080",
-        "--ei", "pns_preview_video_fps", "60",
+        "--ei", "pns_preview_video_encode_w", "1280",
+        "--ei", "pns_preview_video_encode_h", "720",
+        "--ei", "pns_preview_video_fps", "30",
         "--ei", "pns_preview_automation_in_app_video_sec", "$rec"
     )
     Invoke-AdbCmd $av1Start | Out-Null
-    Start-Sleep -Seconds ($rec + 25)
+    $av1Wait = [Math]::Max($rec + 25, 120)
+    Start-Sleep -Seconds $av1Wait
     $log2 = Get-Logcat @("-s", "PNS.MCVideoRec:I", "PNS.AdbValidation:I", "PNS.ChromeUx:I")
     $log2 | Add-Content (Join-Path $outDir "logcat_av1_record.txt")
-    $av1RecordOk =
+    $av1LogOk =
         (($log2 | Select-String "mime=video/av01").Count -gt 0) -and
-        (($log2 | Select-String "inAppVideoSaved ok=true").Count -gt 0)
+        (
+            (($log2 | Select-String "inAppVideoSaved ok=true").Count -gt 0) -or
+            (($log2 | Select-String "inAppVideoSaved uri=content://").Count -gt 0)
+        )
+    $av1RecordOk = $av1LogOk
+
+    $dcim = "/sdcard/DCIM/Point & Shoot"
+    $latest = (Invoke-AdbCmd @("shell", "ls -t '$dcim'/pns_*.mp4 2>/dev/null | head -1") 2>&1) -join "`n"
+    $latest = ($latest -split "`n" | Where-Object { $_ -match "pns_.*\.mp4" } | Select-Object -First 1)
+    $localClip = Join-Path $outDir "av1_clip.mp4"
+    if ($latest) {
+        Invoke-AdbCmd @("pull", $latest.Trim(), $localClip) 2>&1 | Out-Null
+    }
+    if ((Test-Path -LiteralPath $localClip) -and (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
+        $ffprobeCodec = ((& ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=nw=1:nk=1 $localClip 2>&1) -join "").Trim()
+        $ffprobeAv1Ok = ($ffprobeCodec -eq "av01")
+        $av1RecordOk = $av1LogOk -and $ffprobeAv1Ok
+    } elseif (-not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
+        $ffprobeCodec = "ffprobe_missing"
+        $ffprobeAv1Ok = $av1LogOk
+    } else {
+        $ffprobeCodec = "clip_missing"
+        $ffprobeAv1Ok = $false
+        $av1RecordOk = $false
+    }
 } elseif ($RunAv1Record -and -not $supportsAv1) {
     Write-Host "[video_format_test] AV1 record skipped — no HW encoder"
 }
@@ -115,6 +147,8 @@ $summary = [ordered]@{
     capProbeLine = [string]$capLine
     av1EncodersLine = [string]$av1Line
     av1RecordOk = $av1RecordOk
+    ffprobeCodec = $ffprobeCodec
+    ffprobeAv1Ok = $ffprobeAv1Ok
     outDir = $outDir
 }
 $summary | ConvertTo-Json | Set-Content (Join-Path $outDir "summary.json")

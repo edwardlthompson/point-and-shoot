@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-  Milestone 13.3f — daylight USB gates (capture, openability, ProShot parity, optional session).
+  Milestone 13.3f — daylight USB gates (capture, openability, ReferenceCam parity, optional session).
 
 .DESCRIPTION
   1. pns_capture_pipeline_verify.ps1 -Fast
   2. pns_aux_dng_capture_analyze.ps1 -PreviewDial A -NoFast
   3. pns_m13_3g2_gate.ps1 on capture folder (openability)
-  4. dng_proshot_parity_gate.py vs tests/fixtures/proshot_cph2655/
+  4. dng_proshot_parity_gate.py vs tests/fixtures/proshot_legacy_sku/
   5. Optional: pns_proshot_live_forensics + reference sync (-RefreshProshotRefs)
   6. Optional: pns_dng_proshot_pns_session.ps1 (-RunProshotSession)
   7. Writes m13_3f_gate.json + ACR_HUMAN_VERIFY.md (color checklist)
@@ -15,8 +15,8 @@
   Exit 1 on capture/openability/pipeline failure, or when -RequireParityPass and parity FAIL.
 
 .EXAMPLE
-  .\scripts\pns_m13_3f_gate.ps1 -Serial 8bf09993
-  .\scripts\pns_m13_3f_gate.ps1 -RecordAcrPass -AcrColorAcceptable -AcrNote "ACR 16.5 opens 3/3; UW/tele cast vs ProShot"
+  .\scripts\pns_m13_3f_gate.ps1 -Serial <serial>
+  .\scripts\pns_m13_3f_gate.ps1 -RecordAcrPass -AcrColorAcceptable -AcrNote "ACR 16.5 opens 3/3; UW/tele cast vs ReferenceCam"
 #>
 param(
     [string]$Serial = "",
@@ -52,7 +52,7 @@ $result = [ordered]@{
     parityPass = $null
     proshotSessionDir = $null
     captureDir = $CaptureDir
-    fixtureDir = (Join-Path $projRoot "tests\fixtures\proshot_cph2655")
+    fixtureDir = (Join-Path $projRoot "tests\fixtures\proshot_legacy_sku")
 }
 
 Write-Host "=== M13.3f daylight gate ($ts) ===" -ForegroundColor Cyan
@@ -75,7 +75,7 @@ if ($RecordAcrPass -and -not [string]::IsNullOrWhiteSpace($Dir)) {
 }
 
 if ($RefreshProshotRefs) {
-    Write-Host "[13.3f] ProShot live forensics (15/23/73 mm)..." -ForegroundColor Cyan
+    Write-Host "[13.3f] ReferenceCam live forensics (15/23/73 mm)..." -ForegroundColor Cyan
     $foreArgs = @{ TryUiAutomation = $true }
     if ($Serial) { $foreArgs["Serial"] = $Serial }
     & (Join-Path $PSScriptRoot "pns_proshot_live_forensics.ps1") @foreArgs
@@ -132,15 +132,15 @@ if (-not $result.openabilityPass) {
     throw "openability FAIL"
 }
 
-Write-Host "[13.3f] ProShot parity vs fixtures..." -ForegroundColor Cyan
+Write-Host "[13.3f] ReferenceCam parity vs fixtures..." -ForegroundColor Cyan
 $parityJson = Join-Path $result.captureDir "proshot_parity_gate.json"
 & python (Join-Path $PSScriptRoot "dng_proshot_parity_gate.py") $result.captureDir `
-    --proshot-dir $result.fixtureDir --json-out $parityJson
+    --referencecam-dir $result.fixtureDir --json-out $parityJson
 $result.parityPass = ($LASTEXITCODE -eq 0)
 Copy-Item -LiteralPath $parityJson -Destination (Join-Path $gateDir "proshot_parity_gate.json") -Force -ErrorAction SilentlyContinue
 
 if ($RunProshotSession) {
-    Write-Host "[13.3f] ProShot + P&S session (side-by-side)..." -ForegroundColor Cyan
+    Write-Host "[13.3f] ReferenceCam + P&S session (side-by-side)..." -ForegroundColor Cyan
     $sessArgs = @{
         PreviewDial = "A"
         Notes = "M13.3f gate $ts — daylight; dial A not H"
@@ -160,7 +160,7 @@ $acrTemplate = @"
 
 **Device:** $($Serial)
 **P&S captures:** ``$($result.captureDir)``
-**ProShot fixtures:** ``$($result.fixtureDir)``
+**ReferenceCam fixtures:** ``$($result.fixtureDir)``
 
 ## Automated (this run)
 
@@ -169,13 +169,13 @@ $acrTemplate = @"
 | Pipeline verify | $(if ($result.pipelineVerifyPass) { 'PASS' } elseif ($null -eq $result.pipelineVerifyPass) { 'skip' } else { 'FAIL' }) |
 | Capture 3/3 + integrity | $(if ($result.captureAnalyzePass) { 'PASS' } else { 'FAIL' }) |
 | Openability (13.3g) | $(if ($result.openabilityPass) { 'PASS' } else { 'FAIL' }) |
-| ProShot parity (rawpy) | $(if ($result.parityPass) { 'PASS' } else { 'FAIL' }) |
+| ReferenceCam parity (rawpy) | $(if ($result.parityPass) { 'PASS' } else { 'FAIL' }) |
 
 ## Human checklist (required for Milestone H color close)
 
 1. Open **M14_uw.dng**, **M23_wide.dng**, **M73_tele.dng** in **Adobe Camera Raw** or Lightroom.
 2. Confirm all three **open** without error (openability).
-3. Compare **UW** and **tele** color vs ProShot reference (same scene, daylight).
+3. Compare **UW** and **tele** color vs ReferenceCam reference (same scene, daylight).
 4. Record: acceptable **yes/no** per slot; note cast (green/magenta/luminance).
 
 After review:

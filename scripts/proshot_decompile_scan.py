@@ -60,13 +60,13 @@ NEEDLES_MOTIONCAM = [
 ]
 
 PROFILES = {
-    "proshot": NEEDLES_BASE,
+    "referencecam": NEEDLES_BASE,
     "motioncam": NEEDLES_BASE + [n for n in NEEDLES_MOTIONCAM if n not in NEEDLES_BASE],
     "all": list(dict.fromkeys(NEEDLES_BASE + NEEDLES_MOTIONCAM)),
 }
 
 CLASS_HINT = re.compile(
-    r"(?i)(camera|raw|dng|capture|sensor|lens|hal|photo|still|proshot|motioncam|mcraw)"
+    r"(?i)(camera|raw|dng|capture|sensor|lens|hal|photo|still|referencecam|motioncam|mcraw)"
 )
 
 
@@ -96,7 +96,7 @@ def scan_tree(root: Path, needles: list[str]) -> dict:
 
 
 def parse_args(argv: list[str]) -> tuple[Path, Path, list[str]]:
-    profile = "proshot"
+    profile = "referencecam"
     skip_next = False
     args: list[str] = []
     for a in argv[1:]:
@@ -115,18 +115,18 @@ def parse_args(argv: list[str]) -> tuple[Path, Path, list[str]]:
         if i + 1 < len(argv) and not argv[i + 1].startswith("-"):
             profile = argv[i + 1].lower()
     if len(args) < 1:
-        print("usage: proshot_decompile_scan.py <jadx_sources_dir> [out.json] [--profile proshot|motioncam|all]")
+        print("usage: proshot_decompile_scan.py <jadx_sources_dir> [out.json] [--profile referencecam|motioncam|all]")
         sys.exit(2)
     root = Path(args[0])
     out = Path(args[1]) if len(args) > 1 else root.parent / "scan.json"
-    needles = PROFILES.get(profile, PROFILES["proshot"])
+    needles = PROFILES.get(profile, PROFILES["referencecam"])
     return root, out, needles
 
 
 def main() -> None:
     root, out, needles = parse_args(sys.argv)
     data = scan_tree(root, needles)
-    data["profile"] = sys.argv[sys.argv.index("--profile") + 1] if "--profile" in sys.argv else "proshot"
+    data["profile"] = sys.argv[sys.argv.index("--profile") + 1] if "--profile" in sys.argv else "referencecam"
     out.write_text(json.dumps(data, indent=2), encoding="utf-8")
     print(f"wrote {out}")
     print("\nTop files per needle:")

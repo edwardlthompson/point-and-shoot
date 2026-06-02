@@ -2,11 +2,11 @@ package dev.pointandshoot
 
 /**
  * Milestone **13.8** — product still strategies sharing one [android.hardware.camera2.DngCreator] path.
- * **Standard** and **ZslStill** (13.8b) use the ProShot [android.hardware.camera2.DngCreator] path.
+ * **Standard** and **ZslStill** (13.8b) use the ReferenceCam [android.hardware.camera2.DngCreator] path.
  * [HdrStill] ships in 13.8c as a capped EV bracket (burst of DNGs).
  */
 enum class StillCaptureMode {
-    /** ProShot-class single still (default). */
+    /** ReferenceCam-class single still (default). */
     Standard,
 
     /** MotionCam-inspired: pick best frame from a preview ring buffer. */

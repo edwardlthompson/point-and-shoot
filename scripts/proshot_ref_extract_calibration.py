@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract DNG calibration tags (ASN, CM1/2, FM1/2) and Bayer R/G,B/G from ProShot refs for OP13."""
+"""Extract DNG calibration tags (ASN, CM1/2, FM1/2) and Bayer R/G,B/G from ReferenceCam refs for legacy device."""
 from __future__ import annotations
 
 import json
@@ -92,14 +92,14 @@ def main() -> int:
         return 2
     uw, wide, tele = (Path(p) for p in sys.argv[1:4])
     out = {
-        "schema": "op13_proshot_calibration.v1",
+        "schema": "legacy_proshot_calibration.v1",
         "slots": {
             "3": extract(uw),
             "2": extract(wide),
             "4": extract(tele),
         },
     }
-    out_path = Path(sys.argv[4]) if len(sys.argv) > 4 else Path("app/src/main/assets/fleet/op13_proshot_calibration.json")
+    out_path = Path(sys.argv[4]) if len(sys.argv) > 4 else Path("app/src/main/assets/fleet/legacy_proshot_calibration.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
     print(f"Wrote {out_path} ({out_path.stat().st_size} bytes)")

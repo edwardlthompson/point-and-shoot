@@ -1,0 +1,2 @@
+
+{"schema":"pns.capability_discovery_ledger_entry.v1","loggedAtUtc":"2026-05-31T21:10:15.1425160Z","sourceReport":"C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\capability_novelty_20260531_210951\\capability_novelty_report.json","serial":"b5214fc6","appSurfaced":{"catalogIds":null,"featureGateKeys":["av1","dcgZsl","dualVideo","face","hevc10","hfr","multicamMelt","pipPreview","raw","rawVideo","uhd60"],"cameraIds":["0","1","2","3","4","5"]},"needsBuildTriage":{"vendorKeyNames":""}}

@@ -1,6 +1,8 @@
 package dev.pointandshoot.fleet
 
 import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.util.Log
 import dev.pointandshoot.FocalMmSlot
 import dev.pointandshoot.fleet.FleetCameraProfiles
@@ -25,6 +27,7 @@ object FleetFocalRowProductBuilder {
         val uwMm = nativeLabelMm(focalEntries, roles.ultraWide)
         val wideMm = nativeLabelMm(focalEntries, roles.wide)
         val teleMm = nativeLabelMm(focalEntries, roles.tele)
+        val monochromeCameraId = dedicatedMonochromeCameraId(app, cameraIds)
         val staticCrop =
             JSONObject().apply {
                 for (mm in listOf(35, 50, 85, 150)) {
@@ -59,7 +62,8 @@ object FleetFocalRowProductBuilder {
                 "specialRoles",
                 JSONObject().apply {
                     put("dedicatedMacro", roles.tele != null && hasMacroCandidate(focalEntries))
-                    put("dedicatedMonochrome", focalEntries.any { it.grayscaled })
+                    put("dedicatedMonochrome", monochromeCameraId != null)
+                    monochromeCameraId?.let { put("monochromeCameraId", it) }
                 },
             )
         }
@@ -91,4 +95,20 @@ object FleetFocalRowProductBuilder {
 
     private fun hasMacroCandidate(entries: List<dev.pointandshoot.FleetCameraStartupScan.SlotEntry>): Boolean =
         entries.any { it.focalMm35 <= 20.0 && it.megapixels >= 8.0 }
+
+    private fun dedicatedMonochromeCameraId(
+        context: Context,
+        cameraIds: List<String>,
+    ): String? {
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        for (cameraId in cameraIds) {
+            val chars = runCatching { cm.getCameraCharacteristics(cameraId) }.getOrNull() ?: continue
+            val caps =
+                chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: continue
+            if (caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
+                return cameraId
+            }
+        }
+        return null
+    }
 }

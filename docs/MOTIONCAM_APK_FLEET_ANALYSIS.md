@@ -1,4 +1,4 @@
-# MotionCam Pro APK analysis — native RAW video + still pipeline
+# MotionCam APK analysis — native RAW video + still pipeline
 
 **Package:** `com.motioncam.pro`  
 **APK on disk:** `hfr-runs/motioncam_apk_decompile/motioncam_pro_base.apk` (+ `split_arm64.apk` for `libnative-camera-host.so`)  
@@ -6,7 +6,7 @@
 **Refresh:** `.\scripts\pns_motioncam_apk_decompile.ps1`  
 **Needle scan:** `hfr-runs/motioncam_apk_decompile/scan.json` via `scripts/proshot_decompile_scan.py --profile motioncam`
 
-MotionCam Pro is **not** a thin Java Camera2 wrapper like ProShot. Almost all capture, RAW encode, and DNG work lives in **`libnative-camera-host.so`** using the **NDK Camera2 API** (`ACamera*`, `libcamera2ndk.so`) and an embedded **Adobe DNG SDK** (`dng_*` symbols). Java/Kotlin is a thin JNI façade.
+MotionCam is **not** a thin Java Camera2 wrapper like ReferenceCam. Almost all capture, RAW encode, and DNG work lives in **`libnative-camera-host.so`** using the **NDK Camera2 API** (`ACamera*`, `libcamera2ndk.so`) and an embedded **Adobe DNG SDK** (`dng_*` symbols). Java/Kotlin is a thin JNI façade.
 
 ---
 
@@ -18,9 +18,9 @@ MotionCam Pro is **not** a thin Java Camera2 wrapper like ProShot. Almost all ca
 | **Still DNG** | Native `RawEncoder::encode_DNG10/12` + DNG SDK (`dng_negative`, …) | Framework `DngCreator` + `Dng12Saver` | MotionCam owns full DNG encode; P&S should fix **HAL pairing + still IQ**, not mimic DNG SDK |
 | **RAW video** | `RecordToVideo` → native `RawEncoder` (RAW10/12/16) → **`.mcraw`** container | `MediaRecorder` / `MediaCodec` only (M12) | Sprint **13.6**: dedicated RAW lane + writer; **not** MediaRecorder |
 | **Preview + RAW sizes** | `GetPreviewOutputConfigurations` / `GetRawOutputConfigurations` per `cameraId` | `StreamConfigurationMap` in Kotlin | Mirror as **`FleetCameraProfile`** raw/preview size tables |
-| **Device policy** | `NativeDeviceSpecificProfile` JSON per `Build.MODEL` + `cameraId` | `DODGE_PROFILE` + `BackCameraRoleResolver` | **`OnePlus13FleetPolicy`** + JSON cache (Sprint 13.2) |
+| **Device policy** | `NativeDeviceSpecificProfile` JSON per `Build.MODEL` + `cameraId` | `DODGE_PROFILE` + `BackCameraRoleResolver` | **`LegacyDeviceFleetPolicy`** + JSON cache (Sprint 13.2) |
 | **Logical / physical** | `NativeCameraInfo`: `cameraId`, `physicalCameraId`, `isLogicalCamera` | Leaf open for focal slots (M11.2) | Catalog should store both ids like MotionCam |
-| **Vignette / shading** | `NativeCameraStartupSettings.viewfinderVignetteCorrection`, `disableVignetteCorrection` | No still lens-shading map (grep) | Align with ProShot: still **`STATISTICS_LENS_SHADING_MAP_MODE`** when profile allows |
+| **Vignette / shading** | `NativeCameraStartupSettings.viewfinderVignetteCorrection`, `disableVignetteCorrection` | No still lens-shading map (grep) | Align with ReferenceCam: still **`STATISTICS_LENS_SHADING_MAP_MODE`** when profile allows |
 | **DCG / EnableHDRDCGMode** | **Not present** in this APK (no `codeaurora` / `EnableHDR` strings in dex or `.so`) | **`DcgSessionParameters`** on REGULAR session when HUD research DCG or **`pns_preview_video_dcg`** (Sprint **13.4** host wire; USB gate pending) | Do **not** wait on MotionCam for DCG; Qualcomm key from P&S probe |
 | **Encoded HDR video** | `RecordToScreen` + `NativeExportOptions` / HEVC paths in Java (`I2/a.java`) | DCG + HDR10 MediaCodec path (shipped M12) | P&S encoded path is already closer to “phone HDR video” than MotionCam RAW lane |
 
@@ -71,7 +71,7 @@ flowchart TB
 | `isFrontFacing` | Lens facing |
 | `fpsRange` | Supported FPS list for video |
 
-**P&S direction (Sprint 13.5):** `FleetCameraCatalog` + `FleetCameraProfile` should expose the same logical/physical pairing and RAW/preview configuration lists, seeded from probe hub + `DODGE_PROFILE` on CPH2655.
+**P&S direction (Sprint 13.5):** `FleetCameraCatalog` + `FleetCameraProfile` should expose the same logical/physical pairing and RAW/preview configuration lists, seeded from probe hub + `DODGE_PROFILE` on legacy SKU.
 
 ### `NativeDeviceSpecificProfile`
 
@@ -147,22 +147,22 @@ public boolean recordVideo(..., NativeRecordingListener listener) {
 
 **Finding (this APK build, May 2026):** Neither `base.apk` nor `libnative-camera-host.so` contains strings `EnableHDR`, `HDRDCG`, `codeaurora`, or `qcamera3`.
 
-The BUILD_PLAN M12 note (“MotionCamPro research: DCG is session parameter”) is **not evidenced** in the decompiled MotionCam Pro build on device. MotionCam may use vendor APIs only inside native code without those literal strings, or a different product build.
+The BUILD_PLAN M12 note (“MotionCam research: DCG is session parameter”) is **not evidenced** in the decompiled MotionCam build on device. MotionCam may use vendor APIs only inside native code without those literal strings, or a different product build.
 
-**P&S Sprint 13.4** remains: wire **`org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode`** (and fallbacks) on **`SessionConfiguration.setSessionParameters`** when `VideoCodec.DCG` / research toggle — same as already probed on CPH2655 for encoded HDR10, independent of MotionCam.
+**P&S Sprint 13.4** remains: wire **`org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode`** (and fallbacks) on **`SessionConfiguration.setSessionParameters`** when `VideoCodec.DCG` / research toggle — same as already probed on legacy SKU for encoded HDR10, independent of MotionCam.
 
 ---
 
-## 5. Comparison to ProShot (still DNG)
+## 5. Comparison to ReferenceCam (still DNG)
 
-| | ProShot | MotionCam Pro |
+| | ReferenceCam | MotionCam |
 |---|---------|---------------|
 | API | Java Camera2 | NDK Camera2 |
 | DNG | `DngCreator(chars, result)` | Native DNG SDK + `RawEncoder` |
 | Lens shading on still | `STATISTICS_LENS_SHADING_MAP_MODE` | Pref-driven vignette / `disableShadingMap` in device profile |
 | Fleet enum | Java `m0.T.X` hidden-id probe | `NativeCameraManager.GetSupportedCameras` |
 
-For **aux DNG color** on OnePlus 13, ProShot is the closer reference for **metadata pairing**; MotionCam is the reference for **RAW video packaging** and **native RAW format encode**.
+For **aux DNG color** on legacy device, ReferenceCam is the closer reference for **metadata pairing**; MotionCam is the reference for **RAW video packaging** and **native RAW format encode**.
 
 ---
 
@@ -171,7 +171,7 @@ For **aux DNG color** on OnePlus 13, ProShot is the closer reference for **metad
 | Sprint | Action |
 |--------|--------|
 | **13.2** | `FleetCameraProfile` with preview + RAW output lists, `physicalCameraId`, device JSON like `NativeDeviceSpecificProfile` |
-| **13.3** | ProShot-aligned still path (`DngCreator` + lens shading); do not port DNG SDK |
+| **13.3** | ReferenceCam-aligned still path (`DngCreator` + lens shading); do not port DNG SDK |
 | **13.4** | Qualcomm DCG session template (not from MotionCam strings) |
 | **13.6** | `RecordToVideo`-class behavior: RAW `ImageReader` loop → `.mcraw`-style or documented open container; `pns_raw_video_verify.ps1` |
 
@@ -200,4 +200,4 @@ For **aux DNG color** on OnePlus 13, ProShot is the closer reference for **metad
 
 ---
 
-*Generated from decompile of MotionCam Pro on device `8bf09993` (OnePlus CPH2655 class), May 2026. Re-run decompile after app update.*
+*Generated from decompile of MotionCam on device `legacy serial` (OnePlus legacy SKU class), May 2026. Re-run decompile after app update.*

@@ -54,6 +54,9 @@ object CaptureStorage {
         DngRaw12("image/x-adobe-dng", "dng"),
         /** Camera2 hardware JPEG / post-LUT re-encode (sRGB 8-bit). */
         JpegSdr("image/jpeg", "jpg"),
+        Heic10Bit("image/heic", "heic"),
+        MotionPhoto("image/jpeg", "mp.jpg"),
+        Tiff16("image/tiff", "tiff"),
         Avif10BitHdr("image/avif", "avif"),
         JpegXl12Bit("image/jxl", "jxl"),
         Mp4("video/mp4", "mp4"),

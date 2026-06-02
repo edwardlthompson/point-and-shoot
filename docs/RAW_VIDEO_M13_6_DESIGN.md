@@ -4,9 +4,9 @@
 
 ## Reference
 
-MotionCam Pro: native `RawEncoder`, `.mcraw` container, dedicated capture session — see **`docs/MOTIONCAM_APK_FLEET_ANALYSIS.md`**.
+MotionCam: native `RawEncoder`, `.mcraw` container, dedicated capture session — see **`docs/MOTIONCAM_APK_FLEET_ANALYSIS.md`**.
 
-**P&S direction:** Java Camera2 REGULAR session (no `MediaRecorder` on RAW lane), MotionCam-informed frame packing, OnePlus 13 first via **`FleetCameraProfile`**.
+**P&S direction:** Java Camera2 REGULAR session (no `MediaRecorder` on RAW lane), MotionCam-informed frame packing, legacy device first via **`FleetCameraProfile`**.
 
 ## Session topology
 
@@ -23,7 +23,7 @@ RAW video **mutually exclusive** with DCG HDR10 encode when ISP cannot sustain b
 |-------|------|
 | `RawVideoRecordingController` | Lifecycle, surface, start/stop |
 | `RawVideoWriter` | Frame dequeue → `.mcraw` or interim raw sequence |
-| `FleetCameraProfile.supportsRawVideo` | OP13 enable; others false |
+| `FleetCameraProfile.supportsRawVideo` | legacy device enable; others false |
 
 ## ADB automation (planned)
 
@@ -35,7 +35,7 @@ Log needles: `PNS.RawVideo` `rawVideoSaved ok=true bytes=…`
 
 ## Verification
 
-- `pns_raw_video_verify.ps1` PASS on CPH2655
+- `pns_raw_video_verify.ps1` PASS on legacy SKU
 - Artifact under `hfr-runs/raw_video_verify_*`
 - `adb shell am force-stop dev.pointandshoot` after run
 

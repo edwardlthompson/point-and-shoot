@@ -35,16 +35,15 @@ object PnsMediaStoreGallery {
                 isVideo = false,
                 into = merged,
             )
-            val remaining = (maxItems - merged.size).coerceAtLeast(0)
-            if (remaining > 0) {
-                queryCollection(
-                    context = context,
-                    collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                    maxItems = remaining,
-                    isVideo = true,
-                    into = merged,
-                )
-            }
+            val imageCount = merged.size
+            queryCollection(
+                context = context,
+                collection = MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                maxItems = maxItems,
+                isVideo = true,
+                into = merged,
+            )
+            val videoCount = (merged.size - imageCount).coerceAtLeast(0)
             val sorted =
                 merged
                     .sortedByDescending { it.date }
@@ -52,7 +51,7 @@ object PnsMediaStoreGallery {
             Log.i(
                 TAG,
                 "loadIndex count=${sorted.size} ms=${System.currentTimeMillis() - start} " +
-                    "pathFilter=$PNS_DCIM_RELATIVE_PATH",
+                    "images=$imageCount videos=$videoCount pathFilter=$PNS_DCIM_RELATIVE_PATH",
             )
             sorted
         }
@@ -77,6 +76,7 @@ object PnsMediaStoreGallery {
                 MediaStore.MediaColumns._ID,
                 MediaStore.MediaColumns.DISPLAY_NAME,
                 MediaStore.MediaColumns.MIME_TYPE,
+                MediaStore.Images.Media.DESCRIPTION,
                 MediaStore.MediaColumns.SIZE,
                 MediaStore.MediaColumns.DATE_MODIFIED,
                 MediaStore.MediaColumns.WIDTH,
@@ -87,6 +87,7 @@ object PnsMediaStoreGallery {
                 "${MediaStore.MediaColumns.MIME_TYPE} LIKE 'video/%'"
             } else {
                 "(${MediaStore.MediaColumns.MIME_TYPE} LIKE 'image/%' OR " +
+                    "${MediaStore.MediaColumns.MIME_TYPE}='image/x-adobe-dng' OR " +
                     "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE '%.dng')"
             }
         val pathFilter = pnsRelativePathSelection()
@@ -131,6 +132,7 @@ object PnsMediaStoreGallery {
             val idCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
             val nameCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
             val mimeCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
+            val descCol = c.getColumnIndex(MediaStore.Images.Media.DESCRIPTION)
             val sizeCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
             val dateCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED)
             val widthCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.WIDTH)
@@ -140,6 +142,7 @@ object PnsMediaStoreGallery {
                 val uri = Uri.withAppendedPath(collection, id.toString())
                 val displayName = c.getString(nameCol) ?: continue
                 val mimeType = c.getString(mimeCol)
+                val description = if (descCol >= 0) c.getString(descCol) else null
                 val size = c.getLong(sizeCol)
                 val date = c.getLong(dateCol)
                 val width = c.getInt(widthCol).takeIf { it > 0 } ?: 1920
@@ -148,6 +151,9 @@ object PnsMediaStoreGallery {
                     displayName.lowercase().let { n ->
                         n.endsWith(".dng") || n.endsWith(".raw") || n.endsWith(".cr2") || n.endsWith(".nef")
                     }
+                val colorSpace =
+                    parseColorFromDescription(description)
+                        ?: inferColorFromMime(displayName, mimeType, isRaw)
                 into.add(
                     MediaItem(
                         uri = uri,
@@ -172,10 +178,31 @@ object PnsMediaStoreGallery {
                         bitRate = null,
                         duration = null,
                         codec = null,
-                        colorSpace = if (isRaw) "ProPhoto RGB" else "sRGB",
+                        colorSpace = colorSpace,
                     ),
                 )
             }
         }
     }
+
+    private fun parseColorFromDescription(description: String?): String? {
+        val d = description ?: return null
+        val m = Regex("""\bcolor=([^\n\r]+)$""").find(d) ?: return null
+        return m.groupValues.getOrNull(1)?.trim()?.takeIf { it.isNotBlank() }
+    }
+
+    private fun inferColorFromMime(displayName: String, mimeType: String?, isRaw: Boolean): String =
+        when {
+            isRaw -> "RAW"
+            mimeType.equals("image/tiff", ignoreCase = true) ||
+                displayName.lowercase().endsWith(".tif") ||
+                displayName.lowercase().endsWith(".tiff") -> "Rec. 2020"
+            mimeType.equals("image/jxl", ignoreCase = true) ||
+                displayName.lowercase().endsWith(".jxl") -> "Rec. 2020"
+            mimeType.equals("image/heic", ignoreCase = true) ||
+                displayName.lowercase().endsWith(".heic") -> "Rec. 2020"
+            mimeType.equals("image/avif", ignoreCase = true) ||
+                displayName.lowercase().endsWith(".avif") -> "Display P3"
+            else -> "Unknown"
+        }
 }

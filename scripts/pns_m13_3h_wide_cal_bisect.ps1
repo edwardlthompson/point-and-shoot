@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Milestone 13.3h — USB bisect H1–H3 (wide-cal / ASN / exposure latch on OP13 aux DNG).
+  Milestone 13.3h — USB bisect H1–H3 (wide-cal / ASN / exposure latch on legacy device aux DNG).
 
 .DESCRIPTION
-  Patches OnePlus13FleetPolicy.kt per step, assembleDebug, pns_aux_dng_capture_analyze.ps1,
+  Patches LegacyFleetPolicy.kt per step, assembleDebug, pns_aux_dng_capture_analyze.ps1,
   records openability + logcat needles, restores policy. Runbook: docs/M13_3H_WIDE_CAL_BISECT.md
 
 .PARAMETER Steps
@@ -30,46 +30,46 @@ $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) { . $resolve -PrependToPath -Quiet }
 
 $projRoot = Split-Path -Parent $PSScriptRoot
-$policyPath = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\OnePlus13FleetPolicy.kt"
+$policyPath = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\LegacyFleetPolicy.kt"
 if (-not (Test-Path -LiteralPath $policyPath)) { throw "Missing $policyPath" }
 
 $stepList = $Steps -split "," | ForEach-Object { $_.Trim().ToUpperInvariant() } | Where-Object { $_ }
 $stepDefs = @{
     H1 = @{
         wideCal = $true
-        op13Asn = $false
+        legacyAsn = $false
         note = "useWideLeafCalibrationForAuxDng=true (wide CM/FM on aux RAW)"
     }
     H2 = @{
         wideCal = $true
-        op13Asn = $true
-        note = "H1 + useOp13AsnReconcileOnly=true (wide-cal reconcile path still primary)"
+        legacyAsn = $true
+        note = "H1 + useLegacyAsnReconcileOnly=true (wide-cal reconcile path still primary)"
     }
     H3 = @{
         wideCal = $true
-        op13Asn = $true
+        legacyAsn = $true
         note = "H2 + exposure latch (proShotLatchManualExposureOnStill when wideCal; tele 2.5x exp scale)"
     }
 }
 
 function Set-PolicyFlags {
-    param($wideCal, $op13Asn)
+    param($wideCal, $legacyAsn)
     $wcKt = if ($wideCal) { "true" } else { "false" }
-    $asnKt = if ($op13Asn) { "true" } else { "false" }
+    $asnKt = if ($legacyAsn) { "true" } else { "false" }
     $text = Get-Content -LiteralPath $policyPath -Raw -Encoding UTF8
     $text = $text -replace 'fun useWideLeafCalibrationForAuxDng\(\): Boolean = \w+', "fun useWideLeafCalibrationForAuxDng(): Boolean = $wcKt"
-    $text = $text -replace 'fun useOp13AsnReconcileOnly\(\): Boolean = \w+', "fun useOp13AsnReconcileOnly(): Boolean = $asnKt"
+    $text = $text -replace 'fun useLegacyAsnReconcileOnly\(\): Boolean = \w+', "fun useLegacyAsnReconcileOnly(): Boolean = $asnKt"
     Set-Content -LiteralPath $policyPath -Value $text -Encoding UTF8 -NoNewline
 }
 
 function Restore-Policy {
-    Set-PolicyFlags -wideCal $false -op13Asn $false
+    Set-PolicyFlags -wideCal $false -legacyAsn $false
 }
 
 $ts = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 $outDir = Join-Path $projRoot "hfr-runs\m13_3h_wide_cal_bisect_$ts"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-$snapshot = Join-Path $outDir "OnePlus13FleetPolicy.kt.baseline"
+$snapshot = Join-Path $outDir "LegacyFleetPolicy.kt.baseline"
 Copy-Item -LiteralPath $policyPath -Destination $snapshot -Force
 
 $results = @()
@@ -84,7 +84,7 @@ try {
         if ($DryRun) { continue }
 
         Restore-Policy
-        Set-PolicyFlags -wideCal $def.wideCal -op13Asn $def.op13Asn
+        Set-PolicyFlags -wideCal $def.wideCal -legacyAsn $def.legacyAsn
 
         if (-not $SkipGradle) {
             & (Join-Path $PSScriptRoot "pns_gradlew.ps1") ":app:assembleDebug"
@@ -112,14 +112,14 @@ try {
 
         $logNeedles = @{
             wideCalReconcile = $false
-            op13Asn = $false
+            legacyAsn = $false
             exposureLatch = $false
         }
         $logcatFiles = @(Get-ChildItem -Path $stepDir -Filter "*_logcat.txt" -ErrorAction SilentlyContinue)
         if ($logcatFiles.Count -gt 0) {
             $lc = ($logcatFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
             $logNeedles.wideCalReconcile = $lc -match "wide-cal reconcile"
-            $logNeedles.op13Asn = $lc -match "Op13 ASN|asn-only|AsShotNeutral"
+            $logNeedles.legacyAsn = $lc -match "Op13 ASN|asn-only|AsShotNeutral"
             $logNeedles.exposureLatch = $lc -match "ProShotExposureLatch|exposure.?latch|adjustProShotExposure"
         }
 
@@ -129,7 +129,7 @@ try {
             analyzeExit = $analyzeExit
             openGatePass = $openPass
             wideCal = $def.wideCal
-            op13Asn = $def.op13Asn
+            legacyAsn = $def.legacyAsn
             logNeedles = $logNeedles
             artifactDir = $stepDir
         }
@@ -140,7 +140,7 @@ try {
 finally {
     if (-not $DryRun) {
         Copy-Item -LiteralPath $snapshot -Destination $policyPath -Force
-        Write-Host "Restored OnePlus13FleetPolicy.kt from baseline." -ForegroundColor Green
+        Write-Host "Restored LegacyFleetPolicy.kt from baseline." -ForegroundColor Green
     }
 }
 

@@ -14,7 +14,7 @@
 
 .EXAMPLE
   .\scripts\pns_pull_dcim_captures.ps1
-  .\scripts\pns_pull_dcim_captures.ps1 -Serial 8bf09993 -OutDir .\pulls\pns_dcim
+  .\scripts\pns_pull_dcim_captures.ps1 -Serial <serial> -OutDir .\pulls\pns_dcim
 #>
 param(
     [string]$Serial = "",

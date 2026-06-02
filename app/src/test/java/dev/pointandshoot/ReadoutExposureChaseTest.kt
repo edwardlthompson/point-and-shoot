@@ -38,7 +38,7 @@ class ReadoutExposureChaseTest {
     @Test
     fun adjustIso_respectsBandClamp() {
         var ema = ReadoutExposureChase.smoothMedian(Double.NaN, 60)
-        val r = ReadoutExposureChase.adjustIso(200, ema, isoRange = null, ReadoutIsoBand.BAND_100_400)
+        val r = ReadoutExposureChase.adjustIso(200, ema, isoRange = null, ReadoutIsoBand.fromBounds(100, 400))
         assertTrue(r.value in 100..400)
     }
 

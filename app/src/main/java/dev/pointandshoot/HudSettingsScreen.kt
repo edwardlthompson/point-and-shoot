@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -186,6 +187,10 @@ fun HudRailSheetContent(
             settings = settings,
             hudState = hudState,
             onImagingProfile = onPictureProfileImaging,
+        )
+        ExperimentalUnlockHudSection(
+            settings = settings,
+            onUpdate = onUpdate,
         )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             rows.forEach { row -> HudToggle(row, highlightFlash = highlightFlash) }
@@ -449,6 +454,12 @@ private fun HudSettingsScreenContent(
                     settings = settings,
                     hudState = hudState,
                     onImagingProfile = null,
+                )
+            }
+            item(key = "experimental_max_res_unlock") {
+                ExperimentalUnlockHudSection(
+                    settings = settings,
+                    onUpdate = onUpdate,
                 )
             }
             item(key = "video_bitrate_scale") {
@@ -1182,10 +1193,10 @@ private fun hudToggleRows(
             onChange = { checked -> patch { it.copy(enableResearchHfrVSR = checked) } },
         ),
         HudToggleRow(
-            title = "Video: RAW lane (.mcraw, OP13)",
+            title = "Video: RAW lane (.mcraw, legacy)",
             description =
-                "Records preview-session RAW frames to a P&S MCRAW-class `.mcraw` file (no MediaRecorder). " +
-                    "OnePlus 13 leaf cameras only. Disables DCG HDR session while active.",
+                    "Records preview-session RAW frames to a P&S MCRAW-class `.mcraw` file (no MediaRecorder). " +
+                    "Legacy leaf-camera path only. Disables DCG HDR session while active.",
             enabled = settings.videoEncodeLane == VideoEncodeLane.Raw,
             onChange = { rawOn ->
                 patch {
@@ -1269,7 +1280,9 @@ private fun AdvancedCaptureHudSection(
         HudToggle(
             HudToggleRow(
                 title = "Burst mode",
-                description = "Shutter captures ${settings.burstShotCount} stills, ${settings.burstIntervalMs}ms apart.",
+                description =
+                    "Tap shutter captures ${settings.burstShotCount} stills, ${settings.burstIntervalMs}ms apart. " +
+                        "Long-press shutter captures continuously until release.",
                 enabled = settings.burstModeEnabled,
                 onChange = { onUpdate(settings.copy(burstModeEnabled = it)) },
             ),
@@ -1299,6 +1312,22 @@ private fun AdvancedCaptureHudSection(
                 ) {
                     Text(
                         label,
+                        color = if (sel) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+            }
+        }
+        Text("Burst quality", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BurstPhotoQualityProfile.entries.forEach { mode ->
+                val sel = settings.burstPhotoQualityProfileEnum() == mode
+                OutlinedButton(
+                    onClick = { onUpdate(settings.copy(burstPhotoQualityProfile = mode.storageId)) },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        mode.label,
+                        fontSize = 11.sp,
                         color = if (sel) PnsColors.PhotoOrange else Color.White,
                     )
                 }
@@ -1694,6 +1723,149 @@ private fun ProFeaturesHudSection(
 }
 
 @Composable
+private fun ExperimentalUnlockHudSection(
+    settings: HudSettings,
+    onUpdate: (HudSettings) -> Unit,
+) {
+    val ctx = LocalContext.current.applicationContext
+    val rootGranted = remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        rootGranted.value = RootCapabilityStore.loadOrUnknown(ctx).grantsPrivileged
+    }
+    val safeModeActive = remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        safeModeActive.value = ExperimentalSafeModeStore.isSafeModeActive(ctx)
+    }
+    var confirmMasterEnable by remember { mutableStateOf(false) }
+    var confirmUnlockEnable by remember { mutableStateOf(false) }
+
+    val masterEnabled = settings.enableExperimentalAppBreakingFeatures && !safeModeActive.value
+    val unlockEnabled = masterEnabled && settings.enableExperimentalMaxResolutionUnlock && rootGranted.value
+    val vendorSessionEnabled = masterEnabled && settings.enableExperimentalVendorSessionKeys && rootGranted.value
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Experimental unlock lane")
+        Text(
+            text =
+                "App-breaking experiments for max-resolution unlock research. These toggles are root-only, may crash " +
+                    "preview/session create, and are automatically disabled by Safe Mode on crash loops.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        if (safeModeActive.value) {
+            Text(
+                text = "Safe mode is active: experimental features are forced off until manually cleared.",
+                style = MaterialTheme.typography.bodySmall,
+                color = PnsColors.RecordRed,
+            )
+        }
+        HudToggle(
+            HudToggleRow(
+                title = "Experimental app-breaking features",
+                description =
+                    "Master gate for high-risk capture experiments. Turning this off hard-disables all unlock lanes.",
+                enabled = masterEnabled,
+                onChange = { on ->
+                    if (safeModeActive.value) return@HudToggleRow
+                    if (on) {
+                        confirmMasterEnable = true
+                    } else {
+                        onUpdate(
+                            settings.copy(
+                                enableExperimentalAppBreakingFeatures = false,
+                                enableExperimentalMaxResolutionUnlock = false,
+                                enableExperimentalVendorSessionKeys = false,
+                            ),
+                        )
+                    }
+                },
+            ),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Experimental max resolution unlock (CPH2583 lane)",
+                description =
+                    if (!rootGranted.value) {
+                        "Requires root grant in Root Only settings. Writes persist.vendor.camera.preview.size and verifies fail-closed fallback."
+                    } else {
+                        "Root lane for CPH2583: applies preview-size override before session create, verifies observed value, and falls back on mismatch."
+                    },
+                enabled = unlockEnabled,
+                onChange = { on ->
+                    if (!masterEnabled || !rootGranted.value || safeModeActive.value) return@HudToggleRow
+                    if (on) {
+                        confirmUnlockEnable = true
+                    } else {
+                        onUpdate(settings.copy(enableExperimentalMaxResolutionUnlock = false))
+                    }
+                },
+            ),
+        )
+        HudToggle(
+            HudToggleRow(
+                title = "Experimental vendor session key lane",
+                description =
+                    "Independent session-parameter experiment (XCFA/vendor toggles). Kept separate from property override and fails closed.",
+                enabled = vendorSessionEnabled,
+                onChange = { on ->
+                    if (!masterEnabled || !rootGranted.value || safeModeActive.value) return@HudToggleRow
+                    onUpdate(settings.copy(enableExperimentalVendorSessionKeys = on))
+                },
+            ),
+        )
+    }
+
+    if (confirmMasterEnable) {
+        AlertDialog(
+            onDismissRequest = { confirmMasterEnable = false },
+            title = { Text("Enable experimental app-breaking features?") },
+            text = {
+                Text(
+                    "This can destabilize camera startup or capture sessions. If repeated crashes occur, Safe Mode will auto-disable these toggles.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onUpdate(settings.copy(enableExperimentalAppBreakingFeatures = true))
+                        confirmMasterEnable = false
+                    },
+                ) { Text("Enable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmMasterEnable = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (confirmUnlockEnable) {
+        AlertDialog(
+            onDismissRequest = { confirmUnlockEnable = false },
+            title = { Text("Enable max-res unlock lane?") },
+            text = {
+                Text(
+                    "This lane is root-only and intentionally hacky. It may not unlock higher resolutions on your HAL and can force Safe Mode fallback.",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onUpdate(settings.copy(enableExperimentalMaxResolutionUnlock = true))
+                        confirmUnlockEnable = false
+                    },
+                ) { Text("Enable") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmUnlockEnable = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
+
+@Composable
 private fun HudStillCaptureModeRow(
     mode: StillCaptureMode,
     onModeChange: (StillCaptureMode) -> Unit,
@@ -1724,7 +1896,7 @@ private fun HudStillCaptureModeRow(
             color = Color.White,
         )
         Text(
-            "Standard = ProShot DNG. ZSL = ring buffer (13.8b). HDR = 3-shot EV bracket burst (13.8c).$scaffoldNote",
+            "Standard = ReferenceCam DNG. ZSL = ring buffer (13.8b). HDR = 3-shot EV bracket burst (13.8c).$scaffoldNote",
             style = MaterialTheme.typography.bodySmall,
             color = Color.White.copy(alpha = 0.65f),
         )

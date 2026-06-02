@@ -21,7 +21,7 @@
     Skip APK rebuild (use existing debug APK)
     
 .EXAMPLE
-    .\pns_native_encoder_verify.ps1 -Encoder JXL -Serial 8bf09993
+    .\pns_native_encoder_verify.ps1 -Encoder JXL -Serial <serial>
     
     .\pns_native_encoder_verify.ps1 -Encoder Both -Fast
     

@@ -1,7 +1,7 @@
 # Point & Shoot — PROBE RESULTS
 
 - Generated: 2026-05-07T08:05:32.746482Z
-- Device: OnePlus CPH2655 (OP5D55L1)
+- Device: OnePlus legacy SKU (OP5D55L1)
 - Android: 16 (SDK 36)
 
 ## Cameras (5)

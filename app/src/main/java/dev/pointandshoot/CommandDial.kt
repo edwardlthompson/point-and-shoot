@@ -1,5 +1,8 @@
 package dev.pointandshoot
 
+import android.content.Context
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -19,6 +23,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -40,6 +45,7 @@ enum class CommandDialMode(val label: String, val description: String) {
     M("M", "Manual focus distance on preview (drag); ISO/shutter use readout chips, not dial M"),
     H("H", "Highlight: underexpose for bright peaks (sky / sun disk) — save-the-highlights"),
     S("S", "Snap: street preset — AF at infinity (tap preview to refocus)"),
+    Monochrome("MONO", "Dedicated monochrome sensor mode (hardware B&W camera, not LUT)"),
     BKT("BKT", "Bracket: 3 / 5 / 7 RAW12 sequence with GroupingID"),
     Macro("MACRO", "Macro: close-up focus for subjects <10cm"),
     Night("NIGHT", "Night: OEM multi-frame stacking for low light (requires OEM extension support)"),
@@ -70,9 +76,13 @@ fun CommandDial(
     enabled: Boolean = true,
     selectedCameraId: String? = null,
 ) {
+    val appCtx = LocalContext.current.applicationContext
+    val hasDedicatedMonochrome =
+        remember(appCtx) { hasDedicatedMonochromeCamera(appCtx) }
     val visibleModes = CommandDialMode.entries.filter { mode ->
         when (mode) {
             CommandDialMode.Qr, CommandDialMode.Dual -> false
+            CommandDialMode.Monochrome -> hasDedicatedMonochrome
             CommandDialMode.Night ->
                 CameraXExtensionProbe.isAvailable(
                     selectedCameraId ?: "0",
@@ -107,6 +117,18 @@ fun CommandDial(
             )
         }
     }
+}
+
+private fun hasDedicatedMonochromeCamera(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    for (cameraId in cm.cameraIdList) {
+        val chars = runCatching { cm.getCameraCharacteristics(cameraId) }.getOrNull() ?: continue
+        val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: continue
+        if (caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
+            return true
+        }
+    }
+    return false
 }
 
 @Composable

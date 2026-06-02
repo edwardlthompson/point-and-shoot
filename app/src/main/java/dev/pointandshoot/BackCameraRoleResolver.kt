@@ -3,7 +3,7 @@ package dev.pointandshoot
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import kotlin.math.abs
 
 /**
@@ -29,7 +29,7 @@ object BackCameraRoleResolver {
     private val TELE_LEGACY_ORDER = listOf("4", "5", "6")
 
     fun resolve(cm: CameraManager, ids: List<String>): Roles =
-        OnePlus13FleetPolicy.mergeRoles(resolveEnumerated(cm, ids), ids)
+        LegacyFleetPolicy.mergeRoles(resolveEnumerated(cm, ids), ids)
 
     /** Focal clustering without fleet model policy (tests + [dev.pointandshoot.fleet.FleetCameraProfileBuilder]). */
     fun resolveEnumerated(cm: CameraManager, ids: List<String>): Roles {
@@ -202,7 +202,7 @@ fun logicalParentForPhysicalCamera(cm: CameraManager, physicalCameraId: String, 
 
 fun resolveFocalMmSlot(context: Context, slot: FocalMmSlot, ids: List<String>): Pair<String, FocalMode?>? {
     val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-    val roles = OnePlus13FleetPolicy.mergeRoles(BackCameraRoleResolver.resolveEnumerated(cm, ids), ids)
+    val roles = LegacyFleetPolicy.mergeRoles(BackCameraRoleResolver.resolveEnumerated(cm, ids), ids)
     return resolveFocalMmSlotWithRoles(cm, ids, roles, slot)
 }
 

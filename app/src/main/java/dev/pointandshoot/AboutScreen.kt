@@ -90,7 +90,7 @@ private fun AboutHeritageBody(
     liveHalHfrMaxByCameraId: Map<String, Int?>,
 ) {
     ChromeSettingsIntroText(
-        "FOSS pro camera for OnePlus 13 (dodge) on LineageOS 23 (Android 16 / API 36). " +
+        "FOSS pro camera for legacy dodge-class devices on LineageOS 23 (Android 16 / API 36). " +
             "Apache-2.0 — no proprietary blobs, no Google Play Services.",
     )
     ChromeSettingsIntroText(
@@ -132,7 +132,7 @@ private fun AboutHeritageBody(
         color = Color.White.copy(alpha = 0.88f),
     )
 
-    PreviewRailSectionTitle("What works on OnePlus 13 (dodge)")
+    PreviewRailSectionTitle("What works on legacy dodge-class devices")
     ChromeSettingsIntroText(
         "Validated by the on-device probe suite (PROBE_BUILD_PLAN.md §5). " +
             "Known-good starting points for new capture pipelines.",

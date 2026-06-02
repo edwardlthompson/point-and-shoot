@@ -24,9 +24,9 @@ try {
     $self = Join-Path $root "hfr-runs\aesthetic_selftest_h1"
     if (-not (Test-Path (Join-Path $self "M14_uw.dng"))) {
         New-Item -ItemType Directory -Force -Path $self | Out-Null
-        Copy-Item "tests\fixtures\proshot_cph2655\proshot_uw_cam3.dng" (Join-Path $self "M14_uw.dng")
-        Copy-Item "tests\fixtures\proshot_cph2655\proshot_wide_cam2.dng" (Join-Path $self "M23_wide.dng")
-        Copy-Item "tests\fixtures\proshot_cph2655\proshot_tele_cam4.dng" (Join-Path $self "M73_tele.dng")
+        Copy-Item "tests\fixtures\proshot_legacy_sku\proshot_uw_cam3.dng" (Join-Path $self "M14_uw.dng")
+        Copy-Item "tests\fixtures\proshot_legacy_sku\proshot_wide_cam2.dng" (Join-Path $self "M23_wide.dng")
+        Copy-Item "tests\fixtures\proshot_legacy_sku\proshot_tele_cam4.dng" (Join-Path $self "M73_tele.dng")
     }
     python "$PSScriptRoot\pns_dng_aesthetic_gate.py" --ps-dir $self
     if ($LASTEXITCODE -ne 0) { throw "dng_aesthetic_gate failed" }

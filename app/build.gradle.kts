@@ -70,7 +70,7 @@ android {
         targetSdk = 36
         versionCode = 14005
         versionName = "0.14.0-beta.5"
-        // CPH2655: app hit ClassNotFound on large Compose entrypoints when they landed in
+        // Legacy target: app hit ClassNotFound on large Compose entrypoints when they landed in
         // secondary dex. Keep multidex explicitly enabled to ensure all classesN.dex are loaded.
         multiDexEnabled = true
 

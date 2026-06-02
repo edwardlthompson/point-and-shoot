@@ -18,7 +18,7 @@ Deferred: in-app ISP-neutral blend into one DNG before `DngCreator`.
 ## USB verification
 
 ```powershell
-.\scripts\pns_still_mode_benchmark.ps1 -Serial 8bf09993 -Mode hdr -Repeats 1
+.\scripts\pns_still_mode_benchmark.ps1 -Serial legacy serial -Mode hdr -Repeats 1
 ```
 
 Grep:

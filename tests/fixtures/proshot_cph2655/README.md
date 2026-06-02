@@ -1,4 +1,4 @@
-# ProShot reference DNGs (CPH2655)
+# ProShot reference DNGs (LegacySku)
 
 Lens-matched captures for Sprint **13.3g-4** parity gates (`dng_proshot_parity_gate.py`).
 
@@ -16,4 +16,4 @@ Refresh on USB:
 
 Source manifest: `fixture_sync_manifest.json` (updated each sync).
 
-**Note:** On CPH2655, ProShot UW and wide DNGs may share the same `ColorMatrix2[0,0]` (~1.4337); CI uses `--skip-wide-cal-leak` for these fixtures. The leak check applies to **P&S** `useWideLeafCalibrationForAuxDng` patches, not ProShot reference files.
+**Note:** On LegacySku, ProShot UW and wide DNGs may share the same `ColorMatrix2[0,0]` (~1.4337); CI uses `--skip-wide-cal-leak` for these fixtures. The leak check applies to **P&S** `useWideLeafCalibrationForAuxDng` patches, not ProShot reference files.

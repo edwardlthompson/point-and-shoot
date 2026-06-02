@@ -57,43 +57,59 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import kotlin.math.roundToInt
 
 /**
  * Bespoke gallery with media specs display.
  * Shows media preview at top, detailed specs below, and external gallery option.
  */
 
-// Helper function to format focal length correctly
-private fun formatFocalLength(focalLength: String?): String {
-    if (focalLength == null) return "Unknown"
-    
-    return try {
-        // Handle cases like "6060/1000" by parsing the fraction
-        if (focalLength.contains("/")) {
-            val parts = focalLength.split("/")
-            if (parts.size == 2) {
-                val numerator = parts[0].toDoubleOrNull()
-                val denominator = parts[1].toDoubleOrNull()
-                if (numerator != null && denominator != null && denominator != 0.0) {
-                    val actualFocal = numerator / denominator
-                    // For this device, 6.06mm actual = 23mm 35mm equivalent
-                    val equivalent35mm = if (actualFocal == 6.06) 23 else (actualFocal * 23 / 6.06).toInt()
-                    return "${String.format("%.2f", actualFocal)}mm (${equivalent35mm}mm)"
-                }
+private fun parseRationalOrDecimal(value: String?): Double? {
+    val raw = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (raw.contains("/")) {
+        val parts = raw.split("/")
+        if (parts.size == 2) {
+            val n = parts[0].trim().toDoubleOrNull()
+            val d = parts[1].trim().toDoubleOrNull()
+            if (n != null && d != null && d != 0.0) {
+                return n / d
             }
         }
-        
-        // Handle direct numeric values
-        val focal = focalLength.toDoubleOrNull()
-        if (focal != null) {
-            val equivalent35mm = if (focal == 6.06) 23 else (focal * 23 / 6.06).toInt()
-            return "${String.format("%.2f", focal)}mm (${equivalent35mm}mm)"
-        }
-        
-        focalLength
-    } catch (e: Exception) {
-        focalLength
+        return null
     }
+    return raw.toDoubleOrNull()
+}
+
+private fun formatFocalLength(
+    focalLength: String?,
+    focalLength35mm: String?,
+): String {
+    val actualMm = parseRationalOrDecimal(focalLength)
+    val eqMm = parseRationalOrDecimal(focalLength35mm)
+    val actualLabel =
+        actualMm?.let { "${String.format("%.1f", it)}mm" } ?: focalLength ?: "Unknown"
+    return if (eqMm != null && eqMm > 0.0) {
+        "$actualLabel (${String.format("%.0f", eqMm)}mm eq)"
+    } else {
+        actualLabel
+    }
+}
+
+private fun formatShutterSpeed(shutterSpeed: String?): String {
+    val sec = parseRationalOrDecimal(shutterSpeed) ?: return shutterSpeed ?: "Unknown"
+    if (sec <= 0.0) return shutterSpeed ?: "Unknown"
+    return if (sec >= 1.0) {
+        "${String.format("%.3f", sec)}s"
+    } else {
+        val inv = (1.0 / sec).roundToInt().coerceAtLeast(1)
+        "1/$inv"
+    }
+}
+
+private fun formatDimensionsWithMegapixels(width: Int, height: Int): String {
+    if (width <= 0 || height <= 0) return "${width}x${height}"
+    val mp = (width.toDouble() * height.toDouble()) / 1_000_000.0
+    return "${width}x${height} (${String.format("%.1f", mp)}MP)"
 }
 
 @Composable
@@ -254,6 +270,7 @@ fun BespokeGalleryScreen(
                     cameraId = exif.cameraId,
                     lens = exif.lens,
                     focalLength = exif.focalLength,
+                    focalLength35mm = exif.focalLength35mm,
                     aperture = exif.aperture,
                     iso = exif.iso,
                     shutterSpeed = exif.shutterSpeed,
@@ -609,7 +626,7 @@ fun BespokeGalleryScreen(
                                 fontSize = 12.sp
                             )
                             Text(
-                                "Dimensions: ${media.width}x${media.height}",
+                                "Dimensions: ${formatDimensionsWithMegapixels(media.width, media.height)}",
                                 color = Color.White,
                                 fontSize = 12.sp
                             )
@@ -656,8 +673,12 @@ fun BespokeGalleryScreen(
                                         fontSize = 12.sp
                                     )
                                 }
-                                detail.focalLength?.let { focal ->
-                                    val formattedFocal = formatFocalLength(focal)
+                                if (!detail.focalLength.isNullOrBlank() || !detail.focalLength35mm.isNullOrBlank()) {
+                                    val formattedFocal =
+                                        formatFocalLength(
+                                            detail.focalLength,
+                                            detail.focalLength35mm,
+                                        )
                                     Text(
                                         "Focal Length: $formattedFocal",
                                         color = Color.White,
@@ -679,8 +700,9 @@ fun BespokeGalleryScreen(
                                     )
                                 }
                                 detail.shutterSpeed?.let { shutter ->
+                                    val formattedShutter = formatShutterSpeed(shutter)
                                     Text(
-                                        "Shutter Speed: $shutter sec",
+                                        "Shutter Speed: $formattedShutter",
                                         color = Color.White,
                                         fontSize = 12.sp
                                     )
@@ -847,6 +869,7 @@ data class MediaItem(
     val cameraId: String?,
     val lens: String?,
     val focalLength: String?,
+    val focalLength35mm: String? = null,
     val aperture: String?,
     val iso: Int?,
     val shutterSpeed: String?,
@@ -862,6 +885,7 @@ data class ExifMetadata(
     val cameraId: String? = null,
     val lens: String? = null,
     val focalLength: String? = null,
+    val focalLength35mm: String? = null,
     val aperture: String? = null,
     val iso: Int? = null,
     val shutterSpeed: String? = null,
@@ -897,52 +921,146 @@ private fun GalleryInlineVideoPlayer(uri: Uri, modifier: Modifier = Modifier) {
 
 private fun extractExifMetadata(context: Context, uri: Uri): ExifMetadata {
     return try {
-        val isDng = uri.toString().lowercase().contains(".dng") || 
-                   uri.toString().lowercase().endsWith(".dng") ||
-                   context.contentResolver.getType(uri) == "image/x-adobe-dng"
-        
-        Log.d("BespokeGallery", "Is DNG: $isDng")
-        
-        if (isDng) {
-            Log.d("BespokeGallery", "Processing DNG file with TIFF reader")
+        val path = uri.toString().lowercase()
+        val mime = context.contentResolver.getType(uri)?.lowercase()
+        val isDng =
+            path.contains(".dng") ||
+                path.endsWith(".dng") ||
+                mime == "image/x-adobe-dng"
+        val isTiff =
+            path.endsWith(".tif") ||
+                path.endsWith(".tiff") ||
+                mime == "image/tiff" ||
+                mime == "image/x-tiff"
+
+        Log.d("BespokeGallery", "Metadata route isDng=$isDng isTiff=$isTiff mime=$mime")
+
+        if (isDng || isTiff) {
+            // Primary path: ExifInterface can read TIFF-family tags on many builds, including
+            // ISO/shutter/aperture/focal stamped by StillCaptureMetadata.
+            val exifFirst = readExifInterfaceMetadata(context, uri)
+            val descMeta = readDescriptionMetadata(context, uri)
+            val mergedPrimary = exifFirst.mergeMissing(descMeta)
+            if (isTiff) {
+                // Avoid heavyweight full-file TIFF parse on large 16-bit exports. For TIFF we rely on
+                // ExifInterface + MediaStore description metadata written at save time.
+                return mergedPrimary
+            }
+            if (exifFirst.hasCompletePrimaryCaptureFields()) {
+                return mergedPrimary
+            }
+
+            // Fallback path: raw TIFF parser for DNG/TIFF files where ExifInterface is sparse.
             try {
                 val tiffReader = DngTiffReader()
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     val tiffMetadata = tiffReader.readMetadata(inputStream)
-                    Log.d("BespokeGallery", "TIFF metadata - Aperture: ${tiffMetadata.aperture}, ISO: ${tiffMetadata.iso}, Exposure: ${tiffMetadata.exposureTime}, Focal: ${tiffMetadata.focalLength}")
-                    ExifMetadata(
-                        aperture = tiffMetadata.aperture?.toString(),
-                        iso = tiffMetadata.iso?.toInt(),
-                        focalLength = tiffMetadata.focalLength?.toString(),
-                        shutterSpeed = tiffMetadata.exposureTime?.toString(),
-                        orientation = tiffMetadata.exifOrientation,
+                    Log.d(
+                        "BespokeGallery",
+                        "TIFF fallback metadata - Aperture: ${tiffMetadata.aperture}, ISO: ${tiffMetadata.iso}, Exposure: ${tiffMetadata.exposureTime}, Focal: ${tiffMetadata.focalLength}",
                     )
-                } ?: ExifMetadata()
+                    ExifMetadata(
+                        cameraId = tiffMetadata.model ?: exifFirst.cameraId,
+                        aperture = tiffMetadata.aperture?.toString() ?: exifFirst.aperture,
+                        iso = tiffMetadata.iso?.toInt(),
+                        focalLength = tiffMetadata.focalLength?.toString() ?: exifFirst.focalLength,
+                        focalLength35mm = exifFirst.focalLength35mm,
+                        shutterSpeed = tiffMetadata.exposureTime?.toString() ?: exifFirst.shutterSpeed,
+                        whiteBalance = exifFirst.whiteBalance,
+                        orientation =
+                            if (tiffMetadata.exifOrientation != ExifInterface.ORIENTATION_NORMAL) {
+                                tiffMetadata.exifOrientation
+                            } else {
+                                exifFirst.orientation
+                            },
+                    ).mergeMissing(descMeta)
+                } ?: mergedPrimary
             } catch (e: Exception) {
                 Log.e("BespokeGallery", "Error reading DNG metadata", e)
-                ExifMetadata()
+                mergedPrimary
             }
         } else {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val exif = ExifInterface(inputStream)
-                val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-                Log.d("BespokeGallery", "Orientation: ${exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, -1)}")
-                ExifMetadata(
-                    cameraId = exif.getAttribute(ExifInterface.TAG_MODEL),
-                    lens = exif.getAttribute("LensModel"),
-                    focalLength = exif.getAttribute(ExifInterface.TAG_FOCAL_LENGTH),
-                    aperture = exif.getAttribute(ExifInterface.TAG_F_NUMBER),
-                    iso = exif.getAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS)?.toIntOrNull(),
-                    shutterSpeed = exif.getAttribute(ExifInterface.TAG_EXPOSURE_TIME),
-                    whiteBalance = exif.getAttribute(ExifInterface.TAG_WHITE_BALANCE),
-                    orientation = orientation
-                )
-            } ?: ExifMetadata()
+            readExifInterfaceMetadata(context, uri).mergeMissing(readDescriptionMetadata(context, uri))
         }
     } catch (e: Exception) {
         Log.e("BespokeGallery", "Error extracting EXIF metadata", e)
         ExifMetadata()
     }
+}
+
+private fun ExifMetadata.hasPrimaryCaptureFields(): Boolean =
+    !focalLength.isNullOrBlank() ||
+        !aperture.isNullOrBlank() ||
+        iso != null ||
+        !shutterSpeed.isNullOrBlank()
+
+private fun ExifMetadata.hasCompletePrimaryCaptureFields(): Boolean =
+    !focalLength.isNullOrBlank() &&
+        !aperture.isNullOrBlank() &&
+        iso != null &&
+        !shutterSpeed.isNullOrBlank()
+
+private fun ExifMetadata.mergeMissing(other: ExifMetadata): ExifMetadata =
+    ExifMetadata(
+        cameraId = cameraId ?: other.cameraId,
+        lens = lens ?: other.lens,
+        focalLength = focalLength ?: other.focalLength,
+        focalLength35mm = focalLength35mm ?: other.focalLength35mm,
+        aperture = aperture ?: other.aperture,
+        iso = iso ?: other.iso,
+        shutterSpeed = shutterSpeed ?: other.shutterSpeed,
+        whiteBalance = whiteBalance ?: other.whiteBalance,
+        orientation =
+            if (orientation != ExifInterface.ORIENTATION_NORMAL) {
+                orientation
+            } else {
+                other.orientation
+            },
+    )
+
+private fun readExifInterfaceMetadata(context: Context, uri: Uri): ExifMetadata {
+    return context.contentResolver.openInputStream(uri)?.use { inputStream ->
+        val exif = ExifInterface(inputStream)
+        val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        ExifMetadata(
+            cameraId = exif.getAttribute(ExifInterface.TAG_MODEL),
+            lens = exif.getAttribute("LensModel"),
+            focalLength = exif.getAttribute(ExifInterface.TAG_FOCAL_LENGTH),
+            focalLength35mm = exif.getAttribute(ExifInterface.TAG_FOCAL_LENGTH_IN_35MM_FILM),
+            aperture = exif.getAttribute(ExifInterface.TAG_F_NUMBER),
+            iso =
+                exif.getAttribute("PhotographicSensitivity")?.toIntOrNull()
+                    ?: exif.getAttribute(ExifInterface.TAG_ISO_SPEED_RATINGS)?.toIntOrNull(),
+            shutterSpeed = exif.getAttribute(ExifInterface.TAG_EXPOSURE_TIME),
+            whiteBalance = exif.getAttribute(ExifInterface.TAG_WHITE_BALANCE),
+            orientation = orientation,
+        )
+    } ?: ExifMetadata()
+}
+
+private fun readDescriptionMetadata(context: Context, uri: Uri): ExifMetadata {
+    return runCatching {
+        val projection = arrayOf(MediaStore.Images.Media.DESCRIPTION)
+        context.contentResolver.query(uri, projection, null, null, null)?.use { c ->
+            val descIdx = c.getColumnIndex(MediaStore.Images.Media.DESCRIPTION)
+            if (descIdx < 0 || !c.moveToFirst()) return@use ExifMetadata()
+            val desc = c.getString(descIdx) ?: return@use ExifMetadata()
+            ExifMetadata(
+                focalLength = Regex("""\bfocalMm=([0-9]+(?:\.[0-9]+)?)""").find(desc)?.groupValues?.getOrNull(1),
+                focalLength35mm =
+                    Regex("""\bfocal(?:35mm|EqMm)=([0-9]+(?:\.[0-9]+)?)""")
+                        .find(desc)
+                        ?.groupValues
+                        ?.getOrNull(1),
+                aperture = Regex("""\baperture=([0-9]+(?:\.[0-9]+)?)""").find(desc)?.groupValues?.getOrNull(1),
+                iso = Regex("""\biso=(\d+)""").find(desc)?.groupValues?.getOrNull(1)?.toIntOrNull(),
+                shutterSpeed =
+                    Regex("""\bexpNs=(\d+)""").find(desc)?.groupValues?.getOrNull(1)?.let { ns ->
+                        ns.toLongOrNull()?.let { "%.6f".format(it / 1_000_000_000.0) }
+                    },
+            )
+        } ?: ExifMetadata()
+    }.getOrDefault(ExifMetadata())
 }
 
 private fun shareMedia(context: Context, uri: Uri) {

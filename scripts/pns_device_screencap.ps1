@@ -3,7 +3,7 @@
 #
 # Usage:
 #   .\scripts\pns_device_screencap.ps1 -OutPath .\docs\screenshots\shot.png
-#   .\scripts\pns_device_screencap.ps1 -Serial 8bf09993 -OutPath .\docs\screenshots\shot.png
+#   .\scripts\pns_device_screencap.ps1 -Serial <serial> -OutPath .\docs\screenshots\shot.png
 #
 # Serial: omit for default device, or set `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL`).
 

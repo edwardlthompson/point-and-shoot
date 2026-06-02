@@ -5,7 +5,7 @@ import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.util.Log
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import dev.pointandshoot.fleet.StillDngBackend
 import dev.pointandshoot.fleet.StillDngBackendPolicy
 
@@ -19,7 +19,7 @@ import dev.pointandshoot.fleet.StillDngBackendPolicy
 object RawStillProcessingHints {
     private const val TAG = "PNS.ProShotStill"
 
-    /** Preview exposure sampled **before** [CameraCaptureSession.stopRepeating] for ProShot leaf stills. */
+    /** Preview exposure sampled **before** [CameraCaptureSession.stopRepeating] for ReferenceCam leaf stills. */
     data class ProShotExposureLatch(
         val iso: Int,
         val expNs: Long,
@@ -41,7 +41,7 @@ object RawStillProcessingHints {
     }
 
     fun applyLinearRawFriendlyProcessing(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
-        if (OnePlus13FleetPolicy.appliesToDevice() &&
+        if (LegacyFleetPolicy.appliesToDevice() &&
             StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
         ) {
             return
@@ -76,10 +76,10 @@ object RawStillProcessingHints {
     }
 
     /**
-     * ProShot-style leaf still on CPH2655: keep **HAL still metering** on [TEMPLATE_STILL_CAPTURE],
+     * ReferenceCam-style leaf still on LegacySku: keep **HAL still metering** on [TEMPLATE_STILL_CAPTURE],
      * latch preview AE compensation / post-raw boost, and AE-lock when available.
      *
-     * USB May 2026: copying preview ISO + [CONTROL_AE_MODE_OFF] made DNG EXIF match ProShot but RAW
+     * USB May 2026: copying preview ISO + [CONTROL_AE_MODE_OFF] made DNG EXIF match ReferenceCam but RAW
      * Bayer means stayed ~3× darker (metadata vs sensor integration mismatch on this HAL).
      */
     fun applyProShotPreviewExposureFromResult(
@@ -90,7 +90,7 @@ object RawStillProcessingHints {
         latchManualExposureFromPreview: Boolean = false,
         exposureLatch: ProShotExposureLatch? = null,
     ) {
-        if (!OnePlus13FleetPolicy.useProShotPureDngSave()) return
+        if (!LegacyFleetPolicy.useProShotPureDngSave()) return
         if (StillDngBackendPolicy.active() != StillDngBackend.FRAMEWORK_PROSHOT) return
         if (!StillCaptureIqPolicy.isLeafBackCharacteristics(chars)) return
         val latch = exposureLatch
@@ -102,7 +102,7 @@ object RawStillProcessingHints {
             latch?.aeExposureCompensation
                 ?: previewResult?.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION)
                 ?: 0
-        val evOffset = OnePlus13FleetPolicy.proShotStillAeExposureCompensationSteps(sessionCameraId)
+        val evOffset = LegacyFleetPolicy.proShotStillAeExposureCompensationSteps(sessionCameraId)
         val ev = baseEv + evOffset
         val evRange =
             chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
@@ -140,7 +140,7 @@ object RawStillProcessingHints {
             frameNs?.let { req.set(CaptureRequest.SENSOR_FRAME_DURATION, it) }
             Log.i(
                 TAG,
-                "proshot leaf still: latched manual exposure iso=$previewIso expNs=$previewExpNs " +
+                "referencecam leaf still: latched manual exposure iso=$previewIso expNs=$previewExpNs " +
                     "postPrecapture=${latch != null}",
             )
             return
@@ -149,7 +149,7 @@ object RawStillProcessingHints {
         applyAeLockIfAvailable(req, chars, lock = true)
         Log.i(
             TAG,
-            "proshot leaf still: HAL metering + AE lock previewIso=$previewIso previewExpNs=$previewExpNs " +
+            "referencecam leaf still: HAL metering + AE lock previewIso=$previewIso previewExpNs=$previewExpNs " +
                 "postRawBoost=$boost aeComp=$clampedEv (base=$baseEv offset=$evOffset)",
         )
     }

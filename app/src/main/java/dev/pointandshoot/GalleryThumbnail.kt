@@ -19,6 +19,13 @@ fun isDngMediaUri(context: Context, uri: Uri): Boolean {
     return context.contentResolver.getType(uri) == "image/x-adobe-dng"
 }
 
+private fun isTiffMediaUri(context: Context, uri: Uri): Boolean {
+    val path = uri.toString().lowercase()
+    if (path.endsWith(".tif") || path.endsWith(".tiff")) return true
+    val mime = context.contentResolver.getType(uri)?.lowercase() ?: return false
+    return mime == "image/tiff" || mime == "image/x-tiff"
+}
+
 /**
  * Loads a small bitmap for gallery thumbnails. Prefer [android.content.ContentResolver.loadThumbnail]
  * on Q+ for JPEG/HEIC; **DNG** always uses [decodeScaledBitmap] so orientation is applied once in
@@ -30,6 +37,8 @@ suspend fun loadGalleryThumbnail(context: Context, uri: Uri, sizePx: Int = 160):
         runCatching {
             if (isDngMediaUri(context, uri)) {
                 decodeScaledBitmap(cr, uri, sizePx)
+            } else if (isTiffMediaUri(context, uri)) {
+                decodeTiff16Bitmap(cr, uri, sizePx)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 try {
                     cr.loadThumbnail(uri, Size(sizePx, sizePx), null)
@@ -43,6 +52,16 @@ suspend fun loadGalleryThumbnail(context: Context, uri: Uri, sizePx: Int = 160):
             PnsBitmapGuard.onAllocated("GalleryThumbnail", bmp)
         }
     }
+
+private fun decodeTiff16Bitmap(
+    cr: android.content.ContentResolver,
+    uri: Uri,
+    maxPx: Int,
+): Bitmap? =
+    runCatching {
+        val bytes = cr.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        Tiff16PreviewDecoder.decodeThumbnail(bytes, maxPx)
+    }.getOrNull()
 
 private fun decodeScaledBitmap(cr: android.content.ContentResolver, uri: Uri, maxPx: Int): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

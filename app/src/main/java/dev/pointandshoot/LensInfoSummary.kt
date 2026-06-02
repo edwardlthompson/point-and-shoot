@@ -99,9 +99,9 @@ data class LensInfoSummary(
         /**
          * Macro inference threshold (1/m). 15 diopters = ~6.7 cm minimum
          * focus distance: tight enough to exclude a typical phone main wide
-         * (the OnePlus 13 LYT-808 reports exactly 10 diopters / 10 cm, which
+         * (the Legacy device LYT-808 reports exactly 10 diopters / 10 cm, which
          * is close-focus but NOT super-macro), and loose enough to include
-         * a true macro UW (the OnePlus 13 S5KJN5 reports 25 diopters / 4 cm).
+         * a true macro UW (the Legacy device S5KJN5 reports 25 diopters / 4 cm).
          * Validated against `hfr-runs/deep_caps_round11.json` per
          * `PROBE_BUILD_PLAN.md` §5.
          */

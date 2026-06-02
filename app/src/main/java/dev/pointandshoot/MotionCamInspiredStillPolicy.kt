@@ -10,7 +10,7 @@ import dev.pointandshoot.fleet.StillDngBackendPolicy
 /**
  * MotionCam-inspired still path while [StillDngBackend.MOTIONCAM_NATIVE] is unimplemented.
  *
- * MotionCam Pro encodes DNG in native code ([RawEncoder::encode_DNG10/12]); P&S still uses
+ * MotionCam encodes DNG in native code ([RawEncoder::encode_DNG10/12]); P&S still uses
  * [android.hardware.camera2.DngCreator] but adjusts RAW negotiation + still IQ to match MotionCam's
  * per-device profile model ([NativeDeviceSpecificProfile], vignette / shading prefs).
  */
@@ -29,7 +29,7 @@ object MotionCamInspiredStillPolicy {
         )
     }
 
-    /** MotionCam still path does not use ProShot aberration/distortion on the still request. */
+    /** MotionCam still path does not use ReferenceCam aberration/distortion on the still request. */
     fun applyProShotOpticalCorrectionOnLeaf(): Boolean =
         applyProShotOpticalCorrectionOnLeafWhen(StillDngBackendPolicy.active())
 
@@ -38,7 +38,7 @@ object MotionCamInspiredStillPolicy {
 
     /**
      * Tele stills: request lens shading **map** only (no [CaptureRequest.SHADING_MODE]) — full shading
-     * mode broke HAL still capture on CPH2655 tele (capture reason=0); matches MotionCam map-first IQ.
+     * mode broke HAL still capture on legacy tele (capture reason=0); matches MotionCam map-first IQ.
      */
     fun teleLensShadingMapOnly(profile: FleetCameraProfile?): Boolean =
         teleLensShadingMapOnlyWhen(StillDngBackendPolicy.active(), profile)

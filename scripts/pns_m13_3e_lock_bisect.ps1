@@ -19,7 +19,7 @@
   Skip pns_capture_pipeline_verify.ps1 per step.
 
 .EXAMPLE
-  .\scripts\pns_m13_3e_lock_bisect.ps1 -Serial 8bf09993
+  .\scripts\pns_m13_3e_lock_bisect.ps1 -Serial <serial>
 #>
 param(
     [string]$Steps = "E1,E2,E3,E4,E5,E6",
@@ -34,7 +34,7 @@ $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) { . $resolve -PrependToPath -Quiet }
 
 $projRoot = Split-Path -Parent $PSScriptRoot
-$policyPath = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\OnePlus13FleetPolicy.kt"
+$policyPath = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\LegacyFleetPolicy.kt"
 $previewPath = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\PreviewEngineScreen.kt"
 $rawPath = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\RawCaptureSupport.kt"
 foreach ($p in @($policyPath, $previewPath, $rawPath)) {
@@ -45,7 +45,7 @@ $stepList = $Steps -split '[,;\s]+' | ForEach-Object { $_.Trim().ToUpperInvarian
 
 function Restore-AllSources {
     param([string]$snapDir)
-    Copy-Item (Join-Path $snapDir "OnePlus13FleetPolicy.kt.baseline") $policyPath -Force
+    Copy-Item (Join-Path $snapDir "LegacyFleetPolicy.kt.baseline") $policyPath -Force
     Copy-Item (Join-Path $snapDir "PreviewEngineScreen.kt.baseline") $previewPath -Force
     Copy-Item (Join-Path $snapDir "RawCaptureSupport.kt.baseline") $rawPath -Force
 }
@@ -58,7 +58,7 @@ function Apply-E1-L2 {
 
 function Apply-E2-L3 {
     $t = Get-Content -LiteralPath $policyPath -Raw -Encoding UTF8
-    $t = $t -replace 'fun useOp13AsnReconcileOnly\(\): Boolean = \w+', 'fun useOp13AsnReconcileOnly(): Boolean = true'
+    $t = $t -replace 'fun useLegacyAsnReconcileOnly\(\): Boolean = \w+', 'fun useLegacyAsnReconcileOnly(): Boolean = true'
     Set-Content -LiteralPath $policyPath -Value $t -Encoding UTF8 -NoNewline
 }
 
@@ -100,8 +100,8 @@ function Apply-E6-L7 {
 
 $appliers = @{
     E1 = @{ lock = 'L2'; fn = { Apply-E1-L2 }; note = 'allowPhysicalTotalResultPairing=true (6 call sites)' }
-    E2 = @{ lock = 'L3'; fn = { Apply-E2-L3 }; note = 'useOp13AsnReconcileOnly=true (no-op reconcile if useProShotPureDngSave)' }
-    E3 = @{ lock = 'L6'; fn = { Apply-E3-L6 }; note = 'useHalColorCalibrationReconcile=true (no-op if pure ProShot save)' }
+    E2 = @{ lock = 'L3'; fn = { Apply-E2-L3 }; note = 'useLegacyAsnReconcileOnly=true (no-op reconcile if useProShotPureDngSave)' }
+    E3 = @{ lock = 'L6'; fn = { Apply-E3-L6 }; note = 'useHalColorCalibrationReconcile=true (no-op if pure ReferenceCam save)' }
     E4 = @{ lock = 'L4'; fn = { Apply-E4-L4 }; note = 'streamHints=true (§4a — capture timeout risk)' }
     E5 = @{ lock = 'L5'; fn = { Apply-E5-L5 }; note = 'Default RAW tier RAW12→RAW10→RAW_SENSOR (§2 bisect)' }
     E6 = @{ lock = 'L7'; fn = { Apply-E6-L7 }; note = 'disable PreviewJpegProcessingHints on RAW still' }
@@ -110,7 +110,7 @@ $appliers = @{
 $ts = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 $outDir = Join-Path $projRoot "hfr-runs\m13_3e_lock_bisect_$ts"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-Copy-Item $policyPath (Join-Path $outDir "OnePlus13FleetPolicy.kt.baseline") -Force
+Copy-Item $policyPath (Join-Path $outDir "LegacyFleetPolicy.kt.baseline") -Force
 Copy-Item $previewPath (Join-Path $outDir "PreviewEngineScreen.kt.baseline") -Force
 Copy-Item $rawPath (Join-Path $outDir "RawCaptureSupport.kt.baseline") -Force
 
@@ -221,7 +221,7 @@ $report += @"
 
 **Ship recommendation:** $shipped
 
-Human ACR + daylight color vs ProShot still required before changing [OnePlus13FleetPolicy] defaults.
+Human ACR + daylight color vs ReferenceCam still required before changing [LegacyFleetPolicy] defaults.
 
 "@
 

@@ -102,19 +102,25 @@ const val EXTRA_PNS_PREVIEW_JPEG_COMPANION = "pns_preview_jpeg_companion"
 const val EXTRA_PNS_PREVIEW_DNG_SKIP_STILL_METADATA = "pns_preview_dng_skip_still_metadata"
 
 /**
- * Override still DNG backend on OP13: `framework_proshot` | `motioncam_inspired`.
+ * Override still DNG backend on LegacyDevice: `framework_proshot` | `motioncam_inspired`.
  * See [DngSaveBisectState] and `docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`.
  */
 const val EXTRA_PNS_PREVIEW_STILL_DNG_BACKEND = "pns_preview_still_dng_backend"
 
 /** Sprint 13.8: `standard` | `zsl` | `hdr` — seeds [StillCaptureMode] for automation. */
 const val EXTRA_PNS_PREVIEW_STILL_MODE = "pns_preview_still_mode"
+/** Sprint 22.3: still export override (`heic`|`motion_photo`|`tiff16`|`jxl`). */
+const val EXTRA_PNS_PREVIEW_STILL_FORMAT = "pns_preview_still_format"
+/** Sprint 22.x: still resolution mode seed (`binned`|`max_resolution`). */
+const val EXTRA_PNS_PREVIEW_STILL_RESOLUTION_MODE = "pns_preview_still_resolution_mode"
 
 /** Sprint **CC.1** — composed still burst count (`pns_preview_burst_count`, e.g. 3). */
 const val EXTRA_PNS_PREVIEW_BURST_COUNT = "pns_preview_burst_count"
 
 /** Sprint **CC.1** — ms between burst stills (`pns_preview_burst_interval_ms`, default 350). */
 const val EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS = "pns_preview_burst_interval_ms"
+/** Sprint **CC.1** — scripted hold duration (ms) for long-press burst automation. */
+const val EXTRA_PNS_PREVIEW_LONGPRESS_BURST_HOLD_MS = "pns_preview_longpress_burst_hold_ms"
 
 /** Sprint **CC.3** — loopback tether (`pns_preview_tether`). */
 const val EXTRA_PNS_PREVIEW_TETHER = "pns_preview_tether"
@@ -187,7 +193,7 @@ const val EXTRA_PNS_PREVIEW_DNG_SKIP_JPEG_HINTS_STILL = "pns_preview_dng_skip_jp
 /** Force [LeafDngHalReconcile] ASN patch on leaf rear ids (true/false). */
 const val EXTRA_PNS_PREVIEW_DNG_FORCE_LEAF_RECONCILE = "pns_preview_dng_force_leaf_reconcile"
 
-/** Leaf reconcile: use Bayer ASN (legacy) instead of OP13 gains-first. */
+/** Leaf reconcile: use Bayer ASN (legacy) instead of LegacyDevice gains-first. */
 const val EXTRA_PNS_PREVIEW_DNG_FORCE_BAYER_ASN = "pns_preview_dng_force_bayer_asn"
 
 /** Skip [DngCreator.setDescription] / LUT software line on DNG save. */
@@ -253,6 +259,19 @@ const val EXTRA_PNS_PREVIEW_AUDIO_WIND = "pns_preview_audio_wind"
 
 /** Sprint **15.25** — HudSettings wind noise filter (Camcorder + NS/AEC). */
 const val EXTRA_PNS_PREVIEW_WIND_NOISE_FILTER = "pns_preview_wind_noise_filter"
+
+/** Experimental lane: master app-breaking toggle seed (session startup). */
+const val EXTRA_PNS_PREVIEW_EXPERIMENTAL_MASTER = "pns_preview_experimental_master"
+/** Experimental lane: max-res unlock toggle seed (root-only CPH2583 lane). */
+const val EXTRA_PNS_PREVIEW_EXPERIMENTAL_MAX_RES_UNLOCK = "pns_preview_experimental_max_res_unlock"
+/** Experimental lane: vendor session-key toggle seed (independent from property override). */
+const val EXTRA_PNS_PREVIEW_EXPERIMENTAL_VENDOR_SESSION = "pns_preview_experimental_vendor_session"
+/** Experimental lane: force safe mode active before preview starts. */
+const val EXTRA_PNS_PREVIEW_FORCE_SAFE_MODE = "pns_preview_force_safe_mode"
+/** Root-gated max-res sweep: CSV session keys (tested during still session template build). */
+const val EXTRA_PNS_PREVIEW_MAX_RES_SWEEP_SESSION_KEYS = "pns_preview_max_res_sweep_session_keys"
+/** Root-gated max-res sweep: CSV request keys (tested during still request build). */
+const val EXTRA_PNS_PREVIEW_MAX_RES_SWEEP_REQUEST_KEYS = "pns_preview_max_res_sweep_request_keys"
 
 /** Sprint **15.26** — seed preview AE lock (`pns_preview_ae_lock`). */
 const val EXTRA_PNS_PREVIEW_AE_LOCK = "pns_preview_ae_lock"
@@ -440,8 +459,8 @@ const val EXTRA_PNS_AUTO_PARITY_SWEEP = "pns_auto_parity_sweep"
 const val EXTRA_PNS_PARITY_SWEEP_MODE = "pns_parity_sweep_mode"
 const val EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD = "pns_parity_sweep_include_record"
 
-/** When true, enables [OnePlus13FleetPolicyPlugin] for this process (developer / regression lane). */
-const val EXTRA_PNS_LEGACY_OP13_FLEET_POLICY = "pns_legacy_op13_fleet_policy"
+/** When true, enables [LegacyFleetPolicyPlugin] for this process (developer / regression lane). */
+const val EXTRA_PNS_LEGACY_LegacyDevice_FLEET_POLICY = "pns_legacy_device_fleet_policy"
 
 /** Stable filename written when [EXTRA_PNS_AUTO_EXPORT_PROBE] is true. */
 const val PROBE_EXPORT_LATEST_FILE = "PROBE_EXPORT_LATEST.md"
@@ -578,7 +597,7 @@ fun CameraCapabilitiesProbe(
     val fleetMatrixScanTier =
         activity?.intent?.getStringExtra(EXTRA_PNS_FLEET_MATRIX_SCAN)?.lowercase()?.trim()
     val legacyOp13FleetPolicy =
-        activity?.intent?.getBooleanExtra(EXTRA_PNS_LEGACY_OP13_FLEET_POLICY, false) ?: false
+        activity?.intent?.getBooleanExtra(EXTRA_PNS_LEGACY_LegacyDevice_FLEET_POLICY, false) ?: false
     var fleetMatrixFullScanDone by remember { mutableStateOf(false) }
     val intentIncludeLogical = activity?.intent?.getBooleanExtra(EXTRA_PNS_INCLUDE_LOGICAL, false) ?: false
     val intentExhaustiveHfrOnly = activity?.intent?.getBooleanExtra(EXTRA_PNS_EXHAUSTIVE_HFR_ONLY, false) ?: false
@@ -867,6 +886,7 @@ fun CameraCapabilitiesProbe(
                                         inz.previewBracketExtra() != null ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_DIAL).isNullOrBlank() ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_IMAGING_PROFILE).isNullOrBlank() ||
+                                        !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILL_FORMAT).isNullOrBlank() ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_RAW_STREAM).isNullOrBlank() ||
                                         inz.hasExtra(EXTRA_PNS_PREVIEW_JPEG_COMPANION) ||
                                         !inz.getStringExtra(EXTRA_PNS_PREVIEW_STILLS_LUT).isNullOrBlank() ||
@@ -918,6 +938,8 @@ fun CameraCapabilitiesProbe(
         val adbRawStillFastRaw = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_RAW_STILL_FAST, false) ?: false
         val adbBracketRaw = activity?.intent.previewBracketExtra()
         val adbImagingProfileRaw = activity?.intent.previewImagingProfileExtra()
+        val adbStillFormatRaw = activity?.intent.previewStillFormatExtra()
+        val adbStillResolutionModeRaw = activity?.intent.previewStillResolutionModeExtra()
         val adbRawStreamFromIntent = activity?.intent.previewRawStreamPreferenceExtra()
         val adbJpegCompanionFromIntent = activity?.intent.previewJpegCompanionSeedExtra()
         val adbCameraIdRaw = activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
@@ -959,6 +981,87 @@ fun CameraCapabilitiesProbe(
             if (trustIntentForPreviewPipeline) activity?.intent.previewAudioWindExtra() else null
         val adbWindNoiseFilterSeed =
             if (trustIntentForPreviewPipeline) activity?.intent.previewWindNoiseFilterExtra() else null
+        val adbExperimentalMasterSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewExperimentalMasterExtra() else null
+        val adbExperimentalMaxResUnlockSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewExperimentalMaxResUnlockExtra() else null
+        val adbExperimentalVendorSessionSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewExperimentalVendorSessionExtra() else null
+        val adbForceSafeModeSeed =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewForceSafeModeExtra() else false
+        val adbMaxResSweepSessionKeys =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewMaxResSweepSessionKeysExtra().orEmpty() else emptyList()
+        val adbMaxResSweepRequestKeys =
+            if (trustIntentForPreviewPipeline) activity?.intent.previewMaxResSweepRequestKeysExtra().orEmpty() else emptyList()
+        val appCtx = context.applicationContext
+        remember(
+            trustIntentForPreviewPipeline,
+            adbExperimentalMasterSeed,
+            adbExperimentalMaxResUnlockSeed,
+            adbExperimentalVendorSessionSeed,
+            adbForceSafeModeSeed,
+            adbMaxResSweepSessionKeys,
+            adbMaxResSweepRequestKeys,
+        ) {
+            if (trustIntentForPreviewPipeline) {
+                if (
+                    adbExperimentalMasterSeed != null ||
+                    adbExperimentalMaxResUnlockSeed != null ||
+                    adbExperimentalVendorSessionSeed != null ||
+                    adbForceSafeModeSeed ||
+                    adbMaxResSweepSessionKeys.isNotEmpty() ||
+                    adbMaxResSweepRequestKeys.isNotEmpty()
+                ) {
+                    PnsAdbLog.i(
+                        appCtx,
+                        "preview preseed experimental master=$adbExperimentalMasterSeed " +
+                            "maxRes=$adbExperimentalMaxResUnlockSeed vendorSession=$adbExperimentalVendorSessionSeed " +
+                            "forceSafe=$adbForceSafeModeSeed sweepSession=${adbMaxResSweepSessionKeys.size} " +
+                            "sweepRequest=${adbMaxResSweepRequestKeys.size}",
+                    )
+                }
+                if (adbForceSafeModeSeed) {
+                    ExperimentalSafeModeStore.forceSafeMode(appCtx, "adb_seed")
+                    ExperimentalSafeModeStore.disableExperimentalFlags(appCtx)
+                } else {
+                    if (
+                        adbExperimentalMasterSeed != null ||
+                        adbExperimentalMaxResUnlockSeed != null ||
+                        adbExperimentalVendorSessionSeed != null
+                    ) {
+                        ExperimentalSafeModeStore.clearSafeMode(appCtx)
+                    }
+                    val current = HudSettings.load(appCtx)
+                    var next = current
+                    adbExperimentalMasterSeed?.let { want ->
+                        if (next.enableExperimentalAppBreakingFeatures != want) {
+                            next = next.copy(enableExperimentalAppBreakingFeatures = want)
+                        }
+                    }
+                    adbExperimentalMaxResUnlockSeed?.let { want ->
+                        if (next.enableExperimentalMaxResolutionUnlock != want) {
+                            next = next.copy(enableExperimentalMaxResolutionUnlock = want)
+                        }
+                    }
+                    adbExperimentalVendorSessionSeed?.let { want ->
+                        if (next.enableExperimentalVendorSessionKeys != want) {
+                            next = next.copy(enableExperimentalVendorSessionKeys = want)
+                        }
+                    }
+                    if (next != current) {
+                        HudSettings.save(appCtx, next)
+                        PnsAdbLog.i(
+                            appCtx,
+                            "preview preseed experimental persisted " +
+                                "master=${next.enableExperimentalAppBreakingFeatures} " +
+                                "maxRes=${next.enableExperimentalMaxResolutionUnlock} " +
+                                "vendorSession=${next.enableExperimentalVendorSessionKeys}",
+                        )
+                    }
+                }
+            }
+            Unit
+        }
         val adbAeLockSeed =
             if (trustIntentForPreviewPipeline) activity?.intent.previewAeLockExtra() else null
         val adbPipPreviewSeed =
@@ -1022,6 +1125,8 @@ fun CameraCapabilitiesProbe(
                 (launchScreen == PNS_SCREEN_PREVIEW && intentInAppVideoAutomationSec > 0) ||
                 (launchScreen == PNS_SCREEN_PREVIEW && intentRawVideoAutomationSec > 0) ||
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SMILE_STILL, false) == true ||
+                !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_MAX_RES_SWEEP_SESSION_KEYS).isNullOrBlank()) ||
+                !(activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_MAX_RES_SWEEP_REQUEST_KEYS).isNullOrBlank()) ||
                 (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_BITRATE_SCALE, 0) ?: 0) > 0
         val useIntentAutomationPipeline = trustIntentForPreviewPipeline && automationWantsIntentPipeline
         val adbAutomationVideoRawSec =
@@ -1116,6 +1221,13 @@ fun CameraCapabilitiesProbe(
             if (trustIntentForPreviewPipeline) {
                 val raw = activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_BURST_INTERVAL_MS, 0) ?: 0
                 if (raw > 0) raw else 350
+            } else {
+                0
+            }
+        val adbLongPressBurstHoldMs =
+            if (trustIntentForPreviewPipeline) {
+                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_LONGPRESS_BURST_HOLD_MS, 0) ?: 0)
+                    .coerceAtLeast(0)
             } else {
                 0
             }
@@ -1334,6 +1446,8 @@ fun CameraCapabilitiesProbe(
         val adbRawStillFastAutomation = if (trustIntentForPreviewPipeline) adbRawStillFastRaw else false
         val adbInitialDial = if (trustIntentForPreviewPipeline) adbDialRaw else null
         val adbInitialImagingProfile = if (trustIntentForPreviewPipeline) adbImagingProfileRaw else null
+        val adbStillExportFormat = if (trustIntentForPreviewPipeline) adbStillFormatRaw else null
+        val adbPhotoResolutionMode = if (trustIntentForPreviewPipeline) adbStillResolutionModeRaw else null
         val adbSeedCameraId = if (trustIntentForPreviewPipeline) adbCameraIdRaw else null
         val adbSuperMacroProbe =
             if (trustIntentForPreviewPipeline) {
@@ -1380,11 +1494,19 @@ fun CameraCapabilitiesProbe(
             adbRawStillFastAutomation = adbRawStillFastAutomation,
             adbBracketPattern = adbBracketPattern,
             adbInitialImagingProfile = adbInitialImagingProfile,
+            adbStillExportFormat = adbStillExportFormat,
+            adbPhotoResolutionMode = adbPhotoResolutionMode,
             adbRawStreamPreference = adbRawStreamPreference,
             adbJpegCompanionSeed = adbJpegCompanionSeed,
             adbAudioHiFiSeed = adbAudioHiFiSeed,
             adbAudioWindSeed = adbAudioWindSeed,
             adbWindNoiseFilterSeed = adbWindNoiseFilterSeed,
+            adbExperimentalMasterSeed = adbExperimentalMasterSeed,
+            adbExperimentalMaxResUnlockSeed = adbExperimentalMaxResUnlockSeed,
+            adbExperimentalVendorSessionSeed = adbExperimentalVendorSessionSeed,
+            adbForceSafeModeSeed = adbForceSafeModeSeed,
+            adbMaxResSweepSessionKeys = adbMaxResSweepSessionKeys,
+            adbMaxResSweepRequestKeys = adbMaxResSweepRequestKeys,
             adbAeLockSeed = adbAeLockSeed,
             adbPipPreviewSeed = adbPipPreviewSeed,
             adbMulticamMeltSeed = adbMulticamMeltSeed,
@@ -1426,6 +1548,7 @@ fun CameraCapabilitiesProbe(
             adbStillCaptureMode = adbStillCaptureMode,
             adbBurstStillCount = adbBurstStillCount,
             adbBurstIntervalMs = adbBurstIntervalMs,
+            adbLongPressBurstHoldMs = adbLongPressBurstHoldMs,
             adbTetherEnabled = adbTetherEnabled,
             adbWifiDirectTether = adbWifiDirectTether,
             adbPictureProfileId = adbPictureProfileId,
@@ -2432,6 +2555,7 @@ private fun Intent?.previewDialModeExtra(): CommandDialMode? {
         "M" -> CommandDialMode.M
         "H" -> CommandDialMode.H
         "S" -> CommandDialMode.S
+        "MONO", "MONOCHROME", "BW", "B&W" -> CommandDialMode.Monochrome
         "BKT" -> CommandDialMode.BKT
         "MACRO" -> CommandDialMode.Macro
         "NIGHT" -> CommandDialMode.Night
@@ -2458,6 +2582,19 @@ private fun Intent?.previewImagingProfileExtra(): ImagingProfile? {
         ImagingProfile.StandardPro.id -> ImagingProfile.StandardPro
         ImagingProfile.UltraMax.id -> ImagingProfile.UltraMax
         ImagingProfile.JpegOnly.id -> ImagingProfile.JpegOnly
+        else -> null
+    }
+}
+
+private fun Intent?.previewStillFormatExtra(): StillExportKind? =
+    StillExportScaffolds.fromAdbValue(this?.getStringExtra(EXTRA_PNS_PREVIEW_STILL_FORMAT))
+
+private fun Intent?.previewStillResolutionModeExtra(): PhotoResolutionMode? {
+    val raw = this?.getStringExtra(EXTRA_PNS_PREVIEW_STILL_RESOLUTION_MODE)?.trim()?.takeIf { it.isNotBlank() }
+        ?: return null
+    return when (raw.lowercase()) {
+        "binned" -> PhotoResolutionMode.Binned
+        "max_resolution", "max", "maximum", "maxres" -> PhotoResolutionMode.MaxResolution
         else -> null
     }
 }
@@ -2564,6 +2701,43 @@ internal fun Intent?.previewWindNoiseFilterExtra(): Boolean? =
     } else {
         null
     }
+
+internal fun Intent?.previewExperimentalMasterExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_MASTER)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_MASTER, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewExperimentalMaxResUnlockExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_MAX_RES_UNLOCK)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_MAX_RES_UNLOCK, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewExperimentalVendorSessionExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_VENDOR_SESSION)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_VENDOR_SESSION, false)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewForceSafeModeExtra(): Boolean =
+    this?.getBooleanExtra(EXTRA_PNS_PREVIEW_FORCE_SAFE_MODE, false) == true
+
+private fun parseCsvKeys(raw: String?): List<String> =
+    raw?.split(",")
+        ?.map { it.trim() }
+        ?.filter { it.isNotBlank() }
+        ?.distinct()
+        .orEmpty()
+
+internal fun Intent?.previewMaxResSweepSessionKeysExtra(): List<String> =
+    parseCsvKeys(this?.getStringExtra(EXTRA_PNS_PREVIEW_MAX_RES_SWEEP_SESSION_KEYS))
+
+internal fun Intent?.previewMaxResSweepRequestKeysExtra(): List<String> =
+    parseCsvKeys(this?.getStringExtra(EXTRA_PNS_PREVIEW_MAX_RES_SWEEP_REQUEST_KEYS))
 
 internal fun Intent?.previewAeLockExtra(): Boolean? =
     if (this != null && hasExtra(EXTRA_PNS_PREVIEW_AE_LOCK)) {

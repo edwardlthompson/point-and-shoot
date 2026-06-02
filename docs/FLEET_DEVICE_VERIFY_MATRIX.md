@@ -2,12 +2,14 @@
 
 Per-onboarded-SKU checklist for Milestone **16.8**. Update a row after matrix rescan, capture/video gates, or chrome UX proof on that device.
 
-**Primary development device:** OnePlus 12 **CPH2583** (`b5214fc6`). **OP13 regression** (CPH2655 `8bf09993`) is optional — see `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
+**Primary development device:** OnePlus 12 **CPH2583** (`b5214fc6`). **legacy device regression** (legacy SKU `legacy serial`) is optional — see `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
 
 | SKU | Serial | Matrix quick | Matrix full | Shallow hub | Capture verify | Video verify | Chrome UX | DNG aux (if RAW) | Last rescan (UTC) | Notes |
 |-----|--------|--------------|-------------|-------------|----------------|--------------|-----------|------------------|-------------------|-------|
 | **CPH2583** | `b5214fc6` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 2026-05-29 | DNG: `aux_dng_capture_analyze_20260529_015653` (3/3, open gate PASS); **H.7** owner ACR sign-off 2026-05-29. **15.14** exiftool gate pending (install ExifTool). |
-| **CPH2655** (OP13 regression) | `8bf09993` | — | — | — | — | — | — | — | — | Archived primary; use `-LegacyOp13FleetPolicy` / plugin for DNG parity lane only. |
+| **legacy SKU** (legacy device regression) | `legacy serial` | — | — | — | — | — | — | — | — | Archived primary; use `-LegacyOp13FleetPolicy` / plugin for DNG parity lane only. |
+
+**M21.6 concurrency (parity matrix truth):** **CPH2583** advertises **`dualVideo`** only; **`pipPreview`** and **`multicamMelt`** are **not** advertised on primary fleet device. PiP + Multicam melt USB smoke runs via `pns_legacy_regression_pack.ps1` when connected device model is **legacy SKU / legacy device** (optional regression lane).
 
 ## Column definitions
 
@@ -19,7 +21,7 @@ Per-onboarded-SKU checklist for Milestone **16.8**. Update a row after matrix re
 | Capture verify | `scripts/pns_capture_pipeline_verify.ps1` or `pns_photo_capture_verify.ps1` |
 | Video verify | `scripts/pns_in_app_video_verify.ps1` |
 | Chrome UX | `scripts/pns_chrome_ux_gate.ps1` |
-| DNG aux | `scripts/pns_aux_dng_capture_analyze.ps1` (OP13 / plugin lane) |
+| DNG aux | `scripts/pns_aux_dng_capture_analyze.ps1` (legacy device / plugin lane) |
 | Video matrix | `scripts/pns_video_matrix_verify.ps1` — picker tiers + ffprobe (see matrix `encoder.verifyScripts`) |
 | Codec color | `scripts/pns_video_codec_color_compare.ps1` — H.264 vs HEVC VUI |
 

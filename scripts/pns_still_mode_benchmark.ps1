@@ -5,7 +5,7 @@
   Requires USB device. Use pns_preview_still_mode=standard|zsl|hdr per run, or -Mode all.
 
 .EXAMPLE
-  .\scripts\pns_still_mode_benchmark.ps1 -Serial 8bf09993 -Mode all -Repeats 1
+  .\scripts\pns_still_mode_benchmark.ps1 -Serial <serial> -Mode all -Repeats 1
   .\scripts\pns_still_mode_benchmark.ps1 -Mode standard -Repeats 3
 #>
 param(

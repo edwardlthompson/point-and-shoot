@@ -26,7 +26,7 @@
 .EXAMPLE
   .\scripts\pns_sideload_and_launch.ps1
   .\scripts\pns_sideload_and_launch.ps1 -SkipBuild
-  .\scripts\pns_sideload_and_launch.ps1 -Serial 8bf09993 -Build:$false
+  .\scripts\pns_sideload_and_launch.ps1 -Serial <serial> -Build:$false
 #>
 param(
     [string]$Serial = "",

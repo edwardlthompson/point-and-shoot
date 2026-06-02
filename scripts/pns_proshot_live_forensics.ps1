@@ -1,16 +1,16 @@
 <#
 .SYNOPSIS
-  Live ADB forensics while ProShot captures RAW/DNG on UW / wide / tele (CPH2655-class).
+  Live ADB forensics while ReferenceCam captures RAW/DNG on UW / wide / tele (legacy SKU-class).
 
 .DESCRIPTION
-  - Streams logcat to host (Camera2, HAL, DngCreator, ProShot process).
+  - Streams logcat to host (Camera2, HAL, DngCreator, ReferenceCam process).
   - Polls dumpsys media.camera for CONNECT/DISCONNECT (leaf camera id per lens).
-  - Detects new ProShot DNGs under /sdcard/DCIM (timestamp files, not Point & Shoot).
-  - Optional -TryUiAutomation: tap lens row + shutter (1440x3168 OnePlus 13; calibrate with -Calibrate).
+  - Detects new ReferenceCam DNGs under /sdcard/DCIM (timestamp files, not Point & Shoot).
+  - Optional -TryUiAutomation: tap lens row + shutter (1440x3168 legacy device; calibrate with -Calibrate).
   - Default: supervised — you switch lens + shoot; script records timing and pulls artifacts.
 
 .EXAMPLE
-  .\scripts\pns_proshot_live_forensics.ps1 -Serial 8bf09993
+  .\scripts\pns_proshot_live_forensics.ps1 -Serial <serial>
   .\scripts\pns_proshot_live_forensics.ps1 -TryUiAutomation -PerLensSec 12
   .\scripts\pns_proshot_live_forensics.ps1 -ManualOnly -PerLensSec 25
 #>
@@ -63,7 +63,7 @@ function Invoke-AdbOut([string[]]$CmdArgs) {
     return (& adb @CmdArgs 2>&1 | Out-String)
 }
 
-# OnePlus 13 portrait (1440x3168) — ProShot 15/23/73 mm stack bottom-right of preview (vertical column).
+# legacy device portrait (1440x3168) — ReferenceCam 15/23/73 mm stack bottom-right of preview (vertical column).
 # Calibrated from hfr-runs/proshot_lens_row.png May 2026.
 # Top-to-bottom on device: 73 mm → 23 mm → 15 mm (logcat: 2497→cam4, 2610→cam2; 15 mm needs cam3).
 $script:LensTaps = @(
@@ -148,7 +148,7 @@ $logProc = Start-Process -FilePath "cmd.exe" -ArgumentList @(
 ) -RedirectStandardOutput $logPath -RedirectStandardError (Join-Path $outDir "logcat_stderr.txt") -PassThru -WindowStyle Hidden
 
 Write-Host ""
-Write-Host "=== ProShot live forensics ===" -ForegroundColor Cyan
+Write-Host "=== ReferenceCam live forensics ===" -ForegroundColor Cyan
 Write-Host "Output: $outDir"
 Write-Host "Logcat PID $($logProc.Id) -> proshot_live_logcat.txt"
 Write-Host ""
@@ -175,7 +175,7 @@ if ($Calibrate) {
 if ($TryUiAutomation -and -not $ManualOnly) {
     Write-Host "UI automation ON (lens row y~$($script:LensTaps[0].y), shutter $($script:ShutterTap.x),$($script:ShutterTap.y))" -ForegroundColor Yellow
 } else {
-    Write-Host "MANUAL: switch ProShot to each lens (UW / wide / 73mm tele) and capture RAW/DNG." -ForegroundColor Yellow
+    Write-Host "MANUAL: switch ReferenceCam to each lens (UW / wide / 73mm tele) and capture RAW/DNG." -ForegroundColor Yellow
 }
 
 $sessionLog = [System.Collections.Generic.List[string]]::new()

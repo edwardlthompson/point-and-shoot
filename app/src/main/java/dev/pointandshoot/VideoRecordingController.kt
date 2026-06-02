@@ -19,7 +19,7 @@ import kotlin.math.min
  *
  * Supports two encoder paths:
  * - **[MediaRecorder] path**: 8-bit **H.264** up to 60 fps (bounded by
- *   `ro.media.recorder-max-base-layer-fps=60` on CPH2655-class devices).
+ *   `ro.media.recorder-max-base-layer-fps=60` on legacy-class devices).
  * - **[MediaCodecVideoRecorder] path**: Surface-input MediaCodec encoder that bypasses the
  *   60 fps MediaRecorder cap. Used for 8-bit **HEVC** (Sprint **15.2** BT.709 VUI), HFR,
  *   [VideoFormat.isTenBit], DCG, and AV1. Drives `c2.qti.hevc.encoder`
@@ -45,7 +45,7 @@ internal class VideoRecordingController(
 
         /** Minimum/Maximum supported video FPS. */
         private const val MIN_FPS = 15
-        private const val MAX_FPS = 480 // HFR support up to 480fps (OnePlus 13)
+        private const val MAX_FPS = 480 // HFR support up to 480fps (legacy target)
         
         /** HFR threshold - FPS above this requires CameraConstrainedHighSpeedCaptureSession. */
         const val HFR_THRESHOLD_FPS = 120
@@ -53,7 +53,7 @@ internal class VideoRecordingController(
         /**
          * True when the UI must not offer this codec at [fps] as honest HFR.
          *
-         * **CPH2655-class (May 2026 USB):** Constrained HS + Qualcomm HEVC (`c2.qti.hevc.encoder`,
+         * **Legacy-class (May 2026 USB):** Constrained HS + Qualcomm HEVC (`c2.qti.hevc.encoder`,
          * including Main10 surface input for 8-bit HFR) delivers about **half** the target unique
          * frame rate (e.g. ~60 unique/s at a 120 fps HS target). Container fps / mux PTS can still
          * look correct — that is not the same as true HFR.
@@ -63,7 +63,7 @@ internal class VideoRecordingController(
          *
          * **[VideoCodec.AV1]:** hide at HFR until a fleet device shows **hardware** AV1 (e.g.
          * `c2.qti.av1.encoder`) that records at the target fps with verified unique frames. On
-         * CPH2655 (`8bf09993` May 2026) only `c2.android.av1.encoder` is listed; forcing 120 fps
+         * Legacy target (May 2026) only `c2.android.av1.encoder` is listed; forcing 120 fps
          * fails `MediaCodec.createByCodecName(c2.qti.av1.encoder)` with NAME_NOT_FOUND.
          */
         fun lacksTrueHfrUniqueFrames(fps: Int, codec: VideoCodec): Boolean {
@@ -155,6 +155,11 @@ internal class VideoRecordingController(
     /** MediaCodec path: true once [MediaMuxer] has started (first encoder output format). */
     fun isMuxerReadyForRecord(): Boolean =
         mcRecorder?.isMuxerReady() == true || mediaRecorder != null
+
+    fun hasMcStartupStall(minUptimeMs: Long = 8_000L): Boolean =
+        mcRecorder?.isStartupStalled(minUptimeMs) == true
+
+    fun peekMcStartupDiag(): String = mcRecorder?.startupDiagSummary() ?: "mc=absent"
 
     /**
      * Pre-signal from the Compose layer that the upcoming recording will use [MediaCodecVideoRecorder].
@@ -320,7 +325,7 @@ internal class VideoRecordingController(
         // MediaFormat (MediaRecorder has no reliable color-metadata API on this fleet).
         val useHevcMediaCodecForSdrColor =
             videoFormat.codec == VideoCodec.H265 && !videoFormat.isTenBit && !videoFormat.isDcg
-        // Sprint **15.4**: 8K is not reliable on MediaRecorder (corrupt / moov-less MP4 observed on CPH2655);
+        // Sprint **15.4**: 8K is not reliable on MediaRecorder (corrupt / moov-less MP4 observed on legacy target);
         // route 8K through MediaCodec so muxer setup and track finalization are explicit.
         val useMediaCodecFor8k = videoFormat.resolution.width >= 7680 || videoFormat.resolution.height >= 4320
         val ultraHd60H264Mr =
@@ -385,7 +390,9 @@ internal class VideoRecordingController(
 
         val videoKind =
             if (videoFormat.codec == VideoCodec.AV1) {
-                CaptureStorage.CaptureKind.WebM
+                // CPH2583: MediaMuxer WebM rejects `video/av01` track add despite encoder output.
+                // Route AV1 through MP4 muxing for in-app parity proof stability.
+                CaptureStorage.CaptureKind.Mp4
             } else {
                 CaptureStorage.CaptureKind.Mp4
             }
@@ -558,7 +565,7 @@ internal class VideoRecordingController(
                     "hsSession=${encodeW}x$encodeH fps=$targetFps",
             )
         }
-        // CPH2655-class HS interleaved feeds TP10_UBWC to the encoder surface even when the UI
+        // Legacy-class HS interleaved feeds TP10_UBWC to the encoder surface even when the UI
         // format is 8-bit HEVC; Main10 encoder input avoids QC2 "unsupported TP10 vs NV12" stalls.
         val mcTenBitSurfaceInput =
             targetFps >= 120 &&
@@ -642,10 +649,16 @@ internal class VideoRecordingController(
                     val waitMs = if (targetFpsForMcWait() >= HFR_THRESHOLD_FPS) 20_000L else 8_000L
                     mainHandler.post {
                         val ready = mc.awaitMuxerReady(waitMs)
+                        val diag = mc.startupDiagSummary()
                         Log.i(
                             TAG,
                             "MediaCodec muxReady(deferred)=$ready encoderOnly=$encoderOnlyMcRecordHint " +
-                                "fps=${targetFpsForMcWait()}",
+                                "fps=${targetFpsForMcWait()} $diag",
+                        )
+                        PnsAdbLog.i(
+                            appContext,
+                            "mcMuxWait deferredReady=$ready encoderOnly=$encoderOnlyMcRecordHint " +
+                                "fps=${targetFpsForMcWait()} $diag",
                         )
                     }
                     false

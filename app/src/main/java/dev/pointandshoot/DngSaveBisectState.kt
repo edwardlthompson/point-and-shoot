@@ -29,7 +29,7 @@ object DngSaveBisectState {
     @Volatile
     var forceLeafHalReconcile: Boolean? = null
 
-    /** When true with reconcile, use Bayer ASN (legacy) instead of OP13 gains-first policy. */
+    /** When true with reconcile, use Bayer ASN (legacy) instead of LegacyDevice gains-first policy. */
     @Volatile
     var forceBayerAsnOnLeafReconcile: Boolean = false
 
@@ -37,7 +37,7 @@ object DngSaveBisectState {
     @Volatile
     var skipHalWbGainCorrection: Boolean = false
 
-    /** When true, skip [Op13LeafStillColorCorrection] on UW/tele still requests (bisect). */
+    /** When true, skip [LegacyLeafStillColorCorrection] on UW/tele still requests (bisect). */
     @Volatile
     var skipOp13CaptureTimeColorGains: Boolean = false
 
@@ -111,7 +111,7 @@ object DngSaveBisectState {
 
     private fun parseStillDngBackendExtra(raw: String): StillDngBackend? =
         when (raw.lowercase()) {
-            "framework_proshot", "proshot" -> StillDngBackend.FRAMEWORK_PROSHOT
+            "framework_proshot", "referencecam" -> StillDngBackend.FRAMEWORK_PROSHOT
             "motioncam_inspired", "motioncam" -> StillDngBackend.MOTIONCAM_INSPIRED
             else -> {
                 Log.w(TAG, "unknown pns_preview_still_dng_backend=$raw")

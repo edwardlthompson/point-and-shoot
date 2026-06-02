@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-  Pull latest ProShot DNGs, capture matching P&S M14/M23/M73 RAW (non-Highlight dial), side-by-side report.
+  Pull latest ReferenceCam DNGs, capture matching P&S M14/M23/M73 RAW (non-Highlight dial), side-by-side report.
 
 .DESCRIPTION
-  Assumes you already shot UW / wide / tele in ProShot (newest 3 non-P&S DCIM DNGs).
+  Assumes you already shot UW / wide / tele in ReferenceCam (newest 3 non-P&S DCIM DNGs).
   Uses preview dial Auto by default — not Highlight (H), which changes metering/YUV.
 
 .EXAMPLE
-  .\scripts\pns_dng_proshot_pns_session.ps1 -Serial 8bf09993
+  .\scripts\pns_dng_proshot_pns_session.ps1 -Serial <serial>
   .\scripts\pns_dng_proshot_pns_session.ps1 -SkipPnsCapture -ProShotDir hfr-runs\proshot_reference_*
   .\scripts\pns_dng_proshot_pns_session.ps1 -PnsStillModes standard,zsl,hdr -PullMotionCamReference
 #>
@@ -20,7 +20,7 @@ param(
     [switch]$SkipProShotPull,
     [switch]$SkipPnsCapture,
     [string]$ProShotDir = "",
-    [string]$Notes = "Daylight 13.8d — compare Standard / ZSL / HDR vs ProShot; tag report is structural only.",
+    [string]$Notes = "Daylight 13.8d — compare Standard / ZSL / HDR vs ReferenceCam; tag report is structural only.",
     [switch]$HostOnly,
     [string]$PnsStillModes = "",
     [switch]$PullMotionCamReference,
@@ -35,7 +35,7 @@ if ($HostOnly) {
     Write-Host "=== Host-only DNG session prep (no device) ===" -ForegroundColor Cyan
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "pns_fixture_dng_gates.ps1")
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    Write-Host "Host-only: run full session without -HostOnly when USB + ProShot captures are ready." -ForegroundColor Green
+    Write-Host "Host-only: run full session without -HostOnly when USB + ReferenceCam captures are ready." -ForegroundColor Green
     exit 0
 }
 
@@ -64,7 +64,7 @@ $sessionDir = Join-Path $projRoot "hfr-runs\dng_proshot_pns_session_$ts"
 New-Item -ItemType Directory -Force -Path $sessionDir | Out-Null
 
 Write-Host ""
-Write-Host "=== ProShot + P&S DNG session (dial=$PreviewDial, not H) ===" -ForegroundColor Cyan
+Write-Host "=== ReferenceCam + P&S DNG session (dial=$PreviewDial, not H) ===" -ForegroundColor Cyan
 Write-Host "Session folder: $sessionDir"
 Write-Host "Note: $Notes"
 Write-Host ""
@@ -82,7 +82,7 @@ if (-not $SkipProShotPull) {
         Sort-Object Name | Select-Object -Last 1
     if (-not $proshotLatest) { throw "No proshot_reference_* folder after pull" }
     $ProShotDir = $proshotLatest.FullName
-    Write-Host "[session] ProShot -> $ProShotDir"
+    Write-Host "[session] ReferenceCam -> $ProShotDir"
 } elseif ([string]::IsNullOrWhiteSpace($ProShotDir)) {
     $proshotLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "proshot_reference_*" |
         Sort-Object Name | Select-Object -Last 1
@@ -90,7 +90,7 @@ if (-not $SkipProShotPull) {
 }
 
 if ([string]::IsNullOrWhiteSpace($ProShotDir) -or -not (Test-Path $ProShotDir)) {
-    throw "ProShotDir missing; run ProShot captures first or omit -SkipProShotPull"
+    throw "ProShotDir missing; run ReferenceCam captures first or omit -SkipProShotPull"
 }
 
 function Invoke-PnsCaptureForMode([string]$StillMode, [string]$ParentDir) {
@@ -128,7 +128,7 @@ function Try-PullMotionCamDngs([string]$DestDir, [int]$Count = 3) {
     $findOut = AdbShell "find /sdcard/DCIM -name '*.dng' 2>/dev/null"
     $paths = @($findOut -split "`n" | ForEach-Object { $_.Trim() } | Where-Object {
             $_ -match "\.dng$" -and $_ -notmatch "Point.and.Shoot" -and $_ -notmatch "Point & Shoot" -and
-                $_ -notmatch "proshot" -and $_ -notmatch "ProShot"
+                $_ -notmatch "referencecam" -and $_ -notmatch "ReferenceCam"
         })
     $withMtime = @()
     foreach ($p in $paths) {
@@ -230,14 +230,14 @@ if ($comparePnsDir -and (Test-Path (Join-Path $comparePnsDir "M23_wide.dng"))) {
 $diffReport = Join-Path $sessionDir "session_summary.md"
 $pyTag = Join-Path $PSScriptRoot "dng_tag_report.py"
 $lines = [System.Collections.Generic.List[string]]::new()
-$lines.Add("# ProShot vs P&S session $ts")
+$lines.Add("# ReferenceCam vs P&S session $ts")
 $lines.Add("")
 $lines.Add("**Environment:** $Notes")
 $lines.Add("**P&S preview dial:** $PreviewDial (not H / Highlight)")
 $lines.Add("")
 $lines.Add("| Artifact | Path |")
 $lines.Add("|----------|------|")
-$lines.Add("| ProShot pull | ``$ProShotDir`` |")
+$lines.Add("| ReferenceCam pull | ``$ProShotDir`` |")
 $lines.Add("| P&S captures | ``$pnsDir`` |")
 $lines.Add("| Side-by-side | ``$(Join-Path $sessionDir 'side_by_side')`` |")
 $lines.Add("")
@@ -254,7 +254,7 @@ if ((Test-Path $pyTag)) {
     ) | Where-Object { Test-Path $_ }
     if ($psFiles.Count -gt 0) {
         $lines.Add("")
-        $lines.Add("## ProShot tags (pull order)")
+        $lines.Add("## ReferenceCam tags (pull order)")
         $lines.Add("``````")
         & python $pyTag @($psFiles) | ForEach-Object { $lines.Add($_) }
         $lines.Add("``````")

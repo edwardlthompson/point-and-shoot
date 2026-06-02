@@ -139,9 +139,22 @@ fun VideoFormatPickerSheet(
         )
     }
     val pickedColorSpace = colorSpaces.getOrNull(pickedColorOrdinal)
+    val maxColorOrdinal =
+        remember(colorSpaces) {
+            colorSpaces
+                .withIndex()
+                .maxByOrNull { it.value.cqi }
+                ?.index
+                ?: 0
+        }
+    val maxCqiColorSpace = colorSpaces.getOrNull(maxColorOrdinal)
     val filteredFormats =
         remember(formats, pickedColorSpace) {
             ColorQualityIndex.filterVideoFormats(formats, pickedColorSpace)
+        }
+    val maxCqiFilteredFormats =
+        remember(formats, maxCqiColorSpace) {
+            ColorQualityIndex.filterVideoFormats(formats, maxCqiColorSpace)
         }
     val pickerLists8k =
         remember(filteredFormats) {
@@ -195,9 +208,9 @@ fun VideoFormatPickerSheet(
         FormatQualityRegistry.sortVideoCodecs(fpsFormats.map { it.codec }.distinct())
     }
 
-    val maxPresets = remember(filteredFormats) {
+    val maxPresets = remember(maxCqiFilteredFormats) {
         VideoFormatQualityRank.ResolutionBucket.entries.mapNotNull { bucket ->
-            VideoFormatQualityRank.pickBestForBucket(filteredFormats, bucket)?.let { bucket to it }
+            VideoFormatQualityRank.pickBestForBucket(maxCqiFilteredFormats, bucket)?.let { bucket to it }
         }
     }
 
@@ -297,6 +310,44 @@ fun VideoFormatPickerSheet(
 
             LazyColumn(contentPadding = PaddingValues(bottom = 8.dp)) {
 
+                // ── Max presets (highest quality per resolution bucket) ───────
+                if (maxPresets.isNotEmpty()) {
+                    item {
+                        PickerSectionHeader(
+                            step = "★",
+                            label = "Max quality presets",
+                            selected = maxCqiColorSpace?.displayName,
+                        )
+                    }
+                    items(items = maxPresets, key = { "max_${it.first.name}" }) { (bucket, format) ->
+                        val desc = FormatQualityRegistry.forVideoCodec(format.codec)
+                        PickerOptionRow(
+                            label = bucket.label,
+                            sublabel =
+                                buildString {
+                                    append(format.getLabel())
+                                    append(" · ")
+                                    append(format.frameRate)
+                                    append(" fps")
+                                    desc?.let {
+                                        append(" · ")
+                                        append(it.bitDepthLabel)
+                                    }
+                                },
+                            rightLabel = format.getBitrateLabel(),
+                            isSelected = resolvedFormat == format,
+                            accentColor = PnsColors.PhotoOrange,
+                        ) {
+                            pickedColorOrdinal = maxColorOrdinal
+                            patchChrome { it.copy(inAppVideoColorSpaceOrdinal = maxColorOrdinal) }
+                            pickedAspect = videoAspectRatio(format.resolution.width, format.resolution.height)
+                            pickedResolution = format.resolution
+                            pickedFps = format.frameRate
+                            pickedCodec = format.codec
+                        }
+                    }
+                }
+
                 // ── Step 0: Color space (CQI) ─────────────────────────────────
                 item {
                     PickerSectionHeader(
@@ -340,42 +391,6 @@ fun VideoFormatPickerSheet(
                         ) {
                             onSelectRawVideo()
                             onDismiss()
-                        }
-                    }
-                }
-
-                // ── Max presets (highest quality per resolution bucket) ───────
-                if (maxPresets.isNotEmpty()) {
-                    item {
-                        PickerSectionHeader(
-                            step = "★",
-                            label = "Max quality presets",
-                            selected = null,
-                        )
-                    }
-                    items(items = maxPresets, key = { "max_${it.first.name}" }) { (bucket, format) ->
-                        val desc = FormatQualityRegistry.forVideoCodec(format.codec)
-                        PickerOptionRow(
-                            label = bucket.label,
-                            sublabel =
-                                buildString {
-                                    append(format.getLabel())
-                                    append(" · ")
-                                    append(format.frameRate)
-                                    append(" fps")
-                                    desc?.let {
-                                        append(" · ")
-                                        append(it.bitDepthLabel)
-                                    }
-                                },
-                            rightLabel = format.getBitrateLabel(),
-                            isSelected = resolvedFormat == format,
-                            accentColor = PnsColors.PhotoOrange,
-                        ) {
-                            pickedAspect = videoAspectRatio(format.resolution.width, format.resolution.height)
-                            pickedResolution = format.resolution
-                            pickedFps = format.frameRate
-                            pickedCodec = format.codec
                         }
                     }
                 }

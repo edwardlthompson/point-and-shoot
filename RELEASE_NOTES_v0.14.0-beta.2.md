@@ -1,6 +1,6 @@
 # Point & Shoot — v0.14.0-beta.2
 
-**Pre-release** for OnePlus 13 (`CPH2655` / `dodge`) on LineageOS 23 (Android 16). Not a Play Store build.
+**Pre-release** for legacy device (`legacy SKU` / `dodge`) on LineageOS 23 (Android 16). Not a Play Store build.
 
 ## Summary
 
@@ -20,8 +20,8 @@
 
 ## Compatibility
 
-- **Target device:** OnePlus 13 (`CPH2655` class)
-- **OS:** LineageOS 23 / Android 16 (API 36) — primary validation **`8bf09993`**
+- **Target device:** legacy device (`legacy SKU` class)
+- **OS:** LineageOS 23 / Android 16 (API 36) — primary validation **`legacy serial`**
 - **FOSS-only:** no Google Play Services
 
 ## Known limitations (beta)
@@ -31,7 +31,7 @@
 - **DND restore** automation needs notification policy access on some devices.
 - **AI bitrate scale** gate may fail 125% needle while smile/scene pass.
 
-## Verification (reference USB `8bf09993`, May 2026)
+## Verification (reference USB `legacy serial`, May 2026)
 
 - `pns_capture_pipeline_verify.ps1` — RAW still
 - `pns_chrome_ux_gate.ps1` — chrome + tele slot

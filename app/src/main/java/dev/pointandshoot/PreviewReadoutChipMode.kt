@@ -13,7 +13,7 @@ object PreviewReadoutChipMode {
 
     fun showStillLutChip(primaryPhoto: Boolean): Boolean = primaryPhoto
 
-    fun showImgChip(primaryPhoto: Boolean): Boolean = primaryPhoto
+    fun showImgChip(primaryPhoto: Boolean): Boolean = false
 
     fun showVideoLutChip(primaryPhoto: Boolean): Boolean = !primaryPhoto
 

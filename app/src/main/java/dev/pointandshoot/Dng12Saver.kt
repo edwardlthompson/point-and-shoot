@@ -6,7 +6,7 @@ import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.DngCreator
 import android.hardware.camera2.TotalCaptureResult
 import dev.pointandshoot.fleet.LeafDngHalReconcile
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import dev.pointandshoot.fleet.ProShotPipelineContract
 import dev.pointandshoot.DngBayerAsShotNeutral
 import android.location.Location
@@ -88,7 +88,7 @@ class Dng12Saver(
          * [TiffUniqueCameraModel50708] (requires buffering the full DNG in memory).
          */
         uniqueCameraModel: String? = null,
-        /** Opened [android.hardware.camera2.CameraDevice] id for OP13 leaf HAL reconcile. */
+        /** Opened [android.hardware.camera2.CameraDevice] id for LegacyDevice leaf HAL reconcile. */
         sessionCameraId: String? = null,
         /**
          * When set for aux leaf (UW/tele), CM/FM in the DNG are patched from wide cam **2** while
@@ -132,7 +132,7 @@ class Dng12Saver(
             TAG,
             "dng openability diag cam=$sessionCameraId reconcile=$reconcileLeaf " +
                 "wideCal=$wideCal stamp50708=$stamp50708 " +
-                "pureProShot=${OnePlus13FleetPolicy.useProShotPureDngSave()}",
+                "pureProShot=${LegacyFleetPolicy.useProShotPureDngSave()}",
         )
         if (!stamp50708 && !reconcileLeaf) {
             creator.writeImage(destination, image)

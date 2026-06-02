@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * MediaCodec-based video recorder that accepts a Camera2 [Surface] input.
  *
  * **Why this exists:** Android's [android.media.MediaRecorder] is bounded by the read-only system
- * property `ro.media.recorder-max-base-layer-fps` (set to 60 on CPH2655-class devices), which
+ * property `ro.media.recorder-max-base-layer-fps` (set to 60 on legacy-class devices), which
  * silently clamps [MediaRecorder.setVideoFrameRate] regardless of hardware capability. The
  * underlying Qualcomm codec `c2.qti.hevc.encoder` supports:
  *   - frame-rate-range  : 1–480 fps
@@ -80,7 +80,7 @@ class MediaCodecVideoRecorder(
         /** Fallback SW HEVC encoder — 8-bit Main only, low performance. */
         private const val ANDROID_HEVC_ENCODER = "c2.android.hevc.encoder"
 
-        /** Qualcomm HW AVC encoder — HFR performance-points on OP13-class devices. */
+        /** Qualcomm HW AVC encoder — HFR performance-points on legacy-class devices. */
         private const val QTI_AVC_ENCODER = "c2.qti.avc.encoder"
 
         /** Fallback SW AVC encoder. */
@@ -386,6 +386,9 @@ class MediaCodecVideoRecorder(
     private val muxerFinalized = AtomicBoolean(false)
     private val muxerLock = Any()
     private val videoSamplesWritten = java.util.concurrent.atomic.AtomicLong(0)
+    private val videoOutputCallbackCount = AtomicInteger(0)
+    private val videoOutputFormatChangedCount = AtomicInteger(0)
+    private val codecErrorCount = AtomicInteger(0)
     private var targetFpsForPts: Int = 30
     private var videoFrameIndex: Long = 0L
     private var videoPtsOriginUs: Long = -1L
@@ -415,6 +418,10 @@ class MediaCodecVideoRecorder(
     private var audioGainLinear: Float = 1f
     /** AAC encoder output rate from [MediaCodec] format (often 44.1 kHz when capture is 96 kHz). */
     @Volatile private var audioEncoderSampleRateHz: Int = 0
+    @Volatile private var configuredCodecName: String = ""
+    @Volatile private var configuredMime: String = ""
+    @Volatile private var recorderStartUptimeMs: Long = 0L
+    @Volatile private var startupWatchdogToken: Int = 0
 
     /** Peak amplitude since last call (0..32767), resets on read. */
     fun peekAmplitude(): Int = peakAmplitude.getAndSet(0)
@@ -430,6 +437,32 @@ class MediaCodecVideoRecorder(
     fun isMuxerReady(): Boolean = muxerStarted
 
     fun peekVideoSamplesWritten(): Long = videoSamplesWritten.get()
+    fun peekVideoOutputCallbackCount(): Int = videoOutputCallbackCount.get()
+    fun peekVideoOutputFormatChangedCount(): Int = videoOutputFormatChangedCount.get()
+    fun peekCodecErrorCount(): Int = codecErrorCount.get()
+
+    fun peekRecorderUptimeMs(): Long {
+        val startedAt = recorderStartUptimeMs
+        if (startedAt <= 0L) return 0L
+        return (SystemClock.uptimeMillis() - startedAt).coerceAtLeast(0L)
+    }
+
+    fun startupDiagSummary(): String =
+        "codec=$configuredCodecName mime=$configuredMime state=${state::class.simpleName} " +
+            "uptimeMs=${peekRecorderUptimeMs()} muxReady=$muxerStarted " +
+            "samples=${videoSamplesWritten.get()} outCb=${videoOutputCallbackCount.get()} " +
+            "fmtCb=${videoOutputFormatChangedCount.get()} errs=${codecErrorCount.get()} " +
+            "tracks=v$videoTrack/a$audioTrack"
+
+    fun isStartupStalled(minUptimeMs: Long): Boolean {
+        if (state != State.Recording) return false
+        if (stopping.get()) return false
+        val up = peekRecorderUptimeMs()
+        if (up < minUptimeMs.coerceAtLeast(0L)) return false
+        if (muxerStarted) return false
+        if (videoSamplesWritten.get() > 0L) return false
+        return true
+    }
 
     /**
      * Block until the muxer has started or [timeoutMs] elapses. Call after [start] once the
@@ -463,7 +496,12 @@ class MediaCodecVideoRecorder(
         muxerStarted = false
         muxerFinalized.set(false)
         stopping.set(false)
+        cancelStartupDiagWatchdogs()
         videoSamplesWritten.set(0)
+        videoOutputCallbackCount.set(0)
+        videoOutputFormatChangedCount.set(0)
+        codecErrorCount.set(0)
+        recorderStartUptimeMs = 0L
         targetFpsForPts = config.fps.coerceAtLeast(1)
         videoFrameIndex = 0L
         videoPtsOriginUs = -1L
@@ -508,6 +546,8 @@ class MediaCodecVideoRecorder(
             }
             val encoder = MediaCodec.createByCodecName(codecName)
             val mime = videoMimeForConfig(config)
+            configuredCodecName = codecName
+            configuredMime = mime
             val format = MediaFormat.createVideoFormat(mime, config.width, config.height).apply {
                 setInteger(MediaFormat.KEY_BIT_RATE, config.bitrate)
                 setInteger(MediaFormat.KEY_FRAME_RATE, config.fps)
@@ -565,6 +605,7 @@ class MediaCodecVideoRecorder(
                 override fun onInputBufferAvailable(mc: MediaCodec, index: Int) {}
 
                 override fun onOutputBufferAvailable(mc: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
+                    videoOutputCallbackCount.incrementAndGet()
                     if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
                         mc.releaseOutputBuffer(index, false)
                         return
@@ -603,10 +644,12 @@ class MediaCodecVideoRecorder(
                 }
 
                 override fun onError(mc: MediaCodec, e: MediaCodec.CodecException) {
+                    codecErrorCount.incrementAndGet()
                     Log.e(TAG, "codec error: ${e.message}")
                 }
 
                 override fun onOutputFormatChanged(mc: MediaCodec, format: MediaFormat) {
+                    videoOutputFormatChangedCount.incrementAndGet()
                     synchronized(muxerLock) {
                         if (muxerFinalized.get() || muxer == null || muxerStarted) return
                         if (videoTrack >= 0) return
@@ -615,9 +658,22 @@ class MediaCodecVideoRecorder(
                             runCatching { setInteger("capture-fps", targetFpsForPts) }
                         }
                         videoTrack =
-                            runCatching { muxer?.addTrack(muxFormat) ?: -1 }.getOrElse { -1 }
+                            runCatching { muxer?.addTrack(muxFormat) ?: -1 }
+                                .onFailure { e ->
+                                    Log.e(TAG, "video addTrack failed format=$muxFormat reason=${e.message}", e)
+                                    PnsAdbLog.i(
+                                        appContext,
+                                        "mcMuxTrackFail kind=video reason=${e::class.simpleName}:${e.message}",
+                                    )
+                                }
+                                .getOrElse { -1 }
                         if (videoTrack >= 0) {
                             Log.i(TAG, "video track added idx=$videoTrack format=$muxFormat")
+                        } else {
+                            PnsAdbLog.i(
+                                appContext,
+                                "mcMuxTrackFail kind=video reason=trackIndexMinus1 formatMime=${muxFormat.getString(MediaFormat.KEY_MIME)}",
+                            )
                         }
                     }
                     nudgeAudioMuxerReady()
@@ -656,10 +712,13 @@ class MediaCodecVideoRecorder(
         check(s is State.Prepared) { "start called in state $state" }
         stopping.set(false)
         recordingStartNano = System.nanoTime()
+        recorderStartUptimeMs = SystemClock.uptimeMillis()
         codec?.start()
+        scheduleStartupDiagWatchdogs()
         // Defer audio encoder + AudioRecord until the first video frame (HS prep can take many seconds).
         state = State.Recording
         Log.i(TAG, "recording started (audio deferred until first video frame)")
+        PnsAdbLog.i(appContext, "mcStartDiag ${startupDiagSummary()}")
     }
 
     /**
@@ -672,6 +731,7 @@ class MediaCodecVideoRecorder(
         }
         state = State.Stopped
         stopping.set(true)
+        cancelStartupDiagWatchdogs()
         Log.i(TAG, "stopping recorder — signaling EOS to encoder surface")
         runCatching { encoderSurface?.let { codec?.signalEndOfInputStream() } }
         this.pendingOnSaved = onSaved
@@ -688,6 +748,7 @@ class MediaCodecVideoRecorder(
     fun abort() {
         stopping.set(true)
         state = State.Stopped
+        cancelStartupDiagWatchdogs()
         if (!muxerFinalized.get()) {
             runCatching { if (muxerStarted) muxer?.stop() }
             runCatching { muxer?.release() }
@@ -712,6 +773,26 @@ class MediaCodecVideoRecorder(
         Log.i(TAG, "audio PCM capture started with first video frame")
     }
 
+    private fun scheduleStartupDiagWatchdogs() {
+        val token = startupWatchdogToken + 1
+        startupWatchdogToken = token
+        val fire: (Long) -> Unit = { delayMs ->
+            mainHandler.postDelayed({
+                if (token != startupWatchdogToken) return@postDelayed
+                if (state != State.Recording || stopping.get()) return@postDelayed
+                val diag = startupDiagSummary()
+                Log.i(TAG, "startupDiag delayMs=$delayMs $diag")
+                PnsAdbLog.i(appContext, "mcStartupDiag delayMs=$delayMs $diag")
+            }, delayMs)
+        }
+        fire(4_000L)
+        fire(10_000L)
+    }
+
+    private fun cancelStartupDiagWatchdogs() {
+        startupWatchdogToken++
+    }
+
     private fun nudgeAudioMuxerReady() {
         val ac = audioCodec ?: return
         encoderHandler.post {
@@ -732,7 +813,16 @@ class MediaCodecVideoRecorder(
             val wantsAudio = audioCodec != null
             val af = pendingAudioFormat
             if (wantsAudio && audioTrack < 0 && af != null) {
-                audioTrack = runCatching { m.addTrack(af) }.getOrElse { -1 }
+                audioTrack =
+                    runCatching { m.addTrack(af) }
+                        .onFailure { e ->
+                            Log.e(TAG, "audio addTrack failed format=$af reason=${e.message}", e)
+                            PnsAdbLog.i(
+                                appContext,
+                                "mcMuxTrackFail kind=audio reason=${e::class.simpleName}:${e.message}",
+                            )
+                        }
+                        .getOrElse { -1 }
                 if (audioTrack >= 0) {
                     Log.i(TAG, "audio track added idx=$audioTrack")
                 }
@@ -991,7 +1081,7 @@ class MediaCodecVideoRecorder(
     /**
      * Video mux PTS for HFR: uniform capture-rate timeline so MP4 avg_fps / gallery match
      * [targetFpsForPts] when the HAL delivers frames at that rate. Encoder surface timestamps
-     * often land on a 60 Hz grid on CPH2655-class devices even at a 120 fps HS target.
+     * often land on a 60 Hz grid on legacy-class devices even at a 120 fps HS target.
      *
      * ≤119 fps: keep encoder PTS for A/V alignment with [MediaRecorder]-class pacing.
      */

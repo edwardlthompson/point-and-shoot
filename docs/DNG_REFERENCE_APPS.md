@@ -1,8 +1,8 @@
 # DNG reference apps (device truth)
 
-## ProShot (`com.riseupgames.proshot2`) — primary reference
+## ReferenceCam (`com.riseupgames.proshot2`) — primary reference
 
-On **CPH2655 / OnePlus 13** (`8bf09993`), user-verified **May 2026**: ProShot DNGs decode with **correct color on all lenses** (UW, wide, native tele).
+On **legacy SKU / legacy device** (`legacy serial`), user-verified **May 2026**: ReferenceCam DNGs decode with **correct color on all lenses** (UW, wide, native tele).
 
 **Investigation (no source at runtime):**
 
@@ -23,7 +23,7 @@ On **CPH2655 / OnePlus 13** (`8bf09993`), user-verified **May 2026**: ProShot DN
 - One `cameraId` per session; `new DngCreator(characteristics, capture_result)` with no TIFF matrix rewriting.
 - `ImageFormat.RAW_SENSOR`; `STATISTICS_LENS_SHADING_MAP_MODE_ON` on still requests when RAW enabled.
 
-**On CPH2655, OpenCamera produces the same broken aux DNG color as Point & Shoot** — not a product color reference for this HAL. Keep source links for API patterns only; do not treat OpenCamera parity as a color fix.
+**On legacy SKU, OpenCamera produces the same broken aux DNG color as Point & Shoot** — not a product color reference for this HAL. Keep source links for API patterns only; do not treat OpenCamera parity as a color fix.
 
 ---
 
@@ -33,4 +33,4 @@ On **CPH2655 / OnePlus 13** (`8bf09993`), user-verified **May 2026**: ProShot DN
 - **FM/ASN TIFF post-process:** **reverted** — broke wide/tele when applied; do not reapply without USB proof.
 - **Automation:** `scripts/pns_aux_dng_capture_analyze.ps1` (M14 / M23 / M73).
 
-Follow-up design: `docs/DNG_PS_ALIGNMENT_SPIKE.md` (from ProShot diff + APK strings).
+Follow-up design: `docs/DNG_PS_ALIGNMENT_SPIKE.md` (from ReferenceCam diff + APK strings).

@@ -35,10 +35,10 @@ CATEGORIES: list[tuple[str, str, list[str]]] = [
     ),
     (
         "Fleet capability matrix & device policy",
-        "Per-SKU matrix JSON, fleet profiles, ProShot DNG parity, verify matrix, encoder fleet slice.",
+        "Per-SKU matrix JSON, fleet profiles, ReferenceCam DNG parity, verify matrix, encoder fleet slice.",
         [
-            "fleetdevice", "fleet_matrix", "fleetmatrix", "fleetcamera", "proshot parity",
-            "proshot pipeline", "proshot reference", "aux dng", "dng openability",
+            "fleetdevice", "fleet_matrix", "fleetmatrix", "fleetcamera", "referencecam parity",
+            "referencecam pipeline", "referencecam reference", "aux dng", "dng openability",
             "leaf dng", "wide-cal", "lock bisect", "still mode compare", "m13_3",
             "focal map", "fleet catalog", "policy plugin", "encoder fleet",
             "verify matrix", "fleet_device_matrix", "fleetpolicy", "oneplus13fleet",

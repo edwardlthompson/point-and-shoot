@@ -3,7 +3,7 @@
 **Prerequisites:**
 
 1. **13.3g** complete: pure `DngCreator`, `dng_desktop_open_gate.py` **PASS**, human ACR **3/3**.
-2. **13.3f** shows color/luminance still unacceptable vs ProShot after fixture refresh.
+2. **13.3f** shows color/luminance still unacceptable vs ReferenceCam after fixture refresh.
 
 **Do not** enable `useWideLeafCalibrationForAuxDng` by default until this bisect finishes and **13.7** signs off.
 
@@ -13,9 +13,9 @@
 
 | Step | Flag / code | Openability | Color |
 |------|-------------|-------------|-------|
-| H1 | `useWideLeafCalibrationForAuxDng=true` (CM/FM from cam **2** on aux RAW only) | ACR **3/3** required | vs ProShot |
-| H2 | H1 + `LeafDngHalReconcile` ASN on aux | ACR **3/3** | vs ProShot |
-| H3 | H2 + `proShotLatchManualExposureOnStill` + `adjustProShotExposureLatch` | ACR **3/3** | vs ProShot |
+| H1 | `useWideLeafCalibrationForAuxDng=true` (CM/FM from cam **2** on aux RAW only) | ACR **3/3** required | vs ReferenceCam |
+| H2 | H1 + `LeafDngHalReconcile` ASN on aux | ACR **3/3** | vs ReferenceCam |
+| H3 | H2 + `proShotLatchManualExposureOnStill` + `adjustProShotExposureLatch` | ACR **3/3** | vs ReferenceCam |
 
 After each step: `pns_aux_dng_capture_analyze.ps1 -PreviewDial A -NoFast` (open gate must pass). Logcat must not show unexpected `wide-cal reconcile` unless H1+ is intentional.
 
@@ -23,7 +23,7 @@ After each step: `pns_aux_dng_capture_analyze.ps1 -PreviewDial A -NoFast` (open 
 
 **Automation:** `scripts/pns_m13_3h_wide_cal_bisect.ps1` (patches policy per step, restores baseline after run).
 
-### USB results (CPH2655 `8bf09993`, 2026-05-20)
+### USB results (legacy SKU `legacy serial`, 2026-05-20)
 
 | Step | Open gate | Notes |
 |------|-----------|-------|

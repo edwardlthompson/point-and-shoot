@@ -4,15 +4,15 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
 import dev.pointandshoot.fleet.FleetCameraProfile
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 
 /**
- * ProShot-aligned still capture IQ (Milestone **13.3b**): lens shading map + shading mode on RAW stills.
+ * ReferenceCam-aligned still capture IQ (Milestone **13.3b**): lens shading map + shading mode on RAW stills.
  */
 object StillCaptureIqPolicy {
 
     /**
-     * ProShot still IQ only — used by [ProShotLeafStillCaptureRequest] (no duplicate pipeline pass).
+     * ReferenceCam still IQ only — used by [ProShotLeafStillCaptureRequest] (no duplicate pipeline pass).
      */
     fun applyProShotLeafStillIq(
         req: CaptureRequest.Builder,
@@ -30,19 +30,19 @@ object StillCaptureIqPolicy {
         profile: FleetCameraProfile?,
     ) {
         val proShotLeaf =
-            OnePlus13FleetPolicy.useExactProShotLeafStillCaptureRequest() &&
+            LegacyFleetPolicy.useExactProShotLeafStillCaptureRequest() &&
                 isLeafBackCharacteristics(chars)
         if (proShotLeaf) {
             applyProShotLeafStillIq(req, chars, profile)
             return
         }
         val legacyProShotLeaf =
-            OnePlus13FleetPolicy.useProShotPureDngSave() && isLeafBackCharacteristics(chars)
+            LegacyFleetPolicy.useProShotPureDngSave() && isLeafBackCharacteristics(chars)
         if (legacyProShotLeaf) {
             applyProShotStillPipeline(req, chars)
         } else if (
             MotionCamInspiredStillPolicy.applyProShotOpticalCorrectionOnLeaf() &&
-                OnePlus13FleetPolicy.appliesToDevice() &&
+                LegacyFleetPolicy.appliesToDevice() &&
                 isLeafBackCharacteristics(chars)
         ) {
             applyProShotOpticalCorrection(req, chars)
@@ -72,7 +72,7 @@ object StillCaptureIqPolicy {
     }
 
     /**
-     * ProShot still (`C0353b0` z2 path): tonemap / edge / hot-pixel + optical correction on leaf RAW stills.
+     * ReferenceCam still (`C0353b0` z2 path): tonemap / edge / hot-pixel + optical correction on leaf RAW stills.
      */
     internal fun applyProShotStillPipeline(
         req: CaptureRequest.Builder,
@@ -116,7 +116,7 @@ object StillCaptureIqPolicy {
         }
     }
 
-    /** ProShot still builder: aberration + distortion when advertised (leaf sessions). */
+    /** ReferenceCam still builder: aberration + distortion when advertised (leaf sessions). */
     internal fun applyProShotOpticalCorrection(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
@@ -174,7 +174,7 @@ object StillCaptureIqPolicy {
         chars: CameraCharacteristics,
     ): Boolean {
         profile?.let { return it.lensShadingMapOnStill }
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return false
+        if (!LegacyFleetPolicy.appliesToDevice()) return false
         val facing = chars.get(CameraCharacteristics.LENS_FACING)
         if (facing != CameraCharacteristics.LENS_FACING_BACK) return false
         return isLeafBackCharacteristics(chars)

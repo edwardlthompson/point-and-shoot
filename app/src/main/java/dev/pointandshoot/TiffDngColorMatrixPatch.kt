@@ -10,7 +10,7 @@ import java.nio.ByteOrder
  * to **replace** the ColorMatrix1/2 (tags 50721/50722) and ForwardMatrix1/2 (50964/50965) SRATIONAL
  * arrays with values from a [CameraCharacteristics] override.
  *
- * **Why this exists:** On CPH2655-class Qualcomm stacks the HAL reports a copy-pasted
+ * **Why this exists:** On LegacySku-class Qualcomm stacks the HAL reports a copy-pasted
  * ForwardMatrix (fm1==fm2, identical across UW/wide/tele) and miscalibrated ColorMatrix2
  * for aux cameras. [android.hardware.camera2.DngCreator] has no public setter for these tags.
  * This patcher walks the primary IFD → raw sub-IFD (tag 50740) and overwrites the 9-element
@@ -74,7 +74,7 @@ object TiffDngColorMatrixPatch {
      * Patches AsShotNeutral (tag 50728) in IFD0 using WB gains derived from
      * [android.hardware.camera2.CaptureResult.COLOR_CORRECTION_GAINS].
      *
-     * On CPH2655 the HAL copies the wide camera's [SENSOR_NEUTRAL_COLOR_POINT] into aux camera
+     * On LegacySku the HAL copies the wide camera's [SENSOR_NEUTRAL_COLOR_POINT] into aux camera
      * TotalCaptureResults, causing [DngCreator] to embed a wrong AsShotNeutral — the primary
      * driver of the green/dark cast seen in every RAW converter. COLOR_CORRECTION_GAINS comes
      * from the per-sensor ISP AWB loop and is correct for each physical camera.
@@ -213,7 +213,7 @@ object TiffDngColorMatrixPatch {
      * places ForwardMatrix in IFD0; sub-IFD path in [patch] may be a no-op).
      */
     /**
-     * Replaces IFD0 CM1/CM2/FM1/FM2 and AsShotNeutral with values from a ProShot reference capture
+     * Replaces IFD0 CM1/CM2/FM1/FM2 and AsShotNeutral with values from a ReferenceCam reference capture
      * (same tag layout as [patchCalibrationTagsIfd0] / [patchAsShotNeutralFromFloats]).
      */
     fun patchCalibrationFromProShotReference(

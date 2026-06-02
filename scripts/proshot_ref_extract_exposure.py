@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Extract ISO + ExposureTime from lens-matched ProShot DNGs.
+Extract ISO + ExposureTime from lens-matched ReferenceCam DNGs.
 
 Outputs JSON:
   { "uw": {"iso": int, "shutter_ns": int}, "wide": {...}, "tele": {...} }

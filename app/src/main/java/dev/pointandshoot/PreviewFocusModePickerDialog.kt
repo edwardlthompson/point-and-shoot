@@ -62,7 +62,7 @@ fun PreviewFocusModePickerDialog(
                 Text(
                     "AF modes from this camera HAL. Auto restores continuous picture AF when available. " +
                         "Manual distance: drag horizontally on the finder (avoids vertical swipes for front/rear camera). " +
-                        "Macro AF locks the ultra-wide lens.",
+                        "Macro AF keeps the best close-focus camera on this device.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.62f),
                 )

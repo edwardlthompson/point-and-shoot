@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare render stats: ProShot DNG vs P&S DNG (same slot order assumption)."""
+"""Compare render stats: ReferenceCam DNG vs P&S DNG (same slot order assumption)."""
 from __future__ import annotations
 
 import json
@@ -42,12 +42,12 @@ def main() -> int:
         pns = pns_dir / pns_name
         row = {}
         if pro and pro.is_file():
-            row["proshot"] = render_stats(pro)
+            row["referencecam"] = render_stats(pro)
         if pns.is_file():
             row["pns"] = render_stats(pns)
-        if "proshot" in row and "pns" in row:
+        if "referencecam" in row and "pns" in row:
             row["delta_green"] = round(
-                row["pns"]["render_green"] - row["proshot"]["render_green"], 4
+                row["pns"]["render_green"] - row["referencecam"]["render_green"], 4
             )
         out["slots"][name] = row
     print(json.dumps(out, indent=2))

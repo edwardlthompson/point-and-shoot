@@ -43,10 +43,10 @@ data class FleetOemOverrides(
             return FleetOemOverrides(pattern, hide, alias)
         }
 
-        /** CPH2655 dodge table — hide front / unused logical children in fleet export when applied. */
+        /** LegacySku dodge table — hide front / unused logical children in fleet export when applied. */
         fun onePlus13Cph2655(): FleetOemOverrides =
             FleetOemOverrides(
-                modelPattern = "CPH2655",
+                modelPattern = "LegacySku",
                 hideCameraIds = emptySet(),
                 aliasCameraIds =
                     mapOf(

@@ -14,9 +14,9 @@ class LensInfoSummaryTest {
 
     @Test
     fun `macro inference fires only when min focus is at or above the super-macro threshold`() {
-        val superMacroUw = sample(minFocusDiopters = 25f) // OnePlus 13 S5KJN5
+        val superMacroUw = sample(minFocusDiopters = 25f) // Legacy device S5KJN5
         val borderlineMacro = sample(minFocusDiopters = 15f) // exactly at threshold
-        val mainWideClose = sample(minFocusDiopters = 10f) // OnePlus 13 LYT-808 (close, not super)
+        val mainWideClose = sample(minFocusDiopters = 10f) // Legacy device LYT-808 (close, not super)
         val mainWide = sample(minFocusDiopters = 4f)
         val tele = sample(minFocusDiopters = 1.5f)
         val fixedFocus = sample(minFocusDiopters = 0f)

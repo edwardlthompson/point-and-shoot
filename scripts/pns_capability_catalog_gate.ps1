@@ -28,10 +28,110 @@ $failures = @()
 if ($catalogVersion -lt 3) { $failures += "CATALOG_VERSION must be >= 3 (got $catalogVersion)" }
 if ($rowCount -lt 170) { $failures += "Expected >= 170 catalog rows (base=$baseRows expansion=$expansionRows total=$rowCount)" }
 
+$combined = $catalogText + "`n" + $expansionText
+if ($combined -notmatch 'probe_only_inventory') {
+    $failures += "Encoder ProbeOnly rows must set sweepSkipReason=probe_only_inventory"
+}
+if ($combined -notmatch 'AppStatus\.ProbeOnly') {
+    $failures += "Catalog must include AppStatus.ProbeOnly encoder inventory rows"
+}
+if ($combined -notmatch 'consumerImpact') {
+    $failures += "Catalog rows must declare consumerImpact metadata (M21)"
+}
+
 $descriptorText = Get-Content -LiteralPath $descriptorKt -Raw
 foreach ($codec in @("H264", "H265", "AV1", "DCG")) {
     if ($descriptorText -notmatch "VideoCodec\.$codec") {
         $failures += "FormatQualityRegistry missing descriptor for $codec"
+    }
+}
+
+function Test-HasProofScriptForCatalogId([string]$CatalogId, [string[]]$Sources) {
+    foreach ($src in $Sources) {
+        $idx = $src.IndexOf("`"$CatalogId`"")
+        while ($idx -ge 0) {
+            $start = [Math]::Max(0, $idx - 120)
+            $len = [Math]::Min(1200, $src.Length - $start)
+            $chunk = $src.Substring($start, $len)
+            if ($chunk -match 'parityProofScript\s*=') { return $true }
+            $idx = $src.IndexOf("`"$CatalogId`"", $idx + 1)
+        }
+    }
+    return $false
+}
+
+# M22.0 hardening: if latest Full parity says a Partial/Shipped row is unautomated,
+# require a parityProofScript hook in catalog sources before milestone gate close.
+$latestParity = Join-Path $projRoot "docs\FLEET_PARITY_LATEST.json"
+if (Test-Path -LiteralPath $latestParity) {
+    try {
+        $latestObj = Get-Content -LiteralPath $latestParity -Raw | ConvertFrom-Json
+        $inAppPath = $latestObj.inAppJsonPath
+        if ($inAppPath -and (Test-Path -LiteralPath $inAppPath)) {
+            $inAppObj = Get-Content -LiteralPath $inAppPath -Raw | ConvertFrom-Json
+            $unautomatedRows = @($inAppObj.cells | Where-Object { $_.gap -eq "GAP_UNAUTOMATED" -or $_.failReason -eq "unautomated" })
+            $missingProof = @()
+            foreach ($cell in $unautomatedRows) {
+                $id = [string]$cell.catalogId
+                if (-not (Test-HasProofScriptForCatalogId $id @($catalogText, $expansionText))) {
+                    $missingProof += $id
+                }
+            }
+            if ($missingProof.Count -gt 0) {
+                $uniq = $missingProof | Sort-Object -Unique
+                $failures += "M22 proof coverage: GAP_UNAUTOMATED rows missing parityProofScript -> $($uniq -join ', ')"
+            }
+        }
+    } catch {
+        $failures += "Failed to parse latest parity artifacts for proof coverage check"
+    }
+}
+
+# M22.8 ownership hardening: every currently open advertised+not_proven row
+# in the latest parity snapshot must have an owner classification.
+$ownershipPath = Join-Path $projRoot "docs\M22_PROVIDER_OWNERSHIP.json"
+if ((Test-Path -LiteralPath $latestParity) -and (Test-Path -LiteralPath $ownershipPath)) {
+    try {
+        $ownership = Get-Content -LiteralPath $ownershipPath -Raw | ConvertFrom-Json
+        if ($ownership.schema -ne "pns.m22_provider_ownership.v1") {
+            $failures += "M22 ownership map schema mismatch: $($ownership.schema)"
+        } else {
+            $allowedOwnerClasses = @("ShipNow", "MatrixGate", "ProbeOnly", "DeferredPlanned")
+            $ownershipById = @{}
+            foreach ($row in @($ownership.rows)) {
+                $id = [string]$row.catalogId
+                $ownerClass = [string]$row.ownerClass
+                if ([string]::IsNullOrWhiteSpace($id)) { continue }
+                if ($ownershipById.ContainsKey($id)) {
+                    $failures += "M22 ownership map duplicate catalogId: $id"
+                } else {
+                    $ownershipById[$id] = $ownerClass
+                }
+                if ($allowedOwnerClasses -notcontains $ownerClass) {
+                    $failures += "M22 ownership map invalid ownerClass for $id -> $ownerClass"
+                }
+            }
+
+            $latestObj = Get-Content -LiteralPath $latestParity -Raw | ConvertFrom-Json
+            $inAppPath = $latestObj.inAppJsonPath
+            if ($inAppPath -and (Test-Path -LiteralPath $inAppPath)) {
+                $inAppObj = Get-Content -LiteralPath $inAppPath -Raw | ConvertFrom-Json
+                $openRows = @($inAppObj.cells | Where-Object { $_.advertised -eq $true -and $_.provenOk -ne $true })
+                $uncategorized = @()
+                foreach ($cell in $openRows) {
+                    $id = [string]$cell.catalogId
+                    if (-not $ownershipById.ContainsKey($id)) {
+                        $uncategorized += $id
+                    }
+                }
+                if ($uncategorized.Count -gt 0) {
+                    $uniq = $uncategorized | Sort-Object -Unique
+                    $failures += "M22 ownership coverage missing for open rows -> $($uniq -join ', ')"
+                }
+            }
+        }
+    } catch {
+        $failures += "Failed to parse M22 provider ownership map"
     }
 }
 

@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Pull ProShot base.apk, decompile with jadx, run proshot_decompile_scan.py.
+  Pull ReferenceCam base.apk, decompile with jadx, run proshot_decompile_scan.py.
 
 .EXAMPLE
-  .\scripts\pns_proshot_apk_decompile.ps1 -Serial 8bf09993
+  .\scripts\pns_proshot_apk_decompile.ps1 -Serial <serial>
 #>
 param(
     [string]$Serial = "",
@@ -34,7 +34,7 @@ if (-not (Test-Path $jadxBat)) {
 New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
 $pathOut = if ($Serial) { & adb -s $Serial shell pm path $ProShotPackage 2>&1 } else { & adb shell pm path $ProShotPackage 2>&1 }
 $baseLine = ($pathOut -split "`n" | Where-Object { $_ -match "^package:(.+\.apk)" } | Select-Object -First 1)
-if (-not $baseLine) { throw "ProShot package not found: $ProShotPackage" }
+if (-not $baseLine) { throw "ReferenceCam package not found: $ProShotPackage" }
 $remote = ($baseLine -replace "^package:", "").Trim()
 Write-Host "[proshot_decompile] pull $remote"
 if ($Serial) { & adb -s $Serial pull $remote $apk } else { & adb pull $remote $apk }

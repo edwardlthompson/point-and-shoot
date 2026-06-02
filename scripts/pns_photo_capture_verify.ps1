@@ -5,7 +5,7 @@
 .DESCRIPTION
   Uses the same **`captureRawStill`** path as preview **H** mode / ADB **`pns_preview_raw_count`** (not UI coordinate taps).
   Each cold start passes **`pns_preview_imaging_profile=standard_pro`** so a user-persisted **Ultra-Max** HUD choice cannot break the default scripted gate (Ultra-Max remains testable via **`pns_adb_preview_validate.ps1`** scenarios / explicit extras).
-  Default cold start passes **`pns_preview_camera_id=3`** (wide on CPH2655-class stacks); **`0`** can strand scripted RAW on tele / no-RAW logical ids. Use **`-SweepCameraIds`** for a wider id sweep.
+  Default cold start passes **`pns_preview_camera_id=3`** (wide on legacy SKU-class stacks); **`0`** can strand scripted RAW on tele / no-RAW logical ids. Use **`-SweepCameraIds`** for a wider id sweep.
   After each cold start, pulls filtered **logcat** and checks for **`PNS.AdbValidation`** `captureRawStill 1/1 ok=true saved=`.
   Treats **`PNS.CaptureStill`** `ok=false`, **`save ok=false`**, **`No RAW buffer`**, and **`FATAL EXCEPTION`** as hard failures for that attempt, then retries.
 
@@ -43,6 +43,7 @@ param(
     [switch]$Fast,
     [switch]$SweepCameraIds,
     [string]$PreviewStillMode = "",
+    [string]$PreviewStillFormat = "",
     [switch]$SkipAssemble,
     [switch]$SkipInstall
 )
@@ -323,13 +324,23 @@ $outDir = Join-Path $projRoot "hfr-runs\photo_capture_verify_$utc"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 Write-Host "[photo_capture_verify] artifacts -> $outDir"
 
-$successNeedle = "captureRawStill 1/1 ok=true saved="
-$failNeedles = @(
-    "captureRawStill 1/1 ok=false",
-    "captureRawStill save ok=false",
-    "No RAW buffer",
-    "FATAL EXCEPTION"
-)
+$formatMode = -not [string]::IsNullOrWhiteSpace($PreviewStillFormat)
+$successNeedle = if ($formatMode) { "captureComposedStill composed_smoke ok=true" } else { "captureRawStill 1/1 ok=true saved=" }
+$failNeedles =
+if ($formatMode) {
+    @(
+        "captureComposedStill composed_smoke ok=false",
+        "composed still smoke aborted",
+        "FATAL EXCEPTION"
+    )
+} else {
+    @(
+        "captureRawStill 1/1 ok=false",
+        "captureRawStill save ok=false",
+        "No RAW buffer",
+        "FATAL EXCEPTION"
+    )
+}
 
 $seedList = if ($SweepCameraIds) { @("", "0", "1", "2", "3") } else { @("") }
 
@@ -353,10 +364,20 @@ foreach ($camSeed in $seedList) {
         Start-Sleep -Milliseconds 800
 
         $camId = if ([string]::IsNullOrWhiteSpace($camSeed)) { "3" } else { $camSeed }
-        $amShell =
-            "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
-            "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 1 " +
-            "--es pns_preview_imaging_profile standard_pro --es pns_preview_camera_id $camId"
+        if ($formatMode) {
+            $fmt = $PreviewStillFormat.Trim().ToLower()
+            $amShell =
+                "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
+                "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 0 " +
+                "--es pns_preview_imaging_profile jpeg_only --es pns_preview_still_format $fmt " +
+                "--ez pns_preview_composed_still true --es pns_preview_camera_id $camId"
+        }
+        else {
+            $amShell =
+                "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
+                "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 1 " +
+                "--es pns_preview_imaging_profile standard_pro --es pns_preview_camera_id $camId"
+        }
         if ($Fast) {
             $amShell += " --ez pns_preview_raw_still_fast true"
         }

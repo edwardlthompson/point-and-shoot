@@ -25,7 +25,7 @@
   Run only scenario sprint53_super_macro_vv (BUILD_PLAN Sprint 5.3 MIXED gate). Uses -UltraWideCameraId.
 
 .PARAMETER UltraWideCameraId
-  Camera2 id for ultra-wide when probing vendor macro (default 3 = OnePlus 13 dodge).
+  Camera2 id for ultra-wide when probing vendor macro (default 3 = legacy device dodge).
 
 .PARAMETER RequireSuperMacroPass
   Exit non-zero if super_macro_gate.json would record pass=false (no log line with
@@ -42,7 +42,7 @@
 
 .EXAMPLE
   .\scripts\pns_adb_preview_validate.ps1
-  .\scripts\pns_adb_preview_validate.ps1 -Serial 8bf09993
+  .\scripts\pns_adb_preview_validate.ps1 -Serial <serial>
   .\scripts\pns_adb_preview_validate.ps1 -SuperMacroOnly -RequireSuperMacroPass
   .\scripts\pns_adb_preview_validate.ps1 -Milestone6Pack
   .\scripts\pns_adb_preview_validate.ps1 -ChromeUxPack

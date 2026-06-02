@@ -1,0 +1,27 @@
+{
+  "schema": "pns.fleet.focal.mp_override.v1",
+  "devices": {
+    "CPH2583": {
+      "bands": [
+        {
+          "name": "ultrawide",
+          "focal35Min": 10,
+          "focal35Max": 18,
+          "megapixels": 48.0
+        },
+        {
+          "name": "wide",
+          "focal35Min": 19,
+          "focal35Max": 34,
+          "megapixels": 50.0
+        },
+        {
+          "name": "tele",
+          "focal35Min": 60,
+          "focal35Max": 95,
+          "megapixels": 64.0
+        }
+      ]
+    }
+  }
+}

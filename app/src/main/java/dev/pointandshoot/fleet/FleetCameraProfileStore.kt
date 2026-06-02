@@ -76,7 +76,7 @@ object FleetCameraProfileStore {
         }
         sb.appendLine()
         val oem = FleetOemOverrides.onePlus13Cph2655()
-        if (catalog.deviceModel.contains("CPH2655", ignoreCase = true) ||
+        if (catalog.deviceModel.contains("LegacySku", ignoreCase = true) ||
             catalog.deviceModel.contains("CPH2653", ignoreCase = true)
         ) {
             sb.appendLine("OEM aliases (${oem.modelPattern}): ${oem.aliasCameraIds.entries.joinToString { "${it.key}→${it.value}" }}")

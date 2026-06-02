@@ -5,7 +5,7 @@ import android.media.Image
 import android.net.Uri
 import android.util.Log
 import dev.pointandshoot.fleet.FleetCapabilityGate
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 
 /**
  * Milestone **13.6** — RAW video lane (no [android.media.MediaRecorder]).
@@ -32,10 +32,10 @@ class RawVideoRecordingController(
         FleetCapabilityGate.featureGate(appContext, id, "rawVideo")?.let { gate ->
             return gate.appEnabled && gate.sessionOk
         }
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return false
-        return id == OnePlus13FleetPolicy.CANONICAL_WIDE ||
-            id == OnePlus13FleetPolicy.CANONICAL_UW ||
-            id == OnePlus13FleetPolicy.CANONICAL_TELE
+        if (!LegacyFleetPolicy.appliesToDevice()) return false
+        return id == LegacyFleetPolicy.CANONICAL_WIDE ||
+            id == LegacyFleetPolicy.CANONICAL_UW ||
+            id == LegacyFleetPolicy.CANONICAL_TELE
     }
 
     fun startRecording(

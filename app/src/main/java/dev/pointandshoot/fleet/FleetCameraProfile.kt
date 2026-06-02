@@ -16,7 +16,7 @@ data class FleetCameraProfile(
     val lensShadingMapOnStill: Boolean,
     val shadingModes: Set<Int>,
     val supportsDcgSession: Boolean,
-    /** Milestone **13.6** — in-app RAW video lane (OP13 leaf first). */
+    /** Milestone **13.6** — in-app RAW video lane (legacy leaf first). */
     val supportsRawVideo: Boolean = false,
     val hfrMaxFps: Int?,
     val activeArrayWidth: Int,

@@ -10,10 +10,10 @@ import android.hardware.camera2.TotalCaptureResult
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 
 /**
- * ProShot-style AE precapture after [CameraCaptureSession.stopRepeating]: one or more preview-template
+ * ReferenceCam-style AE precapture after [CameraCaptureSession.stopRepeating]: one or more preview-template
  * captures with [CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER] so the still fires with converged metering.
  */
 object ProShotStillPrecapture {
@@ -22,7 +22,7 @@ object ProShotStillPrecapture {
     private const val RETRY_DELAY_MS = 50L
 
     fun shouldRun(chars: CameraCharacteristics): Boolean =
-        OnePlus13FleetPolicy.useProShotPureDngSave() &&
+        LegacyFleetPolicy.useProShotPureDngSave() &&
             StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
 
     fun runAfterStopRepeating(

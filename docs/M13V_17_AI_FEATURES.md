@@ -1,6 +1,6 @@
 # Sprint 13V.17 — AI features backlog (host-shipped)
 
-Optional “AI-adjacent” features: smile-triggered still, OEM scene vendor key probe, manual encode bitrate scale. None replace the locked ProShot DNG / capture pipeline.
+Optional “AI-adjacent” features: smile-triggered still, OEM scene vendor key probe, manual encode bitrate scale. None replace the locked ReferenceCam DNG / capture pipeline.
 
 ## Smile-triggered still
 
@@ -44,7 +44,7 @@ Runs JVM tests (`SmileStillCapturePolicyTest`, `SceneVendorHintProbeTest`) + `as
 | `--ei pns_preview_video_bitrate_scale 125` | HUD bitrate scale **50–150** |
 | `--ez pns_preview_scene_vendor_hints true` | Scene vendor hint logging toggle |
 
-**USB pass** (`8bf09993` class): `sceneHintProbeComplete`, `videoBitrateScale=125%` **>** `100%` in `PNS.VideoController`, `smileSyntheticTrigger` + `captureRawStill ok=true`.
+**USB pass** (`legacy serial` class): `sceneHintProbeComplete`, `videoBitrateScale=125%` **>** `100%` in `PNS.VideoController`, `smileSyntheticTrigger` + `captureRawStill ok=true`.
 
 ## Device spot-check (manual)
 

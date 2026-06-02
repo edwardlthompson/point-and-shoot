@@ -7,7 +7,7 @@
   Writes manifest.json under hfr-runs/pull_aux_stills_<utc>/.
 
 .EXAMPLE
-  .\scripts\pns_pull_latest_aux_stills.ps1 -Serial 8bf09993
+  .\scripts\pns_pull_latest_aux_stills.ps1 -Serial <serial>
   .\scripts\pns_pull_latest_aux_stills.ps1 -DngCount 3 -JpegCount 3
 #>
 param(

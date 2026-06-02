@@ -8,13 +8,13 @@
     - Extracts all org.codeaurora.qcamera3.* keys
     - Categorizes by type: session, request, result, characteristic
     - Documents key value types and expected ranges
-    - Creates QCamera3 key catalog for OnePlus 13
+    - Creates QCamera3 key catalog for legacy device
 
 .PARAMETER Serial
     ADB device serial
 
 .EXAMPLE
-    .\pns_qcamera3_vendor_probe.ps1 -Serial 8bf09993
+    .\pns_qcamera3_vendor_probe.ps1 -Serial <serial>
 #>
 [CmdletBinding()]
 param(
@@ -193,7 +193,7 @@ if ($jsonFiles.Count -eq 0) {
 
 # Generate markdown catalog
 $mdContent = @"
-# QCamera3 Vendor Key Catalog - OnePlus 13 (CPH2655)
+# QCamera3 Vendor Key Catalog - legacy device (legacy SKU)
 
 **Date:** $(Get-Date -Format "yyyy-MM-dd")
 **Device:** $Serial
@@ -201,7 +201,7 @@ $mdContent = @"
 
 ## Summary
 
-This document catalogs all Qualcomm QCamera3 vendor keys discovered on the OnePlus 13 device for HFR and 10-bit video research.
+This document catalogs all Qualcomm QCamera3 vendor keys discovered on the legacy device device for HFR and 10-bit video research.
 
 ## Session Parameters
 

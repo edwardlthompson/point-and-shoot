@@ -1,7 +1,7 @@
 # One-off triage: M14 / M23 / M73 scripted RAW still + logcat + DCIM pull (native tele, not M150 crop).
-# Do not wire into CI; run manually: .\scripts\pns_aux_dng_triage_focal_slots.ps1 -Serial 8bf09993
+# Do not wire into CI; run manually: .\scripts\pns_aux_dng_triage_focal_slots.ps1 -Serial <serial>
 param(
-    [string]$Serial = "8bf09993"
+    [string]$Serial = ""
 )
 
 $ErrorActionPreference = "Stop"

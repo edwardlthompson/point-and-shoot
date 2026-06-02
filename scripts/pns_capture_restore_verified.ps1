@@ -6,8 +6,8 @@
   Use after changing **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** capture code so merges cannot ship without a green
   **`PNS.AdbValidation`** **`captureRawStill 1/1 ok=true saved=`** needle on hardware.
 
-  **May 2026:** Re-applying **every** §1–§5 “Milestone shipping” hunk at once failed this gate on **CPH2655**; the **max verified**
-  combo on **`8bf09993`** restores **§1** + **§5** while keeping **§4a** and **§2** at bisect values — see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8.
+  **May 2026:** Re-applying **every** §1–§5 “Milestone shipping” hunk at once failed this gate on **legacy SKU**; the **max verified**
+  combo on **`<serial>`** restores **§1** + **§5** while keeping **§4a** and **§2** at bisect values — see **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8.
   Still run this script after **any** capture touch so regressions cannot merge silently.
 
   Forwards **`-Serial`**, **`-MaxAttempts`**, **`-WaitSec`**, **`-Fast`**, **`-SweepCameraIds`**, **`-SkipAssemble`**, **`-SkipInstall`**

@@ -13,7 +13,7 @@ DCG is capped at **60 fps** (Qualcomm ISP — no DCG + HFR).
 ## USB verification
 
 ```powershell
-.\scripts\pns_video_hdr10_metadata_verify.ps1 -Serial 8bf09993
+.\scripts\pns_video_hdr10_metadata_verify.ps1 -Serial legacy serial
 ```
 
 Pass criteria (`results.json`):

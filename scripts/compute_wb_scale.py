@@ -1,5 +1,5 @@
 """
-Compute the static WB scale factors for CPH2655 UW and Tele cameras.
+Compute the static WB scale factors for legacy SKU UW and Tele cameras.
 
 The HAL reports wide camera ccGains for ALL cameras. The correct gains for
 each aux camera = wide_gains * sensor_sensitivity_ratio.

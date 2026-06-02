@@ -50,7 +50,7 @@ flowchart TB
 
 ## HAL / fleet risks
 
-- **Concurrent cameras:** `CameraManager.getConcurrentCameraIds()` when API 30+; still attempt open if unlisted (CPH2655).
+- **Concurrent cameras:** `CameraManager.getConcurrentCameraIds()` when API 30+; still attempt open if unlisted (legacy SKU).
 - **Thermal:** 1080p30 dual cap.
 - **Chrome lock:** **Dual** only in Video programs dropdown.
 

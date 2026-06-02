@@ -1,5 +1,5 @@
 """
-DNG color verification script for CPH2655 aux camera green/dark cast fix.
+DNG color verification script for legacy SKU aux camera green/dark cast fix.
 Compares UW and Tele DNG WB against Wide reference.
 PASS criteria: G/R within 0.08 of wide, file opens without error.
 """

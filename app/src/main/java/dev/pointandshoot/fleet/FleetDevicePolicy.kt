@@ -7,7 +7,7 @@ import dev.pointandshoot.BackCameraRoleResolver
 /**
  * Pluggable fleet policy (Milestone **16.4**).
  *
- * Default path: [GenericFleetPolicy]. [OnePlus13FleetPolicyPlugin] is opt-in via
+ * Default path: [GenericFleetPolicy]. [LegacyFleetPolicyPlugin] is opt-in via
  * [FleetPolicyPreferences].
  */
 interface FleetDevicePolicy {
@@ -25,7 +25,7 @@ interface FleetDevicePolicy {
     fun leafRawFormatOrder(): List<Int>
 }
 
-/** Generic resolver output — no OP13-specific overrides. */
+/** Generic resolver output — no LegacyDevice-specific overrides. */
 object GenericFleetPolicy : FleetDevicePolicy {
     override val policyId: String? = null
 
@@ -50,28 +50,28 @@ object GenericFleetPolicy : FleetDevicePolicy {
         )
 }
 
-/** Legacy OnePlus 13 plugin — active only when [FleetPolicyPreferences.legacyOp13Enabled]. */
-object OnePlus13FleetPolicyPlugin : FleetDevicePolicy {
-    override val policyId: String? = OnePlus13FleetPolicy.POLICY_ID
+/** Legacy Legacy device plugin — active only when [FleetPolicyPreferences.legacyOp13Enabled]. */
+object LegacyFleetPolicyPlugin : FleetDevicePolicy {
+    override val policyId: String? = LegacyFleetPolicy.POLICY_ID
 
     override fun mergeRoles(
         enumerated: BackCameraRoleResolver.Roles,
         ids: List<String>,
-    ): BackCameraRoleResolver.Roles = OnePlus13FleetPolicy.mergeRoles(enumerated, ids)
+    ): BackCameraRoleResolver.Roles = LegacyFleetPolicy.mergeRoles(enumerated, ids)
 
     override fun applyProfileDefaults(profile: FleetCameraProfile): FleetCameraProfile =
-        OnePlus13FleetPolicy.applyProfileDefaults(profile)
+        LegacyFleetPolicy.applyProfileDefaults(profile)
 
     override fun logicalCameraId(ids: List<String>): String? =
-        OnePlus13FleetPolicy.logicalCameraId(ids)
+        LegacyFleetPolicy.logicalCameraId(ids)
 
-    override fun leafRawFormatOrder(): List<Int> = OnePlus13FleetPolicy.leafRawFormatOrder()
+    override fun leafRawFormatOrder(): List<Int> = LegacyFleetPolicy.leafRawFormatOrder()
 }
 
 object FleetDevicePolicySelector {
     fun active(context: Context): FleetDevicePolicy {
-        if (FleetPolicyPreferences.legacyOp13Enabled(context) && OnePlus13FleetPolicy.appliesToDevice()) {
-            return OnePlus13FleetPolicyPlugin
+        if (FleetPolicyPreferences.legacyOp13Enabled(context) && LegacyFleetPolicy.appliesToDevice()) {
+            return LegacyFleetPolicyPlugin
         }
         return GenericFleetPolicy
     }

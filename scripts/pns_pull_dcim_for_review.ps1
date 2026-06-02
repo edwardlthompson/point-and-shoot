@@ -20,7 +20,7 @@
     Open output folder after pull
     
 .EXAMPLE
-    .\pns_pull_dcim_for_review.ps1 -Serial 8bf09993 -SinceHours 2
+    .\pns_pull_dcim_for_review.ps1 -Serial <serial> -SinceHours 2
     
 .OUTPUTS
     Copies files to host for desktop review in darktable/RawTherapee

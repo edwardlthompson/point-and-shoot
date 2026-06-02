@@ -5,19 +5,19 @@
 | Script | Role |
 |--------|------|
 | `pns_still_mode_benchmark.ps1` | Per-mode capture (`-Mode standard\|zsl\|hdr\|all`); `results.json` + `report.md` |
-| `pns_m13_8d_gate.ps1` | Pipeline verify (standard) + benchmark all + optional ProShot three-way session |
+| `pns_m13_8d_gate.ps1` | Pipeline verify (standard) + benchmark all + optional ReferenceCam three-way session |
 | `pns_dng_proshot_pns_session.ps1` | `-PnsStillModes standard,zsl,hdr`; `-PullMotionCamReference` optional |
 
-## USB (CPH2655)
+## USB (legacy SKU)
 
 ```powershell
-.\scripts\pns_m13_8d_gate.ps1 -Serial 8bf09993
+.\scripts\pns_m13_8d_gate.ps1 -Serial legacy serial
 ```
 
 Shorter (benchmark only):
 
 ```powershell
-.\scripts\pns_still_mode_benchmark.ps1 -Serial 8bf09993 -Mode all -Repeats 1
+.\scripts\pns_still_mode_benchmark.ps1 -Serial legacy serial -Mode all -Repeats 1
 ```
 
 ## Logcat needles
@@ -32,7 +32,7 @@ Shorter (benchmark only):
 Fill `STILL_MODE_COMPARE.md` in the gate folder, then:
 
 ```powershell
-.\scripts\pns_m13_8d_gate.ps1 -RecordHumanPass -Dir hfr-runs\m13_8d_gate_<ts> -ColorNote "ACR daylight OK on wide; UW/tele vs ProShot noted"
+.\scripts\pns_m13_8d_gate.ps1 -RecordHumanPass -Dir hfr-runs\m13_8d_gate_<ts> -ColorNote "ACR daylight OK on wide; UW/tele vs ReferenceCam noted"
 ```
 
 ## Sprint check

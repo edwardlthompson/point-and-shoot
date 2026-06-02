@@ -33,12 +33,16 @@ function Cam-Row($cam) {
     $hfr = if ($null -ne $cam.hfrMaxFpsAt1080) { "$($cam.hfrMaxFpsAt1080)" } else { "-" }
     $raw = if ($null -ne $cam.rawPickEffective) { "$($cam.rawPickEffective)" } else { "-" }
     $role = "-"
-    if ($null -ne $cam.fleetPolicy -and $null -ne $cam.fleetPolicy.role) {
-        $role = "$($cam.fleetPolicy.role)"
+    if ($cam.PSObject.Properties.Name -contains 'fleetPolicy' -and $null -ne $cam.fleetPolicy) {
+        if ($cam.fleetPolicy.PSObject.Properties.Name -contains 'role') {
+            $role = "$($cam.fleetPolicy.role)"
+        }
     }
-    $rawGate = Gate-Cell $cam.featureGates.raw
-    $hfrGate = Gate-Cell $cam.featureGates.hfr
-    $faceGate = Gate-Cell $cam.featureGates.face
+    $fg = $null
+    if ($cam.PSObject.Properties.Name -contains 'featureGates') { $fg = $cam.featureGates }
+    $rawGate = Gate-Cell $(if ($null -ne $fg -and $fg.PSObject.Properties.Name -contains 'raw') { $fg.raw } else { $null })
+    $hfrGate = Gate-Cell $(if ($null -ne $fg -and $fg.PSObject.Properties.Name -contains 'hfr') { $fg.hfr } else { $null })
+    $faceGate = Gate-Cell $(if ($null -ne $fg -and $fg.PSObject.Properties.Name -contains 'face') { $fg.face } else { $null })
     return "| $id | $role | $hfr | $raw | $rawGate | $hfrGate | $faceGate |"
 }
 
@@ -50,7 +54,10 @@ function Build-Table($label, $root) {
     $meta = $root.scanMeta
     $lines += "- **Device:** $($dev.manufacturer) $($dev.model)"
     $lines += "- **Scan tier:** $($meta.scanTier) ms=$($meta.scanDurationMs)"
-    $policy = $root.product.fleetProfiles.policyId
+    $policy = $null
+    if ($null -ne $root.product -and $null -ne $root.product.fleetProfiles) {
+        $policy = $root.product.fleetProfiles.policyId
+    }
     $lines += "- **Fleet policyId:** $(if ($policy) { $policy } else { '(generic)' })"
     $lines += ""
     $lines += "| cameraId | role | hfr1080 | rawPick | RAW gate | HFR gate | face gate |"

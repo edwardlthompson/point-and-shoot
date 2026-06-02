@@ -64,6 +64,12 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
     if ($Serial) { & adb -s $Serial @CmdArgs 2>$null } else { & adb @CmdArgs 2>$null }
 }
 
+function Stop-PnsAppBestEffort {
+    try {
+        Invoke-AdbIgnore @("shell", "am", "force-stop", $pkg)
+    } catch { }
+}
+
 if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
@@ -208,8 +214,10 @@ $meta | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $jsonPath -Encoding u
 
 Write-Host "[root_privileged_smoke] wrote $jsonPath"
 if (-not $pass) {
+    Stop-PnsAppBestEffort
     Write-Warning "[root_privileged_smoke] pass=false (see $hitsPath and root_privileged_smoke.json)."
     exit 1
 }
+Stop-PnsAppBestEffort
 Write-Host "[root_privileged_smoke] OK"
 exit 0

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Refresh tests/fixtures/proshot_cph2655 from lens-matched ProShot DNGs.
+  Refresh tests/fixtures/proshot_legacy_sku from lens-matched ReferenceCam DNGs.
 
 .DESCRIPTION
   Preferred (13.3g-4): pass -FromForensicsDir from pns_proshot_live_forensics_* (files
@@ -10,7 +10,7 @@
 
 .EXAMPLE
   .\scripts\pns_proshot_reference_sync.ps1 -FromForensicsDir hfr-runs\proshot_live_forensics_20260520_120000
-  .\scripts\pns_proshot_reference_sync.ps1 -Serial 8bf09993
+  .\scripts\pns_proshot_reference_sync.ps1 -Serial <serial>
 #>
 param(
     [string]$Serial = "",
@@ -20,7 +20,7 @@ param(
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
-$fixtureDir = Join-Path $projRoot "tests\fixtures\proshot_cph2655"
+$fixtureDir = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"
 New-Item -ItemType Directory -Force -Path $fixtureDir | Out-Null
 
 $manifest = @{

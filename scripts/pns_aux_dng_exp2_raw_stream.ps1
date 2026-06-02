@@ -1,6 +1,6 @@
 # Experiment 2: logical camera 0, scripted RAW still, compare raw_stream picks (Plan: aux DNG triage).
 param(
-    [string]$Serial = "8bf09993"
+    [string]$Serial = ""
 )
 
 $ErrorActionPreference = "Stop"

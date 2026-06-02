@@ -1,0 +1,273 @@
+--------- beginning of main
+05-23 20:25:12.226 18657 18657 I PNS.AdbValidation: preview adb seed imagingProfile=standard_pro
+05-23 20:25:12.824 18657 18657 I PNS.AdbValidation: preview seeded videoFps=120 (adb)
+05-23 20:25:12.824 18657 18657 I PNS.AdbValidation: automation extras raw=0 bracket=null dial=null profile=standard_pro rawStream=null jpegSeed=null seedCam=null superMacroProbe=false stillsLutSeed=null m6FpsLutProbe=false calibrateGrabSmoke=false selfTimerSecSeed=null focalMmSlot=null suppressFps=true suppressFacePipeline=false rawStillFast=false
+05-23 20:25:12.829 18657 18657 I PNS.AdbValidation: preview seeded videoEncode=1920x1080 (adb)
+05-23 20:25:12.829 18657 18657 I PNS.AdbValidation: preview seeded audio hiFi=true windNs=true (session-only)
+05-23 20:25:12.890 18657 18657 I PNS.AdbValidation: start in-app video automation recordSec=8 profile=standard_pro
+05-23 20:25:15.391 18657 18657 I PNS.AdbValidation: inAppVideoAutomation hfrSettle fps=120
+05-23 20:25:19.453 18657 18701 I PNS.VideoController: MediaCodec path: fps=120 tenBit=false hfr=true
+05-23 20:25:19.453 18657 18701 I PNS.VideoController: videoBitrateScale=125% actualBitrate=31104000 size=1920x1080 fps=120 codec=H264
+05-23 20:25:19.468 18657 18701 I PNS.VideoController: videoAudioProfile sampleRate=96000 aacBitrate=256000 pcm=int16 windNs=true extMic=true hiFi=true
+05-23 20:25:19.468 18657 18701 I PNS.AdbValidation: videoAudioProfile sampleRate=96000 aacBitrate=256000 pcm=int16 windNs=true extMic=true hiFi=true
+05-23 20:25:19.470 18657 18701 I PNS.MCVideoRec: audioCapturePrepare sampleRate=96000 aacBitrate=256000 pcm=int16 windNs=true extMic=true hiFi=true
+05-23 20:25:19.470 18657 18701 I PNS.AdbValidation: audioCapturePrepare sampleRate=96000 aacBitrate=256000 pcm=int16 windNs=true extMic=true hiFi=true
+05-23 20:25:19.543 18657 18701 I PNS.MCVideoRec: audio capture prepared sampleRate=96000 aacBitrate=256000 pcm=int16 windNs=true extMic=true hiFi=true
+05-23 20:25:19.546 18657 18701 I PNS.MCVideoRec: audio encoder primed for muxer (PCM deferred)
+05-23 20:25:19.552 18657 18701 I PNS.MCVideoRec: prepare codec=c2.qti.avc.encoder mime=video/avc size=1920x1080 fps=120 10bit=false hdrProfile=0 colorVui=bt709 encoderKind=H264
+05-23 20:25:19.554 18657 18701 I PNS.MCVideoRec: muxer format=0 mime=video/avc orientationHint=90
+05-23 20:25:19.554 18657 18701 I PNS.VideoController: mcVideoPrepared audioEnabled=true size=1920x1080 fps=120 bitrate=31104000 codec=H.264 tenBit=false
+05-23 20:25:19.648 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:19.656 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:19.656 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:19.693 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:19.693 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:19.706 18657 18701 I PNS.MCVideoRec: recording started (audio deferred until first video frame)
+05-23 20:25:19.706 18657 18701 I PNS.VideoController: MediaCodecVideoRecorder started muxReady=false hfrDeferred=true
+05-23 20:25:19.769 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:19.865 18657 18810 I PNS.MCVideoRec: video track added idx=0 format={max-bitrate=31104000, crop-right=1919, level=32768, latency=4, mime=video/avc, profile=8, bitrate=31104000, priority=0, intra-refresh-period=0, color-standard=2, feature-secure-playback=0, csd-1=java.nio.HeapByteBuffer[pos=0 lim=9 cap=9], color-transfer=3, crop-bottom=1079, prepend-sps-pps-to-idr-frames=0, crop-left=0, width=1920, bitrate-mode=1, color-range=2, crop-top=0, frame-rate=120, height=1080, csd-0=java.nio.HeapByteBuffer[pos=0 lim=23 cap=23]}
+05-23 20:25:19.869 18657 18810 I PNS.MCVideoRec: audio PCM capture started with first video frame
+05-23 20:25:20.015 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:39.755 18657 18657 I PNS.VideoController: MediaCodec HFR muxReady(deferred)=false
+05-23 20:25:40.013 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:40.077 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:40.084 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:40.084 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:40.117 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:40.117 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:40.117 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:40.173 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:40.394 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:42.455 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:42.511 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:42.519 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:42.519 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:42.558 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:42.558 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:42.631 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:42.854 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:44.949 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:45.005 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:45.013 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:45.013 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:45.053 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:45.053 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:45.124 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:45.350 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:47.452 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:47.503 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:47.511 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:47.511 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:47.549 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:47.549 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:47.624 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:47.852 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:49.949 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:50.004 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:50.012 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:50.012 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:50.050 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:50.050 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:50.121 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:50.351 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:52.450 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:52.504 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:52.512 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:52.512 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:52.556 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:52.556 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:52.631 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:52.859 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:54.958 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:55.009 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:55.018 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:55.018 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:55.058 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:55.058 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:55.135 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:55.364 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:57.454 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:57.510 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:25:57.517 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:25:57.517 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:25:57.556 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:25:57.556 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:25:57.630 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:25:57.852 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:25:59.970 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:00.034 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:00.042 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:00.042 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:00.080 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:00.080 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:00.152 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:00.376 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:02.461 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:02.520 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:02.529 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:02.529 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:02.570 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:02.570 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:02.638 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:02.868 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:04.972 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:05.033 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:05.041 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:05.041 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:05.080 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:05.080 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:05.147 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:05.372 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:07.470 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:07.523 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:07.531 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:07.531 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:07.570 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:07.570 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:07.570 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:07.643 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:07.874 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:09.971 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:10.018 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:10.025 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:10.025 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:10.063 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:10.063 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:10.135 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:10.367 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:12.465 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:12.519 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:12.527 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:12.527 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:12.569 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:12.569 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:12.647 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:12.875 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:14.992 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:15.048 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:15.057 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:15.057 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:15.097 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:15.097 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:15.164 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:15.392 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:17.480 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:17.539 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:17.547 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:17.547 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:17.586 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:17.586 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:17.658 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:17.891 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:19.978 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:20.040 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:20.047 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:20.048 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:20.088 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:20.088 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:20.167 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:20.389 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:22.490 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:22.561 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:22.569 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:22.569 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:22.614 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:22.614 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:22.686 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:22.915 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:25.002 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:25.062 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:25.069 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:25.069 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:25.105 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:25.105 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:25.178 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:25.406 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:27.497 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:27.553 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:27.560 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:27.560 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:27.593 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:27.593 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:27.663 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:27.889 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:29.989 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:30.040 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:30.048 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:30.048 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:30.081 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:30.081 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:30.144 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:30.364 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:32.493 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:32.544 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:32.552 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:32.552 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:32.591 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:32.591 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:32.666 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:32.897 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:34.989 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:35.050 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:35.058 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:35.058 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:35.097 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:35.097 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:35.171 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:35.402 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:37.490 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:37.541 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:37.549 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:37.549 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:37.589 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:37.589 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:37.665 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:37.893 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:40.005 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:40.065 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:40.073 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:40.073 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:40.112 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:40.112 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:40.184 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:40.416 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:42.506 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:42.567 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:42.577 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:42.577 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:42.617 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:42.617 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:42.690 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:42.919 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:45.002 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:45.070 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:45.078 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:45.078 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:45.115 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:45.115 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:45.191 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:45.422 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:47.522 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:47.578 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:47.586 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:47.586 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:47.626 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:47.626 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:47.626 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:47.699 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:47.925 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:49.999 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:50.063 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:50.073 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:50.073 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:50.113 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:50.113 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:50.187 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3
+05-23 20:26:50.419 18657 18701 I PNS.HfrMonitor: monitor first frame cameraId=3
+05-23 20:26:52.483 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:52.534 18657 18701 W PNS.HfrMonitor: concurrent set missing record=2 monitor=3 ΓÇö opening monitor anyway
+05-23 20:26:52.543 18657 18701 I PNS.HfrMonitor: monitor finder active record=2 monitor=3 1280x720 cropU=0.310-0.690 cropSpan=0.380 digitalCropOnRecord=false focal=none
+05-23 20:26:52.543 18657 18701 I PNS.AdbValidation: hfrEncoderOnlyMonitor=true record=2 monitor=3 cropU=0.31023103-0.68976897
+05-23 20:26:52.583 18657 18701 I PNS.HfrMonitor: monitor closing
+05-23 20:26:52.583 18657 18701 I PNS.HfrMonitor: monitor opening cameraId=3 preview=1280x720
+05-23 20:26:52.665 18657 18701 I PNS.HfrMonitor: monitor session ready cameraId=3

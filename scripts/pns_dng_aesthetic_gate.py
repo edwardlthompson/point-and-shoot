@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Sprint 15.15 — compare P&S aux DNGs (M14/M23/M73) to ProShot reference fixtures.
+Sprint 15.15 — compare P&S aux DNGs (M14/M23/M73) to ReferenceCam reference fixtures.
 
 Uses rawpy camera-WB render (no auto-bright). PASS when per-slot luma and R/G/B means
-are within --max-ratio-delta (default 0.20) of the matching ProShot reference DNG.
+are within --max-ratio-delta (default 0.20) of the matching ReferenceCam reference DNG.
 
 Exit 0 = PASS, 1 = FAIL, 2 = missing deps / no inputs.
 """
@@ -16,7 +16,7 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "proshot_cph2655"
+DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "proshot_legacy_sku"
 
 SLOTS = (
     ("uw", "proshot_uw_cam3.dng", "M14_uw.dng"),
@@ -55,14 +55,14 @@ def within_ratio(a: float, b: float, max_delta: float) -> tuple[bool, float]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="P&S vs ProShot reference aesthetic stats gate")
+    ap = argparse.ArgumentParser(description="P&S vs ReferenceCam reference aesthetic stats gate")
     ap.add_argument(
         "--ps-dir",
         type=Path,
         default=None,
         help="Folder with M14_uw.dng / M23_wide.dng / M73_tele.dng (default: newest aux_dng_capture_analyze_*)",
     )
-    ap.add_argument("--ref-dir", type=Path, default=DEFAULT_REF, help="ProShot fixture directory")
+    ap.add_argument("--ref-dir", type=Path, default=DEFAULT_REF, help="ReferenceCam fixture directory")
     ap.add_argument(
         "--max-ratio-delta",
         type=float,
@@ -103,7 +103,7 @@ def main() -> int:
         "pass": True,
     }
 
-    print(f"=== DNG aesthetic gate (±{args.max_ratio_delta * 100:.0f}% vs ProShot refs) ===")
+    print(f"=== DNG aesthetic gate (±{args.max_ratio_delta * 100:.0f}% vs ReferenceCam refs) ===")
     print(f"P&S:  {ps_dir}")
     print(f"Ref:  {ref_dir}")
     print()

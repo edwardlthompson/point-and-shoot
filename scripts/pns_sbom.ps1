@@ -217,7 +217,7 @@ $bom = [ordered]@{
       'group'   = 'dev.pointandshoot'
       'name'    = 'point-and-shoot'
       'version' = 'unreleased'
-      'description' = 'FOSS pro camera for OnePlus 13 (dodge) on LineageOS 23.'
+      'description' = 'FOSS pro camera for legacy device (dodge) on LineageOS 23.'
       'licenses' = @( @{ 'license' = @{ 'id' = 'Apache-2.0' } } )
     }
   }

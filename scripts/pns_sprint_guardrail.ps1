@@ -25,7 +25,7 @@
     Append evidence to PROBE_BUILD_PLAN.md §5 (default: true)
     
 .EXAMPLE
-    .\pns_sprint_guardrail.ps1 -Pack VideoAudio -Serial 8bf09993
+    .\pns_sprint_guardrail.ps1 -Pack VideoAudio -Serial <serial>
     
     .\pns_sprint_guardrail.ps1 -Pack All -Fast
     

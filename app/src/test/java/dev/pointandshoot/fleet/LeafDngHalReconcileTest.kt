@@ -43,7 +43,7 @@ class LeafDngHalReconcileTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 uwProShotAsnReconcile = true,
             ),
@@ -52,7 +52,7 @@ class LeafDngHalReconcileTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_TELE,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_TELE,
                 proShotPureDngSave = true,
                 uwProShotAsnReconcile = true,
             ),
@@ -61,7 +61,7 @@ class LeafDngHalReconcileTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 uwProShotAsnReconcile = false,
             ),
@@ -74,7 +74,7 @@ class LeafDngHalReconcileTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_TELE,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_TELE,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = true,
             ),
@@ -83,7 +83,7 @@ class LeafDngHalReconcileTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_WIDE,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_WIDE,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = true,
             ),
@@ -112,12 +112,12 @@ class LeafDngHalReconcileTest {
     @Test
     fun halWbCorrectionTable_teleAndUwRegisteredForCph2655() {
         val tele =
-            DngForwardMatrixFix.getWbCorrection("cph2655", OnePlus13FleetPolicy.CANONICAL_TELE)
+            DngForwardMatrixFix.getWbCorrection("legacy_sku", LegacyFleetPolicy.CANONICAL_TELE)
         assertNotNull(tele)
         assertEquals(1.602f, tele!!.scaleR, 0.001f)
         assertEquals(1.147f, tele.scaleB, 0.001f)
         val uw =
-            DngForwardMatrixFix.getWbCorrection("cph2655", OnePlus13FleetPolicy.CANONICAL_UW)
+            DngForwardMatrixFix.getWbCorrection("legacy_sku", LegacyFleetPolicy.CANONICAL_UW)
         assertNotNull(uw)
         assertEquals(1.147f, uw!!.scaleR, 0.001f)
     }

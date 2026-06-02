@@ -66,7 +66,29 @@ object FleetDeviceMatrixBuilder {
                 ?: DeviceCameraCapabilityCache.buildRoot(app, camerasJson, degraded)
         val fleetSnap = FleetCameraProfileBuilder.buildSnapshot(app)
         val focalEntries = FleetCameraStartupScan.scanNow(app)
-        val product = buildProductJson(app, fleetSnap, focalEntries, DeviceFeatureGates.build(cm))
+        val stillResolutionAdvertised = FleetCameraStartupScan.scanStillResolutionAdvertised(cm)
+        val deviceGates = DeviceFeatureGates.build(cm)
+        val product = buildProductJson(app, fleetSnap, focalEntries, stillResolutionAdvertised, deviceGates)
+        val profileById = fleetSnap.profiles.associateBy { it.cameraId }
+        val structuredCameras = JSONArray()
+        for (i in 0 until camerasJson.length()) {
+            val shallow = camerasJson.getJSONObject(i)
+            val id = shallow.optString("cameraId")
+            val cc = runCatching { cm.getCameraCharacteristics(id) }.getOrNull()
+            structuredCameras.put(
+                JSONObject(shallow.toString()).apply {
+                    put(
+                        "featureGates",
+                        FleetDeviceMatrixStructured.featureGatesShallow(
+                            shallow,
+                            cc,
+                            profileById[id],
+                            deviceGates,
+                        ),
+                    )
+                },
+            )
+        }
         val durationMs = (System.nanoTime() - t0) / 1_000_000L
         val meta = scanMetaQuick(app, durationMs)
         val appendix =
@@ -76,7 +98,7 @@ object FleetDeviceMatrixBuilder {
         val encoder = EncoderFleetSlice.build(app)
         val root = assembleRoot(
             meta = meta,
-            cameras = camerasJson,
+            cameras = structuredCameras,
             product = product,
             cameraX = JSONObject.NULL,
             runtimeProbes = JSONObject.NULL,
@@ -86,7 +108,7 @@ object FleetDeviceMatrixBuilder {
         return BuildResult(
             root = root,
             scanDurationMs = durationMs,
-            cameraCount = camerasJson.length(),
+            cameraCount = structuredCameras.length(),
             degraded = degraded,
         )
     }
@@ -123,6 +145,7 @@ object FleetDeviceMatrixBuilder {
             val fleetSnap = FleetCameraProfileBuilder.buildSnapshot(app)
             val profileById = fleetSnap.profiles.associateBy { it.cameraId }
             val focalEntries = FleetCameraStartupScan.scanNow(app)
+            val stillResolutionAdvertised = FleetCameraStartupScan.scanStillResolutionAdvertised(cm)
             val deviceGates = DeviceFeatureGates.build(cm)
 
             val structuredCameras = JSONArray()
@@ -156,7 +179,7 @@ object FleetDeviceMatrixBuilder {
             }
 
             val shallowRoot = DeviceCameraCapabilityCache.buildRoot(app, structuredCameras, degraded)
-            val product = buildProductJson(app, fleetSnap, focalEntries, deviceGates)
+            val product = buildProductJson(app, fleetSnap, focalEntries, stillResolutionAdvertised, deviceGates)
             val durationMs = (System.nanoTime() - t0) / 1_000_000L
             val meta = scanMetaFull(app, durationMs)
             val appendix =
@@ -259,6 +282,7 @@ object FleetDeviceMatrixBuilder {
         context: Context,
         fleetSnap: FleetProfilesSnapshot,
         focalEntries: List<dev.pointandshoot.FleetCameraStartupScan.SlotEntry>,
+        stillResolutionAdvertised: List<dev.pointandshoot.FleetCameraStartupScan.StillResolutionAdvertisedEntry>,
         deviceGates: DeviceFeatureGates.Slice,
     ): JSONObject {
         val cm = context.getSystemService(android.content.Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
@@ -280,6 +304,13 @@ object FleetDeviceMatrixBuilder {
                 },
             )
             put("focalRow", FleetFocalRowProductBuilder.build(context, ids, focalEntries))
+            put(
+                "stillResolutionAdvertised",
+                JSONArray().apply {
+                    stillResolutionAdvertised.forEach { put(it.toJson()) }
+                },
+            )
+            put("experimentalUnlockState", FleetCameraStartupScan.scanExperimentalUnlockState(context))
             put("concurrencyGates", deviceGates.toJson())
             put("fleetProfiles", fleetSnap.toJson())
             put(

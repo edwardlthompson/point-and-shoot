@@ -271,4 +271,16 @@ class FleetDeviceMatrixTest {
         val attached = FleetDeviceMatrix.withCatalogIfMissing(root)
         assertTrue(attached.has(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG))
     }
+
+    @Test
+    fun featureGatesShallow_populatesRawHfrFaceKeys() {
+        val json = javaClass.getResource("/fleet_matrix_gate_minimal.json")!!.readText()
+        val root = JSONObject(json)
+        val cam = root.getJSONArray(FleetDeviceMatrix.KEY_CAMERAS).getJSONObject(0)
+        val gates = cam.getJSONObject("featureGates")
+        assertTrue(gates.has("raw"))
+        assertTrue(gates.has("hfr"))
+        assertTrue(gates.has("face"))
+        assertTrue(gates.getJSONObject("raw").getBoolean("advertised"))
+    }
 }

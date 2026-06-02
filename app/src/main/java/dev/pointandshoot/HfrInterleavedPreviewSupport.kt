@@ -7,7 +7,7 @@ import android.view.Surface
  *
  * Shipped record path: **encoder-only** HS on the record camera + [HfrRecordMonitorSupport] finder
  * (~30 fps YUV on a second rear camera). Dual-surface interleaved HS did not feed the encoder on
- * CPH2655-class devices.
+ * legacy-class devices.
  */
 object HfrInterleavedPreviewSupport {
     const val TAG = "PNS.HfrInterleaved"

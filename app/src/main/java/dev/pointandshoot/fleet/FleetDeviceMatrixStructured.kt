@@ -27,6 +27,32 @@ object FleetDeviceMatrixStructured {
             }
     }
 
+    fun featureGatesShallow(
+        shallow: JSONObject,
+        cc: CameraCharacteristics?,
+        fleetProfile: FleetCameraProfile?,
+        deviceGates: DeviceFeatureGates.Slice? = null,
+    ): JSONObject {
+        val syntheticDeep =
+            cc?.let { characteristics ->
+                JSONObject().apply {
+                    val caps = characteristics.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: intArrayOf()
+                    put(
+                        "availableCapabilities",
+                        JSONArray().apply { caps.forEach { put(it) } },
+                    )
+                    val faceModes =
+                        characteristics.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES)
+                            ?: intArrayOf()
+                    put(
+                        "faceDetectModes",
+                        JSONArray().apply { faceModes.forEach { put(it) } },
+                    )
+                }
+            }
+        return featureGates(shallow, syntheticDeep, null, fleetProfile, deviceGates)
+    }
+
     fun buildCameraEntry(
         shallow: JSONObject,
         deepCam: JSONObject?,
@@ -256,7 +282,9 @@ object FleetDeviceMatrixStructured {
 
         val encProbe = MediaCodecCapabilityProbe.probeSyncSafe()
         val av1Advertised = encProbe.supportsAv1
-        val av1SessionOk = av1Advertised
+        val av1SessionOk =
+            av1Advertised &&
+                encProbe.av1EncoderNames.any { it.contains("qti", ignoreCase = true) }
         val hevc10Advertised = encProbe.supportsMain10 || encProbe.encoders.isNotEmpty()
         val hevc10SessionOk = hevc10Advertised
         val uhd60Advertised = shallow.optInt("hfrMaxFpsAt1080", 0) >= 60
@@ -272,7 +300,7 @@ object FleetDeviceMatrixStructured {
             put("hfr", FeatureGate(hfrAdvertised, hfrSessionOk, hfrAppEnabled).toJson())
             put("face", FeatureGate(faceAdvertised, faceSessionOk, faceAppEnabled).toJson())
             put("dcgZsl", FeatureGate(dcgAdvertised, dcgSessionOk, dcgAppEnabled).toJson())
-            put("av1", FeatureGate(av1Advertised, av1SessionOk, av1Advertised).toJson())
+            put("av1", FeatureGate(av1Advertised, av1SessionOk, av1SessionOk).toJson())
             put("hevc10", FeatureGate(hevc10Advertised, hevc10SessionOk, hevc10Advertised).toJson())
             put("uhd60", FeatureGate(uhd60Advertised, uhd60SessionOk, uhd60Advertised).toJson())
             put("rawVideo", FeatureGate(rawVideoAdvertised, rawVideoSessionOk, rawVideoAdvertised).toJson())

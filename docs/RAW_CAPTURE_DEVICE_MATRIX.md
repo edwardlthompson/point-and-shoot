@@ -43,7 +43,7 @@ The camera HAL still delivers **one** RAW pixel format per session (`RAW12`, `RA
 
 **Fix:** when returning to live preview from the engineering hub, set `previewLaunchedFromDebug` on those navigation paths. While the hub flag is set **and** `launchScreen != PNS_SCREEN_PREVIEW`, pipeline seeds from the sticky intent are ignored (`trustIntentForPreviewPipeline`). If the user is still on the cold ADB `pns_screen=preview` route (`launchScreen == PNS_SCREEN_PREVIEW`), intent extras stay honored even after opening the dev menu.
 
-## Host run: OnePlus CPH2655 (USB serial `8bf09993`, 2026-05-12)
+## Host run: OnePlus legacy SKU (USB serial `legacy serial`, 2026-05-12)
 
 Artifacts: **`hfr-runs/raw_capture_matrix_20260512_205335/`** (default M23 seed → logical **`cameraId=2`** in this build).
 
@@ -61,13 +61,13 @@ Artifacts: **`hfr-runs/raw_capture_matrix_20260512_205335/`** (default M23 seed 
 
 **Conclusion for this fleet unit:** No matrix cell produced a verified saved RAW/DNG on the scripted path in these runs. The “greatest quality / bit depth” **configuration cannot be honored end-to-end** until the HAL delivers a RAW `ImageReader` frame reliably (and `raw10_only` remains a poor choice for DNG portability even when the session configures).
 
-## Aux DNG color cast triage (logical vs leaf, CPH2655-class)
+## Aux DNG color cast triage (logical vs leaf, legacy SKU-class)
 
 **Agent lock:** **`.cursor/rules/dng-logical-multicam-metadata-lock.mdc`** and **`AGENTS.md`** section **CRITICAL — DNG metadata pairing (`DngMetadataResolver`) and RAW still diagnostics** — do not relax **`DngMetadataResolver`** hybrid avoidance, **`DngMetadataResolution`**, or remove **`PNS.CaptureStill`** **`dng save diag`** without maintainer sign-off + USB capture verify.
 
 **Context:** Ultrawide / tele DNGs can decode dark with a strong green cast while hardware JPEG from the same capture looks correct — often **RAW buffer vs DNG metadata** pairing (`DngCreator(characteristics, totalCaptureResult)`). See [`DngMetadataResolver`](app/src/main/java/dev/pointandshoot/DngMetadataResolver.kt) (never use physical `CameraCharacteristics` with a logical `TotalCaptureResult` when the HAL omits that physical id from `physicalCameraTotalResults`).
 
-**Second root cause (May 2026, user-verified on `8bf09993`):** With **preview-only** physical pin, RAW outputs are **logical** again, but if [`pickRawOutputForPreviewSession`](app/src/main/java/dev/pointandshoot/RawCaptureSupport.kt) still sizes the RAW **`ImageReader`** from the **preview physical child’s** `SCALER_STREAM_CONFIGURATION_MAP` (`pickRawForLogicalMulticamPinnedAux`), buffer **geometry/packing** can disagree with the **logical** RAW stream → **same dark/green decode** even when **`dng save diag`** shows **logical + logical**. **Fix:** **`usePhysicalChildRawStreamMapForLogicalSession = false`** at **`PreviewEngineScreen.kt`** call sites (and do not re-enable without physically pinning RAW to that child + USB aux DNG proof).
+**Second root cause (May 2026, user-verified on `legacy serial`):** With **preview-only** physical pin, RAW outputs are **logical** again, but if [`pickRawOutputForPreviewSession`](app/src/main/java/dev/pointandshoot/RawCaptureSupport.kt) still sizes the RAW **`ImageReader`** from the **preview physical child’s** `SCALER_STREAM_CONFIGURATION_MAP` (`pickRawForLogicalMulticamPinnedAux`), buffer **geometry/packing** can disagree with the **logical** RAW stream → **same dark/green decode** even when **`dng save diag`** shows **logical + logical**. **Fix:** **`usePhysicalChildRawStreamMapForLogicalSession = false`** at **`PreviewEngineScreen.kt`** call sites (and do not re-enable without physically pinning RAW to that child + USB aux DNG proof).
 
 **Fourth root cause (May 2026, user-verified):** On **logical** `cameraId` with a **non-wide** preview physical pin, **`pickRawOutputForPreviewSession`** must not end at **`pickRawOutput(chars, Default)`** alone. Fleet **§2** **`Default`** is still **RAW12 → RAW_SENSOR → RAW10** on the **logical** map; **leaf** UW/tele skips RAW12 via **`shouldUseLeafNonWideBackRawSensorPolicy`**, but logical sessions have **non-empty** `physicalCameraIds` so that branch does not apply. Disabling **`pickRawForLogicalMulticamPinnedAux`** (correct for stream-map alignment) accidentally dropped the **RAW_SENSOR-first** behavior that the old path enforced from the child map — **RAW12** stayed first on logical → dark/green aux DNG. **Fix:** when **`shouldPreferRawSensorForAuxPhysicalPreviewPin`**, call **`pickRawOutput(chars, RawSensorOnly)`** then **`RawSensorFirst`** before **`Default`** (all on **logical** `chars`).
 
@@ -75,7 +75,7 @@ Artifacts: **`hfr-runs/raw_capture_matrix_20260512_205335/`** (default M23 seed 
 
 **Log tags:** `PNS.DngMeta`, `PNS.CaptureStill` (includes one-line **`dng save diag`** after resolution: `session`, `picked`, `pairedPhysical`, `mapKeys`, `active`, `children`, `iso`, `rawFmt`, `rawWxH`).
 
-### May 2026 USB evidence (serial `8bf09993`)
+### May 2026 USB evidence (serial `legacy serial`)
 
 | Artifact | What it shows |
 |----------|----------------|

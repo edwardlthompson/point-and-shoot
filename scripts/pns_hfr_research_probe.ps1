@@ -14,7 +14,7 @@
     ADB device serial
     
 .EXAMPLE
-    .\pns_hfr_research_probe.ps1 -Serial 8bf09993
+    .\pns_hfr_research_probe.ps1 -Serial <serial>
 #>
 [CmdletBinding()]
 param(
@@ -180,7 +180,7 @@ Write-Log "Results: $jsonFile"
 
 # Generate markdown research doc
 $mdContent = @"
-# HFR Video Research - OnePlus 13 (CPH2655)
+# HFR Video Research - legacy device (legacy SKU)
 
 **Date:** $(Get-Date -Format "yyyy-MM-dd")
 **Device:** $Serial
@@ -202,7 +202,7 @@ $(if ($results.findings.Count -eq 0) { "No high-speed video indicators found in 
 ## Conclusions
 
 $(if ($results.findings.Count -eq 0) { 
-    "**No native HFR support detected.** The OnePlus 13 / CPH2655 may not expose `CameraConstrainedHighSpeedCaptureSession` capabilities through standard Camera2 API, or may use proprietary high-speed recording methods."
+    "**No native HFR support detected.** The legacy device / legacy SKU may not expose `CameraConstrainedHighSpeedCaptureSession` capabilities through standard Camera2 API, or may use proprietary high-speed recording methods."
 } else {
     "**HFR capabilities detected.** See findings above for specific supported modes."
 })

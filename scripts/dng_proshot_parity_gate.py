@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Mandatory gate: P&S aux DNGs must be loadable and match ProShot reference color/luminance.
+Mandatory gate: P&S aux DNGs must be loadable and match ReferenceCam reference color/luminance.
 
-Compares M14/M23/M73 captures to tests/fixtures/proshot_cph2655/ (or -ProShotDir).
-Exit 0 only when integrity passes and all slots are within thresholds vs ProShot.
+Compares M14/M23/M73 captures to tests/fixtures/proshot_legacy_sku/ (or -ProShotDir).
+Exit 0 only when integrity passes and all slots are within thresholds vs ReferenceCam.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ except ImportError:
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "proshot_cph2655"
+DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "proshot_legacy_sku"
 
 SLOTS = (
     ("uw", "proshot_uw_cam3.dng", "M14_uw.dng", "3"),
@@ -32,10 +32,10 @@ SLOTS = (
     ("tele", "proshot_tele_cam4.dng", "M73_tele.dng", "4"),
 )
 
-# Max |delta| vs ProShot (camera-WB render, no auto-bright).
+# Max |delta| vs ReferenceCam (camera-WB render, no auto-bright).
 DEFAULT_MAX_GREEN_DELTA = 0.08
 DEFAULT_MAX_LUM_RATIO_DELTA = 0.12
-# When scene exposure differs, still compare chroma (R/G, B/G vs ProShot).
+# When scene exposure differs, still compare chroma (R/G, B/G vs ReferenceCam).
 DEFAULT_MAX_CHROMA_DELTA = 0.10
 DEFAULT_MAX_ASN_WB_RATIO_DELTA = 0.06
 
@@ -109,13 +109,13 @@ def run_integrity(paths: list[Path]) -> tuple[bool, str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="ProShot parity gate for P&S aux DNGs")
+    ap = argparse.ArgumentParser(description="ReferenceCam parity gate for P&S aux DNGs")
     ap.add_argument("pns_dir", type=Path, help="Directory with M14_uw.dng, M23_wide.dng, M73_tele.dng")
     ap.add_argument(
-        "--proshot-dir",
+        "--referencecam-dir",
         type=Path,
         default=DEFAULT_REF,
-        help=f"ProShot reference directory (default: {DEFAULT_REF})",
+        help=f"ReferenceCam reference directory (default: {DEFAULT_REF})",
     )
     ap.add_argument("--max-green-delta", type=float, default=DEFAULT_MAX_GREEN_DELTA)
     ap.add_argument("--max-lum-delta", type=float, default=DEFAULT_MAX_LUM_RATIO_DELTA)
@@ -124,7 +124,7 @@ def main() -> int:
         "--max-asn-wb-delta",
         type=float,
         default=DEFAULT_MAX_ASN_WB_RATIO_DELTA,
-        help="Max |P&S-ProShot|/ProShot for ASN-derived R/B WB (DngCreator tags)",
+        help="Max |P&S-ReferenceCam|/ReferenceCam for ASN-derived R/B WB (DngCreator tags)",
     )
     ap.add_argument("--json-out", type=Path, default=None)
     args = ap.parse_args()
@@ -132,7 +132,7 @@ def main() -> int:
     pns_dir = args.pns_dir
     ref_dir = args.proshot_dir
     if not ref_dir.is_dir():
-        print(f"FAIL: ProShot reference dir missing: {ref_dir}", file=sys.stderr)
+        print(f"FAIL: ReferenceCam reference dir missing: {ref_dir}", file=sys.stderr)
         return 1
 
     pns_paths: list[Path] = []
@@ -163,7 +163,7 @@ def main() -> int:
             row["asn_wb_delta"] = [round(dr, 4), round(db, 4)]
             row["asn_ok"] = bool(dr <= args.max_asn_wb_delta and db <= args.max_asn_wb_delta)
         try:
-            row["proshot"] = render_stats(ref_p)
+            row["referencecam"] = render_stats(ref_p)
             row["pns"] = render_stats(pns_p)
             row["proshot_bayer"] = bayer_channel_means(ref_p)
             row["pns_bayer"] = bayer_channel_means(pns_p)
@@ -182,11 +182,11 @@ def main() -> int:
             row["error"] = f"render failed: {e}"
             results["slots"][slot] = row
             continue
-        dg = row["pns"]["render_green"] - row["proshot"]["render_green"]
-        ref_lum = max(row["proshot"]["luminance"], 1.0)
-        dl = abs(row["pns"]["luminance"] - row["proshot"]["luminance"]) / ref_lum
-        drg = abs(row["pns"]["rg"] - row["proshot"]["rg"])
-        dbg = abs(row["pns"]["bg"] - row["proshot"]["bg"])
+        dg = row["pns"]["render_green"] - row["referencecam"]["render_green"]
+        ref_lum = max(row["referencecam"]["luminance"], 1.0)
+        dl = abs(row["pns"]["luminance"] - row["referencecam"]["luminance"]) / ref_lum
+        drg = abs(row["pns"]["rg"] - row["referencecam"]["rg"])
+        dbg = abs(row["pns"]["bg"] - row["referencecam"]["bg"])
         chroma_delta = max(drg, dbg)
         row["delta_green"] = round(dg, 4)
         row["delta_luminance_ratio"] = round(dl, 4)
@@ -214,7 +214,7 @@ def main() -> int:
     results["integrity"] = {"ok": ok_int, "message": int_msg}
 
     slots_ok = all(r.get("ok") for r in results["slots"].values() if "ok" in r)
-    have_three = len([r for r in results["slots"].values() if "proshot" in r]) == 3
+    have_three = len([r for r in results["slots"].values() if "referencecam" in r]) == 3
     gate_ok = ok_int and slots_ok and have_three
     results["gate"] = "PASS" if gate_ok else "FAIL"
     results["thresholds"] = {
@@ -222,7 +222,7 @@ def main() -> int:
         "max_lum_ratio_delta": args.max_lum_delta,
     }
 
-    print("=== ProShot parity gate ===")
+    print("=== ReferenceCam parity gate ===")
     print(f"Reference: {ref_dir}")
     print(f"P&S:       {pns_dir}")
     print()
@@ -248,9 +248,9 @@ def main() -> int:
             f"lum_ratio_delta={row['delta_luminance_ratio']:.4f}{asn_s}{bayer_s}"
             + (f" ({note})" if note else "")
         )
-        ps_rgb = row["proshot"]["rgb"]
+        ps_rgb = row["referencecam"]["rgb"]
         pn_rgb = row["pns"]["rgb"]
-        print(f"         ProShot RGB={ps_rgb} lum={row['proshot']['luminance']}")
+        print(f"         ReferenceCam RGB={ps_rgb} lum={row['referencecam']['luminance']}")
         print(f"         P&S     RGB={pn_rgb} lum={row['pns']['luminance']}")
     print()
     print(results["integrity"]["message"])

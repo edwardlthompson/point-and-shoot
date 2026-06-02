@@ -14,7 +14,7 @@ import java.nio.ByteOrder
  *
  * Prefer [estimate] on the live [Image] **before** [android.hardware.camera2.DngCreator.writeImage]
  * (HAL may invalidate the plane buffer after write). [estimateFromDngBytes] samples the
- * per-row strip table [DngCreator] embeds (CPH2655 uses 3072 row strips).
+ * per-row strip table [DngCreator] embeds (legacy target uses 3072 row strips).
  */
 object DngBayerAsShotNeutral {
     private const val TAG = "PNS.BayerAsn"
@@ -76,7 +76,7 @@ object DngBayerAsShotNeutral {
         characteristics: CameraCharacteristics,
     ): FloatArray? = estimateWithBayerRatiosFromDngBytes(dng, characteristics)?.asn
 
-    /** ASN plus center-crop Bayer R/G and B/G (for ProShot reference WB alignment). */
+    /** ASN plus center-crop Bayer R/G and B/G (for ReferenceCam reference WB alignment). */
     fun estimateWithBayerRatiosFromDngBytes(
         dng: ByteArray,
         characteristics: CameraCharacteristics,
@@ -182,7 +182,7 @@ object DngBayerAsShotNeutral {
     }
 
     /**
-     * Nudge [asn] (max-normalized) so Bayer R/G and B/G align with ProShot reference capture.
+     * Nudge [asn] (max-normalized) so Bayer R/G and B/G align with ReferenceCam reference capture.
      */
     fun adjustAsnToTargetBayerRatios(
         asn: FloatArray,

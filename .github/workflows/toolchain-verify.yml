@@ -90,6 +90,15 @@ jobs:
           python3 --version
           ./scripts/pns_fixture_dng_gates.ps1
 
+      - name: M21 catalog gate + parity logcat fixture
+        shell: pwsh
+        run: |
+          Set-Location "${{ github.workspace }}"
+          ./scripts/pns_capability_catalog_gate.ps1 -HostOnly
+          ./scripts/pns_fleet_parity_sweep.ps1 -HostOnlyFixture
+          ./scripts/pns_parity_proof_pack.ps1 -HostOnly
+          ./scripts/pns_fleet_parity_sweep.ps1 -HostProofPackMergeFixture
+
       - name: Run pns_verify_toolchain.ps1 (assemble + gates + :app:testDebugUnitTest)
         shell: pwsh
         run: |

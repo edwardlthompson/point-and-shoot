@@ -4,8 +4,11 @@ import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import dev.pointandshoot.fleet.FleetCameraProfiles
+import dev.pointandshoot.fleet.FleetFocalRowPolicy
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
@@ -19,12 +22,102 @@ object FocalLensStripSupport {
 
     private const val NATIVE_MM_ROUND_SCALE = 10f
     private const val NATIVE_MM_INTEGER_EPSILON = 1e-3f
+    // Allow small HAL/reporting variance around the 12 MP crop gate.
+    private const val PRIME_EFFECTIVE_MP_TOLERANCE = 0.75
+    private val PRIME_EQ_MM = listOf(14, 16, 20, 24, 28, 35, 40, 50, 85, 100, 135, 200)
 
     fun isTeleSlot(slot: FocalMmSlot): Boolean =
         when (slot) {
             FocalMmSlot.M73, FocalMmSlot.M85, FocalMmSlot.M150 -> true
             else -> false
         }
+
+    data class PrimeLensCandidate(
+        val cameraId: String,
+        val nativeEqMm: Int,
+        val focalMm: Float,
+        val sensorMp: Double,
+    )
+
+    data class PrimeLensAssignment(
+        val targetEqMm: Int,
+        val cameraId: String,
+        val nativeEqMm: Int,
+        val focalMm: Float,
+        val effectiveMp: Double,
+    ) {
+        val isNative: Boolean
+            get() = targetEqMm == nativeEqMm
+    }
+
+    /** Fixed 35mm-equivalent prime set requested for the chrome focal row. */
+    fun primeEqTargets(): List<Int> = PRIME_EQ_MM
+
+    /** Native camera 35mm-equivalent map for active camera ids. */
+    fun cameraNativeEqById(context: Context, ids: List<String>): Map<String, Int> =
+        collectPrimeLensCandidates(context, ids).associate { it.cameraId to it.nativeEqMm }
+
+    /**
+     * Assign each prime-equivalent focal target to exactly one camera:
+     * - crop-only (`target >= native`)
+     * - keep effective output >= 12 MP
+     * - choose the candidate with highest effective MP
+     */
+    fun resolvePrimeLensAssignments(
+        context: Context,
+        ids: List<String>,
+    ): List<PrimeLensAssignment> {
+        val candidates = collectPrimeLensCandidates(context, ids)
+        if (candidates.isEmpty()) return emptyList()
+        return resolvePrimeLensAssignmentsFromCandidates(candidates, PRIME_EQ_MM)
+    }
+
+    internal fun resolvePrimeLensAssignmentsFromCandidates(
+        candidates: List<PrimeLensCandidate>,
+        targets: List<Int>,
+    ): List<PrimeLensAssignment> {
+        if (candidates.isEmpty()) return emptyList()
+        return buildList {
+            for (target in targets) {
+                val minEffectiveMp = FleetFocalRowPolicy.MIN_CROP_MP.toDouble() - PRIME_EFFECTIVE_MP_TOLERANCE
+                val best =
+                    candidates
+                        .asSequence()
+                        .filter { target >= it.nativeEqMm }
+                        .map { c ->
+                            Triple(
+                                c,
+                                effectiveMpForCrop(
+                                    sensorMp = c.sensorMp,
+                                    nativeEqMm = c.nativeEqMm,
+                                    targetEqMm = target,
+                                ),
+                                target == c.nativeEqMm,
+                            )
+                        }.filter { (_, effectiveMp, _) -> effectiveMp >= minEffectiveMp }
+                        .maxWithOrNull(
+                            compareBy<Triple<PrimeLensCandidate, Double, Boolean>>(
+                                { -(target - it.first.nativeEqMm) }, // least crop first (native/closest below target)
+                                { it.second }, // then highest resulting MP
+                                { if (it.third) 1 else 0 }, // tie-break: prefer native mapping
+                                { it.first.sensorMp }, // then higher-res sensor
+                            ),
+                        )
+                if (best != null) {
+                    val candidate = best.first
+                    add(
+                        PrimeLensAssignment(
+                            targetEqMm = target,
+                            cameraId = candidate.cameraId,
+                            nativeEqMm = candidate.nativeEqMm,
+                            focalMm = candidate.focalMm,
+                            effectiveMp = best.second,
+                        ),
+                    )
+                }
+            }
+        }
+    }
 
     /** Slots that apply digital crop / eq. policy gated by [FocalSlotAvailability] on the wide sensor. */
     fun isDigitalEqPolicySlot(slot: FocalMmSlot): Boolean =
@@ -107,7 +200,7 @@ object FocalLensStripSupport {
     }
 
     fun formatShortNativeFocalMm(mm: Float): String {
-        val rounded = (mm * NATIVE_MM_ROUND_SCALE).roundToInt() / NATIVE_MM_ROUND_SCALE
+        val rounded = (ceil(mm * NATIVE_MM_ROUND_SCALE) / NATIVE_MM_ROUND_SCALE).toFloat()
         val s =
             if (abs(rounded - rounded.toInt()) < NATIVE_MM_INTEGER_EPSILON) {
                 rounded.toInt().toString()
@@ -183,5 +276,92 @@ object FocalLensStripSupport {
                         ?: policy?.subLabel
             }
         return FocalChipPresentation(label, sub, enabled)
+    }
+
+    private fun collectPrimeLensCandidates(context: Context, ids: List<String>): List<PrimeLensCandidate> {
+        if (ids.isEmpty()) return emptyList()
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val overrides = FleetCameraStartupScan.loadMpOverrides(context)
+        val primary = collectPrimeLensCandidates(cm, ids, includeLogicalAggregates = false)
+        if (primary.size >= 2) {
+            return primary.map { c ->
+                val overrideMp = overrides[c.cameraId]?.megapixels ?: 0.0
+                if (overrideMp > c.sensorMp) c.copy(sensorMp = overrideMp) else c
+            }
+        }
+        val fallback = collectPrimeLensCandidates(cm, ids, includeLogicalAggregates = true)
+        if (fallback.isEmpty()) return primary
+        val mergedByCameraId =
+            linkedMapOf<String, PrimeLensCandidate>().apply {
+                fallback.forEach { put(it.cameraId, it) }
+                primary.forEach { put(it.cameraId, it) }
+            }
+        return mergedByCameraId.values
+            .map { c ->
+                val overrideMp = overrides[c.cameraId]?.megapixels ?: 0.0
+                if (overrideMp > c.sensorMp) c.copy(sensorMp = overrideMp) else c
+            }.sortedBy { it.nativeEqMm }
+    }
+
+    private fun collectPrimeLensCandidates(
+        cm: CameraManager,
+        ids: List<String>,
+        includeLogicalAggregates: Boolean,
+    ): List<PrimeLensCandidate> =
+        ids
+            .asSequence()
+            .filter { it != "1" } // front camera never participates in rear focal row
+            .mapNotNull { id ->
+                val chars = runCatching { cm.getCameraCharacteristics(id) }.getOrNull() ?: return@mapNotNull null
+                if (chars.get(CameraCharacteristics.LENS_FACING) != CameraCharacteristics.LENS_FACING_BACK) {
+                    return@mapNotNull null
+                }
+                val isLogicalAggregate = chars.physicalCameraIds?.isNotEmpty() == true
+                if (!includeLogicalAggregates && isLogicalAggregate) {
+                    return@mapNotNull null
+                }
+                val focal =
+                    focalForPrimeAssignments(
+                        chars = chars,
+                        preferWideForLogicalAggregate = includeLogicalAggregates && isLogicalAggregate,
+                    ) ?: return@mapNotNull null
+                val focalEq = focalLength35mmFromFocalMm(chars, focal) ?: return@mapNotNull null
+                val mp = FleetCameraStartupScan.sensorMegapixels(chars)
+                PrimeLensCandidate(id, focalEq, focal, mp)
+            }.toList()
+
+    private fun focalForPrimeAssignments(
+        chars: CameraCharacteristics,
+        preferWideForLogicalAggregate: Boolean,
+    ): Float? {
+        val focalLengths = chars.get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS) ?: return null
+        if (focalLengths.isEmpty()) return null
+        return if (preferWideForLogicalAggregate) {
+            focalLengths.minOrNull()
+        } else {
+            focalLengths.maxOrNull()
+        }
+    }
+
+    private fun focalLength35mmFromFocalMm(
+        chars: CameraCharacteristics,
+        focalMm: Float,
+    ): Int? {
+        val sensorSize = chars.get(CameraCharacteristics.SENSOR_INFO_PHYSICAL_SIZE) ?: return null
+        if (sensorSize.width <= 0f) return null
+        val diagSensor = hypot(sensorSize.width.toDouble(), sensorSize.height.toDouble())
+        val diag35 = 43.27
+        return (focalMm * (diag35 / diagSensor)).roundToInt().coerceIn(10, 300)
+    }
+
+    private fun effectiveMpForCrop(
+        sensorMp: Double,
+        nativeEqMm: Int,
+        targetEqMm: Int,
+    ): Double {
+        if (sensorMp <= 0.0 || targetEqMm <= 0 || nativeEqMm <= 0) return 0.0
+        if (targetEqMm < nativeEqMm) return 0.0
+        val linearCrop = nativeEqMm.toDouble() / targetEqMm.toDouble()
+        return sensorMp * linearCrop * linearCrop
     }
 }

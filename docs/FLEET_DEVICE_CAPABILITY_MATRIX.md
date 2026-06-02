@@ -92,11 +92,11 @@ Engineering hub → **Device capability matrix** → **Quick refresh** or **Resc
 
 
 
-**OP13 regression lane only**
+**legacy device regression lane only**
 
 
 
-Add `-LegacyOp13FleetPolicy` to scan script or `--ez pns_legacy_op13_fleet_policy true` on `am start`. See `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
+Add `-LegacyOp13FleetPolicy` to scan script or `--ez pns_legacy_legacy_fleet_policy true` on `am start`. See `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
 
 
 

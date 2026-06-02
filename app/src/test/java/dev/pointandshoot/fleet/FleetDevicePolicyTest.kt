@@ -22,8 +22,8 @@ class FleetDevicePolicyTest {
     }
 
     @Test
-    fun op13Plugin_delegatesToOnePlus13Policy() {
-        assertEquals(OnePlus13FleetPolicy.POLICY_ID, OnePlus13FleetPolicyPlugin.policyId)
+    fun legacy_devicePlugin_delegatesToLegacyDevicePolicy() {
+        assertEquals(LegacyFleetPolicy.POLICY_ID, LegacyFleetPolicyPlugin.policyId)
         val enumerated =
             BackCameraRoleResolver.Roles(
                 wide = "9",
@@ -33,12 +33,12 @@ class FleetDevicePolicyTest {
             )
         val ids = listOf("0", "2", "3", "4")
         assertEquals(
-            OnePlus13FleetPolicy.mergeRoles(enumerated, ids),
-            OnePlus13FleetPolicyPlugin.mergeRoles(enumerated, ids),
+            LegacyFleetPolicy.mergeRoles(enumerated, ids),
+            LegacyFleetPolicyPlugin.mergeRoles(enumerated, ids),
         )
         assertEquals(
-            OnePlus13FleetPolicy.leafRawFormatOrder(),
-            OnePlus13FleetPolicyPlugin.leafRawFormatOrder(),
+            LegacyFleetPolicy.leafRawFormatOrder(),
+            LegacyFleetPolicyPlugin.leafRawFormatOrder(),
         )
     }
 

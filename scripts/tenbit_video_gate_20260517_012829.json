@@ -21,5 +21,5 @@
     "2026-05-17 01:28:29 - ⚠ Codec is not H.265 (may be H.264 fallback)"
   ],
   "schema": "pns.tenbit_video_gate.v1",
-  "deviceSerial": "8bf09993"
+  "deviceSerial": ""
 }

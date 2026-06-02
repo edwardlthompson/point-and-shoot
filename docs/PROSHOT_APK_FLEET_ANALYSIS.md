@@ -1,4 +1,4 @@
-# ProShot APK analysis — RAW pipeline and fleet camera handling
+# ReferenceCam APK analysis — RAW pipeline and fleet camera handling
 
 **Package:** `com.riseupgames.proshot2`  
 **APK on disk:** `hfr-runs/proshot_apk_decompile/proshot2_base.apk` (pulled from device May 2026)  
@@ -6,22 +6,22 @@
 **Refresh:** `.\scripts\pns_proshot_apk_decompile.ps1`  
 **Needle scan:** `hfr-runs/proshot_apk_decompile/scan.json` via `scripts/proshot_decompile_scan.py`
 
-ProShot is **heavily obfuscated** (`l0.C0353b0` = main camera controller, `m0.T` = camera utilities, `m0.C0527f` = per-device capability profile, `m0.RunnableC0539s` = save runnable). Names below use decompiler symbols.
+ReferenceCam is **heavily obfuscated** (`l0.C0353b0` = main camera controller, `m0.T` = camera utilities, `m0.C0527f` = per-device capability profile, `m0.RunnableC0539s` = save runnable). Names below use decompiler symbols.
 
 ---
 
 ## Executive summary (for Point & Shoot fleet goals)
 
-| Area | ProShot pattern | P&S today | Fleet takeaway |
+| Area | ReferenceCam pattern | P&S today | Fleet takeaway |
 |------|-----------------|-----------|----------------|
 | **Camera catalog** | Enumerate API ids + **expand logical → physical** + probe hidden ids `0…99` + **OEM model → hide id** map | `BackCameraRoleResolver`, `DODGE_PROFILE`, probe hub | Add a **fleet device profile** object (like `C0527f`) + model blocklist, not only role tables |
 | **Lens switch** | **`openCamera(leafId)`** — same leaf ids as our M14/M23/M73 (`dumpsys` 3/2/4) | Same leaf routing after May 2026 fix | Keep **leaf `CameraDevice`** for aux slots; avoid logical-only tele |
-| **Preview pin** | Optional `OutputConfiguration.setPhysicalCameraId(C0250o.y1)` on **preview** when flag set | Preview-only pin on **logical** parent | Different: ProShot can pin preview to physical id string; P&S pins only on logical multi-cam — do not copy blindly |
+| **Preview pin** | Optional `OutputConfiguration.setPhysicalCameraId(C0250o.y1)` on **preview** when flag set | Preview-only pin on **logical** parent | Different: ReferenceCam can pin preview to physical id string; P&S pins only on logical multi-cam — do not copy blindly |
 | **DNG metadata** | `DngCreator(**active device** characteristics, **still** `CaptureResult`) — **no** hybrid physical/logical resolver | `DngMetadataResolver` + `allowPhysicalTotalResultPairing=false` on logical | On **leaf sessions**, pair **same** `cameraId` characteristics + result; skip resolver fork |
-| **RAW format** | Try `32, 37, 38, 36` on **opened** camera’s stream map | `RawCaptureSupport` + logical aux `RAW_SENSOR` preference | Align pick order with ProShot on **leaf** `StreamConfigurationMap` |
-| **Still IQ keys** | `STATISTICS_LENS_SHADING_MAP_MODE_ON` + `SHADING_MODE` / `TONEMAP` on **still** builder when prefs + caps | No lens-shading map on still (grep) | Gate still capture on caps; match ProShot still template |
+| **RAW format** | Try `32, 37, 38, 36` on **opened** camera’s stream map | `RawCaptureSupport` + logical aux `RAW_SENSOR` preference | Align pick order with ReferenceCam on **leaf** `StreamConfigurationMap` |
+| **Still IQ keys** | `STATISTICS_LENS_SHADING_MAP_MODE_ON` + `SHADING_MODE` / `TONEMAP` on **still** builder when prefs + caps | No lens-shading map on still (grep) | Gate still capture on caps; match ReferenceCam still template |
 | **Still pairing** | `ImageReader` queue + `TotalCaptureResult` queue → save on worker | Direct still callback | Our ADB/session gating fix is in the same spirit (don’t capture until session matches) |
-| **DNG file tags** | Same `FM1[0,0]=0.4375` as P&S on CPH2655 | Same | Color gap is **not** TIFF FM rewrite — session/ISP/shading/pairing |
+| **DNG file tags** | Same `FM1[0,0]=0.4375` as P&S on legacy SKU | Same | Color gap is **not** TIFF FM rewrite — session/ISP/shading/pairing |
 
 ---
 
@@ -88,7 +88,7 @@ Constructed from `CameraCharacteristics` + `StreamConfigurationMap` for each ope
 | `f6642o0` | Distortion correction modes | Still pipeline |
 | Video / 8K flags | `CamcorderProfile`, recorder sizes | Feature gating |
 
-**P&S direction:** Extend `docs/RAW_CAPTURE_DEVICE_MATRIX.md` / probe export with a **structured `FleetCameraProfile`** (Kotlin data class) populated once per `cameraId`, persisted optional, fed into capture templates — mirror ProShot’s `C0527f` rather than scattering booleans in `PreviewEngineScreen`.
+**P&S direction:** Extend `docs/RAW_CAPTURE_DEVICE_MATRIX.md` / probe export with a **structured `FleetCameraProfile`** (Kotlin data class) populated once per `cameraId`, persisted optional, fed into capture templates — mirror ReferenceCam’s `C0527f` rather than scattering booleans in `PreviewEngineScreen`.
 
 ---
 
@@ -98,7 +98,7 @@ Constructed from `CameraCharacteristics` + `StreamConfigurationMap` for each ope
 - Active characteristics for UI + DNG: `m0.T.f6459a.f6612b` (singleton `C0527f`’s `CameraCharacteristics` for the **currently opened** id).
 - Preview optional physical pin: `C0250o.y1` non-empty → `outputConfiguration.setPhysicalCameraId(C0250o.y1)` in `l5()` when `u1 && !P1`.
 
-**ADB-confirmed behavior (CPH2655):** ProShot **CONNECT 3 → 2 → 4** when shooting UW / wide / tele — same as P&S `focalSlotTap` after dodge routing fix.
+**ADB-confirmed behavior (legacy SKU):** ReferenceCam **CONNECT 3 → 2 → 4** when shooting UW / wide / tele — same as P&S `focalSlotTap` after dodge routing fix.
 
 **Preview metadata:** `R4(TotalCaptureResult)` reads `LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID` and dispatches to UI — only relevant when preview runs on a **logical** id; leaf sessions use the opened id directly.
 
@@ -162,7 +162,7 @@ So DNG color is entirely **framework `DngCreator` + HAL tags** for the **same** 
 
 ---
 
-## 5. Still capture request IQ (why ProShot color can differ)
+## 5. Still capture request IQ (why ReferenceCam color can differ)
 
 On the **still** `CaptureRequest.Builder` (`builder3` path ~6360–6410), when capturing still (`z2 == true`):
 
@@ -176,17 +176,17 @@ On the **still** `CaptureRequest.Builder` (`builder3` path ~6360–6410), when c
 
 Preview repeating requests use a **subset** (e.g. shading mode 0/1 without map).
 
-**P&S alignment (from `DNG_PS_ALIGNMENT_SPIKE.md`):** Add gated `STATISTICS_LENS_SHADING_MAP_MODE_ON` (and shading mode) on **RAW still** requests when characteristics allow — USB A/B vs ProShot in normal light when UW automation is reliable.
+**P&S alignment (from `DNG_PS_ALIGNMENT_SPIKE.md`):** Add gated `STATISTICS_LENS_SHADING_MAP_MODE_ON` (and shading mode) on **RAW still** requests when characteristics allow — USB A/B vs ReferenceCam in normal light when UW automation is reliable.
 
 ---
 
-## 6. What ProShot does *not* do (important for P&S)
+## 6. What ReferenceCam does *not* do (important for P&S)
 
 - **No** in-app `DngForwardMatrixFix` / ASN matrix rewriting in `RunnableC0539s`.
 - **No** evidence of pairing **physical** `CameraCharacteristics` with **logical** `TotalCaptureResult` in the DNG path — it uses the **opened** device’s characteristics.
-- **DNG tags** on CPH2655 still show **shared wide FM** in IFD0 — same as P&S; good ProShot color is **not** explained by different ForwardMatrix bytes in file.
+- **DNG tags** on legacy SKU still show **shared wide FM** in IFD0 — same as P&S; good ReferenceCam color is **not** explained by different ForwardMatrix bytes in file.
 
-Do **not** reintroduce FM/ASN TIFF patches to “match” ProShot.
+Do **not** reintroduce FM/ASN TIFF patches to “match” ReferenceCam.
 
 ---
 
@@ -195,8 +195,8 @@ Do **not** reintroduce FM/ASN TIFF patches to “match” ProShot.
 1. **`FleetCameraProfile` per `cameraId`** — one-shot probe: RAW formats/sizes, shading map, logical/physical set, max still size, HFR lists (populate from existing probe hub + `C0527f`-style fields).
 2. **Leaf DNG path** — if `sessionCameraId` has empty `physicalCameraIds` OR session opened as leaf: `DngCreator(cm.getCameraCharacteristics(id), stillResult)` without `DngMetadataResolver` physical pick.
 3. **Still template** — `STATISTICS_LENS_SHADING_MAP_MODE` + `SHADING_MODE` from profile + user pref (default on for RAW when supported).
-4. **Catalog UI / automation** — expose enumerated ids (public + hidden + roles) like ProShot’s lens picker; persist OEM blocklist entries from fleet JSON.
-5. **Session readiness** — keep `sessionCommittedGeneration` + focal-slot ADB wait (shipped May 2026); extend with ProShot-style **image/result queue** depth check optional.
+4. **Catalog UI / automation** — expose enumerated ids (public + hidden + roles) like ReferenceCam’s lens picker; persist OEM blocklist entries from fleet JSON.
+5. **Session readiness** — keep `sessionCommittedGeneration` + focal-slot ADB wait (shipped May 2026); extend with ReferenceCam-style **image/result queue** depth check optional.
 6. **Validation** — `pns_dng_proshot_pns_session.ps1` in **daylight** for 3/3 UW; dark room is stress-only for HAL failures.
 
 ---
@@ -220,9 +220,9 @@ Do **not** reintroduce FM/ASN TIFF patches to “match” ProShot.
 
 - [`DNG_PS_ALIGNMENT_SPIKE.md`](DNG_PS_ALIGNMENT_SPIKE.md) — implementation spikes (shading, leaf DNG).
 - [`DNG_PROSHOT_ADB_FINDINGS.md`](DNG_PROSHOT_ADB_FINDINGS.md) — dumpsys CONNECT 3/2/4.
-- [`DNG_REFERENCE_APPS.md`](DNG_REFERENCE_APPS.md) — ProShot as reference app.
+- [`DNG_REFERENCE_APPS.md`](DNG_REFERENCE_APPS.md) — ReferenceCam as reference app.
 - [`AGENTS.md`](../AGENTS.md) — USB scripts; do not regress logical RAW / DNG locks.
 
 ---
 
-*Generated from decompile of ProShot 2.x `base.apk` on device `8bf09993` (OnePlus CPH2655 class). Re-run decompile after app update.*
+*Generated from decompile of ReferenceCam 2.x `base.apk` on device `legacy serial` (OnePlus legacy SKU class). Re-run decompile after app update.*

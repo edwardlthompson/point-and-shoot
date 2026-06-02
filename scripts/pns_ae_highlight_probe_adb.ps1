@@ -36,7 +36,7 @@
 
 .EXAMPLE
   .\scripts\pns_ae_highlight_probe_adb.ps1
-  .\scripts\pns_ae_highlight_probe_adb.ps1 -Serial 8bf09993 -WaitSec 12
+  .\scripts\pns_ae_highlight_probe_adb.ps1 -Serial <serial> -WaitSec 12
   .\scripts\pns_ae_highlight_probe_adb.ps1 -AssembleDebug -AlsoRootCapabilityAdb
 #>
 param(

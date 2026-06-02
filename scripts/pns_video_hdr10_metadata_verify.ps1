@@ -4,7 +4,7 @@
 # Prerequisites: ffprobe on PATH (ffmpeg). USB device with DCIM write access.
 #
 # Usage:
-#   .\scripts\pns_video_hdr10_metadata_verify.ps1 -Serial 8bf09993
+#   .\scripts\pns_video_hdr10_metadata_verify.ps1 -Serial <serial>
 
 param(
     [string]$Serial = "",

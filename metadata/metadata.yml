@@ -6,7 +6,7 @@ SourceCode: https://github.com/<your-username>/point-and-shoot
 IssueTracker: https://github.com/<your-username>/point-and-shoot/issues
 
 AutoName: Point & Shoot
-Summary: FOSS pro camera app (Camera2) for OnePlus 13 on LineageOS.
+Summary: FOSS pro camera app (Camera2) for Legacy device on LineageOS.
 Description: |-
   Point & Shoot is a fully open-source pro camera app focused on low-latency capture,
   RAW workflows (DNG), and modern still formats (AVIF, JPEG XL) with a professional HUD.

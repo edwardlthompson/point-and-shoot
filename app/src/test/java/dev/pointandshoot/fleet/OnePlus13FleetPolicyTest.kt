@@ -8,12 +8,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
-class OnePlus13FleetPolicyTest {
+class LegacyFleetPolicyTest {
 
     @Test
     fun canonicalRolesWhen_applies_mapsDodgeIds() {
         val ids = listOf("0", "1", "2", "3", "4")
-        val r = OnePlus13FleetPolicy.canonicalRolesWhen(deviceApplies = true, ids)!!
+        val r = LegacyFleetPolicy.canonicalRolesWhen(deviceApplies = true, ids)!!
         assertEquals("2", r.wide)
         assertEquals("3", r.ultraWide)
         assertEquals("4", r.tele)
@@ -22,7 +22,7 @@ class OnePlus13FleetPolicyTest {
 
     @Test
     fun canonicalRolesWhen_missingTele_returnsNull() {
-        val r = OnePlus13FleetPolicy.canonicalRolesWhen(deviceApplies = true, listOf("0", "2", "3"))
+        val r = LegacyFleetPolicy.canonicalRolesWhen(deviceApplies = true, listOf("0", "2", "3"))
         assertNull(r)
     }
 
@@ -30,8 +30,8 @@ class OnePlus13FleetPolicyTest {
     fun mergeRoles_usesCanonicalWhenDeviceApplies() {
         val enumerated = BackCameraRoleResolver.Roles(wide = "0", ultraWide = "3", tele = "4", longTele = null)
         val ids = listOf("0", "1", "2", "3", "4")
-        val merged = OnePlus13FleetPolicy.mergeRoles(enumerated, ids)
-        if (OnePlus13FleetPolicy.appliesToDevice()) {
+        val merged = LegacyFleetPolicy.mergeRoles(enumerated, ids)
+        if (LegacyFleetPolicy.appliesToDevice()) {
             assertEquals("2", merged.wide)
             assertEquals("3", merged.ultraWide)
             assertEquals("4", merged.tele)
@@ -59,44 +59,44 @@ class OnePlus13FleetPolicyTest {
                 largestRawSensorWxH = "4096x3072",
                 largestRaw12WxH = null,
             )
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return
-        assertEquals(true, OnePlus13FleetPolicy.applyProfileDefaults(tele).lensShadingMapOnStill)
+        if (!LegacyFleetPolicy.appliesToDevice()) return
+        assertEquals(true, LegacyFleetPolicy.applyProfileDefaults(tele).lensShadingMapOnStill)
     }
 
     @Test
-    fun op13Shipped_proShotPureDng_noPostSaveTiffReconcile() {
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return
-        assertEquals(true, OnePlus13FleetPolicy.useProShotPureDngSave())
-        assertEquals(false, OnePlus13FleetPolicy.useOp13AsnReconcileOnly())
-        assertEquals(false, OnePlus13FleetPolicy.useHalColorCalibrationReconcile())
+    fun legacy_deviceShipped_proShotPureDng_noPostSaveTiffReconcile() {
+        if (!LegacyFleetPolicy.appliesToDevice()) return
+        assertEquals(true, LegacyFleetPolicy.useProShotPureDngSave())
+        assertEquals(false, LegacyFleetPolicy.useLegacyAsnReconcileOnly())
+        assertEquals(false, LegacyFleetPolicy.useHalColorCalibrationReconcile())
     }
 
     @Test
-    fun stillDngBackendWhen_op13_isFrameworkProShot() {
+    fun stillDngBackendWhen_legacy_device_isFrameworkProShot() {
         assertEquals(
             StillDngBackend.FRAMEWORK_PROSHOT,
-            OnePlus13FleetPolicy.stillDngBackendWhen(deviceApplies = true),
+            LegacyFleetPolicy.stillDngBackendWhen(deviceApplies = true),
         )
         assertEquals(
             StillDngBackend.FRAMEWORK_PROSHOT,
-            OnePlus13FleetPolicy.stillDngBackendWhen(deviceApplies = false),
+            LegacyFleetPolicy.stillDngBackendWhen(deviceApplies = false),
         )
     }
 
     @Test
     fun shipped13_3g_bisectFlags_defaultOff() {
-        assertFalse(OnePlus13FleetPolicy.useWideLeafCalibrationForAuxDng())
-        assertFalse(OnePlus13FleetPolicy.useProShotStillPrecapture())
-        assertFalse(OnePlus13FleetPolicy.useOp13AsnReconcileOnly())
-        assertFalse(OnePlus13FleetPolicy.useHalColorCalibrationReconcile())
+        assertFalse(LegacyFleetPolicy.useWideLeafCalibrationForAuxDng())
+        assertFalse(LegacyFleetPolicy.useProShotStillPrecapture())
+        assertFalse(LegacyFleetPolicy.useLegacyAsnReconcileOnly())
+        assertFalse(LegacyFleetPolicy.useHalColorCalibrationReconcile())
         assertFalse(
-            OnePlus13FleetPolicy.proShotLatchManualExposureOnStill(OnePlus13FleetPolicy.CANONICAL_TELE),
+            LegacyFleetPolicy.proShotLatchManualExposureOnStill(LegacyFleetPolicy.CANONICAL_TELE),
         )
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = false,
             ),
@@ -105,17 +105,17 @@ class OnePlus13FleetPolicyTest {
 
     @Test
     fun hdrStillBracket_isThreeShotsOneEv() {
-        assertEquals(BracketPattern.Three, OnePlus13FleetPolicy.hdrStillBracketPattern())
-        assertEquals(3, OnePlus13FleetPolicy.hdrStillShotCount())
-        assertEquals(1.0, OnePlus13FleetPolicy.hdrStillEvStep(), 0.001)
+        assertEquals(BracketPattern.Three, LegacyFleetPolicy.hdrStillBracketPattern())
+        assertEquals(3, LegacyFleetPolicy.hdrStillShotCount())
+        assertEquals(1.0, LegacyFleetPolicy.hdrStillEvStep(), 0.001)
     }
 
     @Test
     fun zslStillRingCapacity_whenOp13_isSix() {
-        if (!OnePlus13FleetPolicy.appliesToDevice()) {
-            assertEquals(4, OnePlus13FleetPolicy.zslStillRingCapacity())
+        if (!LegacyFleetPolicy.appliesToDevice()) {
+            assertEquals(4, LegacyFleetPolicy.zslStillRingCapacity())
         } else {
-            assertEquals(6, OnePlus13FleetPolicy.zslStillRingCapacity())
+            assertEquals(6, LegacyFleetPolicy.zslStillRingCapacity())
         }
     }
 
@@ -128,7 +128,7 @@ class OnePlus13FleetPolicyTest {
                 ImageFormat.RAW12,
                 ImageFormat.RAW_PRIVATE,
             ),
-            OnePlus13FleetPolicy.LEAF_RAW_FORMAT_ORDER,
+            LegacyFleetPolicy.LEAF_RAW_FORMAT_ORDER,
         )
     }
 }

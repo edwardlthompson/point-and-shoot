@@ -45,6 +45,7 @@ import dev.pointandshoot.EXTRA_PNS_AUTO_PARITY_SWEEP
 import dev.pointandshoot.EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD
 import dev.pointandshoot.EXTRA_PNS_PARITY_SWEEP_MODE
 import dev.pointandshoot.ProbeLiveLogPanel
+import dev.pointandshoot.PROBE_EXPORT_LATEST_FILE
 import dev.pointandshoot.appendProbeLine
 import dev.pointandshoot.asPaddingValues
 import dev.pointandshoot.rememberSystemInsetsDp
@@ -127,11 +128,27 @@ fun FleetMatrixHubScreen(
                 lastParitySummary = "cells=${report.cells.size} gaps=$gaps mismatch=$mismatch"
                 status = "Parity ${mode.wire} OK — $lastParitySummary"
                 scanLines.appendProbeLine(status)
-                scanLines.appendProbeLine(FleetParitySweepRunner.writeClosurePlan(report))
-                val outDir = appCtx.getExternalFilesDir(null) ?: appCtx.filesDir
-                val reportFile = File(outDir, "parity_report_${mode.wire}.json")
-                reportFile.writeText(report.toJson().toString(2), Charsets.UTF_8)
+                val closurePlan = FleetParitySweepRunner.writeClosurePlan(report)
+                scanLines.appendProbeLine(closurePlan)
+                val reportJson = report.toJson().toString(2)
+                val reportFile = File(appCtx.filesDir, FleetParitySweepRunner.reportFileName(mode))
+                reportFile.writeText(reportJson, Charsets.UTF_8)
                 scanLines.appendProbeLine("Wrote ${reportFile.name}")
+                val probeExport = File(appCtx.filesDir, PROBE_EXPORT_LATEST_FILE)
+                val parityBlock =
+                    buildString {
+                        appendLine()
+                        appendLine("## Fleet Parity Sweep (${mode.wire})")
+                        appendLine()
+                        appendLine(lastParitySummary)
+                        appendLine()
+                        append(closurePlan)
+                    }
+                if (probeExport.exists()) {
+                    probeExport.appendText(parityBlock, Charsets.UTF_8)
+                } else {
+                    probeExport.writeText("# Probe export\n$parityBlock", Charsets.UTF_8)
+                }
             } catch (e: Throwable) {
                 status = "Parity failed: ${e.message}"
                 Log.e(TAG, "parity sweep failed", e)

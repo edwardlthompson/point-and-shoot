@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Build side-by-side ProShot vs P&S DNG comparison report (by physical camera id).
+  Build side-by-side ReferenceCam vs P&S DNG comparison report (by physical camera id).
 
 .EXAMPLE
   .\scripts\pns_dng_side_by_side_compare.ps1 `
@@ -34,7 +34,7 @@ if ([string]::IsNullOrWhiteSpace($PnsDir)) {
 if (-not (Test-Path $ProShotDir)) { throw "ProShotDir not found: $ProShotDir" }
 if (-not (Test-Path $PnsDir)) { throw "PnsDir not found: $PnsDir" }
 
-# ProShot order from dumpsys: shot1=cam3, shot2=cam2, shot3=cam4 (user UW/wide/tele session 22:57)
+# ReferenceCam order from dumpsys: shot1=cam3, shot2=cam2, shot3=cam4 (user UW/wide/tele session 22:57)
 $proshotByCam = @{
     "2" = Join-Path $ProShotDir "proshot_02.dng"
     "3" = Join-Path $ProShotDir "proshot_01.dng"
@@ -61,9 +61,9 @@ if ([string]::IsNullOrWhiteSpace($OutDir)) {
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 $lines = [System.Collections.Generic.List[string]]::new()
-$lines.Add("# DNG side-by-side: ProShot vs Point and Shoot")
+$lines.Add("# DNG side-by-side: ReferenceCam vs Point and Shoot")
 $lines.Add("")
-$lines.Add("| HAL cam | Lens | ProShot | P&S |")
+$lines.Add("| HAL cam | Lens | ReferenceCam | P&S |")
 $lines.Add("|---------|------|---------|-----|")
 $labels = @{ "2" = "wide (M23)"; "3" = "UW (M14)"; "4" = "tele (M73)" }
 
@@ -78,7 +78,7 @@ foreach ($cam in @("3", "2", "4")) {
 $lines.Add("")
 $lines.Add("## Tag summary (physical camera order 3, 2, 4)")
 $lines.Add("")
-$lines.Add("### ProShot")
+$lines.Add("### ReferenceCam")
 $lines.Add("``````")
 if (Test-Path $pyTag) {
     $files = @("3", "2", "4") | ForEach-Object { $proshotByCam[$_] } | Where-Object { Test-Path $_ }
@@ -96,10 +96,10 @@ $lines.Add("``````")
 $lines.Add("")
 $lines.Add("## Environment")
 $lines.Add("- Low light / dark room: exposure and WB differ run-to-run; structural FM/WB gates are not color-calibration truth.")
-$lines.Add("- P&S captures should use **Auto dial** (not Highlight/H) for metering parity with typical ProShot RAW.")
+$lines.Add("- P&S captures should use **Auto dial** (not Highlight/H) for metering parity with typical ReferenceCam RAW.")
 $lines.Add("")
 $lines.Add("## Takeaways")
-$lines.Add("- ProShot order: ``proshot_01`` = oldest of pull trio, ``03`` = newest (expect UW → wide → tele if shot in that order).")
+$lines.Add("- ReferenceCam order: ``proshot_01`` = oldest of pull trio, ``03`` = newest (expect UW → wide → tele if shot in that order).")
 $lines.Add("- Paired by HAL cam 3 / 2 / 4 (UW / wide / tele).")
 $lines.Add("- Both apps often show FM1[0,0]=0.4375 in simple IFD0 parse; color difference is usually not TIFF FM rewrite.")
 $lines.Add("- Compare visually in darktable/ACR using files copied to this folder.")

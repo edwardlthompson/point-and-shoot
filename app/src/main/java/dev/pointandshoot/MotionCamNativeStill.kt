@@ -6,7 +6,7 @@ import dev.pointandshoot.fleet.StillDngBackendPolicy
 /**
  * Future MotionCam-class native DNG encode ([StillDngBackend.MOTIONCAM_NATIVE]).
  *
- * MotionCam Pro ships encode in `libnative-camera-host.so` (Adobe DNG SDK). P&S will route here
+ * MotionCam ships encode in `libnative-camera-host.so` (Adobe DNG SDK). P&S will route here
  * when JNI bodies land in `libpns_native.so`; until then [encodeDngFromRaw] returns [Result.NotAvailable]
  * and [StillDngBackendPolicy] uses [StillDngBackend.MOTIONCAM_INSPIRED] + [DngCreator].
  */

@@ -5,7 +5,7 @@ omitted (same key as PowerShell fleet scripts). Prefer **--serial** when more th
 one device is connected or to override the env file.
 
 Example:
-  python scripts/pns_capture_gfxinfo_baseline.py --serial 8bf09993
+  python scripts/pns_capture_gfxinfo_baseline.py --serial <serial>
 """
 from __future__ import annotations
 

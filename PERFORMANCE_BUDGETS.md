@@ -2,7 +2,7 @@
 
 Source-of-truth for **performance budgets per capture mode**. Satisfies BUILD_PLAN §9 cross-cutting requirement: "Performance budgets (per mode) + ADB validation".
 
-These budgets are *targets* for the OnePlus 13 (`dodge`) on LineageOS 23 (Android 16 / API 36) with the imaging engine in production form. Probe / scaffold builds may exceed these temporarily; CI and `pns_hfr_autorun.ps1` will track regressions once the engine lands.
+These budgets are *targets* for the legacy device (`dodge`) on LineageOS 23 (Android 16 / API 36) with the imaging engine in production form. Probe / scaffold builds may exceed these temporarily; CI and `pns_hfr_autorun.ps1` will track regressions once the engine lands.
 
 ## Cold start
 
@@ -101,7 +101,7 @@ If **`generateBaselineProfile`** fails with **Unable to confirm activity launch 
 ### When to capture
 
 - Release prep, after large preview / capture / Compose chrome changes, or when chasing UI stutter.
-- Prefer the same device class as budgets (**OnePlus 13 / `dodge`**, LineageOS 23 / API **36**) when possible.
+- Prefer the same device class as budgets (**legacy device / `dodge`**, LineageOS 23 / API **36**) when possible.
 
 ### Artifact naming
 
@@ -124,7 +124,7 @@ If **`generateBaselineProfile`** fails with **Unable to confirm activity launch 
 ### Option C — Windows host, no desktop `perfetto` binary (device light mode)
 
 1. Use **`scripts/pns_capture_perfetto_light.ps1`** (**`-Serial`** / **`pns_adb_device.env`**). The script invokes **`/system/bin/perfetto`** in **light** mode (`-t`, `-a dev.pointandshoot`, default categories **gfx view sched**), writes under **`/data/misc/perfetto-traces/profiling/`**, then **`adb pull`** into **`perf-runs/perfetto_<utc>_serial-<adb>.perfetto-trace`**.
-2. On some OEM builds (validated on **OnePlus CPH2655**), opening the output file fails unless **`adb root`** has succeeded (the script runs **`adb root`** by default; pass **`-SkipAdbRoot`** only when you know writes work as non-root shell).
+2. On some OEM builds (validated on **OnePlus legacy SKU**), opening the output file fails unless **`adb root`** has succeeded (the script runs **`adb root`** by default; pass **`-SkipAdbRoot`** only when you know writes work as non-root shell).
 3. Pair with **`pns_hfr_autorun.ps1 -PerfReport`** from the same release-prep slice (or **`-AlsoPerfReport`** on the capture script).
 
 ### Quick overlay — `gfxinfo` (no full trace)

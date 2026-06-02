@@ -47,7 +47,7 @@ def main() -> int:
     out_json = root / "proshot_live_parse.json"
     out_json.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
-    md = ["# ProShot live parse", ""]
+    md = ["# ReferenceCam live parse", ""]
     for r in rows:
         md.append(f"## {r['file']}")
         md.append(f"- ISO: {r.get('ISOSpeedRatings')}")

@@ -9,17 +9,17 @@ class ProShotPipelineContractTest {
 
     @Test
     fun standardProShot_leafPostSaveReconcile_offOnOp13() {
-        if (!OnePlus13FleetPolicy.appliesToDevice()) return
+        if (!LegacyFleetPolicy.appliesToDevice()) return
         assertFalse(ProShotPipelineContract.wideLeafCalibrationEnabled())
         assertFalse(ProShotPipelineContract.stillPrecaptureEnabled())
-        assertFalse(ProShotPipelineContract.manualExposureLatchOnStill(OnePlus13FleetPolicy.CANONICAL_TELE))
-        assertFalse(OnePlus13FleetPolicy.useProShotReferenceCalibration())
-        assertFalse(OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile())
+        assertFalse(ProShotPipelineContract.manualExposureLatchOnStill(LegacyFleetPolicy.CANONICAL_TELE))
+        assertFalse(LegacyFleetPolicy.useProShotReferenceCalibration())
+        assertFalse(LegacyFleetPolicy.useLegacyLeafAuxColorReconcile())
         for (camId in
             listOf(
-                OnePlus13FleetPolicy.CANONICAL_UW,
-                OnePlus13FleetPolicy.CANONICAL_WIDE,
-                OnePlus13FleetPolicy.CANONICAL_TELE,
+                LegacyFleetPolicy.CANONICAL_UW,
+                LegacyFleetPolicy.CANONICAL_WIDE,
+                LegacyFleetPolicy.CANONICAL_TELE,
             )
         ) {
             assertFalse(ProShotPipelineContract.leafPostSaveTiffReconcileEnabled(camId))
@@ -33,7 +33,7 @@ class ProShotPipelineContractTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 uwProShotAsnReconcile = true,
             ),
@@ -42,7 +42,7 @@ class ProShotPipelineContractTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_TELE,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_TELE,
                 proShotPureDngSave = true,
                 uwProShotAsnReconcile = true,
             ),
@@ -55,7 +55,7 @@ class ProShotPipelineContractTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = true,
             )
@@ -63,7 +63,7 @@ class ProShotPipelineContractTest {
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
                 backend = StillDngBackend.FRAMEWORK_PROSHOT,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_WIDE,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_WIDE,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = true,
             )
@@ -73,8 +73,8 @@ class ProShotPipelineContractTest {
 
     @Test
     fun shipped_wideCalAndPrecapture_disabled() {
-        assertFalse(OnePlus13FleetPolicy.useWideLeafCalibrationForAuxDng())
-        assertFalse(OnePlus13FleetPolicy.useProShotStillPrecapture())
-        assertFalse(OnePlus13FleetPolicy.proShotLeafStillSkipsStopRepeating(OnePlus13FleetPolicy.CANONICAL_TELE))
+        assertFalse(LegacyFleetPolicy.useWideLeafCalibrationForAuxDng())
+        assertFalse(LegacyFleetPolicy.useProShotStillPrecapture())
+        assertFalse(LegacyFleetPolicy.proShotLeafStillSkipsStopRepeating(LegacyFleetPolicy.CANONICAL_TELE))
     }
 }

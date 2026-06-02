@@ -2,7 +2,7 @@
 # Tests all gallery functionality including metadata, zoom, DNG handling, etc.
 
 param(
-    [string]$Serial = "8bf09993",
+    [string]$Serial = "",
     [switch]$Continuous = $false
 )
 

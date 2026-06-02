@@ -1,10 +1,16 @@
 package dev.pointandshoot
 
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.DropdownMenu
@@ -17,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,19 +75,48 @@ fun PreviewCommandDialDropdownMenu(
         modes.forEach { mode ->
             val selected = mode == selectedMode
             DropdownMenuItem(
-                text = {
-                    Text(
-                        text = "${mode.label} — ${mode.description}",
-                        color =
+                modifier =
+                    Modifier
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(
+                            width = if (selected) 1.5.dp else 1.dp,
+                            color =
+                                if (selected) {
+                                    PnsColors.PhotoOrange.copy(alpha = 0.95f)
+                                } else {
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.42f)
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                        ).background(
                             if (selected) {
-                                PnsColors.PhotoOrange
+                                PnsColors.PhotoOrange.copy(alpha = 0.18f)
                             } else {
-                                MaterialTheme.colorScheme.onSurface
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.18f)
                             },
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize = 14.sp,
-                        maxLines = 2,
-                    )
+                        ),
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = mode.label,
+                            color =
+                                if (selected) {
+                                    PnsColors.PhotoOrange
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = mode.description,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.86f),
+                            fontWeight = FontWeight.Normal,
+                            fontSize = 12.sp,
+                            maxLines = 2,
+                        )
+                    }
                 },
                 leadingIcon = {
                     Box(
@@ -99,6 +135,7 @@ fun PreviewCommandDialDropdownMenu(
                 },
                 onClick = { onModeSelected(mode) },
             )
+            Spacer(modifier = Modifier.padding(vertical = 1.dp))
         }
     }
 }

@@ -118,4 +118,26 @@ class ComposedStillIntentBracketTest {
             )
         assertEquals(null, intent.jpegEncodePreset())
     }
+
+    @Test
+    fun coerceForStillColorSpace_rec2020_forcesUltraMatrix() {
+        val intent =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Standard,
+                jpeg = ImgMenuTier.Standard,
+                hdrWhenJpegOff = ImgMenuTier.Standard,
+            )
+        val coerced = intent.coerceForStillColorSpace(ColorSpaceTarget.Rec2020)
+        assertEquals(ImgMenuTier.Ultra, coerced.raw)
+        assertEquals(ImgMenuTier.Ultra, coerced.jpeg)
+        assertEquals(ImgMenuTier.Ultra, coerced.hdrWhenJpegOff)
+    }
+
+    @Test
+    fun maxPhotoIntent_selectsHighestPresets() {
+        val max = StillPhotoPickerMatrix.maxPhotoIntent()
+        assertEquals(ImgMenuTier.Ultra, max.raw)
+        assertEquals(ImgMenuTier.Ultra, max.jpeg)
+        assertEquals(ImgMenuTier.Ultra, max.hdrWhenJpegOff)
+    }
 }

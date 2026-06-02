@@ -2,7 +2,7 @@
 
 **Primary USB device:** OnePlus 12 **CPH2583** (`scripts/pns_adb_device.env` → `PNS_ADB_SERIAL`).
 
-**Optional OP13 regression:** CPH2655 — `pns_op13_regression_pack.ps1` only; not default fleet truth.
+**Optional legacy device regression:** legacy SKU — `pns_legacy_regression_pack.ps1` only; not default fleet truth.
 
 ## Env file extensions
 

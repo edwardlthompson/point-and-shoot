@@ -40,6 +40,11 @@ object CameraCapabilityCatalog {
         val surfacing: List<String> = emptyList(),
         val rootOnly: Boolean = false,
         val sweepSkipReason: String? = null,
+        val consumerImpact: FleetParitySweep.ConsumerImpact? = null,
+        val parityProofScript: String? = null,
+        val closureEffort: String? = null,
+        val buildPlanSprint: String? = null,
+        val humanOnly: Boolean = false,
     )
 
     data class EvaluatedRow(
@@ -63,26 +68,32 @@ object CameraCapabilityCatalog {
                 if (row.surfacing.isNotEmpty()) put("surfacing", row.surfacing)
                 if (detail.isNotEmpty()) put("detail", detail)
                 row.sweepSkipReason?.let { put("sweepSkipReason", it) }
+                row.parityProofScript?.let { put("parityProofScript", it) }
+                row.closureEffort?.let { put("closureEffort", it) }
+                row.buildPlanSprint?.let { put("buildPlanSprint", it) }
+                if (row.humanOnly) put("humanOnly", true)
+                put("consumerImpact", FleetParityConsumerImpact.resolve(row).name)
             }
     }
 
     private val baseRegistry: List<CatalogRow> =
         listOf(
-            CatalogRow("raw.dng", "RAW DNG capture", "Still capture", SourceLayer.Product, "raw dng still", surfacing = listOf("dial_H", "settings")),
+            CatalogRow("raw.dng", "RAW DNG capture", "Still capture", SourceLayer.Product, "raw dng still", surfacing = listOf("dial_H", "settings"), humanOnly = true, parityProofScript = "pns_aux_dng_capture_analyze.ps1", buildPlanSprint = "21.11"),
             CatalogRow("raw.ultra_max", "Ultra-Max imaging profile", "Still capture", SourceLayer.Product, "ultra max 12bit"),
             CatalogRow("still.bracket", "Exposure bracketing (BKT dial)", "Still capture", SourceLayer.Product, "bracket bkt", surfacing = listOf("mode_dial")),
             CatalogRow("still.zsl", "ZSL still capture", "Still capture", SourceLayer.Camera2, "zsl zero shutter lag"),
             CatalogRow("still.avif", "10-bit AVIF still", "Still capture", SourceLayer.Product, "avif hdr 10bit"),
+            CatalogRow("still.jxl", "JPEG XL still export", "Still capture", SourceLayer.Product, "jxl jpegxl", appStatus = AppStatus.Partial, parityProofScript = "pns_still_export_verify.ps1", buildPlanSprint = "22.3"),
             CatalogRow("still.nightscape", "Nightscape stacking", "Still capture", SourceLayer.Product, "nightscape"),
             CatalogRow("still.intervalometer", "Intervalometer", "Still capture", SourceLayer.Product, "intervalometer timelapse"),
             CatalogRow("video.h264", "H.264 video", "Video", SourceLayer.HalEncoder, "h264 avc", surfacing = listOf("format_picker")),
             CatalogRow("video.hevc", "HEVC video", "Video", SourceLayer.HalEncoder, "hevc h265", surfacing = listOf("format_picker")),
-            CatalogRow("video.av1", "AV1 video", "Video", SourceLayer.HalEncoder, "av1", appStatus = AppStatus.Partial),
+            CatalogRow("video.av1", "AV1 video", "Video", SourceLayer.HalEncoder, "av1", appStatus = AppStatus.Partial, parityProofScript = "pns_av1_parity_verify.ps1", buildPlanSprint = "22.1"),
             CatalogRow("video.hfr", "High-speed video (120+ fps)", "Video", SourceLayer.Camera2, "hfr 120 240 480", surfacing = listOf("fps_rail", "format_picker")),
             CatalogRow("video.regular.1080p30", "1080p @ 30 fps (regular)", "Video", SourceLayer.HalEncoder, "1080p 30fps", surfacing = listOf("format_picker")),
             CatalogRow("video.dcg_hdr", "HDR / DCG video", "Video", SourceLayer.Camera2, "dcg hdr10"),
-            CatalogRow("video.raw", "RAW video", "Video", SourceLayer.Product, "raw video", appStatus = AppStatus.Partial),
-            CatalogRow("video.raw_picker", "RAW video in format picker", "Video", SourceLayer.Product, "raw mcraw picker", appStatus = AppStatus.Partial, surfacing = listOf("format_picker")),
+            CatalogRow("video.raw", "RAW video", "Video", SourceLayer.Product, "raw video", appStatus = AppStatus.Partial, parityProofScript = "pns_raw_video_verify.ps1", buildPlanSprint = "22.2"),
+            CatalogRow("video.raw_picker", "RAW video in format picker", "Video", SourceLayer.Product, "raw mcraw picker", appStatus = AppStatus.Partial, surfacing = listOf("format_picker"), parityProofScript = "pns_raw_video_verify.ps1", buildPlanSprint = "21.3"),
             CatalogRow("video.dual", "Dual video composite", "Video", SourceLayer.Product, "dual video", surfacing = listOf("mode_dial")),
             CatalogRow("video.timelapse", "Time lapse video", "Video", SourceLayer.Product, "timelapse"),
             CatalogRow("face.detect", "Face detection", "Face & AF", SourceLayer.Camera2, "face detect"),
@@ -105,26 +116,49 @@ object CameraCapabilityCatalog {
             CatalogRow("root.vendor_keys", "Vendor key probe", "Root", SourceLayer.Root, "root vendor", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, appStatus = AppStatus.ProbeOnly),
             CatalogRow("root.cpu_governor", "CPU governor pin", "Root", SourceLayer.Root, "root cpu", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, appStatus = AppStatus.ProbeOnly),
             CatalogRow("root.hfr_unlock", "HFR above matrix ceiling", "Root", SourceLayer.Root, "root hfr fps", rootOnly = true, visibilityPolicy = VisibilityPolicy.RootOnly, surfacing = listOf("fps_rail")),
+            CatalogRow(
+                "root.max_res_unlock_cph2583",
+                "Max-resolution unlock lane (CPH2583)",
+                "Root",
+                SourceLayer.Root,
+                "root max resolution unlock qcfa",
+                rootOnly = true,
+                visibilityPolicy = VisibilityPolicy.RootOnly,
+                appStatus = AppStatus.ProbeOnly,
+                surfacing = listOf("settings"),
+                parityProofScript = "pns_still_resolution_mode_verify.ps1",
+                buildPlanSprint = "max_res_unlock",
+                sweepSkipReason = "probe_only_inventory",
+            ),
             CatalogRow("fleet.matrix", "Device capability matrix", "Fleet", SourceLayer.Product, "fleet matrix", visibilityPolicy = VisibilityPolicy.AlwaysShow, surfacing = listOf("engineering_hub")),
             CatalogRow("fleet.deep_caps", "Deep caps probe", "Fleet", SourceLayer.Product, "deep caps", appStatus = AppStatus.ProbeOnly, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering),
             CatalogRow("fleet.parity_sweep", "Fleet Parity Sweep", "Fleet", SourceLayer.Product, "parity sweep fps", appStatus = AppStatus.Partial, visibilityPolicy = VisibilityPolicy.ShowDisabledEngineering, surfacing = listOf("engineering_hub")),
-            CatalogRow("video.vp9", "VP9 WebM video", "Video", SourceLayer.HalEncoder, "vp9 webm", appStatus = AppStatus.Partial, surfacing = listOf("format_picker")),
-            CatalogRow("video.dual_iso", "Dual-ISO HDR merge", "Video", SourceLayer.Product, "dual iso hdr", appStatus = AppStatus.Partial),
+            CatalogRow("video.vp9", "VP9 WebM video", "Video", SourceLayer.HalEncoder, "vp9 webm", appStatus = AppStatus.Partial, surfacing = listOf("format_picker"), parityProofScript = "pns_video_format_test.ps1", buildPlanSprint = "21.3"),
+            CatalogRow("video.dual_iso", "Dual-ISO HDR merge", "Video", SourceLayer.Product, "dual iso hdr", appStatus = AppStatus.ProbeOnly, parityProofScript = "DualIsoVideoMergerTest", buildPlanSprint = "21.3", sweepSkipReason = "probe_only_inventory"),
             CatalogRow("video.uhd60", "4K @ 60 fps regular", "Video", SourceLayer.HalEncoder, "uhd60 4k60", surfacing = listOf("format_picker")),
-            CatalogRow("still.heic", "HEIC still export", "Still capture", SourceLayer.Product, "heic", appStatus = AppStatus.Partial),
-            CatalogRow("still.motion_photo", "Motion Photo", "Still capture", SourceLayer.Product, "motion photo", appStatus = AppStatus.Partial),
-            CatalogRow("still.tiff16", "TIFF 16-bit export", "Still capture", SourceLayer.Product, "tiff 16bit export", appStatus = AppStatus.Partial),
+            CatalogRow("still.heic", "HEIC still export", "Still capture", SourceLayer.Product, "heic", appStatus = AppStatus.Partial, parityProofScript = "pns_still_export_verify.ps1", buildPlanSprint = "22.3"),
+            CatalogRow("still.motion_photo", "Motion Photo", "Still capture", SourceLayer.Product, "motion photo", appStatus = AppStatus.Partial, parityProofScript = "pns_still_export_verify.ps1", buildPlanSprint = "22.3"),
+            CatalogRow("still.tiff16", "TIFF 16-bit export", "Still capture", SourceLayer.Product, "tiff 16bit export", appStatus = AppStatus.Partial, parityProofScript = "pns_still_export_verify.ps1", buildPlanSprint = "22.3"),
             CatalogRow("video.prores_probe", "ProRes probe", "Video", SourceLayer.Product, "prores anamorphic", appStatus = AppStatus.ProbeOnly),
             CatalogRow("lens.focal_row", "Fleet adaptive focal row", "Lens", SourceLayer.Product, "focal row 7 slot", surfacing = listOf("focal_row")),
             CatalogRow("lens.uw", "Ultra-wide native", "Lens", SourceLayer.Camera2, "uw ultra wide"),
             CatalogRow("lens.wide", "Wide native", "Lens", SourceLayer.Camera2, "wide main"),
             CatalogRow("lens.tele", "Tele native", "Lens", SourceLayer.Camera2, "tele"),
-            CatalogRow("dial.monochrome", "Monochrome sensor dial", "Still capture", SourceLayer.Product, "monochrome bw", appStatus = AppStatus.Planned, surfacing = listOf("mode_dial")),
+            CatalogRow(
+                "dial.monochrome",
+                "Monochrome sensor dial",
+                "Still capture",
+                SourceLayer.Product,
+                "monochrome bw dedicated sensor mode",
+                appStatus = AppStatus.Shipped,
+                visibilityPolicy = VisibilityPolicy.HideWhenUnavailable,
+                surfacing = listOf("mode_dial"),
+            ),
             CatalogRow("audio.hifi", "Hi-Fi AAC capture", "Audio", SourceLayer.Product, "hifi aac 96k", surfacing = listOf("format_picker")),
             CatalogRow("audio.external_mic", "External mic preference", "Audio", SourceLayer.Product, "external mic usb", surfacing = listOf("format_picker")),
-            CatalogRow("audio.spatial", "Spatial audio", "Audio", SourceLayer.Product, "spatial audio", appStatus = AppStatus.Partial),
-            CatalogRow("preview.pip", "Concurrent PiP preview", "Preview HUD", SourceLayer.Product, "pip dual preview", appStatus = AppStatus.Partial),
-            CatalogRow("video.multicam_melt", "Multicam Melt record", "Video", SourceLayer.Product, "multicam melt 4 cam", appStatus = AppStatus.Partial),
+            CatalogRow("audio.spatial", "Spatial audio", "Audio", SourceLayer.Product, "spatial audio", appStatus = AppStatus.Partial, parityProofScript = "pns_spatial_audio_verify.ps1", buildPlanSprint = "22.5"),
+            CatalogRow("preview.pip", "Concurrent PiP preview", "Preview HUD", SourceLayer.Product, "pip dual preview", appStatus = AppStatus.Partial, parityProofScript = "pns_pip_preview_verify.ps1", buildPlanSprint = "21.3"),
+            CatalogRow("video.multicam_melt", "Multicam Melt record", "Video", SourceLayer.Product, "multicam melt 4 cam", appStatus = AppStatus.Partial, parityProofScript = "pns_multicam_melt_verify.ps1", buildPlanSprint = "21.3"),
             CatalogRow("product.format_picker", "Format quality picker", "Fleet", SourceLayer.Product, "format picker cqi", surfacing = listOf("format_picker")),
             CatalogRow("tether.http", "Tether HTTP status", "Fleet", SourceLayer.Product, "tether http"),
             CatalogRow("tether.wifi_direct", "Wi-Fi Direct tether", "Fleet", SourceLayer.Product, "wifi direct"),

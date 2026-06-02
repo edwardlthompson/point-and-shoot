@@ -8,12 +8,12 @@ This file **does not replace** fresh exports on new hardware. When you attach ad
 
 | Stream | Artifact | What it captures |
 |--------|----------|------------------|
-| **A — Shallow probe export** | [`PROBE_RESULTS.md`](../PROBE_RESULTS.md) | Full **CameraCharacteristics** style dump for **OnePlus CPH2655**, **Android 16 (API 36)** (`generated` header in file). Use for **RAW / DR key advertisement** and **high-speed size × FPS** tables per `cameraId`. |
-| **B — Dodge topology** | [`DODGE_PROFILE.md`](../DODGE_PROFILE.md) | **OnePlus 13-class** triple rear stack: logical **`0`** → physical **`[2,3,4]`**, per-lens **HFR ceiling** (480 / 240 / 120), **RAW** sizes, **HDR / DCG** probe notes. |
-| **C — Scripted RAW matrix** | [`RAW_CAPTURE_DEVICE_MATRIX.md`](RAW_CAPTURE_DEVICE_MATRIX.md) | Same **CPH2655-class** unit under **cold ADB preview** + `pns_raw_capture_matrix.ps1`: whether **`captureRawStill`** + **`DngCreator`** path completes vs **session / HAL** failures (orthogonal to “RAW advertised” in stream A). |
-| **D — M13 fleet profiles** | Probe export **Fleet profiles** + **Fleet camera catalog** sections; `files/fleet_camera_profiles_<model>.json`; [`FLEET_ONEPLUS13_RAW_POLICY.md`](FLEET_ONEPLUS13_RAW_POLICY.md) | Per-`cameraId` **roles** (UW/wide/tele), **RAW format order**, **ProShot DNG** flags, **catalog** (public ids + physical children). Refreshed on **Camera capabilities probe → Export** without USB serials in committed markdown. |
+| **A — Shallow probe export** | [`PROBE_RESULTS.md`](../PROBE_RESULTS.md) | Full **CameraCharacteristics** style dump for **OnePlus legacy SKU**, **Android 16 (API 36)** (`generated` header in file). Use for **RAW / DR key advertisement** and **high-speed size × FPS** tables per `cameraId`. |
+| **B — Dodge topology** | [`DODGE_PROFILE.md`](../DODGE_PROFILE.md) | **legacy device-class** triple rear stack: logical **`0`** → physical **`[2,3,4]`**, per-lens **HFR ceiling** (480 / 240 / 120), **RAW** sizes, **HDR / DCG** probe notes. |
+| **C — Scripted RAW matrix** | [`RAW_CAPTURE_DEVICE_MATRIX.md`](RAW_CAPTURE_DEVICE_MATRIX.md) | Same **legacy SKU-class** unit under **cold ADB preview** + `pns_raw_capture_matrix.ps1`: whether **`captureRawStill`** + **`DngCreator`** path completes vs **session / HAL** failures (orthogonal to “RAW advertised” in stream A). |
+| **D — M13 fleet profiles** | Probe export **Fleet profiles** + **Fleet camera catalog** sections; `files/fleet_camera_profiles_<model>.json`; [`FLEET_ONEPLUS13_RAW_POLICY.md`](FLEET_ONEPLUS13_RAW_POLICY.md) | Per-`cameraId` **roles** (UW/wide/tele), **RAW format order**, **ReferenceCam DNG** flags, **catalog** (public ids + physical children). Refreshed on **Camera capabilities probe → Export** without USB serials in committed markdown. |
 
-Together, **A + B** satisfy “**≥2 extra device classes**” in the **documentation** sense: **shallow-export OnePlus 16 / CPH2655** vs **dodge-profile OnePlus 13 triple-stack** (distinct bill-of-materials and topology even when USB fleet overlaps). **C** adds a **runtime** dimension so RAW12 vs RAW10 ordering and session policy are not inferred from characteristics alone.
+Together, **A + B** satisfy “**≥2 extra device classes**” in the **documentation** sense: **shallow-export OnePlus 16 / legacy SKU** vs **dodge-profile legacy device triple-stack** (distinct bill-of-materials and topology even when USB fleet overlaps). **C** adds a **runtime** dimension so RAW12 vs RAW10 ordering and session policy are not inferred from characteristics alone.
 
 ## Diff highlights (RAW12 / HFR max / DR) — static vs product vs scripted
 
@@ -42,14 +42,14 @@ Together, **A + B** satisfy “**≥2 extra device classes**” in the **documen
 
 ### Stream D — fleet profile + catalog (Milestone 13)
 
-- **Probe export:** `CameraCapabilitiesProbe` appends **`FleetCameraProfileStore.appendProbeMarkdown`** (roles, RAW tier, ProShot flags) and **`appendCatalogMarkdown`** (id roster, physical children, OP13 aliases).
+- **Probe export:** `CameraCapabilitiesProbe` appends **`FleetCameraProfileStore.appendProbeMarkdown`** (roles, RAW tier, ReferenceCam flags) and **`appendCatalogMarkdown`** (id roster, physical children, legacy device aliases).
 - **On-disk JSON:** `Android/data/.../files/fleet_camera_profiles_<MODEL>.json` from first probe or preview session build.
-- **Policy doc:** [`FLEET_ONEPLUS13_RAW_POLICY.md`](FLEET_ONEPLUS13_RAW_POLICY.md) — **Standard** still = ProShot `DngCreator` path; wide-cal / reconcile **off** until USB bisect **13.3h** / **13.3e**.
-- **Host CI:** `scripts/pns_fixture_dng_gates.ps1` (openability on `tests/fixtures/proshot_cph2655/`) in **toolchain-verify** workflow.
+- **Policy doc:** [`FLEET_ONEPLUS13_RAW_POLICY.md`](FLEET_ONEPLUS13_RAW_POLICY.md) — **Standard** still = ReferenceCam `DngCreator` path; wide-cal / reconcile **off** until USB bisect **13.3h** / **13.3e**.
+- **Host CI:** `scripts/pns_fixture_dng_gates.ps1` (openability on `tests/fixtures/proshot_legacy_sku/`) in **toolchain-verify** workflow.
 
 ## Related automation
 
 - **`files/fleet_device_matrix.json`** (Milestone **16**) — fleet **source of truth** after hub shallow/full scan. Host: **`scripts/pns_fleet_matrix_scan.ps1`**, **`scripts/pns_fleet_matrix_diff.ps1`**, **`scripts/fleet_matrix_schema_validate.py`**.
 - **`scripts/pns_deep_caps_diff.ps1`** — legacy side-by-side for standalone **`deep_caps_*.json`** pulls; for fleet review prefer **`pns_fleet_matrix_diff.ps1`** on matrix JSON (full tier embeds deep caps under **`appendix.deepCaps`**).
-- **`scripts/pns_fixture_dng_gates.ps1`** — host DNG openability on committed ProShot reference fixtures (no device).
-- **`scripts/pns_op13_regression_pack.ps1`** — optional OP13 lane (matrix + aux DNG + parity); not a default gate on **CPH2583**.
+- **`scripts/pns_fixture_dng_gates.ps1`** — host DNG openability on committed ReferenceCam reference fixtures (no device).
+- **`scripts/pns_legacy_regression_pack.ps1`** — optional legacy device lane (matrix + aux DNG + parity); not a default gate on **CPH2583**.

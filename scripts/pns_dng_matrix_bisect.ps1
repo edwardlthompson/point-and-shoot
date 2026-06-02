@@ -3,7 +3,7 @@
   Run DNG pipeline matrix bisect steps on USB device; score with dng_color_metric.py.
 
 .EXAMPLE
-  .\scripts\pns_dng_matrix_bisect.ps1 -Serial 8bf09993
+  .\scripts\pns_dng_matrix_bisect.ps1 -Serial <serial>
   .\scripts\pns_dng_matrix_bisect.ps1 -Steps E1,E2,E5 -SkipBuild
 #>
 param(
@@ -26,12 +26,12 @@ $stepDefs = @{
         "--ez", "pns_preview_dng_skip_still_metadata", "true",
         "--ez", "pns_preview_dng_skip_unique_camera_model", "true"
     ) }
-    E2             = @{ label = "ProShot backend (RAW order + IQ)"; am = @("--es", "pns_preview_still_dng_backend", "framework_proshot") }
-    E2_reconcile   = @{ label = "ProShot + leaf ASN reconcile"; am = @(
+    E2             = @{ label = "ReferenceCam backend (RAW order + IQ)"; am = @("--es", "pns_preview_still_dng_backend", "framework_proshot") }
+    E2_reconcile   = @{ label = "ReferenceCam + leaf ASN reconcile"; am = @(
         "--es", "pns_preview_still_dng_backend", "framework_proshot",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "true"
     ) }
-    E2_skipmeta    = @{ label = "ProShot + skip metadata"; am = @(
+    E2_skipmeta    = @{ label = "ReferenceCam + skip metadata"; am = @(
         "--es", "pns_preview_still_dng_backend", "framework_proshot",
         "--ez", "pns_preview_dng_skip_still_metadata", "true"
     ) }
@@ -39,8 +39,8 @@ $stepDefs = @{
     E7_reconcile_mc = @{ label = "MotionCam + force leaf reconcile"; am = @(
         "--ez", "pns_preview_dng_force_leaf_reconcile", "true"
     ) }
-    E11_gains_asn = @{ label = "shipped: PROSHOT + gains-first ASN (no Bayer)"; am = @() }
-    E12_no_reconcile = @{ label = "PROSHOT + force reconcile OFF (ProShot parity)"; am = @(
+    E11_gains_asn = @{ label = "shipped: REFERENCECAM + gains-first ASN (no Bayer)"; am = @() }
+    E12_no_reconcile = @{ label = "REFERENCECAM + force reconcile OFF (ReferenceCam parity)"; am = @(
         "--es", "pns_preview_still_dng_backend", "framework_proshot",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "false"
     ) }
@@ -51,7 +51,7 @@ $stepDefs = @{
         "--ez", "pns_preview_dng_skip_software_desc", "true",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "false"
     ) }
-    E14_bayer_asn = @{ label = "PROSHOT + Bayer ASN (legacy bad path)"; am = @(
+    E14_bayer_asn = @{ label = "REFERENCECAM + Bayer ASN (legacy bad path)"; am = @(
         "--es", "pns_preview_still_dng_backend", "framework_proshot",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "true",
         "--ez", "pns_preview_dng_force_bayer_asn", "true"

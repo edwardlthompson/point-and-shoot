@@ -53,7 +53,7 @@ class ImageSpatialExtentsTest {
     }
 
     @Test
-    fun `encodePayload OnePlus 13 main wide 4096x3072 produces canonical layout`() {
+    fun `encodePayload Legacy device main wide 4096x3072 produces canonical layout`() {
         val payload = ImageSpatialExtents.encodePayload(4096L, 3072L)
         assertEquals(8, payload.size)
         // 4096 = 0x1000; 3072 = 0xC00

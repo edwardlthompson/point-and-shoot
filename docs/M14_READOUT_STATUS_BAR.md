@@ -2,7 +2,7 @@
 
 **Purpose:** Prevent regressions where video mode shows photo-only chips (Still LUT, IMG) or hides the recording timer.
 
-**Last verified:** 2026-05-21 on OnePlus 13 `8bf09993` (`pns_video_status_bar_verify.ps1`).
+**Last verified:** 2026-05-21 on legacy device `legacy serial` (`pns_video_status_bar_verify.ps1`).
 
 ---
 

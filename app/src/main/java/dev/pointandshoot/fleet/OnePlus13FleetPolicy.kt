@@ -8,11 +8,11 @@ import dev.pointandshoot.BracketPattern
 import dev.pointandshoot.RawStillProcessingHints
 
 /**
- * Canonical OnePlus 13 (CPH2655-class) RAW / focal policy (Milestone **13.2**).
+ * Canonical Legacy device (LegacySku-class) RAW / focal policy (Milestone **13.2**).
  * See `docs/FLEET_ONEPLUS13_RAW_POLICY.md` in the repo.
  */
-object OnePlus13FleetPolicy {
-    const val POLICY_ID: String = "oneplus_13_cph2655"
+object LegacyFleetPolicy {
+    const val POLICY_ID: String = "oneplus_13_legacy_sku"
 
     /** Dodge / DODGE_PROFILE rear leaf ids. */
     const val CANONICAL_UW: String = "3"
@@ -20,8 +20,8 @@ object OnePlus13FleetPolicy {
     const val CANONICAL_TELE: String = "4"
     const val CANONICAL_LOGICAL: String = "0"
 
-    /** ProShot leaf RAW pick order on opened id map (M13.3c). */
-    /** ProShot still order on opened map: 32, 37, 38, 36. */
+    /** ReferenceCam leaf RAW pick order on opened id map (M13.3c). */
+    /** ReferenceCam still order on opened map: 32, 37, 38, 36. */
     val LEAF_RAW_FORMAT_ORDER: List<Int> =
         listOf(
             ImageFormat.RAW_SENSOR,
@@ -32,7 +32,7 @@ object OnePlus13FleetPolicy {
 
     fun appliesToDevice(): Boolean {
         val model = Build.MODEL?.uppercase() ?: return false
-        return model.contains("CPH2655") || model.contains("CPH2653")
+        return model.contains("LegacySku") || model.contains("CPH2653")
     }
 
     fun canonicalRoles(ids: List<String>): BackCameraRoleResolver.Roles? =
@@ -83,9 +83,9 @@ object OnePlus13FleetPolicy {
     }
 
     /**
-     * CPH2655 still DNG: [StillDngBackend.FRAMEWORK_PROSHOT] — USB matrix bisect `20260519_030756`
+     * LegacySku still DNG: [StillDngBackend.FRAMEWORK_PROSHOT] — USB matrix bisect `20260519_030756`
      * proved MotionCam-inspired IQ left tele **B channel crushed** (render_green_delta ~0.42);
-     * ProShot path restores tele (delta ~0.03, `tele_ok` in `dng_color_metric.py`). UW remains open.
+     * ReferenceCam path restores tele (delta ~0.03, `tele_ok` in `dng_color_metric.py`). UW remains open.
      */
     fun stillDngBackend(): StillDngBackend = stillDngBackendWhen(appliesToDevice())
 
@@ -117,13 +117,13 @@ object OnePlus13FleetPolicy {
             BracketPattern.Three
         }
 
-    /** EV spacing between bracket stops (1.0 EV × 3 shots → −1 / 0 / +1 on OP13 step grid). */
+    /** EV spacing between bracket stops (1.0 EV × 3 shots → −1 / 0 / +1 on LegacyDevice step grid). */
     fun hdrStillEvStep(): Double = 1.0
 
     fun hdrStillShotCount(): Int = hdrStillBracketPattern().shotCount
 
     /**
-     * ProShot does minimal post-[DngCreator] TIFF edits. Skip [StillCaptureMetadata.applyToDngUri]
+     * ReferenceCam does minimal post-[DngCreator] TIFF edits. Skip [StillCaptureMetadata.applyToDngUri]
      * on all rear leaf ids (UW / wide / tele) so DNGs stay DngCreator + still IQ only.
      */
     fun skipStillMetadataApplyOnLeafDng(sessionCameraId: String): Boolean {
@@ -131,7 +131,7 @@ object OnePlus13FleetPolicy {
         return sessionCameraId in setOf(CANONICAL_UW, CANONICAL_WIDE, CANONICAL_TELE)
     }
 
-    /** ProShot does not stamp P&S LUT/software auxiliary strings on leaf DNGs. */
+    /** ReferenceCam does not stamp P&S LUT/software auxiliary strings on leaf DNGs. */
     fun skipDngSoftwareDescriptionOnLeaf(sessionCameraId: String): Boolean =
         useProShotPureDngSave() &&
             sessionCameraId in setOf(CANONICAL_UW, CANONICAL_WIDE, CANONICAL_TELE)
@@ -144,7 +144,7 @@ object OnePlus13FleetPolicy {
     internal fun useProShotPureDngSaveWhen(deviceApplies: Boolean): Boolean = deviceApplies
 
     /**
-     * Leaf still [CaptureRequest] mirrors ProShot decompile (crop + still IQ + HAL AE only).
+     * Leaf still [CaptureRequest] mirrors ReferenceCam decompile (crop + still IQ + HAL AE only).
      * See [dev.pointandshoot.ProShotLeafStillCaptureRequest].
      */
     fun useExactProShotLeafStillCaptureRequest(): Boolean =
@@ -154,30 +154,30 @@ object OnePlus13FleetPolicy {
         useProShotPureDngSaveWhen(deviceApplies)
 
     /**
-     * Bisect-only — copying ProShot reference CM/FM/ASN onto different RAW pixels worsened green cast
+     * Bisect-only — copying ReferenceCam reference CM/FM/ASN onto different RAW pixels worsened green cast
      * (May 2026 USB). Shipped path: [useProShotPureDngSave] + [StillCaptureIqPolicy] only.
      */
     fun useProShotReferenceCalibration(): Boolean = false
 
     /**
      * Bisect-only — post-save ASN/FM reconcile on aux leaf. Off when [useProShotPureDngSave] ships
-     * (matches ProShot: `DngCreator` only, no TIFF color surgery).
+     * (matches ReferenceCam: `DngCreator` only, no TIFF color surgery).
      */
-    fun useOp13LeafAuxColorReconcile(): Boolean = false
+    fun useLegacyLeafAuxColorReconcile(): Boolean = false
 
-    /** @see useOp13LeafAuxColorReconcile */
-    fun useUwProShotAsnReconcile(): Boolean = useOp13LeafAuxColorReconcile()
+    /** @see useLegacyLeafAuxColorReconcile */
+    fun useUwProShotAsnReconcile(): Boolean = useLegacyLeafAuxColorReconcile()
 
     /**
      * **13.3h bisect only** — wide CM/FM on aux DNGs broke ACR openability (see `docs/DNG_OPENABILITY_REGRESSIONS.md` R2).
      */
     fun useWideLeafCalibrationForAuxDng(): Boolean = false
 
-    /** **13.3g bisect only** — ProShot decompile still path has no AE-precapture loop before still. */
+    /** **13.3g bisect only** — ReferenceCam decompile still path has no AE-precapture loop before still. */
     fun useProShotStillPrecapture(): Boolean = false
 
-    /** Bisect only — ASN TIFF patch after save (not ProShot parity). */
-    fun useOp13AsnReconcileOnly(): Boolean = false
+    /** Bisect only — ASN TIFF patch after save (not ReferenceCam parity). */
+    fun useLegacyAsnReconcileOnly(): Boolean = false
 
     /** Bisect only — full HAL-cal CM/FM/NCP TIFF reconcile. */
     fun useHalColorCalibrationReconcile(): Boolean = false
@@ -198,7 +198,7 @@ object OnePlus13FleetPolicy {
         useWideLeafCalibrationForAuxDng() &&
             sessionCameraId in setOf(CANONICAL_UW, CANONICAL_TELE)
 
-    /** Scale aux integration toward wide-like brightness (USB tele ~2.5× under ProShot). */
+    /** Scale aux integration toward wide-like brightness (USB tele ~2.5× under ReferenceCam). */
     fun adjustProShotExposureLatch(
         sessionCameraId: String,
         latch: RawStillProcessingHints.ProShotExposureLatch,

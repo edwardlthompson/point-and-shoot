@@ -22,7 +22,7 @@
     Skip APK rebuild (use existing debug APK)
     
 .EXAMPLE
-    .\pns_hfr_video_verify.ps1 -TargetFps 240 -Serial 8bf09993
+    .\pns_hfr_video_verify.ps1 -TargetFps 240 -Serial <serial>
     
     .\pns_hfr_video_verify.ps1 -Fast
     

@@ -186,7 +186,7 @@ data class HudSettings(
      */
     val stillCaptureMode: StillCaptureMode = StillCaptureMode.Standard,
     /**
-     * Milestone **13.6** video encode lane. **Raw** is OP13-only via fleet policy; mutually exclusive
+     * Milestone **13.6** video encode lane. **Raw** is LegacyDevice-only via fleet policy; mutually exclusive
      * with research DCG HDR session in UI.
      */
     val videoEncodeLane: VideoEncodeLane = VideoEncodeLane.Encoded,
@@ -194,6 +194,11 @@ data class HudSettings(
     val burstModeEnabled: Boolean = false,
     val burstShotCount: Int = 5,
     val burstIntervalMs: Int = 350,
+    /**
+     * Burst quality strategy for tap-burst and photo long-press burst.
+     * Auto degrades quality at higher rates and restores quality at slower rates.
+     */
+    val burstPhotoQualityProfile: String = BurstPhotoQualityProfile.Auto.storageId,
     /** Sprint **15.29** — Night dial stack depth (4 / 6 / 8 JPEG frames). */
     val nightScapeFrameCount: Int = 6,
     /** Sprint **CC.1** — 0 = off; paired with [intervalometerRunning] on preview. */
@@ -238,6 +243,12 @@ data class HudSettings(
     val rackFocusDurationMs: Int = RackFocusPull.DEFAULT_DURATION_MS,
     /** Sprint **15.38** — dual-ISO HDR video (experimental; requires multi-res stream map). */
     val dualIsoVideoEnabled: Boolean = false,
+    /** Master safety gate for app-breaking experimental lanes. */
+    val enableExperimentalAppBreakingFeatures: Boolean = false,
+    /** Root-only CPH2583 high-resolution unlock lane. */
+    val enableExperimentalMaxResolutionUnlock: Boolean = false,
+    /** Optional vendor session-key experiment lane (independent from resolution override). */
+    val enableExperimentalVendorSessionKeys: Boolean = false,
 ) {
     fun videoShutterAngleEnum(): VideoShutterAngle = VideoShutterAngle.fromStorage(videoShutterAngle)
 
@@ -246,6 +257,9 @@ data class HudSettings(
     fun videoAudioSourceEnum(): VideoAudioSource = VideoAudioSource.fromStorage(videoAudioSource)
 
     fun timeLapseModeEnum(): TimeLapseMode = TimeLapseMode.fromStorage(timeLapseMode)
+
+    fun burstPhotoQualityProfileEnum(): BurstPhotoQualityProfile =
+        BurstPhotoQualityProfile.fromStorage(burstPhotoQualityProfile)
 
     /** True when wind NS/AEC may attach on the in-app video mic path. */
     fun windNoiseFilterActive(): Boolean =
@@ -326,6 +340,7 @@ data class HudSettings(
         private const val KEY_BURST_MODE = "burst_mode_enabled"
         private const val KEY_BURST_COUNT = "burst_shot_count"
         private const val KEY_BURST_INTERVAL_MS = "burst_interval_ms"
+        private const val KEY_BURST_PHOTO_QUALITY_PROFILE = "burst_photo_quality_profile"
         private const val KEY_NIGHTSCAPE_FRAME_COUNT = "nightscape_frame_count"
         private const val KEY_INTERVALOMETER_SEC = "intervalometer_interval_sec"
         private const val KEY_INTERVALOMETER_RUNNING = "intervalometer_running"
@@ -349,6 +364,9 @@ data class HudSettings(
         private const val KEY_RACK_WP_FAR = "rack_focus_wp_far"
         private const val KEY_RACK_DURATION_MS = "rack_focus_duration_ms"
         private const val KEY_DUAL_ISO_VIDEO = "dual_iso_video_enabled"
+        private const val KEY_EXPERIMENTAL_APP_BREAKING = "experimental_app_breaking_features"
+        private const val KEY_EXPERIMENTAL_MAX_RES_UNLOCK = "experimental_max_resolution_unlock"
+        private const val KEY_EXPERIMENTAL_VENDOR_SESSION_KEYS = "experimental_vendor_session_keys"
         private const val KEY_ANAMORPHIC_DESQUEEZE = "anamorphic_desqueeze_enabled"
         private const val KEY_ANAMORPHIC_SQUEEZE = "anamorphic_squeeze_factor"
         const val FOCUS_BREATHING_K_MIN = 0.001f
@@ -386,6 +404,7 @@ data class HudSettings(
         private const val KEY_IMG_RAW_TIER = "img_menu_raw_tier"
         private const val KEY_IMG_JPEG_TIER = "img_menu_jpeg_tier"
         private const val KEY_IMG_HDR_WHEN_JPEG_OFF = "img_menu_hdr_when_jpeg_off"
+        private const val KEY_IMG_SENSOR_RES_MODE = "img_menu_sensor_resolution_mode"
         private const val KEY_LAST_RAW_IMAGING_PROFILE_ID = "last_raw_imaging_profile_id"
 
         /** Last Standard / Ultra raw choice for BKT auto-exit from JPEG-only. */
@@ -417,8 +436,17 @@ data class HudSettings(
             val hdrOff = runCatching {
                 ImgMenuTier.valueOf(prefs.getString(KEY_IMG_HDR_WHEN_JPEG_OFF, ImgMenuTier.Standard.name)!!)
             }.getOrElse { ImgMenuTier.Standard }
+            val resolutionMode =
+                PhotoResolutionMode.fromStorage(
+                    prefs.getString(KEY_IMG_SENSOR_RES_MODE, PhotoResolutionMode.Binned.storageId),
+                )
             val hdrWhenOff = if (hdrOff == ImgMenuTier.Off) ImgMenuTier.Standard else hdrOff
-            return ComposedStillIntent(raw = raw, jpeg = jpeg, hdrWhenJpegOff = hdrWhenOff)
+            return ComposedStillIntent(
+                raw = raw,
+                jpeg = jpeg,
+                hdrWhenJpegOff = hdrWhenOff,
+                photoResolutionMode = resolutionMode,
+            )
         }
 
         fun saveComposedStillIntent(context: Context, intent: ComposedStillIntent) {
@@ -428,6 +456,7 @@ data class HudSettings(
                 .putString(KEY_IMG_RAW_TIER, intent.raw.name)
                 .putString(KEY_IMG_JPEG_TIER, intent.jpeg.name)
                 .putString(KEY_IMG_HDR_WHEN_JPEG_OFF, intent.hdrWhenJpegOff.name)
+                .putString(KEY_IMG_SENSOR_RES_MODE, intent.photoResolutionMode.storageId)
                 .putString(KEY_IMAGING_PROFILE, intent.storageProfile().id)
                 .apply()
         }
@@ -562,6 +591,9 @@ data class HudSettings(
                     AdvancedCaptureSettings.normalizeBurstIntervalMs(
                         prefs.getInt(KEY_BURST_INTERVAL_MS, defaults.burstIntervalMs),
                     ),
+                burstPhotoQualityProfile =
+                    prefs.getString(KEY_BURST_PHOTO_QUALITY_PROFILE, defaults.burstPhotoQualityProfile)
+                        ?: defaults.burstPhotoQualityProfile,
                 nightScapeFrameCount =
                     AdvancedCaptureSettings.normalizeNightScapeFrameCount(
                         prefs.getInt(KEY_NIGHTSCAPE_FRAME_COUNT, defaults.nightScapeFrameCount),
@@ -624,6 +656,15 @@ data class HudSettings(
                     ),
                 dualIsoVideoEnabled =
                     prefs.getBoolean(KEY_DUAL_ISO_VIDEO, defaults.dualIsoVideoEnabled),
+                enableExperimentalAppBreakingFeatures =
+                    prefs.getBoolean(KEY_EXPERIMENTAL_APP_BREAKING, defaults.enableExperimentalAppBreakingFeatures),
+                enableExperimentalMaxResolutionUnlock =
+                    prefs.getBoolean(KEY_EXPERIMENTAL_MAX_RES_UNLOCK, defaults.enableExperimentalMaxResolutionUnlock),
+                enableExperimentalVendorSessionKeys =
+                    prefs.getBoolean(
+                        KEY_EXPERIMENTAL_VENDOR_SESSION_KEYS,
+                        defaults.enableExperimentalVendorSessionKeys,
+                    ),
                 anamorphicDesqueezeEnabled =
                     prefs.getBoolean(KEY_ANAMORPHIC_DESQUEEZE, defaults.anamorphicDesqueezeEnabled),
                 anamorphicSqueezeFactor =
@@ -699,6 +740,7 @@ data class HudSettings(
                 .putBoolean(KEY_BURST_MODE, settings.burstModeEnabled)
                 .putInt(KEY_BURST_COUNT, settings.burstShotCount)
                 .putInt(KEY_BURST_INTERVAL_MS, settings.burstIntervalMs)
+                .putString(KEY_BURST_PHOTO_QUALITY_PROFILE, settings.burstPhotoQualityProfileEnum().storageId)
                 .putInt(KEY_NIGHTSCAPE_FRAME_COUNT, settings.nightScapeFrameCount)
                 .putInt(KEY_INTERVALOMETER_SEC, settings.intervalometerIntervalSec)
                 .putBoolean(KEY_INTERVALOMETER_RUNNING, settings.intervalometerRunning)
@@ -731,6 +773,9 @@ data class HudSettings(
                 .putFloat(KEY_RACK_WP_FAR, settings.rackFocusWaypointFar ?: 0f)
                 .putInt(KEY_RACK_DURATION_MS, RackFocusPull.coerceDurationMs(settings.rackFocusDurationMs))
                 .putBoolean(KEY_DUAL_ISO_VIDEO, settings.dualIsoVideoEnabled)
+                .putBoolean(KEY_EXPERIMENTAL_APP_BREAKING, settings.enableExperimentalAppBreakingFeatures)
+                .putBoolean(KEY_EXPERIMENTAL_MAX_RES_UNLOCK, settings.enableExperimentalMaxResolutionUnlock)
+                .putBoolean(KEY_EXPERIMENTAL_VENDOR_SESSION_KEYS, settings.enableExperimentalVendorSessionKeys)
                 .putBoolean(KEY_ANAMORPHIC_DESQUEEZE, settings.anamorphicDesqueezeEnabled)
                 .putFloat(KEY_ANAMORPHIC_SQUEEZE, settings.anamorphicSqueezeFactor.toFloat())
                 .commit()

@@ -49,7 +49,8 @@ object ColorQualityIndex {
     fun stillSpacesForPicker(): List<Pair<ColorSpaceTarget, Int>> =
         listOf(
             ColorSpaceTarget.Rec2020 to compute(Gamut.Rec2020, 10, Transfer.Hdr10Pq),
-            ColorSpaceTarget.ProPhotoRgb to compute(Gamut.ProPhotoRgb, 12, Transfer.Gamma709),
+            // Keep true output-max path (Rec2020 HDR) at the top for picker MAX actions.
+            ColorSpaceTarget.ProPhotoRgb to compute(Gamut.ProPhotoRgb, 10, Transfer.Gamma709),
             ColorSpaceTarget.AdobeRgb1998 to compute(Gamut.AdobeRgb1998, 10, Transfer.Gamma709),
             ColorSpaceTarget.DisplayP3 to compute(Gamut.DisplayP3, 10, Transfer.Gamma709),
             ColorSpaceTarget.SrgbRec709 to compute(Gamut.SrgbRec709, 8, Transfer.Gamma709),

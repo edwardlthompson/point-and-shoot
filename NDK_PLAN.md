@@ -174,7 +174,7 @@ already runs `assembleDebug`.
 ## Fallback strategy (encoder unavailable)
 
 If `System.loadLibrary("pns_native")` fails at runtime (e.g., the .so
-didn't ship for the target ABI - shouldn't happen on OnePlus 13 but is
+didn't ship for the target ABI - shouldn't happen on legacy device but is
 defensive against unexpected hosts), the Kotlin engine falls back per
 `FAILURE_MATRIX.md`:
 

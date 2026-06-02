@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Objective aux DNG color metrics for matrix bisect (CPH2655-class).
+Objective aux DNG color metrics for matrix bisect (legacy SKU-class).
 
 Compares UW / tele to wide reference from the same capture run. Lower aux-vs-wide
 |render_green_delta| and |raw_green_index_delta| suggest better color match.

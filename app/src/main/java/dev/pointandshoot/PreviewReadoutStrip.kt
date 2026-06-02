@@ -26,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -368,7 +369,7 @@ fun PreviewReadoutStrip(
     showStabChip: Boolean = true,
     /** Milestone **17.5** — fleet gate for IMG chip in photo mode. */
     showImgChipOverride: Boolean = true,
-    /** M19.6 — long-press opens [StillFormatPickerSheet]. */
+    /** M19.6 — optional long-press shortcut for [StillFormatPickerSheet] (primary entry is tray FAB). */
     onImgChipLongClick: () -> Unit = {},
     /** Sprint **14.8** — tap opens HAL focus-mode picker (CAF / manual distance / …). */
     focusChipValue: String = "CAF",
@@ -424,6 +425,12 @@ fun PreviewReadoutStrip(
     var videoLutMenu by remember { mutableStateOf(false) }
     var imgMenu by remember { mutableStateOf(false) }
     var videoResMenu by remember { mutableStateOf(false) }
+    var isoRangeStart by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(isoMenu) {
+        if (!isoMenu) {
+            isoRangeStart = null
+        }
+    }
     val stillLutChoices = remember { LutCatalog.forScope(LutCatalog.Scope.Stills) }
     val videoLutChoices = remember { LutCatalog.forScope(LutCatalog.Scope.Video) }
     val includeVideoRes = videoResSelectorVisible && videoEncodeSizes.isNotEmpty()
@@ -668,19 +675,45 @@ fun PreviewReadoutStrip(
                 }
                 PnsChromeDropdownMenu(expanded = isoMenu, onDismissRequest = { isoMenu = false }) {
                     Text(
-                        text = "ISO band (${menu.isoBand.menuLabel})",
+                        text = "ISO auto range (${menu.isoBand.menuLabel})",
                         style = labelStyle,
                         color = Color.White.copy(alpha = 0.65f),
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     )
-                    for (band in ReadoutIsoBand.entries) {
+                    PnsChromePlainMenuItem(
+                        label = "Auto (sensor range)",
+                        selected = menu.isoBand.isAutoRange,
+                        onClick = {
+                            onPickIsoBand(ReadoutIsoBand.AUTO)
+                            isoRangeStart = null
+                        },
+                    )
+                    val rangeStops = menu.isoChoices.filterNotNull().distinct().sorted()
+                    for (stop in rangeStops) {
+                        val selected = !menu.isoBand.isAutoRange && menu.isoBand.contains(stop)
                         PnsChromePlainMenuItem(
-                            label = band.menuLabel,
-                            selected = band == menu.isoBand,
+                            label = stop.toString(),
+                            selected = selected,
                             onClick = {
-                                onPickIsoBand(band)
-                                isoMenu = false
+                                val start = isoRangeStart
+                                if (start == null || menu.isoBand.isAutoRange) {
+                                    onPickIsoBand(ReadoutIsoBand.fromBounds(stop, stop))
+                                    isoRangeStart = stop
+                                } else {
+                                    val lo = minOf(start, stop)
+                                    val hi = maxOf(start, stop)
+                                    onPickIsoBand(ReadoutIsoBand.fromBounds(lo, hi))
+                                    isoRangeStart = null
+                                }
                             },
+                        )
+                    }
+                    if (isoRangeStart != null && !menu.isoBand.isAutoRange) {
+                        Text(
+                            text = "Tap another ISO to fill range from $isoRangeStart",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = PnsColors.PhotoOrange.copy(alpha = 0.82f),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
                     }
                     HorizontalDivider(color = Color.White.copy(alpha = 0.18f))
@@ -688,6 +721,7 @@ fun PreviewReadoutStrip(
                         if (choice == null) {
                             PnsChromePlainMenuItem(
                                 label = "Auto",
+                                selected = menu.selectedIso == null,
                                 onClick = {
                                     onPickIso(null)
                                     isoMenu = false
@@ -697,6 +731,7 @@ fun PreviewReadoutStrip(
                             PnsChromeDetailMenuItem(
                                 title = choice.toString(),
                                 subtitle = "Lock ISO · auto shutter",
+                                selected = choice == menu.selectedIso,
                                 onClick = {
                                     onPickIso(choice)
                                     isoMenu = false

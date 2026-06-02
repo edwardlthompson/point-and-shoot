@@ -8,7 +8,7 @@ import android.util.Log
 /**
  * HAL concurrent rear+front probe and policy for Sprint **15.5** dual video.
  *
- * Many devices (e.g. CPH2655) expose independent logical camera IDs but omit
+ * Many devices (including legacy-target hardware) expose independent logical camera IDs but omit
  * [CameraManager.getConcurrentCameraIds] — we still attempt dual open with capped front size/FPS.
  */
 object DualVideoHalConcurrency {
@@ -76,7 +76,7 @@ object DualVideoHalConcurrency {
 
     /**
      * When the user's rear id (e.g. wide **2**) is not in a concurrent set with front **1**, pick the
-     * other id from the set that contains [frontId] (CPH2655: **[0, 1]**).
+     * other id from the set that contains [frontId] (legacy target: **[0, 1]**).
      */
     fun resolveRearForDual(
         cm: CameraManager,

@@ -1,7 +1,7 @@
 ## Build + sideload without Android Studio (Windows)
 
 These instructions assume you already have:
-- **ADB** working (`adb devices` shows your OnePlus 13)
+- **ADB** working (`adb devices` shows your legacy device)
 - **Android SDK** installed (default path is `C:\Users\<you>\AppData\Local\Android\Sdk`)
 - **Android Studio is NOT required** (we use its embedded JDK only if you don't have a system JDK)
 

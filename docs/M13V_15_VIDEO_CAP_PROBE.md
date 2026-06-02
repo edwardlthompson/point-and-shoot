@@ -18,7 +18,7 @@ The cache feeds [`VideoFormatPresets.getHardwareTiers`](../app/src/main/java/dev
 
 Cold preview launch (`pns_screen=preview`); probe runs from [`PnsApplication`](../app/src/main/java/dev/pointandshoot/PnsApplication.kt) on a background coroutine.
 
-**Pass criteria (CPH2655-class reference):**
+**Pass criteria (legacy SKU-class reference):**
 
 | Check | Needle |
 |-------|--------|

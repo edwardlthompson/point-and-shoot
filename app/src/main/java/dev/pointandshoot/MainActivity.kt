@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
 import android.view.KeyEvent
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.core.content.IntentCompat
 import androidx.activity.compose.setContent
@@ -98,13 +99,35 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY, false) == true) {
             PnsAdbLog.i(applicationContext, "preview adb btMediaKeyAutomation extra=true")
         }
+        val adbForceSafeModePresent = intent?.hasExtra(EXTRA_PNS_PREVIEW_FORCE_SAFE_MODE) == true
+        val adbForceSafeMode = intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_FORCE_SAFE_MODE, false) == true
+        val adbExperimentalSeedPresent =
+            intent?.hasExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_MASTER) == true ||
+                intent?.hasExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_MAX_RES_UNLOCK) == true ||
+                intent?.hasExtra(EXTRA_PNS_PREVIEW_EXPERIMENTAL_VENDOR_SESSION) == true
+        if (adbForceSafeMode) {
+            ExperimentalSafeModeStore.forceSafeMode(this, "adb_seed")
+            ExperimentalSafeModeStore.disableExperimentalFlags(this)
+        } else if (adbForceSafeModePresent || adbExperimentalSeedPresent) {
+            ExperimentalSafeModeStore.clearSafeMode(this)
+        }
 
         // We handle merged cutout + gesture insets in Compose via rememberSystemInsetsDp.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBarsForImmersive()
         PnsWindowPreferredRefreshRate.applyUpTo(this)
 
-        val launchScreen = resolveLaunchScreenForMain(intent)
+        var launchScreen = resolveLaunchScreenForMain(intent)
+        val safeModeActive = ExperimentalSafeModeStore.isSafeModeActive(this)
+        if (safeModeActive) {
+            ExperimentalSafeModeStore.disableExperimentalFlags(this)
+            launchScreen = PNS_SCREEN_PROBE_HUB
+            Toast.makeText(
+                this,
+                "Safe Mode: experimental unlock lanes disabled after crash loop.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
         val imageCaptureReturn = resolveImageCaptureReturn()
         val videoCaptureReturn = resolveVideoCaptureReturn()
         val autoSweep = intent?.getBooleanExtra(EXTRA_PNS_AUTOSWEEP, false) ?: false
@@ -172,6 +195,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        ExperimentalSafeModeStore.markAppLaunchHealthy(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
             dm.registerDisplayListener(displayListener, mainHandler)

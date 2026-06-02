@@ -37,6 +37,21 @@
 | `GAP_PROVEN_NOT_ADVERTISED` | Works but evaluation pessimistic |
 | `GAP_PLANNED` | Catalog `Planned`; not yet in app |
 
+### M21 extended gap classes + consumer impact
+
+| Class | Blocks Full pass? | Consumer impact |
+|-------|-------------------|-----------------|
+| `GAP_PROBE_INVENTORY` | No | engineering_only |
+| `GAP_ADVERTISED_NOT_SURFACED` / `GAP_SURFACED_NOT_ADVERTISED` | No | planning |
+| `GAP_REGRESSION_SINCE_BASELINE` | Yes (with `-BaselineTag`) | ship_blocker |
+| `GAP_CONFLICT_RISK` | No | informational |
+| `GAP_UNAUTOMATED` | No | engineering_only |
+| `GAP_FLAKE_SUSPECT` | No | informational |
+| `GAP_HUMAN_ONLY` | No | informational (DNG color, ACR) |
+| `GAP_FLEET_PLUGIN_CANDIDATE` | No | engineering_only |
+
+**Quick tier:** matrix `scanTier=quick` treats `sessionOk` as unknown (null) — parity smoke uses HAL `advertised` without session-probe false negatives.
+
 ## Schema
 
 - Matrix **`schemaVersion`:** **2** (M18) — accepts v1 artifacts; v2 adds optional `product.focalRow`, `product.formatQuality`.

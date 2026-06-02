@@ -14,6 +14,8 @@ object CameraCapabilityCatalogExpansion {
         status: CameraCapabilityCatalog.AppStatus = CameraCapabilityCatalog.AppStatus.Shipped,
         surfacing: List<String> = emptyList(),
         visibility: CameraCapabilityCatalog.VisibilityPolicy = CameraCapabilityCatalog.VisibilityPolicy.HideWhenUnavailable,
+        sweepSkip: String? = null,
+        proofScript: String? = null,
     ): CameraCapabilityCatalog.CatalogRow =
         CameraCapabilityCatalog.CatalogRow(
             id = id,
@@ -24,6 +26,8 @@ object CameraCapabilityCatalogExpansion {
             appStatus = status,
             surfacing = surfacing,
             visibilityPolicy = visibility,
+            sweepSkipReason = sweepSkip,
+            parityProofScript = proofScript,
         )
 
     fun expandedRows(): List<CameraCapabilityCatalog.CatalogRow> = buildList {
@@ -46,10 +50,16 @@ object CameraCapabilityCatalogExpansion {
             for ((tierId, tierLabel) in tiers) {
                 val status =
                     when {
-                        codecId == "vp9" -> CameraCapabilityCatalog.AppStatus.Planned
+                        codecId == "vp9" -> CameraCapabilityCatalog.AppStatus.Partial
                         codecId == "av1" && tierId == "8k" -> CameraCapabilityCatalog.AppStatus.Partial
                         codecId == "h264" || codecId == "hevc" -> CameraCapabilityCatalog.AppStatus.Shipped
                         else -> CameraCapabilityCatalog.AppStatus.Partial
+                    }
+                val proofScript =
+                    when (codecId) {
+                        "av1" -> "pns_av1_parity_verify.ps1"
+                        "vp9" -> "pns_video_format_test.ps1"
+                        else -> null
                     }
                 add(
                     row(
@@ -60,6 +70,7 @@ object CameraCapabilityCatalogExpansion {
                         "$codecId $tierId video",
                         status,
                         surfacing = listOf("format_picker"),
+                        proofScript = proofScript,
                     ),
                 )
             }
@@ -72,25 +83,27 @@ object CameraCapabilityCatalogExpansion {
                     "Video",
                     CameraCapabilityCatalog.SourceLayer.Camera2,
                     "hfr $fps",
-                    if (fps <= 60) CameraCapabilityCatalog.AppStatus.NotApplicable else CameraCapabilityCatalog.AppStatus.Partial,
+                    CameraCapabilityCatalog.AppStatus.Partial,
                     surfacing = listOf("fps_rail"),
+                    proofScript = "pns_hfr_fps_parity_verify.ps1",
                 ),
             )
         }
 
         val stillFormats =
             listOf(
-                "jpeg" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "avif" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "jxl" to CameraCapabilityCatalog.AppStatus.Partial,
-                "dng" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "heic" to CameraCapabilityCatalog.AppStatus.Planned,
-                "tiff16" to CameraCapabilityCatalog.AppStatus.Planned,
-                "motion_photo" to CameraCapabilityCatalog.AppStatus.Planned,
-                "monochrome_sensor" to CameraCapabilityCatalog.AppStatus.Planned,
+                Triple("jpeg", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("avif", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("jxl", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
+                Triple("dng", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("heic", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
+                Triple("tiff16", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
+                Triple("motion_photo", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
+                Triple("monochrome_sensor", CameraCapabilityCatalog.AppStatus.ProbeOnly, null),
             )
-        for ((fmt, st) in stillFormats) {
-            add(row("still.$fmt", "Still $fmt export", "Still capture", keywords = fmt, status = st))
+        for ((fmt, st, script) in stillFormats) {
+            val sweepSkip = if (fmt == "monochrome_sensor") "probe_only_inventory" else null
+            add(row("still.$fmt", "Still $fmt export", "Still capture", keywords = fmt, status = st, proofScript = script, sweepSkip = sweepSkip))
         }
 
         val hudFeatures =
@@ -119,22 +132,23 @@ object CameraCapabilityCatalogExpansion {
                 "focus_breathing" to "Focus breathing compensation",
             )
         for ((id, name) in afFeatures) {
-            val st = if (id == "macro_dedicated") CameraCapabilityCatalog.AppStatus.Planned else CameraCapabilityCatalog.AppStatus.Shipped
-            add(row("af.$id", name, "Face & AF", status = st))
+            val st = if (id == "macro_dedicated") CameraCapabilityCatalog.AppStatus.ProbeOnly else CameraCapabilityCatalog.AppStatus.Shipped
+            val sweepSkip = if (id == "macro_dedicated") "probe_only_inventory" else null
+            add(row("af.$id", name, "Face & AF", status = st, sweepSkip = sweepSkip))
         }
 
         val audioFeatures =
             listOf(
-                "aac_48k" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "aac_96k" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "wind_filter" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "spatial" to CameraCapabilityCatalog.AppStatus.Partial,
-                "voiceover_duck" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "light_compression" to CameraCapabilityCatalog.AppStatus.Shipped,
-                "unprocessed" to CameraCapabilityCatalog.AppStatus.Partial,
+                Triple("aac_48k", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("aac_96k", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("wind_filter", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("spatial", CameraCapabilityCatalog.AppStatus.Partial, "pns_spatial_audio_verify.ps1"),
+                Triple("voiceover_duck", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("light_compression", CameraCapabilityCatalog.AppStatus.Shipped, null),
+                Triple("unprocessed", CameraCapabilityCatalog.AppStatus.Partial, "pns_audio_unprocessed_verify.ps1"),
             )
-        for ((id, st) in audioFeatures) {
-            add(row("audio.$id", "Audio $id", "Audio", status = st, surfacing = listOf("format_picker")))
+        for ((id, st, script) in audioFeatures) {
+            add(row("audio.$id", "Audio $id", "Audio", status = st, surfacing = listOf("format_picker"), proofScript = script))
         }
 
         val perfFeatures =
@@ -153,12 +167,13 @@ object CameraCapabilityCatalogExpansion {
             listOf(
                 "http_status" to CameraCapabilityCatalog.AppStatus.Shipped,
                 "wifi_direct" to CameraCapabilityCatalog.AppStatus.Partial,
-                "web_ui" to CameraCapabilityCatalog.AppStatus.Planned,
-                "push_notify" to CameraCapabilityCatalog.AppStatus.Planned,
+                "web_ui" to CameraCapabilityCatalog.AppStatus.ProbeOnly,
+                "push_notify" to CameraCapabilityCatalog.AppStatus.ProbeOnly,
                 "nsd_mdns" to CameraCapabilityCatalog.AppStatus.Partial,
             )
         for ((id, st) in tetherFeatures) {
-            add(row("tether.$id", "Tether $id", "Fleet", status = st))
+            val sweepSkip = if (id == "web_ui" || id == "push_notify") "probe_only_inventory" else null
+            add(row("tether.$id", "Tether $id", "Fleet", status = st, sweepSkip = sweepSkip))
         }
 
         val cameraxModes =
@@ -170,8 +185,9 @@ object CameraCapabilityCatalogExpansion {
                     "CameraX $mode",
                     "CameraX",
                     CameraCapabilityCatalog.SourceLayer.CameraX,
-                    status = if (mode in listOf("NIGHT", "BOKEH", "HDR")) CameraCapabilityCatalog.AppStatus.ProbeOnly else CameraCapabilityCatalog.AppStatus.Planned,
+                    status = CameraCapabilityCatalog.AppStatus.ProbeOnly,
                     visibility = CameraCapabilityCatalog.VisibilityPolicy.ShowDisabledEngineering,
+                    sweepSkip = "probe_only_inventory",
                 ),
             )
         }
@@ -185,7 +201,16 @@ object CameraCapabilityCatalogExpansion {
                 "video.anamorphic" to "Anamorphic desqueeze",
             )
         for ((id, name) in legacyRows) {
-            add(row(id, name, "Legacy", status = CameraCapabilityCatalog.AppStatus.Planned, visibility = CameraCapabilityCatalog.VisibilityPolicy.ShowDisabledEngineering))
+            add(
+                row(
+                    id,
+                    name,
+                    "Legacy",
+                    status = CameraCapabilityCatalog.AppStatus.ProbeOnly,
+                    visibility = CameraCapabilityCatalog.VisibilityPolicy.ShowDisabledEngineering,
+                    sweepSkip = "probe_only_inventory",
+                ),
+            )
         }
 
         val sessionRows =
@@ -215,18 +240,47 @@ object CameraCapabilityCatalogExpansion {
             )
         for (enc in encoderProbes) {
             val slug = enc.replace('.', '_')
-            add(row("encoder.$slug", "Encoder $enc", "Video", CameraCapabilityCatalog.SourceLayer.HalEncoder, enc, CameraCapabilityCatalog.AppStatus.ProbeOnly, visibility = CameraCapabilityCatalog.VisibilityPolicy.ShowDisabledEngineering))
+            add(
+                row(
+                    "encoder.$slug",
+                    "Encoder $enc",
+                    "Video",
+                    CameraCapabilityCatalog.SourceLayer.HalEncoder,
+                    enc,
+                    CameraCapabilityCatalog.AppStatus.ProbeOnly,
+                    visibility = CameraCapabilityCatalog.VisibilityPolicy.ShowDisabledEngineering,
+                    sweepSkip = "probe_only_inventory",
+                ),
+            )
         }
 
         for (profile in listOf("hdr10", "hlg10", "bt709", "pq", "flat")) {
-            add(row("video.color.$profile", "Video color $profile", "Video", keywords = profile, status = CameraCapabilityCatalog.AppStatus.Partial))
+            add(
+                row(
+                    "video.color.$profile",
+                    "Video color $profile",
+                    "Video",
+                    keywords = profile,
+                    status = CameraCapabilityCatalog.AppStatus.Partial,
+                    proofScript = "pns_video_color_profile_verify.ps1",
+                ),
+            )
         }
 
         for (dial in listOf("h", "bkt", "m", "macro", "qr", "dual", "night", "bokeh")) {
             add(row("dial.$dial", "Command dial $dial", "Still capture", keywords = "dial $dial"))
         }
 
-        add(row("video.delivery_honesty", "Delivery vs picker honesty", "Video", status = CameraCapabilityCatalog.AppStatus.Partial))
+        add(
+            CameraCapabilityCatalog.CatalogRow(
+                id = "video.delivery_honesty",
+                displayName = "Delivery vs picker honesty",
+                category = "Video",
+                sourceLayer = CameraCapabilityCatalog.SourceLayer.Product,
+                appStatus = CameraCapabilityCatalog.AppStatus.Partial,
+                parityProofScript = "pns_parity_proof_pack.ps1",
+            ),
+        )
         add(row("preview.measured_fps", "Preview measured FPS", "Preview HUD", status = CameraCapabilityCatalog.AppStatus.Shipped))
         add(row("lens.fleet_focal_row", "Fleet adaptive focal row", "Lens", surfacing = listOf("focal_row")))
         add(row("policy.os_flavor_plugin", "OS flavor fleet policy", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial))
@@ -234,12 +288,37 @@ object CameraCapabilityCatalogExpansion {
         add(row("fleet.macro_benchmark_export", "Fleet macro benchmark CSV", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial, surfacing = listOf("engineering_hub")))
         add(row("workflow.presets_from_matrix", "Workflow presets from matrix", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial))
         add(row("preview.ae_lock", "Preview AE lock", "Preview HUD", surfacing = listOf("qs_grid")))
-        add(row("still.independent_tonal", "Independent tonal still", "Still capture", status = CameraCapabilityCatalog.AppStatus.Partial))
+        add(row("still.independent_tonal", "Independent tonal still", "Still capture", status = CameraCapabilityCatalog.AppStatus.Partial, proofScript = "pns_independent_tonal_verify.ps1"))
         add(row("video.side_panels", "Video side panels", "Video", status = CameraCapabilityCatalog.AppStatus.Shipped))
         add(row("fleet.regression_pack", "Fleet regression pack", "Fleet", status = CameraCapabilityCatalog.AppStatus.Shipped, surfacing = listOf("engineering_hub")))
         add(row("tether.nsd", "NSD tether registrar", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial))
         add(row("hud.readout_strip", "Preview readout strip", "Preview HUD", status = CameraCapabilityCatalog.AppStatus.Shipped))
         add(row("video.time_lapse", "Time lapse encoder", "Video", status = CameraCapabilityCatalog.AppStatus.Shipped))
-        add(row("still.proshot_leaf", "ProShot leaf DNG path", "Still capture", status = CameraCapabilityCatalog.AppStatus.Partial))
+        add(
+            CameraCapabilityCatalog.CatalogRow(
+                id = "still.proshot_leaf",
+                displayName = "ReferenceCam leaf DNG path",
+                category = "Still capture",
+                sourceLayer = CameraCapabilityCatalog.SourceLayer.Product,
+                appStatus = CameraCapabilityCatalog.AppStatus.ProbeOnly,
+                parityProofScript = "pns_aux_dng_capture_analyze.ps1",
+                buildPlanSprint = "21.11",
+                humanOnly = true,
+                sweepSkipReason = "probe_only_inventory",
+            ),
+        )
+        for ((preset, label) in listOf("street" to "street", "portrait" to "portrait", "video_log" to "video_log")) {
+            add(
+                CameraCapabilityCatalog.CatalogRow(
+                    id = "workflow.preset.$preset",
+                    displayName = "Workflow preset $label",
+                    category = "Fleet",
+                    sourceLayer = CameraCapabilityCatalog.SourceLayer.Product,
+                    keywords = "workflow $label",
+                    parityProofScript = "pns_workflow_test.ps1",
+                    buildPlanSprint = "21.13",
+                ),
+            )
+        }
     }
 }

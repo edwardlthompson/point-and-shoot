@@ -271,7 +271,7 @@ object TexturePreviewFit {
 
     /**
      * Buffer pixel → view pixel using the same **fit × ST** matrix as
-     * [composeExternalOesPreviewMatrix] / [TextureView.setTransform] (ProShot-style preview).
+     * [composeExternalOesPreviewMatrix] / [TextureView.setTransform] (ReferenceCam-style preview).
      */
     fun mapBufferToViewWithExternalOesPreview(
         bufferX: Float,

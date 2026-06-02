@@ -19,7 +19,7 @@ At **120 fps**, `PreviewController.maybeRestartBody()` used `pickHighSpeedTarget
 .\scripts\pns_mediacodec_hfr_verify.ps1
 ```
 
-**4K_120fps_MediaCodec** pass criteria (CPH2655-class):
+**4K_120fps_MediaCodec** pass criteria (legacy SKU-class):
 
 - Chrome prefs **3840×2160** (SharedPrefs patch and/or ADB encode extras) + preview **120 fps** → **MediaCodec** path (`mcVideoPrepared` @ **120** fps on **1280×720** or **1920×1080** when HAL has no 4K HS size).
 - Constrained high-speed **capture** may stay **1280×720** (HAL lists only **720p@120** in `highSpeedVideoSizes`; encoder still advertises **4K@120**).

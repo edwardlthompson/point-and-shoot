@@ -1,6 +1,6 @@
 # Milestone 13.7 — Fleet RAW gate
 
-Automated rows for **Milestone 13** closure are **PASS** on reference fleet **CPH2655** (`8bf09993`, May 2026). **Milestone 13.7** cannot fully close until **Milestone H → Sprint H.7** human sign-off.
+Automated rows for **Milestone 13** closure are **PASS** on reference fleet **legacy SKU** (`legacy serial`, May 2026). **Milestone 13.7** cannot fully close until **Milestone H → Sprint H.7** human sign-off.
 
 ## Automated checklist (PASS)
 
@@ -21,14 +21,14 @@ Automated rows for **Milestone 13** closure are **PASS** on reference fleet **CP
 | Item | Artifact |
 |------|----------|
 | ACR 3/3 M14/M23/M73 | `ACR_HUMAN_VERIFY.md` in aux DNG run folder |
-| Visual aux color vs ProShot | Same folder + daylight notes |
+| Visual aux color vs ReferenceCam | Same folder + daylight notes |
 | Standard / ZSL / HDR ACR compare | `STILL_MODE_COMPARE.md` in **13.8d** gate folder |
 
 Record pass: `pns_m13_3g2_gate.ps1 -Dir <aux_dir> -RecordAcrPass` and optional `pns_m13_8d_gate.ps1 -RecordHumanPass`.
 
 ## Known HAL gap (documented, not gate-blocking for ship prep)
 
-- **ProShot parity (rawpy):** UW/tele **FAIL** vs reference fixtures — HAL ColorMatrix2 / leaf calibration; see **`docs/M13_3F_DAYLIGHT_GATE.md`**.
+- **ReferenceCam parity (rawpy):** UW/tele **FAIL** vs reference fixtures — HAL ColorMatrix2 / leaf calibration; see **`docs/M13_3F_DAYLIGHT_GATE.md`**.
 
 ## Host-only gate (no device)
 

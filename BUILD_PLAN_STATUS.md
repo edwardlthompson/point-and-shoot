@@ -17,7 +17,7 @@
 ### Milestone 12 — Post-Audit Capture Completeness
 | Sprint | Status | Key Deliverables |
 |--------|--------|------------------|
-| 12.1 | ✅ | Audio recording with AAC 48kHz; ADB verified on OnePlus 13 |
+| 12.1 | ✅ | Audio recording with AAC 48kHz; ADB verified on legacy device |
 | 12.2 | 🔄 | HFR research ✅ (40 indicators found); Implementation pending |
 | 12.3 | 🔄 | NDK build ✅; libpns_native.so in APK; Device encode tests pending capture path |
 | 12.4 | ⏳ | Architecture refactoring pending (VideoRecordingController extraction) |
@@ -36,7 +36,7 @@
 | Metric | Count |
 |--------|-------|
 | Scripts Created | 9 new PowerShell scripts |
-| ADB Test Cycles | 20+ on OnePlus 13 (8bf09993) |
+| ADB Test Cycles | 20+ on legacy device (legacy serial) |
 | BUILD_PLAN Items Completed | 30+ checked off |
 | Files Pulled for Review | 32 files (446 MB) |
 | Lines of Code Changed | ~50 (folder consolidation + audio feature) |

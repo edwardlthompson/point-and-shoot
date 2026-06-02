@@ -7,7 +7,7 @@ Point & Shoot surfaces in-app video formats from **hardware MediaCodec performan
 | Use case | Codec | Resolution / FPS | Notes |
 |----------|-------|------------------|-------|
 | **Sharing / compatibility** | H.264 | 1080p @ 30–60 | MediaRecorder path; widest player support. |
-| **Default quality (rear)** | H.265 8-bit | 4K @ 30 or 1080p @ 60 | Good size/quality on OP13-class devices. |
+| **Default quality (rear)** | H.265 8-bit | 4K @ 30 or 1080p @ 60 | Good size/quality on legacy device-class devices. |
 | **HFR / slow-mo** | H.264 or H.265 8-bit | 1080p @ 120/240/480 or 4K @ 120 | **MediaCodec** + **constrained high-speed** burst; see **`docs/VIDEO_MODE_MATRIX.md`**. |
 | **Maximum SDR dynamic range** | DCG (HEVC HDR10) | 4K @ 30–60 | Research HUD + HAL DCG; verify with `pns_video_hdr10_metadata_verify.ps1`. |
 | **10-bit SDR / grading** | H.265 10-bit | 1080p–4K @ ≤60 | Main10 + BT.2020 HLG tags; MediaCodec. |
@@ -15,7 +15,7 @@ Point & Shoot surfaces in-app video formats from **hardware MediaCodec performan
 
 ## AV1 (VF.1)
 
-- Shown in the format picker only when `PNS.VideoCapProbe` reports `av1=true` (e.g. `c2.qti.av1.encoder` on CPH2655).
+- Shown in the format picker only when `PNS.VideoCapProbe` reports `av1=true` (e.g. `c2.qti.av1.encoder` on legacy SKU).
 - Recording uses `MediaCodecVideoRecorder` with `MIMETYPE_VIDEO_AV1` — not `MediaRecorder` (which has no AV1 surface on this stack).
 - ADB smoke: `--ez pns_preview_video_av1 true --ei pns_preview_video_encode_w 1920 --ei pns_preview_video_encode_h 1080 --ei pns_preview_video_fps 60`
 

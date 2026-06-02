@@ -1,6 +1,6 @@
-# P&S DNG alignment spike (from ProShot forensics)
+# P&S DNG alignment spike (from ReferenceCam forensics)
 
-**Status:** Forensics + **loadability fix** shipped May 2026 on `8bf09993`. Color alignment vs ProShot remains open. Triage matrix: **`docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`** (common vs different across ProShot / MotionCam / P&S).
+**Status:** Forensics + **loadability fix** shipped May 2026 on `legacy serial`. Color alignment vs ReferenceCam remains open. Triage matrix: **`docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`** (common vs different across ReferenceCam / MotionCam / P&S).
 
 **Do not:** Re-apply `DngForwardMatrixFix` / full `TiffDngColorMatrixPatch` CM·FM overwrite in the save path (reverted May 2026; broke wide/tele and risks Adobe load failures).
 
@@ -24,17 +24,17 @@
 
 ## Forensics results (`proshot_reference_20260518_025412`)
 
-| Observation | ProShot (3 DNGs) | P&S (`aux_dng_capture_analyze_20260518_025101`) |
+| Observation | ReferenceCam (3 DNGs) | P&S (`aux_dng_capture_analyze_20260518_025101`) |
 |---------------|-------------------|--------------------------------------------------|
 | `FM1[0,0]` | **0.4375 on all three** | **0.4375 on all three** (M14/M23/M73) |
 | ASN WB (R/B) | Differs per file (e.g. R=1.499–1.741) | Differs per slot |
-| FM patch hypothesis | **Ruled out** — ProShot looks correct with the same wide FM in file tags | |
+| FM patch hypothesis | **Ruled out** — ReferenceCam looks correct with the same wide FM in file tags | |
 
-**Conclusion:** Good ProShot color is **not** explained by distinct ForwardMatrix tags in the DNG file. Next work is **session / pixel / ColorMatrix2 / lens-shading / pairing**, not TIFF FM surgery.
+**Conclusion:** Good ReferenceCam color is **not** explained by distinct ForwardMatrix tags in the DNG file. Next work is **session / pixel / ColorMatrix2 / lens-shading / pairing**, not TIFF FM surgery.
 
 **APK (`base.apk`):** `DngCreator`, `setPhysicalCameraId`, `LOGICAL_MULTI_CAMERA`, `LENS_SHADING` present in dex (`apk_strings_grep.txt`).
 
-**User ProShot captures + dumpsys (`proshot_adb_forensics_20260518_025806`):** ProShot **CONNECT** sequence **device 3 → 2 → 4** — **same leaf ids** as P&S M14/M23/M73. Camera id choice is **ruled out** as the sole difference vs ProShot color.
+**User ReferenceCam captures + dumpsys (`proshot_adb_forensics_20260518_025806`):** ReferenceCam **CONNECT** sequence **device 3 → 2 → 4** — **same leaf ids** as P&S M14/M23/M73. Camera id choice is **ruled out** as the sole difference vs ReferenceCam color.
 
 ---
 
@@ -42,11 +42,11 @@
 
 ### 1. Camera id / session topology — same ids; pairing / requests differ
 
-**Confirmed:** ProShot and P&S both use leaf **3 / 2 / 4** for UW / wide / tele on this session.
+**Confirmed:** ReferenceCam and P&S both use leaf **3 / 2 / 4** for UW / wide / tele on this session.
 
 **Still open:**
 
-- ProShot may use leaf `DngCreator(characteristics, result)` without hybrid logical pairing; P&S leaf saves show `picked=null` in `dng save diag` — verify `DngCreator` inputs match opened `camId`.
+- ReferenceCam may use leaf `DngCreator(characteristics, result)` without hybrid logical pairing; P&S leaf saves show `picked=null` in `dng save diag` — verify `DngCreator` inputs match opened `camId`.
 - Tele HAL: `logicalCameraId: 3, cameraId: 4` on close — check whether P&S tele session should use logical **3** for metadata when device is **4**.
 
 **P&S direction:** Leaf RAW still path: `DngCreator(characteristics(camId), totalResult)` **without** `DngMetadataResolver` hybrid when `sessionCameraId` is already a leaf id (`picked=null`, empty `physicalCameraTotalResults` in `dng save diag`).
@@ -55,7 +55,7 @@
 
 **P&S:** `pickRawOutputForPreviewSession` with `usePhysicalChildRawStreamMapForLogicalSession=false` and `shouldPreferRawSensorForAuxPhysicalPreviewPin` on logical parent.
 
-**Check ProShot:** `RAW_SENSOR` vs `RAW12` in APK strings / logcat; WxH in tag diff vs P&S `rawFmt=32` / `4096x3072`.
+**Check ReferenceCam:** `RAW_SENSOR` vs `RAW12` in APK strings / logcat; WxH in tag diff vs P&S `rawFmt=32` / `4096x3072`.
 
 ### 3. Capture request keys
 
@@ -63,7 +63,7 @@
 
 **P&S today:** No `LENS_SHADING` keys in codebase (grep).
 
-**Spike:** Gate on characteristics; set on `TEMPLATE_STILL_CAPTURE` when RAW attached — USB compare to ProShot logcat if visible.
+**Spike:** Gate on characteristics; set on `TEMPLATE_STILL_CAPTURE` when RAW attached — USB compare to ReferenceCam logcat if visible.
 
 ### 4. Post-DngCreator processing
 
@@ -71,7 +71,7 @@
 
 **Do not reintroduce:** `ExifInterface` on DNG; IFD0 CM/FM TIFF surgery in `LeafDngHalReconcile`.
 
-**Check ProShot:** If tags match P&S but color differs → unlikely; if tags differ per lens (distinct FM per cam) → HAL + correct pairing, not TIFF rewrite.
+**Check ReferenceCam:** If tags match P&S but color differs → unlikely; if tags differ per lens (distinct FM per cam) → HAL + correct pairing, not TIFF rewrite.
 
 ### 5. Role / id table mismatch
 
@@ -81,10 +81,10 @@
 
 ## Implementation order (after forensics)
 
-1. Confirm ProShot tag diff shows per-lens distinct ForwardMatrix (or correct CM2) without post-patch.
+1. Confirm ReferenceCam tag diff shows per-lens distinct ForwardMatrix (or correct CM2) without post-patch.
 2. Narrow leaf vs logical path in `PreviewEngineScreen` still save (resolver only when `physicalChildren` non-empty on session id).
 3. Optional: lens shading on still RAW request.
-4. USB: `pns_aux_dng_capture_analyze.ps1` + visual check in darktable/ACR; compare to ProShot files in same folder.
+4. USB: `pns_aux_dng_capture_analyze.ps1` + visual check in darktable/ACR; compare to ReferenceCam files in same folder.
 
 **Locks unchanged:** `allowPhysicalTotalResultPairing=false`, preview-only physical pin, §4a stream hints off, §2 Default RAW tier per `AGENTS.md`.
 
@@ -94,6 +94,6 @@
 
 | Run | Path |
 |-----|------|
-| ProShot pull + diff | `hfr-runs/proshot_reference_*` |
-| ProShot logcat/dumpsys | `hfr-runs/proshot_adb_forensics_*` |
+| ReferenceCam pull + diff | `hfr-runs/proshot_reference_*` |
+| ReferenceCam logcat/dumpsys | `hfr-runs/proshot_adb_forensics_*` |
 | P&S baseline capture | `hfr-runs/aux_dng_capture_analyze_*` |

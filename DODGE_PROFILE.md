@@ -1,8 +1,8 @@
-# Dodge profile (OnePlus 13 / LineageOS 23 / Camera2)
+# Dodge profile (legacy device / LineageOS 23 / Camera2)
 
-This document maps the **Point & Shoot** shooting modes (15/23/35/50/73/85/150/21mm eq.) to **Camera2 cameraId(s)** on the OnePlus 13 (`dodge`). It satisfies **BUILD_PLAN.md §3** (“hardware-to-software mapping”): each focal-equivalent mode lists **cameraId(s)**, **physicalCameraId(s)** where logical, **sensor role + constraints** (RAW / HDR·DCG / OIS / macro), and **digital-crop metadata strategy** for 35 / 50 / 85 / 150mm.
+This document maps the **Point & Shoot** shooting modes (15/23/35/50/73/85/150/21mm eq.) to **Camera2 cameraId(s)** on the legacy device (`dodge`). It satisfies **BUILD_PLAN.md §3** (“hardware-to-software mapping”): each focal-equivalent mode lists **cameraId(s)**, **physicalCameraId(s)** where logical, **sensor role + constraints** (RAW / HDR·DCG / OIS / macro), and **digital-crop metadata strategy** for 35 / 50 / 85 / 150mm.
 
-Primary probe artifacts: exported **`PROBE_EXPORT_LATEST.md`** (Markdown dump), **`hfr-runs/deep_caps_round11.json`** (lensInfo + keys; adb **8bf09993**), plus newer **`deep_caps_*.json`** / **`logical_physical_*.json`** runs under `hfr-runs/` when present.
+Primary probe artifacts: exported **`PROBE_EXPORT_LATEST.md`** (Markdown dump), **`hfr-runs/deep_caps_round11.json`** (lensInfo + keys; adb **legacy serial**), plus newer **`deep_caps_*.json`** / **`logical_physical_*.json`** runs under `hfr-runs/` when present.
 
 **Fleet evidence (Milestone 10 Sprint 10.8):** see **`docs/FLEET_REFERENCE_M10_8.md`** for reconciling this profile with committed **`PROBE_RESULTS.md`** and scripted RAW outcomes in **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**.
 
@@ -138,7 +138,7 @@ The finder readout RAW pipeline chip (`PreviewReadoutStrip`) and the matching
 `PNS.ChromeUx` `readoutCapture=` line are computed by **`PreviewReadoutStillPipeline`**:
 
 - **Standard Pro** — **`DNG`**: lossless compressed DNG only. **`DNG+`**: user enabled **RAW + JPEG companion** *and* the preview session actually attached a hardware JPEG **`ImageReader`** (`PreviewController.previewUsesJpegCompanion()`).
-- **Ultra-Max** — **`DNG12`**: uncompressed RAW12 DNG intent (JPEG companion is often omitted on **CPH2655-class** stacks where RAW12+JPEG broke session create). **`DNG12+`** when both the profile and the live session carry the companion surface.
+- **Ultra-Max** — **`DNG12`**: uncompressed RAW12 DNG intent (JPEG companion is often omitted on **legacy SKU-class** stacks where RAW12+JPEG broke session create). **`DNG12+`** when both the profile and the live session carry the companion surface.
 - **JPEG-only profile** — **`JPG`** (readout chip; rail cycle label matches **`ImagingProfile.previewStillModeShortLabel`**).
 - **`scripts/pns_chrome_ux_gate.ps1`** accepts **`DNG`/`DNG+`/`DNG12`/`DNG12+`/`JPEG`/`JPG`** and legacy **`RAW`/`RAW+`** tokens for older logcats.
 
@@ -196,12 +196,12 @@ typed `lensInfo` block per cameraId, surfaced in
   (no variable-aperture support), as expected for a phone optical stack.
 - **Sensor size sanity**: the LYT-808 (1/1.4 inch effective area,
   9.18 x 6.88 mm) and LYT-600 (1/2.7 inch, 6.55 x 4.92 mm) match
-  published OnePlus 13 specifications; the S5KJN5 footprint matches a
+  published legacy device specifications; the S5KJN5 footprint matches a
   1/3.4 inch UW-class sensor.
 
 ### Source artifact
 
-`hfr-runs/deep_caps_round11.json` (pulled 2026-05-08 from adb 8bf09993).
+`hfr-runs/deep_caps_round11.json` (pulled 2026-05-08 from adb legacy serial).
 Re-run via `adb shell am start -W -n dev.pointandshoot/.MainActivity
 --es pns_screen deepcaps --ez pns_autodeepcaps true`; the JSON lands in
 `getExternalFilesDir(null)/deep_caps_<utc>.json` and can be pulled

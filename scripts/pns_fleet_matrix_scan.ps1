@@ -151,7 +151,7 @@ $startArgs = @(
     "--es", "pns_fleet_matrix_scan", $ScanTier
 )
 if ($LegacyOp13FleetPolicy.IsPresent) {
-    $startArgs += @("--ez", "pns_legacy_op13_fleet_policy", "true")
+    $startArgs += @("--ez", "pns_legacy_device_fleet_policy", "true")
 }
 if ($Serial) { & adb -s $Serial @startArgs } else { & adb @startArgs }
 if ($LASTEXITCODE -ne 0) { throw "am start failed exit=$LASTEXITCODE" }
@@ -299,6 +299,86 @@ if ($Redact.IsPresent -and $pulled) {
     }
 }
 
+$maxResProbeRan = $false
+$maxResBlocksPresent = $false
+$maxResOverridesApplied = $false
+$maxResProbeRelPath = ""
+$maxResOverrideRelPath = ""
+if ($pulled) {
+    try {
+        $maxResProbeRan = $true
+        $dumpsysPath = Join-Path $OutDir "dumpsys_media_camera_v2.txt"
+        if ($Serial) {
+            & adb -s $Serial shell dumpsys media.camera -v 2 2>&1 | Set-Content -LiteralPath $dumpsysPath -Encoding utf8
+        } else {
+            & adb shell dumpsys media.camera -v 2 2>&1 | Set-Content -LiteralPath $dumpsysPath -Encoding utf8
+        }
+        $maxResProbeRelPath = "dumpsys_media_camera_v2.txt"
+
+        $focalMapPulledPath = Join-Path $OutDir "fleet_focal_map.json"
+        if ($Serial) {
+            & adb -s $Serial exec-out run-as $pkg cat "files/fleet_focal_map.json" | Set-Content -LiteralPath $focalMapPulledPath -Encoding utf8
+        } else {
+            & adb exec-out run-as $pkg cat "files/fleet_focal_map.json" | Set-Content -LiteralPath $focalMapPulledPath -Encoding utf8
+        }
+
+        $manifestPath = Join-Path $PSScriptRoot "fleet_focal_mp_override_manifest.json"
+        $probeScript = Join-Path $PSScriptRoot "fleet_focal_maxres_probe.py"
+        $probeOut = Join-Path $OutDir "fleet_focal_maxres_probe.json"
+        if ((Test-Path -LiteralPath $manifestPath) -and (Test-Path -LiteralPath $probeScript)) {
+            $py = Get-Command python -ErrorAction SilentlyContinue
+            if (-not $py) { $py = Get-Command python3 -ErrorAction SilentlyContinue }
+            if ($py -and (Test-Path -LiteralPath $focalMapPulledPath)) {
+                $model = ""
+                try { $model = (Get-Content -LiteralPath $matrixOut -Raw -Encoding UTF8 | ConvertFrom-Json).product.model } catch {}
+                if ([string]::IsNullOrWhiteSpace($model)) {
+                    if ($Serial) { $model = (& adb -s $Serial shell getprop ro.product.model 2>$null).Trim() }
+                    else { $model = (& adb shell getprop ro.product.model 2>$null).Trim() }
+                }
+                & $py.Source $probeScript --dumpsys $dumpsysPath --focal-map $focalMapPulledPath --manifest $manifestPath --model $model --out $probeOut | Out-Null
+                if (Test-Path -LiteralPath $probeOut) {
+                    $maxResProbeRelPath = "fleet_focal_maxres_probe.json"
+                    $probeObj = Get-Content -LiteralPath $probeOut -Raw -Encoding UTF8 | ConvertFrom-Json
+                    $maxResBlocksPresent = [bool]$probeObj.maxResolutionBlocksPresent
+                    if ($maxResBlocksPresent -and $probeObj.overrides -and @($probeObj.overrides).Count -gt 0) {
+                        $overrideOut = Join-Path $OutDir "fleet_focal_mp_override.json"
+                        $overrideJson = [ordered]@{
+                            schema = "pns.fleet.focal.mp_override.v1"
+                            source = "pns_fleet_matrix_scan_second_stage"
+                            generatedAt = [DateTime]::UtcNow.ToString("o")
+                            overrides = @($probeObj.overrides | ForEach-Object {
+                                [ordered]@{
+                                    cameraId = "$($_.cameraId)"
+                                    megapixels = [double]$_.megapixels
+                                    source = "$($_.source)"
+                                }
+                            })
+                        }
+                        $overrideJson | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $overrideOut -Encoding utf8
+                        $maxResOverrideRelPath = "fleet_focal_mp_override.json"
+                        $tmpDevice = "/data/local/tmp/pns_fleet_focal_mp_override.json"
+                        if ($Serial) {
+                            & adb -s $Serial push $overrideOut $tmpDevice 2>&1 | Out-Null
+                            & adb -s $Serial shell run-as $pkg cp $tmpDevice "files/fleet_focal_mp_override.json" 2>&1 | Out-Null
+                            & adb -s $Serial shell rm $tmpDevice 2>$null | Out-Null
+                        } else {
+                            & adb push $overrideOut $tmpDevice 2>&1 | Out-Null
+                            & adb shell run-as $pkg cp $tmpDevice "files/fleet_focal_mp_override.json" 2>&1 | Out-Null
+                            & adb shell rm $tmpDevice 2>$null | Out-Null
+                        }
+                        $maxResOverridesApplied = $true
+                    }
+                }
+            } else {
+                Write-Warning "[fleet_matrix] python missing or focal map unavailable; skip max-res probe"
+            }
+        }
+    }
+    catch {
+        Write-Warning "[fleet_matrix] max-res second-stage probe failed: $_"
+    }
+}
+
 $pass = $pulled -and $schemaOk -and $fleetLogOk -and $tierOk -and $schemaValidateOk
 
 $gate = [ordered]@{
@@ -324,6 +404,11 @@ $gate = [ordered]@{
     logcatRelPath     = "logcat_fleet_matrix.txt"
     serial            = $(if ($Serial) { $Serial } else { "default" })
     halRedactExtracted = $halExtracted
+    maxResProbeRan = $maxResProbeRan
+    maxResBlocksPresent = $maxResBlocksPresent
+    maxResOverridesApplied = $maxResOverridesApplied
+    maxResProbeRelPath = $maxResProbeRelPath
+    maxResOverrideRelPath = $maxResOverrideRelPath
 }
 $jsonPath = Join-Path $OutDir "fleet_matrix_scan.json"
 $gate | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $jsonPath -Encoding utf8

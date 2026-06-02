@@ -8,24 +8,37 @@ import org.junit.Test
 class ReadoutIsoBandTest {
     @Test
     fun band100_400_filtersStopsAndClampsWithoutHalRange() {
-        val stops = ReadoutIsoBand.BAND_100_400.filterStops(range = null)
+        val band = ReadoutIsoBand.fromBounds(100, 400)
+        val stops = band.filterStops(range = null)
         assertTrue(stops.all { it in 100..400 })
         assertTrue(stops.contains(400))
         assertFalse(stops.contains(800))
-        assertEquals(400, ReadoutIsoBand.BAND_100_400.clampPick(range = null, value = 3200))
-        assertEquals(200, ReadoutIsoBand.BAND_100_400.clampPick(range = null, value = 200))
+        assertEquals(400, band.clampPick(range = null, value = 3200))
+        assertEquals(200, band.clampPick(range = null, value = 200))
     }
 
     @Test
     fun fullRange_includesHighStopsWithoutHalRange() {
-        val stops = ReadoutIsoBand.FULL.filterStops(range = null)
+        val stops = ReadoutIsoBand.AUTO.filterStops(range = null)
         assertTrue(stops.contains(6400))
     }
 
     @Test
     fun clampPick_ceilingAndFloor() {
-        assertEquals(400, ReadoutIsoBand.BAND_100_400.clampPick(range = null, value = 3200))
-        assertEquals(100, ReadoutIsoBand.BAND_100_400.clampPick(range = null, value = 50))
+        val band = ReadoutIsoBand.fromBounds(100, 400)
+        assertEquals(400, band.clampPick(range = null, value = 3200))
+        assertEquals(100, band.clampPick(range = null, value = 50))
+    }
+
+    @Test
+    fun parsePersisted_supportsLegacyEnumNames() {
+        assertEquals(ReadoutIsoBand.AUTO, ReadoutIsoBand.parsePersisted("FULL"))
+        assertEquals(ReadoutIsoBand.fromBounds(100, 800), ReadoutIsoBand.parsePersisted("BAND_100_800"))
+    }
+
+    @Test
+    fun parsePersisted_supportsRangeToken() {
+        assertEquals(ReadoutIsoBand.fromBounds(100, 800), ReadoutIsoBand.parsePersisted("range:100-800"))
     }
 
     @Test

@@ -4,9 +4,9 @@
 #
 # Usage:
 #   .\scripts\pns_dng_color_matrix_probe.ps1
-#   .\scripts\pns_dng_color_matrix_probe.ps1 -Serial 8bf09993 -SkipInstall
+#   .\scripts\pns_dng_color_matrix_probe.ps1 -Serial <serial> -SkipInstall
 param(
-    [string]$Serial    = "8bf09993",
+    [string]$Serial    = "",
     [switch]$SkipInstall
 )
 

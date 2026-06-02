@@ -6,12 +6,12 @@ import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Per-camera calibration tags (CM/FM/ASN) extracted from ProShot reference DNGs on CPH2655.
+ * Per-camera calibration tags (CM/FM/ASN) extracted from ReferenceCam reference DNGs on LegacySku.
  * Bundled as [ASSET_PATH]; regenerate with [scripts/proshot_ref_extract_calibration.py].
  */
 object ProShotReferenceCalibration {
     private const val TAG = "PNS.ProShotRefCal"
-    const val ASSET_PATH = "fleet/op13_proshot_calibration.json"
+    const val ASSET_PATH = "fleet/legacy_device_proshot_calibration.json"
 
     data class Slot(
         val asnRationalNd: LongArray,
@@ -19,9 +19,9 @@ object ProShotReferenceCalibration {
         val colorMatrix2Nd: IntArray,
         val forwardMatrix1Nd: IntArray,
         val forwardMatrix2Nd: IntArray,
-        /** ProShot reference Bayer R/G (center crop). */
+        /** ReferenceCam reference Bayer R/G (center crop). */
         val bayerRg: Float,
-        /** ProShot reference Bayer B/G (center crop). */
+        /** ReferenceCam reference Bayer B/G (center crop). */
         val bayerBg: Float,
     ) {
         fun colorMatrix1(): Array<android.util.Rational> = srationalsFromNd(colorMatrix1Nd)
@@ -58,7 +58,7 @@ object ProShotReferenceCalibration {
     }
 
     internal fun parse(root: JSONObject): Map<String, Slot> {
-        require(root.optString("schema").startsWith("op13_proshot_calibration")) {
+        require(root.optString("schema").startsWith("legacy_device_proshot_calibration")) {
             "unexpected schema ${root.optString("schema")}"
         }
         val slotsObj = root.getJSONObject("slots")

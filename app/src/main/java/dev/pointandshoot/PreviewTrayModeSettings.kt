@@ -22,6 +22,7 @@ data class PreviewTrayModeSnapshot(
     val enableLensOpticalStabilization: Boolean = true,
     val enableVideoStabilizationPreview: Boolean = false,
     val videoShutterAngle: String = VideoShutterAngle.Free.name,
+    val primeFocalTargetEqMm: Int? = null,
 ) {
     companion object {
         fun defaults(photo: Boolean): PreviewTrayModeSnapshot =
@@ -46,10 +47,9 @@ object PreviewTrayModeStore {
             return PreviewTrayModeSnapshot.defaults(photo)
         }
         val isoBandName =
-            prefs.getString("${p}iso_band", ReadoutIsoBand.FULL.name)
-                ?: ReadoutIsoBand.FULL.name
-        val isoBand =
-            runCatching { ReadoutIsoBand.valueOf(isoBandName) }.getOrDefault(ReadoutIsoBand.FULL)
+            prefs.getString("${p}iso_band", ReadoutIsoBand.FULL.persistValue())
+                ?: ReadoutIsoBand.FULL.persistValue()
+        val isoBand = ReadoutIsoBand.parsePersisted(isoBandName)
         val awbKey = "${p}awb_mode"
         val awbMode =
             if (prefs.contains(awbKey)) {
@@ -73,6 +73,8 @@ object PreviewTrayModeStore {
             videoShutterAngle =
                 prefs.getString("${p}shutter_angle", VideoShutterAngle.Free.name)
                     ?: VideoShutterAngle.Free.name,
+            primeFocalTargetEqMm =
+                prefs.getInt("${p}prime_eq_mm", Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE },
         )
     }
 
@@ -88,7 +90,12 @@ object PreviewTrayModeStore {
             putBoolean("${p}ois", snapshot.enableLensOpticalStabilization)
             putBoolean("${p}eis", snapshot.enableVideoStabilizationPreview)
             putString("${p}shutter_angle", snapshot.videoShutterAngle)
-            putString("${p}iso_band", r.isoBand.name)
+            if (snapshot.primeFocalTargetEqMm != null) {
+                putInt("${p}prime_eq_mm", snapshot.primeFocalTargetEqMm)
+            } else {
+                remove("${p}prime_eq_mm")
+            }
+            putString("${p}iso_band", r.isoBand.persistValue())
             putBoolean("${p}ae_lock", r.aeLocked)
             if (r.manualIso != null) {
                 putInt("${p}iso", r.manualIso)

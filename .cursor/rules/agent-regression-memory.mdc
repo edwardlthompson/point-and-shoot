@@ -28,7 +28,7 @@ Append one **`REG-YYYYMMDD-NNN`** row to **`docs/AGENT_REGRESSION_MEMORY.md`** i
 
 ## Primary fleet device
 
-Default USB proof: **CPH2583** (OnePlus 12). **CPH2655** only for optional OP13 regression — see **`AGENTS.md`** CRITICAL — Fleet.
+Default USB proof: **CPH2583** (OnePlus 12). **LegacySku** only for optional LegacyDevice regression — see **`AGENTS.md`** CRITICAL — Fleet.
 
 ## Do not
 

@@ -70,7 +70,7 @@ object DngMetadataResolver {
     private const val TAG = "PNS.DngMeta"
 
     /**
-     * ProShot leaf path: [DngCreator] uses the opened [sessionCameraId] characteristics + still
+     * ReferenceCam leaf path: [DngCreator] uses the opened [sessionCameraId] characteristics + still
      * [TotalCaptureResult] only — no logical/physical resolver fork.
      */
     fun pairForDngCreator(

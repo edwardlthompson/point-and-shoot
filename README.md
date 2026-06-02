@@ -4,9 +4,9 @@
 
 ## STOP — capture / ADB automation (read before changing preview or RAW stills)
 
-**Do not** tie **`automationSuppressFacePipeline`** to **`pns_preview_raw_count`** / sequential RAW-only automation. Suppressing the face/YUV analysis path forced **`wantYuv=false`** on the H-dial preview session and broke RAW still session create on real hardware (e.g. **CPH2655 / OnePlus 13 class stacks**): `SESSION_CREATE_THROW` / `CAMERA_DISCONNECTED`. **Rule:** `automationSuppressFacePipeline` is for **bracket** automation only; sequential RAW-only must keep the **same preview stream wiring as in-app H** so scripted still capture matches user capture. After any change under `PreviewEngineScreen.kt` / `RawCaptureSupport.kt` affecting stills or sessions, run **`scripts/pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) on USB. See **`AGENTS.md`** (capture automation warning), **`BUILD_PLAN.md`** item **11**, and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top warning).
+**Do not** tie **`automationSuppressFacePipeline`** to **`pns_preview_raw_count`** / sequential RAW-only automation. Suppressing the face/YUV analysis path forced **`wantYuv=false`** on the H-dial preview session and broke RAW still session create on real hardware (e.g. **legacy SKU / legacy device class stacks**): `SESSION_CREATE_THROW` / `CAMERA_DISCONNECTED`. **Rule:** `automationSuppressFacePipeline` is for **bracket** automation only; sequential RAW-only must keep the **same preview stream wiring as in-app H** so scripted still capture matches user capture. After any change under `PreviewEngineScreen.kt` / `RawCaptureSupport.kt` affecting stills or sessions, run **`scripts/pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) on USB. See **`AGENTS.md`** (capture automation warning), **`BUILD_PLAN.md`** item **11**, and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top warning).
 
-**Bulk “restore everything” from the bisect checklist without per-step USB proof is unsafe.** On **CPH2655** (`8bf09993`, May 2026), re-enabling **§4a** (API 33+ stream-use-case tags on the REGULAR session) alone caused **RAW still timeouts**; re-applying Milestone **10.1** **§2** RAW10-before-RAW_SENSOR order produced **RAW10** captures that **`DngCreator`** refused (**unsupported format 37**). **§1** (still **PreviewStabilization**) and **§5** (**PreviewPostRawSensitivity**) were restored **with** a green **`pns_photo_capture_verify`** only while **§4a** and the **§2** bisect tier order stayed reverted. See **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 for the incremental proof table.
+**Bulk “restore everything” from the bisect checklist without per-step USB proof is unsafe.** On **legacy SKU** (`legacy serial`, May 2026), re-enabling **§4a** (API 33+ stream-use-case tags on the REGULAR session) alone caused **RAW still timeouts**; re-applying Milestone **10.1** **§2** RAW10-before-RAW_SENSOR order produced **RAW10** captures that **`DngCreator`** refused (**unsupported format 37**). **§1** (still **PreviewStabilization**) and **§5** (**PreviewPostRawSensitivity**) were restored **with** a green **`pns_photo_capture_verify`** only while **§4a** and the **§2** bisect tier order stayed reverted. See **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 for the incremental proof table.
 
 **Future agents — do not merge without USB proof if you change:**
 
@@ -24,7 +24,7 @@
 [![Plan doc verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (Android 16 / API 36)**.
+A FOSS pro camera app for the **legacy device (`dodge`)** running **LineageOS 23 (Android 16 / API 36)**.
 
 > Predictable controls. RAW-first workflows. A HUD designed for shooting. **No proprietary blobs. No Google Play Services.**
 
@@ -38,7 +38,7 @@ A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (A
 
 - **Speed and determinism** — camera behavior you can learn and trust.
 - **Modern formats** — RAW (DNG) plus AVIF/JXL targets for high-quality stills.
-- **Device-specific excellence** — a "dodge" profile tuned to the OnePlus 13 camera stack instead of trying to be everything for everyone.
+- **Device-specific excellence** — a "dodge" profile tuned to the legacy device camera stack instead of trying to be everything for everyone.
 
 ## Highlights
 
@@ -48,9 +48,9 @@ A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (A
   - **Milestone 10.1:** the Markdown export also lists **RAW12 / RAW10 / RAW_SENSOR** stream sizes (with min frame duration), **`rawPickEffective=`** (aligned with `RawCaptureSupport.pickRawOutput`), **HFR rollup** lines, and a versioned **shallow fleet JSON** block — treat those exports plus **`hfr-runs/`** pulls as canonical per-device numbers, not chat-only summaries.
 - **Portrait preview engine (locked chrome)** — **7×3** quick grid, **3:4** finder, dodge tele **73 / 85 / 150 mm** on physical mid-tele when enumerated; GLES external-OES preview with per-mode LUTs, optional focus peaking (M dial + video), horizon line, histogram / zebra aids. Layout contract: [`docs/preview-chrome-layout-style-guide.md`](docs/preview-chrome-layout-style-guide.md).
 - **Bespoke in-app gallery** — Tray **Gallery** opens [`BespokeGalleryScreen`](app/src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt) (grid/single view, EXIF panel, share/delete, zoom/pan). **Photo / Video / Gallery** last surface restores on cold start via [`PreviewLastSurfacePrefs`](app/src/main/java/dev/pointandshoot/PreviewLastSurfacePrefs.kt). DNG previews read TIFF orientation tag **274** once ([`DngGalleryOrientation`](app/src/main/java/dev/pointandshoot/DngGalleryOrientation.kt)); JPEG uses system thumbnail EXIF without double-rotation.
-- **Stills (M13)** — ProShot-style **DNG** via framework `DngCreator` on OP13 leaf cameras; optional **ZSL** / **HDR still** (3× DNG bracket); fleet **`FleetCameraProfile`** + openability gates; aux UW/tele color still under human ACR review (**[`BUILD_PLAN.md`](BUILD_PLAN.md)** **H.7**).
+- **Stills (M13)** — ProShot-style **DNG** via framework `DngCreator` on legacy device leaf cameras; optional **ZSL** / **HDR still** (3× DNG bracket); fleet **`FleetCameraProfile`** + openability gates; aux UW/tele color still under human ACR review (**[`BUILD_PLAN.md`](BUILD_PLAN.md)** **H.7**).
 - **Encoded video (M12 + 13V)** — In-app **MP4** (`MediaRecorder` ≤60 fps, **MediaCodec** for HFR / 10-bit / DCG); unified **format picker**; DCG + HDR10 metadata path; power-button quick-launch; macro dial; timecode + audio meters; RGB histogram; focus peaking; GLES **video LUT** preview; battery/thermal + **storage-remaining** HUD on video modes.
-- **RAW video lane (M13.6)** — MCRAW-class **`.mcraw`** (`PNMRAWV1`) on OP13 leaf cameras when HUD **RAW** lane is enabled — not a gallery-playable MP4.
+- **RAW video lane (M13.6)** — MCRAW-class **`.mcraw`** (`PNMRAWV1`) on legacy device leaf cameras when HUD **RAW** lane is enabled — not a gallery-playable MP4.
 - **Host orchestration** (`scripts/pns_hfr_autorun.ps1`)
   - Build → install → grant camera → run any subset of probes → pull JSON → write a suite-summary file → optional Phase 9 thermal snapshot.
 - **Toolchain gate** (`scripts/pns_verify_toolchain.ps1`)
@@ -59,9 +59,9 @@ A FOSS pro camera app for the **OnePlus 13 (`dodge`)** running **LineageOS 23 (A
 
 ## Imaging-engine targets (roadmap vs shipped)
 
-| Area | Shipped (reference: **CPH2655** USB gates) | Still planned / partial |
+| Area | Shipped (reference: **legacy SKU** USB gates) | Still planned / partial |
 |------|-------------------------------------------|-------------------------|
-| **Stills** | DNG (RAW_SENSOR-first on OP13 leaf); hardware JPEG companion; ZSL / HDR still modes; bracket bursts | Full **AVIF** / **JPEG XL** still encode bodies (NDK path stubbed); Ultra-Max profile polish |
+| **Stills** | DNG (RAW_SENSOR-first on legacy device leaf); hardware JPEG companion; ZSL / HDR still modes; bracket bursts | Full **AVIF** / **JPEG XL** still encode bodies (NDK path stubbed); Ultra-Max profile polish |
 | **Video** | H.264/HEVC MP4; HFR via MediaCodec; 10-bit + DCG HDR10; RAW `.mcraw` lane; LUT on preview; smile still + bitrate scale (**13V.17**) | LUT baked into encoded MP4 |
 | **HUD / metering** | Highlight-weighted meter, eye-AF overlay, face track boxes, readout strip, command dial **A/M/H/S/BKT/Macro** | Nikon-style 3D tracking persistence |
 | **LUTs & color** | Built-in + imported `.cube`; GLES preview + still CPU path; calibration screen | Full DNG matrix injection from calibration export |
@@ -77,11 +77,11 @@ Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BU
 | **M10** (product expansion) | ✅ Gate passed | Shallow cache, focal strip, JPEG-only profile, Photo\|Video tray, 7×3 grid, QR scan, … → [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
 | **M11** (capture UX) | ✅ Gate passed | WB menu order, dodge tele crops, in-app video + RES selector |
 | **M12** (video completeness) | ✅ Gate passed | Audio policy, `VideoRecordingController`, MediaCodec HFR path |
-| **M13** (fleet RAW) | ✅ Automated gate | USB **PASS** on `8bf09993`; human **ACR 3/3** + aux color → **H.7** |
+| **M13** (fleet RAW) | ✅ Automated gate | USB **PASS** on `legacy serial`; human **ACR 3/3** + aux color → **H.7** |
 | **M13V** (video expansion) | ✅ USB-verified | **13V.1–13V.18** — see table below |
 | **M14** (preview polish) | ✅ Shipped (beta) | Readout/HUD, QR, ISO coupling, focus picker, stacked **dual video**, About heritage — **H.8** subjective |
 | **BG** (bespoke gallery) | ✅ Closed | In-app gallery + tray surface restore — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
-| **PO** (performance) | ✅ Gate passed | Memory profiler, adaptive FPS, lifecycle pause — `pns_po_optimization_gate.ps1` on **8bf09993** |
+| **PO** (performance) | ✅ Gate passed | Memory profiler, adaptive FPS, lifecycle pause — `pns_po_optimization_gate.ps1` on **legacy serial** |
 
 **Latest pre-release:** [`v0.14.0-beta.2`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.2) — APK `Point-and-Shoot_0.14.0-beta.2.apk` · notes [`RELEASE_NOTES_v0.14.0-beta.2.md`](RELEASE_NOTES_v0.14.0-beta.2.md)
 
@@ -153,7 +153,7 @@ Raster screenshots are **not** stored in this repository. Capture locally with `
 
 ## Quickstart
 
-> Prereqs: Android SDK + ADB on PATH, JDK 17 (Android Studio's `jbr` works), and a connected OnePlus 13 with camera permission grantable. **Android Studio is not required.**
+> Prereqs: Android SDK + ADB on PATH, JDK 17 (Android Studio's `jbr` works), and a connected legacy device with camera permission grantable. **Android Studio is not required.**
 
 End-to-end build + sideload (PowerShell):
 
@@ -188,7 +188,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 - **Technical settings (source of truth)** — [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) — command dial modes, H metering, readout/YUV chase, RAW/DNG locks, HUD defaults; **update whenever those settings change**
 - **Product roadmap & V&V gates** — [`BUILD_PLAN.md`](BUILD_PLAN.md) · completed milestones — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)
 - **Probe automation plan** — [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md)
-- **OnePlus 13 hardware-to-software mapping** — [`DODGE_PROFILE.md`](DODGE_PROFILE.md)
+- **legacy device hardware-to-software mapping** — [`DODGE_PROFILE.md`](DODGE_PROFILE.md)
 - **Latest probe export** — [`PROBE_RESULTS.md`](PROBE_RESULTS.md)
 - **Fleet RAW / DNG policy** — [`docs/FLEET_ONEPLUS13_RAW_POLICY.md`](docs/FLEET_ONEPLUS13_RAW_POLICY.md) · [`docs/DNG_OPENABILITY_REGRESSIONS.md`](docs/DNG_OPENABILITY_REGRESSIONS.md)
 - **Video (DCG / RAW lane)** — [`docs/M13_4_DCG_SESSION.md`](docs/M13_4_DCG_SESSION.md) · [`docs/M13_6_RAW_VIDEO.md`](docs/M13_6_RAW_VIDEO.md)

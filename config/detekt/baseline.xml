@@ -1252,7 +1252,7 @@
     <ID>MatchingDeclarationName:PreviewWindowEffects.kt$InterruptionFilterHold</ID>
     <ID>MatchingDeclarationName:SystemInsets.kt$SystemInsetsDp</ID>
     <ID>MatchingDeclarationName:TapToShootHandler.kt$TapToShootCallbacks</ID>
-    <ID>MaxLineLength:AboutScreen.kt$requestNotes = "API 35+ uses SessionConfiguration(sessionType, outputs) + setInputConfiguration; Builder reflection not available on Android 16/CPH2655"</ID>
+    <ID>MaxLineLength:AboutScreen.kt$requestNotes = "API 35+ uses SessionConfiguration(sessionType, outputs) + setInputConfiguration; Builder reflection not available on Android 16/LegacySku"</ID>
     <ID>MaxLineLength:AboutScreen.kt$workaround = "Use an application/work CoroutineScope (SupervisorJob + Dispatchers.IO) for long probes; cancel via DisposableEffect on dispose."</ID>
     <ID>MaxLineLength:CalibrateScreen.kt$status = "Profile computed: WB=(${"%.3f".format(p.wbGains.r)}, ${"%.3f".format(p.wbGains.g)}, ${"%.3f".format(p.wbGains.b)}) illum=${p.illuminant}"</ID>
     <ID>MaxLineLength:CameraCapabilitiesProbe.kt$.</ID>

@@ -1,4 +1,4 @@
-"""Emit DNG tag summary for forensics (FM, ASN, dimensions). Used by ProShot vs P&S diff."""
+"""Emit DNG tag summary for forensics (FM, ASN, dimensions). Used by ReferenceCam vs P&S diff."""
 import struct
 import sys
 

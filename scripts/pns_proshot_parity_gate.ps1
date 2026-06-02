@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Capture P&S M14/M23/M73 RAW stills, pull DNGs, enforce ProShot parity (integrity + color/luminance).
+  Capture P&S M14/M23/M73 RAW stills, pull DNGs, enforce ReferenceCam parity (integrity + color/luminance).
 
 .EXAMPLE
-  .\scripts\pns_proshot_parity_gate.ps1 -Serial 8bf09993
+  .\scripts\pns_proshot_parity_gate.ps1 -Serial <serial>
   .\scripts\pns_proshot_parity_gate.ps1 -SkipCapture -PnsDir hfr-runs\aux_dng_capture_analyze_*
 #>
 param(
@@ -44,12 +44,12 @@ if (-not $SkipCapture) {
 $refDir = if ($ProShotFixtureDir) {
     $ProShotFixtureDir
 } else {
-    Join-Path $projRoot "tests\fixtures\proshot_cph2655"
+    Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"
 }
 
 $py = Join-Path $PSScriptRoot "dng_proshot_parity_gate.py"
 $jsonOut = Join-Path $PnsDir "proshot_parity_gate.json"
-& python $py $PnsDir --proshot-dir $refDir `
+& python $py $PnsDir --referencecam-dir $refDir `
     --max-green-delta $MaxGreenDelta --max-lum-delta $MaxLumDelta `
     --json-out $jsonOut
 $exit = $LASTEXITCODE
@@ -58,8 +58,8 @@ if ($Serial) { & adb -s $Serial shell am force-stop dev.pointandshoot 2>$null | 
 else { & adb shell am force-stop dev.pointandshoot 2>$null | Out-Null }
 
 if ($exit -ne 0) {
-    Write-Host "FAIL: ProShot parity gate (see $jsonOut)" -ForegroundColor Red
+    Write-Host "FAIL: ReferenceCam parity gate (see $jsonOut)" -ForegroundColor Red
     exit 1
 }
-Write-Host "PASS: ProShot parity gate" -ForegroundColor Green
+Write-Host "PASS: ReferenceCam parity gate" -ForegroundColor Green
 exit 0

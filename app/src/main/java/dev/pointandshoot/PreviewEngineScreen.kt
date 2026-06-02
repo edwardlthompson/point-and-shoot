@@ -60,12 +60,15 @@ import android.widget.Toast
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntOffsetAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,6 +84,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -156,6 +160,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -172,9 +177,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -286,6 +291,48 @@ private sealed class ChromeGridSlotSpec {
     ) : ChromeGridSlotSpec()
 }
 
+private data class ChromeGridDragState(
+    val fromRow: Int,
+    val fromCol: Int,
+    val deltaX: Float = 0f,
+    val deltaY: Float = 0f,
+)
+
+private fun chromeGridSlotStableId(spec: ChromeGridSlotSpec): String =
+    when (spec) {
+        is ChromeGridSlotSpec.ExpandShortcut -> "shortcut:${spec.title}"
+        is ChromeGridSlotSpec.QuickAction -> "quick:${spec.kind.name}"
+    }
+
+private fun resolveChromeGridDragTarget(
+    state: ChromeGridDragState,
+    dragStridePx: Float,
+    cols: Int,
+    gridRows: List<Int>,
+): Pair<Int, Int> {
+    val rowDelta = (state.deltaY / dragStridePx).roundToInt()
+    val colDelta = (state.deltaX / dragStridePx).roundToInt()
+    val targetRowRaw = state.fromRow + rowDelta
+    val targetRow = gridRows.minByOrNull { abs(it - targetRowRaw) } ?: state.fromRow
+    val targetCol = (state.fromCol + colDelta).coerceIn(0, cols - 1)
+    return targetRow to targetCol
+}
+
+private fun findDedicatedMonochromeCameraId(
+    context: Context,
+    cameraIds: List<String>,
+): String? {
+    val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    for (cameraId in cameraIds) {
+        val chars = runCatching { cm.getCameraCharacteristics(cameraId) }.getOrNull() ?: continue
+        val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: continue
+        if (caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
+            return cameraId
+        }
+    }
+    return null
+}
+
 /**
  * Scroll-area shortcuts: **7 columns × 3 logical shortcut rows** (plus a separate focal-length row of 7).
  * Target FPS lives on the readout strip. Empty grid coordinates render as inert cells.
@@ -300,7 +347,8 @@ private val previewChromeGridSlots: List<ChromeGridSlotSpec> =
         ChromeGridSlotSpec.QuickAction(1, 5, Icons.Outlined.Face, "Eye AF overlay", ChromeGridQuickAction.ToggleEyeAfOverlay),
         ChromeGridSlotSpec.ExpandShortcut(2, 0, "Video QS", Icons.Outlined.Videocam, "Video QS"),
         ChromeGridSlotSpec.QuickAction(2, 1, Icons.Outlined.DoNotDisturb, "DND while in preview", ChromeGridQuickAction.ToggleDndInPreview),
-        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.FlashOn, "Flash mode, tap to cycle, long press for menu", ChromeGridQuickAction.CycleFlash),
+        ChromeGridSlotSpec.QuickAction(2, 2, Icons.Outlined.FlashOn, "Flash mode", ChromeGridQuickAction.CycleFlash),
+        ChromeGridSlotSpec.QuickAction(2, 4, Icons.Outlined.LocationOn, "Save location / geotag", ChromeGridQuickAction.ToggleSaveLocation),
         ChromeGridSlotSpec.QuickAction(
             2,
             5,
@@ -807,6 +855,10 @@ fun PreviewEngineScreen(
     adbExperimentalVendorSessionSeed: Boolean? = null,
     /** Experimental lane: force safe mode (`pns_preview_force_safe_mode`). */
     adbForceSafeModeSeed: Boolean = false,
+    /** Root-gated sweep: comma list of session keys to test during still session build. */
+    adbMaxResSweepSessionKeys: List<String> = emptyList(),
+    /** Root-gated sweep: comma list of request keys to test during still request build. */
+    adbMaxResSweepRequestKeys: List<String> = emptyList(),
     /** Sprint **AS.2** — `pns_preview_shutter_sound_pack` (session-only). */
     adbShutterSoundPackSeed: String? = null,
     /** `--ez pns_preview_composed_still true` — one IMG-matrix still via [PreviewController.captureComposedStill]. */
@@ -1100,6 +1152,17 @@ fun PreviewEngineScreen(
         controller.setRawStreamPreference(adbRawStreamPreference ?: RawStreamPreference.Default)
         if (adbRawStreamPreference != null) {
             PnsAdbLog.i(context, "preview seeded rawStream=${adbRawStreamPreference.name}")
+        }
+    }
+
+    LaunchedEffect(adbMaxResSweepSessionKeys, adbMaxResSweepRequestKeys) {
+        controller.setMaxResSweepKeys(adbMaxResSweepSessionKeys, adbMaxResSweepRequestKeys)
+        if (adbMaxResSweepSessionKeys.isNotEmpty() || adbMaxResSweepRequestKeys.isNotEmpty()) {
+            PnsAdbLog.i(
+                context,
+                "preview seeded maxResSweep sessionKeys=${adbMaxResSweepSessionKeys.size} " +
+                    "requestKeys=${adbMaxResSweepRequestKeys.size}",
+            )
         }
     }
 
@@ -4432,12 +4495,6 @@ fun PreviewEngineScreen(
         onCaptureDng = {
             trayStillCaptureRef.value?.invoke()
         },
-        onLongPressBurstStart = {
-            trayLongPressBurstStartRef.value?.invoke()
-        },
-        onLongPressBurstStop = {
-            trayLongPressBurstStopRef.value?.invoke()
-        },
         onBracketBurst = { pattern ->
             HudSettings.saveBracketPattern(context.applicationContext, pattern)
             fun runBracketBurst() {
@@ -4682,8 +4739,6 @@ private fun PreviewEngineContent(
     onComposedStillIntentChange: (ComposedStillIntent) -> Unit,
     onStillExportKindChange: (StillExportKind?) -> Unit,
     onCaptureDng: () -> Unit,
-    onLongPressBurstStart: () -> Unit,
-    onLongPressBurstStop: () -> Unit,
     onBracketBurst: (BracketPattern) -> Unit,
     adbInitialDial: CommandDialMode? = null,
     adbCalibrateGrabSmoke: Boolean = false,
@@ -4760,6 +4815,10 @@ private fun PreviewEngineContent(
         remember(context) {
             context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         }
+    val monochromeCameraId =
+        remember(cameraIds) {
+            findDedicatedMonochromeCameraId(context.applicationContext, cameraIds)
+        }
     val imagingProfile = composedStillIntent.storageProfile()
     val focalMapCalibratingHint = rememberFocalMapCalibratingHintVisible()
     val fpsTargetEditable =
@@ -4779,6 +4838,24 @@ private fun PreviewEngineContent(
         if (commandDialMode !in allowed) {
             commandDialMode = CommandDialMode.Auto
             HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
+        }
+    }
+    LaunchedEffect(commandDialMode, primaryPhoto, monochromeCameraId) {
+        if (commandDialMode != CommandDialMode.Monochrome) return@LaunchedEffect
+        if (!primaryPhoto) {
+            commandDialMode = CommandDialMode.Auto
+            HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
+            return@LaunchedEffect
+        }
+        val monoId = monochromeCameraId ?: run {
+            commandDialMode = CommandDialMode.Auto
+            HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
+            Log.i("PNS.ChromeUx", "monochromeDial unavailable=no_mono_camera")
+            return@LaunchedEffect
+        }
+        if (selectedCameraId != monoId) {
+            onSelectCameraId(monoId)
+            Log.i("PNS.ChromeUx", "monochromeDial cameraId=$monoId")
         }
     }
     // Clamp fps before arming dual — opening the front camera during a rear session rebuild
@@ -6359,8 +6436,6 @@ private fun PreviewEngineContent(
                         showOnScreenShutter = chrome.showOnScreenShutter,
                         canCaptureRawStill = controller.canCaptureStill() && !afShutterGateActiveForUi,
                         onCaptureDng = { triggerStillCapture() },
-                        onLongPressBurstStart = onLongPressBurstStart,
-                        onLongPressBurstStop = onLongPressBurstStop,
                         isRecording = isRecording,
                         onRecordingChange = onRecordingChange,
                         onSetFps = onSetFps,
@@ -7243,8 +7318,6 @@ private fun PreviewBottomCaptureTray(
     showOnScreenShutter: Boolean,
     canCaptureRawStill: Boolean,
     onCaptureDng: () -> Unit,
-    onLongPressBurstStart: () -> Unit,
-    onLongPressBurstStop: () -> Unit,
     isRecording: Boolean,
     onRecordingChange: (Boolean) -> Unit,
     /** Clamps preview FPS when starting video at HFR (MediaRecorder path requires &lt;120). */
@@ -7264,7 +7337,6 @@ private fun PreviewBottomCaptureTray(
     val context = LocalContext.current
     val snackbarHostState = LocalPnsSnackbarHostState.current
     val traySnackbarScope = rememberCoroutineScope()
-    val viewConfiguration = LocalViewConfiguration.current
     var thumbBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(showOnScreenShutter, primaryPhoto, showVideoFormatFab) {
@@ -7387,42 +7459,12 @@ private fun PreviewBottomCaptureTray(
                             }
                         }
                     }
-                    val shutterPressModifier =
-                        Modifier.pointerInput(
-                            primaryPhoto,
-                            canCaptureRawStill,
-                            viewConfiguration.longPressTimeoutMillis,
-                        ) {
-                            detectTapGestures(
-                                onPress = {
-                                    if (!canCaptureRawStill) {
-                                        tryAwaitRelease()
-                                        return@detectTapGestures
-                                    }
-                                    var holdBurstStarted = false
-                                    val holdJob =
-                                        traySnackbarScope.launch {
-                                            delay(viewConfiguration.longPressTimeoutMillis.toLong())
-                                            holdBurstStarted = true
-                                            onLongPressBurstStart()
-                                        }
-                                    val released = tryAwaitRelease()
-                                    holdJob.cancel()
-                                    if (holdBurstStarted) {
-                                        onLongPressBurstStop()
-                                    } else if (released) {
-                                        // Normal tap is handled by FAB onClick for robust pointer-up behavior.
-                                    }
-                                },
-                            )
-                        }
                     FloatingActionButton(
                         onClick = onTapShutter,
                         modifier =
                             Modifier
                                 .size(64.dp)
-                                .alpha(if (canCaptureRawStill) 1f else 0.45f)
-                                .then(shutterPressModifier),
+                                .alpha(if (canCaptureRawStill) 1f else 0.45f),
                         containerColor = PnsColors.PhotoOrange,
                         contentColor = Color.Black,
                         shape = CircleShape,
@@ -7560,69 +7602,6 @@ private fun ShortcutBlock(
                 content()
             }
         }
-    }
-}
-
-/** Short-press toggle for binary quick-setting tiles; menu-only tiles use [ChromeGridQuickAction.TimerStub], [ChromeGridQuickAction.ExtraShutterMenu], or [ChromeGridQuickAction.CycleFlash] (handled in [PreviewChromeScrollSlot]). */
-private fun performQuickActionToggle(
-    kind: ChromeGridQuickAction,
-    hudState: HudSettingsState,
-    chromePrefs: PreviewChromePreferencesState,
-    fineLocationGranted: Boolean,
-    onPendingEnableGeotagChange: (Boolean) -> Unit,
-    onRequestLocationForGeotag: () -> Unit,
-) {
-    when (kind) {
-        ChromeGridQuickAction.TimerStub -> Unit
-        ChromeGridQuickAction.ToggleHistogram -> {
-            val h = hudState.current
-            hudState.update(h.copy(showHistogram = !h.showHistogram))
-        }
-        ChromeGridQuickAction.ToggleHorizonLevel -> {
-            val h = hudState.current
-            hudState.update(h.copy(showHorizonLevel = !h.showHorizonLevel))
-        }
-        ChromeGridQuickAction.ToggleEyeAfOverlay -> {
-            val h = hudState.current
-            hudState.update(h.copy(showEyeAfOverlay = !h.showEyeAfOverlay))
-        }
-        ChromeGridQuickAction.ToggleVideoTally -> {
-            val h = hudState.current
-            hudState.update(h.copy(showVideoTally = !h.showVideoTally))
-        }
-        ChromeGridQuickAction.ToggleMaxBrightnessPreview -> {
-            val c = chromePrefs.current
-            chromePrefs.update(c.copy(maxBrightnessInPreview = !c.maxBrightnessInPreview))
-        }
-        ChromeGridQuickAction.ToggleDndInPreview -> {
-            val c = chromePrefs.current
-            chromePrefs.update(c.copy(dndWhileInPreview = !c.dndWhileInPreview))
-        }
-        ChromeGridQuickAction.ExtraShutterMenu -> Unit
-        ChromeGridQuickAction.CycleFlash -> Unit
-        ChromeGridQuickAction.ToggleSaveLocation -> {
-            val c = chromePrefs.current
-            if (c.saveLocationWithMedia) {
-                chromePrefs.update(c.copy(saveLocationWithMedia = false))
-                CaptureLocationBridge.update(null)
-            } else if (fineLocationGranted) {
-                chromePrefs.update(c.copy(saveLocationWithMedia = true))
-            } else {
-                onPendingEnableGeotagChange(true)
-                onRequestLocationForGeotag()
-            }
-        }
-        ChromeGridQuickAction.ToggleLensOis -> {
-            val h = hudState.current
-            hudState.update(h.copy(enableLensOpticalStabilization = !h.enableLensOpticalStabilization))
-            Log.i("PNS.ChromeUx", "ois=${!h.enableLensOpticalStabilization}")
-        }
-        ChromeGridQuickAction.ToggleVideoEis -> {
-            val h = hudState.current
-            hudState.update(h.copy(enableVideoStabilizationPreview = !h.enableVideoStabilizationPreview))
-            Log.i("PNS.ChromeUx", "eis=${!h.enableVideoStabilizationPreview}")
-        }
-        ChromeGridQuickAction.CycleFalseColor -> Unit
     }
 }
 
@@ -7958,7 +7937,6 @@ private fun PreviewChromeScrollSlot(
     spec: ChromeGridSlotSpec,
     expandedKey: String?,
     onToggleShortcutTitle: (String) -> Unit,
-    onOpenDeveloperMenuFromSettingsLongPress: () -> Unit,
     hudState: HudSettingsState,
     chromePrefs: PreviewChromePreferencesState,
     compositionGuide: CompositionGuideSettings,
@@ -7972,9 +7950,6 @@ private fun PreviewChromeScrollSlot(
     val chrome = chromePrefs.current
     val shutterMode = ShutterCaptureMode.current(chrome, hud)
     val rot = Modifier.chromeGlyphRotation(uiRotationDeg)
-    val context = LocalContext.current
-    val snackbarHost = LocalPnsSnackbarHostState.current
-    val snackScope = rememberCoroutineScope()
     when (spec) {
         is ChromeGridSlotSpec.ExpandShortcut ->
             IconCubeVectorButton(
@@ -7987,14 +7962,7 @@ private fun PreviewChromeScrollSlot(
                 modifier = rot.then(Modifier.fillMaxSize()),
                 chromeChipStyle = true,
                 fillMaxTile = true,
-                onLongClick =
-                    if (spec.title == "Settings") {
-                        {
-                            onOpenDeveloperMenuFromSettingsLongPress()
-                        }
-                    } else {
-                        null
-                    },
+                onLongClick = null,
             )
         is ChromeGridSlotSpec.QuickAction -> {
             quickActionFeatureId(spec.kind)?.let { featureId ->
@@ -8007,11 +7975,6 @@ private fun PreviewChromeScrollSlot(
                 }
             }
             var qsMenuExpanded by remember { mutableStateOf(false) }
-            val menuOnlyQs = spec.kind == ChromeGridQuickAction.ExtraShutterMenu
-            val cycleFlashQs = spec.kind == ChromeGridQuickAction.CycleFlash
-            val cycleFalseColorQs = spec.kind == ChromeGridQuickAction.CycleFalseColor
-            val cycleShutterQs = spec.kind == ChromeGridQuickAction.TimerStub
-            val binaryQs = !menuOnlyQs && !cycleFlashQs && !cycleFalseColorQs && !cycleShutterQs
             val selectedQuick =
                 when (spec.kind) {
                     ChromeGridQuickAction.ToggleHistogram ->
@@ -8072,37 +8035,7 @@ private fun PreviewChromeScrollSlot(
             Box(modifier = rot.then(Modifier.fillMaxSize())) {
                 IconCubeVectorButton(
                     onClick = {
-                        when (spec.kind) {
-                            ChromeGridQuickAction.TimerStub -> {
-                                val next = ShutterCaptureMode.cycle(shutterMode)
-                                applyShutterCaptureMode(next, chromePrefs, hudState)
-                                Log.i("PNS.ChromeUx", "shutterMode=$next")
-                            }
-                            ChromeGridQuickAction.CycleFlash -> {
-                                val c = chromePrefs.current
-                                val next = c.previewFlashMode.cycle()
-                                chromePrefs.update(c.copy(previewFlashMode = next))
-                                Log.i("PNS.ChromeUx", "flashMode=${next.name}")
-                            }
-                            ChromeGridQuickAction.CycleFalseColor -> {
-                                val next = hudState.current.falseColorModeEnum().cycleNext()
-                                applyFalseColorQuickMode(next, hudState)
-                            }
-                            else -> {
-                                if (binaryQs) {
-                                    performQuickActionToggle(
-                                        spec.kind,
-                                        hudState,
-                                        chromePrefs,
-                                        fineLocationGranted,
-                                        onPendingEnableGeotagChange,
-                                        onRequestLocationForGeotag,
-                                    )
-                                } else {
-                                    qsMenuExpanded = true
-                                }
-                            }
-                        }
+                        qsMenuExpanded = true
                     },
                     contentDescription = qsA11yLabel,
                     imageVector = tileIcon,
@@ -8110,24 +8043,7 @@ private fun PreviewChromeScrollSlot(
                     modifier = Modifier.fillMaxSize(),
                     chromeChipStyle = true,
                     fillMaxTile = true,
-                    onLongClick =
-                        if (binaryQs || cycleFlashQs || cycleFalseColorQs || cycleShutterQs) {
-                            {
-                                if (cycleFlashQs &&
-                                    !PnsUiHintsStore.hasSeenFlashLongPressMenuTip(context.applicationContext)
-                                ) {
-                                    PnsUiHintsStore.markFlashLongPressMenuTipSeen(context.applicationContext)
-                                    snackScope.pnsShowSnackbar(
-                                        snackbarHost,
-                                        "Flash: long-press opens the mode menu (Torch, Auto, …).",
-                                        longDuration = false,
-                                    )
-                                }
-                                qsMenuExpanded = true
-                            }
-                        } else {
-                            null
-                        },
+                    onLongClick = null,
                 )
                 ChromeGridQuickActionPopup(
                     expanded = qsMenuExpanded,
@@ -8164,7 +8080,6 @@ private fun PreviewChromeGrid7x3(
     onPendingEnableGeotagChange: (Boolean) -> Unit,
     onRequestLocationForGeotag: () -> Unit,
     onKickPreviewPipeline: () -> Unit,
-    onOpenDeveloperMenuFromSettingsLongPress: () -> Unit,
 ) {
     val context = LocalContext.current
     val appCtx = context.applicationContext
@@ -8189,10 +8104,53 @@ private fun PreviewChromeGrid7x3(
     val cols = 7
     val shortcutLogicalRows = previewChromeGridSlots.map { it.row }.distinct().size
     val physicalRows = 1 + shortcutLogicalRows
+    val gridRows = remember { previewChromeGridSlots.map { it.row }.distinct().sorted() }
+    val defaultSlotsById = remember { previewChromeGridSlots.associateBy(::chromeGridSlotStableId) }
+    val persistedSlotPositions = remember(appCtx) { PreviewChromePreferences.loadQuickSettingsGridOrder(appCtx) }
+    val slotMap =
+        remember(persistedSlotPositions) {
+            mutableStateMapOf<Pair<Int, Int>, ChromeGridSlotSpec?>().apply {
+                for (gridRow in gridRows) {
+                    repeat(cols) { col -> this[gridRow to col] = null }
+                }
+                val occupied = mutableSetOf<Pair<Int, Int>>()
+                persistedSlotPositions.forEach { (slotId, pos) ->
+                    val spec = defaultSlotsById[slotId] ?: return@forEach
+                    val validCell = (pos.first in gridRows) && (pos.second in 0 until cols)
+                    if (!validCell) return@forEach
+                    if (!occupied.add(pos)) return@forEach
+                    this[pos] = spec
+                }
+                previewChromeGridSlots.forEach { spec ->
+                    if (this.values.any { it == spec }) return@forEach
+                    val fallbackPos = spec.row to spec.col
+                    if (this[fallbackPos] == null) {
+                        this[fallbackPos] = spec
+                    } else {
+                        val firstEmpty = this.entries.firstOrNull { it.value == null }?.key
+                        if (firstEmpty != null) {
+                            this[firstEmpty] = spec
+                        }
+                    }
+                }
+            }
+        }
+    var dragState by remember { mutableStateOf<ChromeGridDragState?>(null) }
+    val density = LocalDensity.current
     BoxWithConstraints(modifier = modifier) {
         val cellW = (maxWidth - gap * (cols - 1)) / cols
         val cellH = (maxHeight - gap * (physicalRows - 1)) / physicalRows
         val cell = minOf(cellW, cellH).coerceAtLeast(1.dp)
+        val dragStridePx = with(density) { (cell + gap).toPx().coerceAtLeast(1f) }
+        fun persistGridOrder() {
+            val byId = mutableMapOf<String, Pair<Int, Int>>()
+            slotMap.forEach { (pos, spec) ->
+                if (spec != null) byId[chromeGridSlotStableId(spec)] = pos
+            }
+            PreviewChromePreferences.saveQuickSettingsGridOrder(appCtx, byId)
+        }
+        val hoverTargetPos = dragState?.let { resolveChromeGridDragTarget(it, dragStridePx, cols, gridRows) }
+        val fromPos = dragState?.let { it.fromRow to it.fromCol }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -8232,24 +8190,131 @@ private fun PreviewChromeGrid7x3(
                         )
                     }
                 }
-                val gridRows = previewChromeGridSlots.map { it.row }.distinct().sorted()
-                val specAt =
-                    previewChromeGridSlots.associateBy { it.row to it.col }
                 for (gridRow in gridRows) {
                     Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
                         repeat(cols) { col ->
-                            val spec = specAt[gridRow to col]
+                            val pos = gridRow to col
+                            val spec = slotMap[pos]
+                            val draggingThis =
+                                dragState?.fromRow == gridRow &&
+                                    dragState?.fromCol == col
+                            val dragOffsetPx =
+                                if (draggingThis) {
+                                    IntOffset(
+                                        dragState?.deltaX?.roundToInt() ?: 0,
+                                        dragState?.deltaY?.roundToInt() ?: 0,
+                                    )
+                                } else {
+                                    IntOffset.Zero
+                                }
+                            val animatedDragOffset by animateIntOffsetAsState(
+                                targetValue = dragOffsetPx,
+                                animationSpec = spring(stiffness = 460f),
+                                label = "qsDragOffset",
+                            )
+                            val isHoverTarget = hoverTargetPos == pos && !draggingThis
+                            val hoveringOccupiedTarget = isHoverTarget && spec != null
+                            val showIncomingPlaceholder =
+                                !draggingThis &&
+                                    fromPos == pos &&
+                                    hoverTargetPos != null &&
+                                    hoverTargetPos != fromPos &&
+                                    (slotMap[hoverTargetPos] != null)
+                            val incomingPlaceholderSpec =
+                                if (showIncomingPlaceholder) {
+                                    slotMap[hoverTargetPos]
+                                } else {
+                                    null
+                                }
+                            val tileScale by animateFloatAsState(
+                                targetValue =
+                                    when {
+                                        draggingThis -> 1.08f
+                                        isHoverTarget -> 0.94f
+                                        showIncomingPlaceholder -> 0.96f
+                                        else -> 1f
+                                    },
+                                animationSpec = spring(stiffness = 520f),
+                                label = "qsTileScale",
+                            )
+                            val baseSpec = if (draggingThis) spec else incomingPlaceholderSpec ?: spec
+                            val dragGestureModifier =
+                                if (spec != null) {
+                                    Modifier.pointerInput(spec, gridRow, col, dragStridePx) {
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = {
+                                                dragState =
+                                                    ChromeGridDragState(
+                                                        fromRow = gridRow,
+                                                        fromCol = col,
+                                                    )
+                                            },
+                                            onDragEnd = {
+                                                val state = dragState
+                                                if (state != null && state.fromRow == gridRow && state.fromCol == col) {
+                                                    val (targetRow, targetCol) =
+                                                        resolveChromeGridDragTarget(state, dragStridePx, cols, gridRows)
+                                                    val fromPos = state.fromRow to state.fromCol
+                                                    val toPos = targetRow to targetCol
+                                                    if (fromPos != toPos) {
+                                                        val moving = slotMap[fromPos]
+                                                        val target = slotMap[toPos]
+                                                        slotMap[toPos] = moving
+                                                        slotMap[fromPos] = target
+                                                        persistGridOrder()
+                                                    }
+                                                }
+                                                dragState = null
+                                            },
+                                            onDragCancel = { dragState = null },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                val state = dragState
+                                                if (state != null && state.fromRow == gridRow && state.fromCol == col) {
+                                                    dragState =
+                                                        state.copy(
+                                                            deltaX = state.deltaX + dragAmount.x,
+                                                            deltaY = state.deltaY + dragAmount.y,
+                                                        )
+                                                }
+                                            },
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
                             Box(
-                                modifier = Modifier.size(cell),
+                                modifier =
+                                    Modifier
+                                        .size(cell)
+                                        .graphicsLayer {
+                                            scaleX = tileScale
+                                            scaleY = tileScale
+                                        }
+                                        .then(dragGestureModifier)
+                                        .offset { animatedDragOffset }
+                                        .zIndex(
+                                            when {
+                                                draggingThis -> 2f
+                                                isHoverTarget -> 1.2f
+                                                else -> 0f
+                                            },
+                                        )
+                                        .background(
+                                            if (isHoverTarget) {
+                                                PnsColors.RootAccentBlue.copy(alpha = 0.16f)
+                                            } else {
+                                                Color.Transparent
+                                            },
+                                            RoundedCornerShape(8.dp),
+                                        ),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (spec != null) {
+                                if (baseSpec != null) {
                                     PreviewChromeScrollSlot(
-                                        spec = spec,
+                                        spec = baseSpec,
                                         expandedKey = expandedKey,
                                         onToggleShortcutTitle = onToggleShortcutTitle,
-                                        onOpenDeveloperMenuFromSettingsLongPress =
-                                            onOpenDeveloperMenuFromSettingsLongPress,
                                         hudState = hudState,
                                         chromePrefs = chromePrefs,
                                         compositionGuide = compositionGuide.current,
@@ -8623,6 +8688,7 @@ private fun RailSettingsHomeContent(
     onCapture: () -> Unit,
     onVideo: () -> Unit,
     onAbout: () -> Unit,
+    onDeveloperSettings: () -> Unit,
     onTargetFps: () -> Unit,
     onQuickSettings: () -> Unit,
     fpsTargetEditable: Boolean,
@@ -8642,7 +8708,7 @@ private fun RailSettingsHomeContent(
             )
         } else {
         ChromeSettingsIntroText(
-            "Quick-setting tiles mirror these groups. Long-press the Settings tile for developer / research items.",
+            "Quick-setting tiles mirror these groups. Developer settings are pinned at the bottom.",
         )
         RailSettingsMenuEntryCard(
             title = "Quick settings",
@@ -8690,6 +8756,12 @@ private fun RailSettingsHomeContent(
             title = "About & heritage",
             subtitle = "Credits, LG dual-camera nod, support development (Venmo).",
             onClick = onAbout,
+        )
+        PreviewRailSectionTitle("Developer")
+        RailSettingsMenuEntryCard(
+            title = "Developer settings",
+            subtitle = "Research toggles, diagnostics, and engineering actions.",
+            onClick = onDeveloperSettings,
         )
         }
     }
@@ -9350,13 +9422,6 @@ private fun PreviewRightRail(
             onRequestLocationForGeotag = onRequestLocationForGeotag,
             compositionGuide = compositionGuide,
             onKickPreviewPipeline = onKickPreviewPipeline,
-            onOpenDeveloperMenuFromSettingsLongPress = {
-                expandedKey = null
-                settingsSubPage = null
-                overlaysPane = null
-                settingsGuidesPane = null
-                onOpenDeveloperMenu()
-            },
         )
         expandedKey?.let { key ->
             val showNestedBack =
@@ -9471,6 +9536,7 @@ private fun PreviewRightRail(
                                                 Log.i("PNS.ChromeUx", "settingsAbout=open")
                                                 settingsSubPage = "about"
                                             },
+                                            onDeveloperSettings = onOpenDeveloperMenu,
                                             onTargetFps = { settingsSubPage = "fps" },
                                             onQuickSettings = { settingsSubPage = "quick" },
                                             fpsTargetEditable = fpsTargetEditable,
@@ -12004,11 +12070,15 @@ private class PreviewController(
     fun setReadoutIsoBand(band: ReadoutIsoBand) {
         if (readoutIsoBand == band) return
         readoutIsoBand = band
+        val isoRange = currentSensitivityRangeOrNull()
+        manualIsoOverride = manualIsoOverride?.let { readoutIsoBand.clampPick(isoRange, it) }
+        readoutChaseIso = readoutChaseIso?.let { readoutIsoBand.clampPick(isoRange, it) }
         refreshRepeatingPreviewOnly()
     }
 
     fun cycleReadoutIsoBand() {
-        val bands = ReadoutIsoBand.entries
+        val bands = ReadoutIsoBand.quickPresets
+        if (bands.isEmpty()) return
         val idx = bands.indexOf(readoutIsoBand).coerceAtLeast(0)
         val next = bands[(idx + 1) % bands.size]
         setReadoutIsoBand(next)
@@ -12033,11 +12103,13 @@ private class PreviewController(
 
     fun restoreReadoutState(snapshot: PreviewTrayReadoutSnapshot) {
         runOnCameraThread {
-            manualIsoOverride = snapshot.manualIso
+            val isoRange = currentSensitivityRangeOrNull()
+            manualIsoOverride = snapshot.manualIso?.let { snapshot.isoBand.clampPick(isoRange, it) }
             manualExposureNsOverride = snapshot.manualExposureNs
             manualAwbModeOverride = snapshot.manualAwbMode
             aeLocked = snapshot.aeLocked
             readoutIsoBand = snapshot.isoBand
+            readoutChaseIso = readoutChaseIso?.let { readoutIsoBand.clampPick(isoRange, it) }
             previewShaderWbRgb.set(ReadoutAwbPreviewShaderGains.rgbForMode(snapshot.manualAwbMode))
             notifyReadoutWbShaderChanged()
             if (snapshot.manualIso == null && snapshot.manualExposureNs == null) {
@@ -12062,7 +12134,8 @@ private class PreviewController(
     fun setReadoutManualIso(iso: Int?) {
         runOnCameraThread {
             val chaseBefore = wantsReadoutExposureChase()
-            manualIsoOverride = iso
+            val isoRange = currentSensitivityRangeOrNull()
+            manualIsoOverride = iso?.let { readoutIsoBand.clampPick(isoRange, it) }
             if (iso != null && manualExposureNsOverride == null) {
                 readoutChaseExposureNs =
                     previewMetadata.get().exposureNs ?: readoutChaseExposureNs
@@ -12914,16 +12987,29 @@ private class PreviewController(
         }
         when {
             raw == null && tonal != null ->
-                captureIndependentTonalStill(
-                    appContext,
-                    haptics,
-                    surfaceRotation,
-                    tonalBundle = tonal,
-                    stillsLut = stillsLut,
-                    adbValidationShotLabel = adbValidationShotLabel,
-                    onTonalReady = onTonalReady,
-                    onResult = onResult,
-                )
+                if (plan.photoResolutionMode == PhotoResolutionMode.MaxResolution) {
+                    captureMaxPhotoTiledStill(
+                        appContext = appContext,
+                        haptics = haptics,
+                        surfaceRotation = surfaceRotation,
+                        tonalBundle = tonal,
+                        stillsLut = stillsLut,
+                        adbValidationShotLabel = adbValidationShotLabel,
+                        onTonalReady = onTonalReady,
+                        onResult = onResult,
+                    )
+                } else {
+                    captureIndependentTonalStill(
+                        appContext,
+                        haptics,
+                        surfaceRotation,
+                        tonalBundle = tonal,
+                        stillsLut = stillsLut,
+                        adbValidationShotLabel = adbValidationShotLabel,
+                        onTonalReady = onTonalReady,
+                        onResult = onResult,
+                    )
+                }
             raw != null && tonal != null ->
                 captureRawStill(
                     appContext,
@@ -14313,6 +14399,237 @@ private class PreviewController(
             )
         }
         captureFrame(0)
+    }
+
+    /**
+     * Experimental Max Photo fallback: progressive 2x2 sensor-region captures stitched to one output.
+     * This is a software fallback path when direct max-res outputs are still bounded by HAL defaults.
+     */
+    private fun captureMaxPhotoTiledStill(
+        appContext: Context,
+        haptics: CaptureHaptics,
+        surfaceRotation: Int,
+        tonalBundle: StillCaptureBundle,
+        stillsLut: LutCatalog = LutCatalog.None,
+        adbValidationShotLabel: String? = null,
+        onTonalReady: ((Uri?) -> Unit)? = null,
+        onResult: (Result<RawStillSaveSuccess>) -> Unit,
+    ) {
+        if (!captureBusy.compareAndSet(false, true)) {
+            mainHandler.post {
+                onResult(Result.failure(IllegalStateException("Capture already in progress")))
+            }
+            return
+        }
+        val camId = selectedCameraId
+        if (camId.isNullOrBlank()) {
+            releaseCaptureBusy()
+            mainHandler.post { onResult(Result.failure(IllegalStateException("No active camera"))) }
+            return
+        }
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+        val baseJpegSize =
+            chars?.let { RawCaptureSupport.pickJpegOutputSizeForStill(it, stillPhotoResolutionMode) }
+        val layout =
+            MaxPhotoTileStitch.chooseAdaptivePlan(
+                activeArray = chars?.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE),
+                baselineOutputSize = baseJpegSize,
+            )
+        if (chars == null || layout == null) {
+            releaseCaptureBusy()
+            captureIndependentTonalStill(
+                appContext = appContext,
+                haptics = haptics,
+                surfaceRotation = surfaceRotation,
+                tonalBundle = tonalBundle,
+                stillsLut = stillsLut,
+                adbValidationShotLabel = adbValidationShotLabel,
+                onTonalReady = onTonalReady,
+                onResult = onResult,
+            )
+            return
+        }
+
+        val total = layout.cropRects.size
+        val collected = ArrayList<Pair<ByteArray, TotalCaptureResult>>(total)
+        val bgHandler = handler
+        Log.i(
+            CaptureStillLog.TAG,
+            "maxPhotoStitch begin tiles=$total grid=${layout.cols}x${layout.rows} overlap=${"%.2f".format(layout.overlapFraction)} base=${baseJpegSize?.width}x${baseJpegSize?.height}",
+        )
+        if (adbValidationShotLabel != null) {
+            PnsAdbLog.i(
+                appContext,
+                "maxPhotoStitch begin tiles=$total grid=${layout.cols}x${layout.rows} overlap=${"%.2f".format(layout.overlapFraction)}",
+            )
+        }
+
+        fun finishFailure(t: Throwable) {
+            releaseCaptureBusy()
+            Log.w(CaptureStillLog.TAG, "maxPhotoStitch ok=false err=${t.message}", t)
+            if (adbValidationShotLabel != null) {
+                PnsAdbLog.i(appContext, "maxPhotoStitch ok=false err=${t.message}")
+            }
+            mainHandler.post { onResult(Result.failure(t)) }
+        }
+
+        fun captureTile(index: Int) {
+            val tileNum = index + 1
+            val cropRect = layout.cropRects[index]
+            captureIndependentTonalStill(
+                appContext = appContext,
+                haptics = haptics,
+                surfaceRotation = surfaceRotation,
+                tonalBundle = tonalBundle,
+                stillsLut = stillsLut,
+                adbValidationShotLabel = adbValidationShotLabel?.let { "$it tile=$tileNum/$total" },
+                manageCaptureBusy = false,
+                stillRequestOverride = { builder, _ ->
+                    builder.set(CaptureRequest.SCALER_CROP_REGION, cropRect)
+                },
+                onHardwareJpegFrame = { frameResult ->
+                    frameResult.fold(
+                        onSuccess = { (bytes, result) ->
+                            collected += bytes to result
+                            if (tileNum < total) {
+                                bgHandler?.postDelayed({ captureTile(index + 1) }, 80L)
+                                    ?: mainHandler.postDelayed({ captureTile(index + 1) }, 80L)
+                            } else {
+                                companionJpegExecutor.execute {
+                                    try {
+                                        val stitched =
+                                            MaxPhotoTileStitch.stitchJpegTiles(
+                                                jpegTiles = collected.map { it.first },
+                                                layout = layout,
+                                            ) ?: throw IllegalStateException("MaxPhoto stitch failed")
+                                        val lastResult = collected.last().second
+                                        val storageProfile = storageProfileFromBundle(tonalBundle)
+                                        val softwareJpegQuality = readHudCapturePrefs().softwareJpegCompanionQuality
+                                        val orient =
+                                            RawCaptureSupport.orientationClockwiseDegForDng(chars, surfaceRotation)
+                                        val outcome =
+                                            IndependentTonalStillSaver.saveFromStackedRgb888(
+                                                appContext = appContext,
+                                                storageProfile = storageProfile,
+                                                tonalBundle = tonalBundle,
+                                                rgb888 = stitched.rgb888,
+                                                width = stitched.width,
+                                                height = stitched.height,
+                                                stillsLut = stillsLut,
+                                                characteristics = chars,
+                                                captureResult = lastResult,
+                                                orientationDegrees = orient,
+                                                softwareJpegQuality = softwareJpegQuality,
+                                                filenameSuffix = "maxphoto_stitch",
+                                            )
+                                        val uri = checkNotNull(outcome.uri) { "MaxPhoto stitched save failed" }
+                                        val displayName = outcome.displayName ?: uri.toString()
+                                        val tileBounds =
+                                            BitmapFactory.Options().apply {
+                                                inJustDecodeBounds = true
+                                            }
+                                        BitmapFactory.decodeByteArray(
+                                            collected.first().first,
+                                            0,
+                                            collected.first().first.size,
+                                            tileBounds,
+                                        )
+                                        val tileW = tileBounds.outWidth.coerceAtLeast(0)
+                                        val tileH = tileBounds.outHeight.coerceAtLeast(0)
+                                        val refW = baseJpegSize?.width?.takeIf { it > 0 } ?: tileW
+                                        val refH = baseJpegSize?.height?.takeIf { it > 0 } ?: tileH
+                                        val gainFactor =
+                                            if (refW > 0 && refH > 0) {
+                                                (stitched.width.toDouble() * stitched.height.toDouble()) /
+                                                    (refW.toDouble() * refH.toDouble())
+                                            } else {
+                                                Double.NaN
+                                            }
+                                        val stitchDiag =
+                                            buildString {
+                                                append("maxPhotoStitch ")
+                                                append("grid=").append(layout.cols).append("x").append(layout.rows).append(" ")
+                                                append("overlap=").append(String.format(java.util.Locale.US, "%.2f", layout.overlapFraction)).append(" ")
+                                                append("tile=").append(tileW).append("x").append(tileH).append(" ")
+                                                append("stitched=").append(stitched.width).append("x").append(stitched.height).append(" ")
+                                                append("gain=").append(String.format(java.util.Locale.US, "%.2fx", gainFactor))
+                                            }
+                                        appendMaxPhotoStitchDescription(uri, stitchDiag)
+                                        Log.i(
+                                            CaptureStillLog.TAG,
+                                            "maxPhotoStitch ok=true tiles=$total saved=$displayName size=${stitched.width}x${stitched.height} " +
+                                                "tile=${tileW}x${tileH} gain=${String.format(java.util.Locale.US, "%.2fx", gainFactor)}",
+                                        )
+                                        if (adbValidationShotLabel != null) {
+                                            PnsAdbLog.i(
+                                                appContext,
+                                                "maxPhotoStitch ok=true tiles=$total saved=$displayName size=${stitched.width}x${stitched.height} " +
+                                                    "tile=${tileW}x${tileH} gain=${String.format(java.util.Locale.US, "%.2fx", gainFactor)}",
+                                            )
+                                        }
+                                        mainHandler.post {
+                                            releaseCaptureBusy()
+                                            onTonalReady?.invoke(uri)
+                                            onResult(
+                                                Result.success(
+                                                    RawStillSaveSuccess(
+                                                        dngUriString = uri.toString(),
+                                                        tonalUriString = uri.toString(),
+                                                    ),
+                                                ),
+                                            )
+                                        }
+                                    } catch (t: Throwable) {
+                                        finishFailure(t)
+                                    }
+                                }
+                            }
+                        },
+                        onFailure = { t -> finishFailure(t) },
+                    )
+                },
+                onResult = { result ->
+                    result.exceptionOrNull()?.let { finishFailure(it) }
+                },
+            )
+        }
+
+        captureTile(0)
+    }
+
+    private fun appendMaxPhotoStitchDescription(
+        uri: Uri,
+        stitchDiag: String,
+    ) {
+        runCatching {
+            val resolver = appContext.contentResolver
+            val projection = arrayOf(MediaStore.Images.Media.DESCRIPTION)
+            val existing =
+                resolver.query(uri, projection, null, null, null)?.use { c ->
+                    val idx = c.getColumnIndex(MediaStore.Images.Media.DESCRIPTION)
+                    if (idx >= 0 && c.moveToFirst()) {
+                        c.getString(idx)
+                    } else {
+                        null
+                    }
+                }
+            if (!existing.isNullOrBlank() && existing.contains("maxPhotoStitch ")) {
+                return@runCatching
+            }
+            val merged =
+                if (existing.isNullOrBlank()) {
+                    stitchDiag
+                } else {
+                    "$existing $stitchDiag"
+                }
+            val values =
+                android.content.ContentValues().apply {
+                    put(MediaStore.Images.Media.DESCRIPTION, merged)
+                }
+            resolver.update(uri, values, null, null)
+        }.onFailure { e ->
+            Log.w(CaptureStillLog.TAG, "maxPhotoStitch description update failed uri=$uri err=${e.message}")
+        }
     }
 
     /**
@@ -15798,6 +16115,8 @@ private class PreviewController(
 
     @Volatile private var stillCaptureBundle: StillCaptureBundle = legacyStillBundle(ImagingProfile.StandardPro)
     @Volatile private var stillPhotoResolutionMode: PhotoResolutionMode = PhotoResolutionMode.Binned
+    @Volatile private var maxResSweepSessionKeys: List<String> = emptyList()
+    @Volatile private var maxResSweepRequestKeys: List<String> = emptyList()
 
     fun stillCaptureBundle(): StillCaptureBundle = stillCaptureBundle
 
@@ -15860,6 +16179,22 @@ private class PreviewController(
         if (rawStreamPreference == preference) return
         rawStreamPreference = preference
         Log.d(tag, "setRawStreamPreference preference=$preference")
+        maybeRestart()
+    }
+
+    /**
+     * Root-gated diagnostics: candidate vendor keys to test while building max-resolution session/request.
+     */
+    fun setMaxResSweepKeys(sessionKeys: List<String>, requestKeys: List<String>) {
+        val nextSession = sessionKeys.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        val nextRequest = requestKeys.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        if (maxResSweepSessionKeys == nextSession && maxResSweepRequestKeys == nextRequest) return
+        maxResSweepSessionKeys = nextSession
+        maxResSweepRequestKeys = nextRequest
+        Log.i(
+            tag,
+            "setMaxResSweepKeys session=${nextSession.size} request=${nextRequest.size}",
+        )
         maybeRestart()
     }
 
@@ -16572,6 +16907,12 @@ private class PreviewController(
                 !ExperimentalSafeModeStore.isSafeModeActive(appContext) &&
                 RootCapabilityStore.loadOrUnknown(appContext).grantsPrivileged &&
                 ExperimentalMaxResolutionUnlock.isCph2583LaneDevice()
+        val sessionSweepKeys =
+            if (attachExperimentalVendorSession && camId == "2") {
+                maxResSweepSessionKeys
+            } else {
+                emptyList()
+            }
         val template =
             DcgSessionParameters.buildSessionParametersTemplate(
                 camera = camera,
@@ -16582,12 +16923,36 @@ private class PreviewController(
                 attachDcg = attachDcg,
                 attachAfBracketing = prefs.enableResearchAfBracketing,
                 attachExperimentalVendorSession = attachExperimentalVendorSession,
+                extraExperimentalSessionKeys = sessionSweepKeys,
             )
         if (template != null && attachDcg) {
             PnsAdbLog.i(appContext, "dcgSessionTemplate=EnableHDRDCGMode cam=$camId")
         }
         if (template != null && attachExperimentalVendorSession) {
             PnsAdbLog.i(appContext, "maxResUnlock sessionVendorTemplateApplied cam=$camId")
+        }
+        if (sessionSweepKeys.isNotEmpty()) {
+            for (keyName in sessionSweepKeys) {
+                val present = VendorKeyGuard.captureSessionKey(ch, keyName) != null
+                val b = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+                val hit = VendorKeyGuard.trySetVendorSessionEnable(b, ch, keyName)
+                val settable = hit != null
+                recordCapturePipelineEvent(
+                    "MAX_RES_SWEEP_SESSION",
+                    "session sweep candidate",
+                    mapOf(
+                        "cam" to camId,
+                        "key" to keyName,
+                        "present" to present.toString(),
+                        "settable" to settable.toString(),
+                        "type" to (hit ?: "none"),
+                    ),
+                )
+                PnsAdbLog.i(
+                    appContext,
+                    "maxResSweep scope=session cam=$camId key=$keyName present=$present settable=$settable type=${hit ?: "none"}",
+                )
+            }
         }
         return template
     }
@@ -17699,9 +18064,10 @@ private class PreviewController(
                         ?: previewMetadata.get().iso
                         ?: isoRange?.lower
                         ?: 100
-                readoutChaseIso = cur
+                val clampedCur = readoutIsoBand.clampPick(isoRange, cur)
+                readoutChaseIso = clampedCur
                 val res =
-                    ReadoutExposureChase.adjustIso(cur, medianEma, isoRange, readoutIsoBand)
+                    ReadoutExposureChase.adjustIso(clampedCur, medianEma, isoRange, readoutIsoBand)
                 if (res.applied) {
                     readoutChaseIso = res.value
                     applied = true
@@ -17761,7 +18127,7 @@ private class PreviewController(
                             manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
                         req.set(
                             CaptureRequest.SENSOR_SENSITIVITY,
-                            ReadoutExposureCatalog.clampIso(isoRange, isoPick),
+                            readoutIsoBand.clampPick(isoRange, isoPick),
                         )
                         val expPick =
                             readoutChaseExposureNs
@@ -17781,7 +18147,7 @@ private class PreviewController(
                                 ?: 100
                         req.set(
                             CaptureRequest.SENSOR_SENSITIVITY,
-                            ReadoutExposureCatalog.clampIso(isoRange, isoPick),
+                            readoutIsoBand.clampPick(isoRange, isoPick),
                         )
                         val expPick =
                             manualExposureNsOverride
@@ -17798,7 +18164,7 @@ private class PreviewController(
                             manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
                         req.set(
                             CaptureRequest.SENSOR_SENSITIVITY,
-                            ReadoutExposureCatalog.clampIso(isoRange, isoPick),
+                            readoutIsoBand.clampPick(isoRange, isoPick),
                         )
                         val expPick =
                             manualExposureNsOverride
@@ -17872,6 +18238,12 @@ private class PreviewController(
         }
     }
 
+    private fun currentSensitivityRangeOrNull(): Range<Int>? {
+        val camId = selectedCameraId ?: return null
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return null
+        return chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
+    }
+
     private fun applyStillSensorResolutionMode(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
@@ -17908,6 +18280,7 @@ private class PreviewController(
                 ExperimentalMaxResolutionUnlock.isCph2583LaneDevice() &&
                 stillPhotoResolutionMode == PhotoResolutionMode.MaxResolution
         if (!shouldAttach) return
+        val camIdForSweep = selectedCameraId ?: "-"
         val keyName = "com.oplus.QCFARemosaicType"
         val hit = VendorKeyGuard.trySetVendorRequestEnable(req, chars, keyName)
         if (hit != null) {
@@ -17938,6 +18311,35 @@ private class PreviewController(
                 ),
             )
             Log.d(tag, "maxResUnlock requestVendorKeyAbsent name=$keyName")
+        }
+        val sweepKeys =
+            if (camIdForSweep == "2") {
+                maxResSweepRequestKeys
+            } else {
+                emptyList()
+            }
+        if (sweepKeys.isEmpty()) return
+        for (candidate in sweepKeys) {
+            if (candidate == keyName) continue
+            val present = VendorKeyGuard.captureRequestKey(chars, candidate) != null
+            val sweepType = VendorKeyGuard.trySetVendorRequestEnable(req, chars, candidate)
+            val settable = sweepType != null
+            recordCapturePipelineEvent(
+                "MAX_RES_SWEEP_REQ",
+                "request sweep candidate",
+                mapOf(
+                    "cam" to camIdForSweep,
+                    "key" to candidate,
+                    "present" to present.toString(),
+                    "settable" to settable.toString(),
+                    "type" to (sweepType ?: "none"),
+                ),
+            )
+            PnsAdbLog.i(
+                appContext,
+                "maxResSweep scope=request cam=$camIdForSweep key=$candidate " +
+                    "present=$present settable=$settable type=${sweepType ?: "none"}",
+            )
         }
     }
 
@@ -18096,7 +18498,7 @@ private class PreviewController(
             CommandDialMode.Auto, CommandDialMode.H, CommandDialMode.BKT -> true
             CommandDialMode.M, CommandDialMode.S,
             CommandDialMode.Macro, CommandDialMode.Night, CommandDialMode.Bokeh,
-            CommandDialMode.Qr, CommandDialMode.Dual,
+            CommandDialMode.Qr, CommandDialMode.Dual, CommandDialMode.Monochrome,
             -> false
         }
     }

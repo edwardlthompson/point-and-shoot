@@ -97,6 +97,7 @@ fun RootSettingsScreen(
     }
 
     val results = RootGate.evaluate(state)
+    val safeModeActive = remember { mutableStateOf(ExperimentalSafeModeStore.isSafeModeActive(appCtx)) }
 
     val insets = rememberSystemInsetsDp()
     Column(
@@ -145,6 +146,21 @@ fun RootSettingsScreen(
                 else -> Color.White.copy(alpha = 0.85f)
             },
         )
+        if (safeModeActive.value) {
+            Text(
+                text = "Safe mode active: experimental unlock lanes are disabled.",
+                style = MaterialTheme.typography.bodySmall,
+                color = PnsColors.RecordRed,
+            )
+            OutlinedButton(
+                onClick = {
+                    ExperimentalSafeModeStore.clearSafeMode(appCtx)
+                    safeModeActive.value = false
+                },
+            ) {
+                Text("Clear safe mode")
+            }
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth(),

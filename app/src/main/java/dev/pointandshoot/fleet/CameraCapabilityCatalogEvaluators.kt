@@ -19,16 +19,24 @@ internal object CameraCapabilityCatalogEvaluators {
             row.id == "video.hevc" || row.id.startsWith("video.hevc.") -> gateTriple(root, "hevc10")
             row.id == "video.uhd60" -> gateTriple(root, "uhd60")
             row.id == "video.raw" || row.id == "video.raw_picker" -> gateTriple(root, "rawVideo")
-            row.id == "video.vp9" -> {
+            row.id == "video.vp9" || row.id.startsWith("video.vp9.") -> {
                 val ok = MediaCodecCapabilityProbe.probeSyncSafe().supportsVp9
-                Triple(ok, null, "vp9Encoder=$ok")
+                Triple(ok, ok, "vp9Encoder=$ok")
             }
             row.id == "video.prores_probe" -> {
                 val probe = ProResProbe.probeSync()
                 Triple(probe.advertised, null, probe.detail)
             }
-            row.id == "video.dual_iso" -> Triple(true, null, "merge=production")
+            row.id == "video.dual_iso" -> gateTriple(root, "dcgZsl")
             row.id == "video.anamorphic" -> Triple(true, null, "anamorphicSar=metadata")
+            row.id == "still.proshot_leaf" -> Triple(false, null, "legacy_regression_lane")
+            row.id == "dial.monochrome" -> monochromeDial(root)
+            row.id == "still.monochrome_sensor" -> Triple(false, null, "probeOnly=monochrome_sensor_inventory")
+            row.id == "af.macro_dedicated" -> Triple(false, null, "probeOnly=macro_dedicated_inventory")
+            row.id == "legacy.camera1" -> Triple(false, null, "probeOnly=camera1_inventory")
+            row.id == "legacy.mediarecorder_hfr_cap" -> Triple(false, null, "probeOnly=mediarecorder_hfr_cap_inventory")
+            row.id == "product.toolbox" -> Triple(false, null, "probeOnly=toolbox_inventory")
+            row.id == "gallery.lut_preview" -> Triple(false, null, "probeOnly=lut_preview_inventory")
             row.id == "video.dual" -> gateTriple(root, "dualVideo")
             row.id == "video.multicam_melt" -> gateTriple(root, "multicamMelt")
             row.id == "preview.pip" -> gateTriple(root, "pipPreview")
@@ -45,6 +53,7 @@ internal object CameraCapabilityCatalogEvaluators {
             row.id == "fleet.matrix" -> Triple(true, null, "matrix present")
             row.id == "fleet.parity_sweep" -> Triple(true, null, "parity runner shipped")
             row.id == "root.hfr_unlock" -> Triple(anyHfrAbove60(root), null, "matrix HFR ceiling")
+            row.id == "root.max_res_unlock_cph2583" -> rootMaxResUnlock(root)
             row.id.startsWith("tether.") -> Triple(true, null, "tether product row")
             row.id.startsWith("perf.") -> perfProbe(root, row.id)
             row.id.startsWith("audio.") -> Triple(true, null, "audio product row")
@@ -53,9 +62,10 @@ internal object CameraCapabilityCatalogEvaluators {
         }
 
     private fun gateTriple(root: JSONObject, key: String): Triple<Boolean, Boolean?, String> {
-        val gates = firstCameraGate(root, key) ?: return Triple(false, false, "no gate")
+        val gates = firstCameraGate(root, key) ?: return Triple(false, null, "no gate")
         val adv = gates.optBoolean("advertised", false)
-        val sess = gates.optBoolean("sessionOk", false)
+        val quick = FleetDeviceMatrix.parseScanTier(root) == FleetDeviceMatrix.ScanTier.QUICK
+        val sess = if (quick) null else gates.optBoolean("sessionOk", false)
         val app = gates.optBoolean("appEnabled", false)
         return Triple(adv, sess, "advertised=$adv sessionOk=$sess appEnabled=$app")
     }
@@ -134,6 +144,24 @@ internal object CameraCapabilityCatalogEvaluators {
         return false
     }
 
+    private fun rootMaxResUnlock(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val unlock =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("experimentalUnlockState")
+                ?.optJSONObject("unlockLane")
+                ?: return Triple(false, null, "unlockState=missing")
+        val eligible = unlock.optBoolean("deviceEligibleCph2583", false)
+        val rootGranted = unlock.optBoolean("rootGranted", false)
+        val lastAttempt = unlock.optJSONObject("lastAttempt")
+        val applied = lastAttempt?.optBoolean("applied", false) == true
+        val supported = eligible && rootGranted && applied
+        return Triple(
+            supported,
+            if (supported) true else null,
+            "eligible=$eligible rootGranted=$rootGranted applied=$applied",
+        )
+    }
+
     private fun anyStreamSize(root: JSONObject, w: Int, h: Int): Boolean {
         val deep = root.optJSONObject(FleetDeviceMatrix.KEY_APPENDIX)?.optJSONObject("deepCaps") ?: return false
         val cams = deep.optJSONArray("cameras") ?: return false
@@ -196,6 +224,41 @@ internal object CameraCapabilityCatalogEvaluators {
             }
         }
         return Triple(false, null, "eis=off")
+    }
+
+    private fun monochromeDial(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val fromFocalRow =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("focalRow")
+                ?.optJSONObject("specialRoles")
+                ?.optBoolean("dedicatedMonochrome", false)
+                ?: false
+        val monoCamId =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("focalRow")
+                ?.optJSONObject("specialRoles")
+                ?.optString("monochromeCameraId")
+                ?.takeIf { it.isNotBlank() }
+        val fromCapabilities = hasMonochromeCapability(root)
+        val supported = fromFocalRow || fromCapabilities
+        return Triple(
+            supported,
+            null,
+            "dedicatedMonochrome=$fromFocalRow monoCamId=${monoCamId ?: "-"} capabilityMono=$fromCapabilities",
+        )
+    }
+
+    private fun hasMonochromeCapability(root: JSONObject): Boolean {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return false
+        for (i in 0 until cams.length()) {
+            val caps = cams.optJSONObject(i)?.optJSONArray("capabilitiesNormalized") ?: continue
+            for (j in 0 until caps.length()) {
+                if (caps.optString(j).contains("MONOCHROME", ignoreCase = true)) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private fun firstCameraGate(root: JSONObject, key: String): JSONObject? {

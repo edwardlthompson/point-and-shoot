@@ -14,7 +14,7 @@ class ProShotReferenceCalibrationTest {
         val json =
             """
             {
-              "schema": "op13_proshot_calibration.v1",
+              "schema": "legacy_device_proshot_calibration.v1",
               "slots": {
                 "3": {
                   "asn_rational_nd": [1, 1000000, 1, 1000000, 1, 1000000],

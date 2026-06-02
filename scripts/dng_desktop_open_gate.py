@@ -123,7 +123,7 @@ def main() -> int:
     ap.add_argument(
         "--skip-wide-cal-leak",
         action="store_true",
-        help="Skip aux-vs-wide CM2 match (e.g. ProShot reference fixtures not lens-matched)",
+        help="Skip aux-vs-wide CM2 match (e.g. ReferenceCam reference fixtures not lens-matched)",
     )
     args = ap.parse_args()
     paths = list(args.paths)

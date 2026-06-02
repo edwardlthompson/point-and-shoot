@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 /**
@@ -225,16 +226,31 @@ fun FpsQuickChip(
     ) {
         if (subLabel != null) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text(
+                    label,
+                    color = fg,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 Text(
                     subLabel,
                     color = fg.copy(alpha = 0.78f),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         } else {
-            Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
+            Text(
+                label,
+                color = fg,
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

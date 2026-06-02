@@ -12,7 +12,7 @@ Copy this file to `RELEASE_NOTES.md` when preparing a release, then fill in the 
 
 ## Compatibility
 
-- **Target device**: OnePlus 13 (`dodge`)
+- **Target device**: legacy device (`dodge`)
 - **OS**: LineageOS 23 (Android 16 / API 36)
 - **Constraint**: FOSS-only; no Google Play Services
 - **Notes**: (any known limitations)

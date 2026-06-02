@@ -99,33 +99,33 @@ class DngLutMetadataTest {
     @Test
     fun `unique camera model defaults to device + cameraId only`() {
         val out = DngLutMetadata.formatUniqueCameraModel(
-            deviceModel = "OnePlus 13",
+            deviceModel = "Legacy device",
             cameraId = "0",
         )
-        assertEquals("OnePlus 13 (cameraId=0)", out)
+        assertEquals("Legacy device (cameraId=0)", out)
     }
 
     @Test
     fun `unique camera model leaves LUT marker out by default even with active LUT`() {
         val lut = DngLutMetadata.LutIdentity.Bundled("PnsCinematic", sampleSha)
         val out = DngLutMetadata.formatUniqueCameraModel(
-            deviceModel = "OnePlus 13",
+            deviceModel = "Legacy device",
             cameraId = "0",
             activeLut = lut,
         )
-        assertEquals("OnePlus 13 (cameraId=0)", out)
+        assertEquals("Legacy device (cameraId=0)", out)
     }
 
     @Test
     fun `unique camera model includes LUT marker when explicitly opted in`() {
         val lut = DngLutMetadata.LutIdentity.Bundled("PnsCinematic", sampleSha)
         val out = DngLutMetadata.formatUniqueCameraModel(
-            deviceModel = "OnePlus 13",
+            deviceModel = "Legacy device",
             cameraId = "0",
             activeLut = lut,
             includeLutMarkerInUniqueCameraModel = true,
         )
-        assertEquals("OnePlus 13 (cameraId=0) / LUT=PnsCinematic SHA256=$sampleSha", out)
+        assertEquals("Legacy device (cameraId=0) / LUT=PnsCinematic SHA256=$sampleSha", out)
     }
 
     @Test
@@ -166,7 +166,7 @@ class DngLutMetadataTest {
     @Test
     fun `unique camera model rejects blank cameraId`() {
         assertThrows(IllegalArgumentException::class.java) {
-            DngLutMetadata.formatUniqueCameraModel(deviceModel = "OnePlus 13", cameraId = "")
+            DngLutMetadata.formatUniqueCameraModel(deviceModel = "Legacy device", cameraId = "")
         }
     }
 

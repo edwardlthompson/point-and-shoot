@@ -10,6 +10,8 @@ import android.util.Range
  */
 data class ReadoutMenuSnapshot(
     val isoChoices: List<Int?>,
+    /** Currently selected manual ISO override; null means Auto ISO. */
+    val selectedIso: Int?,
     val exposureChoices: List<Long?>,
     /** HAL AWB modes only (no implicit “program default”); see [ReadoutExposureCatalog.awbChoices]. */
     val awbChoices: List<Int>,
@@ -19,6 +21,7 @@ data class ReadoutMenuSnapshot(
         val EMPTY =
             ReadoutMenuSnapshot(
                 listOf(null),
+                null,
                 listOf(null),
                 emptyList(),
                 ReadoutIsoBand.FULL,
@@ -75,13 +78,10 @@ object ReadoutExposureCatalog {
             list.add(iso)
         }
         if (list.size == 1) {
-            val lo = if (range != null) maxOf(band.minIso, range.lower) else band.minIso
-            val hi =
-                if (range != null) {
-                    minOf(band.maxIso, range.upper)
-                } else {
-                    band.maxIso
-                }
+            val tableFloor = ISO_STOP_TABLE.firstOrNull() ?: 1
+            val tableCeil = ISO_STOP_TABLE.lastOrNull() ?: tableFloor
+            val lo = maxOf(band.minIso ?: tableFloor, range.lower)
+            val hi = minOf(band.maxIso ?: tableCeil, range.upper)
             if (lo <= hi) {
                 list.add(lo)
                 if (hi != lo) {

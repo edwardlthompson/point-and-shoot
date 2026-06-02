@@ -139,5 +139,8 @@ val TonalContainer.requiresNativeEncoder: Boolean
     get() = when (this) {
         TonalContainer.Avif10BitHdr -> true
         TonalContainer.JpegXl12Bit -> true
+        TonalContainer.Heic10Bit -> false
+        TonalContainer.MotionPhotoJpeg8 -> false
+        TonalContainer.Tiff16 -> false
         TonalContainer.JpegSdr8 -> false
     }

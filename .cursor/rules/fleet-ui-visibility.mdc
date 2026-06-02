@@ -30,5 +30,5 @@ Full capability inventory (including probe-only / N/A rows) stays in Engineering
 
 ## Do not
 
-- Add CPH2655-only visibility branches without `FleetDevicePolicy` plugin + USB proof.
+- Add LegacySku-only visibility branches without `FleetDevicePolicy` plugin + USB proof.
 - Hide features by removing grid slot definitions (breaks locked 7×3 layout).

@@ -26,3 +26,23 @@ object AdvancedCaptureSettings {
     fun normalizeIntervalometerSec(raw: Int): Int =
         intervalometerSecOptions.minByOrNull { kotlin.math.abs(it - raw) } ?: 0
 }
+
+/**
+ * Burst quality policy for photo long-press / burst shutter:
+ * faster rates trade fidelity for throughput, slower rates restore quality.
+ */
+enum class BurstPhotoQualityProfile(
+    val storageId: String,
+    val label: String,
+) {
+    Auto("auto", "Auto"),
+    ProcessedOnly("processed_only", "Processed only"),
+    RawOnly("raw_only", "RAW burst"),
+    RawPlusProcessed("raw_plus_processed", "RAW + processed"),
+    ;
+
+    companion object {
+        fun fromStorage(raw: String?): BurstPhotoQualityProfile =
+            entries.firstOrNull { it.storageId.equals(raw, ignoreCase = true) } ?: Auto
+    }
+}

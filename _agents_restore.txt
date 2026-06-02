@@ -1,0 +1,11 @@
+﻿# Agent automation reference (Point & Shoot)
+
+This document is for **AI coding agents** (Cursor and similar) working in this repository. It lists **what you can run yourself** instead of asking the human to copy commands into PowerShell.
+
+**Operational rule:** If a task can be done via `adb`, Gradle, or a repo script from a terminal in this workspace, **run it**. Only ask the human when something is **missing from the machine** (no device, no JDK, MCP server down, auth not completed) or **unsafe** (destructive prod action).
+
+---
+
+## Terminal and shell
+
+- **OS:** Windows (PowerShell). Prefer **absolute paths** when passing paths to tools.

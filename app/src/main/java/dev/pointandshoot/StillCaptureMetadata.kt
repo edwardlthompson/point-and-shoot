@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
  * existing EXIF IFD entries in-place ([TiffExifSubIfdCapturePatch]).
  *
  * **DNG loadability (locked May 2026):** Do **not** call [ExifInterface.saveAttributes] on DNG — it
- * corrupts CPH2655 row-strip TIFFs (Lightroom/ACR cannot open). See [applyToDngUri] and
+ * corrupts legacy-device row-strip TIFFs (Lightroom/ACR cannot open). See [applyToDngUri] and
  * `.cursor/rules/dng-save-pipeline-lock.mdc`.
  */
 object StillCaptureMetadata {
@@ -86,7 +86,7 @@ object StillCaptureMetadata {
                 )
 
             // Do NOT run [ExifInterface.saveAttributes] on DNG: it rewrites the TIFF for JPEG-style
-            // EXIF and destroys CPH2655 row-strip payloads (Lightroom/ACR "cannot load"; rawpy may
+            // EXIF and destroys legacy-device row-strip payloads (Lightroom/ACR "cannot load"; rawpy may
             // still decode). In-place IFD patches above preserve strip offsets from [DngCreator].
             context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
                 outs.write(patchedBytes)
@@ -97,6 +97,12 @@ object StillCaptureMetadata {
                     return@runCatching
                 }
             location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+            updateImageDescription(
+                context = context,
+                uri = uri,
+                result = result,
+                colorSpaceTarget = null,
+            )
             Log.i(
                 TAG,
                 "apply DNG metadata ok uri=$uri iso=${result.get(CaptureResult.SENSOR_SENSITIVITY) ?: "?"} geo=${location != null}",
@@ -154,6 +160,31 @@ object StillCaptureMetadata {
         Log.i(TAG, "apply AVIF metadata ok uri=$uri colorSpace=$colorSpaceTarget (ICC via muxer when used)")
     }
 
+    /**
+     * TIFF metadata path for in-app 16-bit still exports.
+     *
+     * Uses [ExifInterface.saveAttributes] on TIFF (safe), unlike DNG where rewrite is forbidden.
+     * This stamps ISO / shutter / focal / aperture so gallery metadata rows are populated.
+     */
+    fun applyToTiffUri(
+        context: Context,
+        uri: Uri,
+        characteristics: CameraCharacteristics,
+        result: TotalCaptureResult,
+        location: Location? = null,
+    ) {
+        // TIFF EXIF capture fields are embedded directly in [RgbTiff16Encoder].
+        // Here we only mirror geotag + compact MediaStore summary.
+        location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+        updateImageDescription(
+            context = context,
+            uri = uri,
+            result = result,
+            colorSpaceTarget = ColorSpaceTarget.Rec2020,
+        )
+        Log.i(TAG, "apply TIFF metadata ok uri=$uri geo=${location != null}")
+    }
+
     private fun applyCommonFd(
         context: Context,
         uri: Uri,
@@ -181,9 +212,46 @@ object StillCaptureMetadata {
                 embedIccProfileInJpegFd(context, uri, colorSpaceTarget)
             }
             location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+            updateImageDescription(
+                context = context,
+                uri = uri,
+                result = result,
+                colorSpaceTarget = colorSpaceTarget,
+            )
             Log.i(TAG, "apply JPEG metadata ok uri=$uri geo=${location != null} icc=$embedIccProfile")
         }.onFailure { e ->
             Log.w(TAG, "apply JPEG metadata failed uri=$uri err=${e.message}")
+        }
+    }
+
+    private fun updateImageDescription(
+        context: Context,
+        uri: Uri,
+        result: TotalCaptureResult,
+        colorSpaceTarget: ColorSpaceTarget?,
+    ) {
+        runCatching {
+            val iso = result.get(CaptureResult.SENSOR_SENSITIVITY)
+            val expNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
+            val focal = result.get(CaptureResult.LENS_FOCAL_LENGTH)
+            val aperture = result.get(CaptureResult.LENS_APERTURE)
+            val wb = result.get(CaptureResult.CONTROL_AWB_MODE)
+            val desc =
+                buildString {
+                    append("pnsStillMeta")
+                    iso?.let { append(" iso=").append(it) }
+                    expNs?.let { append(" expNs=").append(it) }
+                    focal?.let { append(" focalMm=").append(String.format(Locale.US, "%.2f", it)) }
+                    aperture?.let { append(" aperture=").append(String.format(Locale.US, "%.2f", it)) }
+                    wb?.let { append(" awb=").append(it) }
+                    colorSpaceTarget?.let { append(" color=").append(it.displayName) }
+                }
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Images.Media.DESCRIPTION, desc)
+            }
+            context.contentResolver.update(uri, values, null, null)
+        }.onFailure { e ->
+            Log.w(TAG, "MediaStore description update failed uri=$uri: ${e.message}")
         }
     }
 

@@ -14,7 +14,7 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 ## CRITICAL — Fleet capability matrix (Milestone 16)
 
-**Primary USB device:** OnePlus 12 **CPH2583** — not CPH2655 unless running the **optional OP13 regression** lane. See **`BUILD_PLAN.md`** pinned fleet note and **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
+**Primary USB device:** OnePlus 12 **CPH2583** — not legacy SKU unless running the **optional legacy device regression** lane. See **`BUILD_PLAN.md`** pinned fleet note and **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
 
 **Source of truth:** `files/fleet_device_matrix.json` (`FleetDeviceMatrix` schema **v1–v2**; v2 adds optional `product.focalRow`). Built by **`FleetDeviceMatrixBuilder`** (quick tier on Diagnostics hub shallow scan; full tier in **16.1**). Invalidates on **`fingerprintSha256Prefix`** + **`appVersionCode`** change (same policy as shallow cache).
 
@@ -27,18 +27,18 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Host scripts (16.3):** `scripts/pns_fleet_matrix_scan.ps1` · `scripts/pns_fleet_matrix_diff.ps1` · matrix checks in `pns_shallow_scan_hub_validate.ps1`
 
-**Fleet policy (16.4):** Default **`GenericFleetPolicy`** — no `policyId` on new SKUs. **`OnePlus13FleetPolicyPlugin`** opt-in via `FleetPolicyPreferences` or ADB `--ez pns_legacy_op13_fleet_policy true`.
+**Fleet policy (16.4):** Default **`GenericFleetPolicy`** — no `policyId` on new SKUs. **`LegacyDeviceFleetPolicyPlugin`** opt-in via `FleetPolicyPreferences` or ADB `--ez pns_legacy_legacy_fleet_policy true`.
 
 **Agent rules:**
 
-1. **No new CPH2655-only** feature gates or policy without **`FleetDevicePolicy` plugin** + USB proof on an onboarded SKU row.
+1. **No new legacy SKU-only** feature gates or policy without **`FleetDevicePolicy` plugin** + USB proof on an onboarded SKU row.
 2. Fleet-affecting changes → hub matrix rescan or **`pns_fleet_matrix_scan.ps1`**; attach **`pns_fleet_matrix_diff.ps1`** output in PR notes.
 3. **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`** = legacy device plugin — not default fleet behavior.
 4. DNG **loadability** and **metadata pairing** locks remain (`.cursor/rules/dng-*-lock.mdc`); matrix supplies **policy / advertised / sessionOk** flags.
 
 **Docs:** `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` · `docs/FLEET_REFERENCE_M10_8.md` (streams → matrix). **Rule:** `.cursor/rules/fleet-generic-policy.mdc`.
 
-**Execution order:** `BUILD_PLAN.md` **Milestone 18** onward for parity sweep + catalog max-out before treating OP13-only DNG parity as a global ship blocker.
+**Execution order:** `BUILD_PLAN.md` **Milestone 18** onward for parity sweep + catalog max-out before treating legacy device-only DNG parity as a global ship blocker.
 
 ---
 
@@ -78,15 +78,15 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 ## CRITICAL — sequential RAW / `pns_preview_raw_count` and preview session wiring
 
-**Never** set **`automationSuppressFacePipeline = true`** for **`adbSequentialRawStills > 0`** alone (sequential RAW-only / `pns_preview_raw_count`). That path must keep the **same H-dial YUV / face-pipeline behavior** as manual H capture; suppressing it forced **`wantYuv=false`** and broke RAW still session create on **CPH2655-class** stacks (`CAMERA_DISCONNECTED`). **Only `adbBracketPattern != null`** should enable **`automationSuppressFacePipeline`**. See **`README.md`** STOP banner, **`BUILD_PLAN.md`** item **11** (hard rule), and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top). After any capture-session change: **`scripts/pns_photo_capture_verify.ps1`** or **`scripts/pns_capture_pipeline_verify.ps1`** on USB; after bulk restore from the bisect doc: **`scripts/pns_capture_restore_verified.ps1`**.
+**Never** set **`automationSuppressFacePipeline = true`** for **`adbSequentialRawStills > 0`** alone (sequential RAW-only / `pns_preview_raw_count`). That path must keep the **same H-dial YUV / face-pipeline behavior** as manual H capture; suppressing it forced **`wantYuv=false`** and broke RAW still session create on **legacy SKU-class** stacks (`CAMERA_DISCONNECTED`). **Only `adbBracketPattern != null`** should enable **`automationSuppressFacePipeline`**. See **`README.md`** STOP banner, **`BUILD_PLAN.md`** item **11** (hard rule), and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top). After any capture-session change: **`scripts/pns_photo_capture_verify.ps1`** or **`scripts/pns_capture_pipeline_verify.ps1`** on USB; after bulk restore from the bisect doc: **`scripts/pns_capture_restore_verified.ps1`**.
 
-**Incremental restore (May 2026, CPH2655 proof):** Do **not** re-apply every §1–§5 “shipping” hunk in one commit without **per-hunk** **`pns_photo_capture_verify`** (or pipeline verify). **§4a** (stream hints on) and **§2** (RAW10 before RAW_SENSOR on `Default`) each broke scripted capture on **`8bf09993`** while other rows stayed restored; the **max verified** combo for that device keeps **§4a off** and **§2 bisected**, and restores **§1** + **§5**. Table: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8.
+**Incremental restore (May 2026, legacy SKU proof):** Do **not** re-apply every §1–§5 “shipping” hunk in one commit without **per-hunk** **`pns_photo_capture_verify`** (or pipeline verify). **§4a** (stream hints on) and **§2** (RAW10 before RAW_SENSOR on `Default`) each broke scripted capture on **`legacy serial`** while other rows stayed restored; the **max verified** combo for that device keeps **§4a off** and **§2 bisected**, and restores **§1** + **§5**. Table: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8.
 
 ---
 
 ## CRITICAL — REGULAR session stream hints (§4a) and `Default` RAW tier (§2)
 
-**Do not** flip these back to “Milestone shipping” on **`PreviewEngineScreen.kt`** / **`RawCaptureSupport.kt`** for the dodge / **CPH2655-class** fleet **without** a fresh USB **`pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) pass — they are **known regressions** on **`8bf09993`** (May 2026):
+**Do not** flip these back to “Milestone shipping” on **`PreviewEngineScreen.kt`** / **`RawCaptureSupport.kt`** for the dodge / **legacy SKU-class** fleet **without** a fresh USB **`pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) pass — they are **known regressions** on **`legacy serial`** (May 2026):
 
 - **§4a — `streamHints = SDK_INT >= TIRAMISU` on the REGULAR session:** causes scripted RAW still **timeouts** and **`ERROR_CAMERA_DEVICE` (`onError` 4)** after capture starts (HAL never completes the still in time). **Keep** bisect **`streamHints = false`** (+ comments) unless you have **device proof** and a **narrow** OEM-specific gate.
 - **§2 — `RawStreamPreference.Default` with RAW10 before RAW_SENSOR:** picks **RAW10 (format 37)**; capture can succeed but **`DngCreator.writeImage`** fails with **`Unsupported image format 37`**. **Keep** bisect order **RAW12 → RAW_SENSOR → RAW10** for **`Default`** here until the DNG pipeline explicitly supports RAW10 for this path **and** USB proof exists.
@@ -97,7 +97,7 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 
 ## DNG metadata pairing (`DngMetadataResolver`) and RAW still diagnostics
 
-**CPH2655 topology (confirmed May 2026):** Cameras 2 (UW), 3 (wide), 4 (tele) are **independent logical camera IDs** — not children of a logical multi-camera. `logicalCharacteristics.physicalCameraIds` returns **empty** for all of them. `DngMetadataResolver` therefore always produces `picked=null, pairedPhysical=false, children=` — the physical-pairing path is never exercised on this device. The dark/green DNG cast on UW/tele is a **color calibration issue** in the `CameraCharacteristics` of those camera IDs, not a metadata-pairing bug.
+**legacy SKU topology (confirmed May 2026):** Cameras 2 (UW), 3 (wide), 4 (tele) are **independent logical camera IDs** — not children of a logical multi-camera. `logicalCharacteristics.physicalCameraIds` returns **empty** for all of them. `DngMetadataResolver` therefore always produces `picked=null, pairedPhysical=false, children=` — the physical-pairing path is never exercised on this device. The dark/green DNG cast on UW/tele is a **color calibration issue** in the `CameraCharacteristics` of those camera IDs, not a metadata-pairing bug.
 
 **`allowPhysicalTotalResultPairing` — unlocked (user-authorized May 2026):** All three `resolveForDngSave` call sites in `PreviewEngineScreen.kt` now pass `allowPhysicalTotalResultPairing = true`. The resolver is safe: it only uses physical chars+result when `physicalCameraTotalResults` actually contains the picked id; otherwise falls back to logical+logical.
 
@@ -116,13 +116,13 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 
 ## CRITICAL — DNG save pipeline (do not break loadability)
 
-**May 2026 (CPH2655 / USB-verified):** DNGs were **unopenable in Lightroom and ACR** while host tools (rawpy) could still decode. Cause was **not** `DngCreator` pairing alone — it was **post-save file corruption**.
+**May 2026 (legacy SKU / USB-verified):** DNGs were **unopenable in Lightroom and ACR** while host tools (rawpy) could still decode. Cause was **not** `DngCreator` pairing alone — it was **post-save file corruption**.
 
 ### What broke
 
 | Step | Problem |
 |------|---------|
-| **`StillCaptureMetadata.applyToDngUri`** | Called **`ExifInterface.saveAttributes()`** on the full ~25 MB row-strip DNG after in-place TIFF patches. That rewrites the file like JPEG EXIF and **destroys** CPH2655 **3072-row `StripOffsets`** layout. |
+| **`StillCaptureMetadata.applyToDngUri`** | Called **`ExifInterface.saveAttributes()`** on the full ~25 MB row-strip DNG after in-place TIFF patches. That rewrites the file like JPEG EXIF and **destroys** legacy SKU **3072-row `StripOffsets`** layout. |
 | **`LeafDngHalReconcile` (removed)** | **`TiffDngColorMatrixPatch.patchCalibrationTagsIfd0`** rewrote CM/FM in IFD0 — not needed for ProShot parity; risks Adobe validation failures. |
 
 **Symptom:** “Broken” DNGs, won’t load in viewers; **`dng_tiff_integrity_check.py`** may still PASS if strips were not truncated on the pulled copy.
@@ -134,7 +134,7 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 3. **DNG test scripts:** `pns_preview_jpeg_companion=false` in `pns_aux_dng_capture_analyze.ps1` and related aux DNG scripts.
 4. **Gate:** `scripts/dng_tiff_integrity_check.py` — run via capture-analyze; must print **`DNG INTEGRITY: PASS`** before treating capture as valid.
 
-**Verified on device:** `hfr-runs/aux_dng_capture_analyze_20260519_014855` (`8bf09993`) — 3/3 captures, integrity PASS, log shows `apply DNG metadata ok` without ExifInterface rewrite.
+**Verified on device:** `hfr-runs/aux_dng_capture_analyze_20260519_014855` (`legacy serial`) — 3/3 captures, integrity PASS, log shows `apply DNG metadata ok` without ExifInterface rewrite.
 
 **Rule:** `.cursor/rules/dng-save-pipeline-lock.mdc`
 
@@ -144,12 +144,12 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 
 ## CRITICAL — GLES preview aspect (do not reapply reverted fixes)
 
-**May 2026 (CPH2655 / user-verified):** Multiple attempts to fix **gallery-return** or **resume** preview stretch **broke default preview** (distorted / stretched) and were **reverted**. **Do not reintroduce** these patterns without maintainer sign-off, a **new** design, and USB proof on a real device:
+**May 2026 (legacy SKU / user-verified):** Multiple attempts to fix **gallery-return** or **resume** preview stretch **broke default preview** (distorted / stretched) and were **reverted**. **Do not reintroduce** these patterns without maintainer sign-off, a **new** design, and USB proof on a real device:
 
 1. **`LaunchedEffect`** (or similar coroutine) calling **`LutCameraPreviewRenderer.setGeometry`**, especially keyed on **`previewPipelineGeneration`**, **`previewBufferSize`**, **`centerViewSize`**, or other high-churn Compose state — races **layout** and **`RENDERMODE_WHEN_DIRTY`**.
 2. **`Handler.post`**-deferred **`kickPreviewPipelineRestart()`** on **`ON_RESUME`** — ordering vs **`GLSurfaceView.onResume()`** / new **`SurfaceTexture`** was reverted as risky.
 3. **`PreviewController.setPreviewBufferGeometryListener`** + coalesced **`mainHandler`** notifications + **`GLSurfaceView.queueEvent { setGeometry }`** on **`previewBufferSize()`** changes — **reverted**; user reported preview broken again.
-4. **`PreviewController.setPreviewDisplayLayoutSyncListener`** + **`previewLayoutSyncNonce`** + extra **`ON_RESUME`** buffer / layout nudges — **reverted May 2026**; caused **cold-start** distortion and related regressions on **`8bf09993`**-class devices.
+4. **`PreviewController.setPreviewDisplayLayoutSyncListener`** + **`previewLayoutSyncNonce`** + extra **`ON_RESUME`** buffer / layout nudges — **reverted May 2026**; caused **cold-start** distortion and related regressions on **`legacy serial`**-class devices.
 
 **Shipped invariant:** **`setGeometry`** is driven only from **`PreviewMainViewport`** — **`AndroidView` `update`** and **`OnLayoutChangeListener`**. Any future gallery/resume fix must **not** duplicate that contract with a second writer unless explicitly redesigned.
 
@@ -160,7 +160,7 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 | **`previewGeometryApplyToken`** + delayed second bump + **`AndroidView` `update`** | User: **gallery** stretch **not** fixed; extra complexity. |
 | **`setPreviewDisplayLayoutSyncListener`** + pushing **`previewBufferSize()`** into Compose from **`reconcile…`** (even gated) | **Cold-start** finder / preview distortion — view-sized ST hints are **not** buffer WxH. |
 | **`previewLayoutSyncNonce`** + **`ON_RESUME`** re-read **`previewBufferSize`** | Same **cold-start** class of breakage when combined with forced **`AndroidView` `update`**. |
-| **`GLSurfaceView.setPreserveEGLContextOnPause(true)`** | **`Surface was abandoned`** / **`createCaptureSession`** **`IllegalArgumentException`** on **`8bf09993`** cold **`pns_photo_capture_verify`**. |
+| **`GLSurfaceView.setPreserveEGLContextOnPause(true)`** | **`Surface was abandoned`** / **`createCaptureSession`** **`IllegalArgumentException`** on **`legacy serial`** cold **`pns_photo_capture_verify`**. |
 | **`Handler.post`**-**delayed** **`kickPreviewPipelineRestart()`** only | Listed as risky (ordering vs new **`SurfaceTexture`**). |
 | **Hard task restart** after tray **`openMediaWithSystemResolver` → true** | **Shipped May 2026** — **`Intent` `CLEAR_TASK` + `NEW_TASK`**, **`finishAffinity()`**, relaunch same activity class copying **`intent` extras** — cold-start–equivalent when GLES preview stays wrong after external viewers. **Only** when a viewer actually started (**`AtomicBoolean`**); other resumes use **`kick`** + **`View.post`** layout. |
 
@@ -313,7 +313,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_capability_catalog_gate.ps1` | Milestone **18.5** — host catalog version + row count + format descriptor gate. |
 | `pns_fleet_matrix_diff.ps1` | Milestone **16.3** — Markdown diff of two **`fleet_device_matrix.json`** files (HFR, RAW, roles, **`featureGates`**, encoder stub). |
 | `fleet_matrix_schema_validate.py` | Milestone **16.12** — structural validation of pulled matrix JSON (schema v1, sorted **`cameraId`** on full tier). |
-| `pns_op13_regression_pack.ps1` | Milestone **16.7** — optional OP13 lane: **`pns_fleet_matrix_scan -LegacyOp13FleetPolicy`** + **`pns_aux_dng_capture_analyze`** + parity (not default on CPH2583). |
+| `pns_legacy_regression_pack.ps1` | Milestone **16.7** — optional legacy device lane: **`pns_fleet_matrix_scan -LegacyOp13FleetPolicy`** + **`pns_aux_dng_capture_analyze`** + parity (not default on CPH2583). |
 | `pns_gen_camera2_keys_reference.ps1` | Regenerate **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** from **`local.properties` → sdk.dir** `platforms/android-<N>/android.jar`; **`<N>` = `compileSdk`** parsed from **`app/build.gradle.kts`** (override **`-ApiLevel`**). |
 | `pns_ae_highlight_probe_adb.ps1` | Cold-start **`pns_screen=probehub`** + **`pns_auto_export_probe`**, pull **`PROBE_EXPORT_LATEST.md`**, write **`ae_highlight_probe_summary.txt`** + **`ae_highlight_probe.json`** (`summary` path); optional **`-AlsoRootCapabilityAdb`**. **Debuggable APK** required for `run-as`. |
 | `pns_face_meter_probe.ps1` | Cold-start **`pns_screen=facemeter`** + **`pns_autofacemeter`**, wait for **`FACE_METER_PROBE_DONE`** in **`PNS.SWEEP_SIGNAL`**, pull **`face_meter_probe_*.{md,json}`** (face / eye / metering inventory). Artifacts under **`hfr-runs\face_meter_probe_*`**. |
@@ -345,9 +345,9 @@ Use these from repo root unless a script documents otherwise.
 | `pns_mediacodec_hfr_verify.ps1` | HFR/codec matrix; **`-GateProfile vf`** = VF subset; **`-RequireFfprobeAv`** = fail without audio+video streams in MP4. |
 | `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_proshot_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
 | `dng_desktop_open_gate.py` / `pns_dng_desktop_open_gate.ps1` | Host-only: integrity + ASN bounds + wide-cal CM2 leak check on pulled DNGs. |
-| `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/proshot_cph2655/` (toolchain-verify workflow). |
+| `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/proshot_legacy_sku/` (toolchain-verify workflow). |
 | `pns_m13_3g2_gate.ps1` | **13.3g-2:** open gate + logcat diag on `aux_dng_capture_analyze_*`; **`-RecordAcrPass`** for Milestone H ACR sign-off. |
-| `pns_m13_3h_wide_cal_bisect.ps1` | **13.3h:** USB H1–H3 wide-cal bisect (patches `OnePlus13FleetPolicy.kt`, restores after); artifacts `hfr-runs/m13_3h_wide_cal_bisect_*`. |
+| `pns_m13_3h_wide_cal_bisect.ps1` | **13.3h:** USB H1–H3 wide-cal bisect (patches `LegacyDeviceFleetPolicy.kt`, restores after); artifacts `hfr-runs/m13_3h_wide_cal_bisect_*`. |
 | `pns_m13_3e_lock_bisect.ps1` | **13.3e:** USB E1–E6 lock ladder (L2,L3,L6,L4,L5,L7); patches policy + PreviewEngineScreen + RawCaptureSupport, restores after. |
 | `pns_m13_3f_gate.ps1` | **13.3f:** daylight gates (pipeline verify, capture analyze, openability, ProShot parity, optional session); `-RecordAcrPass` for human color sign-off. |
 | `pns_m13_3g4_fixture_refresh.ps1` | **13.3g-4:** ProShot live forensics (15/23/73 mm) + `pns_proshot_reference_sync.ps1 -FromForensicsDir` + parity gate. |
@@ -359,7 +359,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_proshot_parity_gate.ps1` | One-shot: capture + pull + ProShot color/luminance parity (fails if DNGs not loadable or not close to reference). |
 | `pns_proshot_live_forensics.ps1` | **Live** ProShot session: stream logcat, detect `CameraService::connect … camera ID`, pull DCIM DNGs per lens; **`-TryUiAutomation`** or manual (see **`docs/PROSHOT_LIVE_FORENSICS.md`**). |
 | `pns_proshot_adb_forensics.ps1` | Post-hoc logcat + dumpsys after **manual** ProShot captures (no per-lens automation). |
-| `pns_proshot_reference_sync.ps1` | Refresh **`tests/fixtures/proshot_cph2655/`** from newest 3 non–P&S DCIM DNGs. |
+| `pns_proshot_reference_sync.ps1` | Refresh **`tests/fixtures/proshot_legacy_sku/`** from newest 3 non–P&S DCIM DNGs. |
 | `dng_tiff_integrity_check.py` | Host: row-strip TIFF + rawpy load check. Exit **1** if DNG structure broken (e.g. post-save **`ExifInterface`** regression). |
 | `pns_failure_matrix_smoke.ps1` | Failure-matrix smoke. |
 | `pns_hfr_autorun.ps1` | HFR autorun (`-PerfReport`, **`-PerfReportApkVariant Release`**, etc.). |
@@ -429,7 +429,7 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 | `.cursor/rules/preview-chrome-ui-lock.mdc` | **Frozen** preview chrome layout — behavioral fixes only unless the user explicitly changes UI. |
 | `.cursor/rules/preview-readout-video-mode-lock.mdc` | **Locked** photo vs video readout chips + `PreviewTopStatusBar` wiring — see **`docs/M14_READOUT_STATUS_BAR.md`**. |
 | `.cursor/rules/pns-technical-settings.mdc` | **`docs/PNS_TECHNICAL_SETTINGS.md`** must stay in sync with settings/constants/mode behavior changes. |
-| `.cursor/rules/fleet-generic-policy.mdc` | **Fleet matrix SoT**; CPH2583 primary; OP13 optional regression; no new OP13-only gates without plugin. |
+| `.cursor/rules/fleet-generic-policy.mdc` | **Fleet matrix SoT**; CPH2583 primary; legacy device optional regression; no new legacy device-only gates without plugin. |
 | `.cursor/rules/agent-regression-memory.mdc` | Read/update **`docs/AGENT_REGRESSION_MEMORY.md`** before risky edits; append row after proven fixes. |
 | `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |
 

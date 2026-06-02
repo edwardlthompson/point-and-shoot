@@ -17,6 +17,17 @@ object DcgSessionParameters {
         "org.codeaurora.qcamera3.sessionParameters.EnableHDRDCGMode"
     private const val VENDOR_ENABLE_AF_BRACKETING =
         "org.codeaurora.qcamera3.sessionParameters.EnableAFBracketing"
+    private val EXPERIMENTAL_VENDOR_MAX_RES_SESSION_KEYS =
+        listOf(
+            "org.codeaurora.qcamera3.sessionParameters.EnableQuadCFAMode",
+            "org.codeaurora.qcamera3.sessionParameters.EnableQCFAMode",
+            "org.codeaurora.qcamera3.sessionParameters.EnableXCFAOptimization",
+            "org.codeaurora.qcamera3.sessionParameters.EnableIdealRAW",
+            "org.codeaurora.qcamera3.sessionParameters.EnableInsensorZoom",
+            "org.codeaurora.qcamera3.sessionParameters.EnableSnapshotOnlyInsensorZoom",
+            "org.codeaurora.qcamera3.sessionParameters.availableStreamMap",
+            "com.oplus.camera.sessionParameters.EnableHighPixelMode",
+        )
 
     fun shouldAttach(
         enableResearchDcgHdr: Boolean,
@@ -34,9 +45,11 @@ object DcgSessionParameters {
         previewFpsRange: Range<Int>?,
         attachDcg: Boolean,
         attachAfBracketing: Boolean,
+        attachExperimentalVendorSession: Boolean,
+        extraExperimentalSessionKeys: List<String> = emptyList(),
     ): CaptureRequest? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
-        if (!attachDcg && !attachAfBracketing) return null
+        if (!attachDcg && !attachAfBracketing && !attachExperimentalVendorSession) return null
         val b = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
         var any = false
         if (attachDcg) {
@@ -63,6 +76,23 @@ object DcgSessionParameters {
             if (af != null) {
                 any = true
                 Log.i(TAG, "sessionTemplate EnableAFBracketing type=$af cam=$camId")
+            }
+        }
+        if (attachExperimentalVendorSession) {
+            var hitCount = 0
+            val allKeys = (EXPERIMENTAL_VENDOR_MAX_RES_SESSION_KEYS + extraExperimentalSessionKeys).distinct()
+            for (keyName in allKeys) {
+                val hit = VendorKeyGuard.trySetVendorSessionEnable(b, characteristics, keyName)
+                if (hit != null) {
+                    any = true
+                    hitCount += 1
+                    Log.i(TAG, "sessionTemplate experimentalVendorKey name=$keyName type=$hit cam=$camId")
+                } else {
+                    Log.d(TAG, "sessionTemplate experimentalVendorKey absent name=$keyName cam=$camId")
+                }
+            }
+            if (hitCount > 0) {
+                Log.i(TAG, "sessionTemplate experimentalVendorKey hits=$hitCount cam=$camId")
             }
         }
         if (!any) return null

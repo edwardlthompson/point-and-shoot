@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Host-only: write m13 lock bisect report template from current OnePlus13FleetPolicy JVM constants.
+  Host-only: write m13 lock bisect report template from current LegacyFleetPolicy JVM constants.
 
   USB: scripts/pns_m13_3e_lock_bisect.ps1 (see docs/M13_3E_LOCK_BISECT_RUNBOOK.md)
 
@@ -23,8 +23,8 @@ Generated: $ts UTC
 | Lock | Policy API | Shipped value |
 |------|------------|---------------|
 | L9 | useWideLeafCalibrationForAuxDng | false |
-| L9 | useProShotPureDngSave (leaf reconcile off) | true on OP13 |
-| L3 | useOp13AsnReconcileOnly | false |
+| L9 | useProShotPureDngSave (leaf reconcile off) | true on legacy device |
+| L3 | useLegacyAsnReconcileOnly | false |
 | L6 | useHalColorCalibrationReconcile | false |
 | — | useProShotStillPrecapture | false |
 

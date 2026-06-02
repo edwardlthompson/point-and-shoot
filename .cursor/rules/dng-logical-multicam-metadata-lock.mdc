@@ -6,7 +6,7 @@ alwaysApply: true
 
 # DNG metadata pairing (locked)
 
-**Do not change without explicit maintainer request + USB proof** (`scripts/pns_photo_capture_verify.ps1` or `scripts/pns_capture_pipeline_verify.ps1` on a **logical multi-camera** stack such as **CPH2655** `8bf09993`).
+**Do not change without explicit maintainer request + USB proof** (`scripts/pns_photo_capture_verify.ps1` or `scripts/pns_capture_pipeline_verify.ps1` on a **logical multi-camera** stack such as **LegacySku** `legacySerial`).
 
 ## Invariants
 

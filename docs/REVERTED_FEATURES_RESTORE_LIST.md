@@ -1,6 +1,6 @@
 # Reverted features — bisect log and restore checklist
 
-> **STOP — agents & humans (May 2026):** Do **not** tie **`automationSuppressFacePipeline`** to **`pns_preview_raw_count`** / sequential RAW-only automation. That suppressed the H-dial **YUV** path (`wantYuv=false`), broke **RAW still** session create on **CPH2655-class** devices (`SESSION_CREATE_THROW` / `CAMERA_DISCONNECTED`), and left scripted capture red until reverted. **Rule:** `automationSuppressFacePipeline` **only** when **`adbBracketPattern != null`**. **Also:** do **not** bulk-restore every bisect § without **per-step** **`pns_photo_capture_verify.ps1`** — see **§8** (CPH2655 incremental proof) and the **§8** subsection **What agents must avoid** (fleet checklist: **§4a** stream hints, **§2** RAW10-first `Default`, bulk restore). See **`README.md`** (STOP banner), **`AGENTS.md`**, **`BUILD_PLAN.md`** item **11**. After restoring capture code, run **`scripts/pns_capture_restore_verified.ps1`** on USB.
+> **STOP — agents & humans (May 2026):** Do **not** tie **`automationSuppressFacePipeline`** to **`pns_preview_raw_count`** / sequential RAW-only automation. That suppressed the H-dial **YUV** path (`wantYuv=false`), broke **RAW still** session create on **legacy SKU-class** devices (`SESSION_CREATE_THROW` / `CAMERA_DISCONNECTED`), and left scripted capture red until reverted. **Rule:** `automationSuppressFacePipeline` **only** when **`adbBracketPattern != null`**. **Also:** do **not** bulk-restore every bisect § without **per-step** **`pns_photo_capture_verify.ps1`** — see **§8** (legacy SKU incremental proof) and the **§8** subsection **What agents must avoid** (fleet checklist: **§4a** stream hints, **§2** RAW10-first `Default`, bulk restore). See **`README.md`** (STOP banner), **`AGENTS.md`**, **`BUILD_PLAN.md`** item **11**. After restoring capture code, run **`scripts/pns_capture_restore_verified.ps1`** on USB.
 
 **Purpose:** Track capture-pipeline bisect steps so nothing is lost permanently. When the root cause is confirmed, re-apply rows marked **REVERTED** from this file (or only the subsets that are safe on your fleet).
 
@@ -16,18 +16,18 @@
 
 | Step | Likelihood | What changed (original intent) | Status |
 |------|------------|--------------------------------|--------|
-| **1** | Highest | **`PreviewStabilization.applyToRequest`** on **RAW still** and **bracket still** `TEMPLATE_STILL_CAPTURE` builders (lens OIS default-on still path; Milestone 3/4/7) | **RESTORED** (May 2026, USB **8bf09993**) — with §4a off + §2 bisected; see §8 |
-| **2** | High | **`RawCaptureSupport`** default **RAW12 → RAW10 → RAW_SENSOR** (Milestone 10.1 ship); bisect **#2** → **RAW12 → RAW_SENSOR → RAW10** | **KEEP bisect #2** on CPH2655 fleet (May 2026): RAW10-first caused **`DngCreator` Unsupported image format 37**; see §8 |
+| **1** | Highest | **`PreviewStabilization.applyToRequest`** on **RAW still** and **bracket still** `TEMPLATE_STILL_CAPTURE` builders (lens OIS default-on still path; Milestone 3/4/7) | **RESTORED** (May 2026, USB **legacy serial**) — with §4a off + §2 bisected; see §8 |
+| **2** | High | **`RawCaptureSupport`** default **RAW12 → RAW10 → RAW_SENSOR** (Milestone 10.1 ship); bisect **#2** → **RAW12 → RAW_SENSOR → RAW10** | **KEEP bisect #2** on legacy SKU fleet (May 2026): RAW10-first caused **`DngCreator` Unsupported image format 37**; see §8 |
 | **3** | Medium | Imaging profile **`remember`**: Milestone 9 **`runCatching`** / singleton-touch + **`StandardPro` fallback**; **`SideEffect { setImagingProfileForStreams }`** kept | **In tree** (unchanged) |
-| **4** | Medium | **§4a** stream hints off. **§4b** 0 ms debounce: **rejected** (crash). **§4e:** scripted post-**`stopRepeating`** delay **≥420 ms**. **§4d+:** texture / Ultra-Max settle — **pending** | **§4a KEEP bisect (off)** on CPH2655 (May 2026): stream hints on → RAW still timeout; **§4e** **shipped** |
-| **5** | Lower | **`PreviewPostRawSensitivity.applyIfCompatible`** on RAW still + bracket still `TEMPLATE_STILL_CAPTURE` (default pref off) | **RESTORED** (May 2026, USB **8bf09993**) — with §4a off + §2 bisected; see §8 |
+| **4** | Medium | **§4a** stream hints off. **§4b** 0 ms debounce: **rejected** (crash). **§4e:** scripted post-**`stopRepeating`** delay **≥420 ms**. **§4d+:** texture / Ultra-Max settle — **pending** | **§4a KEEP bisect (off)** on legacy SKU (May 2026): stream hints on → RAW still timeout; **§4e** **shipped** |
+| **5** | Lower | **`PreviewPostRawSensitivity.applyIfCompatible`** on RAW still + bracket still `TEMPLATE_STILL_CAPTURE` (default pref off) | **RESTORED** (May 2026, USB **legacy serial**) — with §4a off + §2 bisected; see §8 |
 | **6** | Lower | **`PreviewHdrSessionSupport`** dynamic range on preview output (`enableHdr10LivePreview`, default off) | **Pending** |
 
 After each step: run **`scripts/pns_capture_pipeline_verify.ps1 -BisectStep <n>`** (or **`scripts/pns_photo_capture_verify.ps1`**) and your usual **`pns_milestone6_gate.ps1`** when appropriate. If capture succeeds, the last **REVERTED** step is the prime suspect; consider a **narrow fix** (e.g. OIS off for RAW still only) instead of keeping the full revert.
 
 ---
 
-## §1 — PreviewStabilization on still captures (**RESTORED** on CPH2655 max combo — see §8)
+## §1 — PreviewStabilization on still captures (**RESTORED** on legacy SKU max combo — see §8)
 
 **Introduced:** Milestone 3/4/7 (`7bf0723`).
 
@@ -74,11 +74,11 @@ After each step: run **`scripts/pns_capture_pipeline_verify.ps1 -BisectStep <n>`
 
 ---
 
-## §2 — Default RAW tier RAW10 before RAW_SENSOR (**KEEP bisect #2** on CPH2655)
+## §2 — Default RAW tier RAW10 before RAW_SENSOR (**KEEP bisect #2** on legacy SKU)
 
 **Introduced:** `86bcbdc` (Milestone 10.1): **`RawStreamPreference.Default`** used **RAW12 → RAW10 → RAW_SENSOR**.
 
-**Rationale for revert:** On **CPH2655** (`8bf09993`, May 2026), that order selected **RAW10** (`ImageFormat` **37**). Scripted save failed: **`DngCreator.writeImage`** → **`Unsupported image format 37`** (`PNS.CaptureStill` **`save ok=false`**).
+**Rationale for revert:** On **legacy SKU** (`legacy serial`, May 2026), that order selected **RAW10** (`ImageFormat` **37**). Scripted save failed: **`DngCreator.writeImage`** → **`Unsupported image format 37`** (`PNS.CaptureStill` **`save ok=false`**).
 
 **File:** `app/src/main/java/dev/pointandshoot/RawCaptureSupport.kt` — `pickRawOutputFromMaps`, branch **`RawStreamPreference.Default`**.
 
@@ -131,9 +131,9 @@ After each step: run **`scripts/pns_capture_pipeline_verify.ps1 -BisectStep <n>`
 
 **Introduced:** `7bf0723` (large `PreviewEngineScreen` / `PreviewController` change set).
 
-### §4a — Stream use case hints on REGULAR session (**KEEP bisect / off** on CPH2655 scripted path)
+### §4a — Stream use case hints on REGULAR session (**KEEP bisect / off** on legacy SKU scripted path)
 
-**Rationale for revert:** On **CPH2655** (`8bf09993`, May 2026), restoring **`val streamHints = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU`** while **§1** was still bisected caused **RAW still timed out** / **`onError … error=4`** after **`captureRawStill afterStopRepeatingDebounceMs=420`**. With **§1** + **§5** restored and **§2** bisected, **§4a** on still failed the same gate.
+**Rationale for revert:** On **legacy SKU** (`legacy serial`, May 2026), restoring **`val streamHints = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU`** while **§1** was still bisected caused **RAW still timed out** / **`onError … error=4`** after **`captureRawStill afterStopRepeatingDebounceMs=420`**. With **§1** + **§5** restored and **§2** bisected, **§4a** on still failed the same gate.
 
 **In tree:** `val streamHints = false` plus bisect comments before **`captureSessionAsyncConfigurePending`**.
 
@@ -147,7 +147,7 @@ Do not merge without **`pns_photo_capture_verify.ps1`** on your target fleet.
 
 ### §4b — `maybeRestart` debounce = **0 ms** (**negative experiment — do not ship**)
 
-**Tried (May 2026, CPH2655):** **`MAYBE_RESTART_DEBOUNCE_MS = 0L`** caused **`CameraAccessException` / `CAMERA_DISCONNECTED`** inside **`onConfigured` → `startRepeating` → `createCaptureRequest`** (fatal **`PNS.Cam`** thread). Likely **`closeCamera` / restart** coalescing race without the **48 ms** delay.
+**Tried (May 2026, legacy SKU):** **`MAYBE_RESTART_DEBOUNCE_MS = 0L`** caused **`CameraAccessException` / `CAMERA_DISCONNECTED`** inside **`onConfigured` → `startRepeating` → `createCaptureRequest`** (fatal **`PNS.Cam`** thread). Likely **`closeCamera` / restart** coalescing race without the **48 ms** delay.
 
 **In tree:** keep **`MAYBE_RESTART_DEBOUNCE_MS = 48L`** (Milestone behavior).
 
@@ -169,7 +169,7 @@ Always use **`RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS`** for **`postDelayed(f
 
 ---
 
-## §5 — PreviewPostRawSensitivity on still (**RESTORED** on CPH2655 max combo — see §8)
+## §5 — PreviewPostRawSensitivity on still (**RESTORED** on legacy SKU max combo — see §8)
 
 **Introduced:** `7bf0723`.
 
@@ -205,7 +205,7 @@ Default `enableHdr10LivePreview` is **off**. If enabled and implicated, keep pre
 
 ---
 
-## §8 — Incremental restore proof (USB **CPH2655** **`8bf09993`**, 2026-05-13)
+## §8 — Incremental restore proof (USB **legacy SKU** **`legacy serial`**, 2026-05-13)
 
 **Procedure:** Start from **`pns_capture_bisect_device.ps1 -UpToStep 5 -FromStep 5 -NoRestore`** (or equivalent **T1–T5** transforms on your snapshot), **`assembleDebug`**, then **`pns_photo_capture_verify.ps1 -Fast -MaxAttempts 2 -WaitSec 70`** — baseline must show **`captureRawStill 1/1 ok=true saved=`**. Re-apply each **undo** (restore) in isolation; **never** skip USB verify between hunks.
 
@@ -220,7 +220,7 @@ Default `enableHdr10LivePreview` is **off**. If enabled and implicated, keep pre
 
 ### What agents must avoid (until device-proven otherwise)
 
-Use this as a **fleet checklist** for **CPH2655-class** / logical-primary stacks like **`8bf09993`**. Other devices may differ; still run **`pns_photo_capture_verify.ps1`** after any of these areas change.
+Use this as a **fleet checklist** for **legacy SKU-class** / logical-primary stacks like **`legacy serial`**. Other devices may differ; still run **`pns_photo_capture_verify.ps1`** after any of these areas change.
 
 | Avoid | Why (observed May 2026) |
 |--------|-------------------------|
@@ -233,7 +233,7 @@ Use this as a **fleet checklist** for **CPH2655-class** / logical-primary stacks
 
 ---
 
-## §7 — ADB automation evidence (CPH2655, `8bf09993`, May 2026)
+## §7 — ADB automation evidence (legacy SKU, `legacy serial`, May 2026)
 
 Automated runs: **`pns_capture_pipeline_verify.ps1`**, **`pns_raw_capture_matrix.ps1 -Quick`**, and manual **`am start`** with **`pns_preview_camera_id`**.
 
@@ -242,7 +242,7 @@ Automated runs: **`pns_capture_pipeline_verify.ps1`**, **`pns_raw_capture_matrix
 | **`wantYuv=true`** while **`suppressFacePipeline=true`** | Log **`PNS.PreviewSessionCtx`** showed **`wantYuv=true`** with scripted RAW; H-dial path did not gate on **`automationSuppressFacePipeline`**. **Fix shipped:** gate H / histogram / zebra YUV when automation suppresses the face pipeline (`PreviewEngineScreen` `wantYuv`). After fix, logs show **`wantYuv=false`**. |
 | **Preview FPS 90** on scripted RAW cold start | **`selectedFps`** defaulted to **90** for photo-primary while **`DESIRED_FPS_DEFAULT_BEFORE_UI_SYNC`** was **60** until UI sync. **Fix shipped:** seed **`selectedFps=60`** when **`adbSequentialRawStills`** or bracket automation is active. Logs then show **`desiredFps=60`**. |
 | **HAL still fails on this device** | With **`wantYuv=false`** and **`desiredFps=60`**, **`captureRawStill`** still ends **`RAW still timed out`** / **`onError … error=4`** for default seed **cameraId=2** and for **`pns_preview_camera_id=1`**. **`pns_preview_camera_id=0`**: **`No RAW buffer`** (different failure; likely no RAW stream on that id for this map). **Quick RAW matrix (4 cells):** all **`ok=false`**. |
-| **Conclusion** | **§4e** longer post-**`stopRepeating`** delay for scripted RAW; **`pns_photo_capture_verify`** logcat fallbacks + **`-SweepCameraIds`**. Re-run gate on CPH2655. |
+| **Conclusion** | **§4e** longer post-**`stopRepeating`** delay for scripted RAW; **`pns_photo_capture_verify`** logcat fallbacks + **`-SweepCameraIds`**. Re-run gate on legacy SKU. |
 
 ---
 
@@ -250,51 +250,51 @@ Automated runs: **`pns_capture_pipeline_verify.ps1`**, **`pns_raw_capture_matrix
 |------------|--------|
 | 2026-05-13 | Bisect **#2**: default **`RawStreamPreference.Default`** order **RAW12 → RAW_SENSOR → RAW10**; **`pns_raw_regression_bisect`** “wrong” variant flipped to **RAW12 → RAW10 → RAW_SENSOR**. |
 | 2026-05-13 | Bisect **#3** (partial): imaging profile **`remember`** without **`runCatching`** / **`StandardPro` fallback**; **`SideEffect`** → **`setImagingProfileForStreams`** retained. Bisect **#5**: **`PreviewPostRawSensitivity`** removed from RAW still + bracket still templates. **`pns_capture_bisect_device.ps1`** T3 no longer strips **`SideEffect`**. |
-| 2026-05-13 | **§8** incremental restore matrix on **`8bf09993`**: **§5**/**§1** green; **§4a**/**§2** ship-order red; **`pns_capture_bisect_device`** T3 **`fromLegacy`** switched to single-quoted here-string so **`Apply-T3`** matches Kotlin backticks. |
+| 2026-05-13 | **§8** incremental restore matrix on **`legacy serial`**: **§5**/**§1** green; **§4a**/**§2** ship-order red; **`pns_capture_bisect_device`** T3 **`fromLegacy`** switched to single-quoted here-string so **`Apply-T3`** matches Kotlin backticks. |
 
 ---
 
 ## §9 — Milestone 13 lock ladder (L2–L9)
 
-**Purpose:** Record **USB-proven** still-DNG policy flips for **CPH2655**. Full runbook: **`docs/M13_3E_LOCK_BISECT_RUNBOOK.md`**. Openability ledger: **`docs/DNG_OPENABILITY_REGRESSIONS.md`**.
+**Purpose:** Record **USB-proven** still-DNG policy flips for **legacy SKU**. Full runbook: **`docs/M13_3E_LOCK_BISECT_RUNBOOK.md`**. Openability ledger: **`docs/DNG_OPENABILITY_REGRESSIONS.md`**.
 
 | Lock | Shipped default (May 2026) | Status | Notes |
 |------|----------------------------|--------|-------|
 | **L9** | **OFF** — no `LeafDngHalReconcile` / `useWideLeafCalibrationForAuxDng` on leaf | **SHIPPED (13.3g)** | Pure `DngCreator`; `ProShotPipelineContract`; gate **`dng_desktop_open_gate.py`**. Wide-cal only in **13.3h** bisect. |
 | **L2** | `allowPhysicalTotalResultPairing=false` at save call sites | **KEEP (13.3e)** | E1: pairing **true** — open OK, parity FAIL; unused on leaf. |
-| **L3** | `useOp13AsnReconcileOnly=false` | **SHIPPED** | E2: **true** no-op under pure ProShot save. |
-| **L6** | `useHalColorCalibrationReconcile=false` | **SHIPPED** | E3: **true** no-op under pure ProShot save. |
+| **L3** | `useLegacyAsnReconcileOnly=false` | **SHIPPED** | E2: **true** no-op under pure ReferenceCam save. |
+| **L6** | `useHalColorCalibrationReconcile=false` | **SHIPPED** | E3: **true** no-op under pure ReferenceCam save. |
 | **L4** | `streamHints=false` (§4a) | **KEEP bisect** | E4: **true** — RAW still **timeout** 0/3 (§8). |
 | **L5** | Default RAW **RAW12→RAW_SENSOR→RAW10** | **KEEP bisect** | E5: RAW10-first ineffective on leaf (`rawFmt=32` still). |
 | **L7** | Preview JPEG hints **on** RAW still | **SHIPPED** | E6: skip hints — open OK, parity **worse**. |
 
-**13.3g automated evidence (2026-05-19, `8bf09993`):** `hfr-runs/aux_dng_capture_analyze_20260519_155213/` — capture **3/3**, desktop open gate **PASS**, logcat `reconcile=false wideCal=false` per cam **3/2/4**. Human ACR **3/3** still required for gate close.
+**13.3g automated evidence (2026-05-19, `legacy serial`):** `hfr-runs/aux_dng_capture_analyze_20260519_155213/` — capture **3/3**, desktop open gate **PASS**, logcat `reconcile=false wideCal=false` per cam **3/2/4**. Human ACR **3/3** still required for gate close.
 
-### 13.3h wide-cal bisect (H1–H3, `8bf09993`, 2026-05-20)
+### 13.3h wide-cal bisect (H1–H3, `legacy serial`, 2026-05-20)
 
 **Artifacts:** `hfr-runs/m13_3h_wide_cal_bisect_20260520_003542/` — orchestrator **`scripts/pns_m13_3h_wide_cal_bisect.ps1`**.
 
 | Step | Flags | Capture 3/3 | Open gate | wide-cal reconcile (logcat) | Ship? |
 |------|-------|-------------|-----------|-----------------------------|-------|
 | **H1** | `useWideLeafCalibrationForAuxDng=true` | yes | **FAIL** — CM2[0,0]=1.4337 on UW+tele matches wide (R2 leak) | **no** |
-| **H2** | H1 + `useOp13AsnReconcileOnly=true` | yes | **FAIL** (same leak) | **no** |
+| **H2** | H1 + `useLegacyAsnReconcileOnly=true` | yes | **FAIL** (same leak) | **no** |
 | **H3** | H2 + exposure latch (auto when wideCal) | yes | **FAIL** (same leak) | **no** |
 
-**Conclusion:** Wide CM/FM on aux RAW **reproduces R2** on CPH2655 — automated open gate fails before ACR color scoring. **Keep L9 shipped:** `useWideLeafCalibrationForAuxDng=false`. Human ACR on H1–H3 DNGs optional (expected reject per May 2026 regression doc); do not promote without open gate **PASS**.
+**Conclusion:** Wide CM/FM on aux RAW **reproduces R2** on legacy SKU — automated open gate fails before ACR color scoring. **Keep L9 shipped:** `useWideLeafCalibrationForAuxDng=false`. Human ACR on H1–H3 DNGs optional (expected reject per May 2026 regression doc); do not promote without open gate **PASS**.
 
 **H1 log needles (example):** `PNS.LeafDng: wide-cal reconcile auxCam=3 cm2_before=1.8549 cm2_after=1.4337`; tele `cm2_before=1.4253 cm2_after=1.4337`.
 
-### 13.3e lock ladder bisect (E1–E6, `8bf09993`, 2026-05-20)
+### 13.3e lock ladder bisect (E1–E6, `legacy serial`, 2026-05-20)
 
 **Artifacts:** `hfr-runs/m13_3e_lock_bisect_20260520_005414/report.md` (consolidated); **`scripts/pns_m13_3e_lock_bisect.ps1`**.
 
 | Step | Lock | Open gate | Capture | Ship? |
 |------|------|-----------|---------|-------|
 | E1 | L2 physical pairing **true** | PASS | 3/3 | **no** (unused on leaf; parity FAIL) |
-| E2 | L3 ASN reconcile only | PASS | 3/3 | **no** (no-op under pure ProShot save) |
-| E3 | L6 HAL cal reconcile | PASS | 3/3 | **no** (no-op under pure ProShot save) |
+| E2 | L3 ASN reconcile only | PASS | 3/3 | **no** (no-op under pure ReferenceCam save) |
+| E3 | L6 HAL cal reconcile | PASS | 3/3 | **no** (no-op under pure ReferenceCam save) |
 | E4 | L4 `streamHints=true` | — | **0/3** timeout | **no** (§4a regression) |
 | E5 | L5 RAW10 before RAW_SENSOR on Default | PASS | 3/3 | **no** (leaf still `rawFmt=32`) |
 | E6 | L7 skip JPEG hints on RAW still | PASS | 3/3 | **no** (parity worse) |
 
-**Conclusion:** No **L2–L7** flip fixes aux color on CPH2655 without breaking capture or openability. **Shipped:** **13.3g** table (L9 off, L4/L5 bisect defaults, pairing **false** at call sites).
+**Conclusion:** No **L2–L7** flip fixes aux color on legacy SKU without breaking capture or openability. **Shipped:** **13.3g** table (L9 off, L4/L5 bisect defaults, pairing **false** at call sites).

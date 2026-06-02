@@ -6,7 +6,7 @@
   Native tele reference is M73 (not M150). Writes hfr-runs/aux_dng_capture_analyze_<utc>/.
 
 .EXAMPLE
-  .\scripts\pns_aux_dng_capture_analyze.ps1 -Serial 8bf09993
+  .\scripts\pns_aux_dng_capture_analyze.ps1 -Serial <serial>
   .\scripts\pns_aux_dng_capture_analyze.ps1 -SkipBuild -WaitSec 52
 #>
 param(
@@ -15,20 +15,20 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipInstall,
     [switch]$NoFast,
-    # ADB dial: H=Highlight (legacy automation), A/Auto for ProShot parity (no YUV highlight metering)
+    # ADB dial: H=Highlight (legacy automation), A/Auto for ReferenceCam parity (no YUV highlight metering)
     [string]$PreviewDial = "A",
     [string]$FocalMmSlots = "",
     [string]$OutDir = "",
     [string[]]$ExtraAmArgs = @(),
-    # Sprint 13.3f — hard-fail when color parity vs tests/fixtures/proshot_cph2655 is required.
+    # Sprint 13.3f — hard-fail when color parity vs tests/fixtures/proshot_legacy_sku is required.
     # Default off: 13.3g only requires capture 3/3 + dng_desktop_open_gate.py PASS.
     [switch]$RequireProshotParity,
     # Sprint 15.15 — hard-fail when uw_delta > 0.12 (scripts/dng_color_metric.py).
     [switch]$RequireColorMetric,
-    # Sprint 15.15 — hard-fail when P&S luma/channels differ >20% from ProShot fixture refs (same-scene only).
+    # Sprint 15.15 — hard-fail when P&S luma/channels differ >20% from ReferenceCam fixture refs (same-scene only).
     [switch]$RequireAestheticGate,
-    # If set, reads ISO/ExposureTime from ProShot reference DNGs and seeds matching
-    # readout overrides on each lens capture (helps "match ProShot" on the same scene).
+    # If set, reads ISO/ExposureTime from ReferenceCam reference DNGs and seeds matching
+    # readout overrides on each lens capture (helps "match ReferenceCam" on the same scene).
     [switch]$MatchProShotExposure
 )
 
@@ -128,21 +128,21 @@ $report.Add("=" * 72)
 
 $proshotExposure = $null
 if ($MatchProShotExposure) {
-    $uwRef = Join-Path $projRoot "tests\fixtures\proshot_cph2655\proshot_uw_cam3.dng"
-    $wideRef = Join-Path $projRoot "tests\fixtures\proshot_cph2655\proshot_wide_cam2.dng"
-    $teleRef = Join-Path $projRoot "tests\fixtures\proshot_cph2655\proshot_tele_cam4.dng"
+    $uwRef = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku\proshot_uw_cam3.dng"
+    $wideRef = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku\proshot_wide_cam2.dng"
+    $teleRef = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku\proshot_tele_cam4.dng"
     $py = Join-Path $PSScriptRoot "proshot_ref_extract_exposure.py"
     if ((Test-Path -LiteralPath $uwRef) -and (Test-Path -LiteralPath $wideRef) -and (Test-Path -LiteralPath $teleRef) -and (Test-Path -LiteralPath $py)) {
         try {
             $j = & python $py $uwRef $wideRef $teleRef 2>&1 | Out-String
             $proshotExposure = $j | ConvertFrom-Json
-            Write-Host "[capture_analyze] ProShot exposure seed: uw iso=$($proshotExposure.uw.iso) ssNs=$($proshotExposure.uw.shutter_ns) wide iso=$($proshotExposure.wide.iso) ssNs=$($proshotExposure.wide.shutter_ns) tele iso=$($proshotExposure.tele.iso) ssNs=$($proshotExposure.tele.shutter_ns)" -ForegroundColor Cyan
+            Write-Host "[capture_analyze] ReferenceCam exposure seed: uw iso=$($proshotExposure.uw.iso) ssNs=$($proshotExposure.uw.shutter_ns) wide iso=$($proshotExposure.wide.iso) ssNs=$($proshotExposure.wide.shutter_ns) tele iso=$($proshotExposure.tele.iso) ssNs=$($proshotExposure.tele.shutter_ns)" -ForegroundColor Cyan
         } catch {
-            Write-Host "[capture_analyze] WARN: failed to read ProShot exposure JSON: $($_.Exception.Message)" -ForegroundColor Yellow
+            Write-Host "[capture_analyze] WARN: failed to read ReferenceCam exposure JSON: $($_.Exception.Message)" -ForegroundColor Yellow
             $proshotExposure = $null
         }
     } else {
-        Write-Host "[capture_analyze] WARN: MatchProShotExposure requested but ProShot fixtures (or helper) missing." -ForegroundColor Yellow
+        Write-Host "[capture_analyze] WARN: MatchProShotExposure requested but ReferenceCam fixtures (or helper) missing." -ForegroundColor Yellow
     }
 }
 
@@ -179,7 +179,7 @@ foreach ($slot in $slots) {
         if ($seed -and $seed.iso -and $seed.shutter_ns) {
             $amArgs += @("--ei", "pns_preview_readout_iso", [string]$seed.iso)
             $amArgs += @("--el", "pns_preview_readout_shutter_ns", [string]$seed.shutter_ns)
-            $report.Add("ProShot exposure seed M${mm} ($label): iso=$($seed.iso) shutterNs=$($seed.shutter_ns)")
+            $report.Add("ReferenceCam exposure seed M${mm} ($label): iso=$($seed.iso) shutterNs=$($seed.shutter_ns)")
         }
     }
     if (-not $NoFast) {
@@ -281,7 +281,7 @@ function Get-CapturePathByPhysicalId([string]$id) {
     ($captured | Where-Object { $_.physicalId -eq $id -and $_.path } | Select-Object -First 1).path
 }
 
-# CPH2655 leaf ids: cam2=wide, cam3=UW, cam4=tele (match focal slot labels, not structural_verify labels)
+# legacy SKU leaf ids: cam2=wide, cam3=UW, cam4=tele (match focal slot labels, not structural_verify labels)
 $uwPath = Get-CapturePathByPhysicalId "3"
 $widePath = Get-CapturePathByPhysicalId "2"
 $telePath = Get-CapturePathByPhysicalId "4"
@@ -401,23 +401,23 @@ Write-Host ""
 Write-Host "[capture_analyze] dng_proshot_parity_gate.py (Sprint 13.3f; informational unless -RequireProshotParity)..." -ForegroundColor Cyan
 $parityPy = Join-Path $PSScriptRoot "dng_proshot_parity_gate.py"
 $parityJson = Join-Path $outDir "proshot_parity_gate.json"
-$refFixture = Join-Path $projRoot "tests\fixtures\proshot_cph2655"
+$refFixture = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"
 $parityPass = $true
 if (Test-Path $parityPy) {
-    & python $parityPy $outDir --proshot-dir $refFixture --json-out $parityJson 2>&1 | Out-Host
+    & python $parityPy $outDir --referencecam-dir $refFixture --json-out $parityJson 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         $parityPass = $false
         if ($RequireProshotParity) {
-            Write-Host "FAIL: ProShot parity gate (color/luminance/integrity vs tests/fixtures/proshot_cph2655)" -ForegroundColor Red
+            Write-Host "FAIL: ReferenceCam parity gate (color/luminance/integrity vs tests/fixtures/proshot_legacy_sku)" -ForegroundColor Red
             Write-Host "Report: $reportPath"
             exit 1
         }
-        Write-Host "WARN: ProShot parity gate FAIL (expected until Sprint 13.3f fixture refresh)" -ForegroundColor Yellow
+        Write-Host "WARN: ReferenceCam parity gate FAIL (expected until Sprint 13.3f fixture refresh)" -ForegroundColor Yellow
     }
 }
 
 Write-Host ""
-Write-Host "[capture_analyze] pns_dng_aesthetic_gate.py (Sprint 15.15; vs ProShot fixtures)..." -ForegroundColor Cyan
+Write-Host "[capture_analyze] pns_dng_aesthetic_gate.py (Sprint 15.15; vs ReferenceCam fixtures)..." -ForegroundColor Cyan
 $aestheticPy = Join-Path $PSScriptRoot "pns_dng_aesthetic_gate.py"
 $aestheticJson = Join-Path $outDir "dng_aesthetic_gate.json"
 $aestheticPass = $true
@@ -426,7 +426,7 @@ if (Test-Path -LiteralPath $aestheticPy) {
     if ($LASTEXITCODE -ne 0) {
         $aestheticPass = $false
         if ($RequireAestheticGate) {
-            Write-Host "FAIL: dng_aesthetic_gate (P&S vs proshot_cph2655 fixtures >20%)" -ForegroundColor Red
+            Write-Host "FAIL: dng_aesthetic_gate (P&S vs proshot_legacy_sku fixtures >20%)" -ForegroundColor Red
             exit 1
         }
         Write-Host "WARN: dng_aesthetic_gate FAIL (different scene vs gray-card refs - back-to-back capture for strict pass)" -ForegroundColor Yellow
@@ -436,7 +436,7 @@ if (Test-Path -LiteralPath $aestheticPy) {
 Write-Host ""
 Write-Host "Report: $reportPath"
 if ($parityPass) {
-    Write-Host "=== CAPTURE + OPENABILITY + PROSHOT PARITY: PASS ===" -ForegroundColor Green
+    Write-Host "=== CAPTURE + OPENABILITY + REFERENCECAM PARITY: PASS ===" -ForegroundColor Green
 } else {
     Write-Host "=== CAPTURE + OPENABILITY: PASS (parity deferred to 13.3f) ===" -ForegroundColor Green
 }

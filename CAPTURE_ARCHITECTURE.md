@@ -49,7 +49,7 @@ Run, for example (from repo root; use **`-Command`** so **`@(...)`** binds clean
 
 `powershell -NoProfile -Command "& .\scripts\pns_analyze_reader_backpressure.ps1 -LogPath @('<OutDir>\logcat_raw_still_x10.txt','<OutDir>\logcat_bracket_bkt3.txt') -OutFile .\perf-runs\reader_backpressure_validate_raw_and_bkt3.md"`
 
-**Pass criteria for fleet evidence (reference hardware, e.g. OnePlus CPH2655):**
+**Pass criteria for fleet evidence (reference hardware, e.g. OnePlus legacy SKU):**
 
 | Check | Target |
 |-------|--------|
@@ -101,5 +101,5 @@ The color pipeline lives **between** the existing capture stages and the final e
 
 ## Outstanding decisions (revisit during Phase 1)
 
-* AVIF vs JXL encoding inside the encode executor vs a separate `Executors.newFixedThreadPool(2, "PNS.Encode")`. Decision deferred until we benchmark `libavif` and `libjxl` on the OnePlus 13.
+* AVIF vs JXL encoding inside the encode executor vs a separate `Executors.newFixedThreadPool(2, "PNS.Encode")`. Decision deferred until we benchmark `libavif` and `libjxl` on the legacy device.
 * Whether the histogram path becomes `RenderScript`-free (RenderScript is deprecated; we will likely use a tiny C++ kernel via JNI tied into the same NDK pipeline as AVIF / JXL).

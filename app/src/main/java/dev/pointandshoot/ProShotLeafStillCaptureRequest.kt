@@ -5,13 +5,13 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureRequest
 import android.util.Log
 import dev.pointandshoot.fleet.FleetCameraProfile
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 
 /**
- * Leaf RAW still [CaptureRequest] keys aligned with ProShot decompile (`l0.C0353b0` still path,
+ * Leaf RAW still [CaptureRequest] keys aligned with ReferenceCam decompile (`l0.C0353b0` still path,
  * `docs/PROSHOT_APK_FLEET_ANALYSIS.md` §5).
  *
- * ProShot does **not** latch readout manual ISO, AE-lock from preview, post-save TIFF color surgery,
+ * ReferenceCam does **not** latch readout manual ISO, AE-lock from preview, post-save TIFF color surgery,
  * or P&S face-priority metering on the still frame — it uses **HAL AE** on [CameraDevice.TEMPLATE_STILL_CAPTURE]
  * plus lens-shading map + still IQ (edge / NR / tonemap / aberration / distortion / shading).
  */
@@ -19,14 +19,14 @@ object ProShotLeafStillCaptureRequest {
     private const val TAG = "PNS.ProShotStill"
 
     fun applies(chars: CameraCharacteristics): Boolean =
-        OnePlus13FleetPolicy.useExactProShotLeafStillCaptureRequest() &&
+        LegacyFleetPolicy.useExactProShotLeafStillCaptureRequest() &&
             StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
 
     internal fun appliesWhen(
         deviceApplies: Boolean,
         chars: CameraCharacteristics,
     ): Boolean =
-        OnePlus13FleetPolicy.useExactProShotLeafStillCaptureRequestWhen(deviceApplies) &&
+        LegacyFleetPolicy.useExactProShotLeafStillCaptureRequestWhen(deviceApplies) &&
             StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
 
     /**

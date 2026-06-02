@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Sprint 13.3g-4 — ProShot 15/23/73 mm captures → tests/fixtures/proshot_cph2655 → parity gate.
+  Sprint 13.3g-4 — ReferenceCam 15/23/73 mm captures → tests/fixtures/proshot_legacy_sku → parity gate.
 
 .EXAMPLE
-  .\scripts\pns_m13_3g4_fixture_refresh.ps1 -Serial 8bf09993
+  .\scripts\pns_m13_3g4_fixture_refresh.ps1 -Serial <serial>
   .\scripts\pns_m13_3g4_fixture_refresh.ps1 -SkipForensics -ForensicsDir hfr-runs\proshot_live_forensics_* -SkipPnsCapture
 #>
 param(
@@ -18,10 +18,10 @@ param(
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
-$fixtureDir = Join-Path $projRoot "tests\fixtures\proshot_cph2655"
+$fixtureDir = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"
 
 if (-not $SkipForensics) {
-    Write-Host "=== 13.3g-4 ProShot live forensics (15/23/73 mm) ===" -ForegroundColor Cyan
+    Write-Host "=== 13.3g-4 ReferenceCam live forensics (15/23/73 mm) ===" -ForegroundColor Cyan
     $foreArgs = @(
         "-File", (Join-Path $PSScriptRoot "pns_proshot_live_forensics.ps1"),
         "-TryUiAutomation",
@@ -58,11 +58,11 @@ Write-Host "=== Sync fixtures ===" -ForegroundColor Cyan
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "=== Fixture openability (integrity + ASN; skip wide-cal leak on ProShot refs) ===" -ForegroundColor Cyan
+Write-Host "=== Fixture openability (integrity + ASN; skip wide-cal leak on ReferenceCam refs) ===" -ForegroundColor Cyan
 $uw = Join-Path $fixtureDir "proshot_uw_cam3.dng"
 $wide = Join-Path $fixtureDir "proshot_wide_cam2.dng"
 $tele = Join-Path $fixtureDir "proshot_tele_cam4.dng"
-# ProShot on CPH2655 may ship identical CM2[0,0] on UW+wide (1.4337); leak check targets P&S wide-cal patch only.
+# ReferenceCam on legacy SKU may ship identical CM2[0,0] on UW+wide (1.4337); leak check targets P&S wide-cal patch only.
 & python (Join-Path $PSScriptRoot "dng_desktop_open_gate.py") --skip-wide-cal-leak $uw $wide $tele
 if ($LASTEXITCODE -ne 0) {
     Write-Host "FAIL: fixture open gate (integrity / ASN)" -ForegroundColor Red

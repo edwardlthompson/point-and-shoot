@@ -19,6 +19,7 @@ object FleetChromeVisibility {
             CommandDialMode.Dual -> "video.dual"
             CommandDialMode.Night -> "camerax.night"
             CommandDialMode.Bokeh -> "camerax.bokeh"
+            CommandDialMode.Monochrome -> "dial.monochrome"
             else -> null
         }
 

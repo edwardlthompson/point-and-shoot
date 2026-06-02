@@ -19,6 +19,7 @@ class ShutterSoundManager(
     private var soundPool: SoundPool? = null
     private val sampleIdByPack = mutableMapOf<ShutterSoundPack, Int>()
     private var toneGenerator: ToneGenerator? = null
+    private var activeSampleStreamId: Int = 0
 
     fun playShutter(chrome: PreviewChromePreferences, haptics: CaptureHaptics?) {
         val pack = ShutterSoundPack.fromStorageKey(chrome.shutterSoundPackKey)
@@ -51,6 +52,7 @@ class ShutterSoundManager(
         runCatching { soundPool?.release() }
         soundPool = null
         sampleIdByPack.clear()
+        activeSampleStreamId = 0
         runCatching { toneGenerator?.release() }
         toneGenerator = null
     }
@@ -94,8 +96,17 @@ class ShutterSoundManager(
                 id
             }
         if (sampleId == 0) return false
+        if (activeSampleStreamId != 0) {
+            // Burst UX: force a distinct click per shot instead of overlapping tails.
+            runCatching { pool.stop(activeSampleStreamId) }
+        }
         val streamId = pool.play(sampleId, volume, volume, 1, 0, 1f)
-        return streamId != 0
+        if (streamId != 0) {
+            activeSampleStreamId = streamId
+            return true
+        }
+        activeSampleStreamId = 0
+        return false
     }
 
     private fun createSoundPool(): SoundPool {
@@ -106,7 +117,7 @@ class ShutterSoundManager(
                 .build()
         val pool =
             SoundPool.Builder()
-                .setMaxStreams(2)
+                .setMaxStreams(4)
                 .setAudioAttributes(attrs)
                 .build()
         ShutterSoundPack.entries.filter { it.hasSample }.forEach { pack ->

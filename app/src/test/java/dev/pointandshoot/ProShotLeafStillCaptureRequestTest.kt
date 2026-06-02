@@ -1,6 +1,6 @@
 package dev.pointandshoot
 
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -9,22 +9,22 @@ class ProShotLeafStillCaptureRequestTest {
 
     @Test
     fun exactLeafStillPath_enabledOnOp13Fleet() {
-        assertTrue(OnePlus13FleetPolicy.useExactProShotLeafStillCaptureRequestWhen(deviceApplies = true))
-        assertFalse(OnePlus13FleetPolicy.useExactProShotLeafStillCaptureRequestWhen(deviceApplies = false))
+        assertTrue(LegacyFleetPolicy.useExactProShotLeafStillCaptureRequestWhen(deviceApplies = true))
+        assertFalse(LegacyFleetPolicy.useExactProShotLeafStillCaptureRequestWhen(deviceApplies = false))
     }
 
     @Test
     fun postSaveColorPaths_disabledForShippedParity() {
-        assertFalse(OnePlus13FleetPolicy.useOp13LeafAuxColorReconcile())
-        assertFalse(OnePlus13FleetPolicy.useProShotReferenceCalibration())
+        assertFalse(LegacyFleetPolicy.useLegacyLeafAuxColorReconcile())
+        assertFalse(LegacyFleetPolicy.useProShotReferenceCalibration())
     }
 
     @Test
     fun captureTimeGains_offWhenExactLeafStill() {
         assertFalse(
-            dev.pointandshoot.fleet.Op13LeafStillColorCorrection.appliesCaptureTimeGainsWhen(
+            dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.appliesCaptureTimeGainsWhen(
                 deviceApplies = true,
-                sessionCameraId = OnePlus13FleetPolicy.CANONICAL_UW,
+                sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 uwProShotAsnReconcile = false,
                 proShotReferenceCalibration = false,

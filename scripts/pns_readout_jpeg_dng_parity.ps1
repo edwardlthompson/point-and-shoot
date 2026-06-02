@@ -5,7 +5,7 @@
   Uses the same path as the tray shutter: [captureComposedStill] (not sequential RAW-only).
 
 .EXAMPLE
-  .\scripts\pns_readout_jpeg_dng_parity.ps1 -Serial 8bf09993 -Iso 400 -WaitSec 70
+  .\scripts\pns_readout_jpeg_dng_parity.ps1 -Serial <serial> -Iso 400 -WaitSec 70
 #>
 param(
     [string]$Serial = "",

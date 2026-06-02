@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Pull MotionCam Pro base.apk, decompile with jadx, run proshot_decompile_scan.py (extended needles).
+  Pull MotionCam base.apk, decompile with jadx, run proshot_decompile_scan.py (extended needles).
 
 .EXAMPLE
-  .\scripts\pns_motioncam_apk_decompile.ps1 -Serial 8bf09993
+  .\scripts\pns_motioncam_apk_decompile.ps1 -Serial <serial>
 #>
 param(
     [string]$Serial = "",

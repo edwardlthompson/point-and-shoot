@@ -1,5 +1,5 @@
 ---
-description: Fleet capability matrix as source of truth; OP13 archived for default gates
+description: Fleet capability matrix as source of truth; LegacyDevice archived for default gates
 globs:
 alwaysApply: true
 ---
@@ -14,14 +14,14 @@ alwaysApply: true
 
 ## Do not (default path)
 
-- Add new **`CPH2655` / OnePlus 13-only** branches, gates, or BUILD_PLAN Priority-1 work without **`FleetDevicePolicy` plugin** + maintainer USB proof.
+- Add new **`LegacySku` / Legacy device-only** branches, gates, or BUILD_PLAN Priority-1 work without **`FleetDevicePolicy` plugin** + maintainer USB proof.
 - Treat **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`** or **`DODGE_PROFILE.md`** as the fleet default for new SKUs — they are **legacy / product-specific** references.
 - Use **`fleet_focal_map.json`** or **`deep_caps_*.json`** alone as fleet SoT — matrix supersedes (**16.11**).
 
 ## Primary vs regression device
 
 - **Primary USB development device:** OnePlus 12 **CPH2583** (`scripts/pns_adb_device.env` — local serial only).
-- **OP13 (CPH2655):** optional **`pns_*_op13_regression`** lane only; ProShot fixtures stay for host CI.
+- **LegacyDevice (LegacySku):** optional **`pns_*_legacy_device_regression`** lane only; ProShot fixtures stay for host CI.
 
 ## When changing fleet caps
 

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Milestone 13.8d — still-mode benchmark (Standard / ZSL / HDR) + pipeline regression + optional ProShot session.
+  Milestone 13.8d — still-mode benchmark (Standard / ZSL / HDR) + pipeline regression + optional ReferenceCam session.
 
 .DESCRIPTION
   1. pns_capture_pipeline_verify.ps1 -Fast with pns_preview_still_mode=standard
@@ -9,7 +9,7 @@
   4. Writes m13_8d_gate.json + STILL_MODE_COMPARE.md (human ACR checklist)
 
 .EXAMPLE
-  .\scripts\pns_m13_8d_gate.ps1 -Serial 8bf09993
+  .\scripts\pns_m13_8d_gate.ps1 -Serial <serial>
   .\scripts\pns_m13_8d_gate.ps1 -SkipProshotSession
 #>
 param(
@@ -21,7 +21,7 @@ param(
     [switch]$PullMotionCamReference,
     [switch]$RecordHumanPass,
     [string]$ColorNote = "",
-    [string]$Notes = "Daylight 13.8d — Standard vs ZSL vs HDR vs ProShot (subjective color in ACR)."
+    [string]$Notes = "Daylight 13.8d — Standard vs ZSL vs HDR vs ReferenceCam (subjective color in ACR)."
 )
 
 if ($RecordHumanPass) {
@@ -112,7 +112,7 @@ if (-not $SkipBenchmark) {
 }
 
 if (-not $SkipProshotSession) {
-    Write-Host "[13.8d] ProShot + three-way P&S session..." -ForegroundColor Cyan
+    Write-Host "[13.8d] ReferenceCam + three-way P&S session..." -ForegroundColor Cyan
     $sessArgs = @{
         PnsStillModes = "standard,zsl,hdr"
         Notes = $Notes
@@ -121,7 +121,7 @@ if (-not $SkipProshotSession) {
     if ($Serial) { $sessArgs["Serial"] = $Serial }
     if ($PullMotionCamReference) { $sessArgs["PullMotionCamReference"] = $true }
     & (Join-Path $PSScriptRoot "pns_dng_proshot_pns_session.ps1") @sessArgs
-    if ($LASTEXITCODE -ne 0) { Write-Warning "[13.8d] proshot session exit=$LASTEXITCODE" }
+    if ($LASTEXITCODE -ne 0) { Write-Warning "[13.8d] referencecam session exit=$LASTEXITCODE" }
     $sessLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "dng_proshot_pns_session_*" |
         Sort-Object Name | Select-Object -Last 1
     if ($sessLatest) { $result.proshotSessionDir = $sessLatest.FullName }
@@ -129,7 +129,7 @@ if (-not $SkipProshotSession) {
 
 $humanPath = Join-Path $gateDir "STILL_MODE_COMPARE.md"
 $human = @"
-# 13.8d — Standard vs ZSL vs HDR vs ProShot (human)
+# 13.8d — Standard vs ZSL vs HDR vs ReferenceCam (human)
 
 **Gate:** ``$ts``  
 **Device serial:** ``$(if ($Serial) { $Serial } else { "from pns_adb_device.env" })``
@@ -140,15 +140,15 @@ $human = @"
 |-------|--------|
 | Pipeline verify (`stillMode=standard`) | $($result.pipelineVerifyPass) |
 | Benchmark all modes | $($result.benchmarkPass) |
-| ProShot session | $(if ($result.proshotSessionDir) { $result.proshotSessionDir } else { "skipped" }) |
+| ReferenceCam session | $(if ($result.proshotSessionDir) { $result.proshotSessionDir } else { "skipped" }) |
 
 ## Human — Adobe Camera Raw / Lightroom (daylight)
 
-Open **wide (M23)** for each source; note exposure match, color cast vs ProShot, shadow/highlight preference.
+Open **wide (M23)** for each source; note exposure match, color cast vs ReferenceCam, shadow/highlight preference.
 
 | Source | M14 UW | M23 wide | M73 tele | Notes |
 |--------|--------|----------|----------|-------|
-| ProShot reference | | | | |
+| ReferenceCam reference | | | | |
 | P&S Standard | | | | |
 | P&S ZSL | | | | |
 | P&S HDR (use **hdr2of3** or merge 3) | | | | |

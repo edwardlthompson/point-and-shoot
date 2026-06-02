@@ -1,13 +1,13 @@
-# QCamera3 Vendor Key Catalog - OnePlus 13 (CPH2655)
+# QCamera3 Vendor Key Catalog - legacy device (legacy SKU)
 
 **Date:** 2026-05-17
-**Device:** OnePlus 13 (CPH2655)
+**Device:** legacy device (legacy SKU)
 **Probe Method:** dumpsys media.camera
 **API Level:** 36 (Android 16)
 
 ## Summary
 
-This document catalogs all Qualcomm QCamera3 vendor keys discovered on the OnePlus 13 device for HFR and 10-bit video research. These keys are accessible via Camera2 API through `CameraCharacteristics.getAvailableSessionKeys()`, `getAvailableCaptureRequestKeys()`, `getAvailableCaptureResultKeys()`, and `getKeys()`.
+This document catalogs all Qualcomm QCamera3 vendor keys discovered on the legacy device device for HFR and 10-bit video research. These keys are accessible via Camera2 API through `CameraCharacteristics.getAvailableSessionKeys()`, `getAvailableCaptureRequestKeys()`, `getAvailableCaptureResultKeys()`, and `getKeys()`.
 
 ## Key Findings for HFR and 10-bit Video
 

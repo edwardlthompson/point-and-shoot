@@ -1,6 +1,6 @@
 {
-  "device": "CPH2655",
-  "serial": "8bf09993",
+  "device": "LegacySku",
+  "serial": "legacySerial",
   "capturedUtcApprox": "2026-05-19T08:39Z",
   "shotOrder": ["ultrawide", "wide", "tele"],
   "files": {

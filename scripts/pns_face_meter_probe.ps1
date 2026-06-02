@@ -16,7 +16,7 @@
 
 .EXAMPLE
   .\scripts\pns_face_meter_probe.ps1
-  .\scripts\pns_face_meter_probe.ps1 -Serial 8bf09993 -SkipInstall
+  .\scripts\pns_face_meter_probe.ps1 -Serial <serial> -SkipInstall
 #>
 param(
     [string]$Serial = "",

@@ -545,7 +545,7 @@ try {
         @{ Name = "H265_HFR_1080p_240fps";    Fps = 240; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
         @{ Name = "H264_HFR_1080p_480fps";    Fps = 480; TenBit = $false; W = 1920; H = 1080; Codec = 0;  FfCodec = "h264" },
         @{ Name = "H265_HFR_1080p_480fps";    Fps = 480; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
-        # H.264 4K@120: known FAIL on CPH2655 (MC falls back to 1080p) — see docs/VIDEO_MODE_MATRIX.md
+        # H.264 4K@120: known FAIL on legacy SKU (MC falls back to 1080p) — see docs/VIDEO_MODE_MATRIX.md
         # @{ Name = "H264_HFR_4K_120fps";       Fps = 120; TenBit = $false; W = 3840; H = 2160; Codec = 0;  FfCodec = "h264" },
         # 4K@120 not in UI unless camera HS lists 3840x2160@120 — gate uses 1080p HFR only (vf profile)
         # @{ Name = "H265_HFR_4K_120fps";       Fps = 120; TenBit = $false; W = 3840; H = 2160; Codec = 1;  FfCodec = "hevc" },

@@ -101,6 +101,7 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
     sessionParametersTemplate: CaptureRequest? = null,
     previewPhysicalCameraId: String? = null,
     physicalPinnedSurfaceIndices: Set<Int>? = null,
+    additionalOutputConfigurations: List<OutputConfiguration> = emptyList(),
 ) {
     val outputConfigs =
         outputConfigurationsWithOptionalStreamUseCases(
@@ -109,7 +110,7 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
             previewDynamicRangeProfile = previewDynamicRangeProfile,
             previewPhysicalCameraId = previewPhysicalCameraId,
             physicalPinnedSurfaceIndices = physicalPinnedSurfaceIndices,
-        )
+        ) + additionalOutputConfigurations
     val sessionConfig =
         SessionConfiguration(
             SessionConfiguration.SESSION_REGULAR,
@@ -132,7 +133,7 @@ internal fun CameraDevice.createCaptureSessionRegularOutputs(
  *
  * @param forceEncoderOutputSdr When true (API 33+), non-preview outputs use
  * [DynamicRangeProfiles.STANDARD] + video-record stream use case so Qualcomm HALs deliver
- * NV12 to [MediaCodec] instead of TP10_UBWC (which breaks 8-bit HEVC encoders on CPH2655-class).
+ * NV12 to [MediaCodec] instead of TP10_UBWC (which breaks 8-bit HEVC encoders on legacy-class hardware).
  */
 internal fun CameraDevice.createCaptureSessionHighSpeedOutputs(
     surfaces: List<Surface>,

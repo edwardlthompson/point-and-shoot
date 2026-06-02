@@ -1,0 +1,97 @@
+{
+  "schema": "parity_proof_manifest.v1",
+  "description": "M22 — host proof pack maps catalog ids to verification scripts (CPH2583 baseline).",
+  "rows": [
+    {
+      "catalogId": "video.av1",
+      "script": "pns_av1_parity_verify.ps1",
+      "alsoProves": ["video.av1.720p", "video.av1.1080p", "video.av1.4k", "video.av1.8k"],
+      "matrixGate": "cameraAny.featureGates.av1.sessionOk"
+    },
+    {
+      "catalogId": "video.raw",
+      "script": "pns_raw_video_verify.ps1",
+      "alsoProves": ["video.raw_picker"],
+      "matrixGate": "cameraAny.featureGates.rawVideo.sessionOk"
+    },
+    {
+      "catalogId": "video.delivery_honesty",
+      "source": "delivery_mismatch",
+      "requiresIncludeRecord": true
+    },
+    {
+      "catalogId": "video.dual_iso",
+      "script": "pns_video_color_profile_verify.ps1",
+      "scriptArgs": { "Profile": "hdr10" },
+      "matrixGate": "cameraAny.featureGates.dcgZsl.advertised"
+    },
+    {
+      "catalogId": "still.heic",
+      "script": "pns_still_export_verify.ps1",
+      "scriptArgs": { "Format": "heic" }
+    },
+    {
+      "catalogId": "still.motion_photo",
+      "script": "pns_still_export_verify.ps1",
+      "scriptArgs": { "Format": "motion_photo" }
+    },
+    {
+      "catalogId": "still.tiff16",
+      "script": "pns_still_export_verify.ps1",
+      "scriptArgs": { "Format": "tiff16" }
+    },
+    {
+      "catalogId": "still.jxl",
+      "script": "pns_still_export_verify.ps1",
+      "scriptArgs": { "Format": "jxl" }
+    },
+    {
+      "catalogId": "video.hfr.24",
+      "script": "pns_hfr_fps_parity_verify.ps1",
+      "alsoProves": ["video.hfr.30", "video.hfr.60", "video.hfr.120", "video.hfr.240"],
+      "scriptArgs": { "AllFps": true },
+      "matrixGate": "cameraAny.featureGates.hfr.sessionOk"
+    },
+    {
+      "catalogId": "audio.spatial",
+      "script": "pns_spatial_audio_verify.ps1"
+    },
+    {
+      "catalogId": "audio.unprocessed",
+      "script": "pns_audio_unprocessed_verify.ps1"
+    },
+    {
+      "catalogId": "video.color.hdr10",
+      "script": "pns_video_color_profile_verify.ps1",
+      "scriptArgs": { "Profile": "hdr10" },
+      "matrixGate": "cameraAny.featureGates.dcgZsl.advertised"
+    },
+    {
+      "catalogId": "video.color.hlg10",
+      "script": "pns_video_color_profile_verify.ps1",
+      "scriptArgs": { "Profile": "hlg10" },
+      "matrixGate": "cameraAny.featureGates.dcgZsl.advertised"
+    },
+    {
+      "catalogId": "video.color.bt709",
+      "script": "pns_video_color_profile_verify.ps1",
+      "scriptArgs": { "Profile": "bt709" }
+    },
+    {
+      "catalogId": "video.color.pq",
+      "script": "pns_video_color_profile_verify.ps1",
+      "scriptArgs": { "Profile": "pq" },
+      "matrixGate": "cameraAny.featureGates.dcgZsl.advertised"
+    },
+    {
+      "catalogId": "video.color.flat",
+      "script": "pns_video_color_profile_verify.ps1",
+      "scriptArgs": { "Profile": "flat" }
+    },
+    {
+      "catalogId": "still.independent_tonal",
+      "script": "pns_independent_tonal_verify.ps1",
+      "matrixGate": "cameraAny.featureGates.dcgZsl.advertised"
+    }
+  ]
+}

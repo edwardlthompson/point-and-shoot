@@ -19,7 +19,7 @@ import java.io.ByteArrayOutputStream
  * Common camera-app uses:
  *
  *  * **High-res stills that exceed AV1 / HEVC tile limits** —
- *    the OnePlus 13's 50 MP / 32 MP main wide produces
+ *    a legacy target's 50 MP / 32 MP main wide produces
  *    `8192 × 6144` images that exceed AV1's max coded width of
  *    `7680` per AV1 spec §A.3 Level 6.0. The natural workaround
  *    is to encode the still as an `(2 × 2)` grid of `4096 × 3072`

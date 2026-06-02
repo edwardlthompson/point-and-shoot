@@ -26,7 +26,7 @@ object ReadoutExposureChase {
     /**
      * Target scene median (0–255 histogram bin) for locked-axis YUV chase.
      * Single knob for preview, DNG, and independent tonal still (same [applyReadoutManualExposureAndWb]).
-     * Tuned May 2026 on CPH2655: **40** (~½ stop below **56**; prior **112** was too bright for JPEG).
+     * Tuned May 2026 on LegacySku: **40** (~½ stop below **56**; prior **112** was too bright for JPEG).
      */
     const val TARGET_MEDIAN_BIN = 34
 

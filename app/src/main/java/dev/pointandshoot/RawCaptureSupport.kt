@@ -7,9 +7,10 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.os.Build
 import android.util.Size
+import android.util.Log
 import android.view.Surface
 import android.view.WindowManager
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import dev.pointandshoot.fleet.StillDngBackend
 
 /**
@@ -17,7 +18,7 @@ import dev.pointandshoot.fleet.StillDngBackend
  * `pns_preview_raw_stream` in `CameraCapabilitiesProbe`).
  *
  * **Default** (in-tree): **RAW12 → RAW_SENSOR → RAW10** when all three are advertised — **USB-verified** scripted DNG
- * on **CPH2655-class** stacks (RAW10-first Milestone **10.1** order produced **ImageFormat 37** buffers that
+ * on legacy-class stacks (RAW10-first Milestone **10.1** order produced **ImageFormat 37** buffers that
  * **`DngCreator.writeImage`** rejected). Prefer **`pns_preview_raw_stream`** / **[Raw10Only]** for HAL matrix work.
  * Other values exist for OEM matrix testing where the advertised format does not deliver buffers.
  */
@@ -42,6 +43,38 @@ enum class RawStreamPreference {
  * RAW still helpers for Phase 1 Camera2 capture ([BUILD_PLAN.md] §4).
  */
 object RawCaptureSupport {
+    private const val TAG = "PNS.Cam"
+    private const val ENABLE_EXPERIMENTAL_MULTIRES_DIRECT_SIZE = true
+    private fun area(size: Size?): Long =
+        if (size == null) -1L else size.width.toLong() * size.height.toLong()
+
+    private fun largerOf(a: Size?, b: Size?): Size? =
+        when {
+            a == null -> b
+            b == null -> a
+            area(b) > area(a) -> b
+            else -> a
+        }
+
+    /**
+     * Max-resolution default policy keeps RAW10 last but prefers the larger stream between RAW12 and
+     * RAW_SENSOR so `max_resolution` can actually increase effective still dimensions when supported.
+     */
+    internal fun chooseDefaultRawFormatForMaxResolution(
+        raw12Area: Long?,
+        rawSensorArea: Long?,
+        raw10Area: Long?,
+    ): Int? {
+        val r12 = raw12Area ?: -1L
+        val rs = rawSensorArea ?: -1L
+        val r10 = raw10Area ?: -1L
+        if (r12 < 0 && rs < 0 && r10 < 0) return null
+        if (r12 >= 0 || rs >= 0) {
+            return if (r12 >= rs) ImageFormat.RAW12 else ImageFormat.RAW_SENSOR
+        }
+        return if (r10 >= 0) ImageFormat.RAW10 else null
+    }
+
 
     /**
      * When true, [pickRawForLogicalMulticamPinnedAux] prefers [RawStreamPreference.RawSensorOnly] /
@@ -128,7 +161,7 @@ object RawCaptureSupport {
      *   `RAW_SENSOR`-first** from the **logical** stream map (same route as unpinned session RAW).
      *   [pickRawOutput] **Default** would try **RAW12** first on that map; some HALs still deliver plain
      *   Bayer for aux slots — wrong packing vs [DngCreator] + logical metadata reads as dark / green
-     *   (CPH2655-class). This stays on the logical map (unlike [pickRawForLogicalMulticamPinnedAux]).
+     *   (legacy-class). This stays on the logical map (unlike [pickRawForLogicalMulticamPinnedAux]).
      * - **Logical** default: by default RAW is negotiated from the **logical** stream map so it
      *   matches **unpinned** RAW outputs (preview-only [OutputConfiguration.setPhysicalCameraId]).
      *   Use [usePhysicalChildRawStreamMapForLogicalSession] only when RAW/JPEG outputs are pinned to
@@ -142,6 +175,7 @@ object RawCaptureSupport {
         sessionCharacteristics: CameraCharacteristics?,
         previewPhysicalCameraId: String?,
         userPreference: RawStreamPreference,
+        photoResolutionMode: PhotoResolutionMode = PhotoResolutionMode.Binned,
         /** Active [PreviewController.setFocalCrop] mode; used when logical tele slots lose HAL preview pin. */
         focalCropMode: FocalMode? = null,
         /**
@@ -155,22 +189,22 @@ object RawCaptureSupport {
     ): Pair<Int, Size>? {
         val chars = sessionCharacteristics ?: return null
         if (userPreference != RawStreamPreference.Default) {
-            return pickRawOutput(chars, userPreference)
+            return pickRawOutput(chars, userPreference, photoResolutionMode)
         }
         val facing = chars.get(CameraCharacteristics.LENS_FACING)
         if (facing != null && facing != CameraCharacteristics.LENS_FACING_BACK) {
-            return pickRawOutput(chars, userPreference)
+            return pickRawOutput(chars, userPreference, photoResolutionMode)
         }
         val roles = BackCameraRoleResolver.resolve(cm, cameraIds)
         val wide = roles.wide
         val sessionChildren =
             runCatching { chars.physicalCameraIds?.toSet().orEmpty() }.getOrDefault(emptySet())
-        if (OnePlus13FleetPolicy.appliesToDevice() && isLeafBackSession(sessionChildren, facing)) {
-            when (OnePlus13FleetPolicy.stillDngBackend()) {
+        if (LegacyFleetPolicy.appliesToDevice() && isLeafBackSession(sessionChildren, facing)) {
+            when (LegacyFleetPolicy.stillDngBackend()) {
                 StillDngBackend.MOTIONCAM_INSPIRED ->
                     pickRawAtActiveArrayRawSensor(chars)?.let { return it }
                 StillDngBackend.FRAMEWORK_PROSHOT ->
-                    pickRawOutputFromFormatOrder(chars, OnePlus13FleetPolicy.LEAF_RAW_FORMAT_ORDER)
+                    pickRawOutputFromFormatOrder(chars, LegacyFleetPolicy.LEAF_RAW_FORMAT_ORDER)
                         ?.let { return it }
                 StillDngBackend.MOTIONCAM_NATIVE -> Unit
             }
@@ -184,8 +218,8 @@ object RawCaptureSupport {
             )
         ) {
             return pickRawOutput(chars, RawStreamPreference.RawSensorOnly)
-                ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst)
-                ?: pickRawOutput(chars, userPreference)
+                ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst, photoResolutionMode)
+                ?: pickRawOutput(chars, userPreference, photoResolutionMode)
         }
         if (preferRawSensorForAuxBackStill(
                 userPreference,
@@ -196,14 +230,14 @@ object RawCaptureSupport {
             )
         ) {
             return pickRawOutput(chars, RawStreamPreference.RawSensorOnly)
-                ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst)
-                ?: pickRawOutput(chars, userPreference)
+                ?: pickRawOutput(chars, RawStreamPreference.RawSensorFirst, photoResolutionMode)
+                ?: pickRawOutput(chars, userPreference, photoResolutionMode)
         }
         if (usePhysicalChildRawStreamMapForLogicalSession) {
             pickRawForLogicalMulticamPinnedAux(cm, cameraIds, chars, previewPhysicalCameraId, userPreference)
                 ?.let { return it }
         }
-        return pickRawOutput(chars, userPreference)
+        return pickRawOutput(chars, userPreference, photoResolutionMode)
     }
 
     private fun pickRawForLogicalMulticamPinnedAux(
@@ -250,8 +284,8 @@ object RawCaptureSupport {
         val wide = wideBackCameraId ?: return false
         if (sessionPhysicalChildren.isEmpty()) {
             // Leaf physical id (UW/tele/wide): keep RAW_SENSOR pick in [pickRawOutputForPreviewSession],
-            // but still apply ISP color correction on the still request — ProShot does; skipping CC
-            // here mis-tags DngCreator metadata on CPH2655 aux (dark / green cast).
+            // but still apply ISP color correction on the still request — ReferenceCam does; skipping CC
+            // here mis-tags DngCreator metadata on legacy aux (dark / green cast).
             return false
         }
         return preferRawSensorForAuxBackStill(
@@ -266,7 +300,7 @@ object RawCaptureSupport {
     /**
      * RAW+JPEG still capture: skip HQ color correction from [PreviewJpegProcessingHints] only on
      * **logical** sessions with a non-wide preview physical pin (or tele focal crop) — not on
-     * leaf physical UW/tele/wide opens (ProShot-aligned CC on those stills).
+     * leaf physical UW/tele/wide opens (ReferenceCam-aligned CC on those stills).
      */
     fun useNeutralColorPipelineForRawStill(
         cm: CameraManager,
@@ -292,7 +326,7 @@ object RawCaptureSupport {
 
     /** Same as [pickRawOutput] with [RawStreamPreference.Default] (RAW12 → RAW_SENSOR → RAW10). */
     fun pickRawOutput(characteristics: CameraCharacteristics): Pair<Int, Size>? =
-        pickRawOutput(characteristics, RawStreamPreference.Default)
+        pickRawOutput(characteristics, RawStreamPreference.Default, PhotoResolutionMode.Binned)
 
     /**
      * Same as [pickRawOutput] but honors [preference] for matrix / OEM diagnostics
@@ -301,16 +335,58 @@ object RawCaptureSupport {
     fun pickRawOutput(
         characteristics: CameraCharacteristics,
         preference: RawStreamPreference,
+        photoResolutionMode: PhotoResolutionMode = PhotoResolutionMode.Binned,
     ): Pair<Int, Size>? {
-        val map =
-            characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                ?: return null
-        return pickRawOutputFromMaps(
-            raw12 = runCatching { map.getOutputSizes(ImageFormat.RAW12)?.toList() }.getOrNull(),
-            raw10 = runCatching { map.getOutputSizes(ImageFormat.RAW10)?.toList() }.getOrNull(),
-            rawSensor = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }.getOrNull(),
-            preference = preference,
+        val defaultMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+            ?: return null
+        if (photoResolutionMode != PhotoResolutionMode.MaxResolution || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return pickRawOutputFromMap(defaultMap, preference)
+        }
+        val maxMap =
+            runCatching {
+                characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
+            }.getOrNull()
+        if (maxMap == null) {
+            return pickRawOutputFromMap(defaultMap, preference)
+        }
+        if (preference != RawStreamPreference.Default) {
+            return pickRawOutputFromMap(maxMap, preference) ?: pickRawOutputFromMap(defaultMap, preference)
+        }
+
+        val maxRaw12 = largestRawSize(maxMap, ImageFormat.RAW12)
+        val maxRawSensor = largestRawSize(maxMap, ImageFormat.RAW_SENSOR)
+        val maxRaw10 = largestRawSize(maxMap, ImageFormat.RAW10)
+        val defaultRaw12 = largestRawSize(defaultMap, ImageFormat.RAW12)
+        val defaultRawSensor = largestRawSize(defaultMap, ImageFormat.RAW_SENSOR)
+        val defaultRaw10 = largestRawSize(defaultMap, ImageFormat.RAW10)
+        val hasLargerRawCandidate =
+            area(maxRaw12) > area(defaultRaw12) ||
+                area(maxRawSensor) > area(defaultRawSensor) ||
+                area(maxRaw10) > area(defaultRaw10)
+
+        val mergedRaw12 = largerOf(maxRaw12, defaultRaw12)
+        val mergedRawSensor = largerOf(maxRawSensor, defaultRawSensor)
+        val mergedRaw10 = largerOf(maxRaw10, defaultRaw10)
+        Log.d(
+            TAG,
+            "maxResRawSupport larger=$hasLargerRawCandidate " +
+                "r12Def=${defaultRaw12?.width}x${defaultRaw12?.height} r12Max=${maxRaw12?.width}x${maxRaw12?.height} " +
+                "rsDef=${defaultRawSensor?.width}x${defaultRawSensor?.height} rsMax=${maxRawSensor?.width}x${maxRawSensor?.height} " +
+                "r10Def=${defaultRaw10?.width}x${defaultRaw10?.height} r10Max=${maxRaw10?.width}x${maxRaw10?.height}",
         )
+
+        return when (
+            chooseDefaultRawFormatForMaxResolution(
+                raw12Area = area(mergedRaw12).takeIf { it >= 0L },
+                rawSensorArea = area(mergedRawSensor).takeIf { it >= 0L },
+                raw10Area = area(mergedRaw10).takeIf { it >= 0L },
+            )
+        ) {
+            ImageFormat.RAW12 -> ImageFormat.RAW12 to mergedRaw12!!
+            ImageFormat.RAW_SENSOR -> ImageFormat.RAW_SENSOR to mergedRawSensor!!
+            ImageFormat.RAW10 -> ImageFormat.RAW10 to mergedRaw10!!
+            else -> pickRawOutputFromMap(maxMap, RawStreamPreference.Default) ?: pickRawOutputFromMap(defaultMap, RawStreamPreference.Default)
+        }
     }
 
     internal fun isLeafBackSession(
@@ -321,7 +397,7 @@ object RawCaptureSupport {
 
     /**
      * MotionCam-style: prefer [ImageFormat.RAW_SENSOR] at [SENSOR_INFO_ACTIVE_ARRAY_SIZE] when listed,
-     * else largest RAW_SENSOR (not ProShot's max-area pick across formats).
+     * else largest RAW_SENSOR (not ReferenceCam's max-area pick across formats).
      */
     internal fun pickRawAtActiveArrayRawSensor(characteristics: CameraCharacteristics): Pair<Int, Size>? {
         val map =
@@ -343,7 +419,7 @@ object RawCaptureSupport {
     }
 
     /**
-     * ProShot leaf RAW pick order on the **opened** camera map (Milestone **13.3c**).
+     * ReferenceCam leaf RAW pick order on the **opened** camera map (Milestone **13.3c**).
      */
     internal fun pickRawOutputFromFormatOrder(
         characteristics: CameraCharacteristics,
@@ -415,10 +491,122 @@ object RawCaptureSupport {
      * does not advertise [ImageFormat.JPEG] outputs.
      */
     fun pickLargestJpegSize(map: StreamConfigurationMap): Size? {
-        val sizes =
-            runCatching { map.getOutputSizes(ImageFormat.JPEG)?.toList() }.getOrNull().orEmpty()
-        if (sizes.isEmpty()) return null
-        return sizes.maxByOrNull { it.width.toLong() * it.height }
+        return largestSizeForFormat(map, ImageFormat.JPEG, includeHighRes = true)
+    }
+
+    fun pickJpegOutputSizeForStill(
+        characteristics: CameraCharacteristics,
+        photoResolutionMode: PhotoResolutionMode,
+    ): Size? {
+        val defaultMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP) ?: return null
+        if (photoResolutionMode != PhotoResolutionMode.MaxResolution || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return pickLargestJpegSize(defaultMap)
+        }
+        val maxMap =
+            runCatching {
+                characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
+            }.getOrNull()
+        val maxJpeg = maxMap?.let { pickLargestJpegSize(it) }
+        val defaultJpeg = pickLargestJpegSize(defaultMap)
+        val multiResJpeg = pickLargestMultiResolutionOutputSize(characteristics, ImageFormat.JPEG)
+        val chosen =
+            if (ENABLE_EXPERIMENTAL_MULTIRES_DIRECT_SIZE) {
+                largerOf(largerOf(maxJpeg, defaultJpeg), multiResJpeg)
+            } else {
+                largerOf(maxJpeg, defaultJpeg)
+            }
+        val hasLargerJpegCandidate = area(maxJpeg) > area(defaultJpeg)
+        Log.d(
+            TAG,
+            "maxResJpegSupport larger=$hasLargerJpegCandidate " +
+                "jpegDef=${defaultJpeg?.width}x${defaultJpeg?.height} jpegMax=${maxJpeg?.width}x${maxJpeg?.height} " +
+                "jpegMultiRes=${multiResJpeg?.width}x${multiResJpeg?.height} " +
+                "multiResDirect=$ENABLE_EXPERIMENTAL_MULTIRES_DIRECT_SIZE chosen=${chosen?.width}x${chosen?.height}",
+        )
+        return chosen
+    }
+
+    private fun largestRawSize(
+        map: StreamConfigurationMap,
+        format: Int,
+    ): Size? {
+        return largestSizeForFormat(map, format, includeHighRes = true)
+    }
+
+    private fun largestSizeForFormat(
+        map: StreamConfigurationMap,
+        format: Int,
+        includeHighRes: Boolean,
+    ): Size? {
+        val base = runCatching { map.getOutputSizes(format)?.toList() }.getOrNull().orEmpty()
+        val high =
+            if (includeHighRes) {
+                runCatching { map.getHighResolutionOutputSizes(format)?.toList() }.getOrNull().orEmpty()
+            } else {
+                emptyList()
+            }
+        val all = (base + high)
+            .distinctBy { it.width to it.height }
+        return all
+            .takeIf { it.isNotEmpty() }
+            ?.maxByOrNull { it.width.toLong() * it.height }
+    }
+
+    private fun pickRawOutputFromMap(
+        map: StreamConfigurationMap,
+        preference: RawStreamPreference,
+    ): Pair<Int, Size>? =
+        pickRawOutputFromMaps(
+            raw12 = runCatching { map.getOutputSizes(ImageFormat.RAW12)?.toList() }.getOrNull(),
+            raw10 = runCatching { map.getOutputSizes(ImageFormat.RAW10)?.toList() }.getOrNull(),
+            rawSensor = runCatching { map.getOutputSizes(ImageFormat.RAW_SENSOR)?.toList() }.getOrNull(),
+            preference = preference,
+        )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> keyByName(chars: CameraCharacteristics, name: String): CameraCharacteristics.Key<T>? =
+        chars.keys.firstOrNull { it.name == name } as? CameraCharacteristics.Key<T>
+
+    /**
+     * Experimental: pull max candidate sizes from multi-resolution output info (API 31+). This is
+     * best-effort reflection so older API behavior remains safe.
+     */
+    private fun pickLargestMultiResolutionOutputSize(
+        characteristics: CameraCharacteristics,
+        format: Int,
+    ): Size? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+        val key =
+            keyByName<Any>(characteristics, "android.scaler.multiResolutionStreamConfigurationMap")
+                ?: return null
+        val map = runCatching { characteristics.get(key) }.getOrNull() ?: return null
+        val infos = runCatching {
+            val m = map.javaClass.getMethod("getOutputInfo", Int::class.javaPrimitiveType)
+            m.invoke(map, format) as? Iterable<*>
+        }.getOrNull() ?: return null
+        var best: Size? = null
+        for (info in infos) {
+            if (info == null) continue
+            val w = runCatching { info.javaClass.getMethod("getWidth").invoke(info) as Int }.getOrNull() ?: continue
+            val h = runCatching { info.javaClass.getMethod("getHeight").invoke(info) as Int }.getOrNull() ?: continue
+            best = largerOf(best, Size(w, h))
+        }
+        return best
+    }
+
+    private fun pickStillStreamConfigurationMap(
+        characteristics: CameraCharacteristics,
+        photoResolutionMode: PhotoResolutionMode,
+    ): StreamConfigurationMap? {
+        val defaultMap = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+        if (photoResolutionMode != PhotoResolutionMode.MaxResolution) {
+            return defaultMap
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            return defaultMap
+        }
+        val maxMap = runCatching { characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION) }.getOrNull()
+        return maxMap ?: defaultMap
     }
 
     /**

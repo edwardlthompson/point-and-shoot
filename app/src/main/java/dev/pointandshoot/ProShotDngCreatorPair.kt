@@ -3,10 +3,10 @@ package dev.pointandshoot
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.TotalCaptureResult
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 
 /**
- * ProShot `m0.RunnableC0539s`: `new DngCreator(openedCharacteristics, stillTotalCaptureResult)`.
+ * ReferenceCam `m0.RunnableC0539s`: `new DngCreator(openedCharacteristics, stillTotalCaptureResult)`.
  * No [DngMetadataResolver] fork on leaf sessions (empty [CameraCharacteristics.getPhysicalCameraIds]).
  */
 object ProShotDngCreatorPair {
@@ -19,7 +19,7 @@ object ProShotDngCreatorPair {
         allowPhysicalTotalResultPairing: Boolean,
     ): Pair<CameraCharacteristics, TotalCaptureResult> {
         if (
-            OnePlus13FleetPolicy.useProShotPureDngSave() &&
+            LegacyFleetPolicy.useProShotPureDngSave() &&
             StillCaptureIqPolicy.isLeafBackCharacteristics(sessionCharacteristics)
         ) {
             return sessionCharacteristics to totalResult

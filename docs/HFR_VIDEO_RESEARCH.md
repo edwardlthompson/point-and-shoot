@@ -1,7 +1,7 @@
-# HFR Video Research - OnePlus 13 (CPH2655)
+# HFR Video Research - legacy device (legacy SKU)
 
 **Date:** 2026-05-16
-**Device:** 8bf09993
+**Device:** legacy serial
 **SDK Version:** 36
 
 ## Summary

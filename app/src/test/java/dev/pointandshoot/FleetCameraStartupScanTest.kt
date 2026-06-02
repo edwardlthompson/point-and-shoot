@@ -1,6 +1,6 @@
 package dev.pointandshoot
 
-import dev.pointandshoot.fleet.OnePlus13FleetPolicy
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -9,9 +9,9 @@ import org.junit.Test
 class FleetCameraStartupScanTest {
     @Test
     fun dngDeviceProfile_uwTele_onOnePlusModel() {
-        assertNotNull(DngDeviceColorProfile.fmScaleForOp13Leaf(OnePlus13FleetPolicy.CANONICAL_UW))
-        assertNotNull(DngDeviceColorProfile.fmScaleForOp13Leaf(OnePlus13FleetPolicy.CANONICAL_TELE))
-        assertEquals(1.147f, DngDeviceColorProfile.fmScaleFor("CPH2655", "3")!!.scaleR, 0.001f)
+        assertNotNull(DngDeviceColorProfile.fmScaleForOp13Leaf(LegacyFleetPolicy.CANONICAL_UW))
+        assertNotNull(DngDeviceColorProfile.fmScaleForOp13Leaf(LegacyFleetPolicy.CANONICAL_TELE))
+        assertEquals(1.147f, DngDeviceColorProfile.fmScaleFor("LegacySku", "3")!!.scaleR, 0.001f)
     }
 
     @Test

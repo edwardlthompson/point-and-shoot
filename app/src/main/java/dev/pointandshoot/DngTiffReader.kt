@@ -26,6 +26,7 @@ class DngTiffReader {
     
     companion object {
         private const val TAG = "DngTiffReader"
+        private const val MAX_READ_BYTES = 32 * 1024 * 1024 // safety cap against OOM on huge TIFFs
         
         // TIFF tag constants - standard TIFF tags
         private const val TIFF_MAKE = 271
@@ -57,7 +58,7 @@ class DngTiffReader {
         Log.d(TAG, "=== DngTiffReader.readMetadata() called ===")
         
         return try {
-            val bytes = inputStream.readBytes()
+            val bytes = inputStream.readBytesCapped(MAX_READ_BYTES)
             Log.d(TAG, "Read ${bytes.size} bytes from input stream")
             
             val buffer = ByteBuffer.wrap(bytes)
@@ -190,11 +191,19 @@ class DngTiffReader {
                 }
                 DNG_FNUMBER -> {
                     Log.d(TAG, "DNG FNUMBER raw: type=$type, count=$count, offset=$valueOffset")
-                    aperture = when (type) {
+                    val v = when (type) {
                         TIFF_RATIONAL -> readRationalValue(buffer, type, count, valueOffset)
                         else -> null
                     }
-                    Log.d(TAG, "Found DNG FNUMBER: $aperture")
+                    if (v != null) {
+                        // Some HALs encode exposure-time-like values here (e.g. 0.01s).
+                        if (v in 0.000_001..0.5 && exposureTime == null) {
+                            exposureTime = v
+                        } else if (aperture == null || aperture <= 0.0) {
+                            aperture = v
+                        }
+                    }
+                    Log.d(TAG, "Found DNG FNUMBER-like value=$v aperture=$aperture exposure=$exposureTime")
                 }
                 -32099 -> {
                     Log.d(TAG, "DNG tag -32099 (correct aperture): type=$type, count=$count, offset=$valueOffset")
@@ -287,8 +296,26 @@ class DngTiffReader {
                                 Log.d(TAG, "DNG tag -32099 (possible alternative aperture): $value")
                             }
                             -30681 -> {
-                                val value = readShortValue(buffer, type, count, valueOffset)
-                                Log.d(TAG, "DNG tag -30681 (possible aperture): $value")
+                                val value =
+                                    when (type) {
+                                        TIFF_SHORT ->
+                                            if (count == 1) {
+                                                valueOffset and 0xFFFF
+                                            } else {
+                                                readShortValue(buffer, type, count, valueOffset)
+                                            }
+                                        TIFF_LONG ->
+                                            if (count == 1) {
+                                                valueOffset
+                                            } else {
+                                                readLongValue(buffer, type, count, valueOffset)?.toInt()
+                                            }
+                                        else -> null
+                                    }
+                                if (value != null && value in 1..65535) {
+                                    iso = value
+                                }
+                                Log.d(TAG, "DNG tag -30681 (iso candidate): $value")
                             }
                             -28669 -> {
                                 val value = readAsciiValue(buffer, type, count, valueOffset)
@@ -445,5 +472,22 @@ class DngTiffReader {
             Log.d(TAG, "Error reading byte value: $e")
             null
         }
+    }
+
+    private fun InputStream.readBytesCapped(maxBytes: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        var total = 0
+        while (true) {
+            val n = read(buf)
+            if (n <= 0) break
+            total += n
+            if (total > maxBytes) {
+                Log.w(TAG, "TIFF parse skipped: file exceeds cap maxBytes=$maxBytes")
+                return ByteArray(0)
+            }
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
     }
 }

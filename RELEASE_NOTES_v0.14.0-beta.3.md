@@ -1,6 +1,6 @@
 # Point & Shoot — v0.14.0-beta.3
 
-**Pre-release** for OnePlus 13 (`CPH2655` / `dodge`) on LineageOS 23 (Android 16). Not a Play Store build.
+**Pre-release** for legacy device (`legacy SKU` / `dodge`) on LineageOS 23 (Android 16). Not a Play Store build.
 
 ## Summary
 
@@ -19,8 +19,8 @@
 
 ## Compatibility
 
-- **Target device:** OnePlus 13 (`CPH2655` class)
-- **OS:** LineageOS 23 / Android 16 (API 36) — primary validation **`8bf09993`**
+- **Target device:** legacy device (`legacy SKU` class)
+- **OS:** LineageOS 23 / Android 16 (API 36) — primary validation **`legacy serial`**
 - **FOSS-only:** no Google Play Services
 
 ## Known limitations (beta)
@@ -30,7 +30,7 @@
 - Aux **UW / tele** DNG color in ACR may still diverge from ProShot (**H.7**).
 - **Dual video** capped at **1080p30** — see **v0.14.0-beta.2** notes.
 
-## Verification (reference USB `8bf09993`, May 2026)
+## Verification (reference USB `legacy serial`, May 2026)
 
 - Manual: **120 fps** record ×2 (wide / tele / UW slots) — smooth finder + plausible framing
 - `pns_in_app_video_verify.ps1` — 60 fps rear smoke

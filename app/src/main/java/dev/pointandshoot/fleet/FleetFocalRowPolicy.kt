@@ -42,7 +42,9 @@ object FleetFocalRowPolicy {
             nativeWideLabel = focal.optString("nativeWideMm").takeIf { it.isNotBlank() },
             nativeTeleLabel = focal.optString("nativeTeleMm").takeIf { it.isNotBlank() },
             hasDedicatedMacro = focal.optBoolean("dedicatedMacro", false),
-            hasDedicatedMonochrome = focal.optBoolean("dedicatedMonochrome", false),
+            hasDedicatedMonochrome =
+                focal.optBoolean("dedicatedMonochrome", false) ||
+                    focal.optJSONObject("specialRoles")?.optBoolean("dedicatedMonochrome", false) == true,
             staticCropMpGate = gate,
         )
     }

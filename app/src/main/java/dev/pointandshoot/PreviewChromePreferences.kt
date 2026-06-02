@@ -85,6 +85,8 @@ data class PreviewChromePreferences(
     val inAppVideoColorSpaceOrdinal: Int = -1,
     /** M19.6 — [ColorSpaceTarget] ordinal for still export color space; -1 = profile default. */
     val stillColorSpaceOrdinal: Int = -1,
+    /** Optional [StillExportKind.ordinal] override for tonal still output; -1 = auto from matrix tiers. */
+    val stillExportKindOrdinal: Int = -1,
     /** Sprint AS.1 — 96 kHz / float PCM + 256 kbps AAC when the device supports it. */
     val audioHiFiCapture: Boolean = false,
     /** Sprint AS.1 — [android.media.audiofx.NoiseSuppressor] on video record audio. */
@@ -139,6 +141,7 @@ data class PreviewChromePreferences(
         private const val KEY_IN_APP_VIDEO_FPS = "in_app_video_fps"
         private const val KEY_IN_APP_VIDEO_COLOR_SPACE = "in_app_video_color_space"
         private const val KEY_STILL_COLOR_SPACE = "still_color_space"
+        private const val KEY_STILL_EXPORT_KIND = "still_export_kind_ordinal"
         private const val KEY_AUDIO_HIFI = "audio_hifi_capture"
         private const val KEY_AUDIO_WIND_NS = "audio_wind_noise_reduction"
         private const val KEY_AUDIO_EXT_MIC = "audio_prefer_external_input"
@@ -148,6 +151,7 @@ data class PreviewChromePreferences(
         private const val KEY_AUDIO_LIGHT_COMPRESSION = "audio_light_compression"
         private const val KEY_AUDIO_VOICEOVER_DUCK = "audio_voiceover_ducking"
         private const val KEY_LAST_REAR_CAMERA_ID = "last_rear_camera_id"
+        private const val KEY_QS_GRID_SLOT_ORDER = "qs_grid_slot_order_v1"
 
         /** Last non-front preview `cameraId` (for Milestone **10.2** / future front→rear UX). */
         fun readLastRearCameraId(context: Context): String? {
@@ -170,6 +174,47 @@ data class PreviewChromePreferences(
             context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
                 .putString(KEY_LAST_REAR_CAMERA_ID, id)
                 .apply()
+        }
+
+        /**
+         * Persists QS drag/drop order as `slotId@row@col|...`.
+         */
+        fun saveQuickSettingsGridOrder(
+            context: Context,
+            slotPositionsById: Map<String, Pair<Int, Int>>,
+        ) {
+            val payload =
+                slotPositionsById.entries
+                    .sortedBy { it.key }
+                    .joinToString("|") { (id, pos) -> "$id@${pos.first}@${pos.second}" }
+            context.applicationContext
+                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_QS_GRID_SLOT_ORDER, payload)
+                .apply()
+        }
+
+        fun loadQuickSettingsGridOrder(context: Context): Map<String, Pair<Int, Int>> {
+            val raw =
+                context.applicationContext
+                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getString(KEY_QS_GRID_SLOT_ORDER, null)
+                    ?.trim()
+                    .orEmpty()
+            if (raw.isBlank()) return emptyMap()
+            val out = mutableMapOf<String, Pair<Int, Int>>()
+            raw.split("|").forEach { token ->
+                val t = token.trim()
+                if (t.isEmpty()) return@forEach
+                val parts = t.split("@")
+                if (parts.size != 3) return@forEach
+                val id = parts[0].trim()
+                val row = parts[1].trim().toIntOrNull()
+                val col = parts[2].trim().toIntOrNull()
+                if (id.isEmpty() || row == null || col == null) return@forEach
+                out[id] = row to col
+            }
+            return out
         }
 
         fun load(context: Context): PreviewChromePreferences {
@@ -209,6 +254,8 @@ data class PreviewChromePreferences(
                     prefs.getInt(KEY_IN_APP_VIDEO_COLOR_SPACE, defaults.inAppVideoColorSpaceOrdinal),
                 stillColorSpaceOrdinal =
                     prefs.getInt(KEY_STILL_COLOR_SPACE, defaults.stillColorSpaceOrdinal),
+                stillExportKindOrdinal =
+                    prefs.getInt(KEY_STILL_EXPORT_KIND, defaults.stillExportKindOrdinal),
                 audioHiFiCapture = prefs.getBoolean(KEY_AUDIO_HIFI, defaults.audioHiFiCapture),
                 audioWindNoiseReduction = prefs.getBoolean(KEY_AUDIO_WIND_NS, defaults.audioWindNoiseReduction),
                 audioPreferExternalInput = prefs.getBoolean(KEY_AUDIO_EXT_MIC, defaults.audioPreferExternalInput),
@@ -245,6 +292,7 @@ data class PreviewChromePreferences(
                 .putInt(KEY_IN_APP_VIDEO_FPS, value.inAppVideoFps.coerceAtLeast(0))
                 .putInt(KEY_IN_APP_VIDEO_COLOR_SPACE, value.inAppVideoColorSpaceOrdinal)
                 .putInt(KEY_STILL_COLOR_SPACE, value.stillColorSpaceOrdinal)
+                .putInt(KEY_STILL_EXPORT_KIND, value.stillExportKindOrdinal)
                 .putBoolean(KEY_AUDIO_HIFI, value.audioHiFiCapture)
                 .putBoolean(KEY_AUDIO_WIND_NS, value.audioWindNoiseReduction)
                 .putBoolean(KEY_AUDIO_EXT_MIC, value.audioPreferExternalInput)

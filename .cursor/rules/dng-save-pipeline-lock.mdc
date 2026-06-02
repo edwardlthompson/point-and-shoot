@@ -6,7 +6,7 @@ alwaysApply: true
 
 # DNG save pipeline (locked — loadability)
 
-**Do not change without explicit maintainer request + USB proof** on **CPH2655** (`8bf09993`): install build, run **`scripts/pns_aux_dng_capture_analyze.ps1`**, confirm **`DNG INTEGRITY: PASS`**, and open pulled DNGs in **Lightroom or ACR**.
+**Do not change without explicit maintainer request + USB proof** on **LegacySku** (`legacySerial`): install build, run **`scripts/pns_aux_dng_capture_analyze.ps1`**, confirm **`DNG INTEGRITY: PASS`**, and open pulled DNGs in **Lightroom or ACR**.
 
 ## May 2026 regression — unreadable DNGs
 

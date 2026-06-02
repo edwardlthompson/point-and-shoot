@@ -9,7 +9,7 @@
   4. Pull DCIM, compare with scripts/preview_jpeg_framing_compare.py
 
 .EXAMPLE
-  .\scripts\pns_preview_jpeg_framing_gate.ps1 -Serial 8bf09993
+  .\scripts\pns_preview_jpeg_framing_gate.ps1 -Serial <serial>
 #>
 param(
     [string]$Serial = "",

@@ -1,18 +1,18 @@
-# ProShot ADB findings (index)
+# ReferenceCam ADB findings (index)
 
-Latest runs on **`8bf09993`** (CPH2655) after user ProShot captures (May 2026):
+Latest runs on **`legacy serial`** (legacy SKU) after user ReferenceCam captures (May 2026):
 
 | Artifact | Path |
 |----------|------|
-| **New ProShot DNGs** (22:57 session) | [`hfr-runs/proshot_reference_20260518_025813/`](../hfr-runs/proshot_reference_20260518_025813/) — `20260517_225732/36/39.dng`, `diff_report.md` |
+| **New ReferenceCam DNGs** (22:57 session) | [`hfr-runs/proshot_reference_20260518_025813/`](../hfr-runs/proshot_reference_20260518_025813/) — `20260517_225732/36/39.dng`, `diff_report.md` |
 | Logcat + dumpsys (post-capture) | [`hfr-runs/proshot_adb_forensics_20260518_025806/`](../hfr-runs/proshot_adb_forensics_20260518_025806/) — `proshot_capture_logcat.txt`, `dumpsys_media_camera_grep.txt` |
 | P&S baseline (FM reverted) | [`hfr-runs/aux_dng_capture_analyze_20260518_025101/`](../hfr-runs/aux_dng_capture_analyze_20260518_025101/) |
 
 Earlier reference pull: `hfr-runs/proshot_reference_20260518_025412/`.
 
-## Camera service: ProShot opens leaf devices (same ids as P&S focal slots)
+## Camera service: ReferenceCam opens leaf devices (same ids as P&S focal slots)
 
-From `dumpsys media.camera` **Camera service events** during the 22:57 ProShot session:
+From `dumpsys media.camera` **Camera service events** during the 22:57 ReferenceCam session:
 
 | Time (local) | Event | Maps to P&S slot |
 |--------------|--------|------------------|
@@ -20,15 +20,15 @@ From `dumpsys media.camera` **Camera service events** during the 22:57 ProShot s
 | 22:57:33 | **CONNECT device 2** (disconnect 3) | M23 wide (`cameraIdAfter=2`) |
 | 22:57:38 | **CONNECT device 4** (disconnect 2) | M73 tele (`cameraIdAfter=4`) |
 
-ProShot does **not** stay on logical `0` for these three shots — it switches **leaf `CameraDevice` per lens**, matching P&S `focalSlotTap` routing.
+ReferenceCam does **not** stay on logical `0` for these three shots — it switches **leaf `CameraDevice` per lens**, matching P&S `focalSlotTap` routing.
 
 Hal log on teardown: `logicalCameraId: 3, cameraId: 4` for tele — OEM may expose tele through logical parent **3** while API device id is **4**.
 
 ## Tag diff headline (unchanged)
 
-- **ProShot and P&S DNGs both use `FM1[0,0]=0.4375` on all three lenses** — TIFF ForwardMatrix rewriting is not what separates good ProShot color.
+- **ReferenceCam and P&S DNGs both use `FM1[0,0]=0.4375` on all three lenses** — TIFF ForwardMatrix rewriting is not what separates good ReferenceCam color.
 - **ASN WB differs per file** in both apps.
-- ProShot APK dex: `DngCreator`, `setPhysicalCameraId`, `LOGICAL_MULTI_CAMERA`, `LENS_SHADING` (`apk_strings_grep.txt` in latest reference folder).
+- ReferenceCam APK dex: `DngCreator`, `setPhysicalCameraId`, `LOGICAL_MULTI_CAMERA`, `LENS_SHADING` (`apk_strings_grep.txt` in latest reference folder).
 
 ## Next P&S work (not FM/ASN)
 

@@ -1,14 +1,46 @@
-{
-  "schema": "pns.fleet_parity_sweep.v1",
-  "pass": true,
-  "mode": "Quick",
-  "includeRecord": false,
-  "serial": "b5214fc6",
-  "timestampUtc": "2026-05-30T04:29:00.9549585Z",
-  "outDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\fleet_regression_pack_20260530_042708\\tier2_parity",
-  "cellCount": 54,
-  "gapAdvertisedNotProven": 0,
-  "sweepModeLogged": true,
-  "sweepCompleteLogged": true,
-  "logPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\fleet_regression_pack_20260530_042708\\tier2_parity\\logcat_parity.txt"
+﻿{
+    "schema":  "pns.fleet_parity_sweep.v2",
+    "pass":  false,
+    "mode":  "Full",
+    "includeRecord":  true,
+    "serial":  "b5214fc6",
+    "timestampUtc":  "2026-06-02T01:17:39.2858505Z",
+    "outDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_011300\\parity_full",
+    "cellCount":  171,
+    "shipBlockerGapCount":  6,
+    "gapBreakdown":  {
+
+                     },
+    "inAppSchema":  "pns.fleet_parity_sweep.v2",
+    "experimentalUnlockState":  {
+                                    "masterEnabled":  true,
+                                    "maxResolutionUnlockEnabled":  true,
+                                    "vendorSessionKeysEnabled":  true,
+                                    "safeModeActive":  false,
+                                    "rootGranted":  true,
+                                    "unlockLane":  {
+                                                       "deviceEligibleCph2583":  true,
+                                                       "rootGranted":  true,
+                                                       "safeModeActive":  false,
+                                                       "currentlyObservedProp":  null,
+                                                       "lastActive":  false,
+                                                       "lastAttempt":  {
+                                                                           "active":  false,
+                                                                           "applied":  false,
+                                                                           "requestedValue":  null,
+                                                                           "observedValue":  null,
+                                                                           "reason":  "still_mode_not_max_resolution",
+                                                                           "cameraId":  "2",
+                                                                           "timestampUtc":  "2026-06-02T01:10:53.482759Z"
+                                                                       }
+                                                   }
+                                },
+    "sweepCompleteLogged":  false,
+    "installedVersionCode":  null,
+    "builtVersionCode":  null,
+    "baselineTag":  null,
+    "logPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_011300\\parity_full\\logcat_parity.txt",
+    "inAppJsonPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_011300\\parity_full\\in_app_parity_report.json",
+    "proofPackMerged":  true,
+    "proofResultsPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_011300\\parity_full\\proof_pack\\parity_proof_results.json"
 }

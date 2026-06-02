@@ -2,12 +2,13 @@
 # Sprint 13.6 — scripted RAW video (.mcraw) record + pull gate.
 #
 # Usage:
-#   .\scripts\pns_raw_video_verify.ps1 -Serial 8bf09993
+#   .\scripts\pns_raw_video_verify.ps1 -Serial <serial>
 
 param(
     [string]$Serial = "",
     [int]$RecordSec = 5,
     [int]$WaitSec = 35,
+    [string]$CameraId = "2",
     [int]$MinBytes = 65536,
     [int]$MinFrames = 1,
     [switch]$SkipInstall,
@@ -69,14 +70,14 @@ Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
 Start-Sleep -Milliseconds 600
 Invoke-AdbCmd logcat -c 2>$null
 
-Write-Host "Launching preview: RAW video ${RecordSec}s (wide cam id=2)..."
+Write-Host "Launching preview: RAW video ${RecordSec}s (camera id=$CameraId)..."
 Invoke-AdbCmd shell am start -W -n "dev.pointandshoot/.MainActivity" `
     --activity-clear-task `
     --es pns_screen preview `
     --ez pns_preview_primary_photo false `
     --ei pns_preview_video_raw_sec $RecordSec `
     --es pns_preview_imaging_profile standard_pro `
-    --es pns_preview_camera_id 2 `
+    --es pns_preview_camera_id $CameraId `
     --ei pns_preview_video_fps 30 2>&1 | Out-Null
 
 $totalWait = $RecordSec + $WaitSec

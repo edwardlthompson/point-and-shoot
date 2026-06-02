@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
-  Capture ProShot package intents + optional logcat/dumpsys during manual RAW captures.
+  Capture ReferenceCam package intents + optional logcat/dumpsys during manual RAW captures.
 
 .DESCRIPTION
-  Clears logcat, prints ProShot launcher activity, waits for user to take ProShot DNG shots,
+  Clears logcat, prints ReferenceCam launcher activity, waits for user to take ReferenceCam DNG shots,
   then saves filtered logcat and media.camera dumpsys excerpt.
 
 .EXAMPLE
-  .\scripts\pns_proshot_adb_forensics.ps1 -Serial 8bf09993 -WaitSec 120
+  .\scripts\pns_proshot_adb_forensics.ps1 -Serial <serial> -WaitSec 120
 #>
 param(
     [string]$Serial = "",
@@ -67,7 +67,7 @@ Invoke-Adb @("shell", "logcat", "-G", "64M") | Out-Null
 Invoke-Adb @("shell", "logcat", "-c") | Out-Null
 
 Write-Host ""
-Write-Host "=== Take 3 ProShot RAW/DNG stills now (UW, wide, 73mm tele) ===" -ForegroundColor Cyan
+Write-Host "=== Take 3 ReferenceCam RAW/DNG stills now (UW, wide, 73mm tele) ===" -ForegroundColor Cyan
 Write-Host "Waiting ${WaitSec}s..."
 Start-Sleep -Seconds $WaitSec
 
@@ -75,7 +75,7 @@ $logPath = Join-Path $outDir "proshot_capture_logcat.txt"
 Invoke-Adb @(
     "shell", "logcat", "-d", "-v", "threadtime", "-t", "30000",
     "CameraDevice:I", "CameraCaptureSession:I", "CameraManager:I",
-    "DngCreator:I", "ProShot:I", "riseup:I", "AndroidRuntime:E"
+    "DngCreator:I", "ReferenceCam:I", "riseup:I", "AndroidRuntime:E"
 ) | Out-File -Encoding utf8 $logPath
 
 $dumpCam = Invoke-AdbOut @("shell", "dumpsys", "media.camera")
@@ -95,7 +95,7 @@ foreach ($pat in $patterns) {
 $grepLines | Out-File -Encoding utf8 $grepPath
 
 $findings = @"
-# ProShot ADB forensics ($ts)
+# ReferenceCam ADB forensics ($ts)
 
 ## Package
 - ``$ProShotPackage``
@@ -103,7 +103,7 @@ $findings = @"
 - Activity excerpt: ``package_activities_excerpt.txt``
 
 ## Capture window
-- User asked to shoot 3 ProShot DNGs during ${WaitSec}s wait after logcat clear.
+- User asked to shoot 3 ReferenceCam DNGs during ${WaitSec}s wait after logcat clear.
 - Filtered logcat: ``proshot_capture_logcat.txt``
 
 ## media.camera
@@ -111,7 +111,7 @@ $findings = @"
 - Grep excerpt: ``dumpsys_media_camera_grep.txt``
 
 ## Notes
-- ProShot is not debuggable; no ``run-as``.
+- ReferenceCam is not debuggable; no ``run-as``.
 - No documented ``am start`` RAW automation found in package dump; use manual UI or future UI-automate.
 "@
 $findings | Set-Content (Join-Path $outDir "proshot_adb_findings.md") -Encoding UTF8

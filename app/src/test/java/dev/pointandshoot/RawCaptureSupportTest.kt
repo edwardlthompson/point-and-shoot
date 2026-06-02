@@ -38,6 +38,46 @@ class RawCaptureSupportTest {
     }
 
     @Test
+    fun chooseDefaultRawFormatForMaxResolution_prefersLargerBetweenRaw12AndRawSensor() {
+        assertEquals(
+            ImageFormat.RAW_SENSOR,
+            RawCaptureSupport.chooseDefaultRawFormatForMaxResolution(
+                raw12Area = 12_000_000L,
+                rawSensorArea = 48_000_000L,
+                raw10Area = 8_000_000L,
+            ),
+        )
+        assertEquals(
+            ImageFormat.RAW12,
+            RawCaptureSupport.chooseDefaultRawFormatForMaxResolution(
+                raw12Area = 48_000_000L,
+                rawSensorArea = 12_000_000L,
+                raw10Area = 8_000_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun chooseDefaultRawFormatForMaxResolution_keepsRaw10LastFallback() {
+        assertEquals(
+            ImageFormat.RAW10,
+            RawCaptureSupport.chooseDefaultRawFormatForMaxResolution(
+                raw12Area = null,
+                rawSensorArea = null,
+                raw10Area = 8_000_000L,
+            ),
+        )
+        assertEquals(
+            null,
+            RawCaptureSupport.chooseDefaultRawFormatForMaxResolution(
+                raw12Area = null,
+                rawSensorArea = null,
+                raw10Area = null,
+            ),
+        )
+    }
+
+    @Test
     fun pickRawSensorWxHForActiveArray_prefersExactActiveArray() {
         val picked =
             RawCaptureSupport.pickRawSensorWxHForActiveArray(

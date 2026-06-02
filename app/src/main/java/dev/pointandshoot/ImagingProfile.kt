@@ -107,6 +107,9 @@ enum class RawMode(val displayName: String) {
 enum class TonalContainer(val displayName: String, val mimeType: String, val fileExtension: String, val bitDepth: Int) {
     Avif10BitHdr("AVIF (10-bit HDR)", "image/avif", "avif", 10),
     JpegXl12Bit("JPEG XL (12-bit)", "image/jxl", "jxl", 12),
+    Heic10Bit("HEIC (10-bit)", "image/heic", "heic", 10),
+    MotionPhotoJpeg8("Motion Photo (JPEG)", "image/jpeg", "motion", BIT_DEPTH_JPEG_SDR8),
+    Tiff16("TIFF (16-bit)", "image/tiff", "tiff", 16),
     /** Primary sRGB JPEG (hardware still); does not require native AVIF/JXL encoders. */
     JpegSdr8("JPEG (8-bit sRGB)", "image/jpeg", "jpg", BIT_DEPTH_JPEG_SDR8),
 }

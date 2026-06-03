@@ -1,0 +1,28 @@
+{
+  "schema": "pns.milestone_closeout.v1",
+  "milestoneNumber": 24,
+  "milestoneTag": "M24",
+  "buildPlanPath": "BUILD_PLAN.md",
+  "buildPlanCompletedPath": "BUILD_PLAN_COMPLETED.md",
+  "changelogPath": "CHANGELOG.md",
+  "coverageManifestPath": "scripts/changelog_coverage.v1.json",
+  "activeHeading": "## Milestone 24 — Fleet hardening and resilience program *(active)*",
+  "archivedHeading": "## Milestone 24 — Fleet hardening and resilience program *(archived)*",
+  "archiveBlockLines": [
+    "## Milestone 24 — Fleet hardening and resilience program *(archived)*",
+    "",
+    "Milestone 24 is complete and moved to **BUILD_PLAN_COMPLETED.md** under **Milestone 24 archive section**, including Sprint **24.0+** closure details and gate outcomes."
+  ],
+  "requiredCompletedHeading": "### Milestone 24 — Fleet hardening and resilience program *(archived 2026-06-03)*",
+  "requiredChangelogMentions": [
+    "Milestone 24"
+  ],
+  "requiredCoverageMentions": [
+    "Milestone 24"
+  ],
+  "requiredPaths": [
+    "hfr-runs/m24_closeout_chain_2026-06-03"
+  ],
+  "reportPrefix": "milestone_closeout_m24"
+}
+

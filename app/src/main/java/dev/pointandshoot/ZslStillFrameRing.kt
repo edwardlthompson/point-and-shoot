@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.hardware.camera2.TotalCaptureResult
+import android.hardware.camera2.CaptureResult
 import android.media.Image
 import android.util.Log
 
@@ -42,6 +43,17 @@ class ZslStillFrameRing(
     }
 
     fun offerResult(result: TotalCaptureResult): Long {
+        val resultTs = result.get(CaptureResult.SENSOR_TIMESTAMP)
+        if (resultTs != null) {
+            val byTimestamp =
+                slots.lastOrNull { slot ->
+                    slot.result == null && slot.image != null && slot.image!!.timestamp == resultTs
+                }
+            if (byTimestamp != null) {
+                byTimestamp.result = result
+                return byTimestamp.sequence
+            }
+        }
         val last = slots.lastOrNull()
         if (last != null && last.result == null) {
             last.result = result
@@ -51,6 +63,17 @@ class ZslStillFrameRing(
     }
 
     fun offerImage(image: Image): Long {
+        val imageTs = image.timestamp
+        val byTimestamp =
+            slots.lastOrNull { slot ->
+                slot.image == null &&
+                    slot.result != null &&
+                    slot.result!!.get(CaptureResult.SENSOR_TIMESTAMP) == imageTs
+            }
+        if (byTimestamp != null) {
+            byTimestamp.image = image
+            return byTimestamp.sequence
+        }
         val last = slots.lastOrNull()
         if (last != null && last.image == null) {
             last.image = image

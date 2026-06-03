@@ -12,6 +12,7 @@ param(
     [switch]$IncludeProofPack,
     [switch]$IncludeDngSubTrack,
     [switch]$IncludeWorkflowPresets,
+    [switch]$PromoteOptionalBlocking,
     [switch]$SkipMatrixRefresh,
     [switch]$SkipInstall,
     [switch]$AssembleDebug,
@@ -714,12 +715,43 @@ if ($inAppObj -and ($inAppObj.PSObject.Properties.Name -contains "experimentalUn
 
 $schemaOk = ($inAppObj -and $inAppObj.schema -eq 'pns.fleet_parity_sweep.v2')
 $minQuickCells = 50
+$quickInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -ge $minQuickCells))
+$fullInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -gt 100))
+$sweepEvidenceOk = [bool]$sweepCompleteLogged
+$sweepEvidenceModeFallback = ""
+$modeEvidenceOk = $false
 $pass = switch ($Mode) {
     'Quick' {
-        ($cellCount -ge $minQuickCells) -and [bool]$sweepCompleteLogged -and ($shipBlockerCount -eq 0) -and ($schemaOk -or $logCells.Count -ge $minQuickCells)
+        $modeEvidenceOk = [bool]$quickInAppEvidenceOk
+        if (-not $sweepEvidenceOk -and $modeEvidenceOk) {
+            $sweepEvidenceOk = $true
+            $sweepEvidenceModeFallback = "in_app_quick_cells"
+            Write-Warning "[parity_sweep] sweepComplete log missing; using in-app parity report evidence."
+        }
+        ($cellCount -ge $minQuickCells) -and $sweepEvidenceOk -and ($shipBlockerCount -eq 0) -and ($schemaOk -or $logCells.Count -ge $minQuickCells)
     }
     default {
-        ($shipBlockerCount -eq 0) -and [bool]$sweepCompleteLogged -and ($schemaOk -or ($logCells.Count -gt 100))
+        $modeEvidenceOk = [bool]$fullInAppEvidenceOk
+        if (-not $sweepEvidenceOk -and $modeEvidenceOk) {
+            $sweepEvidenceOk = $true
+            $sweepEvidenceModeFallback = "in_app_full_cells"
+            Write-Warning "[parity_sweep] sweepComplete log missing; using in-app parity report evidence."
+        }
+        ($shipBlockerCount -eq 0) -and $sweepEvidenceOk -and ($schemaOk -or ($logCells.Count -gt 100))
+    }
+}
+
+$optionalBlockingGapCount = 0
+if ($PromoteOptionalBlocking) {
+    $optionalGapKeys = @("GAP_UNAUTOMATED", "GAP_HUMAN_ONLY", "GAP_PROBE_INVENTORY")
+    foreach ($k in $optionalGapKeys) {
+        if ($gapBreakdown.ContainsKey($k)) {
+            $optionalBlockingGapCount += [int]$gapBreakdown[$k]
+        }
+    }
+    if ($optionalBlockingGapCount -gt 0) {
+        Write-Warning "[parity_sweep] optional gaps promoted to blocking count=$optionalBlockingGapCount"
+        $pass = $false
     }
 }
 
@@ -747,6 +779,10 @@ $report = [ordered]@{
     baselineTag = if ($BaselineTag) { $BaselineTag } else { $null }
     logPath = $logPath
     inAppJsonPath = $inAppJsonPath
+    sweepEvidenceOk = $sweepEvidenceOk
+    sweepEvidenceFallback = if ($sweepEvidenceModeFallback) { $sweepEvidenceModeFallback } else { $null }
+    promoteOptionalBlocking = [bool]$PromoteOptionalBlocking
+    optionalBlockingGapCount = $optionalBlockingGapCount
 }
 
 $reportPath = Join-Path $OutDir "parity_report.json"

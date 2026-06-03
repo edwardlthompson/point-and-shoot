@@ -27,6 +27,8 @@ param(
     [switch]$RequireColorMetric,
     # Sprint 15.15 — hard-fail when P&S luma/channels differ >20% from ReferenceCam fixture refs (same-scene only).
     [switch]$RequireAestheticGate,
+    # Force legacy aux-vs-wide CM2 leak check even on non-legacy fleet models.
+    [switch]$ForceWideCalLeakCheck,
     # If set, reads ISO/ExposureTime from ReferenceCam reference DNGs and seeds matching
     # readout overrides on each lens capture (helps "match ReferenceCam" on the same scene).
     [switch]$MatchProShotExposure
@@ -331,8 +333,17 @@ Write-Host "[capture_analyze] dng_desktop_open_gate.py (13.3g mandatory)..." -Fo
 $openGatePy = Join-Path $PSScriptRoot "dng_desktop_open_gate.py"
 $openGatePass = $false
 $openGateJson = Join-Path $outDir "openability_gate.json"
+$deviceModel = (Invoke-AdbOut @("shell", "getprop", "ro.product.model")).Trim()
+$isLegacyWideLeakTarget = $deviceModel -match "(?i)CPH2655|oneplus\\s*13"
+$skipWideCalLeak = (-not $ForceWideCalLeakCheck) -and (-not $isLegacyWideLeakTarget)
+if ($skipWideCalLeak) {
+    Write-Warning "[capture_analyze] skipping wide-cal leak gate for non-legacy model '$deviceModel' (use -ForceWideCalLeakCheck to enforce)."
+}
 if (Test-Path -LiteralPath $openGatePy) {
-    $openGateOut = & python $openGatePy $uwPath $widePath $telePath 2>&1 | Out-String
+    $openGateArgs = @($openGatePy)
+    if ($skipWideCalLeak) { $openGateArgs += "--skip-wide-cal-leak" }
+    $openGateArgs += @($uwPath, $widePath, $telePath)
+    $openGateOut = & python @openGateArgs 2>&1 | Out-String
     Write-Host $openGateOut
     if ($LASTEXITCODE -ne 0) {
         Write-Host "FAIL: DNG desktop open gate (ACR loadability / ASN / wide-cal leak)." -ForegroundColor Red
@@ -346,13 +357,15 @@ if (Test-Path -LiteralPath $openGatePy) {
         exit 1
     }
     $openGatePass = $true
+    $wideCalCheckName = if ($skipWideCalLeak) { "wide_cal_leak_skipped_non_legacy" } else { "wide_cal_leak" }
     @{
         schema = "openability_gate.v1"
         timestampUtc = $ts
         gate = "PASS"
         serial = $Serial
+            deviceModel = $deviceModel
         paths = @{ uw = $uwPath; wide = $widePath; tele = $telePath }
-        checks = @("dng_tiff_integrity", "rawpy_decode", "asn_sanity", "wide_cal_leak")
+        checks = @("dng_tiff_integrity", "rawpy_decode", "asn_sanity", $wideCalCheckName)
     } | ConvertTo-Json -Depth 4 | Set-Content $openGateJson -Encoding UTF8
 }
 

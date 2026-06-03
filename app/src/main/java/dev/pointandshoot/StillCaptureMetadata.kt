@@ -88,14 +88,10 @@ object StillCaptureMetadata {
             // Do NOT run [ExifInterface.saveAttributes] on DNG: it rewrites the TIFF for JPEG-style
             // EXIF and destroys legacy-device row-strip payloads (Lightroom/ACR "cannot load"; rawpy may
             // still decode). In-place IFD patches above preserve strip offsets from [DngCreator].
-            context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
-                outs.write(patchedBytes)
-                outs.flush()
+            if (!writeStagedBytesToUri(context, uri, patchedBytes, "dng")) {
+                Log.w(TAG, "DNG write failed uri=$uri")
+                return@runCatching
             }
-                ?: run {
-                    Log.w(TAG, "DNG write failed uri=$uri")
-                    return@runCatching
-                }
             location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
             updateImageDescription(
                 context = context,
@@ -266,10 +262,31 @@ object StillCaptureMetadata {
                 ?: return
         val patched = JpegIccEmbedder.embedAfterSoi(jpeg, icc)
         if (patched.contentEquals(jpeg)) return
-        context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
-            outs.write(patched)
-            outs.flush()
-        } ?: Log.w(TAG, "ICC embed write failed uri=$uri")
+        if (!writeStagedBytesToUri(context, uri, patched, "jpeg-icc")) {
+            Log.w(TAG, "ICC embed write failed uri=$uri")
+        }
+    }
+
+    private fun writeStagedBytesToUri(
+        context: Context,
+        uri: Uri,
+        bytes: ByteArray,
+        stageLabel: String,
+    ): Boolean {
+        val staged =
+            runCatching {
+                val stagedFile = File.createTempFile("pns_$stageLabel", ".bin", context.cacheDir)
+                stagedFile.writeBytes(bytes)
+                stagedFile
+            }.getOrNull() ?: return false
+        return try {
+            context.contentResolver.openOutputStream(uri, "wt")?.use { outs ->
+                staged.inputStream().use { input -> input.copyTo(outs) }
+                outs.flush()
+            } != null
+        } finally {
+            runCatching { staged.delete() }
+        }
     }
 
     private fun fillExifFields(

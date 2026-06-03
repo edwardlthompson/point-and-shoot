@@ -57,6 +57,9 @@ import android.view.PixelCopy
 import android.view.Surface
 import android.view.WindowManager
 import android.widget.Toast
+import dev.pointandshoot.preview.capture.awaitNextImage
+import dev.pointandshoot.preview.session.AndroidPreviewCameraOpenGateway
+import dev.pointandshoot.preview.session.AndroidPreviewSessionCreateGateway
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.activity.compose.BackHandler
@@ -202,6 +205,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
@@ -707,6 +712,8 @@ private data class PreviewEnginePollState(
     val previewReadoutIso: Int?,
     val previewReadoutExposureNs: Long?,
     val previewReadoutAwbMode: Int?,
+    val readoutApertureLabel: String?,
+    val readoutApertureInteractive: Boolean,
     val aeLocked: Boolean,
     val previewLogicalPhysicalId: String?,
     val previewJpegCompanion: Boolean,
@@ -722,6 +729,8 @@ private data class PreviewEnginePollState(
                 previewReadoutIso = null,
                 previewReadoutExposureNs = null,
                 previewReadoutAwbMode = null,
+                readoutApertureLabel = null,
+                readoutApertureInteractive = false,
                 aeLocked = false,
                 previewLogicalPhysicalId = null,
                 previewJpegCompanion = false,
@@ -739,6 +748,8 @@ private fun previewEnginePollStateFromController(c: PreviewController): PreviewE
         previewReadoutIso = c.previewMeterIso(),
         previewReadoutExposureNs = c.previewMeterExposureNs(),
         previewReadoutAwbMode = c.previewReadoutAwbMode(),
+        readoutApertureLabel = c.readoutApertureChipLabel(),
+        readoutApertureInteractive = c.readoutApertureChipInteractive(),
         aeLocked = c.isAeLocked(),
         previewLogicalPhysicalId = c.previewMeterLogicalPhysicalId(),
         previewJpegCompanion = c.previewUsesJpegCompanion(),
@@ -810,6 +821,37 @@ private fun mapAdbSlotToAdvertisedPrimeAssignment(
             { it.targetEqMm },
         ),
     )
+}
+
+private fun cameraSupportsRawStill(
+    context: Context,
+    cameraId: String,
+    ids: List<String>,
+): Boolean {
+    val cm = context.getSystemService(CameraManager::class.java) as CameraManager
+    return HardwareCapsSnapshot.build(cm, cameraId, ids).hasRawCapability
+}
+
+private fun resolveRawCapablePrimeAssignmentFallback(
+    context: Context,
+    ids: List<String>,
+    requestedTargetEqMm: Int,
+    excludedCameraIds: Set<String> = emptySet(),
+): FocalLensStripSupport.PrimeLensAssignment? {
+    if (ids.isEmpty()) return null
+    val assignments = FocalLensStripSupport.resolvePrimeLensAssignments(context, ids)
+    if (assignments.isEmpty()) return null
+    return assignments
+        .asSequence()
+        .filter { it.cameraId !in excludedCameraIds }
+        .filter { cameraSupportsRawStill(context, it.cameraId, ids) }
+        .minWithOrNull(
+            compareBy<FocalLensStripSupport.PrimeLensAssignment>(
+                { kotlin.math.abs(it.targetEqMm - requestedTargetEqMm) },
+                { if (it.isNative) 0 else 1 },
+                { it.targetEqMm },
+            ),
+        )
 }
 
 private fun clampPrimeTargetEqMmToAdvertised(
@@ -886,6 +928,8 @@ fun PreviewEngineScreen(
     adbReadoutIsoProbe: Int? = null,
     /** Sprint **15.10** — `--el pns_preview_readout_shutter_ns` (lock SS so ISO chase logs can be proven). */
     adbReadoutShutterNsProbe: Long? = null,
+    /** Variable aperture — `--ei pns_preview_aperture_cycles N` cycles F chip after preview settles. */
+    adbApertureCycleProbe: Int? = null,
     /** Sprint **15.11** — `--es pns_preview_video_shutter_angle Angle180` (video-primary gate). */
     adbVideoShutterAngleProbe: String? = null,
     /** Sprint **15.1** — ADB seed: enable face/eye overlay markers. */
@@ -1293,7 +1337,10 @@ fun PreviewEngineScreen(
         if (initialTrayModeApplied || selectedCameraId == null) return@LaunchedEffect
         initialTrayModeApplied = true
         val snap = if (primaryPhoto) photoTraySnapshot else videoTraySnapshot
-        val keepAutomationFpsSeed = adbAutomationInAppVideoSec > 0 && adbAutomationVideoFps != null
+        // Raw/bracket automation must keep the seeded <=60 fps target so RAW session setup does not
+        // get overwritten by tray snapshots that may store 120 from prior interactive runs.
+        val keepAutomationFpsSeed =
+            (adbAutomationInAppVideoSec > 0 && adbAutomationVideoFps != null) || rawOrBracketAutomation
         applyPreviewTrayModeSnapshot(
             controller,
             hudState,
@@ -2218,6 +2265,11 @@ fun PreviewEngineScreen(
     var holdBurstShotCount by remember { mutableIntStateOf(0) }
     var holdBurstBufferedPending by remember { mutableIntStateOf(0) }
     var holdBurstJob by remember { mutableStateOf<Job?>(null) }
+    var holdBurstSaveCount by remember { mutableIntStateOf(0) }
+    var holdBurstSavePending by remember { mutableIntStateOf(0) }
+    var holdBurstDroppedCount by remember { mutableIntStateOf(0) }
+    val holdBurstCaptureLatencyMs = remember { mutableListOf<Long>() }
+    val holdBurstJpegSaveLimiter = remember { Semaphore(3) }
     var burstPipelineStrategy by remember { mutableStateOf(BurstPipelineStrategy.Aggressive) }
     DisposableEffect(Unit) {
         onDispose {
@@ -2357,8 +2409,11 @@ fun PreviewEngineScreen(
             focalSlotProbeConsumed = true
             return@LaunchedEffect
         }
+        val rawReadyRequired = adbSequentialRawStills > 0
+        fun slotCaptureReady(): Boolean =
+            if (rawReadyRequired) controller.canCaptureRawStill() else controller.canCaptureStill()
         var seedSettle = 0
-        while (seedSettle < FOCAL_SLOT_PROBE_SEED_SESSION_LOOPS && !controller.canCaptureStill()) {
+        while (seedSettle < FOCAL_SLOT_PROBE_SEED_SESSION_LOOPS && !slotCaptureReady()) {
             delay(50)
             seedSettle++
         }
@@ -2367,6 +2422,16 @@ fun PreviewEngineScreen(
         val before = selectedCameraId
         val advertised = mapAdbSlotToAdvertisedPrimeAssignment(context.applicationContext, slot, ids)
         if (advertised != null) {
+            val clamped =
+                PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                    context.applicationContext,
+                    advertised.cameraId,
+                    selectedFps,
+                )
+            if (clamped != selectedFps) {
+                Log.i("PNS.ChromeUx", "fpsClampForLens cameraId=${advertised.cameraId} $selectedFps -> $clamped")
+                selectedFps = clamped
+            }
             selectedCameraId = advertised.cameraId
             focalCrop = null
             primeFocalTargetEqMm = advertised.targetEqMm
@@ -2382,6 +2447,44 @@ fun PreviewEngineScreen(
                 cameraId = advertised.cameraId,
                 context = context,
             )
+            var postAdvertisedSwitch = 0
+            while (postAdvertisedSwitch < FOCAL_SLOT_PROBE_POST_SWITCH_SETTLE_LOOPS) {
+                if (selectedCameraId == advertised.cameraId && slotCaptureReady()) break
+                delay(50)
+                postAdvertisedSwitch++
+            }
+            if (!slotCaptureReady() && adbSequentialRawStills > 0) {
+                val fallback =
+                    resolveRawCapablePrimeAssignmentFallback(
+                        context = context.applicationContext,
+                        ids = ids,
+                        requestedTargetEqMm = slot.labelMm.toIntOrNull() ?: advertised.targetEqMm,
+                        excludedCameraIds = setOf(advertised.cameraId),
+                    )
+                if (fallback != null && fallback.cameraId != advertised.cameraId) {
+                    val fallbackClamped =
+                        PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                            context.applicationContext,
+                            fallback.cameraId,
+                            selectedFps,
+                        )
+                    if (fallbackClamped != selectedFps) {
+                        Log.i(
+                            "PNS.ChromeUx",
+                            "fpsClampForLens cameraId=${fallback.cameraId} $selectedFps -> $fallbackClamped",
+                        )
+                        selectedFps = fallbackClamped
+                    }
+                    selectedCameraId = fallback.cameraId
+                    focalCrop = null
+                    primeFocalTargetEqMm = fallback.targetEqMm
+                    Log.i(
+                        "PNS.ChromeUx",
+                        "focalSlotRawFallback requested=${slot.labelMm} target=${advertised.cameraId} " +
+                            "fallbackTarget=${fallback.targetEqMm} fallbackCamera=${fallback.cameraId}",
+                    )
+                }
+            }
             focalSlotProbeConsumed = true
             return@LaunchedEffect
         }
@@ -2393,6 +2496,16 @@ fun PreviewEngineScreen(
                     return@LaunchedEffect
                 }
         schedulePreviewPhysicalForFocalSlot(context.applicationContext, controller, slot, pair, ids)
+        val clamped =
+            PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                context.applicationContext,
+                pair.first,
+                selectedFps,
+            )
+        if (clamped != selectedFps) {
+            Log.i("PNS.ChromeUx", "fpsClampForLens cameraId=${pair.first} $selectedFps -> $clamped")
+            selectedFps = clamped
+        }
         selectedCameraId = pair.first
         focalCrop = pair.second
         primeFocalTargetEqMm = null
@@ -2402,16 +2515,48 @@ fun PreviewEngineScreen(
         )
         var postSwitch = 0
         while (postSwitch < FOCAL_SLOT_PROBE_POST_SWITCH_SETTLE_LOOPS) {
-            if (selectedCameraId == pair.first && controller.canCaptureStill()) break
+            if (selectedCameraId == pair.first && slotCaptureReady()) break
             delay(50)
             postSwitch++
         }
-        if (!controller.canCaptureStill()) {
+        if (!slotCaptureReady()) {
             Log.w(
                 "PNS.ChromeUx",
                 "focalSlotTap=mm=${slot.labelMm} session not ready after switch target=${pair.first} " +
                     "reason=${controller.rawStillNotReadyReason() ?: "unknown"}",
             )
+            if (adbSequentialRawStills > 0) {
+                val fallback =
+                    resolveRawCapablePrimeAssignmentFallback(
+                        context = context.applicationContext,
+                        ids = ids,
+                        requestedTargetEqMm = slot.labelMm.toIntOrNull() ?: pair.first.toIntOrNull() ?: 23,
+                        excludedCameraIds = setOf(pair.first),
+                    )
+                if (fallback != null && fallback.cameraId != pair.first) {
+                    val fallbackClamped =
+                        PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                            context.applicationContext,
+                            fallback.cameraId,
+                            selectedFps,
+                        )
+                    if (fallbackClamped != selectedFps) {
+                        Log.i(
+                            "PNS.ChromeUx",
+                            "fpsClampForLens cameraId=${fallback.cameraId} $selectedFps -> $fallbackClamped",
+                        )
+                        selectedFps = fallbackClamped
+                    }
+                    selectedCameraId = fallback.cameraId
+                    focalCrop = null
+                    primeFocalTargetEqMm = fallback.targetEqMm
+                    Log.i(
+                        "PNS.ChromeUx",
+                        "focalSlotRawFallback requested=${slot.labelMm} target=${pair.first} " +
+                            "fallbackTarget=${fallback.targetEqMm} fallbackCamera=${fallback.cameraId}",
+                    )
+                }
+            }
         }
         applyAdbReadoutExposureProbe(
             controller = controller,
@@ -2446,6 +2591,59 @@ fun PreviewEngineScreen(
             context = context,
         )
         readoutExposureProbeConsumed = true
+    }
+
+    var apertureCycleProbeConsumed by remember(adbApertureCycleProbe) { mutableStateOf(false) }
+    LaunchedEffect(
+        controller,
+        adbApertureCycleProbe,
+        selectedCameraId,
+        apertureCycleProbeConsumed,
+    ) {
+        val cycles = adbApertureCycleProbe ?: return@LaunchedEffect
+        if (apertureCycleProbeConsumed || cycles <= 0) return@LaunchedEffect
+        var waited = 0
+        while (waited < 160 && !controller.readoutApertureChipInteractive()) {
+            if (controller.readoutApertureChipLabel() != null && !controller.readoutApertureChipInteractive()) {
+                PnsAdbLog.i(
+                    context,
+                    "apertureCycle ok=false reason=fixed_aperture cameraId=$selectedCameraId label=${controller.readoutApertureChipLabel()}",
+                )
+                apertureCycleProbeConsumed = true
+                return@LaunchedEffect
+            }
+            delay(100)
+            waited++
+        }
+        if (!controller.readoutApertureChipInteractive()) {
+            PnsAdbLog.i(
+                context,
+                "apertureCycle ok=false reason=not_ready_or_no_aperture cameraId=$selectedCameraId waitedMs=${waited * 100}",
+            )
+            apertureCycleProbeConsumed = true
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+            controller.runAdbApertureCycleBurst(cycles) { ok, initLabel, lastLabel ->
+                if (!ok || initLabel == null || lastLabel == null) {
+                    PnsAdbLog.i(
+                        context,
+                        "apertureCycle ok=false reason=cycle_burst_failed cameraId=$selectedCameraId",
+                    )
+                } else {
+                    Log.i(
+                        "PNS.ChromeUx",
+                        "apertureAutomation=cycles=$cycles cameraId=$selectedCameraId init=$initLabel last=$lastLabel",
+                    )
+                    PnsAdbLog.i(
+                        context,
+                        "apertureCycle ok=true cycles=$cycles cameraId=$selectedCameraId init=$initLabel last=$lastLabel",
+                    )
+                }
+                apertureCycleProbeConsumed = true
+                cont.resume(Unit)
+            }
+        }
     }
 
     var videoShutterAngleProbeConsumed by remember(adbVideoShutterAngleProbe) { mutableStateOf(false) }
@@ -2812,36 +3010,130 @@ fun PreviewEngineScreen(
         fun startLongPressBurstCapture() {
             if (holdBurstActive) return
             val initialHud = hudState.current
+            val startedProfile = initialHud.burstPhotoQualityProfileEnum().name
             Log.i(
                 "PNS.ChromeUx",
-                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=${initialHud.burstPhotoQualityProfileEnum().name} strategy=${burstPipelineStrategy.storageId}",
+                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=$startedProfile strategy=${burstPipelineStrategy.storageId}",
             )
             PnsAdbLog.i(
                 context,
-                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=${initialHud.burstPhotoQualityProfileEnum().name} strategy=${burstPipelineStrategy.storageId}",
+                "longPressBurst start intervalMs=${initialHud.burstIntervalMs} profile=$startedProfile strategy=${burstPipelineStrategy.storageId}",
             )
             holdBurstActive = true
             holdBurstShotCount = 0
+            holdBurstSaveCount = 0
+            holdBurstSavePending = 0
+            holdBurstDroppedCount = 0
+            holdBurstCaptureLatencyMs.clear()
             holdBurstBufferedPending = 0
             BurstStatusTelemetry.start(AdvancedCaptureSettings.burstCadenceFps(initialHud.burstIntervalMs))
             holdBurstJob?.cancel()
             holdBurstJob =
                 captureScope.launch {
                     val strategy = burstPipelineStrategy
-                    val aggressive = strategy == BurstPipelineStrategy.Aggressive
+                    val seededStrategyId = strategy.storageId
+                    val seededAggressive = strategy == BurstPipelineStrategy.Aggressive
+                    var effectiveAggressive = seededAggressive
+                    var effectiveStrategyId = if (effectiveAggressive) "aggressive" else "paced"
                     var inFlight = false
+                    var adaptivePaceFloorMs = 4L
+                    var adaptiveQueueCap = 32
+                    var tuneWindowEnqueues = 0
+                    var tuneWindowDrops = 0
+                    var lastTuneElapsedMs = SystemClock.elapsedRealtime()
+                    var strategyWindowEnqueues = 0
+                    var strategyWindowDrops = 0
+                    var strategyWindowSavedStart = 0
+                    var lastStrategyEvalMs = SystemClock.elapsedRealtime()
                     fun isCaptureBusyFailureMessage(message: String?): Boolean =
                         message?.contains("Capture already in progress", ignoreCase = true) == true
+                    fun tuneJpegAggressiveBackpressureIfNeeded(burstProfile: BurstPhotoQualityProfile) {
+                        if (!(effectiveAggressive && burstProfile == BurstPhotoQualityProfile.ProcessedOnly)) return
+                        val nowMs = SystemClock.elapsedRealtime()
+                        if (nowMs - lastTuneElapsedMs < 350L) return
+                        val enqueues = tuneWindowEnqueues.coerceAtLeast(1)
+                        val dropRatio = tuneWindowDrops.toDouble() / enqueues.toDouble()
+                        when {
+                            dropRatio >= 0.85 -> {
+                                adaptivePaceFloorMs = (adaptivePaceFloorMs + 4L).coerceAtMost(28L)
+                                adaptiveQueueCap = (adaptiveQueueCap - 4).coerceAtLeast(8)
+                            }
+                            dropRatio >= 0.65 -> {
+                                adaptivePaceFloorMs = (adaptivePaceFloorMs + 2L).coerceAtMost(24L)
+                                adaptiveQueueCap = (adaptiveQueueCap - 2).coerceAtLeast(10)
+                            }
+                            dropRatio <= 0.45 -> {
+                                adaptivePaceFloorMs = (adaptivePaceFloorMs - 2L).coerceAtLeast(4L)
+                                adaptiveQueueCap = (adaptiveQueueCap + 2).coerceAtMost(32)
+                            }
+                        }
+                        PnsAdbLog.i(
+                            context,
+                            "longPressBurst tune profile=${burstProfile.name} strategy=$effectiveStrategyId dropRatio=" +
+                                String.format(java.util.Locale.US, "%.2f", dropRatio) +
+                                " paceFloorMs=$adaptivePaceFloorMs queueCap=$adaptiveQueueCap enq=$enqueues drops=$tuneWindowDrops",
+                        )
+                        tuneWindowEnqueues = 0
+                        tuneWindowDrops = 0
+                        lastTuneElapsedMs = nowMs
+                    }
+                    fun maybeAutoSwitchJpegStrategyIfNeeded(burstProfile: BurstPhotoQualityProfile) {
+                        if (!seededAggressive) return
+                        if (burstProfile != BurstPhotoQualityProfile.ProcessedOnly) return
+                        val nowMs = SystemClock.elapsedRealtime()
+                        if (nowMs - lastStrategyEvalMs < 700L) return
+                        val enqueues = strategyWindowEnqueues.coerceAtLeast(1)
+                        val dropRatio = strategyWindowDrops.toDouble() / enqueues.toDouble()
+                        val savedDelta = (holdBurstSaveCount - strategyWindowSavedStart).coerceAtLeast(0)
+                        val previousStrategyId = effectiveStrategyId
+                        val switchedToPaced = effectiveAggressive && dropRatio >= 0.80 && savedDelta <= 1
+                        val switchedToAggressive = !effectiveAggressive && (dropRatio <= 0.58 || savedDelta >= 2)
+                        if (switchedToPaced) {
+                            effectiveAggressive = false
+                            effectiveStrategyId = "paced"
+                            adaptivePaceFloorMs = adaptivePaceFloorMs.coerceAtLeast(10L)
+                            adaptiveQueueCap = adaptiveQueueCap.coerceAtMost(18)
+                        } else if (switchedToAggressive) {
+                            effectiveAggressive = true
+                            effectiveStrategyId = "aggressive"
+                        }
+                        if (previousStrategyId != effectiveStrategyId) {
+                            PnsAdbLog.i(
+                                context,
+                                "longPressBurst strategySwitch profile=${burstProfile.name} from=$previousStrategyId to=$effectiveStrategyId " +
+                                    "dropRatio=" + String.format(java.util.Locale.US, "%.2f", dropRatio) +
+                                    " savedDelta=$savedDelta queueCap=$adaptiveQueueCap paceFloorMs=$adaptivePaceFloorMs",
+                            )
+                        }
+                        strategyWindowEnqueues = 0
+                        strategyWindowDrops = 0
+                        strategyWindowSavedStart = holdBurstSaveCount
+                        lastStrategyEvalMs = nowMs
+                    }
 
                     fun dispatchBufferedShotIfPossible() {
-                        if (!aggressive && inFlight) return
                         if (holdBurstBufferedPending <= 0) return
                         val burstHud = hudState.current
                         val burstIntent = resolveBurstIntent(composedStillIntentState.value, burstHud)
                         val burstProfile = normalizeBurstFileTypeProfile(burstHud.burstPhotoQualityProfileEnum())
+                        val serializeDispatch =
+                            !effectiveAggressive || burstProfile == BurstPhotoQualityProfile.RawOnly
+                        if (serializeDispatch && inFlight) return
+                        val maxBatchCount =
+                            if (burstProfile == BurstPhotoQualityProfile.ProcessedOnly && effectiveAggressive && !serializeDispatch) {
+                                when {
+                                    holdBurstBufferedPending >= 24 -> 8
+                                    holdBurstBufferedPending >= 12 -> 6
+                                    holdBurstBufferedPending >= 6 -> 4
+                                    else -> 2
+                                }
+                            } else {
+                                1
+                            }
+                        val consumeCount = minOf(maxBatchCount, holdBurstBufferedPending.coerceAtLeast(1))
                         Log.i(
                             "PNS.ChromeUx",
-                            "longPressBurst dispatch profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} pending=${holdBurstBufferedPending}",
+                            "longPressBurst dispatch profile=${burstProfile.name} strategy=$effectiveStrategyId intervalMs=${burstHud.burstIntervalMs} pending=${holdBurstBufferedPending} batch=$consumeCount",
                         )
                         val plan =
                             burstIntent
@@ -2859,59 +3151,179 @@ fun PreviewEngineScreen(
                             BurstStatusTelemetry.reset()
                             return
                         }
-                        if (!aggressive) {
+                        if (serializeDispatch) {
                             inFlight = true
                         }
-                        holdBurstBufferedPending--
+                        holdBurstBufferedPending = (holdBurstBufferedPending - consumeCount).coerceAtLeast(0)
                         BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
-                        if (aggressive) {
+                        if (effectiveAggressive && !serializeDispatch) {
                             BurstStatusTelemetry.onCaptureCompleted()
                         }
                         val rot = stillCaptureSurfaceRotationFromPhysicalCardinal(latestPhysicalCardinalSnap.value)
-                        controller.captureComposedStill(
-                            appContext = context.applicationContext,
-                            plan = plan,
-                            haptics = haptics,
-                            surfaceRotation = rot,
-                            dngSoftwareDescription =
-                                formatDngSoftwareLine(context, stillsLutState.value),
-                            stillsLut = stillsLutState.value,
-                            burstLowLatency = aggressive,
-                            onResult = { shotResult ->
-                                shotResult.fold(
-                                    onSuccess = { out ->
-                                        holdBurstShotCount++
-                                        if (!aggressive) {
-                                            BurstStatusTelemetry.onCaptureCompleted()
+                        val dispatchStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                        fun recordCaptureLatency() {
+                            val latencyMs =
+                                ((SystemClock.elapsedRealtimeNanos() - dispatchStartedAtNs) / 1_000_000L)
+                                    .coerceAtLeast(0L)
+                            if (holdBurstCaptureLatencyMs.size > 512) {
+                                holdBurstCaptureLatencyMs.removeAt(0)
+                            }
+                            holdBurstCaptureLatencyMs += latencyMs
+                            PnsAdbLog.i(
+                                context,
+                                "longPressBurst captureLatencyMs=$latencyMs profile=${burstProfile.name} strategy=$effectiveStrategyId",
+                            )
+                        }
+                        fun finalizeDispatch() {
+                            if (serializeDispatch) {
+                                inFlight = false
+                            }
+                            if (holdBurstActive || holdBurstBufferedPending > 0) {
+                                dispatchBufferedShotIfPossible()
+                            }
+                        }
+                        val handleShotResult: (Result<RawStillSaveSuccess>) -> Unit = { shotResult ->
+                            shotResult.fold(
+                                onSuccess = { out ->
+                                    recordCaptureLatency()
+                                    holdBurstShotCount++
+                                    holdBurstSaveCount++
+                                    if (serializeDispatch) {
+                                        BurstStatusTelemetry.onCaptureCompleted()
+                                    }
+                                    applyStillResultToGalleryThumb(Result.success(out))
+                                },
+                                onFailure = { e ->
+                                    if (isCaptureBusyFailureMessage(e.message)) {
+                                        if (holdBurstActive && holdBurstBufferedPending < 32) {
+                                            holdBurstBufferedPending =
+                                                (holdBurstBufferedPending + consumeCount).coerceAtMost(32)
+                                            BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
                                         }
-                                        applyStillResultToGalleryThumb(Result.success(out))
-                                    },
-                                    onFailure = { e ->
-                                        if (isCaptureBusyFailureMessage(e.message)) {
-                                            if (holdBurstActive && holdBurstBufferedPending < 32) {
-                                                holdBurstBufferedPending++
-                                                BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
+                                        return@fold
+                                    }
+                                    captureScope.pnsShowSnackbar(
+                                        snackbarHostState,
+                                        PnsUserFacingErrors.stillCaptureFailure(e),
+                                        longDuration = true,
+                                    )
+                                    holdBurstActive = false
+                                    holdBurstBufferedPending = 0
+                                    BurstStatusTelemetry.reset()
+                                },
+                            )
+                            finalizeDispatch()
+                        }
+                        if (burstProfile == BurstPhotoQualityProfile.ProcessedOnly && plan.raw == null && plan.tonal != null) {
+                            val tonalBundle = plan.tonal
+                            val appCtx = context.applicationContext
+                            val activeId = selectedCameraId
+                            if (activeId.isNullOrBlank()) {
+                                holdBurstActive = false
+                                holdBurstBufferedPending = 0
+                                BurstStatusTelemetry.reset()
+                                return
+                            }
+                            val cameraManager = appCtx.getSystemService(CameraManager::class.java) as CameraManager
+                            val charsForSave =
+                                runCatching { cameraManager.getCameraCharacteristics(activeId) }.getOrNull()
+                            if (charsForSave == null) {
+                                holdBurstActive = false
+                                holdBurstBufferedPending = 0
+                                BurstStatusTelemetry.reset()
+                                return
+                            }
+                            val orientForSave = RawCaptureSupport.orientationClockwiseDegForDng(charsForSave, rot)
+                            val storageProfile = storageProfileFromBundle(tonalBundle)
+                            val stillsLutForSave = stillsLutState.value
+                            val softwareJpegQuality = hudState.current.softwareJpegCompanionQuality
+                            controller.captureIndependentTonalStill(
+                                appContext = appCtx,
+                                haptics = haptics,
+                                surfaceRotation = rot,
+                                tonalBundle = tonalBundle,
+                                stillsLut = stillsLutForSave,
+                                lowLatencyBurst = effectiveAggressive,
+                                burstRequestCount = consumeCount,
+                                onHardwareJpegFrame = { frameResult ->
+                                    frameResult.fold(
+                                        onSuccess = { (jpegBytes, captureResult) ->
+                                            recordCaptureLatency()
+                                            holdBurstSavePending++
+                                            val saveStartedAtNs = SystemClock.elapsedRealtimeNanos()
+                                            captureScope.launch(Dispatchers.Default) {
+                                                val saveResult =
+                                                    holdBurstJpegSaveLimiter.withPermit {
+                                                        runCatching {
+                                                            val outcome =
+                                                                IndependentTonalStillSaver.saveFromHardwareJpegBytes(
+                                                                    appContext = appCtx,
+                                                                    storageProfile = storageProfile,
+                                                                    tonalBundle = tonalBundle,
+                                                                    jpegBytes = jpegBytes,
+                                                                    stillsLut = stillsLutForSave,
+                                                                    characteristics = charsForSave,
+                                                                    captureResult = captureResult,
+                                                                    orientationDegrees = orientForSave,
+                                                                    softwareJpegQuality = softwareJpegQuality,
+                                                                    lightweightMetadata = true,
+                                                                )
+                                                            val uri = checkNotNull(outcome.uri)
+                                                            RawStillSaveSuccess(
+                                                                dngUriString = uri.toString(),
+                                                                tonalUriString = uri.toString(),
+                                                            )
+                                                        }
+                                                    }
+                                                withContext(Dispatchers.Main.immediate) {
+                                                    saveResult.onSuccess { saved ->
+                                                        holdBurstSaveCount++
+                                                        applyStillResultToGalleryThumb(Result.success(saved))
+                                                    }.onFailure { saveErr ->
+                                                        captureScope.pnsShowSnackbar(
+                                                            snackbarHostState,
+                                                            PnsUserFacingErrors.stillCaptureFailure(saveErr),
+                                                            longDuration = true,
+                                                        )
+                                                    }
+                                                    val saveLatencyMs =
+                                                        ((SystemClock.elapsedRealtimeNanos() - saveStartedAtNs) / 1_000_000L)
+                                                            .coerceAtLeast(0L)
+                                                    PnsAdbLog.i(
+                                                        context,
+                                                        "longPressBurst saveLatencyMs=$saveLatencyMs profile=${burstProfile.name} strategy=$effectiveStrategyId",
+                                                    )
+                                                    holdBurstSavePending = (holdBurstSavePending - 1).coerceAtLeast(0)
+                                                }
                                             }
-                                            return@fold
-                                        }
-                                        captureScope.pnsShowSnackbar(
-                                            snackbarHostState,
-                                            PnsUserFacingErrors.stillCaptureFailure(e),
-                                            longDuration = true,
-                                        )
-                                        holdBurstActive = false
-                                        holdBurstBufferedPending = 0
-                                        BurstStatusTelemetry.reset()
-                                    },
-                                )
-                                if (!aggressive) {
-                                    inFlight = false
-                                }
-                                if (holdBurstActive || holdBurstBufferedPending > 0) {
-                                    dispatchBufferedShotIfPossible()
-                                }
-                            },
-                        )
+                                            holdBurstShotCount++
+                                            if (serializeDispatch) {
+                                                BurstStatusTelemetry.onCaptureCompleted()
+                                            }
+                                            finalizeDispatch()
+                                        },
+                                        onFailure = { e -> handleShotResult(Result.failure(e)) },
+                                    )
+                                },
+                                onResult = { result ->
+                                    result.exceptionOrNull()?.let { e ->
+                                        handleShotResult(Result.failure(e))
+                                    }
+                                },
+                            )
+                        } else {
+                            controller.captureComposedStill(
+                                appContext = context.applicationContext,
+                                plan = plan,
+                                haptics = haptics,
+                                surfaceRotation = rot,
+                                dngSoftwareDescription =
+                                    formatDngSoftwareLine(context, stillsLutState.value),
+                                stillsLut = stillsLutState.value,
+                                burstLowLatency = effectiveAggressive,
+                                onResult = handleShotResult,
+                            )
+                        }
                     }
                     try {
                         while (isActive && holdBurstActive) {
@@ -2923,36 +3335,68 @@ fun PreviewEngineScreen(
                             )
                             PnsAdbLog.i(
                                 context,
-                                "longPressBurst shot profile=${burstProfile.name} intervalMs=${burstHud.burstIntervalMs} raw=${if (burstProfile == BurstPhotoQualityProfile.RawOnly) "Standard" else "Off"} jpeg=${if (burstProfile == BurstPhotoQualityProfile.ProcessedOnly) "Standard" else "Off"}",
+                                "longPressBurst shot profile=${burstProfile.name} strategy=$effectiveStrategyId intervalMs=${burstHud.burstIntervalMs} raw=${if (burstProfile == BurstPhotoQualityProfile.RawOnly) "Standard" else "Off"} jpeg=${if (burstProfile == BurstPhotoQualityProfile.ProcessedOnly) "Standard" else "Off"}",
                             )
-                            val queueCap = if (aggressive) 32 else 16
+                            tuneWindowEnqueues++
+                            strategyWindowEnqueues++
+                            val queueCap =
+                                when {
+                                    burstProfile == BurstPhotoQualityProfile.RawOnly -> if (effectiveAggressive) 8 else 4
+                                    effectiveAggressive -> adaptiveQueueCap
+                                    else -> 16
+                                }
                             if (holdBurstBufferedPending < queueCap) {
                                 holdBurstBufferedPending++
                                 BurstStatusTelemetry.updatePending(holdBurstBufferedPending)
                             } else {
                                 Log.w("PNS.ChromeUx", "longPressBurst buffer full pending=$holdBurstBufferedPending")
+                                holdBurstDroppedCount++
+                                tuneWindowDrops++
+                                strategyWindowDrops++
+                                PnsAdbLog.i(
+                                    context,
+                                    "longPressBurst drop profile=${burstProfile.name} strategy=$effectiveStrategyId reason=queue_full pending=$holdBurstBufferedPending",
+                                )
                             }
+                            tuneJpegAggressiveBackpressureIfNeeded(burstProfile)
+                            maybeAutoSwitchJpegStrategyIfNeeded(burstProfile)
                             dispatchBufferedShotIfPossible()
                             val paceMs =
-                                if (aggressive) {
-                                    4L
+                                if (effectiveAggressive && burstProfile == BurstPhotoQualityProfile.ProcessedOnly) {
+                                    maxOf(4L, adaptivePaceFloorMs)
                                 } else {
                                     burstHud.burstIntervalMs.toLong().coerceAtLeast(16L)
                                 }
                             delay(paceMs)
                         }
-                        while (isActive && (holdBurstBufferedPending > 0 || (!aggressive && inFlight))) {
+                        while (isActive && (holdBurstBufferedPending > 0 || inFlight)) {
                             dispatchBufferedShotIfPossible()
-                            delay(if (aggressive) 4 else 10)
+                            delay(if (effectiveAggressive) 4 else 10)
                         }
                     } finally {
-                        val saved = holdBurstShotCount
+                        val captured = holdBurstShotCount
+                        val saved = holdBurstSaveCount
+                        val savePending = holdBurstSavePending
+                        val drops = holdBurstDroppedCount
+                        val captureLatencyValues = holdBurstCaptureLatencyMs.toList()
+                        val lat100 = captureLatencyValues.count { value -> value <= 100L }
+                        val lat250 = captureLatencyValues.count { value -> value in 101L..250L }
+                        val lat500 = captureLatencyValues.count { value -> value in 251L..500L }
+                        val latSlow = captureLatencyValues.count { value -> value > 500L }
                         holdBurstActive = false
                         holdBurstBufferedPending = 0
                         BurstStatusTelemetry.reset()
                         holdBurstJob = null
-                        Log.i("PNS.ChromeUx", "longPressBurst finished saved=$saved")
-                        PnsAdbLog.i(context, "longPressBurst finished saved=$saved")
+                        Log.i(
+                            "PNS.ChromeUx",
+                            "longPressBurst finished profile=$startedProfile strategy=$effectiveStrategyId captured=$captured saved=$saved savePending=$savePending drops=$drops " +
+                                "captureLatBuckets=le100:$lat100,le250:$lat250,le500:$lat500,gt500:$latSlow strategySeed=$seededStrategyId",
+                        )
+                        PnsAdbLog.i(
+                            context,
+                            "longPressBurst finished profile=$startedProfile strategy=$effectiveStrategyId captured=$captured saved=$saved savePending=$savePending drops=$drops " +
+                                "captureLatBuckets=le100:$lat100,le250:$lat250,le500:$lat500,gt500:$latSlow strategySeed=$seededStrategyId",
+                        )
                         if (saved > 0) {
                             captureScope.pnsShowSnackbar(
                                 snackbarHostState,
@@ -4167,8 +4611,42 @@ fun PreviewEngineScreen(
                 delay(100)
                 waited++
             }
+            val rawRequired = imagingProfileState.value !is ImagingProfile.JpegOnly
+            val ids = controller.cameraIds()
+            if (rawRequired) {
+                val requestedEq =
+                    primeFocalTargetEqMm
+                        ?: adbFocalMmSlotProbe?.labelMm?.toIntOrNull()
+                val active = selectedCameraIdState.value
+                if (
+                    requestedEq != null &&
+                    !active.isNullOrBlank() &&
+                    ids.isNotEmpty() &&
+                    !cameraSupportsRawStill(context.applicationContext, active, ids)
+                ) {
+                    val fallback =
+                        resolveRawCapablePrimeAssignmentFallback(
+                            context = context.applicationContext,
+                            ids = ids,
+                            requestedTargetEqMm = requestedEq,
+                            excludedCameraIds = setOf(active),
+                        )
+                    if (fallback != null && fallback.cameraId != active) {
+                        selectedCameraId = fallback.cameraId
+                        focalCrop = null
+                        primeFocalTargetEqMm = fallback.targetEqMm
+                        PnsAdbLog.i(
+                            context,
+                            "raw fallback cameraId=$active -> ${fallback.cameraId} target=${requestedEq} mapped=${fallback.targetEqMm}",
+                        )
+                    }
+                }
+            }
             var waitCap = 0
-            while (!controller.canCaptureStill() && waitCap < 300) {
+            while (
+                !(if (rawRequired) controller.canCaptureRawStill() else controller.canCaptureStill()) &&
+                    waitCap < 300
+            ) {
                 if (waitCap % 12 == 0) {
                     val reason = controller.rawStillNotReadyReason() ?: "ready"
                     val st = controller.status()
@@ -4180,7 +4658,7 @@ fun PreviewEngineScreen(
                 delay(waitPollMs)
                 waitCap++
             }
-            if (!controller.canCaptureStill()) {
+            if (!(if (rawRequired) controller.canCaptureRawStill() else controller.canCaptureStill())) {
                 val reason = controller.rawStillNotReadyReason()
                 val st = controller.status()
                 PnsAdbLog.e(
@@ -4236,6 +4714,7 @@ fun PreviewEngineScreen(
                         }
                     } else {
                         PnsAdbLog.i(context, "captureRawStill begin $label")
+                        var rawResult: Result<RawStillSaveSuccess>? = null
                         suspendCoroutine<Unit> { cont ->
                             controller.captureRawStill(
                                 context.applicationContext,
@@ -4244,8 +4723,62 @@ fun PreviewEngineScreen(
                                 dngSoftwareDescription = formatDngSoftwareLine(context, stillsLutLatest.value),
                                 stillsLut = stillsLutLatest.value,
                                 adbValidationShotLabel = label,
-                            ) { _ ->
+                            ) { result ->
+                                rawResult = result
                                 cont.resume(Unit)
+                            }
+                        }
+                        val firstResult = rawResult
+                        if (
+                            rawRequired &&
+                            firstResult?.isFailure == true
+                        ) {
+                            val requestedEq =
+                                primeFocalTargetEqMm
+                                    ?: adbFocalMmSlotProbe?.labelMm?.toIntOrNull()
+                            val active = selectedCameraIdState.value
+                            if (!active.isNullOrBlank() && requestedEq != null) {
+                                val fallback =
+                                    resolveRawCapablePrimeAssignmentFallback(
+                                        context = context.applicationContext,
+                                        ids = controller.cameraIds(),
+                                        requestedTargetEqMm = requestedEq,
+                                        excludedCameraIds = setOf(active),
+                                    )
+                                if (fallback != null && fallback.cameraId != active) {
+                                    selectedCameraId = fallback.cameraId
+                                    focalCrop = null
+                                    primeFocalTargetEqMm = fallback.targetEqMm
+                                    PnsAdbLog.i(
+                                        context,
+                                        "raw fallback retry cameraId=$active -> ${fallback.cameraId} target=${requestedEq} mapped=${fallback.targetEqMm}",
+                                    )
+                                    var settle = 0
+                                    while (!controller.canCaptureRawStill() && settle < 120) {
+                                        delay(waitPollMs)
+                                        settle++
+                                    }
+                                    var retryResult: Result<RawStillSaveSuccess>? = null
+                                    suspendCoroutine<Unit> { cont ->
+                                        controller.captureRawStill(
+                                            context.applicationContext,
+                                            haptics,
+                                            rot,
+                                            dngSoftwareDescription = formatDngSoftwareLine(context, stillsLutLatest.value),
+                                            stillsLut = stillsLutLatest.value,
+                                            adbValidationShotLabel = "$label retry",
+                                        ) { result ->
+                                            retryResult = result
+                                            cont.resume(Unit)
+                                        }
+                                    }
+                                    if (retryResult?.isSuccess == true) {
+                                        PnsAdbLog.i(context, "captureRawStill $label retry ok=true")
+                                    } else {
+                                        val retryErr = retryResult?.exceptionOrNull()?.message ?: "unknown"
+                                        PnsAdbLog.w(context, "captureRawStill $label retry ok=false err=$retryErr")
+                                    }
+                                }
                             }
                         }
                     }
@@ -4336,6 +4869,8 @@ fun PreviewEngineScreen(
         previewReadoutIso = previewState.previewReadoutIso,
         previewReadoutExposureNs = previewState.previewReadoutExposureNs,
         previewReadoutAwbMode = previewState.previewReadoutAwbMode,
+        readoutApertureLabel = previewState.readoutApertureLabel,
+        readoutApertureInteractive = previewState.readoutApertureInteractive,
         aeLocked = previewState.aeLocked,
         previewJpegCompanion = previewState.previewJpegCompanion,
         surfaceInfo = previewState.surfaceInfo,
@@ -4489,12 +5024,51 @@ fun PreviewEngineScreen(
         focalCrop = focalCrop,
         activePrimeFocalTargetEqMm = primeFocalTargetEqMm,
         onApplyPrimeLensAssignment = { assignment ->
-            selectedCameraId = assignment.cameraId
+            val ids = controller.cameraIds()
+            val rawModeActive = composedStillIntent.raw != ImgMenuTier.Off
+            var effectiveAssignment = assignment
+            if (
+                rawModeActive &&
+                ids.isNotEmpty() &&
+                !cameraSupportsRawStill(context.applicationContext, assignment.cameraId, ids)
+            ) {
+                val fallback =
+                    resolveRawCapablePrimeAssignmentFallback(
+                        context = context.applicationContext,
+                        ids = ids,
+                        requestedTargetEqMm = assignment.targetEqMm,
+                    )
+                if (fallback != null) {
+                    effectiveAssignment = fallback
+                    Log.i(
+                        "PNS.ChromeUx",
+                        "focalSlotRawFallback requested=${assignment.targetEqMm} camera=${assignment.cameraId} " +
+                            "fallbackTarget=${fallback.targetEqMm} fallbackCamera=${fallback.cameraId}",
+                    )
+                }
+            }
+            val clamped =
+                PreviewFpsSupport.clampFpsToAchievableWithoutRoot(
+                    context.applicationContext,
+                    effectiveAssignment.cameraId,
+                    selectedFps,
+                )
+            if (clamped != selectedFps) {
+                Log.i(
+                    "PNS.ChromeUx",
+                    "fpsClampForLens cameraId=${effectiveAssignment.cameraId} $selectedFps -> $clamped",
+                )
+                selectedFps = clamped
+            }
+            selectedCameraId = effectiveAssignment.cameraId
             focalCrop = null
-            primeFocalTargetEqMm = assignment.targetEqMm
-            if (assignment.targetEqMm > assignment.nativeEqMm && selectedFps >= 120) {
+            primeFocalTargetEqMm = effectiveAssignment.targetEqMm
+            if (effectiveAssignment.targetEqMm > effectiveAssignment.nativeEqMm && selectedFps >= 120) {
                 val cap =
-                    PreviewFpsSupport.enumerateQuickFpsOptions(context.applicationContext, assignment.cameraId)
+                    PreviewFpsSupport.enumerateQuickFpsOptions(
+                        context.applicationContext,
+                        effectiveAssignment.cameraId,
+                    )
                         .asSequence()
                         .map { it.targetFps }
                         .filter { it < 120 }
@@ -4764,6 +5338,8 @@ private fun PreviewEngineContent(
     previewReadoutIso: Int?,
     previewReadoutExposureNs: Long?,
     previewReadoutAwbMode: Int?,
+    readoutApertureLabel: String?,
+    readoutApertureInteractive: Boolean,
     aeLocked: Boolean,
     previewJpegCompanion: Boolean,
     surfaceInfo: String,
@@ -6309,6 +6885,14 @@ private fun PreviewEngineContent(
                 primaryPhoto = primaryPhoto,
                 showMacroVideoBadge = macroVideoActive,
                 stabChipLabel = stabChipLabel,
+                apertureChipValue =
+                    if (FleetChromeVisibility.showReadoutApertureChip(visibilityCtx)) {
+                        readoutApertureLabel
+                    } else {
+                        null
+                    },
+                apertureChipEnabled = readoutApertureInteractive,
+                onCycleAperture = { controller.cycleReadoutAperture() },
                 focusChipValue = focusChipValue,
                 showStabChip = FleetChromeVisibility.showReadoutStabChip(stabChipLabel, visibilityCtx),
                 showImgChipOverride = FleetChromeVisibility.showReadoutImgChip(primaryPhoto, visibilityCtx),
@@ -10223,6 +10807,7 @@ private class PreviewController(
 
         /** Bracket uses a shorter non-RAW12 tail than single stills (historical 750ms gate). */
         private const val BRACKET_POST_COMPLETE_WAIT_MS_DEFAULT = 750L
+        private const val BRACKET_BURST_IMAGE_AWAIT_MS = 220L
 
         /**
          * Collapse burst [maybeRestart] calls (TextureView size + seed + dial) so [closeCamera] /
@@ -10264,6 +10849,8 @@ private class PreviewController(
     }
 
     private val cm = appContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    private val cameraOpenGateway = AndroidPreviewCameraOpenGateway(cm)
+    private val sessionCreateGateway = AndroidPreviewSessionCreateGateway
     private val tag = "PNS.Cam"
 
     private fun stillBoundaryDiagEnabled(): Boolean =
@@ -10462,6 +11049,10 @@ private class PreviewController(
     @Volatile private var currentSurfaceSize: Size? = null
     /** Chrome video RES picker — drives HFR [StreamConfigurationMap] size (Sprint **13V.16**). */
     @Volatile private var inAppVideoEncodeSizePref: Size? = null
+    /** Set after HFR session configure failure — retry HS below 4K width. */
+    @Volatile private var hfrSub4kCaptureFallback: Boolean = false
+    /** After encoder-only HS configure failure — retry with preview+encoder on the record camera. */
+    @Volatile private var hfrForceInterleavedMcCapture: Boolean = false
     @Volatile private var generation: Long = 0L
     /**
      * Set when [session] is assigned from a non-stale [CameraCaptureSession.StateCallback.onConfigured].
@@ -10504,6 +11095,12 @@ private class PreviewController(
     @Volatile private var manualExposureNsOverride: Long? = null
 
     @Volatile private var manualAwbModeOverride: Int? = null
+
+    /** Per [selectedCameraId] f-number from [PreviewApertureSupport] (variable-aperture fleet devices). */
+    private val apertureByCameraId = java.util.concurrent.ConcurrentHashMap<String, Float>()
+
+    private val loggedApertureInitCameraIds =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
 
     /** Sprint **15.26** — [CaptureRequest.CONTROL_AE_LOCK] on preview repeating request (AF unchanged). */
     @Volatile private var aeLocked: Boolean = false
@@ -10559,6 +11156,9 @@ private class PreviewController(
      * ultra_max ADB sequential RAW can stall with no `onCaptureCompleted` (M6 `dng50708IfdOk`).
      */
     private val pendingMaybeRestartAfterCapture = AtomicBoolean(false)
+
+    /** Coalesced [maybeRestart] while in-app video is armed / MediaCodec is recording. */
+    private val pendingMaybeRestartAfterVideoRecord = AtomicBoolean(false)
 
     /**
      * True only while ADB sequential RAW / bracket is executing **captures** (after session-ready
@@ -11292,6 +11892,8 @@ private class PreviewController(
     fun setInAppVideoEncodeSize(size: Size) {
         val next = size.takeIf { it.width > 0 && it.height > 0 }
         if (next == inAppVideoEncodeSizePref) return
+        hfrSub4kCaptureFallback = false
+        hfrForceInterleavedMcCapture = false
         inAppVideoEncodeSizePref = next
         Log.i(
             "PNS.VideoEncode",
@@ -12314,6 +12916,76 @@ private class PreviewController(
         Log.i(tag, "readoutManual videoShutterAngle=${angle.name} ssNs=$ns sessionFps=$sessionFps")
     }
 
+    /** F chip label for the active camera; null when the HAL reports no apertures. */
+    fun readoutApertureChipLabel(): String? {
+        val camId = selectedCameraId ?: return null
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return null
+        val options = PreviewApertureSupport.availableApertures(chars)
+        if (options.isEmpty()) return null
+        return PreviewApertureSupport.formatChipValue(selectedApertureForCamera(camId, chars, options))
+    }
+
+    fun readoutApertureChipInteractive(): Boolean {
+        val camId = selectedCameraId ?: return false
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return false
+        return PreviewApertureSupport.canControl(chars)
+    }
+
+    fun cycleReadoutAperture() {
+        runOnCameraThread {
+            cycleReadoutApertureOnCameraThread()
+        }
+    }
+
+    /**
+     * ADB gate: run [cycleCount] aperture steps on the camera thread (blocking between steps) so
+     * logcat always contains matching `apertureCycle` lines.
+     */
+    fun runAdbApertureCycleBurst(
+        cycleCount: Int,
+        onComplete: (ok: Boolean, initLabel: String?, lastLabel: String?) -> Unit,
+    ) {
+        runOnCameraThread {
+            val camId = selectedCameraId
+            if (camId.isNullOrBlank()) {
+                mainHandler.post { onComplete(false, null, null) }
+                return@runOnCameraThread
+            }
+            val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+            if (chars == null || !PreviewApertureSupport.canControl(chars)) {
+                mainHandler.post { onComplete(false, null, null) }
+                return@runOnCameraThread
+            }
+            val options = PreviewApertureSupport.availableApertures(chars)
+            val initF = selectedApertureForCamera(camId, chars, options)
+            val initLabel = PreviewApertureSupport.formatChipValue(initF)
+            repeat(cycleCount.coerceAtLeast(1)) {
+                cycleReadoutApertureOnCameraThread()
+                if (it < cycleCount - 1) {
+                    Thread.sleep(900L)
+                }
+            }
+            val lastF = apertureByCameraId[camId] ?: initF
+            val lastLabel = PreviewApertureSupport.formatChipValue(lastF)
+            mainHandler.post { onComplete(true, initLabel, lastLabel) }
+        }
+    }
+
+    private fun cycleReadoutApertureOnCameraThread() {
+        val camId = selectedCameraId ?: return
+        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
+        if (!PreviewApertureSupport.canControl(chars)) return
+        val options = PreviewApertureSupport.availableApertures(chars)
+        val current = selectedApertureForCamera(camId, chars, options)
+        val next = PreviewApertureSupport.cycle(current, options)
+        apertureByCameraId[camId] = next
+        Log.i(
+            "PNS.ChromeUx",
+            "apertureCycle cameraId=$camId ${PreviewApertureSupport.formatChipValue(current)} -> ${PreviewApertureSupport.formatChipValue(next)}",
+        )
+        refreshRepeatingPreviewOnly()
+    }
+
     fun captureReadoutState(): PreviewTrayReadoutSnapshot =
         PreviewTrayReadoutSnapshot(
             manualIso = manualIsoOverride,
@@ -12902,6 +13574,7 @@ private class PreviewController(
                         )
             if (!wantRecord) {
                 inAppVideoRecordingArmed = false
+                hfrForceInterleavedMcCapture = false
                 deferMcStartUntilPreviewFrame = false
             }
             val recordSize =
@@ -12970,6 +13643,7 @@ private class PreviewController(
                     Log.i("PNS.Cam", "Video stopped — rebuilding preview-only session")
                     maybeRestartBody()
                 }
+                notifyVideoRecordIdleMaybeRestart()
             }
         }
     }
@@ -14869,6 +15543,7 @@ private class PreviewController(
         stillsLut: LutCatalog = LutCatalog.None,
         adbValidationShotLabel: String? = null,
         lowLatencyBurst: Boolean = false,
+        burstRequestCount: Int = 1,
         onTonalReady: ((Uri?) -> Unit)? = null,
         onTimelapseJpegBytes: ((Result<ByteArray>) -> Unit)? = null,
         onHardwareJpegFrame: ((Result<Pair<ByteArray, TotalCaptureResult>>) -> Unit)? = null,
@@ -15045,6 +15720,190 @@ private class PreviewController(
                 }
                 stillRequestOverride?.invoke(this, chars)
             }.build()
+        val hardwareBurstCount = burstRequestCount.coerceIn(1, 8)
+        val useHardwareBurstTrain =
+            lowLatencyBurst &&
+                timelapseOnly &&
+                onHardwareJpegFrame != null &&
+                onTimelapseJpegBytes == null &&
+                hardwareBurstCount > 1
+        if (useHardwareBurstTrain) {
+            lastStatus = "Still capture JPEG burst x$hardwareBurstCount…"
+            val lock = Any()
+            val pendingJpegs = java.util.ArrayDeque<Image>()
+            val pendingResults = java.util.ArrayDeque<TotalCaptureResult>()
+            val completedCount = java.util.concurrent.atomic.AtomicInteger(0)
+            val deliveredCount = java.util.concurrent.atomic.AtomicInteger(0)
+            val finished = AtomicBoolean(false)
+            var stillWatchdog: Runnable? = null
+            fun cancelStillWatchdog() {
+                val w = stillWatchdog ?: return
+                bgHandler.removeCallbacks(w)
+                stillWatchdog = null
+            }
+            fun closePendingJpegs() {
+                synchronized(lock) {
+                    while (pendingJpegs.isNotEmpty()) {
+                        runCatching { pendingJpegs.removeFirst().close() }
+                    }
+                    pendingResults.clear()
+                }
+            }
+            fun finishFailure(t: Throwable) {
+                if (!finished.compareAndSet(false, true)) return
+                cancelStillWatchdog()
+                clearJpegStillListener()
+                closePendingJpegs()
+                if (!lowLatencyBurst) {
+                    bgHandler.post { resumePreviewRepeatingIfPossible() }
+                }
+                releaseBusyIfManaged()
+                mainHandler.post {
+                    onHardwareJpegFrame?.invoke(Result.failure(t))
+                    onResult(Result.failure(t))
+                }
+            }
+            fun finishSuccess() {
+                if (!finished.compareAndSet(false, true)) return
+                cancelStillWatchdog()
+                clearJpegStillListener()
+                if (!lowLatencyBurst) {
+                    bgHandler.post { resumePreviewRepeatingIfPossible() }
+                }
+                releaseBusyIfManaged()
+                mainHandler.post {
+                    onResult(
+                        Result.success(
+                            RawStillSaveSuccess(
+                                dngUriString = "burst-jpeg-train",
+                                tonalUriString = null,
+                            ),
+                        ),
+                    )
+                }
+            }
+            fun maybeFinishFromCounts() {
+                if (completedCount.get() >= hardwareBurstCount && deliveredCount.get() >= hardwareBurstCount) {
+                    finishSuccess()
+                }
+            }
+            fun tryDeliverFrames() {
+                while (true) {
+                    if (finished.get()) return
+                    val pair =
+                        synchronized(lock) {
+                            if (pendingJpegs.isEmpty() || pendingResults.isEmpty()) {
+                                null
+                            } else {
+                                pendingJpegs.removeFirst() to pendingResults.removeFirst()
+                            }
+                        } ?: break
+                    val (img, result) = pair
+                    val jpegBytes =
+                        try {
+                            IndependentTonalStillSaver.copyJpegImageToByteArray(img)
+                        } catch (t: Throwable) {
+                            runCatching { img.close() }
+                            finishFailure(t)
+                            return
+                        }
+                    runCatching { img.close() }
+                    deliveredCount.incrementAndGet()
+                    mainHandler.post {
+                        onHardwareJpegFrame?.invoke(Result.success(jpegBytes to result))
+                    }
+                }
+                maybeFinishFromCounts()
+            }
+            setJpegStillListener(jpegStillListener@{ reader ->
+                if (finished.get()) {
+                    val stale = runCatching { reader.acquireLatestImage() }.getOrNull()
+                    stale?.let { runCatching { it.close() } }
+                    return@jpegStillListener
+                }
+                val img = runCatching { reader.acquireNextImage() }.getOrNull()
+                    ?: return@jpegStillListener
+                synchronized(lock) {
+                    pendingJpegs.addLast(img)
+                    while (pendingJpegs.size > hardwareBurstCount) {
+                        runCatching { pendingJpegs.removeFirst().close() }
+                    }
+                }
+                tryDeliverFrames()
+            }, bgHandler)
+            val captureRunnable = Runnable {
+                try {
+                    val requests = List(hardwareBurstCount) { still }
+                    sess.captureBurst(
+                        requests,
+                        object : CameraCaptureSession.CaptureCallback() {
+                            override fun onCaptureCompleted(
+                                session: CameraCaptureSession,
+                                request: CaptureRequest,
+                                result: TotalCaptureResult,
+                            ) {
+                                onStillCaptureReadoutComplete(haptics)
+                                completedCount.incrementAndGet()
+                                synchronized(lock) {
+                                    pendingResults.addLast(result)
+                                    while (pendingResults.size > hardwareBurstCount) {
+                                        pendingResults.removeFirst()
+                                    }
+                                }
+                                tryDeliverFrames()
+                                if (completedCount.get() >= hardwareBurstCount) {
+                                    bgHandler.postDelayed({
+                                        if (!finished.get()) {
+                                            tryDeliverFrames()
+                                            maybeFinishFromCounts()
+                                            if (!finished.get()) {
+                                                finishFailure(
+                                                    IllegalStateException(
+                                                        "JPEG burst timed out waiting for frames " +
+                                                            "(${deliveredCount.get()}/$hardwareBurstCount)",
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                    }, 1200L)
+                                }
+                            }
+
+                            override fun onCaptureFailed(
+                                session: CameraCaptureSession,
+                                request: CaptureRequest,
+                                failure: CaptureFailure,
+                            ) {
+                                finishFailure(RuntimeException("capture failed reason=${failure.reason}"))
+                            }
+                        },
+                        bgHandler,
+                    )
+                    stillWatchdog =
+                        Runnable {
+                            if (!finished.get()) {
+                                finishFailure(
+                                    IllegalStateException(
+                                        "JPEG burst HAL timed out ($hardwareBurstCount)",
+                                    ),
+                                )
+                            }
+                        }
+                    bgHandler.postDelayed(
+                        checkNotNull(stillWatchdog),
+                        RAW_STILL_HAL_COMPLETION_WATCHDOG_MS_DEFAULT,
+                    )
+                } catch (t: Throwable) {
+                    finishFailure(t)
+                }
+            }
+            if (Looper.myLooper() == bgHandler.looper) {
+                captureRunnable.run()
+            } else {
+                bgHandler.post(captureRunnable)
+            }
+            return
+        }
 
         lastStatus = buildString {
             append("Still capture JPEG-only")
@@ -15408,6 +16267,7 @@ private class PreviewController(
         val jReader = jpegImageReader
         val previewSurf = previewSurface
         val camId = selectedCameraId
+        val bracketCaptureGeneration = generation
         val bracketWritesRaw =
             stillCaptureBundle.rawMode != RawMode.None && reader != null
         val bracketWritesTonalInBurst =
@@ -15505,6 +16365,15 @@ private class PreviewController(
                     readerMaxImages = PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES,
                     manualSensorBracket = manualSensorBracket,
                 )
+        fun failIfStaleSessionToken(): Boolean {
+            if (generation == bracketCaptureGeneration) return false
+            finishFailure(
+                IllegalStateException(
+                    "Bracket aborted: stale generation token capGen=$bracketCaptureGeneration current=$generation",
+                ),
+            )
+            return true
+        }
 
         fun buildBracketStillRequest(aeComp: Int): CaptureRequest =
             cam.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
@@ -15655,6 +16524,7 @@ private class PreviewController(
                                 result: TotalCaptureResult,
                             ) {
                                 if (finished.get()) return
+                                if (failIfStaleSessionToken()) return
                                 val idx = completionIndex.getAndIncrement()
                                 if (idx >= aeInts.size) return
                                 onStillCaptureReadoutComplete(haptics)
@@ -15663,7 +16533,7 @@ private class PreviewController(
                                 }
                                 val rawImg =
                                     if (bracketWritesRaw) {
-                                        runCatching { reader!!.acquireNextImage() }.getOrNull()
+                                        awaitNextImage(reader!!, BRACKET_BURST_IMAGE_AWAIT_MS)
                                     } else {
                                         null
                                     }
@@ -15677,7 +16547,7 @@ private class PreviewController(
                                 }
                                 val jpegImg =
                                     if (needJpeg) {
-                                        runCatching { jReader!!.acquireNextImage() }.getOrNull()
+                                        awaitNextImage(jReader!!, BRACKET_BURST_IMAGE_AWAIT_MS)
                                     } else {
                                         null
                                     }
@@ -15877,6 +16747,7 @@ private class PreviewController(
         }
 
         fun scheduleShot(idx: Int) {
+            if (failIfStaleSessionToken()) return
             if (idx >= aeInts.size) {
                 reader?.setOnImageAvailableListener(null, null)
                 jReader?.setOnImageAvailableListener(null, null)
@@ -15906,6 +16777,7 @@ private class PreviewController(
             }
 
             fun shotMaybeProcess() {
+                if (failIfStaleSessionToken()) return
                 if (bracketWritesRaw && pendingRaw.get() == null) return
                 if (needJpeg && pendingJpeg.get() == null) return
                 if (pendingResult.get() == null) return
@@ -16100,6 +16972,7 @@ private class PreviewController(
                                 request: CaptureRequest,
                                 result: TotalCaptureResult,
                             ) {
+                                if (failIfStaleSessionToken()) return
                                 onStillCaptureReadoutComplete(haptics)
                                 pendingResult.set(result)
                                 shotMaybeProcess()
@@ -16542,10 +17415,61 @@ private class PreviewController(
         jpegMultiResolutionReader = null
         runCatching { yuvImageReader?.close() }
         yuvImageReader = null
-        videoRecordingSessionRebuildPending = false
         sessionPreviewDynamicRangeShort = null
         superMacroSessionConfigured = false
         lastStatus = "Session configure failed ($path)"
+        if (path == "hfr") {
+            if (inAppVideoRecordingArmed && videoController.isRecorderStarted()) {
+                Log.e(
+                    tag,
+                    "HFR configure failed while MediaCodec recording — not auto-restarting session",
+                )
+                videoRecordingSessionRebuildPending = false
+                return
+            }
+            when {
+                hfrEncoderOnlyRecordActive && !hfrForceInterleavedMcCapture -> {
+                    stopHfrRecordMonitor()
+                    hfrForceInterleavedMcCapture = true
+                    Log.w(
+                        tag,
+                        "HFR configure failed (encoder-only) — retry interleaved preview+encoder",
+                    )
+                }
+                hfrForceInterleavedMcCapture && !hfrSub4kCaptureFallback -> {
+                    hfrSub4kCaptureFallback = true
+                    hfrForceInterleavedMcCapture = false
+                    stopHfrRecordMonitor()
+                    Log.w(
+                        tag,
+                        "HFR configure failed (interleaved 4K) — retry sub-4K HS capture (encode pref unchanged)",
+                    )
+                }
+                !hfrSub4kCaptureFallback &&
+                    prefersHfrInterleavedOverEncoderOnly() &&
+                    !hfrForceInterleavedMcCapture -> {
+                    hfrForceInterleavedMcCapture = true
+                    stopHfrRecordMonitor()
+                    Log.w(
+                        tag,
+                        "HFR configure failed — retry interleaved preview+encoder",
+                    )
+                }
+                !hfrSub4kCaptureFallback -> {
+                    hfrSub4kCaptureFallback = true
+                    hfrForceInterleavedMcCapture = false
+                    Log.w(tag, "HFR configure failed — retrying with sub-4K HS capture (encode pref unchanged)")
+                }
+                else -> {
+                    Log.e(tag, "HFR configure failed — no further HS fallback")
+                    videoRecordingSessionRebuildPending = false
+                    return
+                }
+            }
+            videoRecordingSessionRebuildPending = true
+        } else {
+            videoRecordingSessionRebuildPending = false
+        }
         val hw = handler
         if (hw != null && device != null && !selectedCameraId.isNullOrBlank()) {
             hw.postDelayed({ maybeRestartBody() }, 250L)
@@ -16652,6 +17576,14 @@ private class PreviewController(
             meterExecutor.shutdown()
             runCatching { meterExecutor.awaitTermination(5L, TimeUnit.SECONDS) }
         }
+        if (!ioExecutor.isShutdown) {
+            ioExecutor.shutdown()
+            runCatching { ioExecutor.awaitTermination(5L, TimeUnit.SECONDS) }
+        }
+        if (!companionJpegExecutor.isShutdown) {
+            companionJpegExecutor.shutdown()
+            runCatching { companionJpegExecutor.awaitTermination(5L, TimeUnit.SECONDS) }
+        }
 
         lastStatus = "Stopped"
     }
@@ -16684,6 +17616,51 @@ private class PreviewController(
         handler = Handler(t.looper)
     }
 
+    private fun prefersHfrInterleavedOverEncoderOnly(): Boolean {
+        val pref = inAppVideoEncodeSizePref
+        val camId = selectedCameraId
+        val map =
+            camId?.let {
+                runCatching {
+                    cm.getCameraCharacteristics(it).get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                }.getOrNull()
+            }
+        val hs =
+            pickHighSpeedTarget(map, desiredFps)?.first
+                ?: desiredHighSpeedSize
+        return HfrInterleavedPreviewSupport.prefersInterleavedOverEncoderOnlyFor4KEncode(
+            desiredFps = desiredFps,
+            wantsMediaCodecPath = videoController.wantsMediaCodecPath,
+            encodePrefWidth = pref?.width ?: 0,
+            encodePrefHeight = pref?.height ?: 0,
+            hsCaptureWidth = hs?.width ?: 0,
+            hsCaptureHeight = hs?.height ?: 0,
+            preferSub4kCapture = hfrSub4kCaptureFallback,
+            forceInterleavedAfterConfigureFail = hfrForceInterleavedMcCapture,
+        )
+    }
+
+    /**
+     * Do not [closeCamera] mid HFR record — only the one-shot rebuild after [applyInAppVideoRecordingShell]
+     * prepare ([videoRecordingSessionRebuildPending]) is allowed while armed.
+     */
+    private fun shouldDeferMaybeRestartForActiveVideoRecord(): Boolean {
+        if (!inAppVideoRecordingArmed) return false
+        if (videoRecordingSessionRebuildPending) return false
+        if (videoController.isRecorderStarted()) return true
+        if (captureSessionAsyncConfigurePending) return true
+        return session != null
+    }
+
+    private fun notifyVideoRecordIdleMaybeRestart() {
+        if (!inAppVideoRecordingArmed &&
+            !videoController.isRecorderPresent() &&
+            pendingMaybeRestartAfterVideoRecord.compareAndSet(true, false)
+        ) {
+            maybeRestart()
+        }
+    }
+
     /**
      * UI / TextureView callbacks run on the main thread; camera work runs on [handler].
      * Restart must be serialized with [createSession] so we never [closeCamera] while a session
@@ -16699,6 +17676,15 @@ private class PreviewController(
     private fun maybeRestartBody() {
         val deferScriptedSurfaceRestart =
             adbScriptedStillAutomationActive.get() && device != null
+        if (shouldDeferMaybeRestartForActiveVideoRecord()) {
+            pendingMaybeRestartAfterVideoRecord.set(true)
+            Log.d(
+                tag,
+                "maybeRestartBody: defer (video armed recorderStarted=${videoController.isRecorderStarted()} " +
+                    "sessionPending=$videoRecordingSessionRebuildPending configurePending=$captureSessionAsyncConfigurePending)",
+            )
+            return
+        }
         if (captureBusy.get() || deferScriptedSurfaceRestart) {
             pendingMaybeRestartAfterCapture.set(true)
             Log.d(
@@ -16875,7 +17861,7 @@ private class PreviewController(
         val gen = generation
         cameraDeviceOpenPending = true
         try {
-            cm.openCamera(
+            cameraOpenGateway.openCamera(
                 camId,
                 object : CameraDevice.StateCallback() {
                     override fun onOpened(camera: CameraDevice) {
@@ -16903,8 +17889,7 @@ private class PreviewController(
                                 "onDisconnected",
                                 mapOf("camId" to camId),
                             )
-                            runCatching { camera.close() }
-                            device = null
+                            closeCamera()
                         } finally {
                             cameraDeviceOpenPending = false
                         }
@@ -16920,8 +17905,7 @@ private class PreviewController(
                                 mapOf("camId" to camId, "code" to error.toString()),
                                 flushToFile = true,
                             )
-                            runCatching { camera.close() }
-                            device = null
+                            closeCamera()
                         } finally {
                             cameraDeviceOpenPending = false
                         }
@@ -17247,7 +18231,8 @@ private class PreviewController(
 
         fun tryOnce(hints: Boolean, previewDr: Long?, sessPar: CaptureRequest?): Throwable? =
             runCatching {
-                camera.createCaptureSessionRegularOutputs(
+                sessionCreateGateway.createRegularSession(
+                    camera = camera,
                     surfaces = surfaces,
                     additionalOutputConfigurations = additionalOutputConfigurations,
                     handler = handler,
@@ -17840,16 +18825,19 @@ private class PreviewController(
         )
         // Constrained high-speed session — same TOCTOU protection as the normal path.
         captureSessionAsyncConfigurePending = true
+        // Stream-use-case / STANDARD DR on encoder-only HS only (Qualcomm TP10_UBWC). Interleaved
+        // 4K+encoder fails configure on Sony-class HALs when VIDEO_RECORD is tagged on output 1.
         val forceEncoderSdr =
             inAppVideoRecordingArmed &&
                 videoController.isRecorderPresent() &&
                 videoController.wantsMediaCodecPath &&
-                (hfrOutputs.size >= 2 || hfrEncoderOnlyRecordActive)
+                hfrOutputs.size == 1
         val hfrResult = runCatching {
-            camera.createCaptureSessionHighSpeedOutputs(
-                hfrOutputs,
-                h,
-                object : CameraCaptureSession.StateCallback() {
+            sessionCreateGateway.createHighSpeedSession(
+                camera = camera,
+                surfaces = hfrOutputs,
+                handler = h,
+                callback = object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(sess: CameraCaptureSession) {
                         try {
                             if (gen != generation || device == null) {
@@ -18479,6 +19467,44 @@ private class PreviewController(
                 )
             }
         }
+        applyReadoutAperture(req, chars, camId)
+    }
+
+    private fun selectedApertureForCamera(
+        camId: String,
+        chars: CameraCharacteristics,
+        options: List<Float> = PreviewApertureSupport.availableApertures(chars),
+    ): Float {
+        require(options.isNotEmpty())
+        val saved = apertureByCameraId[camId]
+        if (saved != null && PreviewApertureSupport.matchesOption(saved, options)) {
+            return saved
+        }
+        val pick = PreviewApertureSupport.defaultAperture(options)
+        apertureByCameraId[camId] = pick
+        if (loggedApertureInitCameraIds.add(camId)) {
+            Log.i(
+                "PNS.ChromeUx",
+                "apertureInit cameraId=$camId options=${options.joinToString { PreviewApertureSupport.formatChipValue(it) }} " +
+                    "pick=${PreviewApertureSupport.formatChipValue(pick)} variable=${PreviewApertureSupport.isVariable(chars)} " +
+                    "control=${PreviewApertureSupport.canControl(chars)}",
+            )
+        }
+        return pick
+    }
+
+    private fun applyReadoutAperture(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        camId: String,
+    ) {
+        val options = PreviewApertureSupport.availableApertures(chars)
+        if (options.isEmpty() || !PreviewApertureSupport.hasApertureRequestKey(chars)) return
+        val f = selectedApertureForCamera(camId, chars, options)
+        runCatching { req.set(CaptureRequest.LENS_APERTURE, f) }
+            .onFailure { e ->
+                Log.w(tag, "applyReadoutAperture failed cameraId=$camId f=$f: ${e.message}")
+            }
     }
 
     private fun currentSensitivityRangeOrNull(): Range<Int>? {
@@ -19283,6 +20309,14 @@ private class PreviewController(
     }
 
     private fun refreshRepeatingPreviewOnlyBody() {
+        if (videoRecordingSessionRebuildPending || captureSessionAsyncConfigurePending) {
+            Log.d(
+                tag,
+                "refreshRepeatingPreviewOnly: skip (rebuildPending=$videoRecordingSessionRebuildPending " +
+                    "configurePending=$captureSessionAsyncConfigurePending)",
+            )
+            return
+        }
         val sess = session ?: return
         val cam = device ?: return
         val surf = previewSurface ?: return
@@ -20394,12 +21428,14 @@ private class PreviewController(
                 map,
                 desiredFps,
                 inAppVideoEncodeSizePref,
+                preferSub4kCapture = hfrSub4kCaptureFallback,
             )
         } else {
             InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
                 map,
                 desiredFps,
                 inAppVideoEncodeSizePref,
+                preferSub4kCapture = hfrSub4kCaptureFallback,
             )
         }
 
@@ -20418,7 +21454,8 @@ private class PreviewController(
         val enc = videoController.getRecordingSurface()?.takeIf { it.isValid } ?: return surfaces.filter { it.isValid }
         if (encOnlyHfr) {
             val hs = desiredHighSpeedSize
-            if (startHfrRecordMonitor()) {
+            val skipEncoderOnlyMonitor = prefersHfrInterleavedOverEncoderOnly()
+            if (!skipEncoderOnlyMonitor && startHfrRecordMonitor()) {
                 Log.i(
                     HfrInterleavedPreviewSupport.TAG,
                     "HFR encoder-only HS encodeFps=$desiredFps buffer=${hs?.width ?: 0}x${hs?.height ?: 0}",
@@ -20428,6 +21465,13 @@ private class PreviewController(
                     "hfrEncoderOnly active=true encodeFps=$desiredFps monitorFinder=yuv",
                 )
                 return listOf(enc)
+            }
+            if (skipEncoderOnlyMonitor) {
+                Log.i(
+                    HfrInterleavedPreviewSupport.TAG,
+                    "4K HFR — skip encoder-only monitor; use interleaved preview+encoder " +
+                        "buffer=${hs?.width ?: 0}x${hs?.height ?: 0}",
+                )
             }
         } else if (startHfrRecordMonitor()) {
             videoController.hintEncoderOnlyMcRecord(true)
@@ -20444,10 +21488,20 @@ private class PreviewController(
         }
         val prev = previewSurf.takeIf { it.isValid }
         if (prev != null) {
-            Log.w(
-                if (encOnlyHfr) HfrInterleavedPreviewSupport.TAG else UltraHd60RecordSupport.TAG,
-                "monitor unavailable — interleaved preview+encoder fallback encodeFps=$desiredFps",
-            )
+            val interleavedTag =
+                if (encOnlyHfr) HfrInterleavedPreviewSupport.TAG else UltraHd60RecordSupport.TAG
+            if (encOnlyHfr && prefersHfrInterleavedOverEncoderOnly()) {
+                Log.i(
+                    interleavedTag,
+                    "HFR interleaved preview+encoder encodeFps=$desiredFps " +
+                        "buffer=${desiredHighSpeedSize?.width ?: 0}x${desiredHighSpeedSize?.height ?: 0}",
+                )
+            } else {
+                Log.w(
+                    interleavedTag,
+                    "monitor unavailable — interleaved preview+encoder fallback encodeFps=$desiredFps",
+                )
+            }
             Log.i(
                 "PNS.ChromeUx",
                 if (encOnlyHfr) {
@@ -20483,9 +21537,15 @@ private class PreviewController(
                 }.getOrNull()
             }
         if (desiredFps >= 120 && videoController.wantsMediaCodecPath) {
-            InAppVideoRecordingSupport.pickHighSpeedVideoTarget(map, desiredFps, pref ?: session)
-                ?.first
-                ?.let { return it }
+            val hsPick =
+                InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
+                    map,
+                    desiredFps,
+                    pref ?: session,
+                    preferSub4kCapture = hfrSub4kCaptureFallback,
+                )
+            // MediaCodec + HS burst: encoder input must match constrained HS capture size (HAL table).
+            hsPick?.first?.let { return it }
         }
         if (pref != null && map != null) {
             val hal = InAppVideoRecordingSupport.pickOutputSize(map, pref.width, pref.height)

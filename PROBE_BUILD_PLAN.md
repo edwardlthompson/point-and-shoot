@@ -72,12 +72,32 @@ If any step fails, **leave the box unchecked** and describe the gap under **Sect
 
 ## 5. Progress log (audit trail)
 
+### Sprint Guardrail - 2026-06-03T07:29:36Z
+
+**Device:** XQ-BE62 Android 13  
+**Pack:** VideoAudio  
+**Result:** FAIL  
+
+**Error:** Cannot process argument transformation on parameter 'RecordSec'. Cannot convert value "-RecordSec" to type "System.Int32". Error: "The input string '-RecordSec' was not in a correct format."
+
+
 Append-only. Each verification that supports a checkbox change gets a row.
 
 **First column:** completion instant in **UTC**, written as **`YYYY-MM-DDTHH:mm:ssZ`** (ISO-8601). When the evidence names an artifact with a `YYYYMMDD_HHMMSS` stamp (for example under `hfr-runs/`), use that as the completion time for this table. If no reliable clock is available, use **`…T00:00:00Z`** on the calendar date and treat the time as **unknown** (legacy rows backfilled this way).
 
 | Completed (UTC) | Item | Evidence |
 |-------------------|------|----------|
+| 2026-06-03T12:47:00Z | **M23.12 closeout chain — sequential USB + host gate PASS** | Sequential chain PASS on USB `DA7803TC1R`: `pns_fleet_matrix_scan.ps1 -ScanTier quick` → `pns_capture_pipeline_verify.ps1` → `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` → `pns_fleet_parity_sweep.ps1 -Mode Quick` → `pns_verify_toolchain.ps1 -RunTests`. Artifacts: `hfr-runs/m23_closeout_chain_20260603_0842/` + `capture_pipeline_gate_20260603_122412/gate.json` + toolchain `RESULT: PASSED`. |
+| 2026-06-03T14:35:00Z | **M23.2/23.3/23.4/23.5/23.9/23.10/23.11 closure evidence PASS** | Session/capture seam extraction + bracket stale-token/order hardening + focal fail-closed resolver + deterministic executor shutdown + perf gates completed. USB/host artifacts: `hfr-runs/m23_capture_extract_20260603_0951/`, `hfr-runs/m23_focal_unify_20260603_0949/`, `hfr-runs/m23_dng_hardening_20260603_1030/aux_dng/`, `hfr-runs/m23_parity_optional_blocking_20260603_1000/` (`PromoteOptionalBlocking` fail-by-design), `hfr-runs/po_optimization_gate_20260603_100333/`, and final `pns_verify_toolchain.ps1 -RunTests` PASS (`RESULT: PASSED`). |
+| 2026-06-03T12:25:00Z | **M23.8 parity proof semantics hardening — Quick/Delta PASS** | `FleetParityLogcatParser` now dedupes mirrored lines by full cell signature (keeps same-catalog distinct rows), and `pns_fleet_parity_sweep.ps1` now falls back to in-app parity schema/cell evidence when `sweepComplete` log is evicted. PASS artifacts: `hfr-runs/m23_parity_semantics_quick_20260603_0820/parity_report.json` and `hfr-runs/m23_parity_semantics_delta_20260603_0823/parity_report.json` (`pass=true`, `shipBlockers=0`). |
+| 2026-06-03T12:18:00Z | **M23.7 visibility strictness + M23.6 coherence gates PASS** | Default-deny visibility for unknown catalog IDs plus test coverage (`FleetUiVisibilityGateTest`); matrix validity now policy/roster-aware (`cameraIdRosterSha256Prefix`, `fleetPolicyId`) and startup scan now focal-candidate filtered (back + backward-compatible + >=2MP). Gate evidence: `hfr-runs/m23_visibility_policy_20260603_0802/chrome_ux_gate.json` PASS, matrix quick/full PASS (`hfr-runs/m23_matrix_coherence_quick_20260603_0811/`, `...full_20260603_0812/`) and diff `hfr-runs/m23_matrix_coherence_diff_20260603_0817.md`. |
+| 2026-06-03T12:01:00Z | **M23.10 battery/memory gate hardening PASS** | `pns_battery_life_test.ps1` hardened for deterministic preview seeding (permissions + onboarding pref seed) and camera-error recovery semantics; `pns_po_optimization_gate.ps1` PASS with `memory_profiler` and battery phases. Artifacts: `hfr-runs/po_optimization_gate_20260603_075840/` and `hfr-runs/battery_life_test_20260603_075800/result.json`. |
+| 2026-06-03T11:59:00Z | **M23.6 partial — fleet matrix scan evidence hardening** | `pns_fleet_matrix_scan.ps1` now accepts pulled matrix `scanMeta` as evidence when `PNS.FleetMatrix` log line is evicted/noisy (`fleetEvidenceOk`), while still recording `fleetLogOk`. Verified USB: `hfr-runs/m23_matrix_coherence_20260603_0759/fleet_matrix_scan.json` (`pass=true`, `scanTierObserved=quick`). |
+| 2026-06-03T11:55:00Z | **M23.6 partial — matrix store atomic save semantics** | `FleetDeviceMatrixStore.save/saveWithArtifacts` now write via temp-file + atomic replace (`writeTextAtomically`) to avoid torn writes under concurrent reads. Targeted JVM proof: `pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.fleet.FleetDeviceMatrixTest --tests dev.pointandshoot.FocalLensStripSupportTest --tests dev.pointandshoot.BackCameraRoleResolverTest` PASS. |
+| 2026-06-03T11:38:00Z | **M23.1 blocker resolved — RAW automation session stability (USB Sony `DA7803TC1R`)** | Fix prevents tray snapshot from overriding seeded RAW automation FPS to 120 (`PreviewEngineScreen.kt`), plus fleet-generic seed camera handling in `pns_photo_capture_verify.ps1`. Gate proof: `hfr-runs/photo_capture_verify_20260603_113749/VERIFY_OK.txt` and strict focal gate `hfr-runs/m23_automation_truth_chrome_20260603_0739c/chrome_ux_gate.json` (`pass=true`, `teleFocalSlotOk=true`). |
+| 2026-06-03T11:20:00Z | **M23.1 automation truthfulness hardening (code complete)** | Script changes landed: `pns_fleet_matrix_scan.ps1` no-device stub now `pass=false` + exit `2`; `pns_chrome_ux_gate.ps1` requires device evidence + strict focal slot proof + cleanup force-stop; `pns_photo_capture_verify.ps1` preserves poll-time failures and force-stops app on exit; `pns_sprint_guardrail.ps1` parse/§5 marker fixes. |
+| 2026-06-03T11:25:00Z | **M23.1 gate run (USB Sony `DA7803TC1R`) — partial/blocker** | PASS: `hfr-runs/m23_automation_truth_matrix_20260603_0720/fleet_matrix_scan.json`. Expected strict fail: `hfr-runs/m23_automation_truth_chrome_20260603_0712b/chrome_ux_gate.json` (`teleFocalSlotOk=false` for slot 150). Capture gate blocker: `hfr-runs/photo_capture_verify_20260603_112005/` repeatedly logs `createCaptureSession threw IllegalArgumentException: Surface was abandoned` + `desiredFps=120`, no `captureRawStill ... ok=true`. |
+| 2026-06-03T00:00:00Z | **M23 tracker initialized — sprint ownership scaffold** | Tracker section added in §5/§6. Evidence naming convention locked to **`hfr-runs/m23_*`** buckets with per-sprint suffixes (for example **`m23_automation_truth_*`**, **`m23_capture_extract_*`**). |
 | 2026-05-22T06:22:00Z | **Sprint PO.1 — memory profiler gate (USB)** | **`pns_memory_profiler.ps1`** **PASS** on **`legacy serial`**: `PNS.MemoryProfiler` + `captureRawStill 1/1 ok=true`; artifacts **`hfr-runs/memory_profiler_20260522_022242/`** (`memory_profiler_gate.json`). |
 | 2026-05-22T00:00:00Z | **Bespoke Gallery Sprint BG.3 — UX/UI sign-off** | **Maintainer approved** UX/UI (2026-05-22). Sprint **BG.3** + **BG Integration gate** archived → **`BUILD_PLAN_COMPLETED.md`** (*Bespoke Gallery Integration*). Agent deliverables: metadata, delete, share, zoom/pan in **`BespokeGalleryScreen.kt`**. Tray restore **`PreviewLastSurfacePrefs`**. Formal TalkBack audit deferred to **Milestone H.6**. |
 | 2026-05-20T11:52:00Z | **Milestone 13V Sprint 13V.17 — AI features (USB)** | **`pns_ai_features_verify.ps1` USB_PASS** on **`legacy serial`**: scene + bitrate scale + smile synthetic DNG — `hfr-runs/ai_features_verify_20260520_075142/`. ADB extras `pns_preview_smile_still`, `_synthetic`, `pns_preview_video_bitrate_scale`. |
@@ -322,8 +342,25 @@ The **master product checklist** is **`BUILD_PLAN.md`** (M0–M9, **Milestone 10
 | **M13V** Video expansion | §5 HFR / HDR10 / AI / CameraX; `pns_mediacodec_hfr_verify.ps1`, `pns_ai_features_verify.ps1`, `pns_camerax_extension_probe.ps1` |
 | **M14** Preview polish & pro UX | §5 chrome / QR / dual-video / codec-color gates; **`docs/PNS_TECHNICAL_SETTINGS.md`** (readout/H/RAW locks — sync on change); `pns_chrome_ux_gate.ps1`, `pns_video_codec_color_compare.ps1`, `pns_dual_video_verify.ps1` (*planned*), `pns_qr_scan_verify.ps1` |
 | **Milestone H** (human) | **§5** only — humans close items in `BUILD_PLAN.md`; no §6 checkbox |
+| **Milestone 23** (fleet hardening) | **§5** M23 evidence rows + **§6 M23 tracker** checklist; artifacts use **`hfr-runs/m23_*`** prefixes only |
 
 **Note:** **PH5–PH8** names match legacy probe tranches (ZSL latency, RAW/HDR exclusivity, burst, logical/physical). They are **not** the same as **`BUILD_PLAN` Milestones 5–8**.
+
+### Milestone 23 tracker (active)
+
+- [x] **M23.0** Program scaffolding complete (tracker/changelog/artifact naming committed)
+- [x] **M23.1** Automation truthfulness hardening passed (no-device != pass; focal proof strict; poll failure preserved)
+- [x] **M23.2** Capture monolith extraction phase 1 passed
+- [x] **M23.3** DNG write safety + memory hardening passed
+- [x] **M23.4** Bracket/ZSL pairing hardening passed
+- [x] **M23.5** Fleet focal resolver unification passed
+- [x] **M23.6** Matrix/store/scan coherence hardening passed
+- [x] **M23.7** Visibility policy strictness hardening passed
+- [x] **M23.8** Parity/catalog proof semantics hardening passed
+- [x] **M23.9** Lifecycle/concurrency stabilization passed
+- [x] **M23.10** Performance/memory optimization passed
+- [x] **M23.11** Test strategy uplift passed
+- [x] **M23.12** Milestone closeout chain passed (sequential USB + host gates)
 
 ### Phases (probe suite — product scope)
 

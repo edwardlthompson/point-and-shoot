@@ -1110,6 +1110,52 @@ Human gates: **H.7** (DNG color ACR per onboarded SKU) — **closed CPH2583** ow
 
 ---
 
+### Milestone 23 — Fleet hardening + resilience closeout *(archived 2026-06-03)*
+
+**Objective:** Finish M23 capture/fleet resiliency hardening with truthful gates on primary USB device (CPH2583-class), while keeping preview chrome and lock invariants stable.
+
+**Gate highlights (USB + host):**
+- `scripts/pns_verify_toolchain.ps1 -RunTests` **PASS** (post-seam lint fix)
+- `scripts/pns_capture_pipeline_verify.ps1` **PASS** (`captureRawStill 1/1 ok=true saved=`)
+- `scripts/pns_chrome_ux_gate.ps1 -FocalMmSlot 73|85|150` **PASS** (`teleFocalSlotOk=true`)
+- `scripts/pns_fleet_parity_sweep.ps1 -Mode Quick` **PASS** (and `-PromoteOptionalBlocking` intentionally fails when optional gaps exist)
+- `scripts/pns_aux_dng_capture_analyze.ps1` **PASS** openability/integrity on non-legacy model path (`--skip-wide-cal-leak` auto for non-legacy)
+- `scripts/pns_fixture_dng_gates.ps1` **PASS** with fixture-dir fallback (`proshot_legacy_sku` or `proshot_cph2655`)
+
+#### Sprint 23.2 — Capture monolith extraction (phase 1)
+
+- [x] Extracted session/capture seams into `preview/session/PreviewSessionOrchestrators.kt` and `preview/capture/ImageReaderAwait.kt`
+- [x] Wired `PreviewEngineScreen` to narrow open/session gateways with no route/chrome layout change
+- [x] Kept preview chrome lock unchanged; gated via chrome UX + capture pipeline
+
+#### Sprint 23.3 — DNG write safety + memory pressure hardening
+
+- [x] `StillCaptureMetadata.applyToDngUri` now stages patched bytes before final URI write
+- [x] Reused staged-write path for JPEG ICC embedding to reduce risky direct rewrite patterns
+- [x] Kept lock invariants: no `ExifInterface.saveAttributes()` on DNG; no CM/FM reconcile re-enable
+
+#### Sprint 23.4 — Bracket/ZSL/result pairing correctness
+
+- [x] Bracket burst image fetch now waits briefly for reader frames instead of assuming callback order
+- [x] ZSL ring pairing now prefers timestamp-matched image/result associations
+- [x] Added generation-token stale guardrails during bracket in-flight teardown
+
+#### Sprint 23.5 — Fleet focal resolver unification
+
+- [x] `BackCameraRoleResolver` openable-pair resolution now fails closed when id is not openable
+- [x] Verified focal-slot runtime path by USB chrome gate at 73/85/150 mm
+- [x] Preserved dodge tele routing locks and physical-first behavior when enumerated
+
+#### Sprint 23.8 / 23.9 / 23.10 / 23.11 / 23.12 closeout deltas
+
+- [x] Optional parity subtracks can be promoted to blocking (`pns_fleet_parity_sweep.ps1 -PromoteOptionalBlocking`)
+- [x] Deterministic controller executor shutdown + stronger camera error teardown (`closeCamera()` on disconnect/error)
+- [x] Lifecycle/perf smoke gates PASS (`pns_in_app_video_verify.ps1`, `pns_memory_profiler.ps1`, `pns_battery_life_test.ps1`, `pns_po_optimization_gate.ps1`)
+- [x] Host/toolchain and targeted JVM suites rerun after seam extraction
+- [x] Updated M23 closeout docs/checklists and changelog coverage requirements
+
+---
+
 ## Milestone H — completed sprints
 
 Moved from **`BUILD_PLAN.md`** (2026-05-30). Open human/agent rows remain in the active plan.

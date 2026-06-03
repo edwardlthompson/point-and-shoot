@@ -34,6 +34,18 @@
 
 ## Active entries
 
+### REG-20260603-001 — Variable aperture readout (per-cameraId map)
+
+- **Status:** active
+- **Area:** chrome / capture
+- **Symptom:** Focal-row lens switch on variable-aperture devices (Sony Xperia PRO-I) reset main-lens f/4.0 when visiting UW/tele
+- **Cause:** Global aperture override cleared on every `setDesired` camera change
+- **Fix shipped:** `PreviewApertureSupport` + readout **F** chip; `apertureByCameraId` map; `LENS_APERTURE` via `applyReadoutAperture` in `applyReadoutManualExposureAndWb`
+- **Do not:** Clear `apertureByCameraId` on focal-row camera switches; do not hardcode Xperia SKUs — use HAL `LENS_INFO_AVAILABLE_APERTURES` only
+- **Proves OK:** USB XQ-BE62 `PNS.ChromeUx apertureInit cameraId=2 options=f/2.0, f/4.0 pick=f/2.0 variable=true control=true`
+- **Also test:** `pns_video_status_bar_verify.ps1`; `pns_photo_capture_verify.ps1` on fleet primary (fixed f-stop chip, non-interactive)
+- **Touches:** `PreviewApertureSupport.kt`, `PreviewReadoutStrip.kt`, `PreviewEngineScreen.kt`, `FleetUiVisibilityGate.kt`, `CameraCapabilityCatalog.kt`
+
 ### REG-20260513-001 — §4a streamHints on REGULAR session
 
 - **Status:** active
@@ -284,6 +296,174 @@
 - **Also test:** Manual long-press burst UX after timer/QS menu edits (confirm Fleet Max label + RAW/JPEG file selector) and capture pipeline verify on still-session changes.
 - **Touches:** `AdvancedCaptureSettings.kt`, `ShutterCaptureMode.kt`, `PreviewChromeQuickSettings.kt`, `PreviewEngineScreen.kt`, `CameraCapabilitiesProbe.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
 - **Conflicts with:** none
+
+### REG-20260602-008 — JPEG burst must decouple capture cadence from save latency
+- **Status:** active
+- **Area:** capture | performance | automation
+- **Symptom:** Fleet-max long-press burst still behaved like "capture one frame, wait for save, then request next frame" when JPEG path was routed through composed still callback, capping achieved cadence and masking capture-vs-save bottlenecks.
+- **Cause:** Long-press dispatch used `captureComposedStill` completion (`onResult`) as the pacing unlock for both RAW and JPEG; that callback lands after downstream save work.
+- **Fix shipped:** Added split long-press engines in `PreviewEngineScreen.kt`: JPEG burst now calls `captureIndependentTonalStill(... onHardwareJpegFrame=...)` and offloads saves to async worker coroutines; RAW burst stays composed/serialized to avoid `No RAW buffer` stalls. Finish telemetry now emits `captured=<n> saved=<n> savePending=<n>`, and `pns_longpress_burst_verify.ps1` parses those metrics.
+- **Do not:** Revert JPEG long-press to save-blocked pacing or remove finish telemetry fields without replacing benchmark coverage for capture/save separation.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1 -SkipAssemble` (`pass=True`, `capturedAny=7`, `savedAny=5`, `savePendingAny=2`) with artifact `hfr-runs/longpress_burst_verify_20260602_105833/`.
+- **Also test:** `scripts/pns_photo_capture_verify.ps1 -Fast` after still-session/capture busy changes; manual long-press cadence + status bar burst telemetry check on USB device.
+- **Touches:** `PreviewEngineScreen.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260602-006, REG-20260602-007
+
+### REG-20260602-009 — Fleet-max burst benchmarks require drop + latency histograms
+- **Status:** active
+- **Area:** capture | performance | automation
+- **Symptom:** Burst sweeps could report start/shot/saved totals, but lacked normalized drop-rate and latency histograms per scenario, making aggressive-vs-paced tuning hard to compare and easy to misread.
+- **Cause:** `pns_longpress_burst_verify.ps1` only parsed coarse `finished saved=` style counters and did not consume per-strategy telemetry fields.
+- **Fix shipped:** Long-press finish logs now include `profile/strategy/captured/saved/savePending/drops/captureLatBuckets`; burst shot logs include strategy; verifier now computes per-scenario shot count, drop %, captured/save fps, and latency buckets, plus JPEG/RAW winner labels by saved fps.
+- **Do not:** Remove strategy-tagged burst shot/finish logs or telemetry bucket fields without updating `pns_longpress_burst_verify.ps1` parser and proving equivalent scenario metrics output.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` -> `hfr-runs/longpress_burst_verify_20260602_112218/longpress_burst_verify_summary.md` (`pass=True`, scenario metric table with drop + latency buckets).
+- **Also test:** `scripts/pns_photo_capture_verify.ps1 -Fast` after burst dispatcher edits to ensure RAW still capture path remains healthy.
+- **Touches:** `PreviewEngineScreen.kt`, `scripts/pns_longpress_burst_verify.ps1`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260602-008
+
+### REG-20260602-010 — JPEG aggressive burst needs dynamic train depth + bounded save workers
+- **Status:** active
+- **Area:** capture | performance | automation
+- **Symptom:** Fixed-size JPEG burst train and unconstrained async saves left high queue-full drop counts and long save tails under fleet-max aggressive mode.
+- **Cause:** Burst dispatch always used a small fixed hardware request train and save tasks competed unbounded on `Dispatchers.Default`, creating contention without reducing backlog efficiently.
+- **Fix shipped:** JPEG aggressive long-press now scales hardware train depth by backlog (`2/4/6/8` requests) and routes save work through a bounded limiter (`Semaphore(3)`), while preserving strategy/profile telemetry for drop-rate and latency tracking.
+- **Do not:** Revert to fixed single train depth in aggressive JPEG burst or remove bounded save concurrency without rerunning USB sweeps and publishing updated drop/latency metrics.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` -> `hfr-runs/longpress_burst_verify_20260602_113450/` (`pass=True`, scenario drop/latency table present); `scripts/pns_photo_capture_verify.ps1 -Fast` -> `hfr-runs/photo_capture_verify_20260602_113659/VERIFY_OK.txt`.
+- **Also test:** Manual long-press burst cadence + status bar telemetry after aggressive-depth tuning, and RAW still gate after any burst dispatcher edits.
+- **Touches:** `PreviewEngineScreen.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260602-008, REG-20260602-009
+
+### REG-20260602-011 — JPEG burst backpressure must be adaptive (not fixed-rate flood)
+- **Status:** active
+- **Area:** capture | performance | automation
+- **Symptom:** Fixed aggressive enqueue pacing could flood queue capacity (very high drop totals) without improving saved fps, especially when save latency spikes.
+- **Cause:** Burst enqueue loop used mostly fixed pace/cap behavior, so it kept feeding the queue even when drop ratio stayed high.
+- **Fix shipped:** Added adaptive backpressure tuning for aggressive JPEG burst (windowed drop-ratio feedback adjusts `paceFloorMs` and `queueCap`), and burst-save `lightweightMetadata` mode to reduce per-frame save overhead.
+- **Do not:** Revert to fixed aggressive flood enqueue for JPEG burst without reintroducing an equivalent adaptive drop-aware controller and proving lower drop totals in USB sweep artifacts.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` -> `hfr-runs/longpress_burst_verify_20260602_123632/` (`pass=True`, `dropsAny=344`, lower than prior `423`, metrics table present); `scripts/pns_photo_capture_verify.ps1 -Fast` -> `hfr-runs/photo_capture_verify_20260602_123838/VERIFY_OK.txt`.
+- **Also test:** Manual long-press burst cadence in JPEG mode (watch status bar + shutter cadence) and RAW still gate after any burst save-path edits.
+- **Touches:** `PreviewEngineScreen.kt`, `IndependentTonalStillSaver.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260602-010
+
+### REG-20260602-012 — JPEG burst strategy should switch live when drop pressure spikes
+- **Status:** active
+- **Area:** capture | performance | automation
+- **Symptom:** Fixed strategy per run (seeded aggressive or paced) left throughput on the table; aggressive could keep high drop pressure while paced sometimes recovered saved fps better.
+- **Cause:** Burst strategy choice was static for the whole hold session, even as live drop ratio / saved progress changed.
+- **Fix shipped:** Added live strategy controller for seeded-aggressive JPEG runs that can switch `aggressive -> paced` under high drop/low-save windows and switch back when pressure drops or saves recover; strategy ID now reflects effective mode in shot/finish telemetry.
+- **Do not:** Revert to fixed strategy during long-press JPEG burst without an equivalent live strategy controller and USB sweep evidence.
+- **Proves OK:** `scripts/pns_longpress_burst_verify.ps1` -> `hfr-runs/longpress_burst_verify_20260602_233149/` (`pass=True`, metrics table + winner labels), and RAW sanity gate `scripts/pns_photo_capture_verify.ps1 -Fast` -> `hfr-runs/photo_capture_verify_20260602_233353/VERIFY_OK.txt`.
+- **Also test:** Manual JPEG long-press with log grep for `longPressBurst strategySwitch` and status bar cadence checks after any strategy/backpressure edits.
+- **Touches:** `PreviewEngineScreen.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260602-011
+
+### REG-20260603-013 — Focal chip mapping must prefer matrix `product.focalRow`
+- **Status:** active
+- **Area:** fleet | chrome
+- **Symptom:** On some devices (e.g., OP13 class), runtime `resolveFocalMmSlot` heuristics can mis-map focal chips even when matrix onboarding has correct camera ids and static-slot availability.
+- **Cause:** `FocalLensStripSupport` interaction/native-hint paths depended on runtime resolver first and only used matrix data for partial labeling.
+- **Fix shipped:** `FocalLensStripSupport` now prefers matrix `product.focalRow` camera ids and static slot availability in focal chip interaction and native focal hint selection; runtime resolver remains fallback when matrix row is missing.
+- **Do not:** Revert focal chip interaction/native hint paths to resolver-first behavior without matrix-first fallback and fleet USB gate proof.
+- **Proves OK:** `scripts/pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.BackCameraRoleResolverTest --tests dev.pointandshoot.SensorCropGeometryTest`; `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` -> `hfr-runs/chrome_ux_gate_20260603_023928/chrome_ux_gate.json` (`teleFocalSlotOk=true`, `pass=True`).
+- **Also test:** `scripts/pns_fleet_matrix_scan.ps1` and parity quick sweep after focal-row builder/policy edits.
+- **Touches:** `FocalLensStripSupport.kt`
+- **Conflicts with:** REG-20260528-003
+
+### REG-20260603-014 — Fleet focal row assignment must be mathematical, not role-assumed
+- **Status:** active
+- **Area:** fleet | chrome
+- **Symptom:** Device-specific role assumptions can mis-assign focal chips when camera topology differs (1/3/N cameras), especially with overlapping crop reach between UW/Wide/Tele paths.
+- **Cause:** Matrix product focal-row builder relied on role-derived labels/ids and wide-only static crop estimates instead of a target-by-target least-crop assignment across all available cameras.
+- **Fix shipped:** `FleetFocalRowProductBuilder` now builds `product.focalRow` from mathematical prime assignments for chip targets (`14/23/35/50/73/85/150`) using `FocalLensStripSupport.resolvePrimeLensAssignments(..., targets)`; overlap resolution prefers least crop first, then higher effective MP, and writes per-slot assignment metadata (`slotAssignments`) consumed by matrix-first focal chip mapping.
+- **Do not:** Reintroduce role-first/static-estimate focal row generation without target-level assignment math and fleet scan verification.
+- **Proves OK:** `scripts/pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.FocalLensStripSupportTest --tests dev.pointandshoot.fleet.FleetFocalRowPolicyTest`; `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` -> `hfr-runs/chrome_ux_gate_20260603_025656/chrome_ux_gate.json` (`teleFocalSlotOk=true`, `pass=True`).
+- **Also test:** `scripts/pns_fleet_matrix_scan.ps1` + parity quick sweep after focal-row builder / startup scan math changes.
+- **Touches:** `FocalLensStripSupport.kt`, `fleet/FleetFocalRowProductBuilder.kt`
+- **Conflicts with:** REG-20260603-013
+
+### REG-20260603-015 — Prime focal assignment must always emit a best-fit camera mapping
+- **Status:** active
+- **Area:** fleet | chrome
+- **Symptom:** Generic devices can end up with partial focal-row assignment payloads (`slotAssignments` missing for M14/static targets), which leaves chips under-specified and can hide usable cameras/focal coverage in matrix-first routing.
+- **Cause:** Prime assignment filtered out targets without a crop-compatible candidate (`target < native`) and dropped low-effective-MP crop targets entirely, so matrix output omitted best-fit mappings even when the device could still route those focal intents.
+- **Fix shipped:** `resolvePrimeLensAssignmentsFromCandidates` now always emits a best-fit assignment per target: first least-crop among crop-compatible candidates, else nearest native fallback for wider-than-native targets. MP gating stays in `staticSlots` availability (not in assignment generation), so matrix keeps full routing metadata while still disabling low-MP static slots.
+- **Do not:** Reintroduce assignment-time MP filtering or strict `target >= native` drop behavior for all targets; keep assignment generation separate from UI enable gates.
+- **Proves OK:** `scripts/pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.FocalLensStripSupportTest --tests dev.pointandshoot.fleet.FleetFocalRowPolicyTest`; `scripts/pns_fleet_matrix_scan.ps1 -Serial 8bf09993 -ScanTier quick -SkipInstall` -> `hfr-runs/fleet_matrix_20260603_035231/fleet_matrix_scan.json` (`pass=true`) with `product.focalRow.slotAssignments` populated for all seven slots.
+- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` and parity quick sweep after any focal assignment comparator or slot-gating edits.
+- **Touches:** `FocalLensStripSupport.kt`, `FocalLensStripSupportTest.kt`
+- **Conflicts with:** REG-20260603-014
+
+### REG-20260603-016 — Chrome UX gate must poll PNS logs under high logcat churn
+- **Status:** active
+- **Area:** automation | fleet | adb
+- **Symptom:** `pns_chrome_ux_gate.ps1` can false-fail on noisy devices (OP13-class) with all `PNS.ChromeUx` needles missing even when the app emits them and focal tap succeeds.
+- **Cause:** Gate waited a long focal window and read tail snapshots after heavy camera/kernel spam, so early `PNS.ChromeUx` lines were evicted from ring buffers; readout-capture matcher also lagged current values (`JXL`).
+- **Fix shipped:** Gate now polls filtered `PNS.ChromeUx`/`PNS.AdbValidation` logs during the wait window and merges collected logs before regex checks; readout capture matcher accepts current/future format tokens (`readoutCapture=<token>`).
+- **Do not:** Revert to tail-only post-wait parsing for focal-slot gates on noisy devices or hard-code legacy-only `readoutCapture` formats.
+- **Proves OK:** `scripts/pns_chrome_ux_gate.ps1 -Serial 8bf09993 -FocalMmSlot 150 -SkipHost -SkipGradle -SkipInstall` -> `hfr-runs/chrome_ux_gate_20260603_040043/chrome_ux_gate.json` (`pass=true`, all checks true including `teleFocalSlotOk=true`).
+- **Also test:** `scripts/pns_fleet_matrix_scan.ps1 -Serial 8bf09993 -ScanTier quick -SkipInstall` after focal/matrix changes to confirm product row + gate parity.
+- **Touches:** `scripts/pns_chrome_ux_gate.ps1`
+- **Conflicts with:** REG-20260603-015
+
+### REG-20260603-017 — Focal routing must ignore tiny/non-backward-compatible auxiliary sensors
+- **Status:** active
+- **Area:** fleet | focal | capture
+- **Symptom:** On some fleet devices, 35 mm slot could route to a tiny auxiliary sensor (`~0.04 MP`) that cannot form a valid preview/capture session, leading to focal switch failures (`Session configure failed`, no RAW reader) and capture verify false negatives.
+- **Cause:** Prime lens candidate collection accepted any back camera with focal metadata, including non-backward-compatible or ultra-low-MP auxiliary/depth sensors.
+- **Fix shipped:** `FocalLensStripSupport.collectPrimeLensCandidates` now filters candidates to `BACKWARD_COMPATIBLE` back cameras with `sensorMp >= 2.0`, preventing auxiliary/non-imaging sensors from entering focal assignment math.
+- **Do not:** Reintroduce all-back-camera focal candidate selection without capability + MP viability gates.
+- **Proves OK:** Sony `DA7803TC1R` focal sweep (`hfr-runs/chrome_ux_gate_20260603_050802`..`051010`) no longer routes 35 mm to camera `5`; 35 mm no longer emits a camera switch to that auxiliary lens, while 23/50/73/85/150 continue to route and recover preview.
+- **Also test:** per-slot RAW capture sweep + chrome gate (`-FocalMmSlot 14/23/35/50/73/85/150`) on at least one non-OnePlus fleet device after focal assignment edits.
+- **Touches:** `FocalLensStripSupport.kt`
+- **Conflicts with:** REG-20260603-015
+
+### REG-20260603-018 — RAW automation must recover from dead focal camera session
+- **Status:** active
+- **Area:** capture | focal | automation
+- **Symptom:** Slot-driven RAW automation can hit `captureRawStill ... err=camera_or_raw_not_ready reason=no CameraDevice` after focal switch (Sony 14 mm path on camera `4`) and fail the run even though another RAW-capable rear camera is available.
+- **Cause:** Focal slot mapping selected a camera that repeatedly disconnected (`onError ... error=4`); sequential RAW path aborted after first failure without retrying on a viable RAW camera.
+- **Fix shipped:** Added RAW fallback/retry plumbing in `PreviewEngineScreen.kt` for focal + sequential RAW automation: on RAW failure, remap to nearest RAW-capable prime assignment (excluding failing camera), settle, retry the same shot once, and emit explicit fallback telemetry.
+- **Do not:** Treat first `captureRawStill` failure as terminal in focal automation when a RAW-capable fallback camera exists.
+- **Proves OK:** Sony `DA7803TC1R` run `hfr-runs/slot14_clear_task_verify_20260603_014350/pid.logcat.txt` shows `focalSlotTap mm=14 ... cameraIdAfter=4`, initial `captureRawStill ... err=camera_or_raw_not_ready`, then `raw fallback retry cameraId=4 -> 2 ...`, and retry `ok=true saved=...dng`.
+- **Also test:** `scripts/pns_photo_capture_verify.ps1` and `scripts/pns_chrome_ux_gate.ps1 -FocalMmSlot 14` (run sequentially, not parallel) after focal/session wiring edits.
+- **Touches:** `PreviewEngineScreen.kt`
+- **Conflicts with:** REG-20260528-002, REG-20260603-017
+
+### REG-20260603-019 — RAW automation must not let tray snapshot reapply 120 fps
+- **Status:** active
+- **Area:** capture | automation
+- **Symptom:** `pns_photo_capture_verify.ps1 -Fast` could repeatedly fail with `createCaptureSession threw IllegalArgumentException: Surface was abandoned` and `HFR path active (desiredFps=120)` even though RAW automation seeded photo capture mode.
+- **Cause:** In `PreviewEngineScreen`, automation started with `selectedFps=60` for RAW/bracket runs, but initial tray snapshot apply could overwrite it to a persisted 120 fps target before first RAW session create.
+- **Fix shipped:** Keep automation FPS seed when `rawOrBracketAutomation` is active (`applyPreviewTrayModeSnapshot` no longer overrides seeded <=60 in that path); hardened `pns_photo_capture_verify.ps1` to use fleet-generic default seed camera (no hardcoded `cameraId=3`) while preserving `pns_preview_video_fps=60` seed for scripted runs.
+- **Do not:** Allow tray snapshot restore to override seeded RAW/bracket automation FPS targets; do not hardcode legacy-only seed camera ids in fleet capture gate scripts.
+- **Proves OK:** `scripts/pns_photo_capture_verify.ps1 -Fast -Serial DA7803TC1R -MaxAttempts 3` -> `hfr-runs/photo_capture_verify_20260603_113749/VERIFY_OK.txt` (`captureRawStill 1/1 ok=true saved=` on attempt 1).
+- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipHost -SkipGradle -FocalMmSlot 150` and `scripts/pns_capture_pipeline_verify.ps1` (sequentially, same device).
+- **Touches:** `PreviewEngineScreen.kt`, `scripts/pns_photo_capture_verify.ps1`
+- **Conflicts with:** REG-20260512-001, REG-20260603-018
+
+### REG-20260603-020 — M23 gate scripts must survive logcat churn without false pass/fail
+- **Status:** active
+- **Area:** automation | fleet | chrome
+- **Symptom:** Sequential M23 closeout runs intermittently failed even with healthy behavior when key log lines were evicted (`PNS.FleetParity sweepComplete`, `PNS.ChromeUx readout=live|fallback`) under noisy OEM buffers.
+- **Cause:** Script gates depended on single log needles and treated missing needles as hard-fail, even when equivalent in-app evidence (`parity_report_quick.json` schema/cell counts, `readoutCapture` + `statusBar`) proved the run.
+- **Fix shipped:** `pns_fleet_parity_sweep.ps1` now falls back to in-app parity evidence when sweep-complete log is missing; `pns_chrome_ux_gate.ps1` now accepts `readoutCapture + statusBar` fallback when `readout=live|fallback` is evicted.
+- **Do not:** Revert to single-needle-only pass/fail logic for parity/chrome gates on high-churn log buffers.
+- **Proves OK:** `hfr-runs/m23_closeout_chain_20260603_0842/` sequential chain PASS (`matrix_quick`, `capture_pipeline`, `chrome_150`, `parity_quick`) + `scripts/pns_verify_toolchain.ps1 -RunTests` PASS.
+- **Also test:** `scripts/pns_fleet_parity_sweep.ps1 -Mode Delta`; `scripts/pns_chrome_ux_gate.ps1 -FocalMmSlot 150`; `scripts/pns_capture_pipeline_verify.ps1` (sequentially on same serial).
+- **Touches:** `scripts/pns_fleet_parity_sweep.ps1`, `scripts/pns_chrome_ux_gate.ps1`
+- **Conflicts with:** REG-20260528-002, REG-20260530-001
+
+### REG-20260603-021 — Preview session seam extraction must preserve capture teardown/order
+- **Status:** active
+- **Area:** capture | preview | fleet
+- **Symptom:** Session refactors can reintroduce half-torn camera state (`onError`/`onDisconnected` leaves stale session/readers) or bracket `No RAW buffer` failures when callback order flips under HAL load.
+- **Cause:** Monolithic `PreviewEngineScreen` orchestration coupled camera open/session create with inline callback assumptions and partial teardown logic.
+- **Fix shipped:** Added narrow session/capture seams (`preview/session/PreviewSessionOrchestrators.kt`, `preview/capture/ImageReaderAwait.kt`), made camera disconnect/error call full `closeCamera()`, added bracket generation-token stale guard + bounded reader waits, and shut down all controller executors in `stop()`.
+- **Do not:** Reintroduce partial teardown (`camera.close` only) or immediate image-acquire assumptions in bracket burst callbacks without bounded wait/token checks.
+- **Proves OK:** `scripts/pns_capture_pipeline_verify.ps1 -Serial DA7803TC1R` PASS; `scripts/pns_chrome_ux_gate.ps1 -SkipHost -SkipGradle -FocalMmSlot 73|85|150` PASS; `scripts/pns_verify_toolchain.ps1 -RunTests` PASS.
+- **Also test:** `scripts/pns_in_app_video_verify.ps1`; `scripts/pns_memory_profiler.ps1`; `scripts/pns_po_optimization_gate.ps1` (sequentially on one device).
+- **Touches:** `PreviewEngineScreen.kt`, `preview/session/PreviewSessionOrchestrators.kt`, `preview/capture/ImageReaderAwait.kt`, `BackCameraRoleResolver.kt`, `ZslStillFrameRing.kt`
+- **Conflicts with:** REG-20260512-001, REG-20260603-019
 
 ---
 

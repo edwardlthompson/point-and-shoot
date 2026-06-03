@@ -18,7 +18,7 @@
 6. **UI gate:** Visible changes → `assembleDebug`, sideload, `pns_device_screencap.ps1` proof.
 7. **JAVA_HOME / ADB:** Android Studio JBR; `platform-tools` first; `scripts/pns_adb_device.env` for `PNS_ADB_SERIAL`.
 8. **Git:** commit + push after each numbered milestone gate passes.
-9. **Hard rules — do not regress:** Read **`docs/AGENT_REGRESSION_MEMORY.md`** before capture/DNG/preview/fleet edits; append a **`REG-*`** row after USB-proven fixes. No `automationSuppressFacePipeline` for sequential RAW alone; no §4a `streamHints` or §2 RAW10-first `Default` without USB proof; capture/session/DNG changes → `pns_capture_pipeline_verify.ps1` on **CPH2583**; settings changes → update `docs/PNS_TECHNICAL_SETTINGS.md` same commit. Full locks: `AGENTS.md`, `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8, `.cursor/rules/`.
+9. **Hard rules — do not regress:** Read **`docs/AGENT_REGRESSION_MEMORY.md`** before capture/DNG/preview/fleet edits; append a **`REG-*`** row after USB-proven fixes. No `automationSuppressFacePipeline` for sequential RAW alone; no §4a `streamHints` or §2 RAW10-first `Default` without USB proof; capture/session/DNG changes → `pns_capture_pipeline_verify.ps1` on **CPH2583**; settings changes → update `docs/PNS_TECHNICAL_SETTINGS.md` same commit; user-visible ship → update **`CHANGELOG.md`** + **`scripts/changelog_coverage.v1.json`** same commit (gate: **`pns_changelog_gate.ps1`**). Full locks: `AGENTS.md`, `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8, `.cursor/rules/`.
 10. **Archive:** Completed agent tasks → summarize under the matching **feature category** in `BUILD_PLAN_COMPLETED.md`. Human rows stay in Milestone H.
 
 ---
@@ -62,7 +62,8 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone 18** | **Archived** — catalog v3, matrix schema v2, Fleet Parity Sweep, focal row, regression pack (**2026-05-30**) |
 | **Milestone 19** | **Archived** — format/color picker, VP9/RAW/dual-ISO, ProRes probe (**2026-05-30**) |
 | **Milestone 20** | **Archived** — concurrent capture (dual video + Multicam Melt + PiP) |
-| **Milestone 22** | **Active** — parity proof-pack closure + capability provider map |
+| **Milestone 22** | **Archived** — parity proof-pack closure + capability provider map |
+| **Milestone 23** | **Active** — fleet hardening audit remediation (architecture, capture, matrix, gates) |
 | **Milestone H** | **Active** — residual **[HUMAN]** work; **H.7** closed **CPH2583** (owner 2026-05-29); OP13 lane optional |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 | **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
@@ -171,6 +172,12 @@ Milestone 22 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Arch
 
 ---
 
+## Milestone 23 — Fleet hardening and resilience program *(archived)*
+
+Milestone 23 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Milestone 23 — Fleet hardening + resilience closeout (archived 2026-06-03)**, including Sprint **23.0–23.12** closure details and gate outcomes.
+
+---
+
 ## Completed milestones & sprints (archive)
 
 | Archive | Contents |
@@ -183,7 +190,7 @@ Milestone 22 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Arch
 
 1. When a sprint closes, add its completed tasks under the right **feature category** in **`BUILD_PLAN_COMPLETED.md`** (not as a new milestone section).
 2. Keep **`BUILD_PLAN.md`** as pointers + open milestone rows only (currently **Milestone H**).
-3. Update **`CHANGELOG.md`** for user-visible changes.
+3. Update **`CHANGELOG.md`** for user-visible changes and sync **`scripts/changelog_coverage.v1.json`** (release tag, date, `versionCode`, `requiredMentions`). Run **`pns_changelog_gate.ps1`** before milestone gates.
 
 ---
 
@@ -288,7 +295,7 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 2. `ReadLints` clean on touched Kotlin  
 3. Claimed paths/symbols exist  
 4. Unit tests: `failures="0" errors="0"`  
-5. `CHANGELOG.md` for user-visible changes; **§5** for gates  
+5. `CHANGELOG.md` + `scripts/changelog_coverage.v1.json` for user-visible changes (`pns_changelog_gate.ps1`); **§5** for gates  
 6. **[ADB]/[ROOT]:** device evidence  
 7. **[MIXED]:** parent stays `[ ]` until every child venue is satisfied  
 
@@ -320,5 +327,5 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ## Document control
 
-- **Version:** Active plan **2026-05-29** — **M13–M17** archived; active: **M18–M20** + **Milestone H**.
+- **Version:** Active plan **2026-06-03** — **M13–M22** archived; active: **Milestone 23** + **Milestone H**.
 - **Owner:** Project maintainer approves Milestone H closures.

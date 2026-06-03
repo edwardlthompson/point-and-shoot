@@ -8,7 +8,15 @@
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
-$fixtureDir = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"
+$fixtureCandidates = @(
+    (Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"),
+    (Join-Path $projRoot "tests\fixtures\proshot_cph2655")
+)
+$fixtureDir = $fixtureCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $fixtureDir) {
+    Write-Host "FAIL: no ProShot fixture directory found. Tried:`n  $($fixtureCandidates -join "`n  ")" -ForegroundColor Red
+    exit 1
+}
 $uw = Join-Path $fixtureDir "proshot_uw_cam3.dng"
 $wide = Join-Path $fixtureDir "proshot_wide_cam2.dng"
 $tele = Join-Path $fixtureDir "proshot_tele_cam4.dng"

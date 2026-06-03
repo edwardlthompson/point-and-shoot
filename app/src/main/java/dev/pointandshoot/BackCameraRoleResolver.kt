@@ -224,7 +224,7 @@ internal fun resolveFocalMmSlotWithRoles(
                 tid in ids -> tid to mode
                 else ->
                     logicalParentForPhysicalCamera(cm, tid, ids)?.let { parent -> parent to mode }
-                        ?: (tid to mode)
+                        ?: null
             }
         }
     fun uwOpenablePair(): Pair<String, FocalMode?>? =
@@ -233,7 +233,7 @@ internal fun resolveFocalMmSlotWithRoles(
                 uwId in ids -> uwId to null
                 else ->
                     logicalParentForPhysicalCamera(cm, uwId, ids)?.let { parent -> parent to null }
-                        ?: (uwId to null)
+                        ?: null
             }
         }
     return when (slot) {

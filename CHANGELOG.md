@@ -4,9 +4,30 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
+- **GitHub release automation** — `scripts/pns_github_release.ps1` prepares semver version bumps, cuts CHANGELOG sections, and publishes GitHub releases with changelog body + APK (`Point-and-Shoot-{version}.apk`) + attached `CHANGELOG.md`. About → **What's new** / **Full changelog** open GitHub release notes.
+- **Milestone 23 hardening (in progress, not shipped)** — workstream placeholder for fleet resilience improvements. Items below remain draft until M23 closeout gates pass.
+
+### Milestone 23 hardening bucket (placeholder)
+
+- **Automation truthfulness:** fleet-critical gate scripts now require real device evidence and stricter focal proof semantics.
+- **Capture/session hardening:** preview session create/open seams extracted into dedicated `preview/session/*` + `preview/capture/*` gateways, bracket capture now uses callback-order-safe reader waits, and stale generation guards block teardown races.
+- **DNG safety and memory:** DNG/JPEG metadata writes now stage bytes before final URI replacement to reduce truncate-risk windows and lower peak post-patch churn.
+- **Fleet matrix/catalog correctness:** policy/visibility/parity semantics tightened for cross-device consistency.
+- **Fleet focal + parity hardening:** focal resolver now fails closed for non-openable ids and parity sweep can promote optional subtracks to blocking via script flag when requested.
+
+## [0.14.0-beta.6] - 2026-06-03
+
+Pre-release for **Milestones 21–22** (fleet parity honesty + proof-pack closure) and **fleet-max burst**. Primary fleet USB device: OnePlus 12 **CPH2583**.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.6.apk`
+
 ### Added
 
-- **Milestone 21 — Fleet parity honesty** — Schema v2 parity reports (`run-as` JSON pull); honest `gapBreakdown` + `shipBlockerGapCount`; expanded gap classes + consumer impact; `FleetParityLogcatParser`; quick-tier `featureGatesShallow()`; Partial/ProbeOnly prove semantics; `-IncludeRecord` delivery verify; `pns_m21_gate.ps1`; CI catalog + golden sweep. Verified CPH2583 `b5214fc6`: `hfr-runs/m21_gate_20260530_134233` PASS (13/13 steps incl. `parity_full_include_record`; Quick 55 / Full 170 cells, 0 ship blockers). legacy device pack skips DNG/PiP/melt on non-legacy device (`hfr-runs/legacy_regression_pack_20260530_135550`).
+- **Milestone 21 — Fleet parity honesty** — Schema v2 parity reports (`run-as` JSON pull); honest `gapBreakdown` + `shipBlockerGapCount`; expanded gap classes + consumer impact; `FleetParityLogcatParser`; quick-tier `featureGatesShallow()`; Partial/ProbeOnly prove semantics; `-IncludeRecord` delivery verify; `pns_m21_gate.ps1`; CI catalog + golden sweep. Verified CPH2583 `b5214fc6`: `hfr-runs/m21_gate_20260530_134233` PASS (13/13 steps incl. `parity_full_include_record`; Quick 55 / Full 170 cells, 0 ship blockers). Legacy device pack skips DNG/PiP/melt on non-legacy device (`hfr-runs/legacy_regression_pack_20260530_135550`).
+- **Milestone 22 — Fleet parity proof-pack closure** — `-IncludeProofPack` merge in Full parity sweep; `parity_proof_manifest.json` + host merge fixture; AV1 / RAW video / still-export proof rows (HEIC, Motion Photo, TIFF16, JXL via `pns_still_export_verify.ps1`); HFR FPS parity (`pns_hfr_fps_parity_verify.ps1`); audio/spatial/unprocessed + video color + independent tonal proofs; **GAP_PLANNED=0** on CPH2583; capability-provider ownership map (`ShipNow` / `MatrixGate` / `ProbeOnly` / `DeferredPlanned`); `pns_m22_gate.ps1`. Verified CPH2583: `hfr-runs/m22_gate_20260602_011300` PASS (`unautomated=0`, `not_proven=0`, `planned=0`).
+- **Fleet-max burst mode** — Single fleet-max burst preset; split **JPEG** vs **RAW** burst tuning (`BurstPipelineStrategy` aggressive/paced auto-switch on long-press hold); bounded save concurrency + adaptive backpressure; HUD/settings collapse; ADB benchmark extras (`pns_preview_burst_file`, strategy); gate `pns_longpress_burst_verify.ps1`.
+
+_(See [0.14.0-beta.5] for prior release.)_
 
 ## [0.14.0-beta.5] - 2026-05-30
 

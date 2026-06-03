@@ -1,0 +1,31 @@
+{
+  "schema": "pns.milestone_closeout.v1",
+  "milestoneNumber": 23,
+  "milestoneTag": "M23",
+  "buildPlanPath": "BUILD_PLAN.md",
+  "buildPlanCompletedPath": "BUILD_PLAN_COMPLETED.md",
+  "changelogPath": "CHANGELOG.md",
+  "coverageManifestPath": "scripts/changelog_coverage.v1.json",
+  "activeHeading": "## Milestone 23 — Fleet hardening and resilience program *(active)*",
+  "archivedHeading": "## Milestone 23 — Fleet hardening and resilience program *(archived)*",
+  "archiveBlockLines": [
+    "## Milestone 23 — Fleet hardening and resilience program *(archived)*",
+    "",
+    "Milestone 23 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Milestone 23 — Fleet hardening + resilience closeout (archived 2026-06-03)**, including Sprint **23.0–23.12** closure details and gate outcomes."
+  ],
+  "requiredCompletedHeading": "### Milestone 23 — Fleet hardening + resilience closeout *(archived 2026-06-03)*",
+  "requiredChangelogMentions": [
+    "Milestone 23"
+  ],
+  "requiredCoverageMentions": [
+    "Milestone 23"
+  ],
+  "requiredPaths": [
+    "hfr-runs/m23_closeout_chain_20260603_0842",
+    "hfr-runs/m23_dng_hardening_20260603_1030/aux_dng",
+    "hfr-runs/m23_focal_unify_20260603_0949",
+    "hfr-runs/m23_capture_extract_20260603_0951",
+    "hfr-runs/m23_parity_optional_blocking_20260603_1000"
+  ],
+  "reportPrefix": "milestone_closeout_m23"
+}

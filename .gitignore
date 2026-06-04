@@ -36,6 +36,7 @@ keystore.b64
 
 # Release APK copies at repo root (GitHub release assets only)
 Point-and-Shoot_*.apk
+dist/
 
 # jadx bundle (downloaded on demand by pns_*_apk_decompile.ps1)
 tools/jadx/*

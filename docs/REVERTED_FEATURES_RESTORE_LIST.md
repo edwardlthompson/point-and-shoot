@@ -260,7 +260,7 @@ Automated runs: **`pns_capture_pipeline_verify.ps1`**, **`pns_raw_capture_matrix
 
 | Lock | Shipped default (May 2026) | Status | Notes |
 |------|----------------------------|--------|-------|
-| **L9** | **OFF** — no `LeafDngHalReconcile` / `useWideLeafCalibrationForAuxDng` on leaf | **SHIPPED (13.3g)** | Pure `DngCreator`; `ProShotPipelineContract`; gate **`dng_desktop_open_gate.py`**. Wide-cal only in **13.3h** bisect. |
+| **L9** | **OFF** — no `LeafDngHalReconcile` / `useWideLeafCalibrationForAuxDng` on leaf | **SHIPPED (13.3g)** | Pure `DngCreator`; `ReferenceAppPipelineContract`; gate **`dng_desktop_open_gate.py`**. Wide-cal only in **13.3h** bisect. |
 | **L2** | `allowPhysicalTotalResultPairing=false` at save call sites | **KEEP (13.3e)** | E1: pairing **true** — open OK, parity FAIL; unused on leaf. |
 | **L3** | `useLegacyAsnReconcileOnly=false` | **SHIPPED** | E2: **true** no-op under pure ReferenceCam save. |
 | **L6** | `useHalColorCalibrationReconcile=false` | **SHIPPED** | E3: **true** no-op under pure ReferenceCam save. |

@@ -16,6 +16,8 @@ import android.util.Rational
  * **Safe no-op:** if the patch fails or the camera ID is not listed the original DNG is written.
  */
 object DngForwardMatrixFix {
+    private fun normalizeModelToken(value: String): String =
+        value.lowercase().replace(Regex("[^a-z0-9]"), "")
 
     data class FmOverride(
         /** 9 rational values, row-major (3×3 XYZ→linear-RGB forward matrix, D50 illuminant). */
@@ -85,9 +87,12 @@ object DngForwardMatrixFix {
      */
     fun get(modelLower: String, cameraId: String?): FmOverride? =
         if (cameraId == null) null
-        else overrides.entries
-            .firstOrNull { modelLower.contains(it.key) }
-            ?.value?.get(cameraId)
+        else {
+            val normalizedModel = normalizeModelToken(modelLower)
+            overrides.entries
+                .firstOrNull { normalizedModel.contains(normalizeModelToken(it.key)) }
+                ?.value?.get(cameraId)
+        }
 
     /**
      * Returns the [WbCorrection] for [cameraId] on [modelLower], or null if none registered.
@@ -95,7 +100,10 @@ object DngForwardMatrixFix {
      */
     fun getWbCorrection(modelLower: String, cameraId: String?): WbCorrection? =
         if (cameraId == null) null
-        else wbCorrections.entries
-            .firstOrNull { modelLower.contains(it.key) }
-            ?.value?.get(cameraId)
+        else {
+            val normalizedModel = normalizeModelToken(modelLower)
+            wbCorrections.entries
+                .firstOrNull { normalizedModel.contains(normalizeModelToken(it.key)) }
+                ?.value?.get(cameraId)
+        }
 }

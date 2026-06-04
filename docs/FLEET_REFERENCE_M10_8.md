@@ -45,7 +45,7 @@ Together, **A + B** satisfy “**≥2 extra device classes**” in the **documen
 - **Probe export:** `CameraCapabilitiesProbe` appends **`FleetCameraProfileStore.appendProbeMarkdown`** (roles, RAW tier, ReferenceCam flags) and **`appendCatalogMarkdown`** (id roster, physical children, legacy device aliases).
 - **On-disk JSON:** `Android/data/.../files/fleet_camera_profiles_<MODEL>.json` from first probe or preview session build.
 - **Policy doc:** [`FLEET_ONEPLUS13_RAW_POLICY.md`](FLEET_ONEPLUS13_RAW_POLICY.md) — **Standard** still = ReferenceCam `DngCreator` path; wide-cal / reconcile **off** until USB bisect **13.3h** / **13.3e**.
-- **Host CI:** `scripts/pns_fixture_dng_gates.ps1` (openability on `tests/fixtures/proshot_legacy_sku/`) in **toolchain-verify** workflow.
+- **Host CI:** `scripts/pns_fixture_dng_gates.ps1` (openability on `tests/fixtures/referenceapp_legacy_sku/`) in **toolchain-verify** workflow.
 
 ## Related automation
 

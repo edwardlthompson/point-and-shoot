@@ -144,9 +144,21 @@ object InAppVideoFormatSelection {
 
             if (format.codec != VideoCodec.H264) return false
 
-            return InAppVideoRecordingSupport.hasExactHighSpeedFps(highSpeedMap, w, h, fps) &&
+            if (!probe.hasExactH264PerformancePoint(w, h, fps)) return false
 
-                probe.hasExactH264PerformancePoint(w, h, fps)
+            return InAppVideoRecordingSupport.hasExactHighSpeedFps(highSpeedMap, w, h, fps) ||
+
+                (w >= 3840 &&
+
+                    InAppVideoRecordingSupport.supportsHighSpeedCaptureFor4KEncode(
+
+                        highSpeedMap,
+
+                        fps,
+
+                        Size(w, h),
+
+                    ))
 
         }
 

@@ -40,6 +40,8 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 | androidx.camera:camera-core | 1.4.1 | Apache-2.0 | Jetpack (CameraX) |
 | androidx.camera:camera-lifecycle | 1.4.1 | Apache-2.0 | Jetpack (CameraX) |
 | androidx.camera:camera-view | 1.4.1 | Apache-2.0 | Jetpack (CameraX) |
+| androidx.camera:camera-extensions | 1.4.1 | Apache-2.0 | Jetpack (CameraX) |
+| androidx.documentfile:documentfile | 1.1.0 | Apache-2.0 | Jetpack |
 | com.google.zxing:core | 3.5.3 | Apache-2.0 | ZXing (barcode / QR decode) |
 | androidx.graphics:graphics-core | 1.0.0-alpha05 | Apache-2.0 | Jetpack |
 | androidx.exifinterface:exifinterface | 1.4.0 | Apache-2.0 | Jetpack |

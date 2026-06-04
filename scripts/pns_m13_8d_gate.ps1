@@ -5,7 +5,7 @@
 .DESCRIPTION
   1. pns_capture_pipeline_verify.ps1 -Fast with pns_preview_still_mode=standard
   2. pns_still_mode_benchmark.ps1 -Mode all
-  3. Optional: pns_dng_proshot_pns_session.ps1 -PnsStillModes standard,zsl,hdr
+  3. Optional: pns_dng_referenceapp_pns_session.ps1 -PnsStillModes standard,zsl,hdr
   4. Writes m13_8d_gate.json + STILL_MODE_COMPARE.md (human ACR checklist)
 
 .EXAMPLE
@@ -18,7 +18,7 @@ param(
     [switch]$SkipPipelineVerify,
     [switch]$SkipBenchmark,
     [switch]$SkipProshotSession,
-    [switch]$PullMotionCamReference,
+    [switch]$PullAltReferenceAppReference,
     [switch]$RecordHumanPass,
     [string]$ColorNote = "",
     [string]$Notes = "Daylight 13.8d — Standard vs ZSL vs HDR vs ReferenceCam (subjective color in ACR)."
@@ -55,7 +55,7 @@ $result = [ordered]@{
     pipelineVerifyPass = $null
     benchmarkDir = $null
     benchmarkPass = $null
-    proshotSessionDir = $null
+    referenceappSessionDir = $null
     notes = $Notes
 }
 
@@ -116,15 +116,15 @@ if (-not $SkipProshotSession) {
     $sessArgs = @{
         PnsStillModes = "standard,zsl,hdr"
         Notes = $Notes
-        SkipProShotPull = $false
+        SkipReferenceAppPull = $false
     }
     if ($Serial) { $sessArgs["Serial"] = $Serial }
-    if ($PullMotionCamReference) { $sessArgs["PullMotionCamReference"] = $true }
-    & (Join-Path $PSScriptRoot "pns_dng_proshot_pns_session.ps1") @sessArgs
+    if ($PullAltReferenceAppReference) { $sessArgs["PullAltReferenceAppReference"] = $true }
+    & (Join-Path $PSScriptRoot "pns_dng_referenceapp_pns_session.ps1") @sessArgs
     if ($LASTEXITCODE -ne 0) { Write-Warning "[13.8d] referencecam session exit=$LASTEXITCODE" }
-    $sessLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "dng_proshot_pns_session_*" |
+    $sessLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "dng_referenceapp_pns_session_*" |
         Sort-Object Name | Select-Object -Last 1
-    if ($sessLatest) { $result.proshotSessionDir = $sessLatest.FullName }
+    if ($sessLatest) { $result.referenceappSessionDir = $sessLatest.FullName }
 }
 
 $humanPath = Join-Path $gateDir "STILL_MODE_COMPARE.md"
@@ -140,7 +140,7 @@ $human = @"
 |-------|--------|
 | Pipeline verify (`stillMode=standard`) | $($result.pipelineVerifyPass) |
 | Benchmark all modes | $($result.benchmarkPass) |
-| ReferenceCam session | $(if ($result.proshotSessionDir) { $result.proshotSessionDir } else { "skipped" }) |
+| ReferenceCam session | $(if ($result.referenceappSessionDir) { $result.referenceappSessionDir } else { "skipped" }) |
 
 ## Human — Adobe Camera Raw / Lightroom (daylight)
 
@@ -152,7 +152,7 @@ Open **wide (M23)** for each source; note exposure match, color cast vs Referenc
 | P&S Standard | | | | |
 | P&S ZSL | | | | |
 | P&S HDR (use **hdr2of3** or merge 3) | | | | |
-| MotionCam (optional) | | | | |
+| AltReferenceApp (optional) | | | | |
 
 **Sign-off:** When acceptable, run:
 
@@ -160,7 +160,7 @@ Open **wide (M23)** for each source; note exposure match, color cast vs Referenc
 .\scripts\pns_m13_8d_gate.ps1 -RecordHumanPass -Dir "$gateDir" -ColorNote "your note"
 ``````
 
-Artifacts: ``$($result.benchmarkDir)`` / ``report.md``; session ``$($result.proshotSessionDir)``.
+Artifacts: ``$($result.benchmarkDir)`` / ``report.md``; session ``$($result.referenceappSessionDir)``.
 "@
 $human | Set-Content $humanPath -Encoding UTF8
 

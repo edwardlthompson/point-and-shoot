@@ -22,6 +22,8 @@ object FleetCapabilitySummaryMarkdown {
         appendLine()
         renderFocalSlots(root)
         appendLine()
+        renderHardwareLaunch(root)
+        appendLine()
         renderCameras(root)
         appendLine()
         renderCatalog(root)
@@ -56,6 +58,28 @@ object FleetCapabilitySummaryMarkdown {
             val s = slots.optJSONObject(i) ?: continue
             val gray = s.optBoolean("grayscaled", false)
             appendLine("| ${s.optInt("focalMm35")} | ${s.optString("cameraId")} | ${s.optDouble("megapixels")} | ${if (gray) "dim" else "yes"} |")
+        }
+    }
+
+    private fun StringBuilder.renderHardwareLaunch(root: JSONObject) {
+        appendLine("## Hardware launch & buttons")
+        val launch =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("hardwareLaunch")
+        val buttons =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("hardwareButtons")
+        if (launch == null && buttons == null) {
+            appendLine("_No hardware launch slice — rescan after app update._")
+            return
+        }
+        val still = launch?.optJSONObject("stillImageCamera")
+        appendLine("- **STILL_IMAGE_CAMERA handlers:** ${still?.optInt("handlerCount") ?: "—"}")
+        appendLine("- **P&S registered:** ${still?.optBoolean("pnsRegistered") ?: false}")
+        appendLine("- **Default camera role:** ${still?.opt("defaultRoleHolder") ?: "—"}")
+        appendLine("- **Dedicated camera key likely:** ${buttons?.optBoolean("dedicatedCameraKeyLikely") ?: false}")
+        appendLine("- **Programmable button likely:** ${buttons?.optBoolean("programmableButtonLikely") ?: false}")
+        val probe = buttons?.optJSONObject("interactiveProbe")
+        if (probe != null) {
+            appendLine("- **Interactive probe keyCodes:** ${probe.optJSONArray("distinctKeyCodes")}")
         }
     }
 

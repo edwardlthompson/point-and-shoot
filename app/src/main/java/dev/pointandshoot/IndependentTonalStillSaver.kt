@@ -49,6 +49,7 @@ object IndependentTonalStillSaver {
         orientationDegrees: Int,
         softwareJpegQuality: Int,
         filenameSuffix: String? = null,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         val jpegBytes = copyJpegImageToByteArray(jpegImage)
         return saveFromHardwareJpegBytes(
@@ -62,6 +63,7 @@ object IndependentTonalStillSaver {
             orientationDegrees = orientationDegrees,
             softwareJpegQuality = softwareJpegQuality,
             filenameSuffix = filenameSuffix,
+            lightweightMetadata = lightweightMetadata,
         )
     }
 
@@ -79,6 +81,7 @@ object IndependentTonalStillSaver {
         orientationDegrees: Int,
         softwareJpegQuality: Int,
         filenameSuffix: String? = null,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         val decision = EncoderRoute.decide(tonalBundle, NativeEncoders.isAvailable)
         val decoded =
@@ -104,9 +107,33 @@ object IndependentTonalStillSaver {
         val colorTarget = tonalBundle.colorSpace
         return when {
             decision.tonalWritten == TonalContainer.JpegXl12Bit && !decision.fallbackJpeg ->
-                writeNativeJxl(appContext, storageProfile, rgb, w, h, characteristics, captureResult, loc, filenameSuffix, colorTarget)
+                writeNativeJxl(
+                    appContext,
+                    storageProfile,
+                    rgb,
+                    w,
+                    h,
+                    characteristics,
+                    captureResult,
+                    loc,
+                    filenameSuffix,
+                    colorTarget,
+                    lightweightMetadata = lightweightMetadata,
+                )
             decision.tonalWritten == TonalContainer.Avif10BitHdr && !decision.fallbackJpeg ->
-                writeNativeAvif(appContext, storageProfile, rgb, w, h, characteristics, captureResult, loc, filenameSuffix, colorTarget = colorTarget)
+                writeNativeAvif(
+                    appContext,
+                    storageProfile,
+                    rgb,
+                    w,
+                    h,
+                    characteristics,
+                    captureResult,
+                    loc,
+                    filenameSuffix,
+                    colorTarget = colorTarget,
+                    lightweightMetadata = lightweightMetadata,
+                )
             decision.tonalWritten == TonalContainer.Heic10Bit && !decision.fallbackJpeg ->
                 writeNativeHeic(
                     appContext,
@@ -119,9 +146,21 @@ object IndependentTonalStillSaver {
                     loc,
                     filenameSuffix,
                     colorTarget = colorTarget,
+                    lightweightMetadata = lightweightMetadata,
                 )
             decision.tonalWritten == TonalContainer.Tiff16 && !decision.fallbackJpeg ->
-                writeTiff16(appContext, storageProfile, rgb, w, h, characteristics, captureResult, filenameSuffix, colorTarget)
+                writeTiff16(
+                    appContext,
+                    storageProfile,
+                    rgb,
+                    w,
+                    h,
+                    characteristics,
+                    captureResult,
+                    filenameSuffix,
+                    colorTarget,
+                    lightweightMetadata = lightweightMetadata,
+                )
             decision.tonalWritten == TonalContainer.MotionPhotoJpeg8 && !decision.fallbackJpeg ->
                 writeFallbackJpeg(
                     appContext,
@@ -136,6 +175,7 @@ object IndependentTonalStillSaver {
                     downgradeReason = null,
                     colorTarget = colorTarget,
                     outputKind = CaptureStorage.CaptureKind.MotionPhoto,
+                    lightweightMetadata = lightweightMetadata,
                 )
             else ->
                 writeFallbackJpeg(
@@ -150,6 +190,7 @@ object IndependentTonalStillSaver {
                     filenameSuffix,
                     downgradeReason = decision.downgradeReason,
                     colorTarget = colorTarget,
+                    lightweightMetadata = lightweightMetadata,
                 )
         }
     }
@@ -294,6 +335,7 @@ object IndependentTonalStillSaver {
         location: android.location.Location?,
         filenameSuffix: String?,
         colorTarget: ColorSpaceTarget,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         val plane1216 = rgb888ToRgb1216LittleEndian(rgb888, width, height)
         val stride = width * 6
@@ -316,6 +358,7 @@ object IndependentTonalStillSaver {
                     filenameSuffix,
                     colorTarget = colorTarget,
                     downgradeMessage = null,
+                    lightweightMetadata = lightweightMetadata,
                 )
             }
             null -> {
@@ -332,6 +375,7 @@ object IndependentTonalStillSaver {
                     filenameSuffix = filenameSuffix,
                     downgradeReason = "JPEG XL encode timed out; saved as JPEG instead.",
                     colorTarget = colorTarget,
+                    lightweightMetadata = lightweightMetadata,
                 )
             }
             else -> {
@@ -348,6 +392,7 @@ object IndependentTonalStillSaver {
                     filenameSuffix = filenameSuffix,
                     downgradeReason = EncoderRoute.DOWNGRADE_MESSAGE,
                     colorTarget = colorTarget,
+                    lightweightMetadata = lightweightMetadata,
                 )
             }
         }
@@ -382,6 +427,7 @@ object IndependentTonalStillSaver {
         filenameSuffix: String?,
         colorTarget: ColorSpaceTarget,
         outputKind: CaptureStorage.CaptureKind = CaptureStorage.CaptureKind.Avif10BitHdr,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         val yuv = rgb888ToYuv420(rgb888, width, height)
         val enc =
@@ -409,6 +455,7 @@ object IndependentTonalStillSaver {
                     filenameSuffix,
                     colorTarget = colorTarget,
                     downgradeMessage = null,
+                    lightweightMetadata = lightweightMetadata,
                 )
             null -> {
                 Log.w(TAG, "AVIF encode timed out — standalone JPEG fallback")
@@ -425,6 +472,7 @@ object IndependentTonalStillSaver {
                     downgradeReason = "AVIF encode timed out; saved as JPEG instead.",
                     colorTarget = colorTarget,
                     outputKind = outputKind,
+                    lightweightMetadata = lightweightMetadata,
                 )
             }
             else -> {
@@ -442,6 +490,7 @@ object IndependentTonalStillSaver {
                     downgradeReason = EncoderRoute.DOWNGRADE_MESSAGE,
                     colorTarget = colorTarget,
                     outputKind = outputKind,
+                    lightweightMetadata = lightweightMetadata,
                 )
             }
         }
@@ -458,6 +507,7 @@ object IndependentTonalStillSaver {
         location: android.location.Location?,
         filenameSuffix: String?,
         colorTarget: ColorSpaceTarget,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             return writeFallbackJpeg(
@@ -472,6 +522,7 @@ object IndependentTonalStillSaver {
                 filenameSuffix = filenameSuffix,
                 downgradeReason = "HEIC needs API 30+; saved as JPEG instead.",
                 colorTarget = colorTarget,
+                lightweightMetadata = lightweightMetadata,
             )
         }
         val heicFormat =
@@ -491,6 +542,7 @@ object IndependentTonalStillSaver {
                 filenameSuffix = filenameSuffix,
                 downgradeReason = "HEIC encoder unavailable; saved as JPEG instead.",
                 colorTarget = colorTarget,
+                lightweightMetadata = lightweightMetadata,
             )
         }
         val bmp = rgb888ToArgbBitmap(rgb888, width, height)
@@ -519,6 +571,7 @@ object IndependentTonalStillSaver {
                 filenameSuffix = filenameSuffix,
                 downgradeReason = "HEIC encode failed; saved as JPEG instead.",
                 colorTarget = colorTarget,
+                lightweightMetadata = lightweightMetadata,
             )
         }
         return writeEncodedBytes(
@@ -532,6 +585,7 @@ object IndependentTonalStillSaver {
             filenameSuffix = filenameSuffix,
             colorTarget = colorTarget,
             downgradeMessage = null,
+            lightweightMetadata = lightweightMetadata,
         )
     }
 
@@ -561,6 +615,7 @@ object IndependentTonalStillSaver {
         captureResult: TotalCaptureResult,
         filenameSuffix: String?,
         colorTarget: ColorSpaceTarget,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         val tiff =
             RgbTiff16Encoder.encodeRgb888AsTiff16(
@@ -586,6 +641,7 @@ object IndependentTonalStillSaver {
             filenameSuffix = filenameSuffix,
             colorTarget = colorTarget,
             downgradeMessage = null,
+            lightweightMetadata = lightweightMetadata,
         )
     }
 
@@ -602,6 +658,7 @@ object IndependentTonalStillSaver {
         downgradeReason: String?,
         colorTarget: ColorSpaceTarget,
         outputKind: CaptureStorage.CaptureKind = CaptureStorage.CaptureKind.JpegSdr,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         val px = rgb888ToArgbPixels(rgb888, width, height)
         val bmp = Bitmap.createBitmap(px, width, height, Bitmap.Config.ARGB_8888)
@@ -624,15 +681,17 @@ object IndependentTonalStillSaver {
             handle.close()
             handle = null
             // Always tag fallback JPEG payload with the intended output color space.
-            StillCaptureMetadata.applyToJpegUri(
-                appContext.applicationContext,
-                uri,
-                characteristics,
-                captureResult,
-                location = null,
-                colorSpaceTarget = colorTarget,
-            )
-            updateImageDescription(appContext.applicationContext, uri, outputKind, colorTarget, captureResult)
+            if (!lightweightMetadata) {
+                StillCaptureMetadata.applyToJpegUri(
+                    appContext.applicationContext,
+                    uri,
+                    characteristics,
+                    captureResult,
+                    location = null,
+                    colorSpaceTarget = colorTarget,
+                )
+                updateImageDescription(appContext.applicationContext, uri, outputKind, colorTarget, captureResult)
+            }
             Log.i(
                 TAG,
                 "tonal still saved kind=${outputKind.extension} displayName=$displayName downgrade=${downgradeReason != null}",
@@ -658,6 +717,7 @@ object IndependentTonalStillSaver {
         filenameSuffix: String?,
         colorTarget: ColorSpaceTarget,
         downgradeMessage: String?,
+        lightweightMetadata: Boolean = false,
     ): SaveOutcome {
         var handle: CaptureStorage.Handle? = null
         return try {
@@ -674,38 +734,40 @@ object IndependentTonalStillSaver {
             val uri = handle.uri
             handle.close()
             handle = null
-            when (kind) {
-                CaptureStorage.CaptureKind.Avif10BitHdr ->
-                    StillCaptureMetadata.applyToAvifUri(
-                        appContext.applicationContext,
-                        uri,
-                        characteristics,
-                        captureResult,
-                        location = location,
-                        colorSpaceTarget = colorTarget,
-                    )
-                CaptureStorage.CaptureKind.JpegSdr,
-                CaptureStorage.CaptureKind.MotionPhoto,
-                ->
-                    StillCaptureMetadata.applyToJpegUri(
-                        appContext.applicationContext,
-                        uri,
-                        characteristics,
-                        captureResult,
-                        location = location,
-                        colorSpaceTarget = colorTarget,
-                    )
-                CaptureStorage.CaptureKind.Tiff16 ->
-                    StillCaptureMetadata.applyToTiffUri(
-                        appContext.applicationContext,
-                        uri,
-                        characteristics,
-                        captureResult,
-                        location = location,
-                    )
-                else -> Unit
+            if (!lightweightMetadata) {
+                when (kind) {
+                    CaptureStorage.CaptureKind.Avif10BitHdr ->
+                        StillCaptureMetadata.applyToAvifUri(
+                            appContext.applicationContext,
+                            uri,
+                            characteristics,
+                            captureResult,
+                            location = location,
+                            colorSpaceTarget = colorTarget,
+                        )
+                    CaptureStorage.CaptureKind.JpegSdr,
+                    CaptureStorage.CaptureKind.MotionPhoto,
+                    ->
+                        StillCaptureMetadata.applyToJpegUri(
+                            appContext.applicationContext,
+                            uri,
+                            characteristics,
+                            captureResult,
+                            location = location,
+                            colorSpaceTarget = colorTarget,
+                        )
+                    CaptureStorage.CaptureKind.Tiff16 ->
+                        StillCaptureMetadata.applyToTiffUri(
+                            appContext.applicationContext,
+                            uri,
+                            characteristics,
+                            captureResult,
+                            location = location,
+                        )
+                    else -> Unit
+                }
+                updateImageDescription(appContext.applicationContext, uri, kind, colorTarget, captureResult)
             }
-            updateImageDescription(appContext.applicationContext, uri, kind, colorTarget, captureResult)
             Log.i(TAG, "tonal still saved kind=${kind.extension} displayName=$displayName")
             SaveOutcome(uri, displayName, downgradeMessage)
         } catch (t: Throwable) {

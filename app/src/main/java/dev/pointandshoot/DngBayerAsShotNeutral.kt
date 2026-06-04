@@ -205,7 +205,7 @@ object DngBayerAsShotNeutral {
     }
 
     /** Gray-card / leaf rear: R/G and B/G usually sit in this band when CFA is correct. */
-    fun bayerRatiosPlausibleForProShotAlign(rg: Float, bg: Float): Boolean =
+    fun bayerRatiosPlausibleForReferenceAppAlign(rg: Float, bg: Float): Boolean =
         rg in 0.78f..1.12f && bg in 0.78f..1.45f
 
     /** @see [asnFromChannelMeans] */
@@ -225,7 +225,7 @@ object DngBayerAsShotNeutral {
     private fun cfaLayoutScore(meanR: Double, meanG: Double, meanB: Double): Double {
         val rg = meanR / meanG
         val bg = meanB / meanG
-        return if (bayerRatiosPlausibleForProShotAlign(rg.toFloat(), bg.toFloat())) {
+        return if (bayerRatiosPlausibleForReferenceAppAlign(rg.toFloat(), bg.toFloat())) {
             1_000.0 - kotlin.math.abs(rg - 1.0) - kotlin.math.abs(bg - 1.0)
         } else {
             meanG / maxOf(meanR, meanB)

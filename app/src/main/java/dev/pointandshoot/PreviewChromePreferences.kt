@@ -31,6 +31,8 @@ data class PreviewChromePreferences(
     val volumeKeysCapture: Boolean = true,
     /** Sprint **15.19** — Bluetooth / headset media key fires shutter when preview is foregrounded. */
     val btRemoteShutter: Boolean = false,
+    /** Hardware dedicated camera key (KEYCODE_CAMERA / KEYCODE_FOCUS) when preview is foregrounded. */
+    val hardwareCameraKeyCapture: Boolean = true,
     /** When true and location permission is granted, new captures use [CaptureLocationBridge] for GPS metadata. */
     val saveLocationWithMedia: Boolean = false,
     /** Large circular shutter over the preview (Sony hardware-shutter style apps often omit this). */
@@ -127,6 +129,7 @@ data class PreviewChromePreferences(
         private const val KEY_DND_RECORDING = "dnd_while_recording"
         private const val KEY_VOLUME_KEYS = "volume_keys_capture"
         private const val KEY_BT_REMOTE_SHUTTER = "bt_remote_shutter"
+        private const val KEY_HARDWARE_CAMERA_KEY = "hardware_camera_key_capture"
         private const val KEY_SAVE_LOCATION = "save_location_with_media"
         private const val KEY_SHOW_SHUTTER = "show_on_screen_shutter"
         private const val KEY_TAP_PREVIEW_CAPTURE = "tap_preview_to_capture"
@@ -227,6 +230,7 @@ data class PreviewChromePreferences(
                 dndWhileRecording = prefs.getBoolean(KEY_DND_RECORDING, defaults.dndWhileRecording),
                 volumeKeysCapture = prefs.getBoolean(KEY_VOLUME_KEYS, defaults.volumeKeysCapture),
                 btRemoteShutter = prefs.getBoolean(KEY_BT_REMOTE_SHUTTER, defaults.btRemoteShutter),
+                hardwareCameraKeyCapture = prefs.getBoolean(KEY_HARDWARE_CAMERA_KEY, defaults.hardwareCameraKeyCapture),
                 saveLocationWithMedia = prefs.getBoolean(KEY_SAVE_LOCATION, defaults.saveLocationWithMedia),
                 showOnScreenShutter = prefs.getBoolean(KEY_SHOW_SHUTTER, defaults.showOnScreenShutter),
                 tapPreviewToCapture = prefs.getBoolean(KEY_TAP_PREVIEW_CAPTURE, defaults.tapPreviewToCapture),
@@ -278,6 +282,7 @@ data class PreviewChromePreferences(
                 .putBoolean(KEY_DND_RECORDING, value.dndWhileRecording)
                 .putBoolean(KEY_VOLUME_KEYS, value.volumeKeysCapture)
                 .putBoolean(KEY_BT_REMOTE_SHUTTER, value.btRemoteShutter)
+                .putBoolean(KEY_HARDWARE_CAMERA_KEY, value.hardwareCameraKeyCapture)
                 .putBoolean(KEY_SAVE_LOCATION, value.saveLocationWithMedia)
                 .putBoolean(KEY_SHOW_SHUTTER, value.showOnScreenShutter)
                 .putBoolean(KEY_TAP_PREVIEW_CAPTURE, value.tapPreviewToCapture)

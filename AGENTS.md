@@ -4,6 +4,8 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Technical settings source of truth:** [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) — command dial modes, H-mode metering, readout/YUV chase constants, RAW/DNG locks, HUD defaults, and related code pointers. **Update that file whenever you add, change, or remove any of those settings** (same commit as the code change). Tie new `BUILD_PLAN.md` sprints to the relevant section.
 
+**Changelog contract (mandatory):** User-visible milestones and release cuts must update **`CHANGELOG.md`** and **`scripts/changelog_coverage.v1.json`** in the **same commit**. Host gate: **`scripts/pns_changelog_gate.ps1`** (also runs inside **`pns_verify_toolchain.ps1`**). When bumping **`versionCode`**, add a dated release section and bump **`latestRelease`** in the coverage manifest.
+
 **Operational rule:** If a task can be done via `adb`, Gradle, or a repo script from a terminal in this workspace, **run it**. Only ask the human when something is **missing from the machine** (no device, no JDK, MCP server down, auth not completed) or **unsafe** (destructive prod action).
 
 **Device truth rule:** Do **not** tell the user a **fix or feature is delivered / done** until it is **verified on a real device over USB ADB** (install the build under test, exercise the path, and report script artifacts or log needles). If no device is online, say explicitly that **device verification was not run** and treat the change as **unverified**. Use repo scripts (`pns_photo_capture_verify`, `pns_in_app_video_verify`, `pns_chrome_ux_gate`, `pns_adb_preview_validate`, etc.) when they match the change; otherwise document the exact `adb` / `am start` steps you ran and what you observed.
@@ -123,7 +125,7 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 | Step | Problem |
 |------|---------|
 | **`StillCaptureMetadata.applyToDngUri`** | Called **`ExifInterface.saveAttributes()`** on the full ~25 MB row-strip DNG after in-place TIFF patches. That rewrites the file like JPEG EXIF and **destroys** legacy SKU **3072-row `StripOffsets`** layout. |
-| **`LeafDngHalReconcile` (removed)** | **`TiffDngColorMatrixPatch.patchCalibrationTagsIfd0`** rewrote CM/FM in IFD0 — not needed for ProShot parity; risks Adobe validation failures. |
+| **`LeafDngHalReconcile` (removed)** | **`TiffDngColorMatrixPatch.patchCalibrationTagsIfd0`** rewrote CM/FM in IFD0 — not needed for ReferenceApp parity; risks Adobe validation failures. |
 
 **Symptom:** “Broken” DNGs, won’t load in viewers; **`dng_tiff_integrity_check.py`** may still PASS if strips were not truncated on the pulled copy.
 
@@ -311,6 +313,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_m18_gate.ps1` | Milestone **18** one-shot — catalog gate + `pns_verify_toolchain.ps1 -RunTests` + regression pack (`-Serial` for USB). |
 | `pns_fleet_macro_export.ps1` | Milestone **18.4** — cross-device CSV from latest matrix + parity artifacts. |
 | `pns_capability_catalog_gate.ps1` | Milestone **18.5** — host catalog version + row count + format descriptor gate. |
+| `pns_changelog_gate.ps1` | Host **CHANGELOG coverage** — latest release header, required milestone mentions, `versionCode` sync vs `scripts/changelog_coverage.v1.json` (wired in `pns_verify_toolchain.ps1`). |
 | `pns_fleet_matrix_diff.ps1` | Milestone **16.3** — Markdown diff of two **`fleet_device_matrix.json`** files (HFR, RAW, roles, **`featureGates`**, encoder stub). |
 | `fleet_matrix_schema_validate.py` | Milestone **16.12** — structural validation of pulled matrix JSON (schema v1, sorted **`cameraId`** on full tier). |
 | `pns_legacy_regression_pack.ps1` | Milestone **16.7** — optional legacy device lane: **`pns_fleet_matrix_scan -LegacyOp13FleetPolicy`** + **`pns_aux_dng_capture_analyze`** + parity (not default on CPH2583). |
@@ -321,6 +324,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_milestone3_gate.ps1` | **Milestone 3** mapping gate: JVM tests (`SensorCropGeometryTest`, `CropPlanTest`, `DngDefaultUserCropRatiosTest`, `BackCameraRoleResolverTest`) + optional **`-RunDeviceSmoke`** (sideload preview + `PNS.ChromeUx` **`seedOk slot=M23`** log grep). |
 | `pns_automation_smoke.ps1` | Automation smoke; optional **`-RunAeHighlightProbe`** chains **`pns_ae_highlight_probe_adb.ps1`** (debug APK + `run-as` pull). |
 | `pns_chrome_ux_gate.ps1` | Chrome UX gate; optional **`-FocalMmSlot`** (`14`…`150`, default **`85`**) appends **`pns_preview_focal_mm_slot`** for **`focalSlotTap=`** tele proof (**`teleFocalSlotOk`**). |
+| `pns_aperture_readout_verify.ps1` | Variable-aperture readout: cold preview + **`pns_preview_aperture_cycles`** (default **2**) on **`pns_preview_camera_id`** (default **`2`**); asserts **`PNS.AdbValidation apertureCycle ok=true`**, **`apertureCycle`** f/2↔f/4 lines, **`apertureInit variable=true`**. Artifacts **`hfr-runs/aperture_readout_verify_*`**. |
 | `pns_ux_sprint_adb_gate.ps1` | Sprint **UX** one-shot: theme Dark/Light, nav mode matrix (`settings secure navigation_mode` 0/2), gallery batch share, `KEYCODE_BACK`, workflow presets. Artifacts **`hfr-runs/ux_sprint_adb_gate_*`**. |
 | `pns_ui_modernization_test.ps1` | UX.1 theme ADB (`pns_preview_theme_mode`). |
 | `pns_navigation_compatibility_test.ps1` | UX.2 nav telemetry + gallery BACK smoke. |
@@ -334,7 +338,8 @@ Use these from repo root unless a script documents otherwise.
 | `pns_about_links_verify.ps1` | Sprint **14.11**: JVM **`PnsExternalUrlTest`** + HTTP HEAD/GET on locked Venmo donation URL. |
 | `pns_eye_af_alignment_probe.ps1` | Sprint **14.5**: **`TexturePreviewFitTest`** + **`CaptureMediaFamilyTest`**; optional USB crosshair log (`PNS.FaceAlign`). Default **`-HostOnly`**. |
 | `pns_dual_video_verify.ps1` | Sprint **14.12**: design doc + JVM scaffold tests; **`-HostOnly`** default; USB scaffold log when device online. |
-| `pns_release_packaging.ps1` | Sprint **14.13**: **`assembleRelease`**, rename **`Point-and-Shoot_<versionName>.apk`**, **`zipalign -c -v 4`** (no `gh`). |
+| `pns_release_packaging.ps1` | Sprint **14.13**: **`assembleRelease`**, rename **`Point-and-Shoot-{versionName}.apk`**, **`zipalign -c -v 4`** (no `gh`). Naming: **`pns_release_naming.ps1`**. |
+| `pns_github_release.ps1` | **GitHub release orchestrator** — `-PrepareOnly` (version + CHANGELOG + coverage + About tag constant), `-Publish` (package APK, `gh release` with changelog body + **`CHANGELOG.md`** asset). Skill: `.cursor/skills/github-release/SKILL.md`. |
 | `pns_qr_scan_verify.ps1` | Sprint **14.4**: cold preview **`pns_preview_dial=QR`** + photo-primary; asserts **`qrScanMode=active`** and **`PNS.PreviewSessionCtx`** **`dial=Qr wantYuv=true`**. Artifacts **`hfr-runs/qr_scan_verify_*`**. |
 | `pns_memory_profiler.ps1` | Sprint **PO.1**: one-session preview + **`pns_preview_raw_count=1`**; greps **`PNS.MemoryProfiler`**, RAW capture ok, **`dumpsys meminfo`**. Artifacts **`hfr-runs/memory_profiler_*`**. |
 | `pns_battery_life_test.ps1` | Sprint **PO.2**: JVM **`PreviewAdaptiveFpsPolicyTest`** + USB adaptive FPS cap (`pns_preview_adaptive_battery_pct`) + lifecycle **`longRunningPaused`**. Artifacts **`hfr-runs/battery_life_test_*`**. |
@@ -342,24 +347,27 @@ Use these from repo root unless a script documents otherwise.
 | `pns_video_format_test.ps1` | **VF.1** — **`PNS.VideoCapProbe`** `av1=` probe; optional **`-RunAv1Record`** (`pns_preview_video_av1`). Artifacts **`hfr-runs/video_format_test_*`**. |
 | `pns_video_stabilization_test.ps1` | **VF.2** — video-primary preview + **`pns_preview_video_stabilization`**; greps **`PNS.VideoEffects videoStabilization`**. Artifacts **`hfr-runs/video_stabilization_test_*`**. |
 | `pns_video_quality_gate.ps1` | **VF** gate: JVM + **`pns_mediacodec_hfr_verify.ps1 -GateProfile vf`** (H.264/H.265 @ 60, HEVC **120/240/480** @ 1080p, **ffprobe** audio+video on pulled MP4) + AV1 probe + stabilization. Requires **ffprobe** on PATH. Artifacts **`hfr-runs/video_quality_gate_*`**. |
-| `pns_mediacodec_hfr_verify.ps1` | HFR/codec matrix; **`-GateProfile vf`** = VF subset; **`-RequireFfprobeAv`** = fail without audio+video streams in MP4. |
-| `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_proshot_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
+| `pns_mediacodec_hfr_verify.ps1` | HFR/codec matrix; **`-GateProfile vf`** = VF subset; **`-RequireFfprobeAv`** = fail without audio+video streams in MP4; emits 4K120 truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`) in `summary.json` for `4K_120fps_MediaCodec`. |
+| `pns_4k120_verify.ps1` | USB one-shot **4K @ 120** H.264 MediaCodec on Sony-class devices — wraps **`-OnlyTest 4K_120fps_MediaCodec`** + **ffprobe**. |
+| `pns_4k120_endurance.ps1` | M24 endurance sweep for strict 4K120 (`bestPassSec`, terminal reason) via stepped `pns_mediacodec_hfr_verify` runs; artifacts `hfr-runs/4k120_endurance_*/endurance_report.{json,md}`. |
+| `pns_m24_gate.ps1` | Milestone 24 orchestrator: capability probe → strict 4K120 → endurance → parity Full → toolchain verify (`-HostOnly` for CI host lane). |
+| `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_referenceapp_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
 | `dng_desktop_open_gate.py` / `pns_dng_desktop_open_gate.ps1` | Host-only: integrity + ASN bounds + wide-cal CM2 leak check on pulled DNGs. |
-| `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/proshot_legacy_sku/` (toolchain-verify workflow). |
+| `pns_fixture_dng_gates.ps1` | Host-only CI: openability gate on `tests/fixtures/referenceapp_legacy_sku/` (toolchain-verify workflow). |
 | `pns_m13_3g2_gate.ps1` | **13.3g-2:** open gate + logcat diag on `aux_dng_capture_analyze_*`; **`-RecordAcrPass`** for Milestone H ACR sign-off. |
 | `pns_m13_3h_wide_cal_bisect.ps1` | **13.3h:** USB H1–H3 wide-cal bisect (patches `LegacyDeviceFleetPolicy.kt`, restores after); artifacts `hfr-runs/m13_3h_wide_cal_bisect_*`. |
 | `pns_m13_3e_lock_bisect.ps1` | **13.3e:** USB E1–E6 lock ladder (L2,L3,L6,L4,L5,L7); patches policy + PreviewEngineScreen + RawCaptureSupport, restores after. |
-| `pns_m13_3f_gate.ps1` | **13.3f:** daylight gates (pipeline verify, capture analyze, openability, ProShot parity, optional session); `-RecordAcrPass` for human color sign-off. |
-| `pns_m13_3g4_fixture_refresh.ps1` | **13.3g-4:** ProShot live forensics (15/23/73 mm) + `pns_proshot_reference_sync.ps1 -FromForensicsDir` + parity gate. |
-| `pns_dng_proshot_pns_session.ps1 -HostOnly` | Host-only: runs fixture gates without USB (full session needs device + ProShot captures). |
+| `pns_m13_3f_gate.ps1` | **13.3f:** daylight gates (pipeline verify, capture analyze, openability, ReferenceApp parity, optional session); `-RecordAcrPass` for human color sign-off. |
+| `pns_m13_3g4_fixture_refresh.ps1` | **13.3g-4:** ReferenceApp live forensics (15/23/73 mm) + `pns_referenceapp_reference_sync.ps1 -FromForensicsDir` + parity gate. |
+| `pns_dng_referenceapp_pns_session.ps1 -HostOnly` | Host-only: runs fixture gates without USB (full session needs device + ReferenceApp captures). |
 | `pns_still_mode_benchmark.ps1` | **13.8d** — `-Mode standard\|zsl\|hdr\|all`; `results.json` + `report.md` (timing, openability, ZSL/HDR notes). |
-| `pns_m13_8d_gate.ps1` | **13.8d** — pipeline verify (`stillMode=standard`) + benchmark all; optional `-PnsStillModes` session via `pns_dng_proshot_pns_session.ps1`; `-RecordHumanPass`. |
+| `pns_m13_8d_gate.ps1` | **13.8d** — pipeline verify (`stillMode=standard`) + benchmark all; optional `-PnsStillModes` session via `pns_dng_referenceapp_pns_session.ps1`; `-RecordHumanPass`. |
 | `pns_raw_video_verify.ps1` | Sprint **13.6** RAW video: **`pns_preview_video_raw_sec`** @ 30 fps, wide **`camera_id=2`**; asserts **`rawVideoSaved ok=true`**, frame count, **`PNMRAWV1`** header (`xxd` on device, no full pull by default); artifacts **`hfr-runs/raw_video_verify_*`**. Optional **`-PullMcraw`** (multi-GB). |
 | `pns_m13_lock_bisect_host.ps1` | Host template for **13.3e** lock bisect report. |
-| `pns_proshot_parity_gate.ps1` | One-shot: capture + pull + ProShot color/luminance parity (fails if DNGs not loadable or not close to reference). |
-| `pns_proshot_live_forensics.ps1` | **Live** ProShot session: stream logcat, detect `CameraService::connect … camera ID`, pull DCIM DNGs per lens; **`-TryUiAutomation`** or manual (see **`docs/PROSHOT_LIVE_FORENSICS.md`**). |
-| `pns_proshot_adb_forensics.ps1` | Post-hoc logcat + dumpsys after **manual** ProShot captures (no per-lens automation). |
-| `pns_proshot_reference_sync.ps1` | Refresh **`tests/fixtures/proshot_legacy_sku/`** from newest 3 non–P&S DCIM DNGs. |
+| `pns_referenceapp_parity_gate.ps1` | One-shot: capture + pull + ReferenceApp color/luminance parity (fails if DNGs not loadable or not close to reference). |
+| `pns_referenceapp_live_forensics.ps1` | **Live** ReferenceApp session: stream logcat, detect `CameraService::connect … camera ID`, pull DCIM DNGs per lens; **`-TryUiAutomation`** or manual (see **`docs/REFERENCEAPP_LIVE_FORENSICS.md`**). |
+| `pns_referenceapp_adb_forensics.ps1` | Post-hoc logcat + dumpsys after **manual** ReferenceApp captures (no per-lens automation). |
+| `pns_referenceapp_reference_sync.ps1` | Refresh **`tests/fixtures/referenceapp_legacy_sku/`** from newest 3 non–P&S DCIM DNGs. |
 | `dng_tiff_integrity_check.py` | Host: row-strip TIFF + rawpy load check. Exit **1** if DNG structure broken (e.g. post-save **`ExifInterface`** regression). |
 | `pns_failure_matrix_smoke.ps1` | Failure-matrix smoke. |
 | `pns_hfr_autorun.ps1` | HFR autorun (`-PerfReport`, **`-PerfReportApkVariant Release`**, etc.). |
@@ -429,6 +437,7 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 | `.cursor/rules/preview-chrome-ui-lock.mdc` | **Frozen** preview chrome layout — behavioral fixes only unless the user explicitly changes UI. |
 | `.cursor/rules/preview-readout-video-mode-lock.mdc` | **Locked** photo vs video readout chips + `PreviewTopStatusBar` wiring — see **`docs/M14_READOUT_STATUS_BAR.md`**. |
 | `.cursor/rules/pns-technical-settings.mdc` | **`docs/PNS_TECHNICAL_SETTINGS.md`** must stay in sync with settings/constants/mode behavior changes. |
+| `.cursor/rules/changelog-coverage.mdc` | **`CHANGELOG.md`** + **`scripts/changelog_coverage.v1.json`** must stay in sync on milestone ship / `versionCode` bump; gate: **`pns_changelog_gate.ps1`**. |
 | `.cursor/rules/fleet-generic-policy.mdc` | **Fleet matrix SoT**; CPH2583 primary; legacy device optional regression; no new legacy device-only gates without plugin. |
 | `.cursor/rules/agent-regression-memory.mdc` | Read/update **`docs/AGENT_REGRESSION_MEMORY.md`** before risky edits; append row after proven fixes. |
 | `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |

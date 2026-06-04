@@ -22,8 +22,8 @@ object FocalLensStripSupport {
 
     private const val NATIVE_MM_ROUND_SCALE = 10f
     private const val NATIVE_MM_INTEGER_EPSILON = 1e-3f
-    // Allow small HAL/reporting variance around the 12 MP crop gate.
-    private const val PRIME_EFFECTIVE_MP_TOLERANCE = 0.75
+    // Exclude tiny/non-imaging auxiliary sensors from fleet focal slot routing.
+    private const val MIN_FOCAL_ROUTING_SENSOR_MP = 2.0
     private val PRIME_EQ_MM = listOf(14, 16, 20, 24, 28, 35, 40, 50, 85, 100, 135, 200)
 
     fun isTeleSlot(slot: FocalMmSlot): Boolean =
@@ -67,9 +67,23 @@ object FocalLensStripSupport {
         context: Context,
         ids: List<String>,
     ): List<PrimeLensAssignment> {
+        return resolvePrimeLensAssignments(context, ids, PRIME_EQ_MM)
+    }
+
+    /**
+     * Mathematical fleet resolver for arbitrary 35mm-equivalent [targets]. Picks the camera that
+     * needs the least crop first, then resolves ties by effective output MP and native preference.
+     */
+    fun resolvePrimeLensAssignments(
+        context: Context,
+        ids: List<String>,
+        targets: List<Int>,
+    ): List<PrimeLensAssignment> {
         val candidates = collectPrimeLensCandidates(context, ids)
         if (candidates.isEmpty()) return emptyList()
-        return resolvePrimeLensAssignmentsFromCandidates(candidates, PRIME_EQ_MM)
+        val normalizedTargets = targets.filter { it > 0 }.distinct().sorted()
+        if (normalizedTargets.isEmpty()) return emptyList()
+        return resolvePrimeLensAssignmentsFromCandidates(candidates, normalizedTargets)
     }
 
     internal fun resolvePrimeLensAssignmentsFromCandidates(
@@ -79,8 +93,7 @@ object FocalLensStripSupport {
         if (candidates.isEmpty()) return emptyList()
         return buildList {
             for (target in targets) {
-                val minEffectiveMp = FleetFocalRowPolicy.MIN_CROP_MP.toDouble() - PRIME_EFFECTIVE_MP_TOLERANCE
-                val best =
+                val cropCompatible =
                     candidates
                         .asSequence()
                         .filter { target >= it.nativeEqMm }
@@ -94,15 +107,34 @@ object FocalLensStripSupport {
                                 ),
                                 target == c.nativeEqMm,
                             )
-                        }.filter { (_, effectiveMp, _) -> effectiveMp >= minEffectiveMp }
-                        .maxWithOrNull(
-                            compareBy<Triple<PrimeLensCandidate, Double, Boolean>>(
-                                { -(target - it.first.nativeEqMm) }, // least crop first (native/closest below target)
-                                { it.second }, // then highest resulting MP
-                                { if (it.third) 1 else 0 }, // tie-break: prefer native mapping
-                                { it.first.sensorMp }, // then higher-res sensor
-                            ),
-                        )
+                        }.toList()
+                val bestCropCompatible =
+                    cropCompatible.minWithOrNull(
+                        compareBy<Triple<PrimeLensCandidate, Double, Boolean>>(
+                            { target - it.first.nativeEqMm }, // least crop first (native/closest below target)
+                            { -it.second }, // then highest resulting MP
+                            { if (it.third) 0 else 1 }, // tie-break: prefer native mapping
+                            { -it.first.sensorMp }, // then higher-res sensor
+                        ),
+                    )
+                val best =
+                    bestCropCompatible
+                        ?: candidates
+                            .asSequence()
+                            .map { c ->
+                                Triple(
+                                    c,
+                                    c.sensorMp,
+                                    target == c.nativeEqMm,
+                                )
+                            }.minWithOrNull(
+                                compareBy<Triple<PrimeLensCandidate, Double, Boolean>>(
+                                    { abs(target - it.first.nativeEqMm) }, // nearest native when target is wider
+                                    { if (it.third) 0 else 1 }, // exact native match wins if present
+                                    { -it.second }, // then highest available MP
+                                    { -it.first.sensorMp }, // stable tie-breaker
+                                ),
+                            )
                 if (best != null) {
                     val candidate = best.first
                     add(
@@ -158,10 +190,23 @@ object FocalLensStripSupport {
         context: Context,
         slot: FocalMmSlot,
         ids: List<String>,
+        matrix: org.json.JSONObject? = null,
     ): Float? {
-        val pair = resolveFocalMmSlot(context, slot, ids) ?: return null
-        val charId = characteristicsCameraIdForNativeFocalHint(context, slot, ids, pair)
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val matrixCameraId = matrixPreferredCameraIdForSlot(slot, matrix)
+        val charId =
+            when {
+                !matrixCameraId.isNullOrBlank() ->
+                    if (matrixCameraId in ids) {
+                        matrixCameraId
+                    } else {
+                        logicalParentForPhysicalCamera(cm, matrixCameraId, ids) ?: matrixCameraId
+                    }
+                else -> {
+                    val pair = resolveFocalMmSlot(context, slot, ids) ?: return null
+                    characteristicsCameraIdForNativeFocalHint(context, slot, ids, pair)
+                }
+            }
         val fl =
             runCatching {
                 cm.getCameraCharacteristics(charId).get(CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS)
@@ -218,11 +263,19 @@ object FocalLensStripSupport {
      * Sprint **15.13** — slot disabled when [FleetCameraStartupScan] marked the routed camera
      * grayscaled (< 12 MP sensor budget).
      */
-    fun fleetScanGraysOutSlot(context: Context, slot: FocalMmSlot, ids: List<String>): Boolean {
-        val pair = resolveFocalMmSlot(context, slot, ids) ?: return false
+    fun fleetScanGraysOutSlot(
+        context: Context,
+        slot: FocalMmSlot,
+        ids: List<String>,
+        matrix: org.json.JSONObject? = null,
+    ): Boolean {
+        val targetId =
+            matrixPreferredCameraIdForSlot(slot, matrix)
+                ?: resolveFocalMmSlot(context, slot, ids)?.first
+                ?: return false
         val file = FleetCameraStartupScan.scanFile(context)
         if (!file.exists()) return false
-        return FleetCameraStartupScan.loadFromFile(file).any { it.cameraId == pair.first && it.grayscaled }
+        return FleetCameraStartupScan.loadFromFile(file).any { it.cameraId == targetId && it.grayscaled }
     }
 
     fun focalSlotInteractionEnabled(
@@ -231,13 +284,28 @@ object FocalLensStripSupport {
         ids: List<String>,
         selectedCameraId: String?,
         digitalEqOkOnWide: Boolean,
+        matrix: org.json.JSONObject? = null,
     ): Boolean {
-        if (resolveFocalMmSlot(context, slot, ids) == null) return false
-        if (fleetScanGraysOutSlot(context, slot, ids)) return false
+        val matrixPreferredId = matrixPreferredCameraIdForSlot(slot, matrix)
+        val hasMapping =
+            if (!matrixPreferredId.isNullOrBlank()) {
+                matrixPreferredId in ids ||
+                    logicalParentForPhysicalCamera(
+                        context.getSystemService(Context.CAMERA_SERVICE) as CameraManager,
+                        matrixPreferredId,
+                        ids,
+                    ) != null
+            } else {
+                resolveFocalMmSlot(context, slot, ids) != null
+            }
+        if (!hasMapping) return false
+        if (fleetScanGraysOutSlot(context, slot, ids, matrix)) return false
         if (selectedCameraId == "1" && isTeleSlot(slot)) return false
         if (isDigitalEqPolicySlot(slot)) {
-            if (!digitalEqOkOnWide && !staticSlotEnabledForWide(context, ids, slot)) return false
-            if (!staticSlotEnabledForWide(context, ids, slot)) return false
+            val matrixEnabled = matrixStaticSlotEnabled(slot, matrix)
+            val staticEnabled = matrixEnabled ?: staticSlotEnabledForWide(context, ids, slot)
+            if (!digitalEqOkOnWide && !staticEnabled) return false
+            if (!staticEnabled) return false
         }
         return true
     }
@@ -264,7 +332,7 @@ object FocalLensStripSupport {
         val policy = policySlots.getOrNull(slotIndex)
         val digitalEqOk = digitalEqSlotsEnabledForWide(context, ids)
         val enabled =
-            focalSlotInteractionEnabled(context, slot, ids, selectedCameraId, digitalEqOk)
+            focalSlotInteractionEnabled(context, slot, ids, selectedCameraId, digitalEqOk, matrix)
         val label =
             policy?.labelMm?.takeIf { it.isNotBlank() }
                 ?: slot.labelMm
@@ -272,10 +340,62 @@ object FocalLensStripSupport {
             when {
                 !enabled -> policy?.subLabel ?: "N/A"
                 else ->
-                    nativeFocalLengthMmForSlot(context, slot, ids)?.let { formatShortNativeFocalMm(it) }
+                    nativeFocalLengthMmForSlot(context, slot, ids, matrix)
+                        ?.let { formatShortNativeFocalMm(it) }
                         ?: policy?.subLabel
             }
         return FocalChipPresentation(label, sub, enabled)
+    }
+
+    private fun matrixPreferredCameraIdForSlot(
+        slot: FocalMmSlot,
+        matrix: org.json.JSONObject?,
+    ): String? {
+        val focalRow =
+            matrix
+                ?.optJSONObject(dev.pointandshoot.fleet.FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("focalRow")
+                ?: return null
+        val slotKey =
+            when (slot) {
+                FocalMmSlot.M14 -> "m14"
+                FocalMmSlot.M23 -> "m23"
+                FocalMmSlot.M35 -> "m35"
+                FocalMmSlot.M50 -> "m50"
+                FocalMmSlot.M73 -> "m73"
+                FocalMmSlot.M85 -> "m85"
+                FocalMmSlot.M150 -> "m150"
+            }
+        val slotCameraId =
+            focalRow
+                .optJSONObject("slotAssignments")
+                ?.optJSONObject(slotKey)
+                ?.optString("cameraId")
+                ?.takeIf { it.isNotBlank() }
+        if (!slotCameraId.isNullOrBlank()) return slotCameraId
+        return when (slot) {
+            FocalMmSlot.M14 -> focalRow.optString("uwCameraId")
+            FocalMmSlot.M23, FocalMmSlot.M35, FocalMmSlot.M50 -> focalRow.optString("wideCameraId")
+            FocalMmSlot.M73, FocalMmSlot.M85, FocalMmSlot.M150 -> focalRow.optString("teleCameraId")
+        }.takeIf { it.isNotBlank() }
+    }
+
+    private fun matrixStaticSlotEnabled(slot: FocalMmSlot, matrix: org.json.JSONObject?): Boolean? {
+        val key =
+            when (slot) {
+                FocalMmSlot.M35 -> "m35"
+                FocalMmSlot.M50 -> "m50"
+                FocalMmSlot.M85 -> "m85"
+                FocalMmSlot.M150 -> "m150"
+                else -> return null
+            }
+        val staticSlots =
+            matrix
+                ?.optJSONObject(dev.pointandshoot.fleet.FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("focalRow")
+                ?.optJSONObject("staticSlots")
+                ?: return null
+        return staticSlots.optJSONObject(key)?.optBoolean("available")
     }
 
     private fun collectPrimeLensCandidates(context: Context, ids: List<String>): List<PrimeLensCandidate> {
@@ -316,8 +436,16 @@ object FocalLensStripSupport {
                 if (chars.get(CameraCharacteristics.LENS_FACING) != CameraCharacteristics.LENS_FACING_BACK) {
                     return@mapNotNull null
                 }
+                val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: return@mapNotNull null
+                if (!caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE)) {
+                    return@mapNotNull null
+                }
                 val isLogicalAggregate = chars.physicalCameraIds?.isNotEmpty() == true
                 if (!includeLogicalAggregates && isLogicalAggregate) {
+                    return@mapNotNull null
+                }
+                val mp = FleetCameraStartupScan.sensorMegapixels(chars)
+                if (mp < MIN_FOCAL_ROUTING_SENSOR_MP) {
                     return@mapNotNull null
                 }
                 val focal =
@@ -326,7 +454,6 @@ object FocalLensStripSupport {
                         preferWideForLogicalAggregate = includeLogicalAggregates && isLogicalAggregate,
                     ) ?: return@mapNotNull null
                 val focalEq = focalLength35mmFromFocalMm(chars, focal) ?: return@mapNotNull null
-                val mp = FleetCameraStartupScan.sensorMegapixels(chars)
                 PrimeLensCandidate(id, focalEq, focal, mp)
             }.toList()
 

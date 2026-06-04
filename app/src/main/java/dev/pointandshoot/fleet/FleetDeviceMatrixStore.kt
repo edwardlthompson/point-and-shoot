@@ -1,9 +1,11 @@
 package dev.pointandshoot.fleet
 
 import android.content.Context
+import android.hardware.camera2.CameraManager
 import android.os.Build
 import dev.pointandshoot.DeviceCameraCapabilityCache
 import java.io.File
+import java.security.MessageDigest
 import java.time.Instant
 import org.json.JSONObject
 
@@ -39,6 +41,13 @@ object FleetDeviceMatrixStore {
     fun liveFingerprintPrefix(): String =
         DeviceCameraCapabilityCache.fingerprintSha256Prefix(Build.FINGERPRINT)
 
+    fun liveCameraIdRosterSha256Prefix(context: Context): String? {
+        val cm = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager ?: return null
+        val joined = runCatching { cm.cameraIdList.sorted().joinToString(",") }.getOrNull() ?: return null
+        if (joined.isBlank()) return null
+        return sha256Prefix(joined)
+    }
+
     /**
      * Returns cached matrix when [schemaVersion], fingerprint prefix, and [appVersionCode] match.
      */
@@ -50,6 +59,11 @@ object FleetDeviceMatrixStore {
         val meta = root.optJSONObject(FleetDeviceMatrix.KEY_SCAN_META) ?: return null
         if (meta.optString("fingerprintSha256Prefix") != liveFingerprintPrefix()) return null
         if (meta.optLong("appVersionCode", -1L) != currentVersionCode(context)) return null
+        val storedRoster = meta.optString("cameraIdRosterSha256Prefix").takeIf { it.isNotBlank() }
+        if (storedRoster != null && storedRoster != liveCameraIdRosterSha256Prefix(context)) return null
+        val storedPolicy = meta.optString("fleetPolicyId").takeIf { it.isNotBlank() }
+        val livePolicy = FleetDevicePolicySelector.active(context.applicationContext).policyId ?: "generic"
+        if (storedPolicy != null && storedPolicy != livePolicy) return null
         return root
     }
 
@@ -66,7 +80,7 @@ object FleetDeviceMatrixStore {
                 CameraCapabilityCatalogBuilder.attachTo(root)
             }
         save(context, withCatalog, rotatePreviousToHistory)
-        summaryFile(context).writeText(FleetCapabilitySummaryMarkdown.render(withCatalog))
+        writeTextAtomically(summaryFile(context), FleetCapabilitySummaryMarkdown.render(withCatalog))
     }
 
     fun save(context: Context, root: JSONObject, rotatePreviousToHistory: Boolean = false) {
@@ -75,7 +89,7 @@ object FleetDeviceMatrixStore {
         if (rotatePreviousToHistory && file.exists()) {
             rotateToHistory(app, file)
         }
-        file.writeText(root.toString(2))
+        writeTextAtomically(file, root.toString(2))
     }
 
     fun rotateToHistory(context: Context, source: File = matrixFile(context)) {
@@ -118,11 +132,35 @@ object FleetDeviceMatrixStore {
         stored: JSONObject,
         liveFingerprintPrefix: String,
         liveVersionCode: Long,
+        liveCameraIdRosterSha256Prefix: String? = null,
+        livePolicyId: String? = null,
     ): Boolean {
         if (!FleetDeviceMatrix.isValidRoot(stored)) return false
         val meta = stored.optJSONObject(FleetDeviceMatrix.KEY_SCAN_META) ?: return false
         if (meta.optString("fingerprintSha256Prefix") != liveFingerprintPrefix) return false
         if (meta.optLong("appVersionCode", -1L) != liveVersionCode) return false
+        val storedRoster = meta.optString("cameraIdRosterSha256Prefix").takeIf { it.isNotBlank() }
+        if (storedRoster != null && liveCameraIdRosterSha256Prefix != null && storedRoster != liveCameraIdRosterSha256Prefix) {
+            return false
+        }
+        val storedPolicy = meta.optString("fleetPolicyId").takeIf { it.isNotBlank() }
+        if (storedPolicy != null && livePolicyId != null && storedPolicy != livePolicyId) return false
         return true
+    }
+
+    private fun writeTextAtomically(target: File, text: String) {
+        val dir = target.parentFile ?: return
+        dir.mkdirs()
+        val temp = File(dir, "${target.name}.tmp")
+        temp.writeText(text)
+        if (!temp.renameTo(target)) {
+            temp.copyTo(target, overwrite = true)
+            temp.delete()
+        }
+    }
+
+    private fun sha256Prefix(text: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray())
+        return digest.take(6).joinToString("") { b -> "%02x".format(b) }
     }
 }

@@ -26,7 +26,7 @@
 
 ## Known limitations (beta)
 
-- Aux **UW / tele** DNG color in ACR may still diverge from ProShot (**H.7**).
+- Aux **UW / tele** DNG color in ACR may still diverge from ReferenceApp (**H.7**).
 - **Dual video:** v1 capped at **1080p30**; front pass has no LUT/peaking — validate framing under **H.8.2**.
 - **DND restore** automation needs notification policy access on some devices.
 - **AI bitrate scale** gate may fail 125% needle while smile/scene pass.

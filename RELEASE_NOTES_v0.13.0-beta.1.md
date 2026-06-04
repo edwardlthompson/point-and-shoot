@@ -4,9 +4,9 @@
 
 ## Summary
 
-- **Fleet RAW (M13):** ProShot-style DNG on legacy device leaf cameras, ZSL/HDR still modes, DCG HDR10 video, MCRAW-class RAW video lane, fleet profiles, and automated USB gates on reference hardware.
+- **Fleet RAW (M13):** ReferenceApp-style DNG on legacy device leaf cameras, ZSL/HDR still modes, DCG HDR10 video, MCRAW-class RAW video lane, fleet profiles, and automated USB gates on reference hardware.
 - **Video expansion (M13V):** HFR MediaCodec path, 4K@120 encode tier, format picker, macro dial, recording overlays, GLES video LUT, power/thermal + storage HUD, AI-adjacent toggles (smile still, scene probe, bitrate scale), CameraX extension probe.
-- **Human sign-off still open:** ACR 3/3 and visual aux color vs ProShot remain under **Milestone H.7** — do not treat aux UW/tele color as final.
+- **Human sign-off still open:** ACR 3/3 and visual aux color vs ReferenceApp remain under **Milestone H.7** — do not treat aux UW/tele color as final.
 
 ## Highlights
 
@@ -27,7 +27,7 @@
 
 ## Known limitations (beta)
 
-- Aux **ultra-wide / tele** DNG color may look wrong in ACR vs ProShot (HAL ColorMatrix2) — documented, not gate-blocking for this beta.
+- Aux **ultra-wide / tele** DNG color may look wrong in ACR vs ReferenceApp (HAL ColorMatrix2) — documented, not gate-blocking for this beta.
 - **4K@120:** encoder advertises 4K@120; HAL high-speed capture may remain **1280×720@120** on legacy device.
 - **Smile still:** requires HUD enable; ML Kit path needs a visible face — use synthetic ADB hook only for automation.
 - **LineageOS:** CameraX OEM extensions typically absent (`PROBE_OK_NO_EXTENSIONS`); Night/Bokeh dial hidden.

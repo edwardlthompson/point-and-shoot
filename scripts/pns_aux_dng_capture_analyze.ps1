@@ -20,7 +20,7 @@ param(
     [string]$FocalMmSlots = "",
     [string]$OutDir = "",
     [string[]]$ExtraAmArgs = @(),
-    # Sprint 13.3f — hard-fail when color parity vs tests/fixtures/proshot_legacy_sku is required.
+    # Sprint 13.3f — hard-fail when color parity vs tests/fixtures/referenceapp_legacy_sku is required.
     # Default off: 13.3g only requires capture 3/3 + dng_desktop_open_gate.py PASS.
     [switch]$RequireProshotParity,
     # Sprint 15.15 — hard-fail when uw_delta > 0.12 (scripts/dng_color_metric.py).
@@ -31,7 +31,7 @@ param(
     [switch]$ForceWideCalLeakCheck,
     # If set, reads ISO/ExposureTime from ReferenceCam reference DNGs and seeds matching
     # readout overrides on each lens capture (helps "match ReferenceCam" on the same scene).
-    [switch]$MatchProShotExposure
+    [switch]$MatchReferenceAppExposure
 )
 
 $ErrorActionPreference = "Stop"
@@ -128,23 +128,23 @@ $report.Add("Preview dial (ADB): $PreviewDial")
 $report.Add("Focal slots: M14 (UW), M23 (wide ref), M73 (native tele)")
 $report.Add("=" * 72)
 
-$proshotExposure = $null
-if ($MatchProShotExposure) {
-    $uwRef = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku\proshot_uw_cam3.dng"
-    $wideRef = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku\proshot_wide_cam2.dng"
-    $teleRef = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku\proshot_tele_cam4.dng"
-    $py = Join-Path $PSScriptRoot "proshot_ref_extract_exposure.py"
+$referenceappExposure = $null
+if ($MatchReferenceAppExposure) {
+    $uwRef = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku\referenceapp_uw_cam3.dng"
+    $wideRef = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku\referenceapp_wide_cam2.dng"
+    $teleRef = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku\referenceapp_tele_cam4.dng"
+    $py = Join-Path $PSScriptRoot "referenceapp_ref_extract_exposure.py"
     if ((Test-Path -LiteralPath $uwRef) -and (Test-Path -LiteralPath $wideRef) -and (Test-Path -LiteralPath $teleRef) -and (Test-Path -LiteralPath $py)) {
         try {
             $j = & python $py $uwRef $wideRef $teleRef 2>&1 | Out-String
-            $proshotExposure = $j | ConvertFrom-Json
-            Write-Host "[capture_analyze] ReferenceCam exposure seed: uw iso=$($proshotExposure.uw.iso) ssNs=$($proshotExposure.uw.shutter_ns) wide iso=$($proshotExposure.wide.iso) ssNs=$($proshotExposure.wide.shutter_ns) tele iso=$($proshotExposure.tele.iso) ssNs=$($proshotExposure.tele.shutter_ns)" -ForegroundColor Cyan
+            $referenceappExposure = $j | ConvertFrom-Json
+            Write-Host "[capture_analyze] ReferenceCam exposure seed: uw iso=$($referenceappExposure.uw.iso) ssNs=$($referenceappExposure.uw.shutter_ns) wide iso=$($referenceappExposure.wide.iso) ssNs=$($referenceappExposure.wide.shutter_ns) tele iso=$($referenceappExposure.tele.iso) ssNs=$($referenceappExposure.tele.shutter_ns)" -ForegroundColor Cyan
         } catch {
             Write-Host "[capture_analyze] WARN: failed to read ReferenceCam exposure JSON: $($_.Exception.Message)" -ForegroundColor Yellow
-            $proshotExposure = $null
+            $referenceappExposure = $null
         }
     } else {
-        Write-Host "[capture_analyze] WARN: MatchProShotExposure requested but ReferenceCam fixtures (or helper) missing." -ForegroundColor Yellow
+        Write-Host "[capture_analyze] WARN: MatchReferenceAppExposure requested but ReferenceCam fixtures (or helper) missing." -ForegroundColor Yellow
     }
 }
 
@@ -170,12 +170,12 @@ foreach ($slot in $slots) {
         "--es", "pns_preview_focal_mm_slot", $mm,
         "--ez", "pns_preview_jpeg_companion", "false"
     )
-    if ($proshotExposure) {
+    if ($referenceappExposure) {
         $seed =
             switch ($label) {
-                "uw" { $proshotExposure.uw }
-                "wide" { $proshotExposure.wide }
-                "tele" { $proshotExposure.tele }
+                "uw" { $referenceappExposure.uw }
+                "wide" { $referenceappExposure.wide }
+                "tele" { $referenceappExposure.tele }
                 default { $null }
             }
         if ($seed -and $seed.iso -and $seed.shutter_ns) {
@@ -411,17 +411,17 @@ if (Test-Path -LiteralPath $colorMetricPy) {
 }
 
 Write-Host ""
-Write-Host "[capture_analyze] dng_proshot_parity_gate.py (Sprint 13.3f; informational unless -RequireProshotParity)..." -ForegroundColor Cyan
-$parityPy = Join-Path $PSScriptRoot "dng_proshot_parity_gate.py"
-$parityJson = Join-Path $outDir "proshot_parity_gate.json"
-$refFixture = Join-Path $projRoot "tests\fixtures\proshot_legacy_sku"
+Write-Host "[capture_analyze] dng_referenceapp_parity_gate.py (Sprint 13.3f; informational unless -RequireProshotParity)..." -ForegroundColor Cyan
+$parityPy = Join-Path $PSScriptRoot "dng_referenceapp_parity_gate.py"
+$parityJson = Join-Path $outDir "referenceapp_parity_gate.json"
+$refFixture = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku"
 $parityPass = $true
 if (Test-Path $parityPy) {
     & python $parityPy $outDir --referencecam-dir $refFixture --json-out $parityJson 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         $parityPass = $false
         if ($RequireProshotParity) {
-            Write-Host "FAIL: ReferenceCam parity gate (color/luminance/integrity vs tests/fixtures/proshot_legacy_sku)" -ForegroundColor Red
+            Write-Host "FAIL: ReferenceCam parity gate (color/luminance/integrity vs tests/fixtures/referenceapp_legacy_sku)" -ForegroundColor Red
             Write-Host "Report: $reportPath"
             exit 1
         }
@@ -439,7 +439,7 @@ if (Test-Path -LiteralPath $aestheticPy) {
     if ($LASTEXITCODE -ne 0) {
         $aestheticPass = $false
         if ($RequireAestheticGate) {
-            Write-Host "FAIL: dng_aesthetic_gate (P&S vs proshot_legacy_sku fixtures >20%)" -ForegroundColor Red
+            Write-Host "FAIL: dng_aesthetic_gate (P&S vs referenceapp_legacy_sku fixtures >20%)" -ForegroundColor Red
             exit 1
         }
         Write-Host "WARN: dng_aesthetic_gate FAIL (different scene vs gray-card refs - back-to-back capture for strict pass)" -ForegroundColor Yellow

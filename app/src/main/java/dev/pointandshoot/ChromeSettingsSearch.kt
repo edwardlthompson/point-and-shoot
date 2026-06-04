@@ -113,6 +113,13 @@ fun buildChromeSettingsSearchIndex(): List<ChromeSettingSearchHit> =
             settingKey = "preview.bluetooth_shutter",
         ),
         ChromeSettingSearchHit(
+            "Hardware camera key shutter",
+            "Preview & behavior",
+            "camera key dedicated focus half press sony xperia",
+            "preview",
+            settingKey = "preview.hardware_camera_key",
+        ),
+        ChromeSettingSearchHit(
             "Max brightness in preview",
             "Preview & behavior",
             "brightness screen bright max",

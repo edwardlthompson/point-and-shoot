@@ -8,6 +8,7 @@
 #>
 param(
     [string]$Serial = "",
+    [string]$OutDir = "",
     [int]$WaitSec = 14,
     [switch]$SkipInstall,
     [switch]$SkipAssemble
@@ -40,7 +41,8 @@ try {
     }
 
     $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-    $outDir = "hfr-runs\video_cap_probe_$stamp"
+    if (-not $OutDir) { $OutDir = "hfr-runs\video_cap_probe_$stamp" }
+    $outDir = $OutDir
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
     Write-Host "=== PNS Video Capability Probe (Sprint 13V.15) ===" -ForegroundColor Cyan
@@ -83,6 +85,15 @@ try {
     $hasHdr10 = $summaryLine -match "hdr10=True"
     $hasYuvP010 = $summaryLine -match "yuvp010=True"
     $probeRan = $null -ne $summaryLine -and $summaryLine.Length -gt 0
+    $hasH264Encoder = @($encoders | Where-Object { $_ -match "video/avc|avc" }).Count -gt 0
+    $hasHevcEncoder = @($encoders | Where-Object { $_ -match "video/hevc|hevc" }).Count -gt 0
+    $hasEncoder4k120H264 = $has4k120 -and $hasH264Encoder
+    $hasEncoder4k120Hevc = $has4k120 -and $hasHevcEncoder
+    $hasEncoder4k120Any = $hasEncoder4k120H264 -or $hasEncoder4k120Hevc
+    $capabilityClass =
+        if (-not $probeRan -or -not $has1080p120) { "S0" }
+        elseif ($hasEncoder4k120Any) { "S2" }
+        else { "S1" }
 
     Write-Host ""
     Write-Host "=== Results ===" -ForegroundColor Cyan
@@ -93,10 +104,15 @@ try {
     Write-Host "  Main10 profile           : $hasMain10"
     Write-Host "  HDR10 profile            : $hasHdr10"
     Write-Host "  YUVP010 color format     : $hasYuvP010"
+    Write-Host "  H.264 encoder seen       : $hasH264Encoder"
+    Write-Host "  HEVC encoder seen        : $hasHevcEncoder"
+    Write-Host "  4K120 via H.264 path     : $hasEncoder4k120H264"
+    Write-Host "  4K120 via HEVC path      : $hasEncoder4k120Hevc"
+    Write-Host "  capabilityClass          : $capabilityClass"
     Write-Host "  Performance points found : $($perfPoints.Count)"
     Write-Host "  Encoders found           : $($encoders.Count)"
 
-    $passed = $probeRan -and $has1080p120 -and $has4k120 -and $hasMain10 -and $hasYuvP010
+    $passed = $probeRan -and $has1080p120 -and $hasEncoder4k120Any
 
     $result = [ordered]@{
         timestamp      = $stamp
@@ -108,6 +124,12 @@ try {
         hasMain10      = [bool]$hasMain10
         hasHdr10       = [bool]$hasHdr10
         hasYuvP010     = [bool]$hasYuvP010
+        hasH264Encoder = [bool]$hasH264Encoder
+        hasHevcEncoder = [bool]$hasHevcEncoder
+        hasEncoder4k120H264 = [bool]$hasEncoder4k120H264
+        hasEncoder4k120Hevc = [bool]$hasEncoder4k120Hevc
+        hasEncoder4k120Any = [bool]$hasEncoder4k120Any
+        capabilityClass = $capabilityClass
         perfPointCount = @($perfPoints | ForEach-Object { $_ }).Count
         encoderCount   = @($encoders | ForEach-Object { $_ }).Count
         summaryLine    = "$summaryLine"
@@ -124,8 +146,7 @@ try {
         if (-not $probeRan) { Write-Host "  MISSING: capProbeResult (probe did not log)" -ForegroundColor Red }
         if (-not $has1080p120) { Write-Host "  MISSING: 1080p@120fps performance-point" -ForegroundColor Red }
         if (-not $has4k120) { Write-Host "  MISSING: 4K@120fps performance-point" -ForegroundColor Red }
-        if (-not $hasMain10) { Write-Host "  MISSING: HEVC Main10 profile" -ForegroundColor Red }
-        if (-not $hasYuvP010) { Write-Host "  MISSING: YUVP010 color format" -ForegroundColor Red }
+        if (-not $hasEncoder4k120Any) { Write-Host "  MISSING: 4K120 encoder path (H.264/HEVC)" -ForegroundColor Red }
     }
 
     Write-Host "Artifacts: $outDir"

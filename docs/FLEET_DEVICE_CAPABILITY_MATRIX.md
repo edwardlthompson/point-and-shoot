@@ -134,6 +134,26 @@ Per-SKU checklists: **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
 
 See **`AGENTS.md`** — **CRITICAL — Fleet capability matrix** and **`.cursor/rules/fleet-generic-policy.mdc`**.
 
+## Product slice — hardware launch & buttons
+
+Written on **every** quick/full rescan by [`ProductHardwareLaunchScan`](app/src/main/java/dev/pointandshoot/fleet/ProductHardwareLaunchScan.kt) into `product.hardwareLaunch` and `product.hardwareButtons`.
+
+| Field | Meaning |
+|-------|---------|
+| `product.hardwareLaunch.stillImageCamera` | `PackageManager.queryIntentActivities` for `MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA` — handler list, `pnsRegistered`, `defaultRoleHolder` (RoleManager `ROLE_CAMERA`) |
+| `product.hardwareLaunch.stillImageCameraSecure` | Same for `INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE` |
+| `product.hardwareLaunch.videoCamera` / `imageCapture` | `INTENT_ACTION_VIDEO_CAMERA` / `ACTION_IMAGE_CAPTURE` handlers |
+| `product.hardwareButtons.knownShutterKeyCodes` | Informational Android key names the app handles (`KEYCODE_CAMERA`, `KEYCODE_FOCUS`, volume, media) |
+| `product.hardwareButtons.inputDevices` | `InputManager` inventory with heuristic match (`gpio-keys`, camera/shutter in name) |
+| `product.hardwareButtons.dedicatedCameraKeyLikely` | Static heuristic — not Sony-specific |
+| `product.hardwareButtons.programmableButtonLikely` | Extra gpio / interactive probe suggests Shortcut-key-style button |
+| `product.hardwareButtons.interactiveProbe` | Merged from `files/HARDWARE_KEY_PROBE_LATEST.json` when present (engineering probe / `pns_hardware_key_probe.ps1`) |
+| `appendix.inputDevicesRedacted` | Full tier only — redacted `dumpsys input` excerpt |
+
+**Catalog ids:** `product.still_image_camera_launch`, `product.hardware_camera_key`, `product.programmable_hardware_button` — see [`CameraCapabilityCatalog.kt`](app/src/main/java/dev/pointandshoot/fleet/CameraCapabilityCatalog.kt).
+
+**Host scripts:** `pns_hardware_key_probe.ps1`, `pns_hardware_shutter_verify.ps1`, `pns_fleet_matrix_scan.ps1`.
+
 ## Milestone 17 — capability catalog & device-tailored UI
 
 | Artifact | Path / code |

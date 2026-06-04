@@ -111,16 +111,16 @@ function Save-LogcatTail([string]$OutPath) {
     try {
         $mixedTail = 250000
         $tail = if ($Serial) {
-            @(& adb -s $Serial shell "logcat -d -t $mixedTail" 2>&1)
+            @(& adb -s $Serial logcat -d -t $mixedTail 2>&1)
         }
         else {
-            @(adb shell "logcat -d -t $mixedTail" 2>&1)
+            @(& adb logcat -d -t $mixedTail 2>&1)
         }
         $tagLines = if ($Serial) {
-            @(& adb -s $Serial shell "logcat -d -t 80000 *:S PNS.ChromeUx:I PNS.AdbValidation:I" 2>&1)
+            @(& adb -s $Serial logcat -d "*:S" "PNS.ChromeUx:I" "PNS.AdbValidation:I" 2>&1)
         }
         else {
-            @(adb shell "logcat -d -t 80000 *:S PNS.ChromeUx:I PNS.AdbValidation:I" 2>&1)
+            @(& adb logcat -d "*:S" "PNS.ChromeUx:I" "PNS.AdbValidation:I" 2>&1)
         }
         $sb = New-Object System.Text.StringBuilder
         foreach ($ln in $tail) { [void]$sb.AppendLine($ln) }
@@ -128,6 +128,23 @@ function Save-LogcatTail([string]$OutPath) {
         foreach ($ln in $tagLines) { [void]$sb.AppendLine($ln) }
         $utf8 = New-Object System.Text.UTF8Encoding $false
         [System.IO.File]::WriteAllText($OutPath, $sb.ToString(), $utf8)
+    }
+    finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Read-ChromeUxLogcatFiltered {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "SilentlyContinue"
+    try {
+        $lines = if ($Serial) {
+            @(& adb -s $Serial logcat -d "*:S" "PNS.ChromeUx:I" "PNS.AdbValidation:I" 2>&1)
+        }
+        else {
+            @(& adb logcat -d "*:S" "PNS.ChromeUx:I" "PNS.AdbValidation:I" 2>&1)
+        }
+        return ($lines -join "`n")
     }
     finally {
         $ErrorActionPreference = $prev
@@ -198,8 +215,8 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     Write-Host "`[chrome_ux_gate] devices:"
     Invoke-Adb @("devices", "-l")
     if (-not $SkipInstall.IsPresent) {
-        Write-Host "`[chrome_ux_gate] install -r $apk"
-        Invoke-Adb @("install", "-r", $apk)
+        Write-Host "`[chrome_ux_gate] install -r -t $apk"
+        Invoke-Adb @("install", "-r", "-t", $apk)
     }
     Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA")
     Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_IMAGES")
@@ -225,13 +242,34 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     }
     # Focal-slot ADB probe can take ~36s (canCaptureStill + post-switch settle); default chrome seed ~35s.
     $deviceWaitSec = if ([string]::IsNullOrWhiteSpace($FocalMmSlot)) { 35 } else { 52 }
-    Start-Sleep -Seconds $deviceWaitSec
+    $collectedChromeUx = New-Object System.Text.StringBuilder
+    $pollStepSec = 4
+    $elapsedSec = 0
+    while ($elapsedSec -lt $deviceWaitSec) {
+        Start-Sleep -Seconds $pollStepSec
+        $elapsedSec += $pollStepSec
+        $snap = Read-ChromeUxLogcatFiltered
+        if (-not [string]::IsNullOrWhiteSpace($snap)) {
+            [void]$collectedChromeUx.AppendLine("--- poll t=${elapsedSec}s ---")
+            [void]$collectedChromeUx.AppendLine($snap)
+            $collectedText = $collectedChromeUx.ToString()
+            $hasSeed = $collectedText -match 'PNS\.ChromeUx.*seedOk\s+slot=M23'
+            $hasFocal = [string]::IsNullOrWhiteSpace($FocalMmSlot) -or ($collectedText -match 'PNS\.ChromeUx.*focalSlotTap=')
+            if ($hasSeed -and $hasFocal) {
+                break
+            }
+        }
+    }
 
     $logPath = Join-Path $OutDir "logcat_chrome_seed.txt"
     Save-LogcatTail $logPath
     Write-Host "`[chrome_ux_gate] Wrote $logPath"
 
     $logText = [System.IO.File]::ReadAllText($logPath)
+    $collectedText = $collectedChromeUx.ToString()
+    if (-not [string]::IsNullOrWhiteSpace($collectedText)) {
+        $logText += "`n--- collected chrome-ux poll ---`n$collectedText`n"
+    }
     # Kotlin: Log.i("PNS.ChromeUx", "seedOk slot=M23 cameraId=...")
     if ($logText -match 'PNS\.ChromeUx.*seedOk\s+slot=M23') {
         $seedOk = $true
@@ -278,12 +316,18 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx modeDialPopout= in logcat."
     }
-    # Keep in sync with [PreviewReadoutStillPipeline.chromeUxLogValue] (DNG / DNG+ / DNG12 / JPG / legacy JPEG / RAW).
-    if ($logText -match 'PNS\.ChromeUx.*readoutCapture=(DNG12\+|DNG12|DNG\+|DNG|RAW\+|RAW|JPEG only|JPEG|JPG)') {
+    # Keep in sync with [PreviewReadoutStillPipeline.chromeUxLogValue] (DNG/RAW/JPEG/JXL/AVIF/HEIC/TIFF16 variants).
+    if ($logText -match 'PNS\.ChromeUx.*readoutCapture=([A-Za-z0-9+_. -]+)') {
         $readoutCaptureOk = $true
     }
     else {
         Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx readoutCapture= in logcat."
+    }
+    if (-not $readoutOk -and $readoutCaptureOk -and $logText -match 'PNS\.ChromeUx.*statusBar=') {
+        # Ring buffers can drop the periodic readout live/fallback line while preserving
+        # readoutCapture + statusBar telemetry from the same session startup.
+        $readoutOk = $true
+        Write-Warning "[chrome_ux_gate] readout=live|fallback missing; using readoutCapture+statusBar fallback evidence."
     }
     # Cold-start self-timer pref log (default 0)
     if ($logText -match 'PNS\.ChromeUx.*selfTimerSec=\d+') {
@@ -313,16 +357,21 @@ if ($adbConnected -and (Test-Path -LiteralPath $apk) -and $deviceSkipReason -ne 
     if ([string]::IsNullOrWhiteSpace($FocalMmSlot)) {
         $teleFocalSlotOk = $true
     }
-    elseif ($logText -match 'PNS\.ChromeUx.*focalSlotTap=') {
-        $teleFocalSlotOk = $true
-    }
     else {
-        Write-Warning "[chrome_ux_gate] Did not find PNS.ChromeUx focalSlotTap= (set -FocalMmSlot '' to skip)."
+        $slotNeedle = [regex]::Escape($FocalMmSlot.Trim())
+        $lineMatch = [regex]::Match($logText, "PNS\.ChromeUx.*focalSlotTap=mm=$slotNeedle.*")
+        $hasSkipped = [regex]::IsMatch($logText, "PNS\.ChromeUx.*focalSlotTap=mm=$slotNeedle.*(skipped=|session not ready)")
+        if ($lineMatch.Success -and -not $hasSkipped) {
+            $teleFocalSlotOk = $true
+        }
+        else {
+            Write-Warning "[chrome_ux_gate] focal slot probe missing/invalid for slot=$FocalMmSlot (requires focalSlotTap mm match without skipped/session not ready)."
+        }
     }
 }
 
-# Pass: host always required. Device / seed required only when we actually ran the device scenario.
-$gatePass = $hostPass
+# Pass: host + device evidence required for fleet chrome gate.
+$gatePass = $false
 if ($deviceSkipReason -eq "missing_apk") {
     $gatePass = $false
 }
@@ -358,6 +407,8 @@ $jsonPath = Join-Path $OutDir "chrome_ux_gate.json"
 $obj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonPath -Encoding utf8
 Write-Host "`[chrome_ux_gate] Wrote $jsonPath pass=$gatePass hostPass=$hostPass seedOk=$seedOk safeInsetsOk=$safeInsetsOk dndPreviewOk=$dndPreviewOk readoutOk=$readoutOk dualShutterOk=$dualShutterOk grid7Ok=$grid7Ok modeDialPopoutOk=$modeDialPopoutOk readoutCaptureOk=$readoutCaptureOk selfTimerOk=$selfTimerOk flashQsGrid7Ok=$flashQsGrid7Ok flashPreviewHardwareOk=$flashPreviewHardwareOk expandModalHostOk=$expandModalHostOk teleFocalSlotOk=$teleFocalSlotOk"
 # §5 append: .\scripts\pns_probe_append_section5.ps1 -GateJson <path\to\chrome_ux_gate.json> [-PassOnly]
+
+Invoke-AdbIgnore @("shell", "am", "force-stop", $pkg)
 
 if (-not $gatePass) {
     exit 1

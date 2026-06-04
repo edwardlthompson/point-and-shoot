@@ -14,7 +14,7 @@ class LeafDngHalReconcileTest {
         assertTrue(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = "3",
                 proShotPureDngSave = false,
             ),
@@ -22,7 +22,7 @@ class LeafDngHalReconcileTest {
         assertTrue(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = "4",
                 proShotPureDngSave = false,
             ),
@@ -30,7 +30,7 @@ class LeafDngHalReconcileTest {
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = "2",
                 proShotPureDngSave = false,
             ),
@@ -42,28 +42,28 @@ class LeafDngHalReconcileTest {
         assertTrue(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
-                uwProShotAsnReconcile = true,
+                uwReferenceAppAsnReconcile = true,
             ),
         )
         assertTrue(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = LegacyFleetPolicy.CANONICAL_TELE,
                 proShotPureDngSave = true,
-                uwProShotAsnReconcile = true,
+                uwReferenceAppAsnReconcile = true,
             ),
         )
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
-                uwProShotAsnReconcile = false,
+                uwReferenceAppAsnReconcile = false,
             ),
         )
     }
@@ -73,7 +73,7 @@ class LeafDngHalReconcileTest {
         assertTrue(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = LegacyFleetPolicy.CANONICAL_TELE,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = true,
@@ -82,7 +82,7 @@ class LeafDngHalReconcileTest {
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = LegacyFleetPolicy.CANONICAL_WIDE,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = true,
@@ -95,7 +95,7 @@ class LeafDngHalReconcileTest {
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.MOTIONCAM_INSPIRED,
+                backend = StillDngBackend.ALTREFERENCEAPP_INSPIRED,
                 sessionCameraId = "3",
             ),
         )

@@ -12,7 +12,7 @@
     { "catalogId": "video.vp9.4k", "ownerClass": "ShipNow", "providerDomain": "Camera2 baseline (consumer)", "closureLane": "22.6" },
     { "catalogId": "video.vp9.8k", "ownerClass": "ShipNow", "providerDomain": "Camera2 baseline (consumer)", "closureLane": "22.6" },
     { "catalogId": "video.dual_iso", "ownerClass": "MatrixGate", "providerDomain": "Camera2 baseline (consumer)", "closureLane": "22.3 + 22.6" },
-    { "catalogId": "still.proshot_leaf", "ownerClass": "ProbeOnly", "providerDomain": "Camera2 baseline (consumer)", "closureLane": "22.3 + 22.6" },
+    { "catalogId": "still.referenceapp_leaf", "ownerClass": "ProbeOnly", "providerDomain": "Camera2 baseline (consumer)", "closureLane": "22.3 + 22.6" },
     { "catalogId": "still.independent_tonal", "ownerClass": "ShipNow", "providerDomain": "Camera2 baseline (consumer)", "closureLane": "22.5" },
     { "catalogId": "camerax.auto", "ownerClass": "ProbeOnly", "providerDomain": "CameraX consumer features", "closureLane": "22.6" },
     { "catalogId": "camerax.portrait", "ownerClass": "ProbeOnly", "providerDomain": "CameraX consumer features", "closureLane": "22.6" },

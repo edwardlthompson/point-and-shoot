@@ -124,7 +124,7 @@ object FleetParitySweepRunner {
             "raw.dng",
             "still.zsl",
             "still.bracket",
-            "still.proshot_leaf",
+            "still.referenceapp_leaf",
             "still.nightscape",
             "still.avif",
             "video.h264",

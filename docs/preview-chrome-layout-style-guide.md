@@ -30,7 +30,7 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 
 4. **Section divider** — `PreviewChromeSectionDivider()`.
 
-5. **Readout chips** — `PreviewReadoutStrip` (ISO, shutter, WB, AF, mode-specific LUT). **Photo:** Still LUT + IMG. **Video:** Video LUT only (no IMG / Still LUT). Requires `primaryPhoto` at the call site — **`docs/M14_READOUT_STATUS_BAR.md`**. Own height; **clipped** to its lane.
+5. **Readout chips** — `PreviewReadoutStrip` (ISO, shutter, WB, optional **F** aperture when HAL reports `LENS_INFO_AVAILABLE_APERTURES`, AF, mode-specific LUT). **Photo:** Still LUT + IMG. **Video:** Video LUT only (no IMG / Still LUT). Requires `primaryPhoto` at the call site — **`docs/M14_READOUT_STATUS_BAR.md`**. Own height; **clipped** to its lane.
 
 6. **Section divider** — `PreviewChromeSectionDivider()`.
 

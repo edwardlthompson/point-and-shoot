@@ -48,7 +48,21 @@ object FleetParityLogcatParser {
         val out = mutableListOf<ParsedCell>()
         for (line in text.lineSequence()) {
             val cell = parseLine(line) ?: continue
-            if (seen.add(cell.catalogId)) {
+            // Deduplicate mirrored FleetParity/AdbValidation copies of the same line, but keep
+            // distinct rows that share catalogId (for example per-slot lens rows).
+            val dedupeKey =
+                listOf(
+                    cell.catalogId,
+                    cell.advertised.toString(),
+                    cell.sessionOk?.toString() ?: "null",
+                    cell.appEnabled.toString(),
+                    cell.provenOk.toString(),
+                    cell.gap ?: "",
+                    cell.impact ?: "",
+                    cell.failReason ?: "",
+                    cell.durationMs.toString(),
+                ).joinToString("|")
+            if (seen.add(dedupeKey)) {
                 out += cell
             }
         }

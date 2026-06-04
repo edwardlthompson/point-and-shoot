@@ -15,7 +15,7 @@
 |------|-------------|-------------|-------|
 | H1 | `useWideLeafCalibrationForAuxDng=true` (CM/FM from cam **2** on aux RAW only) | ACR **3/3** required | vs ReferenceCam |
 | H2 | H1 + `LeafDngHalReconcile` ASN on aux | ACR **3/3** | vs ReferenceCam |
-| H3 | H2 + `proShotLatchManualExposureOnStill` + `adjustProShotExposureLatch` | ACR **3/3** | vs ReferenceCam |
+| H3 | H2 + `proShotLatchManualExposureOnStill` + `adjustReferenceAppExposureLatch` | ACR **3/3** | vs ReferenceCam |
 
 After each step: `pns_aux_dng_capture_analyze.ps1 -PreviewDial A -NoFast` (open gate must pass). Logcat must not show unexpected `wide-cal reconcile` unless H1+ is intentional.
 

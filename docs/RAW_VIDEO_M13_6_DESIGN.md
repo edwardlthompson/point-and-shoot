@@ -4,9 +4,9 @@
 
 ## Reference
 
-MotionCam: native `RawEncoder`, `.mcraw` container, dedicated capture session — see **`docs/MOTIONCAM_APK_FLEET_ANALYSIS.md`**.
+AltReferenceApp: native `RawEncoder`, `.mcraw` container, dedicated capture session — see **`docs/ALTREFERENCEAPP_APK_FLEET_ANALYSIS.md`**.
 
-**P&S direction:** Java Camera2 REGULAR session (no `MediaRecorder` on RAW lane), MotionCam-informed frame packing, legacy device first via **`FleetCameraProfile`**.
+**P&S direction:** Java Camera2 REGULAR session (no `MediaRecorder` on RAW lane), AltReferenceApp-informed frame packing, legacy device first via **`FleetCameraProfile`**.
 
 ## Session topology
 

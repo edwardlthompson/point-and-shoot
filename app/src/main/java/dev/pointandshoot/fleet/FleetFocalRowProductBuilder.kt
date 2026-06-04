@@ -13,6 +13,8 @@ import org.json.JSONObject
  */
 object FleetFocalRowProductBuilder {
 
+    private val CHIP_TARGETS = listOf(14, 23, 35, 50, 73, 85, 150)
+
     fun build(
         context: Context,
         cameraIds: List<String>,
@@ -20,18 +22,34 @@ object FleetFocalRowProductBuilder {
     ): JSONObject {
         val app = context.applicationContext
         val roles = FleetCameraProfiles.resolvedRoles(app, cameraIds)
-        val wideMp =
-            focalEntries.firstOrNull { it.cameraId == roles.wide }?.megapixels
-                ?: focalEntries.maxOfOrNull { it.megapixels }
-                ?: 0.0
-        val uwMm = nativeLabelMm(focalEntries, roles.ultraWide)
-        val wideMm = nativeLabelMm(focalEntries, roles.wide)
-        val teleMm = nativeLabelMm(focalEntries, roles.tele)
+        val assignments =
+            dev.pointandshoot.FocalLensStripSupport
+                .resolvePrimeLensAssignments(app, cameraIds, CHIP_TARGETS)
+        val byTarget = assignments.associateBy { it.targetEqMm }
+        val assignedCameraIds = assignments.map { it.cameraId }.distinct()
+        val uwCameraId =
+            byTarget[14]?.cameraId
+                ?: roles.ultraWide
+                ?: assignedCameraIds.firstOrNull()
+        val wideCameraId =
+            byTarget[23]?.cameraId
+                ?: byTarget[35]?.cameraId
+                ?: roles.wide
+                ?: assignedCameraIds.firstOrNull()
+        val teleCameraId =
+            byTarget[73]?.cameraId
+                ?: byTarget[85]?.cameraId
+                ?: byTarget[150]?.cameraId
+                ?: roles.tele
+                ?: assignedCameraIds.lastOrNull()
+        val uwMm = nativeLabelMm(byTarget[14], focalEntries, uwCameraId)
+        val wideMm = nativeLabelMm(byTarget[23], focalEntries, wideCameraId)
+        val teleMm = nativeLabelMm(byTarget[73] ?: byTarget[85], focalEntries, teleCameraId)
         val monochromeCameraId = dedicatedMonochromeCameraId(app, cameraIds)
         val staticCrop =
             JSONObject().apply {
                 for (mm in listOf(35, 50, 85, 150)) {
-                    val mp = estimateStaticMp(wideMp, mm)
+                    val mp = byTarget[mm]?.effectiveMp ?: 0.0
                     put("$mm", mp)
                 }
             }
@@ -49,19 +67,40 @@ object FleetFocalRowProductBuilder {
                     )
                 }
             }
+        val slotAssignments =
+            JSONObject().apply {
+                CHIP_TARGETS.forEach { mm ->
+                    val assignment = byTarget[mm]
+                    put(
+                        "m$mm",
+                        JSONObject().apply {
+                            if (assignment == null) {
+                                put("available", false)
+                            } else {
+                                put("available", true)
+                                put("cameraId", assignment.cameraId)
+                                put("nativeEqMm", assignment.nativeEqMm)
+                                put("effectiveMp", assignment.effectiveMp)
+                                put("cropFactor", assignment.nativeEqMm.toDouble() / mm.toDouble())
+                            }
+                        },
+                    )
+                }
+            }
         return JSONObject().apply {
             uwMm?.let { put("nativeUwMm", it) }
             wideMm?.let { put("nativeWideMm", it) }
             teleMm?.let { put("nativeTeleMm", it) }
-            roles.ultraWide?.let { put("uwCameraId", it) }
-            roles.wide?.let { put("wideCameraId", it) }
-            roles.tele?.let { put("teleCameraId", it) }
+            uwCameraId?.let { put("uwCameraId", it) }
+            wideCameraId?.let { put("wideCameraId", it) }
+            teleCameraId?.let { put("teleCameraId", it) }
             put("staticCropMp", staticCrop)
             put("staticSlots", staticSlots)
+            put("slotAssignments", slotAssignments)
             put(
                 "specialRoles",
                 JSONObject().apply {
-                    put("dedicatedMacro", roles.tele != null && hasMacroCandidate(focalEntries))
+                    put("dedicatedMacro", teleCameraId != null && hasMacroCandidate(focalEntries))
                     put("dedicatedMonochrome", monochromeCameraId != null)
                     monochromeCameraId?.let { put("monochromeCameraId", it) }
                 },
@@ -73,24 +112,14 @@ object FleetFocalRowProductBuilder {
     fun focalMmSlotForIndex(index: Int): FocalMmSlot? = FocalMmSlot.entries.getOrNull(index)
 
     private fun nativeLabelMm(
+        assignment: dev.pointandshoot.FocalLensStripSupport.PrimeLensAssignment?,
         entries: List<dev.pointandshoot.FleetCameraStartupScan.SlotEntry>,
         cameraId: String?,
     ): String? {
+        assignment?.nativeEqMm?.let { return it.toString() }
         if (cameraId == null) return null
         val mm = entries.firstOrNull { it.cameraId == cameraId }?.focalMm35 ?: return null
         return mm.toString()
-    }
-
-    private fun estimateStaticMp(wideMp: Double, eqMm: Int): Double {
-        if (wideMp <= 0.0) return 0.0
-        val cropFactor = when (eqMm) {
-            35 -> 1.0
-            50 -> 0.72
-            85 -> 0.42
-            150 -> 0.24
-            else -> 1.0
-        }
-        return (wideMp * cropFactor * cropFactor).coerceAtLeast(0.0)
     }
 
     private fun hasMacroCandidate(entries: List<dev.pointandshoot.FleetCameraStartupScan.SlotEntry>): Boolean =

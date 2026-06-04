@@ -14,22 +14,22 @@ Living ledger of changes that made **legacy SKU** UW/tele DNGs **structurally va
 |----|--------|---------|-----------|
 | **R1** | Post-save `StillCaptureMetadata` / `ExifInterface.saveAttributes()` on full DNG | ACR “unsupported” / corrupt; green cast | No `StillCaptureMetadata` on leaf when `skipStillMetadataApplyOnLeafDng` |
 | **R2** | `useWideLeafCalibrationForAuxDng` — wide CM/FM on UW/tele RAW | ACR reject; aux CM2[0,0] == wide | `dng_desktop_open_gate.py` wide-cal leak; logcat no `wide-cal reconcile` |
-| **R3** | `LeafDngHalReconcile` ASN / inverted-gain TIFF surgery | Extreme ASN; decoder reject | ASN multipliers outside ~0.45–2.8; `useProShotPureDngSave()` → reconcile **off** |
-| **R4** | `LegacyLeafStillColorCorrection` capture-time gains with pure save | Color drift; occasional open fail | Disabled when `useProShotPureDngSave()` |
+| **R3** | `LeafDngHalReconcile` ASN / inverted-gain TIFF surgery | Extreme ASN; decoder reject | ASN multipliers outside ~0.45–2.8; `useReferenceAppPureDngSave()` → reconcile **off** |
+| **R4** | `LegacyLeafStillColorCorrection` capture-time gains with pure save | Color drift; occasional open fail | Disabled when `useReferenceAppPureDngSave()` |
 | **R5** | `proShotLatchManualExposureOnStill` + exposure scale (wide-cal mode) | Tele under/over vs Bayer; metadata mismatch | Only when `useWideLeafCalibrationForAuxDng()` |
-| **R6** | `proShotLeafStillSkipsStopRepeating` / `ProShotStillPrecapture` | Session timing; flaky still / bad metadata | Shipped **false**; normal `stopRepeating` + `fireStillCapture` |
+| **R6** | `proShotLeafStillSkipsStopRepeating` / `ReferenceAppStillPrecapture` | Session timing; flaky still / bad metadata | Shipped **false**; normal `stopRepeating` + `fireStillCapture` |
 | **R7** | `TiffUniqueCameraModel50708` buffer rewrite on large RAW | Rare heap / strip edge cases | `skipUniqueCameraModelOnLeafDng` on legacy device leaf |
 
 ---
 
 ## Shipped Standard path (13.3g)
 
-- Leaf **`DngCreator(openedCharacteristics, stillResult)`** only — `LeafDngHalReconcile` **off** when `useProShotPureDngSave()`.
+- Leaf **`DngCreator(openedCharacteristics, stillResult)`** only — `LeafDngHalReconcile` **off** when `useReferenceAppPureDngSave()`.
 - **`useWideLeafCalibrationForAuxDng()` = false** until Sprint **13.3h** bisect with per-step ACR proof.
-- **`useProShotStillPrecapture()` = false**; **`proShotLeafStillSkipsStopRepeating()` = false**.
+- **`useReferenceAppStillPrecapture()` = false**; **`proShotLeafStillSkipsStopRepeating()` = false**.
 - **`skipStillMetadataApplyOnLeafDng`** for cam **3 / 2 / 4**.
 
-Contract object: `ProShotPipelineContract.kt`. Policy: `LegacyDeviceFleetPolicy.kt`, `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
+Contract object: `ReferenceAppPipelineContract.kt`. Policy: `LegacyDeviceFleetPolicy.kt`, `docs/FLEET_ONEPLUS13_RAW_POLICY.md`.
 
 ---
 

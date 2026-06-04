@@ -72,6 +72,7 @@ object PreviewJpegProcessingHints {
 
     @SuppressLint("NewApi")
     private fun pickColorCorrection(req: CaptureRequest.Builder, chars: CameraCharacteristics, bias: Int) {
+        if (Build.VERSION.SDK_INT < 34) return
         val avail = chars.get(CameraCharacteristics.COLOR_CORRECTION_AVAILABLE_MODES) ?: return
         val ordered =
             intArrayOf(

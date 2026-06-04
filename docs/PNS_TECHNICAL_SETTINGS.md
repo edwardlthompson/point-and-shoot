@@ -8,11 +8,11 @@
 |---------------------------|------|
 | Product milestones / sprints | `BUILD_PLAN.md`, `BUILD_PLAN_COMPLETED.md` |
 | Probe ↔ product map | `PROBE_BUILD_PLAN.md` §6 |
-| Shipped / user-visible deltas | `CHANGELOG.md` |
+| Shipped / user-visible deltas | `CHANGELOG.md`, `scripts/changelog_coverage.v1.json` |
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-05-29 (M17 — fleet UI visibility, hub search, 1080p@30 video format rescan).
+**Last synced with tree:** 2026-06-04 (M24 4K120 reliability hardening — HS startup ordering, strict telemetry retries, capability-class gating, parity truth handoff).
 
 **Related deep dives (not duplicated here):**
 
@@ -145,7 +145,7 @@ Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2).
 **Function:** `PreviewController.applyReadoutManualExposureAndWb`  
 **Repeating preview + JPEG still + RAW still** (when coupling ≠ AUTO) use the same **AE OFF + chase/manual** path.
 
-**ReferenceCam leaf still metering** (`applyProShotPreviewExposureFromResult`) is **not** applied when `wantsReadoutExposureChase()` — avoids HAL re-metering over locked ISO.
+**ReferenceCam leaf still metering** (`applyReferenceAppPreviewExposureFromResult`) is **not** applied when `wantsReadoutExposureChase()` — avoids HAL re-metering over locked ISO.
 
 ### 3.5 Preview AE lock (Sprint 15.26)
 
@@ -153,7 +153,24 @@ Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2).
 
 **Incompatible with readout chase:** AE lock is ignored (and cleared when arming locked-shutter / auto-ISO) while `wantsReadoutExposureChase()` — preview AE lock would freeze the auto axis.
 
-### 3.6 Focus mode picker (Sprint 14.8)
+### 3.6 Aperture readout (F chip)
+
+**Code:** `PreviewApertureSupport.kt`, `PreviewController.cycleReadoutAperture`, `applyReadoutAperture` (via `applyReadoutManualExposureAndWb`).
+
+| HAL `LENS_INFO_AVAILABLE_APERTURES` | F chip |
+|-------------------------------------|--------|
+| Empty | Hidden (`lens.aperture` fleet gate) |
+| One value | Shows `f/x.x` (read-only) |
+| Two or more + `LENS_APERTURE` request key | Tap cycles sorted f-stops |
+
+- Readout order: **ISO · SS · F · WB · AF** (F sits beside SS).
+- Selection is stored **per `cameraId`** (`apertureByCameraId`) so focal-row lens switches (e.g. Sony Xperia PRO-I main **f/2.0** / **f/4.0** vs fixed UW/tele) do not reset the main lens choice.
+- Default on first use: **smallest f-number** (widest open).
+- Logs: `PNS.ChromeUx apertureInit`, `apertureCycle`, `apertureAutomation`.
+- ADB: `--ei pns_preview_aperture_cycles N` with `--es pns_preview_camera_id` (optional); gate **`scripts/pns_aperture_readout_verify.ps1`**.
+- Catalog: `lens.aperture`, `lens.variable_aperture`.
+
+### 3.7 Focus mode picker (Sprint 14.8)
 
 **Code:** `PreviewFocusMode.kt`, `PreviewFocusModePickerDialog.kt`, readout **AF** chip, `PreviewController.setPreviewFocusSelection`.
 
@@ -240,13 +257,13 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 **Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock). On legacy device rear leaf (**2/3/4**), `skipStillMetadataApplyOnLeafDng` skips post-save EXIF patches (ReferenceCam parity). Leaf DNGs also skip P&S software auxiliary strings (`skipDngSoftwareDescriptionOnLeaf`).
 
-**legacy device leaf DNG (shipped May 2026):** `ProShotLeafStillCaptureRequest` + `ProShotDngCreatorPair` mirror ReferenceCam decompile: crop + still IQ (lens shading map, edge/NR/tonemap/aberration/distortion) + **HAL AE** on still — **no** readout manual ISO, no `applyProShotPreviewExposureFromResult` AE latch, no post-save TIFF reconcile. Code: `useExactProShotLeafStillCaptureRequest()`, `useLegacyLeafAuxColorReconcile=false`, `useProShotReferenceCalibration=false`.
+**legacy device leaf DNG (shipped May 2026):** `ReferenceAppLeafStillCaptureRequest` + `ReferenceAppDngCreatorPair` mirror ReferenceCam decompile: crop + still IQ (lens shading map, edge/NR/tonemap/aberration/distortion) + **HAL AE** on still — **no** readout manual ISO, no `applyReferenceAppPreviewExposureFromResult` AE latch, no post-save TIFF reconcile. Code: `useExactReferenceAppLeafStillCaptureRequest()`, `useLegacyLeafAuxColorReconcile=false`, `useReferenceAppReferenceCalibration=false`.
 
 ### 5.3 Advanced capture modes (Sprint CC.1)
 
 | Setting | Storage | Behavior |
 |---------|---------|----------|
-| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` + `burstPhotoQualityProfile` | **Tap:** runs [PreviewController.captureComposedStillBurst] for configured shot count. **Photo long-press:** starts/stops continuous burst on press/release; burst path uses a bounded pending-shot buffer so higher-rate shutter intent can run while processing/saving drains asynchronously. Top status band shows live effective burst fps (`Burst <effective> fps (target <fps>) q=<pending>`). Timer QS has distinct **Single**, **Timer**, and **Burst** sections. Burst speed is now fixed to a single fleet preset (**Fleet Max**, `17 ms` target) with no user slow/medium/fast tiers. Burst section keeps file-type picker (**RAW only** or **JPEG only**). Burst intent forces `photoResolutionMode=Binned`; JPEG long-press burst uses a low-latency still request variant (skip stop/restart preview repeating and heavy per-shot IQ request tuning) to prioritize cadence over per-shot still processing. ADB benchmark seeds: `pns_preview_burst_file` (`raw|jpeg`) + `pns_preview_burst_strategy` (`aggressive|paced`). |
+| Burst mode | `HudSettings.burstModeEnabled` + `burstShotCount` + `burstIntervalMs` + `burstPhotoQualityProfile` | **Tap:** runs [PreviewController.captureComposedStillBurst] for configured shot count. **Photo long-press:** starts/stops continuous burst on press/release with separated engines: **JPEG burst** uses a low-latency hardware request train (`captureIndependentTonalStill(... burstRequestCount > 1 ...)` -> `CameraCaptureSession.captureBurst`) and asynchronous save workers so capture request cadence is less blocked by encode/write cost; aggressive JPEG dispatch scales burst train depth by backlog (`2/4/6/8`), applies adaptive backpressure tuning (`paceFloorMs` + `queueCap` adjustments from live drop ratio), uses bounded save concurrency (`Semaphore(3)`), and now supports **live strategy auto-switch** (`aggressive` <-> `paced`) during a hold when drop/saved conditions cross thresholds. JPEG burst save path also enables lightweight metadata mode (skip heavy post-save metadata/description patching for burst writes). **RAW burst** stays on composed still capture with serialized dispatch to reduce `No RAW buffer` stalls. Top status band shows live effective burst fps (`Burst <effective> fps (target <fps>) q=<pending>`). Timer QS has distinct **Single**, **Timer**, and **Burst** sections. Burst speed is fixed to one fleet preset (**Fleet Max**, `17 ms` target) with no user slow/medium/fast tiers. Burst section keeps file-type picker (**RAW only** or **JPEG only**). Burst intent forces `photoResolutionMode=Binned`; JPEG long-press burst keeps low-latency still request tuning (skip stop/restart preview repeating and heavy per-shot IQ request tuning). Finish telemetry logs `profile`, `strategy`, `captured`, `saved`, `savePending`, `drops`, and capture latency buckets (`le100/le250/le500/gt500`) for benchmark parsing. ADB benchmark seeds: `pns_preview_burst_file` (`raw|jpeg`) + `pns_preview_burst_strategy` (`aggressive|paced`). |
 | Intervalometer | `intervalometerIntervalSec` + `intervalometerRunning` | Timed stills while preview is open (photo mode, not recording). |
 | Time-lapse output | `timeLapseMode` (`Off` / `Photo` / `Video`) | **Video:** hardware JPEG frames → H.264 MP4 @ 30 fps (`TimeLapseVideoEncoder`, PTS = frame × 1/30 s). Blocks RAW DNG + normal video rec while active. Requires JPEG tier in IMG menu. Log: `PNS.TimeLapse`. |
 | Pre-capture buffer | `preCaptureBufferEnabled` | Enables [ZslStillFrameRing] on preview RAW; Standard stills use ZSL ring when on. |
@@ -285,9 +302,9 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 See `docs/FLEET_ONEPLUS13_RAW_POLICY.md`. Summary:
 
-- Shipped still backend: **`FRAMEWORK_PROSHOT`** on legacy SKU/2653
+- Shipped still backend: **`FRAMEWORK_REFERENCEAPP`** on legacy SKU/2653
 - Leaf RAW format order: **32 → 37 → 38 → 36** on opened map
-- `useProShotPureDngSave()` — `DngCreator(leaf, stillResult)` without wide-cal reconcile on leaf
+- `useReferenceAppPureDngSave()` — `DngCreator(leaf, stillResult)` without wide-cal reconcile on leaf
 
 **ReferenceCam + readout chase:** HAL metering / AE lock from ReferenceCam **disabled** when `wantsReadoutExposureChase()`.
 
@@ -460,9 +477,27 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **HFR honesty (≥120 fps):** On legacy SKU-class devices, constrained HS + Qualcomm HEVC delivers about **half** the target unique frame rate (e.g. ~60 unique/s at 120 fps). **`VideoRecordingController.lacksTrueHfrUniqueFrames`** hides **HEVC-family** and **AV1** picker rows at **≥120 fps** until hardware + unique-frame proof exists. **H.264 @ 120/240/480** remains when the camera HS table supports it. **AV1 ≤60** when `MediaCodecCapabilityProbe` lists an encoder. No mux frame duplication. USB AV1@120 artifact: `hfr-runs/av1_hfr_verify_*`. See **`docs/VIDEO_MODE_MATRIX.md`**.
 
+**Strict 4K120 truth lane (M24):**
+
+- Preview controller tracks strict-start telemetry: `hfrWarmupAttempt`, `hfrRoute`, `hfrHealthWindowMs`, `hfrBlockReason` (logs in `PNS.Cam` + `PNS.AdbValidation`).
+- HS startup hardening: constrained-HS sessions now start MediaCodec before repeating burst for in-app record, route burst failures into camera fault recovery, skip first `stopRepeating()` on fresh HS start, and defer fault-reopen retries while open/configure is still pending.
+- Strict 120 start path uses a bounded retry budget before falling back to recovery-cap block behavior. If strict warmup cannot become healthy, start is rejected (`inAppVideo120StrictBlocked ... reason=warmup_unhealthy`).
+- `scripts/pns_mediacodec_hfr_verify.ps1` emits per-test `TruthClass`:
+  - `true_4k120` (container reports exact 3840x2160 + valid HFR gates),
+  - `hs120_sub4k`,
+  - `blocked_unstable`.
+- `scripts/pns_mediacodec_hfr_verify.ps1` also logs route-aware 4K120 diagnostics (`HFR route interleaved`, `HFR route encoderOnly`, `route policy ok`) and stricter frame thresholds scaled by record duration.
+- `scripts/pns_4k120_verify.ps1` is strict and only passes on `true_4k120`; retry policy is truth-aware (retries only `blocked_unstable`, hard-stop on `hs120_sub4k`) and writes `strict_4k120_summary.json` with attempt telemetry (`truthClass`, `hfrRoute`, `hfrWarmupAttempt`, `hfrBlockReason`).
+- `scripts/pns_video_capability_probe.ps1` now reports capability classes for strict 4K120 gating: `S0` (no 4K120 encoder path), `S1` (sub-4K-only class), `S2` (true 4K120-capable path discovered).
+- `scripts/pns_m24_gate.ps1` stores class-aware step metadata in `m24_gate.json` and exports strict truth handoff path for downstream parity merge.
+- `scripts/pns_fleet_parity_sweep.ps1` imports 4K120 truth via priority sources (`PNS_4K120_TRUTH_SUMMARY` handoff, M24 strict summary, endurance run summaries, then standalone verify) and surfaces `video4k120TruthClass`, `video4k120TruthSource`, `video4k120TruthSerial`.
+- Endurance script: `scripts/pns_4k120_endurance.ps1` writes `hfr-runs/4k120_endurance_*/endurance_report.{json,md}` with `bestPassSec` and terminal reason.
+
 **Format picker matrix (device-truth):** [`VideoFormatPresets.catalogTierSizes`] = HAL HS ∪ exact HEVC/H.264 perf sizes ∪ `MediaRecorder` outputs, ∩ canonical [`ALL_TIERS`]. [`fpsOptionsForResolution`] uses **exact** encoder points per size **plus baseline 30 fps** when HAL lists [`MediaRecorder`] output for that size (M17). [`InAppVideoFormatSelection.isFormatAvailableOnDevice`] keeps a row only when **labeled** WxH+fps+codec are all real: HFR = exact [`hasExactHighSpeedFps`] **and** exact H.264 encoder perf; **H.264 ≤60** = [`supportsMediaRecorderOutputSize`] on active camera (exact H.264 perf not required at ≤60); HEVC/10-bit/DCG ≤60 = exact HEVC perf. **`MediaCodecCapabilityProbe`** probes **1080p@30** tier; **`invalidateAndReprobe()`** on fleet matrix rescan (`FleetDeviceMatrixBuilder`); preview reloads catalog on matrix `scanMeta.generatedAtEpochMs` change (ON_RESUME). Stale prefs migrate via `videoFormatCatalogMigrate`. **legacy SKU:** 480 only UW @ 1080p/720p; wide/tele max 240 HAL; **no 4K @ ≥120** in picker.
 | `shutterSoundVolume` | **0.85** | App shutter loudness (0…1), not system media volume |
 | `shutterHapticSync` | **false** | When true, haptic with shutter sound; else haptic at readout complete |
+
+**Focus confirm (hardware S1):** [`ShutterSoundManager.playFocusConfirm`] — short chirp (`res/raw/focus_confirm.ogg`) when half-press AF converges (`PASSIVE_FOCUSED` / `FOCUSED_LOCKED`). Uses **shutter volume**; **Silent** pack or volume **0** = no chirp. No haptic. Log: `PNS.ShutterSound focusConfirm` · `PNS.AdbValidation focusConfirm ok=true` · `PNS.HardwareKey focusConfirmBeep fired=true`.
 | `audioLightCompression` | **false** | Soft-knee PCM compression in MediaCodec audio thread |
 | `audioVoiceoverDucking` | **false** | `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` while recording |
 
@@ -531,6 +566,12 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_webdav_probe` | **IP.2** — log WebDAV URL configured |
 | `pns_preview_social_stream_probe` | **IP.2** — [SocialStreamHooks] skip/post probe |
 | `pns_preview_collaborative_probe` | **IP.2** — [CollaborativeCapture] client counter log |
+| `pns_screen=hardwarekeyprobe` | Engineering hardware-key probe screen; writes `files/HARDWARE_KEY_PROBE_LATEST.json` |
+| `pns_preview_automation_hardware_key=true` | After ~8 s on preview, synthesize `KEYCODE_CAMERA` UP → `PNS.HardwareKey shutterFired` (`pns_hardware_shutter_verify.ps1`) |
+
+**Hardware camera key (in-app):** When preview is foreground and **Settings → Extra shutters → Hardware camera key shutter** is on (`PreviewChromePreferences.hardwareCameraKeyCapture`, default **true**), [`PnsHardwareShutterRouter`] handles `KEYCODE_FOCUS` DOWN (center AF + poll until focused → **focus confirm chirp** via [`ShutterSoundManager.playFocusConfirm`], shutter volume / Silent rules) and `KEYCODE_FOCUS` UP (cancel poll). Full press `KEYCODE_CAMERA` UP fires tray composed still (same path as BT remote). Fleet matrix `product.hardwareButtons.interactiveProbe.distinctKeyCodes` adds programmable extra shutter keyCodes. Log tags **`PNS.HardwareKey`**, **`PNS.ShutterSound`**. Settings toggle hidden when [`FleetUiVisibilityGate`] reports no matrix evidence (`product.hardware_camera_key`). Cold launch from dedicated camera keys is OEM-dependent — see **Hardware launch (cold start)** help in preview Settings.
+
+**Gates:** `scripts/pns_hardware_key_probe.ps1`, `scripts/pns_hardware_shutter_verify.ps1`.
 
 **Platform integration (IP.1):** Deep links `pointandshoot://preview|camera|video|gallery|share` → [PlatformIntegration.applyDeepLinkToIntent]. Share ingress: [ShareReceiveActivity] (`ACTION_SEND` / `SEND_MULTIPLE`). Home widget: [PnsCameraWidgetProvider]. Sharing: [SharingManager] + `dev.pointandshoot.fileprovider`. Quick Settings tiles unchanged (`quicksettings/*TileService`).
 
@@ -649,7 +690,7 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 | `PNS.ChromeUx` | Readout AE, coupling, `readoutAeApplied`, focal slot |
 | `PNS.CaptureStill` | RAW still save, **`dng save diag`** |
 | `PNS.Dng` / `PNS.DngMeta` | Color matrices, resolver pairing |
-| `PNS.ProShotStill` | ReferenceCam leaf metering (when not chase-gated) |
+| `PNS.ReferenceAppStill` | ReferenceCam leaf metering (when not chase-gated) |
 | `PNS.PostRawBoost` | Post-RAW sensitivity |
 | `PNS.MCVideoRec` | Video encoder color VUI |
 | `PNS.AdbValidation` | Scripted capture verify needles |
@@ -657,7 +698,9 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 | `PNS.Workflow` | Workflow preset apply |
 | `PNS.Gallery` | In-app gallery batch share |
 | `PNS.CloudBackup` | SAF folder backup copies + sync |
-| `PNS.FleetMatrix` | Fleet matrix quick/full scan tier, camera count |
+| `PNS.FleetMatrix` | Fleet matrix quick/full scan tier, camera count; **`hardwareLaunch`** / **`hardwareButtons`** on rescan |
+| `PNS.HardwareKey` | Dedicated camera key half-press AF + full-press shutter (`shutterFired source=…`) |
+| `PNS.HardwareKeyProbe` | Engineering probe key events; **`HARDWARE_KEY_PROBE_DONE`** in `PNS.SWEEP_SIGNAL` |
 | `PNS.FleetVisibility` | Consumer chrome hide / root-only tap (`hidden`, `rootOnlyTap`) |
 | `PNS.ProbeHub` | Engineering hub search picks (`settingsSearchPick`) |
 | `PNS.VideoCapProbe` | MediaCodec perf matrix; `capProbeInvalidate` on rescan |

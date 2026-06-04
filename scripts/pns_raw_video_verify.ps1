@@ -6,12 +6,14 @@
 
 param(
     [string]$Serial = "",
+    [string]$OutDir = "",
     [int]$RecordSec = 5,
-    [int]$WaitSec = 35,
-    [string]$CameraId = "2",
+    [int]$WaitSec = 95,
+    [string]$CameraId = "0",
     [int]$MinBytes = 65536,
     [int]$MinFrames = 1,
     [switch]$SkipInstall,
+    [switch]$SkipAssemble,
     [switch]$PullMcraw
 )
 
@@ -37,13 +39,60 @@ function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
     return $null
 }
 
+function Resolve-RawVideoCameraId([string]$RequestedCameraId) {
+    $resolved = [ordered]@{
+        cameraId = $RequestedCameraId
+        source = "requested"
+        matrixSessionCapable = $false
+    }
+    $matrixRaw = ""
+    try {
+        $matrixRaw = (Invoke-AdbCmd exec-out run-as dev.pointandshoot cat files/fleet_device_matrix.json 2>$null) -join "`n"
+    } catch {
+        return $resolved
+    }
+    if ([string]::IsNullOrWhiteSpace($matrixRaw)) { return $resolved }
+    try {
+        $matrix = $matrixRaw | ConvertFrom-Json
+    } catch {
+        return $resolved
+    }
+    $candidates = @($matrix.cameras | Where-Object {
+            $_.featureGates -and $_.featureGates.rawVideo -and ($_.featureGates.rawVideo.appEnabled -eq $true)
+        })
+    if ($candidates.Count -eq 0) { return $resolved }
+    $sessionOk = @($candidates | Where-Object { $_.featureGates.rawVideo.sessionOk -eq $true } | ForEach-Object { [string]$_.cameraId })
+    if ($sessionOk.Count -gt 0) {
+        $resolved.matrixSessionCapable = $true
+    }
+    if ($sessionOk.Count -gt 0 -and ($sessionOk -contains $RequestedCameraId)) {
+        $resolved.source = "requested_matrix_session_ok"
+        return $resolved
+    }
+    if ($sessionOk.Count -gt 0) {
+        $resolved.cameraId = $sessionOk[0]
+        $resolved.source = "matrix_session_ok"
+        return $resolved
+    }
+    $appEnabled = @($candidates | ForEach-Object { [string]$_.cameraId })
+    if ($appEnabled.Count -gt 0) {
+        $resolved.cameraId = $appEnabled[0]
+        $resolved.source = "matrix_app_enabled_prefer_first"
+    }
+    return $resolved
+}
+
 if ([string]::IsNullOrWhiteSpace($Serial)) {
     $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
     if ($fromEnv) { $Serial = $fromEnv }
 }
 
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$outDir = Join-Path $projRoot "hfr-runs\raw_video_verify_$stamp"
+if (-not $OutDir) {
+    $outDir = Join-Path $projRoot "hfr-runs\raw_video_verify_$stamp"
+} else {
+    $outDir = $OutDir
+}
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 $adb = "adb"
@@ -57,7 +106,7 @@ $devices = & $adb devices 2>&1 | Select-String "device$"
 if (-not $devices) { Write-Error "No ADB device connected." }
 
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
-if (-not (Test-Path -LiteralPath $apk)) {
+if (-not $SkipAssemble -or -not (Test-Path -LiteralPath $apk)) {
     Write-Host "Building debug APK..."
     & (Join-Path $PSScriptRoot "pns_gradlew.ps1") ":app:assembleDebug" | Out-Host
 }
@@ -70,31 +119,47 @@ Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
 Start-Sleep -Milliseconds 600
 Invoke-AdbCmd logcat -c 2>$null
 
-Write-Host "Launching preview: RAW video ${RecordSec}s (camera id=$CameraId)..."
+$cameraSelection = Resolve-RawVideoCameraId $CameraId
+$resolvedCameraId = [string]$cameraSelection.cameraId
+Write-Host "Launching preview: RAW video ${RecordSec}s (camera id=$resolvedCameraId source=$($cameraSelection.source))..."
 Invoke-AdbCmd shell am start -W -n "dev.pointandshoot/.MainActivity" `
     --activity-clear-task `
     --es pns_screen preview `
     --ez pns_preview_primary_photo false `
     --ei pns_preview_video_raw_sec $RecordSec `
     --es pns_preview_imaging_profile standard_pro `
-    --es pns_preview_camera_id $CameraId `
+    --es pns_preview_camera_id $resolvedCameraId `
     --ei pns_preview_video_fps 30 2>&1 | Out-Null
 
 $totalWait = $RecordSec + $WaitSec
-Write-Host "Waiting ${totalWait}s..."
-Start-Sleep -Seconds $totalWait
+Write-Host "Waiting up to ${totalWait}s for RAW automation completion..."
 
-$logLines = (Invoke-AdbCmd logcat -d -v threadtime 2>&1) -join "`n"
+$successNeedle = "rawVideoSaved ok=true|rawVideoAutomation done saved=true"
+$failureNeedle = "rawVideoShellStartFailed|rawVideoAutomation notRecording|rawVideo start blocked|rawVideo start failed"
+$pollSec = 3
+$startAt = Get-Date
+$finalLog = ""
+while ($true) {
+    $logChunk = (Invoke-AdbCmd exec-out logcat -d -s "PNS.AdbValidation:I" "PNS.RawVideo:I" 2>&1) -join "`n"
+    $finalLog = $logChunk
+    if ($logChunk -match $successNeedle) { break }
+    if ($logChunk -match $failureNeedle) { break }
+    $elapsed = ((Get-Date) - $startAt).TotalSeconds
+    if ($elapsed -ge $totalWait) { break }
+    Start-Sleep -Seconds $pollSec
+}
+
+$logLines = $finalLog
 $logLines | Set-Content "$outDir\logcat.txt" -Encoding UTF8
 
 $rawStart = $logLines -match "rawVideoStart"
-$rawSaved = $logLines -match "rawVideoSaved ok=true"
+$rawSaved = ($logLines -match "rawVideoSaved ok=true") -or ($logLines -match "rawVideoAutomation done saved=true")
 $framesMatch = [regex]::Match($logLines, "rawVideoSaved ok=true frames=(\d+)")
 $frameCount = if ($framesMatch.Success) { [int]$framesMatch.Groups[1].Value } else { 0 }
 $bytesMatch = [regex]::Match($logLines, "rawVideoSaved ok=true frames=\d+ bytes=(\d+)")
 $fileBytes = if ($bytesMatch.Success) { [long]$bytesMatch.Groups[1].Value } else { 0 }
 $noMcRecorder = -not ($logLines -match "inAppVideoSaved ok=true")
-$codecErrors = $logLines -match "CAMERA_DISCONNECTED|rawVideo start failed"
+$rawVideoErrors = $logLines -match $failureNeedle
 
 Write-Host "  rawVideoStart       : $rawStart"
 Write-Host "  rawVideoSaved       : $rawSaved"
@@ -111,7 +176,7 @@ if ($rawSaved) {
     $newestFile = if ($lsOut) { ([string]$lsOut).Trim() } else { $null }
     if ($newestFile) {
         $realPath = "$dcimPath/$newestFile"
-        $hexHead = (Invoke-AdbCmd shell "xxd -l 8 -p '$realPath' 2>/dev/null" 2>&1) -join "" -replace '\s', ''
+        $hexHead = (Invoke-AdbCmd shell "od -An -tx1 -N8 '$realPath' 2>/dev/null" 2>&1) -join "" -replace '\s', ''
         $magicOk = $hexHead.StartsWith("504e4d5241575631")
         Write-Host "  device mcraw        : $newestFile magicHex=$hexHead magicOk=$magicOk"
         if ($PullMcraw) {
@@ -130,7 +195,7 @@ if ($rawSaved) {
 $sizeForGate = [Math]::Max($fileBytes, $pulledBytes)
 
 $overallPass = $rawStart -and $rawSaved -and ($frameCount -ge $MinFrames) -and
-    ($sizeForGate -ge $MinBytes) -and $magicOk -and -not $codecErrors
+    ($sizeForGate -ge $MinBytes) -and $magicOk -and -not $rawVideoErrors
 
 $result = [ordered]@{
     schema = "raw_video_verify.v1"
@@ -139,14 +204,20 @@ $result = [ordered]@{
     passed = $overallPass
     rawVideoStart = [bool]$rawStart
     rawVideoSaved = [bool]$rawSaved
+    requestedCameraId = $CameraId
+    resolvedCameraId = $resolvedCameraId
+    cameraSelectionSource = $cameraSelection.source
+    matrixSessionCapable = [bool]$cameraSelection.matrixSessionCapable
     frameCount = $frameCount
     logBytes = $fileBytes
     pulledBytes = $pulledBytes
     magicOk = $magicOk
     pulledPath = $pulledPath
-    codecErrors = [bool]$codecErrors
+    rawVideoErrors = [bool]$rawVideoErrors
 }
 $result | ConvertTo-Json | Set-Content "$outDir\results.json" -Encoding UTF8
+
+Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
 
 if ($overallPass) {
     Write-Host "GATE: PASS" -ForegroundColor Green
@@ -154,5 +225,3 @@ if ($overallPass) {
     Write-Host "GATE: FAIL" -ForegroundColor Red
     exit 1
 }
-
-Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null

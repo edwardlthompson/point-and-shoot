@@ -98,6 +98,44 @@ private fun AboutHeritageBody(
             "hardware JPEG still path (no RAW) when selected from the HUD or Settings.",
     )
 
+    val context = LocalContext.current
+    val installedVersion = PnsAppInfo.versionName(context)
+    PreviewRailSectionTitle("App & updates")
+    ChromeSettingsIntroText(
+        "Installed $installedVersion · Release notes and APK downloads live on GitHub " +
+            "(Obtainium tracks the same releases feed).",
+    )
+    FpsQuickChip(
+        label = "What's new (GitHub release notes)",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_GITHUB_RELEASES_LATEST_URL)
+            if (!ok) {
+                Toast.makeText(context, "No browser found to open release notes.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutReleaseNotes=opened tag=$PNS_GITHUB_LATEST_RELEASE_TAG")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = "Open latest GitHub release notes",
+    )
+    FpsQuickChip(
+        label = "Full changelog (GitHub)",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_GITHUB_CHANGELOG_URL)
+            if (!ok) {
+                Toast.makeText(context, "No browser found to open changelog.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutChangelog=opened")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = "Open CHANGELOG.md on GitHub",
+    )
+
     PreviewRailSectionTitle("Heritage")
     HeritageCreditsBlock()
 
@@ -105,7 +143,6 @@ private fun AboutHeritageBody(
     ChromeSettingsIntroText(
         "Optional tips help cover device testing and release time — opens Venmo in your browser, not inside the app.",
     )
-    val context = LocalContext.current
     FpsQuickChip(
         label = "Support development (Venmo)",
         selected = false,

@@ -18,8 +18,32 @@ class ShutterSoundManager(
 ) {
     private var soundPool: SoundPool? = null
     private val sampleIdByPack = mutableMapOf<ShutterSoundPack, Int>()
+    private var focusConfirmSampleId: Int = 0
     private var toneGenerator: ToneGenerator? = null
     private var activeSampleStreamId: Int = 0
+
+    /** Hardware S1 half-press — short focus-lock chirp (shutter volume; Silent pack = no-op). */
+    fun playFocusConfirm(chrome: PreviewChromePreferences) {
+        val pack = ShutterSoundPack.fromStorageKey(chrome.shutterSoundPackKey)
+        if (pack == ShutterSoundPack.Silent) {
+            Log.d(TAG, "focusConfirm=silent")
+            return
+        }
+        val volume = chrome.shutterSoundVolume.coerceIn(0f, 1f)
+        if (volume <= 0f) return
+        runCatching {
+            stopActiveSampleStream()
+            val played = playFocusConfirmSample(volume)
+            if (!played) {
+                playFocusConfirmToneFallback(volume)
+            }
+            Log.i(TAG, "focusConfirm volume=$volume sample=$played")
+            PnsAdbLog.i(appContext, "focusConfirm ok=true volume=$volume sample=$played")
+        }.onFailure { e ->
+            Log.w(TAG, "focusConfirm failed: ${e.message}")
+            PnsAdbLog.i(appContext, "focusConfirm ok=false err=${e.message}")
+        }
+    }
 
     fun playShutter(chrome: PreviewChromePreferences, haptics: CaptureHaptics?) {
         val pack = ShutterSoundPack.fromStorageKey(chrome.shutterSoundPackKey)
@@ -30,6 +54,7 @@ class ShutterSoundManager(
         val volume = chrome.shutterSoundVolume.coerceIn(0f, 1f)
         if (volume <= 0f) return
         runCatching {
+            stopActiveSampleStream()
             val played = playSample(pack, volume)
             if (!played) {
                 playToneFallback(pack, volume)
@@ -52,6 +77,7 @@ class ShutterSoundManager(
         runCatching { soundPool?.release() }
         soundPool = null
         sampleIdByPack.clear()
+        focusConfirmSampleId = 0
         activeSampleStreamId = 0
         runCatching { toneGenerator?.release() }
         toneGenerator = null
@@ -96,10 +122,6 @@ class ShutterSoundManager(
                 id
             }
         if (sampleId == 0) return false
-        if (activeSampleStreamId != 0) {
-            // Burst UX: force a distinct click per shot instead of overlapping tails.
-            runCatching { pool.stop(activeSampleStreamId) }
-        }
         val streamId = pool.play(sampleId, volume, volume, 1, 0, 1f)
         if (streamId != 0) {
             activeSampleStreamId = streamId
@@ -124,7 +146,40 @@ class ShutterSoundManager(
             val id = pool.load(appContext, pack.soundResId, 1)
             if (id != 0) sampleIdByPack[pack] = id
         }
+        val focusId = pool.load(appContext, R.raw.focus_confirm, 1)
+        if (focusId != 0) focusConfirmSampleId = focusId
         return pool
+    }
+
+    private fun playFocusConfirmSample(volume: Float): Boolean {
+        val pool = soundPool ?: createSoundPool().also { soundPool = it }
+        if (focusConfirmSampleId == 0) {
+            val id = pool.load(appContext, R.raw.focus_confirm, 1)
+            if (id != 0) focusConfirmSampleId = id
+        }
+        if (focusConfirmSampleId == 0) return false
+        val streamId = pool.play(focusConfirmSampleId, volume, volume, 1, 0, 1f)
+        if (streamId != 0) {
+            activeSampleStreamId = streamId
+            return true
+        }
+        activeSampleStreamId = 0
+        return false
+    }
+
+    private fun playFocusConfirmToneFallback(volume: Float) {
+        runCatching {
+            releaseToneOnly()
+            val tg = createToneGenerator(volume).also { toneGenerator = it }
+            tg.startTone(ToneGenerator.TONE_PROP_ACK, 50)
+            Log.w(TAG, "focusConfirm tone fallback")
+        }
+    }
+
+    private fun stopActiveSampleStream() {
+        if (activeSampleStreamId == 0) return
+        runCatching { soundPool?.stop(activeSampleStreamId) }
+        activeSampleStreamId = 0
     }
 
     /** Rare cold path if [SoundPool.play] returns 0 before decode finishes. */

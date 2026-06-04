@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "latestRelease": {
-    "tag": "0.14.0-beta.6",
-    "date": "2026-06-03",
-    "versionCode": 22000
+    "tag": "0.14.0-beta.7",
+    "date": "2026-06-04",
+    "versionCode": 22001
   },
   "requiredMentions": [
     {
@@ -17,6 +17,10 @@
     {
       "id": "m23",
       "pattern": "Milestone 23"
+    },
+    {
+      "id": "m24",
+      "pattern": "Milestone 24"
     },
     {
       "id": "fleet_max_burst",

@@ -12,7 +12,7 @@ Controlled by tray **Photo/Video** → [`primaryPhoto`](app/src/main/java/dev/po
 
 | Chip / control | Photo (`primaryPhoto == true`) | Video (`primaryPhoto == false`) |
 |----------------|-------------------------------|--------------------------------|
-| ISO, Ss, WB, AF | Yes | Yes |
+| ISO, Ss, **F** (aperture), WB, AF | Yes | Yes |
 | Still LUT | **Yes** | **No** |
 | IMG (RAW/JPEG pipeline) | **Yes** | **No** |
 | Video LUT | **No** | **Yes** |

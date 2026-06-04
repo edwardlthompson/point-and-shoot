@@ -124,6 +124,7 @@ private fun readoutChipMinPxList(
     isoDisplay: String,
     ssDisplay: String,
     awbDisplay: String,
+    apertureDisplay: String?,
     stillLutIndex: String,
     videoLutIndex: String,
     imgDisplay: String,
@@ -141,6 +142,9 @@ private fun readoutChipMinPxList(
         buildList {
             add(Triple("ISO", isoDisplay, lockExtraPx))
             add(Triple("SS", ssDisplay, 0))
+            if (!apertureDisplay.isNullOrBlank()) {
+                add(Triple("F", apertureDisplay, 0))
+            }
             add(Triple("WB", awbDisplay, 0))
             add(Triple("AF", focusChipValue, 0))
             if (!stabChipLabel.isNullOrBlank()) {
@@ -191,6 +195,7 @@ private data class ReadoutChipLayout(
     val iso: Dp,
     val ss: Dp,
     val wb: Dp,
+    val aperture: Dp?,
     val af: Dp,
     val stab: Dp?,
     val videoLut: Dp?,
@@ -213,6 +218,7 @@ private fun computeReadoutFontScale(
     isoDisplay: String,
     ssDisplay: String,
     awbDisplay: String,
+    apertureDisplay: String?,
     stillLutIndex: String,
     videoLutIndex: String,
     imgDisplay: String,
@@ -238,6 +244,7 @@ private fun computeReadoutFontScale(
                 isoDisplay,
                 ssDisplay,
                 awbDisplay,
+                apertureDisplay,
                 stillLutIndex,
                 videoLutIndex,
                 imgDisplay,
@@ -375,6 +382,9 @@ fun PreviewReadoutStrip(
     focusChipValue: String = "CAF",
     onFocusChipClick: () -> Unit = {},
     onFocusChipLongClick: () -> Unit = {},
+    apertureChipValue: String? = null,
+    apertureChipEnabled: Boolean = false,
+    onCycleAperture: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val isVideoMode = PreviewReadoutChipMode.isVideoMode(primaryPhoto)
@@ -465,6 +475,7 @@ fun PreviewReadoutStrip(
                     awb,
                     rawChipValue,
                     videoEncodeShortLabel,
+                    apertureChipValue,
                 ) {
                     computeReadoutFontScale(
                         maxPx,
@@ -480,6 +491,7 @@ fun PreviewReadoutStrip(
                         isoText,
                         ss,
                         awb,
+                        apertureChipValue,
                         stillLutIndex,
                         videoLutIndex,
                         rawChipValue,
@@ -503,6 +515,14 @@ fun PreviewReadoutStrip(
             val wbValueMinWidth =
                 remember(scale, awb, textMeasurer, valueStyle, density) {
                     displayValueWidthDp(textMeasurer, valueStyle, awb, density)
+                }
+            val apertureValueMinWidth =
+                remember(scale, apertureChipValue, textMeasurer, valueStyle, density) {
+                    if (apertureChipValue.isNullOrBlank()) {
+                        0.dp
+                    } else {
+                        displayValueWidthDp(textMeasurer, valueStyle, apertureChipValue, density)
+                    }
                 }
             val focusValueMinWidth =
                 remember(scale, focusChipValue, textMeasurer, valueStyle, density) {
@@ -546,6 +566,7 @@ fun PreviewReadoutStrip(
                     rawChipValue,
                     videoEncodeShortLabel,
                     showMacroVideoBadge,
+                    apertureChipValue,
                 ) {
                     readoutChipMinPxList(
                         scale,
@@ -560,6 +581,7 @@ fun PreviewReadoutStrip(
                         isoText,
                         ss,
                         awb,
+                        apertureChipValue,
                         stillLutIndex,
                         videoLutIndex,
                         rawChipValue,
@@ -595,6 +617,7 @@ fun PreviewReadoutStrip(
                     ReadoutChipLayout(
                         iso = takeWidth(),
                         ss = takeWidth(),
+                        aperture = if (!apertureChipValue.isNullOrBlank()) takeWidth() else null,
                         wb = takeWidth(),
                         af = takeWidth(),
                         stab = if (!stabChipLabel.isNullOrBlank()) takeWidth() else null,
@@ -810,6 +833,24 @@ fun PreviewReadoutStrip(
                         }
                     }
                 }
+            }
+            if (!apertureChipValue.isNullOrBlank() && chipLayout.aperture != null) {
+                ReadoutMetricChip(
+                    label = "F",
+                    value = apertureChipValue,
+                    valueMinWidth = apertureValueMinWidth,
+                    labelStyle = labelStyle,
+                    valueStyle = valueStyle,
+                    modifier = Modifier.width(chipLayout.aperture),
+                    enabled = apertureChipEnabled,
+                    onClick = onCycleAperture,
+                    accessibilityLabel =
+                        if (apertureChipEnabled) {
+                            "Aperture $apertureChipValue. Tap to cycle f-stops."
+                        } else {
+                            "Aperture $apertureChipValue. Fixed on this lens."
+                        },
+                )
             }
             Box(modifier = Modifier.width(chipLayout.wb)) {
                 ReadoutMetricChip(

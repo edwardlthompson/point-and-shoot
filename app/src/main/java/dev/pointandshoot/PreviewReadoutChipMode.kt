@@ -17,6 +17,11 @@ object PreviewReadoutChipMode {
 
     fun showVideoLutChip(primaryPhoto: Boolean): Boolean = !primaryPhoto
 
+    /** When the active camera reports no [android.hardware.camera2.CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES]. */
+    fun showApertureChip(availableCount: Int): Boolean = availableCount > 0
+
+    fun apertureChipInteractive(variable: Boolean, canControl: Boolean): Boolean = variable && canControl
+
     fun readoutModeLogValue(primaryPhoto: Boolean): String = if (primaryPhoto) "photo" else "video"
 }
 

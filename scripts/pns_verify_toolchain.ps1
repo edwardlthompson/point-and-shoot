@@ -179,6 +179,21 @@ if ($docBad.Count -eq 0) {
   [void]$report.Add(("OK: doc encoding ({0} *.md files; none UTF-16 LE)" -f $docCount))
 }
 
+# CHANGELOG coverage: latest release header + required milestone mentions vs versionCode.
+$changelogGate = Join-Path $PSScriptRoot "pns_changelog_gate.ps1"
+if (Test-Path -LiteralPath $changelogGate) {
+  Write-Verify "CHANGELOG coverage gate"
+  & $changelogGate -ProjectRoot $ProjectRoot
+  if ($LASTEXITCODE -ne 0) {
+    [void]$report.Add("FAIL: CHANGELOG coverage (run pns_changelog_gate.ps1 for details)")
+    $failed = $true
+  } else {
+    [void]$report.Add("OK: CHANGELOG coverage (latest release + required mentions)")
+  }
+} else {
+  [void]$report.Add("SKIP: CHANGELOG coverage (pns_changelog_gate.ps1 missing)")
+}
+
 # FOSS dependency audit: reject proprietary / Play Services groups in any Gradle build script
 # or version catalog. Scope: any .gradle, .gradle.kts, libs.versions.toml under the project root,
 # excluding build/ and .gradle/ caches.

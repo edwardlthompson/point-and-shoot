@@ -17,10 +17,10 @@ import dev.pointandshoot.fleet.StillDngBackendPolicy
  * HAL honors on this [CaptureRequest].
  */
 object RawStillProcessingHints {
-    private const val TAG = "PNS.ProShotStill"
+    private const val TAG = "PNS.ReferenceAppStill"
 
     /** Preview exposure sampled **before** [CameraCaptureSession.stopRepeating] for ReferenceCam leaf stills. */
-    data class ProShotExposureLatch(
+    data class ReferenceAppExposureLatch(
         val iso: Int,
         val expNs: Long,
         val frameNs: Long?,
@@ -28,10 +28,10 @@ object RawStillProcessingHints {
         val postRawSensitivityBoost: Int?,
     )
 
-    fun snapshotProShotExposure(preview: TotalCaptureResult?): ProShotExposureLatch? {
+    fun snapshotReferenceAppExposure(preview: TotalCaptureResult?): ReferenceAppExposureLatch? {
         val iso = preview?.get(CaptureResult.SENSOR_SENSITIVITY) ?: return null
         val expNs = preview?.get(CaptureResult.SENSOR_EXPOSURE_TIME) ?: return null
-        return ProShotExposureLatch(
+        return ReferenceAppExposureLatch(
             iso = iso,
             expNs = expNs,
             frameNs = preview.get(CaptureResult.SENSOR_FRAME_DURATION),
@@ -82,16 +82,16 @@ object RawStillProcessingHints {
      * USB May 2026: copying preview ISO + [CONTROL_AE_MODE_OFF] made DNG EXIF match ReferenceCam but RAW
      * Bayer means stayed ~3× darker (metadata vs sensor integration mismatch on this HAL).
      */
-    fun applyProShotPreviewExposureFromResult(
+    fun applyReferenceAppPreviewExposureFromResult(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
         sessionCameraId: String,
         previewResult: TotalCaptureResult?,
         latchManualExposureFromPreview: Boolean = false,
-        exposureLatch: ProShotExposureLatch? = null,
+        exposureLatch: ReferenceAppExposureLatch? = null,
     ) {
-        if (!LegacyFleetPolicy.useProShotPureDngSave()) return
-        if (StillDngBackendPolicy.active() != StillDngBackend.FRAMEWORK_PROSHOT) return
+        if (!LegacyFleetPolicy.useReferenceAppPureDngSave()) return
+        if (StillDngBackendPolicy.active() != StillDngBackend.FRAMEWORK_REFERENCEAPP) return
         if (!StillCaptureIqPolicy.isLeafBackCharacteristics(chars)) return
         val latch = exposureLatch
         val previewIso =

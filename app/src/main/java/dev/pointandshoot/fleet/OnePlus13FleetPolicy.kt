@@ -83,8 +83,8 @@ object LegacyFleetPolicy {
     }
 
     /**
-     * LegacySku still DNG: [StillDngBackend.FRAMEWORK_PROSHOT] — USB matrix bisect `20260519_030756`
-     * proved MotionCam-inspired IQ left tele **B channel crushed** (render_green_delta ~0.42);
+     * LegacySku still DNG: [StillDngBackend.FRAMEWORK_REFERENCEAPP] — USB matrix bisect `20260519_030756`
+     * proved AltReferenceApp-inspired IQ left tele **B channel crushed** (render_green_delta ~0.42);
      * ReferenceCam path restores tele (delta ~0.03, `tele_ok` in `dng_color_metric.py`). UW remains open.
      */
     fun stillDngBackend(): StillDngBackend = stillDngBackendWhen(appliesToDevice())
@@ -92,9 +92,9 @@ object LegacyFleetPolicy {
     /** JVM tests — pass `deviceApplies = true` without relying on [Build.MODEL]. */
     internal fun stillDngBackendWhen(deviceApplies: Boolean): StillDngBackend =
         if (deviceApplies) {
-            StillDngBackend.FRAMEWORK_PROSHOT
+            StillDngBackend.FRAMEWORK_REFERENCEAPP
         } else {
-            StillDngBackend.FRAMEWORK_PROSHOT
+            StillDngBackend.FRAMEWORK_REFERENCEAPP
         }
 
     fun leafRawFormatOrder(): List<Int> =
@@ -133,40 +133,40 @@ object LegacyFleetPolicy {
 
     /** ReferenceCam does not stamp P&S LUT/software auxiliary strings on leaf DNGs. */
     fun skipDngSoftwareDescriptionOnLeaf(sessionCameraId: String): Boolean =
-        useProShotPureDngSave() &&
+        useReferenceAppPureDngSave() &&
             sessionCameraId in setOf(CANONICAL_UW, CANONICAL_WIDE, CANONICAL_TELE)
 
     /**
      * Wide (cam **2**) DNG: [DngCreator] only — HAL color tags are trustworthy on LYT-808.
      */
-    fun useProShotPureDngSave(): Boolean = useProShotPureDngSaveWhen(appliesToDevice())
+    fun useReferenceAppPureDngSave(): Boolean = useReferenceAppPureDngSaveWhen(appliesToDevice())
 
-    internal fun useProShotPureDngSaveWhen(deviceApplies: Boolean): Boolean = deviceApplies
+    internal fun useReferenceAppPureDngSaveWhen(deviceApplies: Boolean): Boolean = deviceApplies
 
     /**
      * Leaf still [CaptureRequest] mirrors ReferenceCam decompile (crop + still IQ + HAL AE only).
-     * See [dev.pointandshoot.ProShotLeafStillCaptureRequest].
+     * See [dev.pointandshoot.ReferenceAppLeafStillCaptureRequest].
      */
-    fun useExactProShotLeafStillCaptureRequest(): Boolean =
-        useExactProShotLeafStillCaptureRequestWhen(appliesToDevice())
+    fun useExactReferenceAppLeafStillCaptureRequest(): Boolean =
+        useExactReferenceAppLeafStillCaptureRequestWhen(appliesToDevice())
 
-    internal fun useExactProShotLeafStillCaptureRequestWhen(deviceApplies: Boolean): Boolean =
-        useProShotPureDngSaveWhen(deviceApplies)
+    internal fun useExactReferenceAppLeafStillCaptureRequestWhen(deviceApplies: Boolean): Boolean =
+        useReferenceAppPureDngSaveWhen(deviceApplies)
 
     /**
      * Bisect-only — copying ReferenceCam reference CM/FM/ASN onto different RAW pixels worsened green cast
-     * (May 2026 USB). Shipped path: [useProShotPureDngSave] + [StillCaptureIqPolicy] only.
+     * (May 2026 USB). Shipped path: [useReferenceAppPureDngSave] + [StillCaptureIqPolicy] only.
      */
-    fun useProShotReferenceCalibration(): Boolean = false
+    fun useReferenceAppReferenceCalibration(): Boolean = false
 
     /**
-     * Bisect-only — post-save ASN/FM reconcile on aux leaf. Off when [useProShotPureDngSave] ships
+     * Bisect-only — post-save ASN/FM reconcile on aux leaf. Off when [useReferenceAppPureDngSave] ships
      * (matches ReferenceCam: `DngCreator` only, no TIFF color surgery).
      */
     fun useLegacyLeafAuxColorReconcile(): Boolean = false
 
     /** @see useLegacyLeafAuxColorReconcile */
-    fun useUwProShotAsnReconcile(): Boolean = useLegacyLeafAuxColorReconcile()
+    fun useUwReferenceAppAsnReconcile(): Boolean = useLegacyLeafAuxColorReconcile()
 
     /**
      * **13.3h bisect only** — wide CM/FM on aux DNGs broke ACR openability (see `docs/DNG_OPENABILITY_REGRESSIONS.md` R2).
@@ -174,7 +174,7 @@ object LegacyFleetPolicy {
     fun useWideLeafCalibrationForAuxDng(): Boolean = false
 
     /** **13.3g bisect only** — ReferenceCam decompile still path has no AE-precapture loop before still. */
-    fun useProShotStillPrecapture(): Boolean = false
+    fun useReferenceAppStillPrecapture(): Boolean = false
 
     /** Bisect only — ASN TIFF patch after save (not ReferenceCam parity). */
     fun useLegacyAsnReconcileOnly(): Boolean = false
@@ -199,11 +199,11 @@ object LegacyFleetPolicy {
             sessionCameraId in setOf(CANONICAL_UW, CANONICAL_TELE)
 
     /** Scale aux integration toward wide-like brightness (USB tele ~2.5× under ReferenceCam). */
-    fun adjustProShotExposureLatch(
+    fun adjustReferenceAppExposureLatch(
         sessionCameraId: String,
-        latch: RawStillProcessingHints.ProShotExposureLatch,
+        latch: RawStillProcessingHints.ReferenceAppExposureLatch,
         chars: CameraCharacteristics,
-    ): RawStillProcessingHints.ProShotExposureLatch {
+    ): RawStillProcessingHints.ReferenceAppExposureLatch {
         if (!useWideLeafCalibrationForAuxDng()) return latch
         val scale =
             when (sessionCameraId) {

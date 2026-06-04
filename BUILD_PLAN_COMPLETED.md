@@ -129,12 +129,12 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 
 ## Fleet capability matrix & device policy
 
-*Per-SKU matrix JSON, fleet profiles, ProShot DNG parity, verify matrix, encoder fleet slice.*
+*Per-SKU matrix JSON, fleet profiles, ReferenceApp DNG parity, verify matrix, encoder fleet slice.*
 
-- **ProShot reference calibration** — `useProShotReferenceCalibration()` copies IFD0 CM/FM/ASN from `assets/fleet/legacy_proshot_calibration.json` (regen: `scripts/proshot_ref_extract_calibration.py` on…
+- **ReferenceApp reference calibration** — `useReferenceAppReferenceCalibration()` copies IFD0 CM/FM/ASN from `assets/fleet/legacy_referenceapp_calibration.json` (regen: `scripts/referenceapp_ref_extract_calibration.py` on…
 - `dev.pointandshoot.fleet` — profiles, `LegacyDeviceFleetPolicy`, probe export, focal wiring, **`docs/FLEET_ONEPLUS13_RAW_POLICY.md`**, JVM tests
 - `dng_desktop_open_gate.py`, `pns_m13_3g2_gate.ps1`, wired into `pns_aux_dng_capture_analyze.ps1`
-- `docs/DNG_OPENABILITY_REGRESSIONS.md`; **`ProShotPipelineContract`**; pure `DngCreator` on legacy device leaf (wide-cal / reconcile off by default)
+- `docs/DNG_OPENABILITY_REGRESSIONS.md`; **`ReferenceAppPipelineContract`**; pure `DngCreator` on legacy device leaf (wide-cal / reconcile off by default)
 - `docs/fleet_device_matrix.schema.json` + `scripts/fleet_matrix_schema_validate.py` in scan script
 - `docs/FLEET_DEVICE_VERIFY_MATRIX.md` — one row per onboarded SKU
 - `docs/FLEET_ONEPLUS13_RAW_POLICY.md` — legacy plugin header
@@ -142,7 +142,7 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - `FleetDeviceMatrix` v1 JSON: `scanMeta`, `device`, `cameras[]`, `product`, `appendix` stub; `schemaVersion`
 - `FleetDevicePolicy` + `GenericFleetPolicy` default; `LegacyDeviceFleetPolicyPlugin` opt-in
 - `FleetMatrixHubScreen` + hub entry in `DebugMenuScreen.kt`
-- `pns_m13_3f_gate.ps1`, `pns_aux_dng_capture_analyze` **3/3**, ProShot parity rawpy **FAIL** on UW/tele (documented HAL issue)
+- `pns_m13_3f_gate.ps1`, `pns_aux_dng_capture_analyze` **3/3**, ReferenceApp parity rawpy **FAIL** on UW/tele (documented HAL issue)
 - `scripts/pns_fleet_matrix_diff.ps1` — HFR, RAW, roles, face, `sessionOk`, encoder
 - `scripts/pns_fleet_matrix_scan.ps1` — pull `fleet_device_matrix.json` → `hfr-runs/fleet_matrix_*`
 - `tests/fixtures/fleet_matrix/cph2583_v1.json` + JVM `FleetDeviceMatrixGoldenTest`
@@ -163,7 +163,7 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - Quick tier: `DeviceCameraCapabilityCache`, `FleetCameraStartupScan`, `FleetCameraProfileBuilder` (generic policy — **16.4**)
 - Redacted `dumpsys media.camera` appendix; `--Redact` on pulls — `FleetHalAppendix` on full scan
 - Unit tests: 35mm equiv computation; < 12 MP gate
-- Update `docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`, `docs/FLEET_ONEPLUS13_RAW_POLICY.md` (ProShot-exact leaf path May 2026; OP12 generic fleet note)
+- Update `docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`, `docs/FLEET_ONEPLUS13_RAW_POLICY.md` (ReferenceApp-exact leaf path May 2026; OP12 generic fleet note)
 - Update `docs/PNS_TECHNICAL_SETTINGS.md` §7 (`FleetCameraStartupScan`)
 - USB **`legacy serial`**: capture **3/3** + openability **PASS** (`hfr-runs/aux_dng_capture_analyze_20260519_235745/`)
 - Wire `FocalLensStripSupport` to gray out unavailable slots
@@ -335,12 +335,12 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - **Software JPEG quality** — Expose persisted quality (e.g. 70–100) for **`Bitmap.compress`** in **`saveHardwareJpegCompanion`** (and any other fixed-quality software re-encode on that path).
 - `AGENTS.md` CRITICAL — Fleet; matrix as SoT; DNG loadability locks unchanged
 - `dng_color_metric.py` `uw_delta ≤ 0.12` gate PASS — **PASS** after tuning tele capture-time gains off + raw tele ASN patch (metric now uses `wb_green_delta_vs_wide`;…
-- `dng_tiff_integrity_check.py` PASS on ProShot fixtures (host)
+- `dng_tiff_integrity_check.py` PASS on ReferenceApp fixtures (host)
 - `pns_capture_pipeline_verify.ps1` green. **Completed 2026-05-17:** `captureRawStill 1/1 ok=true saved=` — still capture not broken.
 - `pns_dng_exif_verify.ps1` — focal + capture time PASS (`dng_exif_verify.json` in same run dir)
 - `pns_photo_capture_verify.ps1` PASS; `pns_nightscape_verify.ps1` PASS
-- `scripts/pns_dng_aesthetic_gate.py` — rawpy M14/M23/M73 vs `tests/fixtures/proshot_legacy_sku/`; ±20% luma/R/G/B; wired in `pns_aux_dng_capture_analyze.ps1` (`-RequireAestheticGate` to hard-fail)
-- `scripts/pns_dng_rawpy_decode_gate.ps1` — PASS on `tests/fixtures/proshot_legacy_sku/` (host); USB hfr-run when device returns
+- `scripts/pns_dng_aesthetic_gate.py` — rawpy M14/M23/M73 vs `tests/fixtures/referenceapp_legacy_sku/`; ±20% luma/R/G/B; wired in `pns_aux_dng_capture_analyze.ps1` (`-RequireAestheticGate` to hard-fail)
+- `scripts/pns_dng_rawpy_decode_gate.ps1` — PASS on `tests/fixtures/referenceapp_legacy_sku/` (host); USB hfr-run when device returns
 - `setCaptureTime` on all DNG paths (`DngCreator` ctor from `SENSOR_TIMESTAMP`; IFD0/EXIF datetime in `applyToDngUri`)
 - `setLocation` when geotag pref + location available (`Dng12Saver` + `applyToDngUri` MediaStore columns)
 - Apply in-place TIFF FM+ASN patches (UW+tele); `dng_tiff_integrity_check.py` + desktop open **PASS** (`aux_dng_capture_analyze_20260528_020131`, log `asn+fm ForwardMatrix`)
@@ -349,7 +349,7 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - Disable DNG + normal video rec while time-lapse active
 - Embed in AVIF Kotlin mux — `AvifStillMuxer.Input.iccProfileBytes` → `colr` `prof`; native `.so` AVIF still `nclx` until remux
 - Embed in JPEG save path — `JpegIccEmbedder` APP2 `ICC_PROFILE` after `ExifInterface.saveAttributes` (`StillCaptureMetadata.applyToJpegUri`, `ImagingProfile.colorSpace`)
-- Enable ProShot IQ + aux ASN reconcile (`useLegacyLeafAuxColorReconcile` UW+tele, `LegacyLeafStillColorCorrection`); wide stays pure DngCreator + `applyToDngUri`
+- Enable ReferenceApp IQ + aux ASN reconcile (`useLegacyLeafAuxColorReconcile` UW+tele, `LegacyLeafStillColorCorrection`); wide stays pure DngCreator + `applyToDngUri`
 - Fire `scheduleStillTick()` only in tonal `onCaptureCompleted` for dual path
 - High-speed preview session, RAW12 `Dng12Saver`, `CaptureHaptics`, JNI shell `libpns_native.so`, `NativeEncoders` / `EncoderRoute`.
 - If `uw_delta > 0.12`: create `DngDeviceColorProfile.kt` + legacy SKU FM/WB tables ([DngForwardMatrixFix])
@@ -790,7 +790,7 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 - `pns_in_app_video_verify.ps1` passes. **Completed 2026-05-17:** legacy device — `inAppVideoPrepared audioEnabled=true` → `MediaRecorder started` → `inAppVideoSaved` (no "unconfigured surface" errors).
 - `PreviewEngineScreen` adds `videoRecordingSessionRebuildPending` flag to coordinate: prepare → set flag → rebuild session → clear flag on `onConfigured` → start recorder.
 - `scanMeta`: MPC, `firstApiLevel`, `vendorApiLevel`; deterministic `cameraId` sort (full tier)
-- `scripts/pns_motioncam_apk_decompile.ps1`; **`docs/MOTIONCAM_APK_FLEET_ANALYSIS.md`**; **`docs/RAW_REFERENCE_APP_MATRIX.md`**
+- `scripts/pns_altreferenceapp_apk_decompile.ps1`; **`docs/ALTREFERENCEAPP_APK_FLEET_ANALYSIS.md`**; **`docs/RAW_REFERENCE_APP_MATRIX.md`**
 - `scripts/pns_release_asset_check.ps1` — `gh release view`; assert APK asset size > 1 MB
 - `VideoRecordingController` owns `MediaRecorder` lifecycle with two-phase prepare/start flow. `PrepareResult` sealed class (`Ready`, `Rejected`, `NoAction`) signals session rebuild needed; `Event`…
 - Add `VideoAudio` pack to `pns_sprint_guardrail.ps1` regression dispatch. **Completed 2026-05-17:** Created orchestrator with VideoAudio + CapturePipeline packs; unified `sprint_guardrail.v1` JSON…
@@ -1120,7 +1120,7 @@ Human gates: **H.7** (DNG color ACR per onboarded SKU) — **closed CPH2583** ow
 - `scripts/pns_chrome_ux_gate.ps1 -FocalMmSlot 73|85|150` **PASS** (`teleFocalSlotOk=true`)
 - `scripts/pns_fleet_parity_sweep.ps1 -Mode Quick` **PASS** (and `-PromoteOptionalBlocking` intentionally fails when optional gaps exist)
 - `scripts/pns_aux_dng_capture_analyze.ps1` **PASS** openability/integrity on non-legacy model path (`--skip-wide-cal-leak` auto for non-legacy)
-- `scripts/pns_fixture_dng_gates.ps1` **PASS** with fixture-dir fallback (`proshot_legacy_sku` or `proshot_cph2655`)
+- `scripts/pns_fixture_dng_gates.ps1` **PASS** with fixture-dir fallback (`referenceapp_legacy_sku` or `referenceapp_cph2655`)
 
 #### Sprint 23.2 — Capture monolith extraction (phase 1)
 

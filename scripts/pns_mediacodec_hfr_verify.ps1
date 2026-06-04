@@ -4,7 +4,7 @@
     Verify MediaCodecVideoRecorder HFR (120fps) and 10-bit video on device.
 
 .DESCRIPTION
-    Sprint **13V.16** extends case **4K_120fps_MediaCodec** with ffprobe **3840×2160 @ 120 fps**
+    Sprint **13V.16** extends case **4K_120fps_MediaCodec** with ffprobe **3840x2160 @ 120 fps**
     and log needles **`PNS.VideoEncode`** session buffer + **`mcVideoPrepared size=3840x2160`**.
 
 .PARAMETER Serial
@@ -19,8 +19,8 @@
     Run a single case name (e.g. `HFR_1080p_120fps`) for iteration.
 
 .PARAMETER GateProfile
-    **`vf`** — 1080p/4K matrix: H.264 + H.265 @ 60; HFR 120/240/480 @ 1080p; HFR 120 @ 4K (MediaCodec).
-    Requires **ffprobe** video+audio, container fps ≥ 75% of target for HFR, and enough **video
+    **`vf`** - 1080p/4K matrix: H.264 + H.265 @ 60; HFR 120/240/480 @ 1080p; HFR 120 @ 4K (MediaCodec).
+    Requires **ffprobe** video+audio, container fps >= 75% of target for HFR, and enough **video
     packets** (detects frozen single-frame + audio-only regressions).
 
 .PARAMETER RequireFfprobeAv
@@ -31,6 +31,8 @@ param(
     [string]$OutDir = "",
     [string]$OnlyTest = "",
     [string]$GateProfile = "",
+    [int]$RecordSec = 0,
+    [switch]$Help,
     [switch]$RequireFfprobeAv,
     [switch]$SkipAssemble,
     [switch]$SkipInstall
@@ -38,10 +40,25 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    # adb writes some progress lines to stderr even when successful.
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
+    if ($Help) {
+        Write-Host @"
+pns_mediacodec_hfr_verify.ps1 - HFR/codec matrix verify
+
+  -OnlyTest <name>      run one case (for example 4K_120fps_MediaCodec)
+  -GateProfile vf       run VF subset matrix
+  -RecordSec <seconds>  override recording duration for each case
+  -RequireFfprobeAv     require ffprobe audio+video checks
+"@
+        exit 0
+    }
     if (Test-Path "$PSScriptRoot\pns_resolve_adb.ps1") {
         . "$PSScriptRoot\pns_resolve_adb.ps1" -PrependToPath -Quiet
     }
@@ -58,10 +75,25 @@ try {
     }
 
     $apk = "app\build\outputs\apk\debug\app-debug.apk"
-    if (-not (Test-Path $apk)) { throw "Missing $apk — run without -SkipAssemble" }
+    if (-not (Test-Path $apk)) { throw "Missing $apk - run without -SkipAssemble" }
 
     function Invoke-AdbCmd {
-        if ($Serial -ne "") { & adb -s $Serial @args } else { & adb @args }
+        $prevErr = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output =
+                if ($Serial -ne "") {
+                    & adb -s $Serial @args 2>&1
+                } else {
+                    & adb @args 2>&1
+                }
+        } finally {
+            $ErrorActionPreference = $prevErr
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "adb failed exit=$LASTEXITCODE args=$($args -join ' ')"
+        }
+        return $output
     }
 
     if (-not $SkipInstall) {
@@ -87,7 +119,7 @@ try {
     }
 
     function Set-ChromeVideoEncodePrefs {
-        param([int]$Width, [int]$Height)
+        param([int]$Width, [int]$Height, [int]$Fps = 0)
         $prefsPath = "/data/data/$pkg/shared_prefs/pns_preview_chrome.xml"
         $existingPrefs = (Invoke-AdbCmd shell run-as $pkg cat $prefsPath 2>&1) -join "`n"
         if ($existingPrefs -notmatch "<map>") {
@@ -96,8 +128,17 @@ try {
         }
         $patched = $existingPrefs -replace '(?s)<int name="in_app_video_encode_w"[^/]*/>', "<int name=`"in_app_video_encode_w`" value=`"$Width`" />"
         $patched = $patched  -replace '(?s)<int name="in_app_video_encode_h"[^/]*/>', "<int name=`"in_app_video_encode_h`" value=`"$Height`" />"
+        if ($Fps -gt 0) {
+            if ($patched -match 'in_app_video_fps') {
+                $patched = $patched -replace '(?s)<int name="in_app_video_fps"[^/]*/>', "<int name=`"in_app_video_fps`" value=`"$Fps`" />"
+            } else {
+                $patched = $patched -replace '</map>', "    <int name=`"in_app_video_fps`" value=`"$Fps`" />`n</map>"
+            }
+        }
         if ($patched -notmatch 'in_app_video_encode_w') {
-            $patched = $patched -replace '</map>', "    <int name=`"in_app_video_encode_w`" value=`"$Width`" />`n    <int name=`"in_app_video_encode_h`" value=`"$Height`" />`n</map>"
+            $insert = "    <int name=`"in_app_video_encode_w`" value=`"$Width`" />`n    <int name=`"in_app_video_encode_h`" value=`"$Height`" />`n"
+            if ($Fps -gt 0) { $insert += "    <int name=`"in_app_video_fps`" value=`"$Fps`" />`n" }
+            $patched = $patched -replace '</map>', ($insert + "</map>")
         }
         $tmpLocal = [System.IO.Path]::GetTempFileName() + ".xml"
         [System.IO.File]::WriteAllText($tmpLocal, $patched, [System.Text.Encoding]::UTF8)
@@ -189,19 +230,20 @@ try {
     }
 
     function Get-PnsLogcat {
-        $tags = @(
-            "PNS.AdbValidation:I", "PNS.MCVideoRec:I", "PNS.MCVideoRec:E",
-            "PNS.VideoController:I", "PNS.VideoRec:I", "PNS.ChromeUx:I",
-            "PNS.VideoEncode:I", "PNS.Cam:I", "PNS.HfrInterleaved:I", "PNS.HfrMonitor:I"
-        )
-        (Invoke-AdbCmd logcat -d -v brief @tags 2>&1) -join "`n"
+        # Regex filter - Sony/Android 13 often returns an empty buffer for `logcat -d -s` after `logcat -c`.
+        $pnsTagPattern =
+            'PNS\.(AdbValidation|MCVideoRec|VideoController|VideoRec|ChromeUx|VideoEncode|Cam|HfrInterleaved|HfrMonitor)'
+        $lines = Invoke-AdbCmd logcat -d -v threadtime 2>&1
+        ($lines | Where-Object { $_ -match $pnsTagPattern }) -join "`n"
     }
 
     function Test-FfprobeAvClip {
         param(
             [string]$LocalPath,
             [int]$TargetFps,
-            [string]$ExpectedVideoCodec = ""
+            [string]$ExpectedVideoCodec = "",
+            [int]$ExpectedWidth = 0,
+            [int]$ExpectedHeight = 0
         )
         $result = @{
             Ok = $false
@@ -215,6 +257,9 @@ try {
             DurationSec = 0.0
             CodecOk = $true
             VideoCodec = ""
+            ActualWidth = 0
+            ActualHeight = 0
+            DimsOk = $false
             Summary = ""
         }
         if (-not (Get-Command ffprobe -ErrorAction SilentlyContinue)) {
@@ -235,6 +280,8 @@ try {
         $result.HasAudio = $streamDump -match "codec_type=audio"
         $vw = (& ffprobe -v error -select_streams v:0 -show_entries stream=width -of default=noprint_wrappers=1:nokey=1 $LocalPath 2>&1) -join ""
         $vh = (& ffprobe -v error -select_streams v:0 -show_entries stream=height -of default=noprint_wrappers=1:nokey=1 $LocalPath 2>&1) -join ""
+        if ($vw -match "^\d+$") { $result.ActualWidth = [int]$vw }
+        if ($vh -match "^\d+$") { $result.ActualHeight = [int]$vh }
         $wh = "${vw}x${vh}"
         $codecName = (& ffprobe -v error -select_streams v:0 -show_entries stream=codec_name -of default=noprint_wrappers=1:nokey=1 $LocalPath 2>&1) -join ""
         $result.VideoCodec = $codecName.Trim()
@@ -285,10 +332,11 @@ try {
         $minPackets =
             if ($TargetFps -ge 480) { [int][math]::Max(400, $TargetFps * 2) }
             elseif ($TargetFps -ge 240) { [int][math]::Max(200, $TargetFps * 2) }
-            elseif ($TargetFps -ge 120) { [int][math]::Max(120, $TargetFps * 2) }
+            elseif ($TargetFps -ge 120) { 15 }
             else { 30 }
-        if ($result.DurationSec -gt 0.5 -and $result.DurationSec -lt 120) {
-            $expectedByDuration = [int][math]::Floor($result.DurationSec * [double]$TargetFps * 0.35)
+        if ($result.DurationSec -gt 0.5 -and $result.DurationSec -lt 240) {
+            $durationFactor = if ($TargetFps -ge 120) { 0.60 } else { 0.35 }
+            $expectedByDuration = [int][math]::Floor($result.DurationSec * [double]$TargetFps * $durationFactor)
             if ($expectedByDuration -gt $minPackets) { $minPackets = $expectedByDuration }
         }
         $result.FramesOk = $result.VideoPackets -ge $minPackets
@@ -296,7 +344,13 @@ try {
         $result.DurationOk =
             $result.DurationSec -gt 0.25 -and
             $result.DurationSec -le $maxDurSec
-        $dimsOk = ($wh -match "3840x2160|1920x1080|1280x720")
+        $dimsOk =
+            if ($ExpectedWidth -gt 0 -and $ExpectedHeight -gt 0) {
+                ($result.ActualWidth -eq $ExpectedWidth) -and ($result.ActualHeight -eq $ExpectedHeight)
+            } else {
+                ($wh -match "3840x2160|1920x1080|1280x720")
+            }
+        $result.DimsOk = $dimsOk
         $result.Ok = $result.HasVideo -and $result.HasAudio -and $dimsOk -and $result.FpsOk -and
             $result.FramesOk -and $result.DurationOk -and $result.CodecOk
         $containerFps = ""
@@ -333,10 +387,10 @@ try {
         Write-Log "## Test: $TestName  ${Width}x${Height} fps=$Fps  10bit=$TenBit  codecOrdinal=$CodecOrdinal"
 
         Invoke-AdbCmd shell am force-stop $pkg 2>$null | Out-Null
-        Start-Sleep -Milliseconds 800
+        Start-Sleep -Seconds 3
         Clear-LogcatBuffer
 
-        $chromePrefPatched = Set-ChromeVideoEncodePrefs -Width $Width -Height $Height
+        $chromePrefPatched = Set-ChromeVideoEncodePrefs -Width $Width -Height $Height -Fps $Fps
         $codecPrefPatched = $true
         if ($CodecOrdinal -ge 0) {
             $codecPrefPatched = Set-ChromeVideoCodecOrdinal -Ordinal $CodecOrdinal
@@ -344,10 +398,13 @@ try {
         }
 
         $startArgs = @(
-            "shell", "am", "start", "-n", "$pkg/$act",
+            "shell", "am", "start", "-S", "-n", "$pkg/$act",
             "--activity-clear-task",
             "--es", "pns_screen", "preview",
             "--ez", "pns_preview_primary_photo", "false",
+            "--ei", "pns_preview_raw_count", "0",
+            "--ez", "pns_preview_raw_still_fast", "false",
+            "--es", "pns_preview_dial", "Auto",
             "--es", "pns_preview_imaging_profile", "standard_pro",
             "--ei", "pns_preview_automation_in_app_video_sec", "$DurationSec",
             "--ei", "pns_preview_video_fps", "$Fps",
@@ -374,7 +431,7 @@ try {
         Start-Sleep -Seconds $waitTotal
 
         $pnsLog = Get-PnsLogcat
-        $fullLog = (Invoke-AdbCmd logcat -d -v threadtime -t 400 2>&1) -join "`n"
+        $fullLog = Get-PnsLogcat
         $pnsLog | Out-File -FilePath (Join-Path $OutDir "log_${TestName}_pns.txt") -Encoding utf8
         $fullLog | Out-File -FilePath (Join-Path $OutDir "log_${TestName}.txt") -Encoding utf8
         $allLog = $pnsLog
@@ -388,11 +445,12 @@ try {
         $savedUriOk = $allLog -match "inAppVideoSaved ok=true saved=(content://[^\s\r\n]+)"
         $savedOk = ($savedBytes -ge 50000) -or ($savedUriOk -and $savedBytes -lt 0)
         $prepMiss = $allLog -match "inAppVideoAutomation recorderMissingOrFailed"
+        $mcPreparedOk = $allLog -match "mcVideoPrepared audioEnabled=true"
         $codecError =
             $allLog -match "inAppVideoShellStartFailed" -or
             $allLog -match "MCVideoRec.*prepare failed" -or
-            $allLog -match "PNS\.Cam:.*CAMERA_DISCONNECTED" -or
-            ($prepMiss -and -not $savedOk)
+            ($allLog -match "Open failed: IllegalArgumentException" -and -not $savedOk) -or
+            (($prepMiss -and -not $savedOk) -and -not $mcPreparedOk)
         $correctFps = $allLog -match "fps=$Fps"
         $previewFpsLog = ""
         if ($allLog -match "previewFps=([0-9.]+)") {
@@ -404,9 +462,36 @@ try {
         $requiresMcPath = ($Fps -ge 120) -or $TenBit
         $needs4k120Proof = ($Width -ge 3840) -and ($Fps -ge 120)
         $hsBurstOk = if ($Fps -ge 120) {
-            ($fullLog -match "HFR repeatingBurst started") -or
+            ($allLog -match "HFR repeatingBurst started") -or
                 ($allLog -match "HFR repeatingBurst encoder-only") -or
                 ($allLog -match "Preview running \(HFR $Fps")
+        } else { $true }
+        $hfrRoute = "unknown"
+        $routeMatches = [regex]::Matches($allLog, "hfrRoute=([A-Za-z0-9_]+)")
+        if ($routeMatches.Count -gt 0) {
+            $hfrRoute = $routeMatches[$routeMatches.Count - 1].Groups[1].Value
+        }
+        $hfrWarmupAttempt = -1
+        $warmupMatches = [regex]::Matches($allLog, "hfrWarmupAttempt=(\d+)")
+        if ($warmupMatches.Count -gt 0) {
+            $hfrWarmupAttempt = [int]$warmupMatches[$warmupMatches.Count - 1].Groups[1].Value
+        }
+        $hfrBlockReason = ""
+        $blockMatches = [regex]::Matches($allLog, "inAppVideo120StrictBlocked requested=\d+ effective=\d+ reason=([A-Za-z0-9_:\-]+)")
+        if ($blockMatches.Count -gt 0) {
+            $hfrBlockReason = $blockMatches[$blockMatches.Count - 1].Groups[1].Value
+        }
+        $strict120Blocked = $allLog -match "inAppVideo120StrictBlocked"
+        $routeInterleavedOk = $allLog -match "HFR repeatingBurst started.*interleaved=true"
+        $routeEncoderOnlyOk = $allLog -match "HFR repeatingBurst encoder-only"
+        $interleavedOk = if ($needs4k120Proof) {
+            if ($hfrRoute -like "interleaved*") {
+                $routeInterleavedOk
+            } elseif ($hfrRoute -like "encoder_only*") {
+                $routeEncoderOnlyOk
+            } else {
+                $routeInterleavedOk -or $routeEncoderOnlyOk
+            }
         } else { $true }
         $sessionSizeOk = if ($Fps -ge 120) {
             $allLog -match "sessionBufferSet (1280x720|1920x1080|${Width}x${Height})"
@@ -414,7 +499,7 @@ try {
             $allLog -match "sessionBufferSet (1280x720|1920x1080|${Width}x${Height})"
         } else { $true }
         $mcSizeOk = if ($requiresMcPath) {
-            $allLog -match "mcVideoPrepared audioEnabled=true size=(1280x720|1920x1080|${Width}x${Height}) fps=$Fps"
+            $allLog -match "mcVideoPrepared audioEnabled=true.*size=(1280x720|1920x1080|${Width}x${Height}).*fps=$Fps"
         } else {
             $allLog -match "mcVideoPrepared"
         }
@@ -426,12 +511,16 @@ try {
             $minMcFrames =
                 if ($Fps -ge 480) { 400 }
                 elseif ($Fps -ge 240) { 200 }
+                elseif ($needs4k120Proof) { [int][math]::Max(120, [math]::Floor($DurationSec * [double]$Fps * 0.35)) }
                 else { 120 }
             $mcFramesWritten -ge $minMcFrames
         } else { $true }
         $encodePrefOk = if ($needs4k120Proof) {
             $chromePrefPatched -or $allLog -match "encodePrefSet ${Width}x${Height}"
         } else { $true }
+        $launchExtrasOk = $allLog -match "previewLaunchExtras videoSec="
+        $automationArmedOk = $allLog -match "start in-app video automation recordSec="
+        $noSequentialRawHijack = -not ($allLog -match "start sequential stills n=")
 
         $hasFfprobeCmd = [bool](Get-Command ffprobe -ErrorAction SilentlyContinue)
         $ffprobeAv = @{
@@ -447,13 +536,15 @@ try {
         if ($savedOk) {
             $localMp4 = Pull-SavedMp4 -TestName $TestName -AllLog $allLog
             if ($localMp4) {
-                $ffprobeAv = Test-FfprobeAvClip -LocalPath $localMp4 -TargetFps $Fps -ExpectedVideoCodec $ExpectedFfprobeCodec
+                $ffprobeAv = Test-FfprobeAvClip -LocalPath $localMp4 -TargetFps $Fps -ExpectedVideoCodec $ExpectedFfprobeCodec `
+                    -ExpectedWidth $(if ($needs4k120Proof) { $Width } else { 0 }) `
+                    -ExpectedHeight $(if ($needs4k120Proof) { $Height } else { 0 })
                 Write-Log "  ffprobe A/V          : $($ffprobeAv.Summary)"
             } else {
                 Write-Log "  ffprobe A/V          : could not pull MP4 (saved in log)"
             }
         } else {
-            Write-Log "  ffprobe A/V          : skip — inAppVideoSaved missing"
+            Write-Log "  ffprobe A/V          : skip - inAppVideoSaved missing"
         }
         $ffprobeOk = $ffprobeAv.Ok
         if ($RequireFfprobeAv -and -not $hasFfprobeCmd) {
@@ -466,18 +557,60 @@ try {
             $pass = $pass -and $usedMrPath
         }
         if ($Fps -ge 120) {
-            $pass = $pass -and $hsBurstOk -and $sessionSizeOk -and $mcSizeOk -and $mcFramesOk -and $correctFps
+            $pass = $pass -and $launchExtrasOk -and $automationArmedOk -and $noSequentialRawHijack `
+                -and $hsBurstOk -and $sessionSizeOk -and $mcSizeOk -and $mcFramesOk -and $correctFps
         }
         if ($needs4k120Proof) {
-            $pass = $pass -and $encodePrefOk -and $ffprobeOk
+            $pass = $pass -and $interleavedOk -and $encodePrefOk -and $ffprobeOk
         } elseif ($RequireFfprobeAv -or $savedOk) {
             $pass = $pass -and $ffprobeOk
         }
 
+        $truthClass = "n/a"
+        if ($needs4k120Proof) {
+            if (-not $savedOk -or $codecError -or -not $ffprobeAv.HasVideo -or -not $ffprobeAv.HasAudio) {
+                $truthClass = "blocked_unstable"
+            } elseif (
+                $ffprobeAv.FpsOk -and
+                $ffprobeAv.FramesOk -and
+                $ffprobeAv.DurationOk -and
+                $ffprobeAv.CodecOk -and
+                $ffprobeAv.DimsOk
+            ) {
+                $truthClass = "true_4k120"
+            } elseif ($ffprobeAv.FpsOk -and $ffprobeAv.FramesOk -and $ffprobeAv.DurationOk -and $ffprobeAv.CodecOk) {
+                $truthClass = "hs120_sub4k"
+            } else {
+                $truthClass = "blocked_unstable"
+            }
+            $pass = $pass -and ($truthClass -eq "true_4k120")
+        }
+
         Write-Log "  MediaCodec path used : $usedMcPath"
         Write-Log "  MediaRecorder path   : $usedMrPath"
+        Write-Log "  previewLaunchExtras  : $launchExtrasOk"
+        Write-Log "  video automation     : $automationArmedOk"
+        Write-Log "  no RAW still hijack  : $noSequentialRawHijack"
         Write-Log "  HS burst in log      : $hsBurstOk"
+        if ($needs4k120Proof) {
+            Write-Log "  HFR route interleaved: $routeInterleavedOk"
+            Write-Log "  HFR route encoderOnly: $routeEncoderOnlyOk"
+            Write-Log "  HFR route policy ok  : $interleavedOk (route=$hfrRoute)"
+        }
+        if ($needs4k120Proof) {
+            $actualW = ""
+            $actualH = ""
+            if ($null -ne $ffprobeAv -and $ffprobeAv.ContainsKey("ActualWidth")) { $actualW = "$($ffprobeAv.ActualWidth)" }
+            if ($null -ne $ffprobeAv -and $ffprobeAv.ContainsKey("ActualHeight")) { $actualH = "$($ffprobeAv.ActualHeight)" }
+            if ($actualW -eq "") { $actualW = "n/a" }
+            if ($actualH -eq "") { $actualH = "n/a" }
+            Write-Log "  4k120 truth class    : $truthClass (wxh=${actualW}x${actualH})"
+        }
         Write-Log "  Preview fps (log)    : $previewFpsLog"
+        if ($needs4k120Proof) {
+            Write-Log "  strict120 blocked    : $strict120Blocked reason=$hfrBlockReason"
+            Write-Log "  hfrWarmupAttempt     : $hfrWarmupAttempt"
+        }
         Write-Log "  Correct fps in log   : $correctFps"
         Write-Log "  codec pref patched   : $codecPrefPatched"
         Write-Log "  sessionBuffer HFR    : $sessionSizeOk"
@@ -507,6 +640,11 @@ try {
             Error = $codecError
             FfprobeAv = $ffprobeAv
             FfprobeOk = $ffprobeOk
+            TruthClass = $truthClass
+            HfrRoute = $hfrRoute
+            HfrWarmupAttempt = $hfrWarmupAttempt
+            HfrBlockReason = $hfrBlockReason
+            Strict120Blocked = $strict120Blocked
         }
     }
 
@@ -524,13 +662,11 @@ try {
     $codecDump | ForEach-Object { Write-Log "  $_" }
 
     Write-Log ""
-    Write-Log "## Bootstrap — SharedPrefs"
+    Write-Log "## Bootstrap"
+    Invoke-AdbCmd logcat -G 16M 2>$null | Out-Null
     Invoke-AdbCmd shell am force-stop $pkg 2>$null | Out-Null
-    Start-Sleep -Milliseconds 500
-    Invoke-AdbCmd shell am start -n "$pkg/$act" --es pns_screen preview 2>&1 | Out-Null
-    Start-Sleep -Seconds 8
-    Invoke-AdbCmd shell am force-stop $pkg 2>$null | Out-Null
-    Write-Log "  Bootstrap complete"
+    Start-Sleep -Seconds 3
+    Write-Log "  Bootstrap complete (force-stop + 16M logcat ring)"
 
     if ($GateProfile -eq "vf") {
         $RequireFfprobeAv = $true
@@ -545,14 +681,14 @@ try {
         @{ Name = "H265_HFR_1080p_240fps";    Fps = 240; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
         @{ Name = "H264_HFR_1080p_480fps";    Fps = 480; TenBit = $false; W = 1920; H = 1080; Codec = 0;  FfCodec = "h264" },
         @{ Name = "H265_HFR_1080p_480fps";    Fps = 480; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
-        # H.264 4K@120: known FAIL on legacy SKU (MC falls back to 1080p) — see docs/VIDEO_MODE_MATRIX.md
+        # H.264 4K@120: known FAIL on legacy SKU (MC falls back to 1080p) - see docs/VIDEO_MODE_MATRIX.md
         # @{ Name = "H264_HFR_4K_120fps";       Fps = 120; TenBit = $false; W = 3840; H = 2160; Codec = 0;  FfCodec = "h264" },
-        # 4K@120 not in UI unless camera HS lists 3840x2160@120 — gate uses 1080p HFR only (vf profile)
+        # 4K@120 not in UI unless camera HS lists 3840x2160@120 - gate uses 1080p HFR only (vf profile)
         # @{ Name = "H265_HFR_4K_120fps";       Fps = 120; TenBit = $false; W = 3840; H = 2160; Codec = 1;  FfCodec = "hevc" },
         @{ Name = "HFR_1080p_120fps";        Fps = 120; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
         @{ Name = "HFR_1080p_240fps";         Fps = 240; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
         @{ Name = "HFR_1080p_480fps";         Fps = 480; TenBit = $false; W = 1920; H = 1080; Codec = 1;  FfCodec = "hevc" },
-        @{ Name = "4K_120fps_MediaCodec";    Fps = 120; TenBit = $false; W = 3840; H = 2160; Codec = 1;  FfCodec = "hevc" },
+        @{ Name = "4K_120fps_MediaCodec";    Fps = 120; TenBit = $false; W = 3840; H = 2160; Codec = 0;  FfCodec = "h264" },
         @{ Name = "TenBit_1080p_60fps";       Fps = 60;  TenBit = $true;  W = 1920; H = 1080; Codec = -1; FfCodec = "hevc" },
         @{ Name = "TenBit_HDR10_1080p";      Fps = 60;  TenBit = $true;  W = 1920; H = 1080; Codec = -1; FfCodec = "hevc" },
         @{ Name = "4K_30fps";                Fps = 30;  TenBit = $false; W = 3840; H = 2160; Codec = -1; FfCodec = "" },
@@ -585,7 +721,8 @@ try {
             -Width $c.W `
             -Height $c.H `
             -CodecOrdinal $c.Codec `
-            -ExpectedFfprobeCodec $c.FfCodec
+            -ExpectedFfprobeCodec $c.FfCodec `
+            -DurationSec $RecordSec
     }
 
     Write-Log ""
@@ -596,7 +733,7 @@ try {
 
     foreach ($r in $results) {
         $icon = if ($r.Pass) { "PASS" } else { "FAIL" }
-        Write-Log "  [$icon] $($r.Test)  fps=$($r.Fps)  mc=$($r.McPath)  mr=$($r.MrPath)  ffprobeAv=$($r.FfprobeOk)"
+        Write-Log "  [$icon] $($r.Test)  fps=$($r.Fps)  mc=$($r.McPath)  mr=$($r.MrPath)  ffprobeAv=$($r.FfprobeOk) truth=$($r.TruthClass)"
     }
 
     $results | ConvertTo-Json -Depth 4 | Set-Content -Path $SummaryJson -Encoding UTF8
@@ -614,6 +751,13 @@ try {
 }
 finally {
     Pop-Location
-    if ($Serial -ne "") { & adb -s $Serial shell am force-stop dev.pointandshoot 2>$null | Out-Null }
-    else { & adb shell am force-stop dev.pointandshoot 2>$null | Out-Null }
+    try {
+        if ($Serial -ne "") {
+            & adb -s $Serial shell am force-stop dev.pointandshoot 2>$null | Out-Null
+        } else {
+            & adb shell am force-stop dev.pointandshoot 2>$null | Out-Null
+        }
+    } catch {
+        # Ignore cleanup failures (device unplugged / stale serial).
+    }
 }

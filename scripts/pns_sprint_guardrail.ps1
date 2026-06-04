@@ -176,40 +176,43 @@ function Add-ProbeSection5Evidence {
         }
     }
     
-    $evidenceLines = @(
-        "",
-        "### Sprint Guardrail — $timestamp",
-        "",
-        "**Device:** $deviceInfo  ",
-        "**Pack:** $($Results.pack)  ",
-        "**Result:** $(if ($Results.pass) { 'PASS ✓' } else { 'FAIL ✗' })  ",
-        ""
-    )
+    $resultLabel = if ($Results.pass) { 'PASS' } else { 'FAIL' }
+    $evidenceLines = New-Object System.Collections.Generic.List[string]
+    [void]$evidenceLines.Add('')
+    [void]$evidenceLines.Add(('### Sprint Guardrail - {0}' -f $timestamp))
+    [void]$evidenceLines.Add('')
+    [void]$evidenceLines.Add(('**Device:** {0}  ' -f $deviceInfo))
+    [void]$evidenceLines.Add(('**Pack:** {0}  ' -f $Results.pack))
+    [void]$evidenceLines.Add(('**Result:** {0}  ' -f $resultLabel))
+    [void]$evidenceLines.Add('')
     
     if ($Results.details) {
-        $evidenceLines += "**Details:**"
-        $evidenceLines += "```json"
-        $evidenceLines += ($Results.details | ConvertTo-Json -Depth 3)
-        $evidenceLines += "```"
+        [void]$evidenceLines.Add('**Details:**')
+        [void]$evidenceLines.Add('```json')
+        [void]$evidenceLines.Add(($Results.details | ConvertTo-Json -Depth 3))
+        [void]$evidenceLines.Add('```')
     }
     
     if ($Results.error) {
-        $evidenceLines += "**Error:** $($Results.error)"
+        [void]$evidenceLines.Add(('**Error:** {0}' -f $Results.error))
     }
     
     if ($Results.evidenceFile) {
-        $evidenceLines += "**Evidence file:** $($Results.evidenceFile)"
+        [void]$evidenceLines.Add(('**Evidence file:** {0}' -f $Results.evidenceFile))
     }
     
-    $evidenceLines += ""
+    [void]$evidenceLines.Add('')
     
-    # Append to §5 (after the "## 5. Sprint verification evidence" header)
+    # Append to §5 (support both legacy and current section titles).
     $content = Get-Content $probeFile -Raw
-    $section5Marker = "## 5. Sprint verification evidence"
-    
-    if ($content -match $section5Marker) {
-        $parts = $content -split $section5Marker, 2
-        $newContent = $parts[0] + $section5Marker + ($evidenceLines -join "`n") + $parts[1]
+    $section5Marker = "## 5. Progress log (audit trail)"
+    if ($content -notmatch [regex]::Escape($section5Marker)) {
+        $section5Marker = "## 5. Sprint verification evidence"
+    }
+
+    if ($content -match [regex]::Escape($section5Marker)) {
+        $parts = $content -split [regex]::Escape($section5Marker), 2
+        $newContent = $parts[0] + $section5Marker + "`n" + ($evidenceLines -join "`n") + $parts[1]
         Set-Content -Path $probeFile -Value $newContent -NoNewline
         Write-Log "Evidence appended to PROBE_BUILD_PLAN.md §5"
     } else {

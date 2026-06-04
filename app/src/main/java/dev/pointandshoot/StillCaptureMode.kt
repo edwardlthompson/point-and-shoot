@@ -9,10 +9,10 @@ enum class StillCaptureMode {
     /** ReferenceCam-class single still (default). */
     Standard,
 
-    /** MotionCam-inspired: pick best frame from a preview ring buffer. */
+    /** AltReferenceApp-inspired: pick best frame from a preview ring buffer. */
     ZslStill,
 
-    /** MotionCam-inspired: multi-frame EV bracket → one DNG (or burst). */
+    /** AltReferenceApp-inspired: multi-frame EV bracket → one DNG (or burst). */
     HdrStill,
 }
 

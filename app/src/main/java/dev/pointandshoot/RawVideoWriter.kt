@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * P&S documented MCRAW-class container (MotionCam `.mcraw` is proprietary — inspiration only).
+ * P&S documented MCRAW-class container (AltReferenceApp `.mcraw` is proprietary — inspiration only).
  *
  * Layout:
  * - Header: magic `PNMRAWV1`, version, width, height, [ImageFormat], reserved

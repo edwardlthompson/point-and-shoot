@@ -7,7 +7,7 @@ import android.hardware.camera2.DngCreator
 import android.hardware.camera2.TotalCaptureResult
 import dev.pointandshoot.fleet.LeafDngHalReconcile
 import dev.pointandshoot.fleet.LegacyFleetPolicy
-import dev.pointandshoot.fleet.ProShotPipelineContract
+import dev.pointandshoot.fleet.ReferenceAppPipelineContract
 import dev.pointandshoot.DngBayerAsShotNeutral
 import android.location.Location
 import android.media.Image
@@ -126,13 +126,13 @@ class Dng12Saver(
         val stamp50708 = !uniqueCameraModel.isNullOrBlank()
         val reconcileLeaf =
             !sessionCameraId.isNullOrBlank() &&
-                ProShotPipelineContract.leafPostSaveTiffReconcileEnabled(sessionCameraId)
+                ReferenceAppPipelineContract.leafPostSaveTiffReconcileEnabled(sessionCameraId)
         val wideCal = wideCalibrationCharacteristics != null
         Log.i(
             TAG,
             "dng openability diag cam=$sessionCameraId reconcile=$reconcileLeaf " +
                 "wideCal=$wideCal stamp50708=$stamp50708 " +
-                "pureProShot=${LegacyFleetPolicy.useProShotPureDngSave()}",
+                "pureReferenceApp=${LegacyFleetPolicy.useReferenceAppPureDngSave()}",
         )
         if (!stamp50708 && !reconcileLeaf) {
             creator.writeImage(destination, image)

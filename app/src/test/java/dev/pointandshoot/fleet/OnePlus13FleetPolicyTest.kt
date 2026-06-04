@@ -66,19 +66,19 @@ class LegacyFleetPolicyTest {
     @Test
     fun legacy_deviceShipped_proShotPureDng_noPostSaveTiffReconcile() {
         if (!LegacyFleetPolicy.appliesToDevice()) return
-        assertEquals(true, LegacyFleetPolicy.useProShotPureDngSave())
+        assertEquals(true, LegacyFleetPolicy.useReferenceAppPureDngSave())
         assertEquals(false, LegacyFleetPolicy.useLegacyAsnReconcileOnly())
         assertEquals(false, LegacyFleetPolicy.useHalColorCalibrationReconcile())
     }
 
     @Test
-    fun stillDngBackendWhen_legacy_device_isFrameworkProShot() {
+    fun stillDngBackendWhen_legacy_device_isFrameworkReferenceApp() {
         assertEquals(
-            StillDngBackend.FRAMEWORK_PROSHOT,
+            StillDngBackend.FRAMEWORK_REFERENCEAPP,
             LegacyFleetPolicy.stillDngBackendWhen(deviceApplies = true),
         )
         assertEquals(
-            StillDngBackend.FRAMEWORK_PROSHOT,
+            StillDngBackend.FRAMEWORK_REFERENCEAPP,
             LegacyFleetPolicy.stillDngBackendWhen(deviceApplies = false),
         )
     }
@@ -86,7 +86,7 @@ class LegacyFleetPolicyTest {
     @Test
     fun shipped13_3g_bisectFlags_defaultOff() {
         assertFalse(LegacyFleetPolicy.useWideLeafCalibrationForAuxDng())
-        assertFalse(LegacyFleetPolicy.useProShotStillPrecapture())
+        assertFalse(LegacyFleetPolicy.useReferenceAppStillPrecapture())
         assertFalse(LegacyFleetPolicy.useLegacyAsnReconcileOnly())
         assertFalse(LegacyFleetPolicy.useHalColorCalibrationReconcile())
         assertFalse(
@@ -95,7 +95,7 @@ class LegacyFleetPolicyTest {
         assertFalse(
             LeafDngHalReconcile.shouldReconcileLeafDngMetadataWhen(
                 deviceApplies = true,
-                backend = StillDngBackend.FRAMEWORK_PROSHOT,
+                backend = StillDngBackend.FRAMEWORK_REFERENCEAPP,
                 sessionCameraId = LegacyFleetPolicy.CANONICAL_UW,
                 proShotPureDngSave = true,
                 wideLeafCalibrationForAuxDng = false,
@@ -120,7 +120,7 @@ class LegacyFleetPolicyTest {
     }
 
     @Test
-    fun leafRawFormatOrder_matchesProShotSequence() {
+    fun leafRawFormatOrder_matchesReferenceAppSequence() {
         assertEquals(
             listOf(
                 ImageFormat.RAW_SENSOR,

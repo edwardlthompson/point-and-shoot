@@ -35,15 +35,34 @@ try {
         if ($code -lt 200 -or $code -ge 400) {
             throw "unexpected status $code"
         }
-        Write-Host "[pns_about_links] HTTP $code OK"
+        Write-Host "[pns_about_links] Venmo HTTP $code OK"
     } catch {
-        Write-Warning "[pns_about_links] HEAD failed ($($_.Exception.Message)); trying GET..."
+        Write-Warning "[pns_about_links] Venmo HEAD failed ($($_.Exception.Message)); trying GET..."
         $resp = Invoke-WebRequest -Uri $url -Method Get -MaximumRedirection 5 -TimeoutSec 30
         $code = [int]$resp.StatusCode
         if ($code -lt 200 -or $code -ge 400) {
             throw "GET status $code"
         }
-        Write-Host "[pns_about_links] GET $code OK"
+        Write-Host "[pns_about_links] Venmo GET $code OK"
+    }
+
+    $releasesUrl = "https://github.com/edwardlthompson/point-and-shoot/releases/latest"
+    Write-Host "[pns_about_links] HEAD $releasesUrl"
+    try {
+        $resp = Invoke-WebRequest -Uri $releasesUrl -Method Head -MaximumRedirection 5 -TimeoutSec 30
+        $code = [int]$resp.StatusCode
+        if ($code -lt 200 -or $code -ge 400) {
+            throw "unexpected status $code"
+        }
+        Write-Host "[pns_about_links] GitHub releases HTTP $code OK"
+    } catch {
+        Write-Warning "[pns_about_links] GitHub HEAD failed ($($_.Exception.Message)); trying GET..."
+        $resp = Invoke-WebRequest -Uri $releasesUrl -Method Get -MaximumRedirection 5 -TimeoutSec 30
+        $code = [int]$resp.StatusCode
+        if ($code -lt 200 -or $code -ge 400) {
+            throw "GET status $code"
+        }
+        Write-Host "[pns_about_links] GitHub GET $code OK"
     }
 
     if ($HostOnly) {

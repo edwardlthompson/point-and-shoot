@@ -68,6 +68,9 @@ foreach ($t in $m21Tests) {
 & (Join-Path $PSScriptRoot "pns_capability_catalog_gate.ps1") -HostOnly
 Add-Step "catalog_gate" $LASTEXITCODE
 
+& (Join-Path $PSScriptRoot "pns_changelog_gate.ps1") -ProjectRoot $repoRoot
+Add-Step "changelog_coverage" $LASTEXITCODE
+
 & (Join-Path $PSScriptRoot "pns_fleet_parity_sweep.ps1") -HostOnlyFixture
 Add-Step "parity_logcat_fixture" $LASTEXITCODE
 

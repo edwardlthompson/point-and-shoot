@@ -55,6 +55,22 @@ object FleetProbeMatrixMarkdown {
             } ?: "—"
             sb.appendLine("- **$id**: HFR@1080=$hfr RAW=$raw gates(hfr)=$hfrGate")
         }
+        val still =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareLaunch")
+                ?.optJSONObject("stillImageCamera")
+        val buttons = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("hardwareButtons")
+        if (still != null || buttons != null) {
+            sb.appendLine()
+            sb.appendLine("Hardware launch & buttons:")
+            sb.appendLine("- STILL_IMAGE_CAMERA handlers: ${still?.optInt("handlerCount") ?: "—"}")
+            sb.appendLine("- P&S registered: ${still?.optBoolean("pnsRegistered") ?: false}")
+            sb.appendLine("- Dedicated camera key likely: ${buttons?.optBoolean("dedicatedCameraKeyLikely") ?: false}")
+            val probe = buttons?.optJSONObject("interactiveProbe")
+            if (probe != null) {
+                sb.appendLine("- Interactive probe keyCodes: ${probe.optJSONArray("distinctKeyCodes")}")
+            }
+        }
         sb.appendLine()
         sb.appendLine("_Host: `pns_fleet_matrix_scan.ps1` / `pns_fleet_matrix_diff.ps1`. Focal slots: matrix `product.focalSlots` (not standalone `fleet_focal_map.json` SoT)._")
     }

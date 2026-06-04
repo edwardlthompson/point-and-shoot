@@ -21,7 +21,7 @@ alwaysApply: true
 ## Primary vs regression device
 
 - **Primary USB development device:** OnePlus 12 **CPH2583** (`scripts/pns_adb_device.env` — local serial only).
-- **LegacyDevice (LegacySku):** optional **`pns_*_legacy_device_regression`** lane only; ProShot fixtures stay for host CI.
+- **LegacyDevice (LegacySku):** optional **`pns_*_legacy_device_regression`** lane only; ReferenceApp fixtures stay for host CI.
 
 ## When changing fleet caps
 

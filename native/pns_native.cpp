@@ -311,9 +311,9 @@ JNIEXPORT jbyteArray JNICALL Java_dev_pointandshoot_NativeEncoders_nativeEncodeJ
 #endif
 }
 
-JNIEXPORT jint JNICALL Java_dev_pointandshoot_MotionCamNativeStill_nativeMotionCamDngEncodeVersion(
+JNIEXPORT jint JNICALL Java_dev_pointandshoot_AltReferenceAppNativeStill_nativeAltReferenceAppDngEncodeVersion(
         JNIEnv*, jclass) {
-    // Stub: real MotionCam-class DNG encode (Adobe DNG SDK / RawEncoder) not linked yet.
+    // Stub: real AltReferenceApp-class DNG encode (Adobe DNG SDK / RawEncoder) not linked yet.
     return 0;
 }
 

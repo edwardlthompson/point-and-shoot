@@ -111,8 +111,8 @@ object DngSaveBisectState {
 
     private fun parseStillDngBackendExtra(raw: String): StillDngBackend? =
         when (raw.lowercase()) {
-            "framework_proshot", "referencecam" -> StillDngBackend.FRAMEWORK_PROSHOT
-            "motioncam_inspired", "motioncam" -> StillDngBackend.MOTIONCAM_INSPIRED
+            "framework_referenceapp", "referencecam" -> StillDngBackend.FRAMEWORK_REFERENCEAPP
+            "altreferenceapp_inspired", "altreferenceapp" -> StillDngBackend.ALTREFERENCEAPP_INSPIRED
             else -> {
                 Log.w(TAG, "unknown pns_preview_still_dng_backend=$raw")
                 null

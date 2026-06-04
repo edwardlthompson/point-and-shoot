@@ -68,8 +68,11 @@ android {
         applicationId = "dev.pointandshoot"
         minSdk = 28
         targetSdk = 36
-        versionCode = 14005
-        versionName = "0.14.0-beta.5"
+        // versionName: semver (user-visible; Keep a Changelog / GitHub tag v-prefix).
+        // versionCode: monotonic integer for Play/Obtainium upgrades; release script uses
+        // semverOrIncrement policy (scripts/pns_release_naming.ps1) — never decrease.
+        versionCode = 22001
+        versionName = "0.14.0-beta.7"
         // Legacy target: app hit ClassNotFound on large Compose entrypoints when they landed in
         // secondary dex. Keep multidex explicitly enabled to ensure all classesN.dex are loaded.
         multiDexEnabled = true
@@ -118,6 +121,10 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     compileOptions {
@@ -203,6 +210,7 @@ dependencies {
     // Pure-JVM unit tests for engine-agnostic helpers (BracketPlan, HighlightMeter,
     // formatTimecode). Tests live in app/src/test/java and run via :app:testDebugUnitTest.
     testImplementation(libs.junit)
+    testImplementation("org.mockito:mockito-core:5.14.2")
     // Real org.json on the unit-test classpath so EncoderAttemptJsonAdapter.decode
     // can be tested against in-memory JSONObject fixtures (the Android stub jar
     // throws "Stub!" for org.json calls otherwise). MIT-licensed; covered in LICENSES.md.

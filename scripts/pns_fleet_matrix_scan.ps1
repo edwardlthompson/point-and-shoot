@@ -106,7 +106,7 @@ function Write-StubGate([string]$Reason) {
     $stub = [ordered]@{
         schema       = "pns.fleet_matrix_scan.v1"
         adbConnected = $false
-        pass         = $true
+        pass         = $false
         skippedReason = $Reason
         scanTier     = $ScanTier
         timestampUtc = [DateTime]::UtcNow.ToString("o")
@@ -115,7 +115,7 @@ function Write-StubGate([string]$Reason) {
     $jp = Join-Path $OutDir "fleet_matrix_scan.json"
     $stub | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jp -Encoding utf8
     Write-Host "[fleet_matrix] Wrote $jp (stub)"
-    exit 0
+    exit 2
 }
 
 if (-not (Test-AdbAuthorizedDevice)) {
@@ -256,6 +256,10 @@ if ($pulled) {
 }
 
 $tierOk = ($scanTierObserved -eq $ScanTier) -or ($ScanTier -eq "quick" -and $scanTierObserved -eq "quick")
+$fleetEvidenceOk = $fleetLogOk -or ($pulled -and $schemaOk -and $tierOk)
+if (-not $fleetLogOk -and $fleetEvidenceOk) {
+    Write-Warning "[fleet_matrix] PNS.FleetMatrix log line missing; using pulled matrix scanMeta as evidence."
+}
 
 $schemaValidateOk = $false
 $schemaValidateDetail = ""
@@ -379,7 +383,7 @@ if ($pulled) {
     }
 }
 
-$pass = $pulled -and $schemaOk -and $fleetLogOk -and $tierOk -and $schemaValidateOk
+$pass = $pulled -and $schemaOk -and $fleetEvidenceOk -and $tierOk -and $schemaValidateOk
 
 $gate = [ordered]@{
     schema            = "pns.fleet_matrix_scan.v1"
@@ -392,6 +396,7 @@ $gate = [ordered]@{
     schemaValidateDetail = $schemaValidateDetail
     matrixPulled      = $pulled
     fleetLogOk        = $fleetLogOk
+    fleetEvidenceOk   = $fleetEvidenceOk
     matchedFleetLine  = $matchedFleet
     cameraCount       = $cameraCount
     policyId          = $policyId

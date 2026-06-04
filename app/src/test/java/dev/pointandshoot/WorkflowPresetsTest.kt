@@ -11,7 +11,7 @@ class WorkflowPresetsTest {
     @Test
     fun builtIn_containsStreetPortraitVideoLog() {
         val ids = WorkflowPresets.builtIn.map { it.id }.toSet()
-        assertEquals(setOf("street", "portrait", "video_log"), ids)
+        assertEquals(setOf("street", "portrait", "video_log", "macro_video"), ids)
     }
 
     @Test

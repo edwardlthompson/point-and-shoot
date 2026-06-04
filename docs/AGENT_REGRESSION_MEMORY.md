@@ -94,7 +94,7 @@
 - **Fix shipped:** **L9:** `useWideLeafCalibrationForAuxDng=false`; pure `DngCreator` + ASN-only reconcile when enabled
 - **Do not:** Re-enable wide-cal on aux without open gate 3/3 + ACR
 - **Proves OK:** `hfr-runs/m13_3h_wide_cal_bisect_*` H1–H3 FAIL; shipped L9 PASS `aux_dng_capture_analyze_20260519_155213`
-- **Also test:** `dng_proshot_parity_gate.py` only on legacy device regression lane
+- **Also test:** `dng_referenceapp_parity_gate.py` only on legacy device regression lane
 - **Touches:** `LegacyDeviceFleetPolicy.kt`, `Dng12Saver.kt`, `LeafDngHalReconcile.kt`
 - **Conflicts with:** Milestone 16 generic fleet policy (**16.4**)
 
@@ -464,6 +464,30 @@
 - **Also test:** `scripts/pns_in_app_video_verify.ps1`; `scripts/pns_memory_profiler.ps1`; `scripts/pns_po_optimization_gate.ps1` (sequentially on one device).
 - **Touches:** `PreviewEngineScreen.kt`, `preview/session/PreviewSessionOrchestrators.kt`, `preview/capture/ImageReaderAwait.kt`, `BackCameraRoleResolver.kt`, `ZslStillFrameRing.kt`
 - **Conflicts with:** REG-20260512-001, REG-20260603-019
+
+### REG-20260603-022 — Focal lens switch camera errors must fail over to a stable preview route
+- **Status:** active
+- **Area:** preview | fleet | focal routing
+- **Symptom:** On some fleet devices, focal-slot routing to an advertised auxiliary id (for example M14) can open and briefly run, then repeatedly hit `onError cameraId=<id> error=4` and leave preview in a camera-error loop.
+- **Cause:** Camera-device error callbacks tore down state, but focal-switch retries could keep reopening the same unstable id with no bounded reroute to a viable back camera.
+- **Fix shipped:** Added bounded camera-fault recovery in `PreviewController`: retry the same id a limited number of times inside a recovery window, then reroute to a fallback back camera that advertises preview `SurfaceTexture` outputs; also moved recovery scheduling into callback `finally` blocks so teardown exceptions cannot skip recovery.
+- **Do not:** Reintroduce unbounded reopen loops on the same failed camera id, and do not reroute to fallback ids without checking preview-surface output support.
+- **Proves OK:** Sony XQ-BE62 USB run (`DA7803TC1R`) in `hfr-runs/uw_preview_fixverify_20260603_1144/sony_uw_recovery_logcat.txt` shows M14 -> camera 4 repeated errors, then bounded recovery `exhausted ... reroute to 2` followed by `status=Preview running (normal)`.
+- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipHost -SkipGradle -FocalMmSlot 14`; `scripts/pns_chrome_ux_gate.ps1 -SkipHost -SkipGradle -FocalMmSlot 73|85|150`; `scripts/pns_photo_capture_verify.ps1 -Fast` (sequentially on one serial).
+- **Touches:** `PreviewEngineScreen.kt`
+- **Conflicts with:** REG-20260512-001, REG-20260603-021
+
+### REG-20260603-023 — 4K120 strict start must classify delivered truth (not requested mode)
+- **Status:** active
+- **Area:** video | fleet | automation
+- **Symptom:** 4K120 automation could report pass semantics without explicitly distinguishing true 3840x2160@120 delivery from HS120 sub-4K fallback or blocked starts.
+- **Cause:** Verification scripts accepted broad HS dimensions and parity reports lacked a dedicated 4K120 truth signal field.
+- **Fix shipped:** Added strict 4K120 truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`) in `pns_mediacodec_hfr_verify.ps1`; strict wrapper (`pns_4k120_verify.ps1`) now only passes `true_4k120`; parity sweep ingests recent 4K120 truth signal and can flag `video.hfr.120` mismatch when non-true.
+- **Do not:** Treat requested 4K120 mode as delivered truth without container-dimension + fps validation and explicit truth classification.
+- **Proves OK:** Host script parse + compile lane (`pns_mediacodec_hfr_verify.ps1` / `pns_4k120_endurance.ps1` / `pns_m24_gate.ps1` help/syntax checks); USB proof pending active serial.
+- **Also test:** `scripts/pns_4k120_verify.ps1`; `scripts/pns_4k120_endurance.ps1`; `scripts/pns_fleet_parity_sweep.ps1 -Mode Full` (sequential on one device); `scripts/pns_capture_pipeline_verify.ps1` after any capture/session coupling edits.
+- **Touches:** `PreviewEngineScreen.kt`, `scripts/pns_mediacodec_hfr_verify.ps1`, `scripts/pns_fleet_parity_sweep.ps1`, `scripts/parity_proof_manifest.json`, `scripts/pns_4k120_endurance.ps1`, `scripts/pns_m24_gate.ps1`
+- **Conflicts with:** REG-20260530-001, REG-20260603-021
 
 ---
 

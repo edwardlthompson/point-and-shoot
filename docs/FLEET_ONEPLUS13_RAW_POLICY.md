@@ -43,19 +43,19 @@ When the gate matches, focal routing uses the **canonical dodge table** instead 
 
 | Setting | legacy device policy |
 |---------|-------------------|
-| **Still backend** | **`FRAMEWORK_PROSHOT`** on legacy SKU/2653 (matrix bisect `dng_matrix_bisect_20260519_030756`) |
+| **Still backend** | **`FRAMEWORK_REFERENCEAPP`** on legacy SKU/2653 (matrix bisect `dng_matrix_bisect_20260519_030756`) |
 | **Leaf open** | Prefer physical **3 / 2 / 4** when listed in `cameraIdList` |
 | **Leaf RAW pick** | **`LEAF_RAW_FORMAT_ORDER`** — **32 → 37 → 38 → 36** on opened map (ReferenceCam order) |
 | **Logical session RAW** | Unpinned RAW on parent **0**; preview-only physical pin; resolver falls back logical+logical when no per-physical totals |
 | **Still lens shading** | Map + **`SHADING_MODE`** HQ/FAST when advertised (not tele map-only) |
-| **Still optical** | Aberration + distortion when advertised (`StillCaptureIqPolicy.applyProShotOpticalCorrection`) |
-| **DNG save (Standard)** | **`ProShotDngCreatorPair`** → **`DngCreator(openedLeaf, stillResult)`** only — `reconcile=false` in logcat |
-| **Still capture (leaf)** | **`ProShotLeafStillCaptureRequest`** — crop + ReferenceCam still IQ (lens shading map, edge/NR/tonemap/aberration/distortion); **HAL AE**; **no** readout manual ISO latch, **no** post-save TIFF reconcile |
+| **Still optical** | Aberration + distortion when advertised (`StillCaptureIqPolicy.applyReferenceAppOpticalCorrection`) |
+| **DNG save (Standard)** | **`ReferenceAppDngCreatorPair`** → **`DngCreator(openedLeaf, stillResult)`** only — `reconcile=false` in logcat |
+| **Still capture (leaf)** | **`ReferenceAppLeafStillCaptureRequest`** — crop + ReferenceCam still IQ (lens shading map, edge/NR/tonemap/aberration/distortion); **HAL AE**; **no** readout manual ISO latch, **no** post-save TIFF reconcile |
 | **Post-save metadata** | **`skipStillMetadataApplyOnLeafDng`** on **2/3/4**; **no** P&S software auxiliary string on leaf (`skipDngSoftwareDescriptionOnLeaf`) |
-| **Reference-cal / aux reconcile** | **`useProShotReferenceCalibration()` = false**, **`useLegacyLeafAuxColorReconcile()` = false** (bisect only) |
+| **Reference-cal / aux reconcile** | **`useReferenceAppReferenceCalibration()` = false**, **`useLegacyLeafAuxColorReconcile()` = false** (bisect only) |
 | **Wide-cal aux** | **`useWideLeafCalibrationForAuxDng()` = false** until **13.3h** bisect + ACR **3/3** — see **`docs/DNG_OPENABILITY_REGRESSIONS.md`** |
-| **Still precapture / skip stopRepeating** | **`useProShotStillPrecapture()` / `proShotLeafStillSkipsStopRepeating()` = false** (bisect flags only) |
-| **MotionCam-inspired** | Available via ADB `pns_preview_still_dng_backend=motioncam_inspired` for bisect only — **not** shipped on legacy device |
+| **Still precapture / skip stopRepeating** | **`useReferenceAppStillPrecapture()` / `proShotLeafStillSkipsStopRepeating()` = false** (bisect flags only) |
+| **AltReferenceApp-inspired** | Available via ADB `pns_preview_still_dng_backend=altreferenceapp_inspired` for bisect only — **not** shipped on legacy device |
 
 ---
 
@@ -64,7 +64,7 @@ When the gate matches, focal routing uses the **canonical dodge table** instead 
 | Mode | Default | Notes |
 |------|---------|-------|
 | **Standard** | **Yes** | ReferenceCam-class single still (this document) |
-| **ZSL still** | Optional | MotionCam-inspired ring buffer; same DNG writer |
+| **ZSL still** | Optional | AltReferenceApp-inspired ring buffer; same DNG writer |
 | **HDR still** | Optional | **3-shot** EV bracket (**±1 EV**, reference = middle); **burst of 3 DNGs** per shutter (MVP — no in-app merge; post in ACR/Lightroom). Same `DngCreator` writer as Standard. |
 
 ---
@@ -86,8 +86,8 @@ When the gate matches, focal routing uses the **canonical dodge table** instead 
 | Profiles JSON | Probe hub export or `adb exec-out run-as dev.pointandshoot cat files/fleet_camera_profiles_legacy_sku.json` |
 | Aux DNG daylight | `pns_aux_dng_capture_analyze.ps1 -PreviewDial A -NoFast` — **3/3** + **`dng_desktop_open_gate.py`** |
 | DNG openability | Human ACR **3/3** (M14/M23/M73); logcat `dng openability diag reconcile=false wideCal=false` |
-| vs ReferenceCam | `pns_dng_proshot_pns_session.ps1` (after **13.3g** gate green) |
-| Aesthetic (same scene) | `scripts/pns_dng_aesthetic_gate.py` — ±20% luma/R/G/B vs `tests/fixtures/proshot_legacy_sku/` (wired in `pns_aux_dng_capture_analyze.ps1`) |
+| vs ReferenceCam | `pns_dng_referenceapp_pns_session.ps1` (after **13.3g** gate green) |
+| Aesthetic (same scene) | `scripts/pns_dng_aesthetic_gate.py` — ±20% luma/R/G/B vs `tests/fixtures/referenceapp_legacy_sku/` (wired in `pns_aux_dng_capture_analyze.ps1`) |
 
 ---
 

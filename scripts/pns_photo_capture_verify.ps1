@@ -266,6 +266,19 @@ function Test-UsableAppLogcatDump([string]$path, [string]$packageName) {
     return $false
 }
 
+function Complete-PhotoCaptureVerify([int]$Code, [string]$Message = "") {
+    Invoke-AdbTimedIgnore @("shell", "am", "force-stop", $pkg) 30000 | Out-Null
+    if (-not [string]::IsNullOrWhiteSpace($Message)) {
+        if ($Code -eq 0) {
+            Write-Host $Message
+        }
+        else {
+            Write-Error $Message
+        }
+    }
+    exit $Code
+}
+
 $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
 $pkg = "dev.pointandshoot"
@@ -356,27 +369,29 @@ foreach ($camSeed in $seedList) {
     for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         Write-Host ""
         Write-Host "[photo_capture_verify] === attempt $attempt / $MaxAttempts (seed=$seedLabel) ==="
-        $bad = $false
+        $badPoll = $false
 
         Invoke-AdbTimedIgnore @("shell", "logcat", "-c") 20000 | Out-Null
         Invoke-AdbTimedIgnore @("shell", "logcat", "-G", "64M") 15000 | Out-Null
         Invoke-AdbTimedIgnore @("shell", "am", "force-stop", $pkg) 30000 | Out-Null
         Start-Sleep -Milliseconds 800
 
-        $camId = if ([string]::IsNullOrWhiteSpace($camSeed)) { "3" } else { $camSeed }
+        $camId = if ([string]::IsNullOrWhiteSpace($camSeed)) { "" } else { $camSeed }
+        $camSeedArg = if ([string]::IsNullOrWhiteSpace($camId)) { "" } else { " --es pns_preview_camera_id $camId" }
         if ($formatMode) {
             $fmt = $PreviewStillFormat.Trim().ToLower()
             $amShell =
                 "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
                 "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 0 " +
                 "--es pns_preview_imaging_profile jpeg_only --es pns_preview_still_format $fmt " +
-                "--ez pns_preview_composed_still true --es pns_preview_camera_id $camId"
+                "--ez pns_preview_composed_still true$camSeedArg"
         }
         else {
             $amShell =
                 "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
                 "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 1 " +
-                "--es pns_preview_imaging_profile standard_pro --es pns_preview_camera_id $camId"
+                "--es pns_preview_imaging_profile standard_pro$camSeedArg " +
+                "--ei pns_preview_video_fps 60"
         }
         if ($Fast) {
             $amShell += " --ez pns_preview_raw_still_fast true"
@@ -415,11 +430,11 @@ foreach ($camSeed in $seedList) {
             foreach ($n in $failNeedles) {
                 if ($pollHaystack.Contains($n)) {
                     Write-Host "[photo_capture_verify] saw failure signal during poll: $n"
-                    $bad = $true
+                    $badPoll = $true
                     break
                 }
             }
-            if ($bad) { break }
+            if ($badPoll) { break }
             Start-Sleep -Seconds 3
         }
         if (-not $capturedEarly -and (Get-Date) -lt $deadline) {
@@ -525,14 +540,15 @@ foreach ($camSeed in $seedList) {
             [System.IO.File]::WriteAllText($attemptPath, $logText, [System.Text.UTF8Encoding]::new($false))
         }
         $ok = $haystack.Contains($successNeedle)
-        $bad = $false
+        $badFinal = $false
         foreach ($n in $failNeedles) {
             if ($haystack.Contains($n)) {
                 Write-Host "[photo_capture_verify] saw failure signal: $n"
-                $bad = $true
+                $badFinal = $true
                 break
             }
         }
+        $bad = $badPoll -or $badFinal
 
         if ($ok -and -not $bad) {
             Write-Host "[photo_capture_verify] VERIFIED: $successNeedle"
@@ -544,7 +560,7 @@ foreach ($camSeed in $seedList) {
                 "log=$attemptPath"
             ) | Set-Content -LiteralPath $summary -Encoding utf8
             Write-Host "[photo_capture_verify] wrote $summary"
-            exit 0
+            Complete-PhotoCaptureVerify 0
         }
 
         if (-not $ok) {
@@ -563,5 +579,4 @@ foreach ($camSeed in $seedList) {
     }
 }
 
-Write-Error "[photo_capture_verify] FAILED (no verified capture). See $outDir"
-exit 1
+Complete-PhotoCaptureVerify 1 "[photo_capture_verify] FAILED (no verified capture). See $outDir"

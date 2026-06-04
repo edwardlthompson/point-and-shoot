@@ -29,13 +29,16 @@ internal object CameraCapabilityCatalogEvaluators {
             }
             row.id == "video.dual_iso" -> gateTriple(root, "dcgZsl")
             row.id == "video.anamorphic" -> Triple(true, null, "anamorphicSar=metadata")
-            row.id == "still.proshot_leaf" -> Triple(false, null, "legacy_regression_lane")
+            row.id == "still.referenceapp_leaf" -> Triple(false, null, "legacy_regression_lane")
             row.id == "dial.monochrome" -> monochromeDial(root)
             row.id == "still.monochrome_sensor" -> Triple(false, null, "probeOnly=monochrome_sensor_inventory")
             row.id == "af.macro_dedicated" -> Triple(false, null, "probeOnly=macro_dedicated_inventory")
             row.id == "legacy.camera1" -> Triple(false, null, "probeOnly=camera1_inventory")
             row.id == "legacy.mediarecorder_hfr_cap" -> Triple(false, null, "probeOnly=mediarecorder_hfr_cap_inventory")
             row.id == "product.toolbox" -> Triple(false, null, "probeOnly=toolbox_inventory")
+            row.id == "product.still_image_camera_launch" -> stillImageCameraLaunch(root)
+            row.id == "product.hardware_camera_key" -> hardwareCameraKey(root)
+            row.id == "product.programmable_hardware_button" -> programmableHardwareButton(root)
             row.id == "gallery.lut_preview" -> Triple(false, null, "probeOnly=lut_preview_inventory")
             row.id == "video.dual" -> gateTriple(root, "dualVideo")
             row.id == "video.multicam_melt" -> gateTriple(root, "multicamMelt")
@@ -50,6 +53,8 @@ internal object CameraCapabilityCatalogEvaluators {
             row.id == "lens.tele" -> rolePresent(root, "tele")
             row.id == "lens.ois" -> lensHasOis(root)
             row.id == "lens.eis" -> lensHasEis(root)
+            row.id == "lens.aperture" -> lensHasAnyAperture(root)
+            row.id == "lens.variable_aperture" -> lensHasVariableAperture(root)
             row.id == "fleet.matrix" -> Triple(true, null, "matrix present")
             row.id == "fleet.parity_sweep" -> Triple(true, null, "parity runner shipped")
             row.id == "root.hfr_unlock" -> Triple(anyHfrAbove60(root), null, "matrix HFR ceiling")
@@ -92,6 +97,35 @@ internal object CameraCapabilityCatalogEvaluators {
             }
         }
         return Triple(found, null, if (found) "mode=$label" else "absent")
+    }
+
+    private fun stillImageCameraLaunch(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val slice =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareLaunch")
+                ?.optJSONObject("stillImageCamera")
+        val registered = slice?.optBoolean("pnsRegistered", false) == true
+        val resolvable = slice?.optBoolean("resolvable", false) == true
+        return Triple(registered && resolvable, null, "pnsRegistered=$registered resolvable=$resolvable")
+    }
+
+    private fun hardwareCameraKey(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val buttons = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("hardwareButtons")
+        val probe = buttons?.optJSONObject("interactiveProbe")
+        val confirmed =
+            probe?.optBoolean("cameraKeyConfirmed", false) == true ||
+                probe?.optBoolean("focusKeyConfirmed", false) == true
+        val likely = buttons?.optBoolean("dedicatedCameraKeyLikely", false) == true
+        return Triple(confirmed || likely, null, "cameraKeyConfirmed=$confirmed dedicatedLikely=$likely")
+    }
+
+    private fun programmableHardwareButton(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val buttons = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("hardwareButtons")
+        val probe = buttons?.optJSONObject("interactiveProbe")
+        val codes = probe?.optJSONArray("programmableKeyCodes") ?: probe?.optJSONArray("distinctKeyCodes")
+        val count = codes?.length() ?: 0
+        val likely = buttons?.optBoolean("programmableButtonLikely", false) == true
+        return Triple(count > 0 || likely, null, "programmableCodes=$count likely=$likely")
     }
 
     private fun focalSlotCount(root: JSONObject): Int =
@@ -196,6 +230,28 @@ internal object CameraCapabilityCatalogEvaluators {
             if (o.optInt("fps", -1) == fps) return true
         }
         return false
+    }
+
+    private fun lensHasAnyAperture(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return Triple(false, null, "no cameras")
+        for (i in 0 until cams.length()) {
+            val apertures = cams.optJSONObject(i)?.optJSONObject("lensInfo")?.optJSONArray("availableApertures")
+            if (apertures != null && apertures.length() > 0) {
+                return Triple(true, null, "apertureCount=${apertures.length()}")
+            }
+        }
+        return Triple(false, null, "aperture=none")
+    }
+
+    private fun lensHasVariableAperture(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return Triple(false, null, "no cameras")
+        for (i in 0 until cams.length()) {
+            val apertures = cams.optJSONObject(i)?.optJSONObject("lensInfo")?.optJSONArray("availableApertures")
+            if (apertures != null && apertures.length() > 1) {
+                return Triple(true, null, "variableApertureCount=${apertures.length()}")
+            }
+        }
+        return Triple(false, null, "variableAperture=none")
     }
 
     private fun lensHasOis(root: JSONObject): Triple<Boolean, Boolean?, String> {

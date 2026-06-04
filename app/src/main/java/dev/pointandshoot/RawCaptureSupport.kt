@@ -201,12 +201,12 @@ object RawCaptureSupport {
             runCatching { chars.physicalCameraIds?.toSet().orEmpty() }.getOrDefault(emptySet())
         if (LegacyFleetPolicy.appliesToDevice() && isLeafBackSession(sessionChildren, facing)) {
             when (LegacyFleetPolicy.stillDngBackend()) {
-                StillDngBackend.MOTIONCAM_INSPIRED ->
+                StillDngBackend.ALTREFERENCEAPP_INSPIRED ->
                     pickRawAtActiveArrayRawSensor(chars)?.let { return it }
-                StillDngBackend.FRAMEWORK_PROSHOT ->
+                StillDngBackend.FRAMEWORK_REFERENCEAPP ->
                     pickRawOutputFromFormatOrder(chars, LegacyFleetPolicy.LEAF_RAW_FORMAT_ORDER)
                         ?.let { return it }
-                StillDngBackend.MOTIONCAM_NATIVE -> Unit
+                StillDngBackend.ALTREFERENCEAPP_NATIVE -> Unit
             }
         }
         if (shouldUseLeafNonWideBackRawSensorPolicy(
@@ -396,7 +396,7 @@ object RawCaptureSupport {
         lensFacing == CameraCharacteristics.LENS_FACING_BACK && sessionPhysicalChildren.isEmpty()
 
     /**
-     * MotionCam-style: prefer [ImageFormat.RAW_SENSOR] at [SENSOR_INFO_ACTIVE_ARRAY_SIZE] when listed,
+     * AltReferenceApp-style: prefer [ImageFormat.RAW_SENSOR] at [SENSOR_INFO_ACTIVE_ARRAY_SIZE] when listed,
      * else largest RAW_SENSOR (not ReferenceCam's max-area pick across formats).
      */
     internal fun pickRawAtActiveArrayRawSensor(characteristics: CameraCharacteristics): Pair<Int, Size>? {

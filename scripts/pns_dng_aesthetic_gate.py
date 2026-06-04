@@ -16,12 +16,12 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "proshot_legacy_sku"
+DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "referenceapp_legacy_sku"
 
 SLOTS = (
-    ("uw", "proshot_uw_cam3.dng", "M14_uw.dng"),
-    ("wide", "proshot_wide_cam2.dng", "M23_wide.dng"),
-    ("tele", "proshot_tele_cam4.dng", "M73_tele.dng"),
+    ("uw", "referenceapp_uw_cam3.dng", "M14_uw.dng"),
+    ("wide", "referenceapp_wide_cam2.dng", "M23_wide.dng"),
+    ("tele", "referenceapp_tele_cam4.dng", "M73_tele.dng"),
 )
 
 

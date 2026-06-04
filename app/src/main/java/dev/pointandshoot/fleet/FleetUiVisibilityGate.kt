@@ -55,10 +55,14 @@ object FleetUiVisibilityGate {
 
     fun tier(featureId: String, ctx: VisibilityContext): Tier {
         val row = CameraCapabilityCatalog.registry.firstOrNull { it.id == featureId }
+        if (row == null) {
+            // Default-deny: unknown/unmapped catalog ids never surface on consumer chrome.
+            return Tier.Hidden
+        }
         val deviceSupported = deviceSupported(featureId, ctx)
-        val policy = row?.visibilityPolicy ?: CameraCapabilityCatalog.VisibilityPolicy.HideWhenUnavailable
+        val policy = row.visibilityPolicy
 
-        if (row?.rootOnly == true || policy == CameraCapabilityCatalog.VisibilityPolicy.RootOnly) {
+        if (row.rootOnly || policy == CameraCapabilityCatalog.VisibilityPolicy.RootOnly) {
             return if (ctx.rootGranted && deviceSupported) Tier.Visible else Tier.RootOnly
         }
 
@@ -98,6 +102,10 @@ object FleetUiVisibilityGate {
     }
 
     private fun deviceSupported(featureId: String, ctx: VisibilityContext): Boolean {
+        when (featureId) {
+            "product.hardware_camera_key" ->
+                return ProductHardwareLaunchScan.hasDedicatedCameraKeyEvidence(ctx.matrix)
+        }
         perCameraMatrixSupported(featureId, ctx.matrix, ctx.activeCameraId)?.let { return it }
         catalogDeviceSupported(featureId, ctx)?.let { return it }
         return liveCapsSupported(featureId, ctx.caps)
@@ -167,6 +175,8 @@ object FleetUiVisibilityGate {
             featureId == "face.priority_ae" -> caps.hasFaceDetectFull
             featureId == "hud.zebra" || featureId == "hud.histogram" -> caps.hasPreviewHistogram
             featureId == "lens.eis" -> true
-            else -> true
+            featureId == "lens.aperture" -> caps.activeApertureCount > 0
+            featureId == "lens.variable_aperture" -> caps.activeApertureCount > 1
+            else -> false
         }
 }

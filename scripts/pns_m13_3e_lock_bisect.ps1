@@ -100,7 +100,7 @@ function Apply-E6-L7 {
 
 $appliers = @{
     E1 = @{ lock = 'L2'; fn = { Apply-E1-L2 }; note = 'allowPhysicalTotalResultPairing=true (6 call sites)' }
-    E2 = @{ lock = 'L3'; fn = { Apply-E2-L3 }; note = 'useLegacyAsnReconcileOnly=true (no-op reconcile if useProShotPureDngSave)' }
+    E2 = @{ lock = 'L3'; fn = { Apply-E2-L3 }; note = 'useLegacyAsnReconcileOnly=true (no-op reconcile if useReferenceAppPureDngSave)' }
     E3 = @{ lock = 'L6'; fn = { Apply-E3-L6 }; note = 'useHalColorCalibrationReconcile=true (no-op if pure ReferenceCam save)' }
     E4 = @{ lock = 'L4'; fn = { Apply-E4-L4 }; note = 'streamHints=true (§4a — capture timeout risk)' }
     E5 = @{ lock = 'L5'; fn = { Apply-E5-L5 }; note = 'Default RAW tier RAW12→RAW10→RAW_SENSOR (§2 bisect)' }

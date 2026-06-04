@@ -62,7 +62,7 @@ class PreviewReadoutStillPipelineTest {
                 hdrWhenJpegOff = ImgMenuTier.Ultra,
             )
         assertEquals(
-            "DNG12+JXL",
+            "DNG12+JPEG",
             PreviewReadoutStillPipeline.chipLabel(
                 intent,
                 stillCaptureJpegCompanion = true,

@@ -12,14 +12,14 @@ import dev.pointandshoot.fleet.LegacyFleetPolicy
 object StillCaptureIqPolicy {
 
     /**
-     * ReferenceCam still IQ only — used by [ProShotLeafStillCaptureRequest] (no duplicate pipeline pass).
+     * ReferenceCam still IQ only — used by [ReferenceAppLeafStillCaptureRequest] (no duplicate pipeline pass).
      */
-    fun applyProShotLeafStillIq(
+    fun applyReferenceAppLeafStillIq(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
         profile: FleetCameraProfile?,
     ) {
-        applyProShotStillPipeline(req, chars)
+        applyReferenceAppStillPipeline(req, chars)
         if (!shouldApplyLensShading(profile, chars)) return
         applyLensShadingMapAndMode(req, chars, profile)
     }
@@ -30,22 +30,22 @@ object StillCaptureIqPolicy {
         profile: FleetCameraProfile?,
     ) {
         val proShotLeaf =
-            LegacyFleetPolicy.useExactProShotLeafStillCaptureRequest() &&
+            LegacyFleetPolicy.useExactReferenceAppLeafStillCaptureRequest() &&
                 isLeafBackCharacteristics(chars)
         if (proShotLeaf) {
-            applyProShotLeafStillIq(req, chars, profile)
+            applyReferenceAppLeafStillIq(req, chars, profile)
             return
         }
-        val legacyProShotLeaf =
-            LegacyFleetPolicy.useProShotPureDngSave() && isLeafBackCharacteristics(chars)
-        if (legacyProShotLeaf) {
-            applyProShotStillPipeline(req, chars)
+        val legacyReferenceAppLeaf =
+            LegacyFleetPolicy.useReferenceAppPureDngSave() && isLeafBackCharacteristics(chars)
+        if (legacyReferenceAppLeaf) {
+            applyReferenceAppStillPipeline(req, chars)
         } else if (
-            MotionCamInspiredStillPolicy.applyProShotOpticalCorrectionOnLeaf() &&
+            AltReferenceAppInspiredStillPolicy.applyReferenceAppOpticalCorrectionOnLeaf() &&
                 LegacyFleetPolicy.appliesToDevice() &&
                 isLeafBackCharacteristics(chars)
         ) {
-            applyProShotOpticalCorrection(req, chars)
+            applyReferenceAppOpticalCorrection(req, chars)
         }
         applyLensShadingMapAndMode(req, chars, profile)
     }
@@ -65,7 +65,7 @@ object StillCaptureIqPolicy {
                 CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON,
             )
         }
-        if (MotionCamInspiredStillPolicy.teleLensShadingMapOnly(profile)) {
+        if (AltReferenceAppInspiredStillPolicy.teleLensShadingMapOnly(profile)) {
             return
         }
         applyShadingMode(req, chars, preferHighQuality = true)
@@ -74,11 +74,11 @@ object StillCaptureIqPolicy {
     /**
      * ReferenceCam still (`C0353b0` z2 path): tonemap / edge / hot-pixel + optical correction on leaf RAW stills.
      */
-    internal fun applyProShotStillPipeline(
+    internal fun applyReferenceAppStillPipeline(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
     ) {
-        applyProShotOpticalCorrection(req, chars)
+        applyReferenceAppOpticalCorrection(req, chars)
         val edgeModes = chars.get(CameraCharacteristics.EDGE_AVAILABLE_EDGE_MODES) ?: intArrayOf()
         when {
             edgeModes.contains(CaptureRequest.EDGE_MODE_HIGH_QUALITY) ->
@@ -117,7 +117,7 @@ object StillCaptureIqPolicy {
     }
 
     /** ReferenceCam still builder: aberration + distortion when advertised (leaf sessions). */
-    internal fun applyProShotOpticalCorrection(
+    internal fun applyReferenceAppOpticalCorrection(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
     ) {

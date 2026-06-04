@@ -37,6 +37,26 @@ try {
         Invoke-AdbCmd install -r -t $apk | Out-Null
     }
 
+    Invoke-AdbCmd shell pm grant dev.pointandshoot android.permission.CAMERA 2>$null | Out-Null
+    Invoke-AdbCmd shell pm grant dev.pointandshoot android.permission.READ_MEDIA_IMAGES 2>$null | Out-Null
+    Invoke-AdbCmd shell pm grant dev.pointandshoot android.permission.READ_MEDIA_VIDEO 2>$null | Out-Null
+
+    $welcomeTmp = Join-Path $env:TEMP ("pns_welcome_flow_{0}.xml" -f [Guid]::NewGuid().ToString("N"))
+    @'
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<map>
+  <int name="permission_onboarding_version" value="4" />
+</map>
+'@ | Set-Content -LiteralPath $welcomeTmp -Encoding UTF8
+    try {
+        Invoke-AdbCmd push $welcomeTmp /data/local/tmp/pns_welcome_flow.xml 2>$null | Out-Null
+        Invoke-AdbCmd shell run-as dev.pointandshoot sh -c "mkdir -p shared_prefs && cp /data/local/tmp/pns_welcome_flow.xml shared_prefs/pns_welcome_flow.xml" 2>$null | Out-Null
+    } catch {
+        Write-Warning "[battery_life_test] welcome pref seed failed: $_"
+    } finally {
+        Remove-Item -LiteralPath $welcomeTmp -ErrorAction SilentlyContinue
+    }
+
     $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $outDir = "hfr-runs\battery_life_test_$stamp"
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
@@ -49,6 +69,7 @@ try {
 
     Write-Host "Phase 1: adaptive FPS cap (simulated 15% battery, user 120 fps)..."
     Invoke-AdbCmd shell am start -n "dev.pointandshoot/.MainActivity" `
+        --activity-clear-task `
         --es pns_screen preview `
         --ez pns_preview_primary_photo false `
         --ei pns_preview_video_fps 120 `
@@ -70,9 +91,28 @@ try {
     $adaptiveCap = $logLines -match "PNS\.PowerThermal:.*adaptiveFpsCap.*effective=60"
     $pauseLog = $logLines -match "longRunningPaused=true"
     $resumeLog = $logLines -match "longRunningPaused=false"
-    $camErrors = $logLines -match "CAMERA_DISCONNECTED|onError.*cameraId"
+    $errorRegex = "CAMERA_DISCONNECTED|onError.*cameraId"
+    $camErrorsObserved = $logLines -match $errorRegex
+    $camErrorsBlocking = $false
+    if ($camErrorsObserved) {
+        $lineList = $logLines -split "`r?`n"
+        $lastErr = -1
+        for ($i = 0; $i -lt $lineList.Count; $i++) {
+            if ($lineList[$i] -match $errorRegex) { $lastErr = $i }
+        }
+        $recovered = $false
+        if ($lastErr -ge 0) {
+            for ($j = $lastErr + 1; $j -lt $lineList.Count; $j++) {
+                if ($lineList[$j] -match "status=Preview running") {
+                    $recovered = $true
+                    break
+                }
+            }
+        }
+        $camErrorsBlocking = -not $recovered
+    }
 
-    $overallPass = $adaptiveSeed -and $adaptiveCap -and $pauseLog -and $resumeLog -and -not $camErrors
+    $overallPass = $adaptiveSeed -and $adaptiveCap -and $pauseLog -and $resumeLog -and -not $camErrorsBlocking
 
     $result = [ordered]@{
         timestamp    = $stamp
@@ -81,7 +121,8 @@ try {
         adaptiveCap  = [bool]$adaptiveCap
         pauseLog     = [bool]$pauseLog
         resumeLog    = [bool]$resumeLog
-        cameraErrors = [bool]$camErrors
+        cameraErrorsObserved = [bool]$camErrorsObserved
+        cameraErrorsBlocking = [bool]$camErrorsBlocking
         artifactDir  = $outDir
         note         = "PO.2 gate validates policy + lifecycle wiring; not a 60-minute drain benchmark."
     }

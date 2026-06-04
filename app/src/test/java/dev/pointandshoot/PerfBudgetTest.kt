@@ -80,7 +80,7 @@ class PerfBudgetTest {
         assertEquals(30L, PerfBudget.Defaults.POST_READOUT_TICK_TARGET_MS)
         assertEquals(5L, PerfBudget.Defaults.POST_READOUT_TICK_TOLERANCE_MS)
         assertEquals(200L, PerfBudget.Defaults.ENCODE_LANE_DRAIN_WAIT_MS)
-        assertEquals(4, PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES)
+        assertEquals(8, PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES)
     }
 
     @Test

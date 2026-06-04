@@ -26,6 +26,17 @@
     <issue
         id="MissingPermission"
         message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/DualVideoFrontCameraController.kt"
+            line="81"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
         errorLine1="        cm.openCamera("
         errorLine2="        ^">
         <location
@@ -59,12 +70,34 @@
     <issue
         id="MissingPermission"
         message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="                cm.openCamera("
+        errorLine2="                ^">
+        <location
+            file="src/main/java/dev/pointandshoot/HfrRecordMonitorCameraController.kt"
+            line="68"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
         errorLine1="    cm.openCamera("
         errorLine2="    ^">
         <location
             file="src/main/java/dev/pointandshoot/LogicalPhysicalProbeScreen.kt"
             line="196"
             column="5"/>
+    </issue>
+
+    <issue
+        id="MissingPermission"
+        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
+        errorLine1="            PnsAudioCaptureSupport.createAudioRecord(appContext, recordProfile, maxOf(minBuf, 4096))"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="889"
+            column="13"/>
     </issue>
 
     <issue
@@ -81,12 +114,122 @@
     <issue
         id="MissingPermission"
         message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
-        errorLine1="                cm.openCamera("
-        errorLine2="                ^">
+        errorLine1="            cm.openCamera("
+        errorLine2="            ^">
         <location
-            file="src/main/java/dev/pointandshoot/SessionMatrixProbeScreen.kt"
-            line="248"
-            column="17"/>
+            file="src/main/java/dev/pointandshoot/fleet/SessionMatrixProbeCore.kt"
+            line="119"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        prefs(context).edit().putBoolean(KEY_ENABLED, enabled).commit()"
+        errorLine2="                                                               ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CloudCaptureBackup.kt"
+            line="48"
+            column="64"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        prefs(context).edit().putBoolean(KEY_WIFI_ONLY, wifiOnly).commit()"
+        errorLine2="                                                                  ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CloudCaptureBackup.kt"
+            line="56"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        prefs(context).edit().putString(KEY_TREE_URI, treeUri.toString()).commit()"
+        errorLine2="                                                                          ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CloudCaptureBackup.kt"
+            line="63"
+            column="75"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        prefs(context).edit().remove(KEY_TREE_URI).commit()"
+        errorLine2="                                                   ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CloudCaptureBackup.kt"
+            line="68"
+            column="52"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        prefs(context).edit().putBoolean(KEY_LAN_TRANSFER, enabled).commit()"
+        errorLine2="                                                                    ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ConnectivityManager.kt"
+            line="28"
+            column="69"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="            .commit()"
+        errorLine2="             ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ConnectivityManager.kt"
+            line="41"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        prefs(context).edit().putString(KEY_SOCIAL_WEBHOOK, url?.trim().orEmpty()).commit()"
+        errorLine2="                                                                                   ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ConnectivityManager.kt"
+            line="48"
+            column="84"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="            .commit()"
+        errorLine2="             ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/FaceOverlayCalibration.kt"
+            line="107"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_DONE, true).commit()"
+        errorLine2="                                                                                                    ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/FleetCameraStartupScan.kt"
+            line="119"
+            column="101"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="            .commit()"
+        errorLine2="             ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/GalleryPrefs.kt"
+            line="21"
+            column="14"/>
     </issue>
 
     <issue
@@ -96,8 +239,107 @@
         errorLine2="                 ~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/HudSettings.kt"
-            line="149"
+            line="781"
             column="18"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="                .commit()"
+        errorLine2="                 ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewChromePreferences.kt"
+            line="304"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="            .commit()"
+        errorLine2="             ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/UxSettings.kt"
+            line="35"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="ApplySharedPref"
+        message="Consider using `apply()` instead; `commit` writes its data to persistent storage immediately, whereas `apply` will handle it in the background"
+        errorLine1="            .commit()"
+        errorLine2="             ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/WorkflowPresets.kt"
+            line="108"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        actualMm?.let { &quot;${String.format(&quot;%.1f&quot;, it)}mm&quot; } ?: focalLength ?: &quot;Unknown&quot;"
+        errorLine2="                           ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="90"
+            column="28"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        &quot;$actualLabel (${String.format(&quot;%.0f&quot;, eqMm)}mm eq)&quot;"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="92"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        &quot;${String.format(&quot;%.3f&quot;, sec)}s&quot;"
+        errorLine2="           ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="102"
+            column="12"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="    return &quot;${width}x${height} (${String.format(&quot;%.1f&quot;, mp)}MP)&quot;"
+        errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="112"
+            column="35"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                &quot;Size: ${String.format(&quot;%.1f&quot;, media.size / (1024.0 * 1024.0))}MB&quot;,"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="624"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                                        &quot;Bit Rate: ${String.format(&quot;%.1f&quot;, bitrate / 1000000.0)} Mbps&quot;,"
+        errorLine2="                                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="776"
+            column="54"/>
     </issue>
 
     <issue
@@ -107,8 +349,118 @@
         errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
-            line="818"
+            line="2312"
             column="58"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="            &quot;Fleet max burst is fixed at ${fleetPreset.intervalMs}ms (~${String.format(&quot;%.1f&quot;, fleetFps)} fps target).&quot;,"
+        errorLine2="                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/HudSettingsScreen.kt"
+            line="1309"
+            column="74"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                    &quot;maxPressure=${String.format(&quot;%.2f&quot;, maxMemoryPressure)}, &quot; +"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MemoryProfiler.kt"
+            line="249"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        &quot;Burst speed: Fleet Max (${String.format(&quot;%.1f&quot;, fleetFps)} fps target)&quot;,"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewChromeQuickSettings.kt"
+            line="85"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="            return &quot;Burst ${String.format(&quot;%.1f&quot;, effectiveFps)} fps (target ${String.format(&quot;%.0f&quot;, targetFps)}) q=$pending&quot;"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="8317"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="            return &quot;Burst ${String.format(&quot;%.1f&quot;, effectiveFps)} fps (target ${String.format(&quot;%.0f&quot;, targetFps)}) q=$pending&quot;"
+        errorLine2="                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="8317"
+            column="80"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="                    label = &quot;Burst speed: Fleet Max (${String.format(&quot;%.1f&quot;, fleetFps)} fps target)&quot;,"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="8501"
+            column="56"/>
+    </issue>
+
+    <issue
+        id="DefaultLocale"
+        message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
+        errorLine1="        return String.format(&quot;%.1f MB/min&quot;, mbPerMin)"
+        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoStorageEstimate.kt"
+            line="20"
+            column="16"/>
+    </issue>
+
+    <issue
+        id="ExifInterface"
+        message="Avoid using `android.media.ExifInterface`; use `androidx.exifinterface.media.ExifInterface` instead"
+        errorLine1="import android.media.ExifInterface"
+        errorLine2="       ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="8"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 28): `android.hardware.camera2.params.DynamicRangeProfiles#HDR10_PLUS`"
+        errorLine1="                android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DcgModeSupport.kt"
+            line="106"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 28): `android.hardware.camera2.params.DynamicRangeProfiles#HLG10`"
+        errorLine1="                android.hardware.camera2.params.DynamicRangeProfiles.HLG10"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DcgModeSupport.kt"
+            line="108"
+            column="17"/>
     </issue>
 
     <issue
@@ -134,13 +486,112 @@
     </issue>
 
     <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaFormat#MIMETYPE_VIDEO_AV1`"
+        errorLine1="    private const val MIME_AV1 = MediaFormat.MIMETYPE_VIDEO_AV1"
+        errorLine2="                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecCapabilityProbe.kt"
+            line="31"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 33 (current min is 28): `android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatYUVP010`"
+        errorLine1="            val hasYuvP010 = MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010 in caps.colorFormats"
+        errorLine2="                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecCapabilityProbe.kt"
+            line="182"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaFormat#MIMETYPE_VIDEO_AV1`"
+        errorLine1="                        .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; MediaFormat.MIMETYPE_VIDEO_AV1 in it.supportedTypes }"
+        errorLine2="                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="113"
+            column="66"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaFormat#MIMETYPE_VIDEO_AV1`"
+        errorLine1="                VideoEncoderKind.AV1 -> MediaFormat.MIMETYPE_VIDEO_AV1"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="161"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaCodecInfo.CodecProfileLevel#HEVCProfileMain10HDR10Plus`"
+        errorLine1="                    config.hdrProfile == MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="218"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.media.MediaFormat#KEY_MAX_FPS_TO_ENCODER`"
+        errorLine1="                    runCatching { setFloat(MediaFormat.KEY_MAX_FPS_TO_ENCODER, config.fps.toFloat()) }"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="594"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.os.PowerManager#THERMAL_STATUS_NONE`"
+        errorLine1="                PowerManager.THERMAL_STATUS_NONE"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewPowerThermalMonitor.kt"
+            line="39"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.os.PowerManager#THERMAL_STATUS_MODERATE`"
+        errorLine1="    const val THERMAL_WARNING_MIN_STATUS = PowerManager.THERMAL_STATUS_MODERATE"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewThermalLabels.kt"
+            line="9"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="InlinedApi"
+        message="Field requires API level 29 (current min is 28): `android.os.PowerManager#THERMAL_STATUS_SEVERE`"
+        errorLine1="    fun isSevereOrWorse(status: Int): Boolean = status >= PowerManager.THERMAL_STATUS_SEVERE"
+        errorLine2="                                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewThermalLabels.kt"
+            line="25"
+            column="59"/>
+    </issue>
+
+    <issue
         id="NewApi"
         message="Field requires API level 33 (current min is 28): `android.hardware.camera2.CameraCharacteristics#REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES`"
         errorLine1="        val dynRangeProfiles = cc.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES)"
         errorLine2="                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
-            line="749"
+            line="2192"
             column="39"/>
     </issue>
 
@@ -151,7 +602,7 @@
         errorLine2="              ~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
-            line="750"
+            line="2193"
             column="15"/>
     </issue>
 
@@ -162,8 +613,63 @@
         errorLine2="                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
-            line="755"
+            line="2198"
             column="40"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 33 (current min is 28): `android.hardware.camera2.CameraCharacteristics#REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES`"
+        errorLine1="            chars.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) as? android.hardware.camera2.params.DynamicRangeProfiles"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DcgModeSupport.kt"
+            line="98"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 33 (current min is 28): `android.hardware.camera2.params.DynamicRangeProfiles#getSupportedProfiles`"
+        errorLine1="        val supportedProfiles = drp.supportedProfiles ?: return null"
+        errorLine2="                                    ~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DcgModeSupport.kt"
+            line="101"
+            column="37"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 29 (current min is 28): `android.hardware.camera2.CaptureResult#LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID`"
+        errorLine1="        val activeFromResult = totalResult.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DngMetadataResolver.kt"
+            line="141"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 30): `android.hardware.camera2.TotalCaptureResult#getPhysicalCameraTotalResults`"
+        errorLine1="                runCatching { totalResult.physicalCameraTotalResults }.getOrNull()"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DngMetadataResolver.kt"
+            line="144"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 33 (current min is 31): `android.hardware.camera2.CameraCharacteristics#SCALER_AVAILABLE_STREAM_USE_CASES`"
+        errorLine1="            cc?.get(CameraCharacteristics.SCALER_AVAILABLE_STREAM_USE_CASES)?.let { useCases ->"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/fleet/FleetDeviceMatrixStructured.kt"
+            line="167"
+            column="21"/>
     </issue>
 
     <issue
@@ -201,6 +707,127 @@
 
     <issue
         id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="            .filter { it.isEncoder &amp;&amp; !it.isAlias }"
+        errorLine2="                                          ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecCapabilityProbe.kt"
+            line="142"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; MIME_AVC in it.supportedTypes }"
+        errorLine2="                                              ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecCapabilityProbe.kt"
+            line="253"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; MIME_AV1 in it.supportedTypes }"
+        errorLine2="                                              ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecCapabilityProbe.kt"
+            line="292"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; MIME_VP9 in it.supportedTypes }"
+        errorLine2="                                              ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecCapabilityProbe.kt"
+            line="300"
+            column="47"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="            val all = list.codecInfos.filter { it.isEncoder &amp;&amp; !it.isAlias }"
+        errorLine2="                                                                   ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="108"
+            column="68"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                        .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; MediaFormat.MIMETYPE_VIDEO_AV1 in it.supportedTypes }"
+        errorLine2="                                                      ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="113"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                        .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; vp9Mime in it.supportedTypes }"
+        errorLine2="                                                      ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="130"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                        .filter { it.isEncoder &amp;&amp; !it.isAlias &amp;&amp; MediaFormat.MIMETYPE_VIDEO_AVC in it.supportedTypes }"
+        errorLine2="                                                      ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="140"
+            column="55"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaFormat()`"
+        errorLine1="            applySpatialAudioMetadata(MediaFormat(encoderOutput), channelMask, pcmEncoding)"
+        errorLine2="                                      ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="259"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaFormat()`"
+        errorLine1="                        val muxFormat = MediaFormat(format).apply {"
+        errorLine2="                                        ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="656"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 36 (current min is 28): `android.hardware.camera2.CameraCharacteristics#COLOR_CORRECTION_AVAILABLE_MODES`"
+        errorLine1="        val modes = chars.get(CameraCharacteristics.COLOR_CORRECTION_AVAILABLE_MODES) ?: intArrayOf()"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/fleet/Op13LeafStillColorCorrection.kt"
+            line="72"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="NewApi"
         message="Field requires API level 35 (current min is 29): `android.hardware.camera2.CameraCharacteristics#INFO_SESSION_CONFIGURATION_QUERY_VERSION`"
         errorLine1="                cc.get(CameraCharacteristics.INFO_SESSION_CONFIGURATION_QUERY_VERSION)?.toString() ?: JSONObject.NULL"
         errorLine2="                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
@@ -212,13 +839,123 @@
 
     <issue
         id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                    !info.isAlias &amp;&amp;"
+        errorLine2="                          ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PnsAacEncoderSupport.kt"
+            line="133"
+            column="27"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.os.PowerManager#getCurrentThermalStatus`"
+        errorLine1="                android.os.PowerManager).currentThermalStatus"
+        errorLine2="                                         ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="1851"
+            column="42"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 28): `android.hardware.camera2.MultiResolutionImageReader#close`"
+        errorLine1="        runCatching { jpegMultiResolutionReader?.close() }"
+        errorLine2="                                                 ~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="17394"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 28): `android.hardware.camera2.MultiResolutionImageReader#close`"
+        errorLine1="        runCatching { jpegMultiResolutionReader?.close() }"
+        errorLine2="                                                 ~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="17507"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 28): `android.hardware.camera2.MultiResolutionImageReader#setOnImageAvailableListener`"
+        errorLine1="        runCatching { jpegMultiResolutionReader?.setOnImageAvailableListener(null, Executor { it.run() }) }"
+        errorLine2="                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="17941"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 28): `android.hardware.camera2.MultiResolutionImageReader#close`"
+        errorLine1="        runCatching { jpegMultiResolutionReader?.close() }"
+        errorLine2="                                                 ~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="17942"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 28): `android.hardware.camera2.MultiResolutionImageReader#close`"
+        errorLine1="            runCatching { jpegMultiResolutionReader?.close() }"
+        errorLine2="                                                     ~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="17955"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 31 (current min is 28): `android.hardware.camera2.MultiResolutionImageReader#close`"
+        errorLine1="        runCatching { jpegMultiResolutionReader?.close() }"
+        errorLine2="                                                 ~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="18320"
+            column="50"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Field requires API level 29 (current min is 28): `android.hardware.camera2.CaptureResult#LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID`"
+        errorLine1="        val exact = CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID.name"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="18939"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="NewApi"
         message="Field requires API level 36 (current min is 28): `android.hardware.camera2.CameraCharacteristics#COLOR_CORRECTION_AVAILABLE_MODES`"
         errorLine1="                        chars.get(CameraCharacteristics.COLOR_CORRECTION_AVAILABLE_MODES) ?: intArrayOf()"
         errorLine2="                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
-            line="5783"
+            line="19396"
             column="35"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 28): `android.media.MediaCodecInfo#isAlias`"
+        errorLine1="                    .filter { it.isEncoder &amp;&amp; !it.isAlias }"
+        errorLine2="                                                  ~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ProResProbe.kt"
+            line="31"
+            column="51"/>
     </issue>
 
     <issue
@@ -235,12 +972,133 @@
     <issue
         id="NewApi"
         message="Call requires API level 29 (current min is 28): `android.hardware.camera2.CameraDevice#isSessionConfigurationSupported`"
-        errorLine1="        device.isSessionConfigurationSupported(config)"
-        errorLine2="               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        errorLine1="            device.isSessionConfigurationSupported(config)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/pointandshoot/SessionMatrixProbeScreen.kt"
-            line="343"
-            column="16"/>
+            file="src/main/java/dev/pointandshoot/fleet/SessionMatrixProbeCore.kt"
+            line="207"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="SdCardPath"
+        message="Do not hardcode &quot;`/data/`&quot;; use `Context.getFilesDir().getPath()` instead"
+        errorLine1="            .replace(Regex(&quot;&quot;&quot;/data/user/\d+/[^\s&quot;&apos;&lt;>]+&quot;&quot;&quot;), &quot;[APP_DATA]&quot;)"
+        errorLine2="                              ~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/fleet/FleetHalAppendix.kt"
+            line="24"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="SimpleDateFormat"
+        message="To get local formatting use `getDateInstance()`, `getDateTimeInstance()`, or `getTimeInstance()`, or use `new SimpleDateFormat(String template, Locale locale)` with for example `Locale.US` for ASCII dates."
+        errorLine1="                                &quot;Modified: ${java.text.SimpleDateFormat(&quot;yyyy-MM-dd HH:mm:ss&quot;).format(java.util.Date(media.date * 1000))}&quot;,"
+        errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="639"
+            column="46"/>
+    </issue>
+
+    <issue
+        id="StartActivityAndCollapseDeprecated"
+        message="TileService#startActivityAndCollapse(Intent) is deprecated. Use TileService#startActivityAndCollapse(PendingIntent) instead."
+        errorLine1="        startActivityAndCollapse(intent)"
+        errorLine2="                                 ~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/quicksettings/CameraTileService.kt"
+            line="25"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="StartActivityAndCollapseDeprecated"
+        message="TileService#startActivityAndCollapse(Intent) is deprecated. Use TileService#startActivityAndCollapse(PendingIntent) instead."
+        errorLine1="        startActivityAndCollapse(intent)"
+        errorLine2="                                 ~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/quicksettings/SelfieTileService.kt"
+            line="27"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="StartActivityAndCollapseDeprecated"
+        message="TileService#startActivityAndCollapse(Intent) is deprecated. Use TileService#startActivityAndCollapse(PendingIntent) instead."
+        errorLine1="        startActivityAndCollapse(intent)"
+        errorLine2="                                 ~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/quicksettings/VideoTileService.kt"
+            line="25"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="UnusedAttribute"
+        message="Attribute `shell` is only used in API level 29 and higher (current min is 28)"
+        errorLine1="        &lt;profileable android:shell=&quot;true&quot; />"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="46"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data android:scheme=&quot;pointandshoot&quot; android:host=&quot;preview&quot; />"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="94"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data android:scheme=&quot;pointandshoot&quot; android:host=&quot;camera&quot; />"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="95"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data android:scheme=&quot;pointandshoot&quot; android:host=&quot;video&quot; />"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="96"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data android:scheme=&quot;pointandshoot&quot; android:host=&quot;gallery&quot; />"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="97"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="IntentFilterUniqueDataAttributes"
+        message="Consider splitting data tag into multiple tags with individual attributes to avoid confusion"
+        errorLine1="                &lt;data android:scheme=&quot;pointandshoot&quot; android:host=&quot;share&quot; />"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="98"
+            column="17"/>
     </issue>
 
     <issue
@@ -250,7 +1108,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="35"
+            line="51"
             column="13"/>
     </issue>
 
@@ -322,7 +1180,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.00"
+        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.01"
         errorLine1="composeBom = &quot;2026.04.01&quot;"
         errorLine2="             ~~~~~~~~~~~~">
         <location
@@ -333,7 +1191,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.00"
+        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.01"
         errorLine1="composeBom = &quot;2026.04.01&quot;"
         errorLine2="             ~~~~~~~~~~~~">
         <location
@@ -344,7 +1202,7 @@
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.00"
+        message="A newer version of androidx.compose:compose-bom than 2026.04.01 is available: 2026.05.01"
         errorLine1="composeBom = &quot;2026.04.01&quot;"
         errorLine2="             ~~~~~~~~~~~~">
         <location
@@ -488,34 +1346,166 @@
     <issue
         id="GradleDependency"
         message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.6.1"
-        errorLine1="cameraX = &quot;1.4.1&quot;"
-        errorLine2="          ~~~~~~~">
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
             line="8"
-            column="11"/>
+            column="21"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.6.1"
-        errorLine1="cameraX = &quot;1.4.1&quot;"
-        errorLine2="          ~~~~~~~">
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
             line="8"
-            column="11"/>
+            column="21"/>
     </issue>
 
     <issue
         id="GradleDependency"
         message="A newer version of androidx.camera:camera-camera2 than 1.4.1 is available: 1.6.1"
-        errorLine1="cameraX = &quot;1.4.1&quot;"
-        errorLine2="          ~~~~~~~">
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
             line="8"
-            column="11"/>
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-core than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-extensions than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-extensions than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-extensions than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-lifecycle than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.camera:camera-view than 1.4.1 is available: 1.6.1"
+        errorLine1="cameraXExtensions = &quot;1.4.1&quot;"
+        errorLine2="                    ~~~~~~~">
+        <location
+            file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
+            line="8"
+            column="21"/>
     </issue>
 
     <issue
@@ -525,7 +1515,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="9"
+            line="10"
             column="16"/>
     </issue>
 
@@ -536,7 +1526,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="9"
+            line="10"
             column="16"/>
     </issue>
 
@@ -547,7 +1537,7 @@
         errorLine2="               ~~~~~~~~~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="9"
+            line="10"
             column="16"/>
     </issue>
 
@@ -558,7 +1548,7 @@
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="11"
+            line="12"
             column="12"/>
     </issue>
 
@@ -569,7 +1559,7 @@
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="11"
+            line="12"
             column="12"/>
     </issue>
 
@@ -580,7 +1570,7 @@
         errorLine2="           ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="11"
+            line="12"
             column="12"/>
     </issue>
 
@@ -591,7 +1581,7 @@
         errorLine2="               ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="12"
+            line="13"
             column="16"/>
     </issue>
 
@@ -602,7 +1592,7 @@
         errorLine2="               ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="12"
+            line="13"
             column="16"/>
     </issue>
 
@@ -613,73 +1603,73 @@
         errorLine2="               ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="12"
+            line="13"
             column="16"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.3.3 is available: 1.4.1"
-        errorLine1="benchmarkMacro = &quot;1.3.3&quot;"
+        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.4.0 is available: 1.4.1"
+        errorLine1="benchmarkMacro = &quot;1.4.0&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="14"
+            line="15"
             column="18"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.3.3 is available: 1.4.1"
-        errorLine1="benchmarkMacro = &quot;1.3.3&quot;"
+        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.4.0 is available: 1.4.1"
+        errorLine1="benchmarkMacro = &quot;1.4.0&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="14"
+            line="15"
             column="18"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.3.3 is available: 1.4.1"
-        errorLine1="benchmarkMacro = &quot;1.3.3&quot;"
+        message="A newer version of androidx.benchmark:benchmark-macro-junit4 than 1.4.0 is available: 1.4.1"
+        errorLine1="benchmarkMacro = &quot;1.4.0&quot;"
         errorLine2="                 ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="14"
+            line="15"
             column="18"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.baselineprofile than 1.3.3 is available: 1.4.1"
-        errorLine1="baselineProfilePlugin = &quot;1.3.3&quot;"
+        message="A newer version of androidx.baselineprofile than 1.4.0 is available: 1.4.1"
+        errorLine1="baselineProfilePlugin = &quot;1.4.0&quot;"
         errorLine2="                        ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="16"
+            line="17"
             column="25"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.baselineprofile than 1.3.3 is available: 1.4.1"
-        errorLine1="baselineProfilePlugin = &quot;1.3.3&quot;"
+        message="A newer version of androidx.baselineprofile than 1.4.0 is available: 1.4.1"
+        errorLine1="baselineProfilePlugin = &quot;1.4.0&quot;"
         errorLine2="                        ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="16"
+            line="17"
             column="25"/>
     </issue>
 
     <issue
         id="GradleDependency"
-        message="A newer version of androidx.baselineprofile than 1.3.3 is available: 1.4.1"
-        errorLine1="baselineProfilePlugin = &quot;1.3.3&quot;"
+        message="A newer version of androidx.baselineprofile than 1.4.0 is available: 1.4.1"
+        errorLine1="baselineProfilePlugin = &quot;1.4.0&quot;"
         errorLine2="                        ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="16"
+            line="17"
             column="25"/>
     </issue>
 
@@ -690,7 +1680,7 @@
         errorLine2="                ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="19"
+            line="20"
             column="17"/>
     </issue>
 
@@ -701,7 +1691,7 @@
         errorLine2="                ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="19"
+            line="20"
             column="17"/>
     </issue>
 
@@ -712,7 +1702,7 @@
         errorLine2="                ~~~~~~~">
         <location
             file="$HOME/AndroidStudioProjects/point-and-shoot/gradle/libs.versions.toml"
-            line="19"
+            line="20"
             column="17"/>
     </issue>
 
@@ -723,8 +1713,41 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="36"
+            line="52"
             column="13"/>
+    </issue>
+
+    <issue
+        id="RestrictedApi"
+        message="ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`point-and-shoot`)"
+        errorLine1="    override fun dispatchKeyEvent(event: KeyEvent): Boolean {"
+        errorLine2="                 ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MainActivity.kt"
+            line="237"
+            column="18"/>
+    </issue>
+
+    <issue
+        id="RestrictedApi"
+        message="ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`point-and-shoot`)"
+        errorLine1="        return super.dispatchKeyEvent(event)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MainActivity.kt"
+            line="241"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="RestrictedApi"
+        message="ComponentActivity.dispatchKeyEvent can only be called from within the same library group prefix (referenced groupId=`androidx.core` with prefix androidx from groupId=`point-and-shoot`)"
+        errorLine1="        return super.dispatchKeyEvent(event)"
+        errorLine2="                                      ~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MainActivity.kt"
+            line="241"
+            column="39"/>
     </issue>
 
     <issue
@@ -750,25 +1773,135 @@
     </issue>
 
     <issue
+        id="ModifierFactoryExtensionFunction"
+        message="Modifier factory functions should be extensions on Modifier"
+        errorLine1="    fun applyHighlight(base: Modifier, settingKey: String?): Modifier ="
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/SettingHighlightFlash.kt"
+            line="43"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewCommandDialDropdownMenu.kt"
+            line="43"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewReadoutStrip.kt"
+            line="388"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewTopStatusBar.kt"
+            line="41"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="ModifierParameter"
+        message="Modifier parameter should be the first optional parameter"
+        errorLine1="    modifier: Modifier = Modifier,"
+        errorLine2="    ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoSidePanels.kt"
+            line="231"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="RememberReturnType"
+        message="`remember` calls must not return `Unit`"
+        errorLine1="        remember("
+        errorLine2="        ~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CameraCapabilitiesProbe.kt"
+            line="1014"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UnusedBoxWithConstraintsScope"
+        message="BoxWithConstraints scope is not used"
+        errorLine1="        ) {"
+        errorLine2="          ^">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoSidePanels.kt"
+            line="171"
+            column="11"/>
+    </issue>
+
+    <issue
         id="DiscouragedApi"
         message="Should not restrict activity to fixed orientation. This may not be suitable for different form factors, causing the app to be letterboxed."
         errorLine1="            android:screenOrientation=&quot;portrait&quot;"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/AndroidManifest.xml"
-            line="36"
+            line="52"
             column="13"/>
     </issue>
 
     <issue
-        id="DataExtractionRules"
-        message="The attribute `android:allowBackup` is deprecated from Android 12 and higher and may be removed in future versions. Consider adding the attribute `android:dataExtractionRules` specifying an `@xml` resource which configures cloud backups and device transfers on Android 12 and higher."
-        errorLine1="        android:allowBackup=&quot;false&quot;"
-        errorLine2="                             ~~~~~">
+        id="DiscouragedApi"
+        message="Use of this function is discouraged because resource reflection makes it harder to perform build optimizations and compile-time verification of code. It is much more efficient to retrieve resources by identifier (e.g. `R.foo.bar`) than by name (e.g. `getIdentifier(&quot;bar&quot;, &quot;foo&quot;, null)`)."
+        errorLine1="        val id = res.getIdentifier(&quot;config_navBarInteractionMode&quot;, &quot;integer&quot;, &quot;android&quot;)"
+        errorLine2="                     ~~~~~~~~~~~~~">
         <location
-            file="src/main/AndroidManifest.xml"
-            line="25"
-            column="30"/>
+            file="src/main/java/dev/pointandshoot/NavigationUx.kt"
+            line="47"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="Recycle"
+        message="This `ParcelFileDescriptor` should be freed up after use with `#close()`"
+        errorLine1="            resolver.openFileDescriptor(uri, &quot;rw&quot;)"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CaptureStorage.kt"
+            line="349"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/AudioEffects.kt"
+            line="41"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/AudioEffects.kt"
+            line="59"
+            column="13"/>
     </issue>
 
     <issue
@@ -785,12 +1918,89 @@
     <issue
         id="ObsoleteSdkInt"
         message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &amp;&amp; pinHere) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/Camera2SessionCompat.kt"
+            line="55"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="@RequiresApi(Build.VERSION_CODES.N)"
+        errorLine2="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/quicksettings/CameraTileService.kt"
+            line="14"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/DeviceCameraCapabilityCache.kt"
+            line="147"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/fleet/FleetDeviceMatrixStore.kt"
+            line="33"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
         errorLine1="        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/LogicalPhysicalProbeScreen.kt"
             line="175"
             column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="236"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="                    if (config.isHdr10 &amp;&amp; Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {"
+        errorLine2="                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="297"
+            column="43"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/MediaCodecVideoRecorder.kt"
+            line="593"
+            column="21"/>
     </issue>
 
     <issue
@@ -818,11 +2028,44 @@
     <issue
         id="ObsoleteSdkInt"
         message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.P) return false"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PnsAudioCaptureSupport.kt"
+            line="321"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PnsAudioCaptureSupport.kt"
+            line="357"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PnsMediaStoreGallery.kt"
+            line="111"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
         errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return@LaunchedEffect"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
-            line="785"
+            line="4316"
             column="13"/>
     </issue>
 
@@ -833,8 +2076,19 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
-            line="3263"
+            line="9835"
             column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewVideoStorageProbe.kt"
+            line="30"
+            column="17"/>
     </issue>
 
     <issue
@@ -844,7 +2098,7 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
-            line="21"
+            line="28"
             column="13"/>
     </issue>
 
@@ -855,7 +2109,18 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
-            line="31"
+            line="38"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return false"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
+            line="94"
             column="13"/>
     </issue>
 
@@ -866,7 +2131,7 @@
         errorLine2="                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
-            line="74"
+            line="153"
             column="47"/>
     </issue>
 
@@ -877,8 +2142,19 @@
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
-            line="93"
+            line="174"
             column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="    if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.M) return"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewWindowEffects.kt"
+            line="241"
+            column="9"/>
     </issue>
 
     <issue
@@ -894,13 +2170,35 @@
 
     <issue
         id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="@RequiresApi(Build.VERSION_CODES.N)"
+        errorLine2="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/quicksettings/SelfieTileService.kt"
+            line="14"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
         message="Unnecessary; `SDK_INT` is never &lt; 28"
         errorLine1="        if (Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.P) {"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/pointandshoot/SessionMatrixProbeScreen.kt"
-            line="187"
+            file="src/main/java/dev/pointandshoot/fleet/SessionMatrixProbeCore.kt"
+            line="42"
             column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/ShallowCapabilityCacheStore.kt"
+            line="33"
+            column="20"/>
     </issue>
 
     <issue
@@ -910,7 +2208,7 @@
         errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
             file="src/main/java/dev/pointandshoot/StillCaptureMetadata.kt"
-            line="157"
+            line="205"
             column="25"/>
     </issue>
 
@@ -927,31 +2225,273 @@
 
     <issue
         id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/SystemVideoClipEncoder.kt"
+            line="45"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {"
+        errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/TimeLapseVideoEncoder.kt"
+            line="152"
+            column="21"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is never &lt; 28"
+        errorLine1="        if (this == Unprocessed &amp;&amp; Build.VERSION.SDK_INT &lt; Build.VERSION_CODES.N) {"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoAudioSource.kt"
+            line="31"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoFormatConfig.kt"
+            line="38"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="        if (supportsHevc &amp;&amp; Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 &amp;&amp;"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoFormatConfig.kt"
+            line="163"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 28"
+        errorLine1="            Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &amp;&amp;"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/VideoFormatConfig.kt"
+            line="219"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
+        message="Unnecessary; `SDK_INT` is always >= 24"
+        errorLine1="@RequiresApi(Build.VERSION_CODES.N)"
+        errorLine2="~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/quicksettings/VideoTileService.kt"
+            line="14"
+            column="1"/>
+    </issue>
+
+    <issue
+        id="ObsoleteSdkInt"
         message="This folder configuration (`v26`) is unnecessary; `minSdkVersion` is 28. Merge all the resources in this folder into `mipmap-anydpi`.">
         <location
             file="src/main/res/mipmap-anydpi-v26"/>
     </issue>
 
     <issue
-        id="AutoboxingStateCreation"
-        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
-        errorLine1="    var selectedFps by remember { mutableStateOf(60) }"
-        errorLine2="                                  ~~~~~~~~~~~~~~">
+        id="StaticFieldLeak"
+        message="Do not place Android context classes in static fields (static reference to `MemoryProfiler` which has field `context` pointing to `Context`); this is a memory leak"
+        errorLine1="        @Volatile"
+        errorLine2="        ^">
         <location
-            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
-            line="436"
-            column="35"/>
+            file="src/main/java/dev/pointandshoot/MemoryProfiler.kt"
+            line="38"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var scale by remember { mutableStateOf(1f) }"
+        errorLine2="                            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="231"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var offsetX by remember { mutableStateOf(0f) }"
+        errorLine2="                              ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="232"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var offsetY by remember { mutableStateOf(0f) }"
+        errorLine2="                              ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt"
+            line="233"
+            column="31"/>
     </issue>
 
     <issue
         id="AutoboxingStateCreation"
         message="Prefer `mutableDoubleStateOf` instead of `mutableStateOf`"
-        errorLine1="    var measuredFps by remember { mutableStateOf(0.0) }"
+        errorLine1="    var lastExposureStops by remember { mutableStateOf(0.0) }"
+        errorLine2="                                        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/CalibrateScreen.kt"
+            line="85"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableLongStateOf` instead of `mutableStateOf`"
+        errorLine1="    var focalMapHintUntilElapsed by remember { mutableStateOf(0L) }"
+        errorLine2="                                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/FocalMapHubRescanHint.kt"
+            line="29"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var peakHold by remember { mutableStateOf(0f) }"
+        errorLine2="                               ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PpmAudioMeter.kt"
+            line="51"
+            column="32"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var levelLinear by remember { mutableStateOf(0f) }"
         errorLine2="                                  ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
-            line="438"
+            file="src/main/java/dev/pointandshoot/PpmAudioMeter.kt"
+            line="143"
             column="35"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var levelLeft by remember { mutableStateOf(0f) }"
+        errorLine2="                                ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PpmAudioMeter.kt"
+            line="174"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var levelRight by remember { mutableStateOf(0f) }"
+        errorLine2="                                 ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PpmAudioMeter.kt"
+            line="175"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var levelLeft by remember { mutableStateOf(0f) }"
+        errorLine2="                                ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PpmAudioMeter.kt"
+            line="227"
+            column="33"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var levelRight by remember { mutableStateOf(0f) }"
+        errorLine2="                                 ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PpmAudioMeter.kt"
+            line="228"
+            column="34"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf("
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="1311"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableIntStateOf` instead of `mutableStateOf`"
+        errorLine1="        mutableStateOf("
+        errorLine2="        ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="1323"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableDoubleStateOf` instead of `mutableStateOf`"
+        errorLine1="    private var targetFps by mutableStateOf(0.0)"
+        errorLine2="                             ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="8301"
+            column="30"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var manualRackUiDiopters by remember { mutableStateOf(0f) }"
+        errorLine2="                                           ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="21646"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="AutoboxingStateCreation"
+        message="Prefer `mutableFloatStateOf` instead of `mutableStateOf`"
+        errorLine1="    var manualRackUiMax by remember { mutableStateOf(8f) }"
+        errorLine2="                                      ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+            line="21647"
+            column="39"/>
     </issue>
 
     <issue
@@ -974,6 +2514,50 @@
             file="src/main/java/dev/pointandshoot/VideoTallyOverlay.kt"
             line="52"
             column="29"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `@android:color/black` with a theme that also paints a background (inferred theme is `@android:style/Theme.DeviceDefault.NoActionBar`)"
+        errorLine1="    android:background=&quot;@android:color/black&quot;"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/pns_widget_camera.xml"
+            line="6"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;androidx.multidex:multidex:2.0.1&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="182"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use the existing version catalog reference (`libs.androidx.documentfile`) instead"
+        errorLine1="    implementation(&quot;androidx.documentfile:documentfile:1.1.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="200"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="HardcodedText"
+        message="Hardcoded string &quot;Camera&quot;, should use `@string` resource"
+        errorLine1="        android:text=&quot;Camera&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/pns_widget_camera.xml"
+            line="21"
+            column="9"/>
     </issue>
 
 </issues>

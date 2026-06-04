@@ -4,11 +4,11 @@
 
 .EXAMPLE
   .\scripts\pns_dng_side_by_side_compare.ps1 `
-    -ProShotDir hfr-runs\proshot_reference_20260518_025813 `
+    -ReferenceAppDir hfr-runs\referenceapp_reference_20260518_025813 `
     -PnsDir hfr-runs\aux_dng_capture_analyze_20260518_025101
 #>
 param(
-    [string]$ProShotDir = "",
+    [string]$ReferenceAppDir = "",
     [string]$PnsDir = "",
     [string]$OutDir = ""
 )
@@ -22,23 +22,23 @@ function Find-LatestDir([string]$root, [string]$pattern) {
         Sort-Object Name | Select-Object -Last 1
 }
 
-if ([string]::IsNullOrWhiteSpace($ProShotDir)) {
-    $d = Find-LatestDir $projRoot "proshot_reference_*"
-    if ($d) { $ProShotDir = $d.FullName }
+if ([string]::IsNullOrWhiteSpace($ReferenceAppDir)) {
+    $d = Find-LatestDir $projRoot "referenceapp_reference_*"
+    if ($d) { $ReferenceAppDir = $d.FullName }
 }
 if ([string]::IsNullOrWhiteSpace($PnsDir)) {
     $d = Find-LatestDir $projRoot "aux_dng_capture_analyze_*"
     if ($d) { $PnsDir = $d.FullName }
 }
 
-if (-not (Test-Path $ProShotDir)) { throw "ProShotDir not found: $ProShotDir" }
+if (-not (Test-Path $ReferenceAppDir)) { throw "ReferenceAppDir not found: $ReferenceAppDir" }
 if (-not (Test-Path $PnsDir)) { throw "PnsDir not found: $PnsDir" }
 
 # ReferenceCam order from dumpsys: shot1=cam3, shot2=cam2, shot3=cam4 (user UW/wide/tele session 22:57)
-$proshotByCam = @{
-    "2" = Join-Path $ProShotDir "proshot_02.dng"
-    "3" = Join-Path $ProShotDir "proshot_01.dng"
-    "4" = Join-Path $ProShotDir "proshot_03.dng"
+$referenceappByCam = @{
+    "2" = Join-Path $ReferenceAppDir "referenceapp_02.dng"
+    "3" = Join-Path $ReferenceAppDir "referenceapp_01.dng"
+    "4" = Join-Path $ReferenceAppDir "referenceapp_03.dng"
 }
 
 # P&S from manifest physicalId or filenames
@@ -68,7 +68,7 @@ $lines.Add("|---------|------|---------|-----|")
 $labels = @{ "2" = "wide (M23)"; "3" = "UW (M14)"; "4" = "tele (M73)" }
 
 foreach ($cam in @("3", "2", "4")) {
-    $ps = $proshotByCam[$cam]
+    $ps = $referenceappByCam[$cam]
     $pn = $pnsByCam[$cam]
     $psLeaf = if ($ps -and (Test-Path $ps)) { Split-Path $ps -Leaf } else { "(missing)" }
     $pnLeaf = if ($pn -and (Test-Path $pn)) { Split-Path $pn -Leaf } else { "(missing)" }
@@ -81,7 +81,7 @@ $lines.Add("")
 $lines.Add("### ReferenceCam")
 $lines.Add("``````")
 if (Test-Path $pyTag) {
-    $files = @("3", "2", "4") | ForEach-Object { $proshotByCam[$_] } | Where-Object { Test-Path $_ }
+    $files = @("3", "2", "4") | ForEach-Object { $referenceappByCam[$_] } | Where-Object { Test-Path $_ }
     & python $pyTag @($files) | ForEach-Object { $lines.Add($_) }
 }
 $lines.Add("``````")
@@ -99,16 +99,16 @@ $lines.Add("- Low light / dark room: exposure and WB differ run-to-run; structur
 $lines.Add("- P&S captures should use **Auto dial** (not Highlight/H) for metering parity with typical ReferenceCam RAW.")
 $lines.Add("")
 $lines.Add("## Takeaways")
-$lines.Add("- ReferenceCam order: ``proshot_01`` = oldest of pull trio, ``03`` = newest (expect UW → wide → tele if shot in that order).")
+$lines.Add("- ReferenceCam order: ``referenceapp_01`` = oldest of pull trio, ``03`` = newest (expect UW → wide → tele if shot in that order).")
 $lines.Add("- Paired by HAL cam 3 / 2 / 4 (UW / wide / tele).")
 $lines.Add("- Both apps often show FM1[0,0]=0.4375 in simple IFD0 parse; color difference is usually not TIFF FM rewrite.")
 $lines.Add("- Compare visually in darktable/ACR using files copied to this folder.")
 
 foreach ($cam in @("3", "2", "4")) {
-    $ps = $proshotByCam[$cam]
+    $ps = $referenceappByCam[$cam]
     $pn = $pnsByCam[$cam]
     if ($ps -and (Test-Path $ps)) {
-        Copy-Item $ps (Join-Path $OutDir "proshot_cam${cam}.dng") -Force
+        Copy-Item $ps (Join-Path $OutDir "referenceapp_cam${cam}.dng") -Force
     }
     if ($pn -and (Test-Path $pn)) {
         Copy-Item $pn (Join-Path $OutDir "pns_cam${cam}.dng") -Force

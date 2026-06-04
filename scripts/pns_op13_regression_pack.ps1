@@ -3,7 +3,7 @@
 # Chains:
 #   1. pns_fleet_matrix_scan.ps1 -LegacyOp13FleetPolicy (matrix with legacy device plugin)
 #   2. pns_aux_dng_capture_analyze.ps1 (aux DNG + desktop open gate)
-#   3. pns_proshot_parity_gate.ps1 (informational unless -RequireProshotParity)
+#   3. pns_referenceapp_parity_gate.ps1 (informational unless -RequireProshotParity)
 #
 # Use primary device CPH2583 for product gates; run this only when validating legacy device plugin / DNG parity.
 #
@@ -99,13 +99,13 @@ if ($isOp13Device) {
     if ($RequireProshotParity.IsPresent) { $parityArgs += "-RequireProshotParity" }
 
     Write-Host "[legacy_pack] referencecam parity gate (informational)..."
-    & (Join-Path $scriptDir "pns_proshot_parity_gate.ps1") @parityArgs
+    & (Join-Path $scriptDir "pns_referenceapp_parity_gate.ps1") @parityArgs
     $parityOk = ($LASTEXITCODE -eq 0)
-    Add-Step "proshot_parity_gate" $(if ($parityRequired) { $parityOk } else { $true }) "exit=$LASTEXITCODE required=$parityRequired"
+    Add-Step "referenceapp_parity_gate" $(if ($parityRequired) { $parityOk } else { $true }) "exit=$LASTEXITCODE required=$parityRequired"
 } else {
     Write-Host "[legacy_pack] legacy DNG/ReferenceCam steps skipped (not legacy device): model=$deviceModel"
     Add-Step "aux_dng_capture_analyze" $true "skipped_not_legacy model=$deviceModel"
-    Add-Step "proshot_parity_gate" $true "skipped_not_legacy model=$deviceModel"
+    Add-Step "referenceapp_parity_gate" $true "skipped_not_legacy model=$deviceModel"
 }
 
 $pack.pass = $matrixOk -and $dngOk -and ($(if ($parityRequired) { $parityOk } else { $true }))

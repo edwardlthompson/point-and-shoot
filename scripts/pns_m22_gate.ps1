@@ -59,6 +59,9 @@ foreach ($t in $tests) {
 & (Join-Path $PSScriptRoot "pns_capability_catalog_gate.ps1") -HostOnly
 Add-Step "catalog_gate" $LASTEXITCODE
 
+& (Join-Path $PSScriptRoot "pns_changelog_gate.ps1") -ProjectRoot $repoRoot
+Add-Step "changelog_coverage" $LASTEXITCODE
+
 & (Join-Path $PSScriptRoot "pns_parity_proof_pack.ps1") -HostOnly
 Add-Step "proof_pack_manifest_host" $LASTEXITCODE
 

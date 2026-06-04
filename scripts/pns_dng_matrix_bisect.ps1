@@ -20,39 +20,39 @@ $auxScript = Join-Path $PSScriptRoot "pns_aux_dng_capture_analyze.ps1"
 $metricPy = Join-Path $PSScriptRoot "dng_color_metric.py"
 
 $stepDefs = @{
-    baseline       = @{ label = "baseline (MotionCam shipped)"; am = @() }
+    baseline       = @{ label = "baseline (AltReferenceApp shipped)"; am = @() }
     E1             = @{ label = "skip StillCaptureMetadata"; am = @("--ez", "pns_preview_dng_skip_still_metadata", "true") }
     E1_50708       = @{ label = "E1 + skip UniqueCameraModel 50708"; am = @(
         "--ez", "pns_preview_dng_skip_still_metadata", "true",
         "--ez", "pns_preview_dng_skip_unique_camera_model", "true"
     ) }
-    E2             = @{ label = "ReferenceCam backend (RAW order + IQ)"; am = @("--es", "pns_preview_still_dng_backend", "framework_proshot") }
+    E2             = @{ label = "ReferenceCam backend (RAW order + IQ)"; am = @("--es", "pns_preview_still_dng_backend", "framework_referenceapp") }
     E2_reconcile   = @{ label = "ReferenceCam + leaf ASN reconcile"; am = @(
-        "--es", "pns_preview_still_dng_backend", "framework_proshot",
+        "--es", "pns_preview_still_dng_backend", "framework_referenceapp",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "true"
     ) }
     E2_skipmeta    = @{ label = "ReferenceCam + skip metadata"; am = @(
-        "--es", "pns_preview_still_dng_backend", "framework_proshot",
+        "--es", "pns_preview_still_dng_backend", "framework_referenceapp",
         "--ez", "pns_preview_dng_skip_still_metadata", "true"
     ) }
     E3_skipjpeg    = @{ label = "skip JPEG hints on RAW still"; am = @("--ez", "pns_preview_dng_skip_jpeg_hints_still", "true") }
-    E7_reconcile_mc = @{ label = "MotionCam + force leaf reconcile"; am = @(
+    E7_reconcile_mc = @{ label = "AltReferenceApp + force leaf reconcile"; am = @(
         "--ez", "pns_preview_dng_force_leaf_reconcile", "true"
     ) }
     E11_gains_asn = @{ label = "shipped: REFERENCECAM + gains-first ASN (no Bayer)"; am = @() }
     E12_no_reconcile = @{ label = "REFERENCECAM + force reconcile OFF (ReferenceCam parity)"; am = @(
-        "--es", "pns_preview_still_dng_backend", "framework_proshot",
+        "--es", "pns_preview_still_dng_backend", "framework_referenceapp",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "false"
     ) }
     E13_minimal = @{ label = "minimal DngCreator (no meta/50708/desc/reconcile)"; am = @(
-        "--es", "pns_preview_still_dng_backend", "framework_proshot",
+        "--es", "pns_preview_still_dng_backend", "framework_referenceapp",
         "--ez", "pns_preview_dng_skip_still_metadata", "true",
         "--ez", "pns_preview_dng_skip_unique_camera_model", "true",
         "--ez", "pns_preview_dng_skip_software_desc", "true",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "false"
     ) }
     E14_bayer_asn = @{ label = "REFERENCECAM + Bayer ASN (legacy bad path)"; am = @(
-        "--es", "pns_preview_still_dng_backend", "framework_proshot",
+        "--es", "pns_preview_still_dng_backend", "framework_referenceapp",
         "--ez", "pns_preview_dng_force_leaf_reconcile", "true",
         "--ez", "pns_preview_dng_force_bayer_asn", "true"
     ) }
@@ -98,7 +98,7 @@ foreach ($step in $Steps) {
         continue
     }
 
-    $parityJson = Join-Path $stepDir "proshot_parity_gate.json"
+    $parityJson = Join-Path $stepDir "referenceapp_parity_gate.json"
     $parityStatus = if ((Test-Path $parityJson) -and ((Get-Content $parityJson -Raw | ConvertFrom-Json).gate -eq "PASS")) { "PASS" } else { "FAIL" }
 
     $uw = Join-Path $stepDir "M14_uw.dng"

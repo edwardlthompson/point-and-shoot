@@ -1,6 +1,6 @@
 # P&S DNG alignment spike (from ReferenceCam forensics)
 
-**Status:** Forensics + **loadability fix** shipped May 2026 on `legacy serial`. Color alignment vs ReferenceCam remains open. Triage matrix: **`docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`** (common vs different across ReferenceCam / MotionCam / P&S).
+**Status:** Forensics + **loadability fix** shipped May 2026 on `legacy serial`. Color alignment vs ReferenceCam remains open. Triage matrix: **`docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`** (common vs different across ReferenceCam / AltReferenceApp / P&S).
 
 **Do not:** Re-apply `DngForwardMatrixFix` / full `TiffDngColorMatrixPatch` CM·FM overwrite in the save path (reverted May 2026; broke wide/tele and risks Adobe load failures).
 
@@ -22,7 +22,7 @@
 
 ---
 
-## Forensics results (`proshot_reference_20260518_025412`)
+## Forensics results (`referenceapp_reference_20260518_025412`)
 
 | Observation | ReferenceCam (3 DNGs) | P&S (`aux_dng_capture_analyze_20260518_025101`) |
 |---------------|-------------------|--------------------------------------------------|
@@ -34,11 +34,11 @@
 
 **APK (`base.apk`):** `DngCreator`, `setPhysicalCameraId`, `LOGICAL_MULTI_CAMERA`, `LENS_SHADING` present in dex (`apk_strings_grep.txt`).
 
-**User ReferenceCam captures + dumpsys (`proshot_adb_forensics_20260518_025806`):** ReferenceCam **CONNECT** sequence **device 3 → 2 → 4** — **same leaf ids** as P&S M14/M23/M73. Camera id choice is **ruled out** as the sole difference vs ReferenceCam color.
+**User ReferenceCam captures + dumpsys (`referenceapp_adb_forensics_20260518_025806`):** ReferenceCam **CONNECT** sequence **device 3 → 2 → 4** — **same leaf ids** as P&S M14/M23/M73. Camera id choice is **ruled out** as the sole difference vs ReferenceCam color.
 
 ---
 
-## Hypothesis buckets (validate against `hfr-runs/proshot_reference_*/diff_report.md`)
+## Hypothesis buckets (validate against `hfr-runs/referenceapp_reference_*/diff_report.md`)
 
 ### 1. Camera id / session topology — same ids; pairing / requests differ
 
@@ -59,7 +59,7 @@
 
 ### 3. Capture request keys
 
-**OpenCamera (API pattern only):** `STATISTICS_LENS_SHADING_MAP_MODE_ON` for RAW stills.
+**ExternalCameraApp (API pattern only):** `STATISTICS_LENS_SHADING_MAP_MODE_ON` for RAW stills.
 
 **P&S today:** No `LENS_SHADING` keys in codebase (grep).
 
@@ -94,6 +94,6 @@
 
 | Run | Path |
 |-----|------|
-| ReferenceCam pull + diff | `hfr-runs/proshot_reference_*` |
-| ReferenceCam logcat/dumpsys | `hfr-runs/proshot_adb_forensics_*` |
+| ReferenceCam pull + diff | `hfr-runs/referenceapp_reference_*` |
+| ReferenceCam logcat/dumpsys | `hfr-runs/referenceapp_adb_forensics_*` |
 | P&S baseline capture | `hfr-runs/aux_dng_capture_analyze_*` |

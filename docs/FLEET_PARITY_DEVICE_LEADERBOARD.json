@@ -1,0 +1,132 @@
+﻿{
+    "schema":  "pns.fleet_parity_device_leaderboard.v1",
+    "updatedUtc":  "2026-06-04T12:03:18.3280453Z",
+    "entries":  [
+                    {
+                        "deviceKey":  "Unknown|Unknown|961221c0f0bc2eee",
+                        "deviceLabel":  "Unknown Unknown [4fc6]",
+                        "manufacturer":  "Unknown",
+                        "model":  "Unknown",
+                        "fingerprintSha256Prefix":  "961221c0f0bc2eee",
+                        "serialSuffix":  "4fc6",
+                        "lastSeenUtc":  "2026-05-30T13:01:17.0539556Z",
+                        "lastSweepTimestampUtc":  "2026-05-30T13:01:17.0539556Z",
+                        "lastSweepMode":  "Quick",
+                        "lastSweepPass":  true,
+                        "lastSweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125913",
+                        "score":  {
+                                      "features":  {
+                                                       "score":  422,
+                                                       "maxScore":  540,
+                                                       "percent":  78.1,
+                                                       "cellCount":  54,
+                                                       "provenCount":  41
+                                                   },
+                                      "resolutions":  {
+                                                          "score":  0,
+                                                          "maxScore":  10,
+                                                          "percent":  0,
+                                                          "cellCount":  1,
+                                                          "provenCount":  0
+                                                      },
+                                      "capabilities":  {
+                                                           "score":  0,
+                                                           "maxScore":  0,
+                                                           "percent":  0,
+                                                           "gateCount":  0,
+                                                           "cameraCount":  0
+                                                       },
+                                      "total":  {
+                                                    "score":  422,
+                                                    "maxScore":  550,
+                                                    "percent":  76.7
+                                                }
+                                  },
+                        "rank":  1
+                    },
+                    {
+                        "deviceKey":  "OnePlus|CPH2583|961221c0f0bc2eee",
+                        "deviceLabel":  "OnePlus CPH2583 [4fc6]",
+                        "manufacturer":  "OnePlus",
+                        "model":  "CPH2583",
+                        "fingerprintSha256Prefix":  "961221c0f0bc2eee",
+                        "serialSuffix":  "4fc6",
+                        "lastSeenUtc":  "2026-06-01T12:42:41.4543875Z",
+                        "lastSweepTimestampUtc":  "2026-06-01T12:42:41.4543875Z",
+                        "lastSweepMode":  "Full",
+                        "lastSweepPass":  false,
+                        "lastSweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260601_123839",
+                        "score":  {
+                                      "features":  {
+                                                       "score":  1066,
+                                                       "maxScore":  1490,
+                                                       "percent":  71.5,
+                                                       "cellCount":  149,
+                                                       "provenCount":  99
+                                                   },
+                                      "resolutions":  {
+                                                          "score":  156,
+                                                          "maxScore":  220,
+                                                          "percent":  70.9,
+                                                          "cellCount":  22,
+                                                          "provenCount":  12
+                                                      },
+                                      "capabilities":  {
+                                                           "score":  192,
+                                                           "maxScore":  396,
+                                                           "percent":  48.5,
+                                                           "gateCount":  66,
+                                                           "cameraCount":  6
+                                                       },
+                                      "total":  {
+                                                    "score":  1414,
+                                                    "maxScore":  2106,
+                                                    "percent":  67.1
+                                                }
+                                  },
+                        "rank":  2
+                    },
+                    {
+                        "deviceKey":  "Sony|XQ-BE62|aa6273fd9666679d",
+                        "deviceLabel":  "Sony XQ-BE62 [TC1R]",
+                        "manufacturer":  "Sony",
+                        "model":  "XQ-BE62",
+                        "fingerprintSha256Prefix":  "aa6273fd9666679d",
+                        "serialSuffix":  "TC1R",
+                        "lastSeenUtc":  "2026-06-04T12:03:18.2702938Z",
+                        "lastSweepTimestampUtc":  "2026-06-04T12:03:17.7560940Z",
+                        "lastSweepMode":  "Full",
+                        "lastSweepPass":  false,
+                        "lastSweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260604_114948\\parity_full",
+                        "score":  {
+                                      "features":  {
+                                                       "score":  1102,
+                                                       "maxScore":  1540,
+                                                       "percent":  71.6,
+                                                       "cellCount":  154,
+                                                       "provenCount":  105
+                                                   },
+                                      "resolutions":  {
+                                                          "score":  120,
+                                                          "maxScore":  220,
+                                                          "percent":  54.5,
+                                                          "cellCount":  22,
+                                                          "provenCount":  12
+                                                      },
+                                      "capabilities":  {
+                                                           "score":  194,
+                                                           "maxScore":  396,
+                                                           "percent":  49,
+                                                           "gateCount":  66,
+                                                           "cameraCount":  6
+                                                       },
+                                      "total":  {
+                                                    "score":  1416,
+                                                    "maxScore":  2156,
+                                                    "percent":  65.7
+                                                }
+                                  },
+                        "rank":  3
+                    }
+                ]
+}

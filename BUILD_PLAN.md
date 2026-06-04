@@ -63,7 +63,8 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone 19** | **Archived** — format/color picker, VP9/RAW/dual-ISO, ProRes probe (**2026-05-30**) |
 | **Milestone 20** | **Archived** — concurrent capture (dual video + Multicam Melt + PiP) |
 | **Milestone 22** | **Archived** — parity proof-pack closure + capability provider map |
-| **Milestone 23** | **Active** — fleet hardening audit remediation (architecture, capture, matrix, gates) |
+| **Milestone 23** | **Archived** — fleet hardening + resilience closeout (2026-06-03) |
+| **Milestone 24** | **Active** — 4K120 stability and truthfulness (strict route + endurance + parity truth class) |
 | **Milestone H** | **Active** — residual **[HUMAN]** work; **H.7** closed **CPH2583** (owner 2026-05-29); OP13 lane optional |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 | **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
@@ -178,6 +179,68 @@ Milestone 23 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Mile
 
 ---
 
+## Milestone 24 — 4K120 stability and truthfulness
+
+**Objective:** Give 4K120 the best chance to succeed with a fleet-generic route ladder, strict start truthfulness, endurance evidence, and parity classification that does not over-claim.
+
+**Docs:** `docs/PNS_TECHNICAL_SETTINGS.md` · `docs/AGENT_REGRESSION_MEMORY.md` · `docs/FLEET_PARITY_DEVICE_LEADERBOARD.md`
+
+**Host gate:** `scripts/pns_m24_gate.ps1 -HostOnly` — toolchain + M24 host checks (strict-start and truth-class script paths).
+
+**Device gate (active USB):** capability-class probe (`S0/S1/S2`) → strict `pns_4k120_verify.ps1` truth-aware retries → `pns_4k120_endurance.ps1` (S2 path) → `pns_fleet_parity_sweep.ps1 -Mode Full` with explicit 4K120 truth source/serial metadata.
+
+### Sprint 24.0 — Baseline instrumentation + rubric
+
+- [ ] **[AGENT]** Add canonical HFR route telemetry (`hfrWarmupAttempt`, `hfrRoute`, `hfrHealthWindowMs`, `hfrBlockReason`) in preview/video logs and ADB validation lines
+- [ ] **[AGENT]** Document strict 4K120 success rubric in technical settings (start gate, sustained gate, classification outcomes)
+- [ ] **[ADB]** Smoke run confirms telemetry needles exist in `PNS.Cam` / `PNS.AdbValidation`
+
+### Sprint 24.1 — HFR route ladder (interleaved ↔ encoder-priority)
+
+- [ ] **[AGENT]** Implement bounded route ladder for constrained HS bring-up: interleaved first, encoder-priority fallback on configure instability
+- [ ] **[AGENT]** Keep strict behavior: recording start blocked if no route reaches 120-ready health state
+- [ ] **[ADB]** `pns_mediacodec_hfr_verify.ps1 -OnlyTest 4K_120fps_MediaCodec -RequireFfprobeAv` with attempt/route telemetry present
+
+### Sprint 24.2 — Strict warmup + retry budget
+
+- [ ] **[AGENT]** Add warmup health window before strict 120 start is allowed
+- [ ] **[AGENT]** Add bounded retry budget before session is marked unstable for runtime window
+- [ ] **[AGENT]** Add deterministic host coverage for strict pass-after-retry and strict block after budget exhaustion
+
+### Sprint 24.3 — Mid-record resilience
+
+- [ ] **[AGENT]** Add one bounded same-fps re-acquire on mid-record HS collapse, then deterministic fail/stop
+- [ ] **[AGENT]** Ensure cleanup prevents zombie recorder/session states
+- [ ] **[ADB]** Robustness run captures outcome class (`sustained`, `recovered_once`, `blocked_unstable`)
+
+### Sprint 24.4 — Delivery truth gates
+
+- [ ] **[AGENT]** Tighten 4K120 gate output with truth classes: `true_4k120`, `hs120_sub4k`, `blocked_unstable`
+- [ ] **[AGENT]** Wire truth class into parity merge/reporting so fleet scoring reflects delivered class
+- [ ] **[ADB]** Updated `pns_4k120_verify.ps1` / `pns_mediacodec_hfr_verify.ps1` emit truth class in JSON + markdown summary
+
+### Sprint 24.5 — Fleet policy alignment
+
+- [ ] **[AGENT]** Map runtime 4K120 truth to catalog/parity semantics without device-specific hardcoding
+- [ ] **[AGENT]** Ensure no false “ship-ready 4K120” parity state when strict criteria are unmet
+- [ ] **[ADB]** `pns_fleet_parity_sweep.ps1 -Mode Full` shows truthful 4K120 classification and gap accounting
+
+### Sprint 24.6 — Endurance evidence pack
+
+- [ ] **[AGENT]** Add `pns_4k120_endurance.ps1` to measure longest sustained 4K120 run and classify terminal bottleneck (`thermal`, `session_disconnect`, `encoder_stall`, `fps_collapse`)
+- [ ] **[AGENT]** Export timeline + fps trend + terminal reason under `hfr-runs/4k120_endurance_*`
+- [ ] **[ADB]** Verify 30s minimum pass path + longest-duration measured artifact
+
+### Sprint 24.7 — Milestone orchestration + closeout
+
+- [ ] **[AGENT]** Add `scripts/pns_m24_gate.ps1` orchestration (host preflight → 4K120 strict → endurance → parity full)
+- [ ] **[AGENT]** Include mandatory app cleanup (`adb shell am force-stop dev.pointandshoot`) in every path
+- [ ] **[AGENT]** Update technical settings + regression memory + changelog coverage in same lane
+
+**M24 gate:** `scripts/pns_m24_gate.ps1` — host pass + strict 4K120 + endurance + parity Full truth-class evidence.
+
+---
+
 ## Completed milestones & sprints (archive)
 
 | Archive | Contents |
@@ -262,7 +325,7 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 **Artifacts:** `docs/FLEET_DEVICE_VERIFY_MATRIX.md` · CPH2583: `hfr-runs/aux_dng_capture_analyze_20260529_015653`, `readout_jpeg_dng_parity_20260529_172644`
 
 - [x] **[AGENT]** `pns_dng_rawpy_decode_gate.ps1` — rawpy M14/M23/M73 on fixtures or pulled DNGs for **onboarded SKU** — PASS `aux_dng_capture_analyze_20260529_015653` (6 DNGs)
-- [x] **[AGENT]** `pns_fixture_dng_gates.ps1` — host CI on `tests/fixtures/proshot_cph2655/` (default pipeline gate) — PASS
+- [x] **[AGENT]** `pns_fixture_dng_gates.ps1` — host CI on `tests/fixtures/referenceapp_cph2655/` (default pipeline gate) — PASS
 - [x] **[AGENT]** `pns_still_mode_compare_gate.ps1` — when SKU row requires still-mode compare — USB PASS → `readout_jpeg_dng_parity_20260529_172644`
 - [x] **[HUMAN]** ACR / Lightroom: open wide + UW + tele DNGs for **CPH2583** — neutral color, no green cast — **owner approved 2026-05-29** (closes H.7 for onboarded SKU row)
 
@@ -272,7 +335,7 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 - [ ] **[AGENT]** `pns_aux_dng_capture_analyze.ps1` on CPH2655 — **skipped** (OP13 not connected; optional lane)
 - [ ] **[AGENT]** `pns_m13_3g2_gate.ps1 -Dir <aux_dng_dir> -RecordAcrPass -AcrNote "auto"` — blocked on OP13 capture
-- [ ] **[AGENT]** `dng_proshot_parity_gate.py` — ProShot reference parity — host fixtures only; full lane needs OP13 USB
+- [ ] **[AGENT]** `dng_referenceapp_parity_gate.py` — ReferenceApp reference parity — host fixtures only; full lane needs OP13 USB
 - [ ] **[HUMAN]** ACR on OP13 aux DNGs (optional regression sign-off)
 
 ### Sprint H.8 — M14 + M15 subjective sign-off
@@ -281,7 +344,7 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 - [ ] **[HUMAN] H.8.2** Dual-video stacked framing usability (14.12 + 15.5)
 - [x] **[AGENT] H.8.3** `pns_hfr_color_compare_frames.ps1` — H.265 vs H.264 YCbCr delta &lt; 8 @1080p SDR (automated only)
 - [ ] **[HUMAN] H.8.3** Owner visual: all codecs/scenes good — **fail:** H.265 **DCG @4K** bad colors (2026-05-26); re-open 15.2 human row
-- [ ] **[HUMAN] H.8.4** PPM meters peak hold visible + decaying (15.20)
+- [x] **[HUMAN] H.8.4** PPM meters peak hold visible + decaying (15.20)
 - [ ] **[HUMAN] H.8.5** False color correct on grey card + highlight scene (15.21)
 - [x] **[HUMAN] H.8.6** Pillar-bar HUD no overlap with chrome (15.23) — CPH2583 2026-05-29
 
@@ -327,5 +390,5 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ## Document control
 
-- **Version:** Active plan **2026-06-03** — **M13–M22** archived; active: **Milestone 23** + **Milestone H**.
+- **Version:** Active plan **2026-06-03** — **M13–M23** archived; active: **Milestone 24** + **Milestone H**.
 - **Owner:** Project maintainer approves Milestone H closures.

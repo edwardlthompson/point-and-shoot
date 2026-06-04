@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -78,9 +79,21 @@ class MainActivity : ComponentActivity() {
 
         intent?.let { PlatformIntegration.applyDeepLinkToIntent(it) }
 
-        // Launcher icon must not replay sticky `pns_preview_automation_in_app_video_sec` from a prior ADB gate.
-        if (isLauncherMainIntent(intent)) {
-            intent.stripPreviewVideoAutomationExtras()
+        // Capture before consume/strip — `am start -n …/MainActivity` still matches MAIN+LAUNCHER.
+        val gateLaunchScreen = intent?.getStringExtra(EXTRA_PNS_SCREEN)?.trim()?.takeIf { it.isNotEmpty() }
+        val gateVideoAutomationSec =
+            (intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
+        val gateRawVideoAutomationSec =
+            (intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0) ?: 0).coerceIn(0, 120)
+        val adbPreviewGateLaunch =
+            gateLaunchScreen != null || gateVideoAutomationSec > 0 || gateRawVideoAutomationSec > 0
+
+        val previewLaunchExtras = consumePreviewLaunchExtras(applicationContext, intent)
+
+        // Launcher icon must not replay sticky ADB route/automation extras from a prior gate session.
+        if (isLauncherMainIntent(intent) && !adbPreviewGateLaunch) {
+            intent?.stripPreviewVideoAutomationExtras()
+            intent?.removeExtra(EXTRA_PNS_SCREEN)
         }
 
         if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW, false) == true) {
@@ -117,7 +130,18 @@ class MainActivity : ComponentActivity() {
         hideSystemBarsForImmersive()
         PnsWindowPreferredRefreshRate.applyUpTo(this)
 
-        var launchScreen = resolveLaunchScreenForMain(intent)
+        var launchScreen = gateLaunchScreen ?: resolveLaunchScreenForMain(intent)
+        when (intent?.action) {
+            MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA,
+            MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE,
+            -> {
+                Log.i(
+                    "PNS.HardwareKey",
+                    "coldLaunch action=${intent.action} extras=${intent.extras?.keySet()?.joinToString()} " +
+                        "launchScreen=${launchScreen ?: "null"}",
+                )
+            }
+        }
         val safeModeActive = ExperimentalSafeModeStore.isSafeModeActive(this)
         if (safeModeActive) {
             ExperimentalSafeModeStore.disableExperimentalFlags(this)
@@ -181,6 +205,7 @@ class MainActivity : ComponentActivity() {
                                 exhaustiveHfrOnly = exhaustiveHfrOnly,
                                 autoLegacyCamera1 = autoLegacy,
                                 autoFaceMeterProbe = autoFaceMeter,
+                                previewLaunchExtras = previewLaunchExtras,
                             )
                         }
                     }
@@ -222,6 +247,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (PnsHardwareShutterRouter.handleKeyEvent(this, event, hasWindowFocus())) {
+            return true
+        }
         if (PnsMediaSessionManager.handleKeyEvent(this, event, hasWindowFocus())) {
             return true
         }
@@ -233,10 +261,12 @@ class MainActivity : ComponentActivity() {
      * System camera intents ([MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA], etc.) map to the preview finder
      * so the app appears in quick-launch / default-camera style pickers.
      */
-    /** True when the user opened the app from the home-screen icon (not an ADB `pns_screen` route). */
+    /** True when the user opened the app from the home-screen icon (ignore stale `pns_screen` extras). */
     private fun isLauncherMainIntent(intent: Intent?): Boolean {
         if (intent == null) return false
-        if (!intent.getStringExtra(EXTRA_PNS_SCREEN).isNullOrEmpty()) return false
+        if (!intent.getStringExtra(EXTRA_PNS_SCREEN).isNullOrBlank()) return false
+        if (intent.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) > 0) return false
+        if (intent.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC, 0) > 0) return false
         return intent.action == Intent.ACTION_MAIN &&
             intent.hasCategory(Intent.CATEGORY_LAUNCHER)
     }

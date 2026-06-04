@@ -947,17 +947,17 @@ private class PreviewController(
         val manualSensorStill = manualIsoOverride != null || manualExposureNsOverride != null
                 applyReadoutManualExposureAndWb(this, chars, camId)
                 if (!proShotPureLeafStill) {
-                RawStillProcessingHints.applyProShotPreviewExposureFromResult(
+                RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
                     this,
                     chars,
                     camId,
                     proShotPreviewResult,
-                    latchManualExposureFromPreview = latchProShotManualExposure,
+                    latchManualExposureFromPreview = latchReferenceAppManualExposure,
                     exposureLatch = proShotExposureLatch,
                 )
         val manualSensorStill = manualIsoOverride != null || manualExposureNsOverride != null
                 applyReadoutManualExposureAndWb(this, chars, camId)
-                RawStillProcessingHints.applyProShotPreviewExposureFromResult(
+                RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
                     this,
                     chars,
                     camId,
@@ -966,7 +966,7 @@ private class PreviewController(
                 if (commandDialMode == CommandDialMode.H && !manualSensorStill && adbValidationShotLabel == null) {
         val manualSensorBracket = manualIsoOverride != null || manualExposureNsOverride != null
                 applyReadoutManualExposureAndWb(this, chars, camId)
-                RawStillProcessingHints.applyProShotPreviewExposureFromResult(
+                RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
                     this,
                     chars,
                     camId,

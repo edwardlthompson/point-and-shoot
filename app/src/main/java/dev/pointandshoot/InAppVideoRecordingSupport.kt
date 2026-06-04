@@ -161,6 +161,15 @@ object InAppVideoRecordingSupport {
         fps: Int,
     ): Boolean = fps in highSpeedFpsForEncodeSize(map, width, height)
 
+    /**
+     * True when constrained HS can run at [fps] for a 4K encode tier (capture may be 1080p/720p).
+     */
+    fun supportsHighSpeedCaptureFor4KEncode(
+        map: StreamConfigurationMap?,
+        fps: Int,
+        preferredEncodeSize: Size = Size(3840, 2160),
+    ): Boolean = pickHighSpeedVideoTarget(map, fps, preferredEncodeSize) != null
+
     /** [MediaRecorder] path: camera must advertise this exact output size. */
     fun supportsMediaRecorderOutputSize(
         map: StreamConfigurationMap?,
@@ -228,6 +237,8 @@ object InAppVideoRecordingSupport {
         map: StreamConfigurationMap?,
         desiredFps: Int,
         preferredEncodeSize: Size? = null,
+        /** After HFR [onConfigureFailed], retry with sub-4K HS before 4K HS. */
+        preferSub4kCapture: Boolean = false,
     ): Pair<Size, Range<Int>>? {
         if (map == null) return null
         val sizes = runCatching { map.highSpeedVideoSizes?.toList() }.getOrNull().orEmpty()
@@ -244,22 +255,27 @@ object InAppVideoRecordingSupport {
         }
 
         val pref = preferredEncodeSize?.takeIf { it.width > 0 && it.height > 0 }
-        if (pref != null && matchesSize(pref)) {
-            fpsRangeFor(pref)?.let { return pref to it }
-        }
-
         if (pref != null && pref.width >= 3840) {
             val atFps =
                 sizes.mapNotNull { s -> fpsRangeFor(s)?.let { range -> s to range } }
+            if (!preferSub4kCapture && matchesSize(pref)) {
+                fpsRangeFor(pref)?.let { return pref to it }
+            }
+            atFps
+                .filter { it.first.width < 3840 }
+                .maxByOrNull { it.first.width.toLong() * it.first.height }
+                ?.let { return it }
+            if (matchesSize(pref)) {
+                fpsRangeFor(pref)?.let { return pref to it }
+            }
             atFps
                 .filter { it.first.width >= 3840 && it.first.height >= 2160 }
                 .maxByOrNull { it.first.width.toLong() * it.first.height }
                 ?.let { return it }
-            atFps
-                .filter { it.first.width >= 1920 && it.first.height >= 1080 }
-                .maxByOrNull { it.first.width.toLong() * it.first.height }
-                ?.let { return it }
             atFps.maxByOrNull { it.first.width.toLong() * it.first.height }?.let { return it }
+        }
+        if (pref != null && matchesSize(pref)) {
+            fpsRangeFor(pref)?.let { return pref to it }
         }
 
         val preferredOrder = listOf(Size(1920, 1080), Size(1280, 720))
@@ -267,7 +283,9 @@ object InAppVideoRecordingSupport {
             (preferredOrder.filter { matchesSize(it) } + sizes).distinctBy { "${it.width}x${it.height}" }
 
         for (s in candidateSizes) {
-            fpsRangeFor(s)?.let { return s to it }
+            if (matchesSize(s)) {
+                fpsRangeFor(s)?.let { range -> return s to range }
+            }
         }
         return null
     }
@@ -277,5 +295,6 @@ object InAppVideoRecordingSupport {
         map: StreamConfigurationMap?,
         recordFps: Int,
         preferredEncodeSize: Size? = null,
-    ): Pair<Size, Range<Int>>? = pickHighSpeedVideoTarget(map, recordFps, preferredEncodeSize)
+    ): Pair<Size, Range<Int>>? =
+        pickHighSpeedVideoTarget(map, recordFps, preferredEncodeSize, preferSub4kCapture = false)
 }

@@ -4,7 +4,8 @@
   Sprint 14.13 — host release APK packaging (no GitHub CLI).
 
 .DESCRIPTION
-  assembleRelease (optional), copy to dist/Point-and-Shoot_<versionName>.apk, zipalign -c -v 4.
+  assembleRelease (optional), copy to dist/{AppDisplayName}-{versionName}.apk, zipalign -c -v 4.
+  Naming policy: scripts/release_config.v1.json + scripts/pns_release_naming.ps1.
 
 .PARAMETER SkipAssemble
   Use existing app/build/outputs/apk/release/app-release.apk.
@@ -20,14 +21,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+. "$PSScriptRoot\pns_release_naming.ps1"
+
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $gradleKts = Join-Path $repoRoot "app\build.gradle.kts"
-
-function Get-VersionNameFromGradle([string]$path) {
-    $text = Get-Content -LiteralPath $path -Raw
-    if ($text -match 'versionName\s*=\s*"([^"]+)"') { return $Matches[1] }
-    throw "versionName not found in $path"
-}
+$configPath = Join-Path $PSScriptRoot "release_config.v1.json"
+$config = Get-PnsReleaseConfig $configPath
 
 function Get-AndroidSdkDir([string]$root) {
     $localProps = Join-Path $root "local.properties"
@@ -56,8 +55,16 @@ function Find-Zipalign([string]$sdkDir) {
 
 Push-Location $repoRoot
 try {
-    $versionName = Get-VersionNameFromGradle $gradleKts
-    Write-Host "[pns_release_packaging] versionName=$versionName"
+    $gradleText = Get-Content -LiteralPath $gradleKts -Raw
+    if ($gradleText -notmatch 'versionName\s*=\s*"([^"]+)"') {
+        throw "versionName not found in $gradleKts"
+    }
+    $versionName = ConvertTo-PnsSemverTag $Matches[1]
+    $destApkName = Get-PnsReleaseApkFileName `
+        -VersionName $versionName `
+        -AppDisplayName $config.appDisplayName `
+        -Template $config.apkFileNameTemplate
+    Write-Host "[pns_release_packaging] versionName=$versionName artifact=$destApkName"
 
     if (-not $SkipAssemble) {
         & "$PSScriptRoot\pns_gradlew.ps1" :app:assembleRelease
@@ -73,7 +80,7 @@ try {
     if (-not (Test-Path -LiteralPath $destDir)) {
         New-Item -ItemType Directory -Path $destDir -Force | Out-Null
     }
-    $destApk = Join-Path $destDir "Point-and-Shoot_$versionName.apk"
+    $destApk = Join-Path $destDir $destApkName
     Copy-Item -LiteralPath $srcApk -Destination $destApk -Force
     $sizeMb = [math]::Round((Get-Item -LiteralPath $destApk).Length / 1MB, 2)
     Write-Host "[pns_release_packaging] copied -> $destApk ($sizeMb MB)"
@@ -92,6 +99,7 @@ try {
     @{
         timestamp = (Get-Date -Format "o")
         versionName = $versionName
+        packagedApkName = $destApkName
         sourceApk = $srcApk
         packagedApk = $destApk
         sizeBytes = (Get-Item -LiteralPath $destApk).Length

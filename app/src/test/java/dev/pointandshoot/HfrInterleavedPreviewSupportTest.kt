@@ -35,4 +35,44 @@ class HfrInterleavedPreviewSupportTest {
     fun sessionOutputs_nullWhenInvalid() {
         assertNull(HfrInterleavedPreviewSupport.sessionOutputs(null, null))
     }
+
+    @Test
+    fun prefersInterleavedOverEncoderOnly_for4kHs() {
+        assertTrue(
+            HfrInterleavedPreviewSupport.prefersInterleavedOverEncoderOnlyFor4KEncode(
+                desiredFps = 120,
+                wantsMediaCodecPath = true,
+                encodePrefWidth = 3840,
+                encodePrefHeight = 2160,
+                hsCaptureWidth = 3840,
+                hsCaptureHeight = 2160,
+                preferSub4kCapture = false,
+                forceInterleavedAfterConfigureFail = false,
+            ),
+        )
+        assertTrue(
+            HfrInterleavedPreviewSupport.prefersInterleavedOverEncoderOnlyFor4KEncode(
+                desiredFps = 120,
+                wantsMediaCodecPath = true,
+                encodePrefWidth = 3840,
+                encodePrefHeight = 2160,
+                hsCaptureWidth = 1920,
+                hsCaptureHeight = 1080,
+                preferSub4kCapture = false,
+                forceInterleavedAfterConfigureFail = false,
+            ),
+        )
+        assertFalse(
+            HfrInterleavedPreviewSupport.prefersInterleavedOverEncoderOnlyFor4KEncode(
+                desiredFps = 120,
+                wantsMediaCodecPath = true,
+                encodePrefWidth = 1920,
+                encodePrefHeight = 1080,
+                hsCaptureWidth = 3840,
+                hsCaptureHeight = 2160,
+                preferSub4kCapture = false,
+                forceInterleavedAfterConfigureFail = false,
+            ),
+        )
+    }
 }

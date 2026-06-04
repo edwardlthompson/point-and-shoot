@@ -5,7 +5,7 @@ M22 adds host proof-pack merge (`scripts/pns_parity_proof_pack.ps1`) with schema
 
 | Proof hook | Example catalog ids |
 |------------|---------------------|
-| `pns_aux_dng_capture_analyze.ps1` | `raw.dng`, `still.proshot_leaf` |
+| `pns_aux_dng_capture_analyze.ps1` | `raw.dng`, `still.referenceapp_leaf` |
 | `pns_pip_preview_verify.ps1` | `preview.pip` |
 | `pns_multicam_melt_verify.ps1` | `video.multicam_melt` |
 | `pns_video_format_test.ps1` | `video.vp9` |

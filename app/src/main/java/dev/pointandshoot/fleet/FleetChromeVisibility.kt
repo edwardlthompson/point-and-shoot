@@ -88,4 +88,7 @@ object FleetChromeVisibility {
         return FleetUiVisibilityGate.visible("raw.dng", ctx) ||
             FleetUiVisibilityGate.visible("still.avif", ctx)
     }
+
+    fun showReadoutApertureChip(ctx: FleetUiVisibilityGate.VisibilityContext): Boolean =
+        FleetUiVisibilityGate.visible("lens.aperture", ctx)
 }

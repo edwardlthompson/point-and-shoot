@@ -1,0 +1,7 @@
+# GitHub release automation
+
+When the user asks to **cut / ship / publish a GitHub release**, read and follow **`.cursor/skills/github-release/SKILL.md`**.
+
+Primary script: **`scripts/pns_github_release.ps1`** (`-PrepareOnly` then commit, `-Publish -SkipPrepare`).
+
+About links: **`PnsExternalUrl.kt`** + **`AboutScreen.kt`** (Settings → About & heritage).

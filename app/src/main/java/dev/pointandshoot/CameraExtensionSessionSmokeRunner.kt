@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "PNS.ExtSessionSmoke"
 
-private const val OPEN_CAMERA_AWAIT_SEC = 8L
+private const val EXTERNAL_CAMERA_APP_AWAIT_SEC = 8L
 private const val EXT_SESSION_CONFIGURE_AWAIT_SEC = 12L
 private const val FALLBACK_PREVIEW_WIDTH = 1280
 private const val FALLBACK_PREVIEW_HEIGHT = 720
@@ -104,7 +104,7 @@ object CameraExtensionSessionSmokeRunner {
                 },
                 h,
             )
-            if (!openLatch.await(OPEN_CAMERA_AWAIT_SEC, TimeUnit.SECONDS)) {
+            if (!openLatch.await(EXTERNAL_CAMERA_APP_AWAIT_SEC, TimeUnit.SECONDS)) {
                 PnsAdbLog.i(activity, "cameraExtensionSession skipped cameraId=$cameraId open_timeout")
                 if (finishActivityWhenDone) activity.finish()
                 return

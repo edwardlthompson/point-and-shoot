@@ -190,6 +190,9 @@ object FleetDeviceMatrixBuilder {
                     if (halDumpsys != null) {
                         put("halDumpsysMediaCamera", halDumpsys)
                     }
+                    ProductHardwareLaunchScan.captureInputDevicesRedacted()?.let { inputExcerpt ->
+                        put("inputDevicesRedacted", inputExcerpt)
+                    }
                 }
             val encoder = EncoderFleetSlice.build(app)
             val runtimeProbes =
@@ -321,6 +324,8 @@ object FleetDeviceMatrixBuilder {
                     put("sdkInt", android.os.Build.VERSION.SDK_INT)
                 },
             )
+            put("hardwareLaunch", ProductHardwareLaunchScan.scanLaunchIntents(context))
+            put("hardwareButtons", ProductHardwareLaunchScan.scanHardwareButtons(context))
         }
     }
 
@@ -337,7 +342,8 @@ object FleetDeviceMatrixBuilder {
             } else {
                 null
             }
-        return FleetDeviceMatrix.scanMeta(
+        val meta =
+            FleetDeviceMatrix.scanMeta(
             scanTier = tier,
             appVersionCode = FleetDeviceMatrixStore.currentVersionCode(context),
             sdkInt = Build.VERSION.SDK_INT,
@@ -348,6 +354,12 @@ object FleetDeviceMatrixBuilder {
             firstApiLevel = deviceInitialSdkInt(),
             vendorApiLevel = null,
         )
+        FleetDeviceMatrixStore.liveCameraIdRosterSha256Prefix(context)?.let {
+            meta.put("cameraIdRosterSha256Prefix", it)
+        }
+        val policyId = FleetDevicePolicySelector.active(context.applicationContext).policyId ?: "generic"
+        meta.put("fleetPolicyId", policyId)
+        return meta
     }
 
     private fun positiveOrNull(value: Int?): Int? = value?.takeIf { it > 0 }

@@ -9,10 +9,23 @@ class PreviewReadoutChipModeTest {
     @Test
     fun photoMode_showsStillAndImg_hidesVideoFormat() {
         assertTrue(PreviewReadoutChipMode.showStillLutChip(primaryPhoto = true))
-        assertTrue(PreviewReadoutChipMode.showImgChip(primaryPhoto = true))
+        assertFalse(PreviewReadoutChipMode.showImgChip(primaryPhoto = true))
         assertFalse(PreviewReadoutChipMode.showVideoLutChip(primaryPhoto = true))
         assertFalse(PreviewTrayVideoChrome.showVideoFormatFab(primaryPhoto = true))
         assertEquals("photo", PreviewReadoutChipMode.readoutModeLogValue(primaryPhoto = true))
+    }
+
+    @Test
+    fun apertureChip_hiddenWhenNoHalStops() {
+        assertFalse(PreviewReadoutChipMode.showApertureChip(availableCount = 0))
+        assertTrue(PreviewReadoutChipMode.showApertureChip(availableCount = 1))
+    }
+
+    @Test
+    fun apertureChip_interactiveOnlyWhenVariableAndControllable() {
+        assertTrue(PreviewReadoutChipMode.apertureChipInteractive(variable = true, canControl = true))
+        assertFalse(PreviewReadoutChipMode.apertureChipInteractive(variable = true, canControl = false))
+        assertFalse(PreviewReadoutChipMode.apertureChipInteractive(variable = false, canControl = true))
     }
 
     @Test

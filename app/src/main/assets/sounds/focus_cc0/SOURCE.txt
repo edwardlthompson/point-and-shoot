@@ -1,0 +1,7 @@
+Focus confirm chirp bundled in res/raw/focus_confirm.ogg
+
+Generated in-repo (May 2026) for hardware half-press S1 feedback:
+  ffmpeg sine 1200 Hz, 80 ms, faded — P&S original; no upstream sample.
+
+Uses the same shutter volume slider and Silent pack as sprint AS.2 shutter sounds.
+See assets/sounds/shutter_cc0/SOURCE.txt for shutter click samples.

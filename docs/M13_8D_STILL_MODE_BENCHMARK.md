@@ -6,7 +6,7 @@
 |--------|------|
 | `pns_still_mode_benchmark.ps1` | Per-mode capture (`-Mode standard\|zsl\|hdr\|all`); `results.json` + `report.md` |
 | `pns_m13_8d_gate.ps1` | Pipeline verify (standard) + benchmark all + optional ReferenceCam three-way session |
-| `pns_dng_proshot_pns_session.ps1` | `-PnsStillModes standard,zsl,hdr`; `-PullMotionCamReference` optional |
+| `pns_dng_referenceapp_pns_session.ps1` | `-PnsStillModes standard,zsl,hdr`; `-PullAltReferenceAppReference` optional |
 
 ## USB (legacy SKU)
 

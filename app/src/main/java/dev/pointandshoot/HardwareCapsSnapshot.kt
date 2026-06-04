@@ -37,6 +37,7 @@ object HardwareCapsSnapshot {
                 supportsPrivateReprocessing = false,
                 reprocessMaxCaptureStall = null,
                 reprocessEffectiveExposureRequestKey = false,
+                activeApertureCount = 0,
             )
         }
         val cc =
@@ -56,6 +57,7 @@ object HardwareCapsSnapshot {
                     supportsPrivateReprocessing = false,
                     reprocessMaxCaptureStall = null,
                     reprocessEffectiveExposureRequestKey = false,
+                    activeApertureCount = 0,
                 )
 
         val roles = BackCameraRoleResolver.resolve(cm, allCameraIds)
@@ -139,6 +141,7 @@ object HardwareCapsSnapshot {
             supportsPrivateReprocessing = PreviewReprocessStillHints.supportsPrivateReprocessing(cc),
             reprocessMaxCaptureStall = PreviewReprocessStillHints.reprocessMaxCaptureStall(cc),
             reprocessEffectiveExposureRequestKey = PreviewReprocessStillHints.reprocessEffectiveExposureKeyAdvertised(cc),
+            activeApertureCount = PreviewApertureSupport.availableApertures(cc).size,
         )
     }
 

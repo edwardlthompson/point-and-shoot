@@ -6,9 +6,9 @@
   1. pns_capture_pipeline_verify.ps1 -Fast
   2. pns_aux_dng_capture_analyze.ps1 -PreviewDial A -NoFast
   3. pns_m13_3g2_gate.ps1 on capture folder (openability)
-  4. dng_proshot_parity_gate.py vs tests/fixtures/proshot_legacy_sku/
-  5. Optional: pns_proshot_live_forensics + reference sync (-RefreshProshotRefs)
-  6. Optional: pns_dng_proshot_pns_session.ps1 (-RunProshotSession)
+  4. dng_referenceapp_parity_gate.py vs tests/fixtures/referenceapp_legacy_sku/
+  5. Optional: pns_referenceapp_live_forensics + reference sync (-RefreshProshotRefs)
+  6. Optional: pns_dng_referenceapp_pns_session.ps1 (-RunProshotSession)
   7. Writes m13_3f_gate.json + ACR_HUMAN_VERIFY.md (color checklist)
 
   Exit 0 when pipeline + capture 3/3 + openability PASS (parity may FAIL — documented).
@@ -50,9 +50,9 @@ $result = [ordered]@{
     captureAnalyzePass = $null
     openabilityPass = $null
     parityPass = $null
-    proshotSessionDir = $null
+    referenceappSessionDir = $null
     captureDir = $CaptureDir
-    fixtureDir = (Join-Path $projRoot "tests\fixtures\proshot_legacy_sku")
+    fixtureDir = (Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku")
 }
 
 Write-Host "=== M13.3f daylight gate ($ts) ===" -ForegroundColor Cyan
@@ -78,13 +78,13 @@ if ($RefreshProshotRefs) {
     Write-Host "[13.3f] ReferenceCam live forensics (15/23/73 mm)..." -ForegroundColor Cyan
     $foreArgs = @{ TryUiAutomation = $true }
     if ($Serial) { $foreArgs["Serial"] = $Serial }
-    & (Join-Path $PSScriptRoot "pns_proshot_live_forensics.ps1") @foreArgs
-    if ($LASTEXITCODE -ne 0) { throw "proshot_live_forensics failed" }
-    $foreLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "proshot_live_forensics_*" |
+    & (Join-Path $PSScriptRoot "pns_referenceapp_live_forensics.ps1") @foreArgs
+    if ($LASTEXITCODE -ne 0) { throw "referenceapp_live_forensics failed" }
+    $foreLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "referenceapp_live_forensics_*" |
         Sort-Object Name | Select-Object -Last 1
     if ($foreLatest) {
-        & (Join-Path $PSScriptRoot "pns_proshot_reference_sync.ps1") -FromForensicsDir $foreLatest.FullName
-        if ($LASTEXITCODE -ne 0) { throw "proshot_reference_sync failed" }
+        & (Join-Path $PSScriptRoot "pns_referenceapp_reference_sync.ps1") -FromForensicsDir $foreLatest.FullName
+        if ($LASTEXITCODE -ne 0) { throw "referenceapp_reference_sync failed" }
     }
 }
 
@@ -133,11 +133,11 @@ if (-not $result.openabilityPass) {
 }
 
 Write-Host "[13.3f] ReferenceCam parity vs fixtures..." -ForegroundColor Cyan
-$parityJson = Join-Path $result.captureDir "proshot_parity_gate.json"
-& python (Join-Path $PSScriptRoot "dng_proshot_parity_gate.py") $result.captureDir `
+$parityJson = Join-Path $result.captureDir "referenceapp_parity_gate.json"
+& python (Join-Path $PSScriptRoot "dng_referenceapp_parity_gate.py") $result.captureDir `
     --referencecam-dir $result.fixtureDir --json-out $parityJson
 $result.parityPass = ($LASTEXITCODE -eq 0)
-Copy-Item -LiteralPath $parityJson -Destination (Join-Path $gateDir "proshot_parity_gate.json") -Force -ErrorAction SilentlyContinue
+Copy-Item -LiteralPath $parityJson -Destination (Join-Path $gateDir "referenceapp_parity_gate.json") -Force -ErrorAction SilentlyContinue
 
 if ($RunProshotSession) {
     Write-Host "[13.3f] ReferenceCam + P&S session (side-by-side)..." -ForegroundColor Cyan
@@ -147,11 +147,11 @@ if ($RunProshotSession) {
     }
     if ($Serial) { $sessArgs["Serial"] = $Serial }
     if ($RefreshProshotRefs) { $sessArgs["SkipProshotPull"] = $true }
-    & (Join-Path $PSScriptRoot "pns_dng_proshot_pns_session.ps1") @sessArgs
+    & (Join-Path $PSScriptRoot "pns_dng_referenceapp_pns_session.ps1") @sessArgs
     if ($LASTEXITCODE -eq 0) {
-        $sessLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "dng_proshot_pns_session_*" |
+        $sessLatest = Get-ChildItem (Join-Path $projRoot "hfr-runs") -Directory -Filter "dng_referenceapp_pns_session_*" |
             Sort-Object Name | Select-Object -Last 1
-        if ($sessLatest) { $result.proshotSessionDir = $sessLatest.FullName }
+        if ($sessLatest) { $result.referenceappSessionDir = $sessLatest.FullName }
     }
 }
 

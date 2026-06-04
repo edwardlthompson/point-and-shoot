@@ -160,10 +160,10 @@ data class HudSettings(
     val enableResearchQHDR: Boolean = false,
     /**
      * In-app RAW still only (no scripted ADB label): after [stopRepeating] debounce, run preview-only
-     * AF settle captures before the high-res still (Open Camera–style polling). **Off by default**;
+     * AF settle captures before the high-res still (External Camera App–style polling). **Off by default**;
      * requires flash off and non-manual sensor. USB-prove before treating as default-on.
      */
-    val enableOpenCameraStyleAfSettleBeforeStill: Boolean = false,
+    val enableExternalCameraAppStyleAfSettleBeforeStill: Boolean = false,
     /**
      * In-app still only: after shutter tap, run AF precapture triggers and **wait** (with timeout)
      * until preview [android.hardware.camera2.CaptureResult.CONTROL_AF_STATE] is passive focused or
@@ -571,8 +571,8 @@ data class HudSettings(
                     prefs.getBoolean(KEY_RESEARCH_DCG_HDR, defaults.enableResearchDcgHDR),
                 enableResearchQHDR =
                     prefs.getBoolean(KEY_RESEARCH_QHDR, defaults.enableResearchQHDR),
-                enableOpenCameraStyleAfSettleBeforeStill =
-                    prefs.getBoolean(KEY_AF_SETTLE_BEFORE_STILL, defaults.enableOpenCameraStyleAfSettleBeforeStill),
+                enableExternalCameraAppStyleAfSettleBeforeStill =
+                    prefs.getBoolean(KEY_AF_SETTLE_BEFORE_STILL, defaults.enableExternalCameraAppStyleAfSettleBeforeStill),
                 waitForAfFocusBeforeStill =
                     prefs.getBoolean(KEY_WAIT_AF_FOCUS_BEFORE_STILL, defaults.waitForAfFocusBeforeStill),
                 hardwareJpegIspBias = prefs.getInt(KEY_HARDWARE_JPEG_ISP_BIAS, defaults.hardwareJpegIspBias)
@@ -722,7 +722,7 @@ data class HudSettings(
                 .putBoolean(KEY_RESEARCH_HFR_VSR, settings.enableResearchHfrVSR)
                 .putBoolean(KEY_RESEARCH_DCG_HDR, settings.enableResearchDcgHDR)
                 .putBoolean(KEY_RESEARCH_QHDR, settings.enableResearchQHDR)
-                .putBoolean(KEY_AF_SETTLE_BEFORE_STILL, settings.enableOpenCameraStyleAfSettleBeforeStill)
+                .putBoolean(KEY_AF_SETTLE_BEFORE_STILL, settings.enableExternalCameraAppStyleAfSettleBeforeStill)
                 .putBoolean(KEY_WAIT_AF_FOCUS_BEFORE_STILL, settings.waitForAfFocusBeforeStill)
                 .putInt(
                     KEY_HARDWARE_JPEG_ISP_BIAS,

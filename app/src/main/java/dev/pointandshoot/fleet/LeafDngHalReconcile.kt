@@ -17,8 +17,8 @@ import dev.pointandshoot.TiffDngColorMatrixPatch
 /**
  * LegacySku leaf DNG post-process after [android.hardware.camera2.DngCreator].
  *
- * **ReferenceCam / MotionCam gap (May 2026):** Play Store apps do not run Bayer/gain AsShotNeutral surgery.
- * MotionCam encodes in native code with per-model profiles; ReferenceCam relies on
+ * **ReferenceCam / AltReferenceApp gap (May 2026):** Play Store apps do not run Bayer/gain AsShotNeutral surgery.
+ * AltReferenceApp encodes in native code with per-model profiles; ReferenceCam relies on
  * `DngCreator(openedCameraCharacteristics, stillResult)` plus still IQ (lens shading, etc.).
  *
  * Shipped LegacyDevice path: force IFD0 + raw-IFD **ColorMatrix / ForwardMatrix** from the **opened leaf**
@@ -41,13 +41,13 @@ object LeafDngHalReconcile {
     fun usesAsnOnlyReconcile(sessionCameraId: String?): Boolean =
         useAsnOnlyPath(sessionCameraId)
 
-    fun usesProShotReferenceCalibration(sessionCameraId: String?): Boolean =
-        useProShotReferenceCalibrationPath(sessionCameraId)
+    fun usesReferenceAppReferenceCalibration(sessionCameraId: String?): Boolean =
+        useReferenceAppReferenceCalibrationPath(sessionCameraId)
 
     /** Live [Image] Bayer stats — DngCreator row-strip layout mis-reads CFA on LegacySku. */
     fun shouldEstimateBayerBeforeWrite(sessionCameraId: String?): Boolean {
         if (sessionCameraId == null) return false
-        if (useProShotReferenceCalibrationPath(sessionCameraId)) return true
+        if (useReferenceAppReferenceCalibrationPath(sessionCameraId)) return true
         if (useAsnOnlyPath(sessionCameraId)) return true
         return shouldReconcileLeafDngMetadata(sessionCameraId) &&
             preferBayerAsnForSession(sessionCameraId)
@@ -60,10 +60,10 @@ object LeafDngHalReconcile {
         deviceApplies: Boolean,
         backend: StillDngBackend,
         sessionCameraId: String,
-        proShotPureDngSave: Boolean = LegacyFleetPolicy.useProShotPureDngSave(),
+        proShotPureDngSave: Boolean = LegacyFleetPolicy.useReferenceAppPureDngSave(),
         wideLeafCalibrationForAuxDng: Boolean = LegacyFleetPolicy.useWideLeafCalibrationForAuxDng(),
-        uwProShotAsnReconcile: Boolean = LegacyFleetPolicy.useLegacyLeafAuxColorReconcile(),
-        proShotReferenceCalibration: Boolean = LegacyFleetPolicy.useProShotReferenceCalibration(),
+        uwReferenceAppAsnReconcile: Boolean = LegacyFleetPolicy.useLegacyLeafAuxColorReconcile(),
+        proShotReferenceCalibration: Boolean = LegacyFleetPolicy.useReferenceAppReferenceCalibration(),
     ): Boolean {
         DngSaveBisectState.forceLeafHalReconcile?.let { forced ->
             return forced &&
@@ -90,7 +90,7 @@ object LeafDngHalReconcile {
         if (
             deviceApplies &&
             proShotPureDngSave &&
-            uwProShotAsnReconcile &&
+            uwReferenceAppAsnReconcile &&
             (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
                 sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
@@ -110,7 +110,7 @@ object LeafDngHalReconcile {
             return true
         }
         return deviceApplies &&
-            backend == StillDngBackend.FRAMEWORK_PROSHOT &&
+            backend == StillDngBackend.FRAMEWORK_REFERENCEAPP &&
             sessionCameraId in leafRearIds
     }
 
@@ -135,8 +135,8 @@ object LeafDngHalReconcile {
         wideCalibrationCharacteristics: CameraCharacteristics? = null,
         assetContext: Context? = null,
     ): ByteArray {
-        if (useProShotReferenceCalibrationPath(sessionCameraId)) {
-            return applyProShotReferenceCalibrationReconcile(
+        if (useReferenceAppReferenceCalibrationPath(sessionCameraId)) {
+            return applyReferenceAppReferenceCalibrationReconcile(
                 original,
                 sessionCameraId!!,
                 assetContext,
@@ -197,15 +197,15 @@ object LeafDngHalReconcile {
         return wbR in 0.45f..2.8f && wbB in 0.45f..2.8f
     }
 
-    private fun useProShotReferenceCalibrationPath(sessionCameraId: String?): Boolean {
-        if (!LegacyFleetPolicy.useProShotReferenceCalibration()) return false
+    private fun useReferenceAppReferenceCalibrationPath(sessionCameraId: String?): Boolean {
+        if (!LegacyFleetPolicy.useReferenceAppReferenceCalibration()) return false
         if (sessionCameraId == null) return false
         // Wide (LYT-808): HAL CM/FM/ASN are trustworthy — aux only needs ReferenceCam profile + Bayer ASN.
         return sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
             sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE
     }
 
-    private fun applyProShotReferenceCalibrationReconcile(
+    private fun applyReferenceAppReferenceCalibrationReconcile(
         original: ByteArray,
         sessionCameraId: String,
         assetContext: Context?,
@@ -218,7 +218,7 @@ object LeafDngHalReconcile {
             Log.w(TAG, "referencecam-ref cal skipped: no assetContext cam=$sessionCameraId")
             return original
         }
-        val slot = ProShotReferenceCalibration.forCameraId(ctx, sessionCameraId)
+        val slot = ReferenceAppReferenceCalibration.forCameraId(ctx, sessionCameraId)
         if (slot == null) {
             Log.w(TAG, "referencecam-ref cal skipped: no slot for cam=$sessionCameraId")
             return original
@@ -229,7 +229,7 @@ object LeafDngHalReconcile {
                 TiffDngColorMatrixPatch.TAG_COLOR_MATRIX2,
             )
         var bytes =
-            TiffDngColorMatrixPatch.patchCalibrationFromProShotReference(
+            TiffDngColorMatrixPatch.patchCalibrationFromReferenceAppReference(
                 original,
                 slot.colorMatrix1(),
                 slot.colorMatrix2(),
@@ -241,7 +241,7 @@ object LeafDngHalReconcile {
             bytes = TiffDngColorMatrixPatch.patchForwardMatrix(bytes, fmOverride)
             Log.i(TAG, "referencecam-ref ForwardMatrix override cam=$sessionCameraId")
         }
-        bytes = patchProShotReferenceAsShotNeutral(
+        bytes = patchReferenceAppReferenceAsShotNeutral(
             bytes,
             characteristics,
             captureResult,
@@ -265,23 +265,23 @@ object LeafDngHalReconcile {
      * ReferenceCam CM/FM tags are copied from reference DNGs; ASN must track **this** capture's Bayer
      * (static ReferenceCam ASN on different RAW causes green cast in ACR).
      */
-    private fun patchProShotReferenceAsShotNeutral(
+    private fun patchReferenceAppReferenceAsShotNeutral(
         bytes: ByteArray,
         characteristics: CameraCharacteristics,
         captureResult: TotalCaptureResult,
         sessionCameraId: String,
-        slot: ProShotReferenceCalibration.Slot,
+        slot: ReferenceAppReferenceCalibration.Slot,
         @Suppress("UNUSED_PARAMETER") preWriteBayerEstimate: DngBayerAsShotNeutral.BayerAsnEstimate? = null,
     ): ByteArray {
         // Same gray-card scene as bundled refs: ReferenceCam ASN + per-id FM override (above) is the
         // ACR/Lightroom path. Bayer strip/readback on LegacySku mis-phases CFA; HAL gains stay on
         // the still request for UW raw pixels only.
-        return patchAsnFromProShotReferenceRationals(bytes, slot, sessionCameraId)
+        return patchAsnFromReferenceAppReferenceRationals(bytes, slot, sessionCameraId)
     }
 
-    private fun patchAsnFromProShotReferenceRationals(
+    private fun patchAsnFromReferenceAppReferenceRationals(
         bytes: ByteArray,
-        slot: ProShotReferenceCalibration.Slot,
+        slot: ReferenceAppReferenceCalibration.Slot,
         sessionCameraId: String,
     ): ByteArray {
         val nd = slot.asnRationalNd
@@ -295,16 +295,16 @@ object LeafDngHalReconcile {
     }
 
     private fun useAsnOnlyPath(sessionCameraId: String?): Boolean {
-        if (useProShotReferenceCalibrationPath(sessionCameraId)) return false
+        if (useReferenceAppReferenceCalibrationPath(sessionCameraId)) return false
         if (
-            LegacyFleetPolicy.useProShotPureDngSave() &&
+            LegacyFleetPolicy.useReferenceAppPureDngSave() &&
             LegacyFleetPolicy.useLegacyLeafAuxColorReconcile() &&
             (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW ||
                 sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)
         ) {
             return true
         }
-        if (LegacyFleetPolicy.useProShotPureDngSave()) return false
+        if (LegacyFleetPolicy.useReferenceAppPureDngSave()) return false
         if (DngSaveBisectState.forceLegacyAsnReconcile) return false
         if (sessionCameraId == null) return false
         if (!LegacyFleetPolicy.useLegacyAsnReconcileOnly()) return false
@@ -377,7 +377,7 @@ object LeafDngHalReconcile {
 
     private fun useHalColorCalibrationPath(sessionCameraId: String?): Boolean {
         if (LegacyFleetPolicy.useWideLeafCalibrationForAuxDng()) return false
-        if (LegacyFleetPolicy.useProShotPureDngSave()) return false
+        if (LegacyFleetPolicy.useReferenceAppPureDngSave()) return false
         if (DngSaveBisectState.forceLegacyAsnReconcile) return false
         if (sessionCameraId == null) return false
         if (!LegacyFleetPolicy.useHalColorCalibrationReconcile()) return false

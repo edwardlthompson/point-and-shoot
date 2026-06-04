@@ -22,7 +22,7 @@ class FleetParityLogcatParserTest {
     }
 
     @Test
-    fun `parseLog dedupes duplicate catalog ids`() {
+    fun `parseLog dedupes mirrored duplicate lines`() {
         val log =
             """
             $sampleLine
@@ -30,6 +30,18 @@ class FleetParityLogcatParserTest {
             """.trimIndent()
         val cells = FleetParityLogcatParser.parseLog(log)
         assertEquals(1, cells.size)
+    }
+
+    @Test
+    fun `parseLog keeps distinct rows sharing same catalog id`() {
+        val variant =
+            sampleLine.replace(
+                "failReason=not_advertised durationMs=0",
+                "failReason=focal_slot_mm_73 durationMs=3",
+            )
+        val log = "$sampleLine\n$variant"
+        val cells = FleetParityLogcatParser.parseLog(log)
+        assertEquals(2, cells.size)
     }
 
     @Test

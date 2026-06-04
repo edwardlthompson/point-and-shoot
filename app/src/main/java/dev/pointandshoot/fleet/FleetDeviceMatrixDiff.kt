@@ -67,6 +67,8 @@ object FleetDeviceMatrixDiff {
         }
 
         diffFocalSlots(previous, current)?.let { lines += it }
+        diffHardwareLaunch(previous, current)?.let { lines += it }
+        diffHardwareButtons(previous, current)?.let { lines += it }
         diffEncoder(previous, current)?.let { lines += it }
 
         return DiffResult(
@@ -141,6 +143,50 @@ object FleetDeviceMatrixDiff {
         val cSlots = cur.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONArray("focalSlots")
         if (pSlots?.toString() == cSlots?.toString()) return null
         return "focalSlots changed (${pSlots?.length() ?: 0} → ${cSlots?.length() ?: 0} entries)"
+    }
+
+    private fun diffHardwareLaunch(prev: JSONObject, cur: JSONObject): String? {
+        val pRole =
+            prev.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareLaunch")
+                ?.optJSONObject("stillImageCamera")
+                ?.optString("defaultRoleHolder")
+        val cRole =
+            cur.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareLaunch")
+                ?.optJSONObject("stillImageCamera")
+                ?.optString("defaultRoleHolder")
+        if (pRole == cRole) return null
+        return "hardwareLaunch defaultRoleHolder: $pRole → $cRole"
+    }
+
+    private fun diffHardwareButtons(prev: JSONObject, cur: JSONObject): String? {
+        val pCodes =
+            prev.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareButtons")
+                ?.optJSONObject("interactiveProbe")
+                ?.optJSONArray("distinctKeyCodes")
+                ?.toString()
+        val cCodes =
+            cur.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareButtons")
+                ?.optJSONObject("interactiveProbe")
+                ?.optJSONArray("distinctKeyCodes")
+                ?.toString()
+        if (pCodes == cCodes && pCodes != null) return null
+        if (pCodes == null && cCodes == null) {
+            val pLikely =
+                prev.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                    ?.optJSONObject("hardwareButtons")
+                    ?.optBoolean("dedicatedCameraKeyLikely")
+            val cLikely =
+                cur.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                    ?.optJSONObject("hardwareButtons")
+                    ?.optBoolean("dedicatedCameraKeyLikely")
+            if (pLikely == cLikely) return null
+            return "hardwareButtons dedicatedCameraKeyLikely: $pLikely → $cLikely"
+        }
+        return "hardwareButtons distinctKeyCodes changed"
     }
 
     private fun JSONArray.toStringSet(): Set<String> {

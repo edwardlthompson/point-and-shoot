@@ -23,10 +23,10 @@ Generated: $ts UTC
 | Lock | Policy API | Shipped value |
 |------|------------|---------------|
 | L9 | useWideLeafCalibrationForAuxDng | false |
-| L9 | useProShotPureDngSave (leaf reconcile off) | true on legacy device |
+| L9 | useReferenceAppPureDngSave (leaf reconcile off) | true on legacy device |
 | L3 | useLegacyAsnReconcileOnly | false |
 | L6 | useHalColorCalibrationReconcile | false |
-| — | useProShotStillPrecapture | false |
+| — | useReferenceAppStillPrecapture | false |
 
 ## USB bisect (not run on host)
 

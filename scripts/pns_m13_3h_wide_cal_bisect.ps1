@@ -120,7 +120,7 @@ try {
             $lc = ($logcatFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
             $logNeedles.wideCalReconcile = $lc -match "wide-cal reconcile"
             $logNeedles.legacyAsn = $lc -match "Op13 ASN|asn-only|AsShotNeutral"
-            $logNeedles.exposureLatch = $lc -match "ProShotExposureLatch|exposure.?latch|adjustProShotExposure"
+            $logNeedles.exposureLatch = $lc -match "ReferenceAppExposureLatch|exposure.?latch|adjustReferenceAppExposure"
         }
 
         $row = [ordered]@{

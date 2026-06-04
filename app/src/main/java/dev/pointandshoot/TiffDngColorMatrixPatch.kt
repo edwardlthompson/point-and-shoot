@@ -216,7 +216,7 @@ object TiffDngColorMatrixPatch {
      * Replaces IFD0 CM1/CM2/FM1/FM2 and AsShotNeutral with values from a ReferenceCam reference capture
      * (same tag layout as [patchCalibrationTagsIfd0] / [patchAsShotNeutralFromFloats]).
      */
-    fun patchCalibrationFromProShotReference(
+    fun patchCalibrationFromReferenceAppReference(
         original: ByteArray,
         colorMatrix1: Array<Rational>,
         colorMatrix2: Array<Rational>,
@@ -224,7 +224,7 @@ object TiffDngColorMatrixPatch {
         forwardMatrix2: Array<Rational>,
     ): ByteArray =
         runCatching {
-            patchProShotReferenceInternal(
+            patchReferenceAppReferenceInternal(
                 original,
                 colorMatrix1,
                 colorMatrix2,
@@ -233,7 +233,7 @@ object TiffDngColorMatrixPatch {
             )
         }.getOrElse { original }
 
-    private fun patchProShotReferenceInternal(
+    private fun patchReferenceAppReferenceInternal(
         original: ByteArray,
         colorMatrix1: Array<Rational>,
         colorMatrix2: Array<Rational>,

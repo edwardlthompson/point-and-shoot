@@ -1,0 +1,22 @@
+# CHANGELOG coverage (mandatory on ship)
+
+## Source of truth
+
+- **User-facing history:** `CHANGELOG.md` (Keep a Changelog format)
+- **Gate manifest:** `scripts/changelog_coverage.v1.json` — `latestRelease` (tag, date, `versionCode`) + `requiredMentions[]`
+
+## When to update (same commit)
+
+1. **Milestone or user-visible feature ships** — add bullets under **Unreleased** (or cut a dated release section).
+2. **`versionCode` bump in `app/build.gradle.kts`** — add `## [x.y.z] - YYYY-MM-DD` to CHANGELOG and bump `latestRelease` in the coverage JSON.
+3. **New required mention** — append `{ "id", "pattern" }` to `requiredMentions` when a shipped milestone must never drift out of the changelog again.
+
+## Gate
+
+- **`scripts/pns_changelog_gate.ps1`** — fails if release header missing, required patterns missing, or app `versionCode` > coverage `latestRelease.versionCode`.
+- Wired into **`pns_verify_toolchain.ps1`** (host CI on every verify run).
+
+## Do not
+
+- Close milestone gates or tell the user a milestone is "shipped" without passing **`pns_changelog_gate.ps1`** when the change is user-visible.
+- Bump `versionCode` without updating the coverage manifest (gate will fail on next toolchain verify).

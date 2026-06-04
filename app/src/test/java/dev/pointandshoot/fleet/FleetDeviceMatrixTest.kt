@@ -88,6 +88,57 @@ class FleetDeviceMatrixTest {
     }
 
     @Test
+    fun store_isStillValid_invalidatesOnRosterOrPolicyWhenPresent() {
+        val meta =
+            FleetDeviceMatrix.scanMeta(
+                scanTier = FleetDeviceMatrix.ScanTier.QUICK,
+                appVersionCode = 1L,
+                sdkInt = 34,
+                securityPatch = "x",
+                fingerprintSha256Prefix = "fp_a",
+                scanDurationMs = 1L,
+            ).apply {
+                put("cameraIdRosterSha256Prefix", "roster_a")
+                put("fleetPolicyId", "generic")
+            }
+        val stored =
+            JSONObject().apply {
+                put(FleetDeviceMatrix.KEY_SCHEMA_VERSION, FleetDeviceMatrix.SCHEMA_VERSION)
+                put(FleetDeviceMatrix.KEY_SCAN_META, meta)
+                put(FleetDeviceMatrix.KEY_DEVICE, FleetDeviceMatrix.deviceBlock("M", "M", "d"))
+                put(FleetDeviceMatrix.KEY_CAMERAS, JSONArray().put(JSONObject().put("cameraId", "0")))
+            }
+
+        assertTrue(
+            FleetDeviceMatrixStore.isStillValid(
+                stored = stored,
+                liveFingerprintPrefix = "fp_a",
+                liveVersionCode = 1L,
+                liveCameraIdRosterSha256Prefix = "roster_a",
+                livePolicyId = "generic",
+            ),
+        )
+        assertFalse(
+            FleetDeviceMatrixStore.isStillValid(
+                stored = stored,
+                liveFingerprintPrefix = "fp_a",
+                liveVersionCode = 1L,
+                liveCameraIdRosterSha256Prefix = "roster_b",
+                livePolicyId = "generic",
+            ),
+        )
+        assertFalse(
+            FleetDeviceMatrixStore.isStillValid(
+                stored = stored,
+                liveFingerprintPrefix = "fp_a",
+                liveVersionCode = 1L,
+                liveCameraIdRosterSha256Prefix = "roster_a",
+                livePolicyId = "legacy_op13",
+            ),
+        )
+    }
+
+    @Test
     fun syntheticMatrix_productAndAppendix() {
         val cameras =
             JSONArray().apply {

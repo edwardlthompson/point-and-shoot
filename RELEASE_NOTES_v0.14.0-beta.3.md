@@ -27,7 +27,7 @@
 
 - HFR finder is **not WYSIWYG** — auxiliary wide (~30 fps), not the tele/UW record sensor.
 - **UW record** cannot show wider than the wide monitor (full wide frame only).
-- Aux **UW / tele** DNG color in ACR may still diverge from ProShot (**H.7**).
+- Aux **UW / tele** DNG color in ACR may still diverge from ReferenceApp (**H.7**).
 - **Dual video** capped at **1080p30** — see **v0.14.0-beta.2** notes.
 
 ## Verification (reference USB `legacy serial`, May 2026)

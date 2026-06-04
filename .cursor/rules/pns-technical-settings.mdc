@@ -6,13 +6,13 @@
 
 Any change that adds, removes, or alters **numeric defaults**, **mode behavior**, **pipeline locks**, **timing constants**, **HUD defaults**, or **fleet capture policy** must update **`docs/PNS_TECHNICAL_SETTINGS.md` in the same change** (same PR / commit).
 
-Examples: `ReadoutExposureChase` targets, H-mode thresholds, `streamHints` / DNG pairing flags, RAW tier order, chrome flex weights, `HudSettings` defaults, ProShot/fleet gates.
+Examples: `ReadoutExposureChase` targets, H-mode thresholds, `streamHints` / DNG pairing flags, RAW tier order, chrome flex weights, `HudSettings` defaults, ReferenceApp/fleet gates.
 
 ## Plan alignment
 
 - New milestones/sprints in **`BUILD_PLAN.md`** should link this doc in the sprint body or gate table.
 - **`PROBE_BUILD_PLAN.md`** §1 rules and **`AGENTS.md`** living-docs list reference it.
-- User-visible releases: one line in **`CHANGELOG.md`** when settings doc changes materially.
+- User-visible releases: update **`CHANGELOG.md`** and **`scripts/changelog_coverage.v1.json`** in the same commit; gate **`pns_changelog_gate.ps1`** (via **`pns_verify_toolchain.ps1`**).
 
 ## Do not duplicate
 

@@ -16,7 +16,7 @@ class StillCaptureModePolicyTest {
 
     @Test
     fun parseAdbExtra_unknown_returnsNull() {
-        assertNull(StillCaptureModePolicy.parseAdbExtra("motioncam"))
+        assertNull(StillCaptureModePolicy.parseAdbExtra("altreferenceapp"))
     }
 
     @Test

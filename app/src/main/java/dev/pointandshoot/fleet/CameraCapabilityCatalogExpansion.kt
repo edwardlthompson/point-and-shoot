@@ -196,7 +196,7 @@ object CameraCapabilityCatalogExpansion {
             listOf(
                 "legacy.camera1" to "Camera1 API probe",
                 "legacy.mediarecorder_hfr_cap" to "MediaRecorder HFR cap probe",
-                "product.toolbox" to "OpenCamera-style toolbox",
+                "product.toolbox" to "ExternalCameraApp-style toolbox",
                 "gallery.lut_preview" to "Gallery LUT preview",
                 "video.anamorphic" to "Anamorphic desqueeze",
             )
@@ -296,7 +296,7 @@ object CameraCapabilityCatalogExpansion {
         add(row("video.time_lapse", "Time lapse encoder", "Video", status = CameraCapabilityCatalog.AppStatus.Shipped))
         add(
             CameraCapabilityCatalog.CatalogRow(
-                id = "still.proshot_leaf",
+                id = "still.referenceapp_leaf",
                 displayName = "ReferenceCam leaf DNG path",
                 category = "Still capture",
                 sourceLayer = CameraCapabilityCatalog.SourceLayer.Product,

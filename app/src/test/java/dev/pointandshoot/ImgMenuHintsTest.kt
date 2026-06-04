@@ -22,8 +22,8 @@ class ImgMenuHintsTest {
 
     @Test
     fun jpegOnlyPrimaryHintsAreEightBitP3() {
-        assertEquals("8 - Max - P3", ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Ultra))
-        assertEquals("8 - Bal - P3", ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Standard))
+        assertEquals("12 - JXL - Rec2020", ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Ultra))
+        assertEquals("10 - AVIF - P3", ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Standard))
         assertNull(ImgMenuHints.jpegOnlyPrimaryRowSubtitle(ImgMenuTier.Off))
     }
 

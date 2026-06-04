@@ -9,7 +9,7 @@ import android.util.Log
  * Freezes autofocus on single still [CaptureRequest]s so the shutter does not implicitly restart an
  * AF sweep when the HAL transitions from preview repeating to still capture.
  *
- * **Reference (read-only homework):** upstream *Open Camera* on SourceForge (`opencamera` project)
+ * **Reference (read-only homework):** upstream *External Camera App* on SourceForge (`externalcameraapp` project)
  * implements a Camera2 **state machine** around still capture (precapture / AF+AE wait / capture).
  * Relevant search terms in their tree: `CameraController2`, `ready_for_capture`,
  * `CONTROL_AF_LOCK`, `CONTROL_AF_TRIGGER`, `CONTROL_AE_PRECAPTURE_TRIGGER`. This helper applies

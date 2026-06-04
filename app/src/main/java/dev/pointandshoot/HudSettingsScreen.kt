@@ -1234,12 +1234,12 @@ private fun hudToggleRows(
             onChange = { checked -> patch { it.copy(enableResearchQHDR = checked) } },
         ),
         HudToggleRow(
-            title = "Open Camera–style AF settle before RAW still",
+            title = "External Camera App–style AF settle before RAW still",
             description =
                 "In-app only (not scripted ADB), flash off: after stopRepeating, run preview-only AF " +
                     "polling captures before the high-res still. Off by default — try for tele tripod softness.",
-            enabled = settings.enableOpenCameraStyleAfSettleBeforeStill,
-            onChange = { checked -> patch { it.copy(enableOpenCameraStyleAfSettleBeforeStill = checked) } },
+            enabled = settings.enableExternalCameraAppStyleAfSettleBeforeStill,
+            onChange = { checked -> patch { it.copy(enableExternalCameraAppStyleAfSettleBeforeStill = checked) } },
         ),
         HudToggleRow(
             title = "Wait for AF before still (shutter gate)",

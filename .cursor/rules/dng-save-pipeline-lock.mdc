@@ -14,7 +14,7 @@ alwaysApply: true
 
 **Root cause (confirmed):** After **`DngCreator.writeImage`**, **`StillCaptureMetadata.applyToDngUri`** called **`ExifInterface.saveAttributes()`** on the full row-strip DNG. That API rewrites TIFF for JPEG-style EXIF and **destroys per-row strip layout** (3072 × `StripOffsets` on this HAL).
 
-**Secondary risk (removed same fix):** **`LeafDngHalReconcile`** overwrote IFD0 **ColorMatrix / ForwardMatrix** from **`CameraCharacteristics`** — not required for loadability; forensics show ProShot does not matrix-patch (`docs/DNG_PS_ALIGNMENT_SPIKE.md`).
+**Secondary risk (removed same fix):** **`LeafDngHalReconcile`** overwrote IFD0 **ColorMatrix / ForwardMatrix** from **`CameraCharacteristics`** — not required for loadability; forensics show ReferenceApp does not matrix-patch (`docs/DNG_PS_ALIGNMENT_SPIKE.md`).
 
 ## Shipped invariants
 

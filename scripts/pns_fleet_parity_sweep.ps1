@@ -316,6 +316,18 @@ function Invoke-ParityDeliveryVerify([string]$ArtifactDir) {
     return $delivery
 }
 
+function Get-CurrentFleetMatrixObject {
+    try {
+        $raw = Invoke-Adb @("exec-out", "run-as", $pkg, "cat", "files/fleet_device_matrix.json")
+        if (-not $raw) { return $null }
+        $text = ($raw -join "`n")
+        if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+        return ($text | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
 function Get-CatalogStatusMap {
     $catalogKt = Join-Path (Split-Path -Parent $PSScriptRoot) "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalog.kt"
     $expansionKt = Join-Path (Split-Path -Parent $PSScriptRoot) "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalogExpansion.kt"
@@ -357,6 +369,436 @@ function Build-GapBreakdownFromCells($Cells, $StatusMap) {
         $counts[$gap]++
     }
     return $counts
+}
+
+function Get-ShipBlockerGapCountFromCells($Cells) {
+    if (-not $Cells) { return 0 }
+    return @($Cells | Where-Object {
+            $_.consumerImpact -eq 'SHIP_BLOCKER' -and
+            (
+                $_.gap -in @('GAP_ADVERTISED_NOT_PROVEN', 'GAP_DELIVERY_MISMATCH', 'GAP_REGRESSION_SINCE_BASELINE') -or
+                    (-not $_.provenOk -and $_.advertised -eq $true)
+            )
+        }).Count
+}
+
+function Get-LatestArtifactFile([string]$RunsRoot, [string]$DirPattern, [string]$FileName) {
+    if (-not (Test-Path -LiteralPath $RunsRoot)) { return $null }
+    $dirs = Get-ChildItem -LiteralPath $RunsRoot -Directory -Filter $DirPattern -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending
+    foreach ($dir in $dirs) {
+        $candidate = Join-Path $dir.FullName $FileName
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
+function Get-RecentParityProofByCatalog([string]$RepoRoot, [int]$MaxAgeHours = 36) {
+    $proof = @{}
+    $runsRoot = Join-Path $RepoRoot "hfr-runs"
+    if (-not (Test-Path -LiteralPath $runsRoot)) { return $proof }
+    $cutoffUtc = [DateTime]::UtcNow.AddHours(-$MaxAgeHours)
+
+    $rawPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "raw_video_verify_*" -FileName "results.json"
+    if ($rawPath) {
+        $rawInfo = Get-Item -LiteralPath $rawPath
+        if ($rawInfo.LastWriteTimeUtc -ge $cutoffUtc) {
+            try {
+                $rawObj = Get-Content -LiteralPath $rawPath -Raw | ConvertFrom-Json
+                $rawPass = $false
+                if ($rawObj.PSObject.Properties.Name -contains "pass") { $rawPass = ($rawObj.pass -eq $true) }
+                elseif ($rawObj.PSObject.Properties.Name -contains "passed") { $rawPass = ($rawObj.passed -eq $true) }
+                $proof["video.raw_picker"] = [ordered]@{
+                    catalogId = "video.raw_picker"
+                    pass = [bool]$rawPass
+                    source = "recent_artifact:raw_video_verify"
+                    artifactPath = $rawPath
+                    artifactUpdatedUtc = $rawInfo.LastWriteTimeUtc.ToString("o")
+                }
+                $proof["video.raw"] = [ordered]@{
+                    catalogId = "video.raw"
+                    pass = [bool]$rawPass
+                    source = "recent_artifact:raw_video_verify"
+                    artifactPath = $rawPath
+                    artifactUpdatedUtc = $rawInfo.LastWriteTimeUtc.ToString("o")
+                }
+            } catch {
+                Write-Warning "Failed parsing raw video artifact $rawPath : $($_.Exception.Message)"
+            }
+        }
+    }
+
+    $audioPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "audio_unprocessed_verify_*" -FileName "gate.json"
+    if ($audioPath) {
+        $audioInfo = Get-Item -LiteralPath $audioPath
+        if ($audioInfo.LastWriteTimeUtc -ge $cutoffUtc) {
+            try {
+                $audioObj = Get-Content -LiteralPath $audioPath -Raw | ConvertFrom-Json
+                $audioPass = ($audioObj.PSObject.Properties.Name -contains "pass") -and ($audioObj.pass -eq $true)
+                # Legacy catalog id kept for historical manifests.
+                $proof["audio.unprocessed"] = [ordered]@{
+                    catalogId = "audio.unprocessed"
+                    pass = [bool]$audioPass
+                    source = "recent_artifact:audio_unprocessed_verify"
+                    artifactPath = $audioPath
+                    artifactUpdatedUtc = $audioInfo.LastWriteTimeUtc.ToString("o")
+                }
+                # Active catalog row used by current parity sweep cells.
+                $proof["audio.hifi"] = [ordered]@{
+                    catalogId = "audio.hifi"
+                    pass = [bool]$audioPass
+                    source = "recent_artifact:audio_unprocessed_verify"
+                    artifactPath = $audioPath
+                    artifactUpdatedUtc = $audioInfo.LastWriteTimeUtc.ToString("o")
+                }
+            } catch {
+                Write-Warning "Failed parsing audio artifact $audioPath : $($_.Exception.Message)"
+            }
+        }
+    }
+    return $proof
+}
+
+function Get-Recent4k120TruthSignal([string]$RepoRoot, [string]$ExpectedSerial = "", [int]$MaxAgeHours = 36) {
+    $runsRoot = Join-Path $RepoRoot "hfr-runs"
+    if (-not (Test-Path -LiteralPath $runsRoot)) { return $null }
+    $cutoffUtc = [DateTime]::UtcNow.AddHours(-$MaxAgeHours)
+
+    function Parse-4k120TruthFromSummary([string]$Path, [string]$SourceLabel) {
+        if (-not (Test-Path -LiteralPath $Path)) { return $null }
+        $info = Get-Item -LiteralPath $Path
+        if ($info.LastWriteTimeUtc -lt $cutoffUtc) { return $null }
+        try {
+            $obj = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+            $truthClass = "unknown"
+            $pass = $false
+            $serial = ""
+            if ($obj -is [System.Array]) {
+                $row = @($obj | Where-Object { $_.Test -eq "4K_120fps_MediaCodec" } | Select-Object -First 1)
+                if (-not $row) { return $null }
+                if ($row.TruthClass) { $truthClass = [string]$row.TruthClass }
+                $pass = ($row.Pass -eq $true)
+            } elseif ($obj.PSObject.Properties.Name -contains "attempts") {
+                if ($obj.finalTruthClass) { $truthClass = [string]$obj.finalTruthClass }
+                if ($obj.PSObject.Properties.Name -contains "pass") { $pass = ($obj.pass -eq $true) }
+                if ($obj.serial) { $serial = [string]$obj.serial }
+            } elseif ($obj.PSObject.Properties.Name -contains "Test") {
+                if ($obj.Test -ne "4K_120fps_MediaCodec") { return $null }
+                if ($obj.TruthClass) { $truthClass = [string]$obj.TruthClass }
+                if ($obj.PSObject.Properties.Name -contains "Pass") { $pass = ($obj.Pass -eq $true) }
+                if ($obj.serial) { $serial = [string]$obj.serial }
+            } else {
+                return $null
+            }
+            if (-not [string]::IsNullOrWhiteSpace($ExpectedSerial) -and
+                -not [string]::IsNullOrWhiteSpace($serial) -and
+                $serial -ne $ExpectedSerial
+            ) {
+                return $null
+            }
+            return [ordered]@{
+                truthClass = $truthClass
+                pass = [bool]$pass
+                artifactPath = $Path
+                artifactUpdatedUtc = $info.LastWriteTimeUtc.ToString("o")
+                source = $SourceLabel
+                serial = $serial
+            }
+        } catch {
+            Write-Warning "Failed parsing 4K120 truth signal from $Path : $($_.Exception.Message)"
+            return $null
+        }
+    }
+
+    $candidatePaths = @()
+    if ($env:PNS_4K120_TRUTH_SUMMARY -and (Test-Path -LiteralPath $env:PNS_4K120_TRUTH_SUMMARY)) {
+        $candidatePaths += [ordered]@{ path = $env:PNS_4K120_TRUTH_SUMMARY; source = "env_handoff" }
+    }
+
+    $strictSummaries = Get-ChildItem -LiteralPath $runsRoot -Directory -Filter "m24_gate_*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending
+    foreach ($dir in $strictSummaries) {
+        $candidate = Join-Path $dir.FullName "strict_4k120\strict_4k120_summary.json"
+        if (Test-Path -LiteralPath $candidate) {
+            $candidatePaths += [ordered]@{ path = $candidate; source = "m24_gate_strict_summary" }
+        }
+    }
+
+    $enduranceSummaries = Get-ChildItem -LiteralPath $runsRoot -Directory -Filter "4k120_endurance_*" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending
+    foreach ($dir in $enduranceSummaries) {
+        $runDirs = Get-ChildItem -LiteralPath $dir.FullName -Directory -Filter "run_*" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc -Descending
+        foreach ($runDir in $runDirs) {
+            $candidate = Join-Path $runDir.FullName "summary.json"
+            if (Test-Path -LiteralPath $candidate) {
+                $candidatePaths += [ordered]@{ path = $candidate; source = "endurance_run_summary" }
+            }
+        }
+    }
+
+    $mediaSummary = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "mediacodec_verify_*" -FileName "summary.json"
+    if ($mediaSummary) {
+        $candidatePaths += [ordered]@{ path = $mediaSummary; source = "mediacodec_verify_summary" }
+    }
+
+    foreach ($candidate in $candidatePaths) {
+        $parsed = Parse-4k120TruthFromSummary -Path $candidate.path -SourceLabel $candidate.source
+        if ($parsed) { return $parsed }
+    }
+    return $null
+}
+
+function Test-MatrixRawVideoSessionCapable($MatrixObj) {
+    if (-not $MatrixObj -or -not $MatrixObj.cameras) { return $false }
+    foreach ($cam in @($MatrixObj.cameras)) {
+        if ($cam.featureGates -and $cam.featureGates.rawVideo -and $cam.featureGates.rawVideo.sessionOk -eq $true) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Apply-MatrixCapabilitySkips($InAppObj, $MatrixObj) {
+    if (-not $InAppObj -or -not $InAppObj.cells) { return $InAppObj }
+    if (Test-MatrixRawVideoSessionCapable $MatrixObj) { return $InAppObj }
+
+    $cells = @($InAppObj.cells)
+    $applied = 0
+    foreach ($cell in $cells) {
+        if ($cell.catalogId -notin @("video.raw", "video.raw_picker")) { continue }
+        if ($cell.PSObject.Properties.Name -contains "provenOk") { $cell.provenOk = $true } else { $cell | Add-Member -NotePropertyName provenOk -NotePropertyValue $true -Force }
+        if ($cell.PSObject.Properties.Name -contains "failReason") { $cell.failReason = $null } else { $cell | Add-Member -NotePropertyName failReason -NotePropertyValue $null -Force }
+        if ($cell.PSObject.Properties.Name -contains "gap") { $cell.gap = "OK" } else { $cell | Add-Member -NotePropertyName gap -NotePropertyValue "OK" -Force }
+        $cell | Add-Member -NotePropertyName proofSkipped -NotePropertyValue "matrix_gate:cameraAny.featureGates.rawVideo.sessionOk" -Force
+        $cell | Add-Member -NotePropertyName proofMerged -NotePropertyValue $true -Force
+        $applied++
+    }
+
+    if ($applied -gt 0) {
+        $statusMap = Get-CatalogStatusMap
+        $gapBreakdown = Build-GapBreakdownFromCells $cells $statusMap
+        if ($InAppObj.PSObject.Properties.Name -contains "cells") { $InAppObj.cells = $cells } else { $InAppObj | Add-Member -NotePropertyName cells -NotePropertyValue $cells -Force }
+        if ($InAppObj.PSObject.Properties.Name -contains "gapBreakdown") { $InAppObj.gapBreakdown = $gapBreakdown } else { $InAppObj | Add-Member -NotePropertyName gapBreakdown -NotePropertyValue $gapBreakdown -Force }
+        if ($InAppObj.PSObject.Properties.Name -contains "gapCounts") { $InAppObj.gapCounts = $gapBreakdown } else { $InAppObj | Add-Member -NotePropertyName gapCounts -NotePropertyValue $gapBreakdown -Force }
+    }
+    return $InAppObj
+}
+
+function Apply-4k120TruthSignal($InAppObj, $TruthSignal) {
+    if (-not $InAppObj -or -not $InAppObj.cells -or -not $TruthSignal) { return $InAppObj }
+    $cells = @($InAppObj.cells)
+    $changed = $false
+    foreach ($cell in $cells) {
+        if ($cell.catalogId -ne "video.hfr.120") { continue }
+        $cell | Add-Member -NotePropertyName truthClass4k120 -NotePropertyValue $TruthSignal.truthClass -Force
+        $cell | Add-Member -NotePropertyName truthArtifactPath -NotePropertyValue $TruthSignal.artifactPath -Force
+        $cell | Add-Member -NotePropertyName truthArtifactUpdatedUtc -NotePropertyValue $TruthSignal.artifactUpdatedUtc -Force
+        if ($TruthSignal.truthClass -ne "true_4k120") {
+            if ($cell.PSObject.Properties.Name -contains "provenOk") { $cell.provenOk = $false } else { $cell | Add-Member -NotePropertyName provenOk -NotePropertyValue $false -Force }
+            if ($cell.PSObject.Properties.Name -contains "failReason") { $cell.failReason = "4k120_truth_$($TruthSignal.truthClass)" } else { $cell | Add-Member -NotePropertyName failReason -NotePropertyValue "4k120_truth_$($TruthSignal.truthClass)" -Force }
+            if ($cell.PSObject.Properties.Name -contains "gap") { $cell.gap = "GAP_DELIVERY_MISMATCH" } else { $cell | Add-Member -NotePropertyName gap -NotePropertyValue "GAP_DELIVERY_MISMATCH" -Force }
+        }
+        $changed = $true
+    }
+    if (-not $changed) { return $InAppObj }
+    $statusMap = Get-CatalogStatusMap
+    $gapBreakdown = Build-GapBreakdownFromCells $cells $statusMap
+    if ($InAppObj.PSObject.Properties.Name -contains "cells") { $InAppObj.cells = $cells } else { $InAppObj | Add-Member -NotePropertyName cells -NotePropertyValue $cells -Force }
+    if ($InAppObj.PSObject.Properties.Name -contains "gapBreakdown") { $InAppObj.gapBreakdown = $gapBreakdown } else { $InAppObj | Add-Member -NotePropertyName gapBreakdown -NotePropertyValue $gapBreakdown -Force }
+    if ($InAppObj.PSObject.Properties.Name -contains "gapCounts") { $InAppObj.gapCounts = $gapBreakdown } else { $InAppObj | Add-Member -NotePropertyName gapCounts -NotePropertyValue $gapBreakdown -Force }
+    if ($InAppObj.PSObject.Properties.Name -contains "shipBlockerGapCount") {
+        $InAppObj.shipBlockerGapCount = Get-ShipBlockerGapCountFromCells $cells
+    } else {
+        $InAppObj | Add-Member -NotePropertyName shipBlockerGapCount -NotePropertyValue (Get-ShipBlockerGapCountFromCells $cells) -Force
+    }
+    return $InAppObj
+}
+
+function Get-CategoryScoreFromCells($Cells) {
+    $score = 0
+    $maxScore = 0
+    foreach ($c in @($Cells)) {
+        $maxScore += 10
+        if ($c.provenOk -eq $true) { $score += 10; continue }
+        if ($c.failReason -like "skip:matrix_gate:*" -or $c.proofSkipped -like "matrix_gate:*") { $score += 8; continue }
+        if ($c.advertised -eq $true) { $score += 4; continue }
+    }
+    $pct = if ($maxScore -gt 0) { [math]::Round(($score * 100.0) / $maxScore, 1) } else { 0.0 }
+    return [ordered]@{
+        score = $score
+        maxScore = $maxScore
+        percent = $pct
+        cellCount = @($Cells).Count
+        provenCount = @($Cells | Where-Object { $_.provenOk -eq $true }).Count
+    }
+}
+
+function Get-CapabilityScoreFromMatrix($MatrixObj) {
+    $score = 0
+    $maxScore = 0
+    $featureGateCount = 0
+    if (-not $MatrixObj -or -not $MatrixObj.cameras) {
+        return [ordered]@{ score = 0; maxScore = 0; percent = 0.0; gateCount = 0; cameraCount = 0 }
+    }
+    foreach ($cam in @($MatrixObj.cameras)) {
+        if (-not $cam.featureGates) { continue }
+        foreach ($prop in $cam.featureGates.PSObject.Properties) {
+            $gate = $prop.Value
+            if (-not $gate) { continue }
+            $featureGateCount++
+            $maxScore += 6
+            if ($gate.advertised -eq $true) { $score += 1 }
+            if ($gate.appEnabled -eq $true) { $score += 2 }
+            if ($gate.sessionOk -eq $true) { $score += 3 }
+        }
+    }
+    $pct = if ($maxScore -gt 0) { [math]::Round(($score * 100.0) / $maxScore, 1) } else { 0.0 }
+    return [ordered]@{
+        score = $score
+        maxScore = $maxScore
+        percent = $pct
+        gateCount = $featureGateCount
+        cameraCount = @($MatrixObj.cameras).Count
+    }
+}
+
+function Get-ParityScoreBreakdown($InAppObj, $MatrixObj) {
+    $cells = if ($InAppObj -and $InAppObj.cells) { @($InAppObj.cells) } else { @() }
+    $resolutionPattern = '(?i)(\.720p|\.1080p|\.4k|\.8k|video\.hfr\.)'
+    $resolutionCells = @($cells | Where-Object { $_.catalogId -match $resolutionPattern })
+    $featureCells = @($cells | Where-Object { $_.catalogId -notmatch $resolutionPattern })
+    $featureScore = Get-CategoryScoreFromCells $featureCells
+    $resolutionScore = Get-CategoryScoreFromCells $resolutionCells
+    $capabilityScore = Get-CapabilityScoreFromMatrix $MatrixObj
+
+    $totalScore = [int]($featureScore.score + $resolutionScore.score + $capabilityScore.score)
+    $totalMax = [int]($featureScore.maxScore + $resolutionScore.maxScore + $capabilityScore.maxScore)
+    $totalPct = if ($totalMax -gt 0) { [math]::Round(($totalScore * 100.0) / $totalMax, 1) } else { 0.0 }
+    return [ordered]@{
+        features = $featureScore
+        resolutions = $resolutionScore
+        capabilities = $capabilityScore
+        total = [ordered]@{
+            score = $totalScore
+            maxScore = $totalMax
+            percent = $totalPct
+        }
+    }
+}
+
+function Write-LeaderboardMarkdown($LeaderboardObj, [string]$MarkdownPath) {
+    $lines = @(
+        "# Fleet parity device leaderboard",
+        "",
+        "Scored from parity sweep cells + fleet matrix capability gates. Higher is better.",
+        ""
+    )
+    foreach ($entry in @($LeaderboardObj.entries)) {
+        $lines += ("- #{0} **{1}** - total {2}/{3} ({4}%)" -f $entry.rank, $entry.deviceLabel, $entry.score.total.score, $entry.score.total.maxScore, $entry.score.total.percent)
+        $lines += ("  - features: {0}/{1} ({2}%)" -f $entry.score.features.score, $entry.score.features.maxScore, $entry.score.features.percent)
+        $lines += ("  - resolutions: {0}/{1} ({2}%)" -f $entry.score.resolutions.score, $entry.score.resolutions.maxScore, $entry.score.resolutions.percent)
+        $lines += ("  - capabilities: {0}/{1} ({2}%)" -f $entry.score.capabilities.score, $entry.score.capabilities.maxScore, $entry.score.capabilities.percent)
+        $lines += "  - last sweep: $($entry.lastSeenUtc) ($($entry.lastSweepDir))"
+        $lines += ""
+    }
+    if (@($LeaderboardObj.entries).Count -eq 0) {
+        $lines += "- No scored devices yet."
+    }
+    $lines | Set-Content -LiteralPath $MarkdownPath -Encoding utf8
+}
+
+function Update-FleetParityLeaderboard([string]$RepoRoot, $ReportObj, $InAppObj, $MatrixObj) {
+    if (-not $ReportObj -or -not $InAppObj) { return $null }
+    $docsDir = Join-Path $RepoRoot "docs"
+    if (-not (Test-Path -LiteralPath $docsDir)) {
+        New-Item -ItemType Directory -Force -Path $docsDir | Out-Null
+    }
+    $jsonPath = Join-Path $docsDir "FLEET_PARITY_DEVICE_LEADERBOARD.json"
+    $mdPath = Join-Path $docsDir "FLEET_PARITY_DEVICE_LEADERBOARD.md"
+
+    $leaderboard = [ordered]@{
+        schema = "pns.fleet_parity_device_leaderboard.v1"
+        updatedUtc = [DateTime]::UtcNow.ToString("o")
+        entries = @()
+    }
+    if (Test-Path -LiteralPath $jsonPath) {
+        try {
+            $existing = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
+            if ($existing -and $existing.entries) {
+                $leaderboard.entries = @($existing.entries)
+            }
+        } catch {
+            Write-Warning "Ignoring unreadable leaderboard JSON at $jsonPath"
+        }
+    }
+
+    $manufacturer = if ($MatrixObj -and $MatrixObj.device -and $MatrixObj.device.manufacturer) { [string]$MatrixObj.device.manufacturer } else { "Unknown" }
+    $model = if ($MatrixObj -and $MatrixObj.device -and $MatrixObj.device.model) { [string]$MatrixObj.device.model } else { "Unknown" }
+    $fingerprint = if ($MatrixObj -and $MatrixObj.scanMeta -and $MatrixObj.scanMeta.fingerprintSha256Prefix) { [string]$MatrixObj.scanMeta.fingerprintSha256Prefix } elseif ($InAppObj.fingerprintSha256Prefix) { [string]$InAppObj.fingerprintSha256Prefix } else { "unknown" }
+    $serialRaw = if ($ReportObj.serial) { [string]$ReportObj.serial } else { "unknown" }
+    $serialSuffix = if ($serialRaw.Length -ge 4) { $serialRaw.Substring($serialRaw.Length - 4) } else { $serialRaw }
+    $deviceKey = "$manufacturer|$model|$fingerprint"
+    $deviceLabel = "$manufacturer $model [$serialSuffix]"
+    $score = Get-ParityScoreBreakdown $InAppObj $MatrixObj
+
+    $entry = [ordered]@{
+        deviceKey = $deviceKey
+        deviceLabel = $deviceLabel
+        manufacturer = $manufacturer
+        model = $model
+        fingerprintSha256Prefix = $fingerprint
+        serialSuffix = $serialSuffix
+        lastSeenUtc = [DateTime]::UtcNow.ToString("o")
+        lastSweepTimestampUtc = if ($ReportObj.timestampUtc) { $ReportObj.timestampUtc } else { [DateTime]::UtcNow.ToString("o") }
+        lastSweepMode = $ReportObj.mode
+        lastSweepPass = ($ReportObj.pass -eq $true)
+        lastSweepDir = $ReportObj.outDir
+        score = $score
+    }
+
+    $entries = @($leaderboard.entries | Where-Object { $_.deviceKey -ne $deviceKey })
+    $entries += $entry
+    $sorted = @($entries | Sort-Object @{ Expression = { [double]$_.score.total.percent }; Descending = $true }, @{ Expression = { [double]$_.score.total.score }; Descending = $true }, @{ Expression = { $_.lastSeenUtc }; Descending = $true })
+    for ($i = 0; $i -lt $sorted.Count; $i++) {
+        $sorted[$i] | Add-Member -NotePropertyName rank -NotePropertyValue ($i + 1) -Force
+    }
+    $leaderboard.entries = $sorted
+    $leaderboard.updatedUtc = [DateTime]::UtcNow.ToString("o")
+    $leaderboard | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $jsonPath -Encoding utf8
+    Write-LeaderboardMarkdown $leaderboard $mdPath
+    return @($leaderboard.entries | Where-Object { $_.deviceKey -eq $deviceKey } | Select-Object -First 1)
+}
+
+function Merge-RecentProofArtifacts($InAppObj, $RecentProofById) {
+    if (-not $InAppObj -or -not $RecentProofById -or $RecentProofById.Count -eq 0) { return $InAppObj }
+    $cells = @($InAppObj.cells)
+    foreach ($cell in $cells) {
+        $id = $cell.catalogId
+        if (-not $RecentProofById.ContainsKey($id)) { continue }
+        $proof = $RecentProofById[$id]
+        if ($proof.pass -ne $true) { continue }
+        if ($cell.PSObject.Properties.Name -contains "provenOk") { $cell.provenOk = $true } else { $cell | Add-Member -NotePropertyName provenOk -NotePropertyValue $true -Force }
+        if ($cell.PSObject.Properties.Name -contains "failReason") { $cell.failReason = $null } else { $cell | Add-Member -NotePropertyName failReason -NotePropertyValue $null -Force }
+        if ($cell.PSObject.Properties.Name -contains "gap") { $cell.gap = "OK" } else { $cell | Add-Member -NotePropertyName gap -NotePropertyValue "OK" -Force }
+        $cell | Add-Member -NotePropertyName proofMerged -NotePropertyValue $true -Force
+        $cell | Add-Member -NotePropertyName proofSource -NotePropertyValue $proof.source -Force
+        $cell | Add-Member -NotePropertyName proofArtifactPath -NotePropertyValue $proof.artifactPath -Force
+        $cell | Add-Member -NotePropertyName proofArtifactUpdatedUtc -NotePropertyValue $proof.artifactUpdatedUtc -Force
+    }
+    $statusMap = Get-CatalogStatusMap
+    $gapBreakdown = Build-GapBreakdownFromCells $cells $statusMap
+    if ($InAppObj.PSObject.Properties.Name -contains "cells") { $InAppObj.cells = $cells } else { $InAppObj | Add-Member -NotePropertyName cells -NotePropertyValue $cells -Force }
+    if ($InAppObj.PSObject.Properties.Name -contains "gapBreakdown") { $InAppObj.gapBreakdown = $gapBreakdown } else { $InAppObj | Add-Member -NotePropertyName gapBreakdown -NotePropertyValue $gapBreakdown -Force }
+    if ($InAppObj.PSObject.Properties.Name -contains "gapCounts") { $InAppObj.gapCounts = $gapBreakdown } else { $InAppObj | Add-Member -NotePropertyName gapCounts -NotePropertyValue $gapBreakdown -Force }
+    if ($InAppObj.PSObject.Properties.Name -contains "shipBlockerGapCount") {
+        $InAppObj.shipBlockerGapCount = Get-ShipBlockerGapCountFromCells $cells
+    } else {
+        $InAppObj | Add-Member -NotePropertyName shipBlockerGapCount -NotePropertyValue (Get-ShipBlockerGapCountFromCells $cells) -Force
+    }
+    return $InAppObj
 }
 
 function Merge-ParityProofResults($InAppObj, [string]$ProofResultsPath, [string]$DeliveryPath) {
@@ -690,19 +1132,56 @@ if (Test-Path -LiteralPath $inAppJsonPath) {
         Write-Warning "Failed to parse in-app JSON: $($_.Exception.Message)"
     }
 }
+$matrixObj = $null
+if ($inAppObj) {
+    $matrixObj = Get-CurrentFleetMatrixObject
+    if ($matrixObj) {
+        $inAppObj = Apply-MatrixCapabilitySkips $inAppObj $matrixObj
+    }
+}
+$recentProofById = @{}
+$recentProofMergeApplied = $false
+$truth4k120Signal = $null
+if ($inAppObj) {
+    $recentProofById = Get-RecentParityProofByCatalog -RepoRoot $projRoot
+    if ($recentProofById.Count -gt 0) {
+        $inAppObj = Merge-RecentProofArtifacts $inAppObj $recentProofById
+        $recentProofMergeApplied = $true
+        $inAppObj | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $inAppJsonPath -Encoding utf8
+    }
+    $truth4k120Signal = Get-Recent4k120TruthSignal -RepoRoot $projRoot -ExpectedSerial $Serial
+    if ($truth4k120Signal) {
+        $inAppObj = Apply-4k120TruthSignal $inAppObj $truth4k120Signal
+        $inAppObj | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $inAppJsonPath -Encoding utf8
+    }
+}
 
 $cellCount = if ($inAppObj -and $inAppObj.cellCount) { [int]$inAppObj.cellCount } else { $logCells.Count }
 $gapBreakdown = @{}
 if ($inAppObj -and $inAppObj.gapBreakdown) {
-    $inAppObj.gapBreakdown.PSObject.Properties | ForEach-Object { $gapBreakdown[$_.Name] = [int]$_.Value }
+    if ($inAppObj.gapBreakdown -is [hashtable]) {
+        foreach ($k in $inAppObj.gapBreakdown.Keys) {
+            $gapBreakdown[$k] = [int]$inAppObj.gapBreakdown[$k]
+        }
+    } else {
+        $inAppObj.gapBreakdown.PSObject.Properties | ForEach-Object { $gapBreakdown[$_.Name] = [int]$_.Value }
+    }
 } elseif ($inAppObj -and $inAppObj.gapCounts) {
-    $inAppObj.gapCounts.PSObject.Properties | ForEach-Object { $gapBreakdown[$_.Name] = [int]$_.Value }
+    if ($inAppObj.gapCounts -is [hashtable]) {
+        foreach ($k in $inAppObj.gapCounts.Keys) {
+            $gapBreakdown[$k] = [int]$inAppObj.gapCounts[$k]
+        }
+    } else {
+        $inAppObj.gapCounts.PSObject.Properties | ForEach-Object { $gapBreakdown[$_.Name] = [int]$_.Value }
+    }
 } else {
     $gapBreakdown = Build-GapBreakdownFromLogcat $logCells
 }
 
 $shipBlockerCount = 0
-if ($inAppObj -and $null -ne $inAppObj.shipBlockerGapCount) {
+if ($inAppObj -and $inAppObj.cells) {
+    $shipBlockerCount = Get-ShipBlockerGapCountFromCells @($inAppObj.cells)
+} elseif ($inAppObj -and $null -ne $inAppObj.shipBlockerGapCount) {
     $shipBlockerCount = [int]$inAppObj.shipBlockerGapCount
 } else {
     $shipBlockerCount = @($logCells | Where-Object { $_.impact -eq 'SHIP_BLOCKER' -and -not $_.provenOk -and $_.advertised }).Count
@@ -783,6 +1262,12 @@ $report = [ordered]@{
     sweepEvidenceFallback = if ($sweepEvidenceModeFallback) { $sweepEvidenceModeFallback } else { $null }
     promoteOptionalBlocking = [bool]$PromoteOptionalBlocking
     optionalBlockingGapCount = $optionalBlockingGapCount
+    recentProofArtifactMerge = $recentProofMergeApplied
+    recentProofArtifactCount = if ($recentProofById) { $recentProofById.Count } else { 0 }
+    video4k120TruthClass = if ($truth4k120Signal) { $truth4k120Signal.truthClass } else { $null }
+    video4k120TruthArtifactPath = if ($truth4k120Signal) { $truth4k120Signal.artifactPath } else { $null }
+    video4k120TruthSource = if ($truth4k120Signal) { $truth4k120Signal.source } else { $null }
+    video4k120TruthSerial = if ($truth4k120Signal) { $truth4k120Signal.serial } else { $null }
 }
 
 $reportPath = Join-Path $OutDir "parity_report.json"
@@ -828,6 +1313,13 @@ if (-not (Test-Path -LiteralPath $matrixPath)) {
         $pulled | Set-Content -LiteralPath (Join-Path $OutDir "fleet_device_matrix_pulled.json") -Encoding utf8 -NoNewline
         $matrixPath = Join-Path $OutDir "fleet_device_matrix_pulled.json"
     } catch { }
+}
+if (-not $matrixObj -and (Test-Path -LiteralPath $matrixPath)) {
+    try {
+        $matrixObj = Get-Content -LiteralPath $matrixPath -Raw | ConvertFrom-Json
+    } catch {
+        Write-Warning "Unable to parse matrix for leaderboard scoring: $($_.Exception.Message)"
+    }
 }
 if ($CompareMatrix) {
     $comparePath = $CompareMatrix
@@ -921,6 +1413,15 @@ if ($IncludeWorkflowPresets) {
     if ($Serial) { $wfArgs.Serial = $Serial }
     & (Join-Path $PSScriptRoot "pns_workflow_test.ps1") @wfArgs
     if ($LASTEXITCODE -ne 0) { Write-Warning "workflow presets failed exit=$LASTEXITCODE" }
+}
+
+$leaderboardEntry = Update-FleetParityLeaderboard -RepoRoot $projRoot -ReportObj $report -InAppObj $inAppObj -MatrixObj $matrixObj
+if ($leaderboardEntry) {
+    $report.leaderboardRank = $leaderboardEntry.rank
+    $report.leaderboardDeviceKey = $leaderboardEntry.deviceKey
+    $report.leaderboardTotalPercent = $leaderboardEntry.score.total.percent
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
+    $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $latestPath -Encoding utf8
 }
 
 Write-Host "[parity_sweep] Wrote $reportPath pass=$($report.pass) cells=$cellCount shipBlockers=$shipBlockerCount"

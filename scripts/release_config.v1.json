@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "github": {
+    "owner": "edwardlthompson",
+    "repo": "point-and-shoot",
+    "tagPrefix": "v"
+  },
+  "appDisplayName": "Point-and-Shoot",
+  "versionBump": {
+    "versionCodePolicy": "incrementOnly",
+    "versionCodeStep": 1,
+    "defaultPrerelease": true
+  },
+  "apkFileNameTemplate": "{appDisplayName}-{versionName}.apk"
+}

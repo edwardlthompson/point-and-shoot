@@ -91,4 +91,11 @@ class FleetUiVisibilityGateTest {
         val tier = FleetUiVisibilityGate.tier("root.hfr_unlock", ctx(rootGranted = true))
         assertEquals(FleetUiVisibilityGate.Tier.Visible, tier)
     }
+
+    @Test
+    fun unknownCatalogId_hiddenByDefault() {
+        val tier = FleetUiVisibilityGate.tier("unknown.feature.id", ctx())
+        assertEquals(FleetUiVisibilityGate.Tier.Hidden, tier)
+        assertFalse(FleetUiVisibilityGate.visible("unknown.feature.id", ctx()))
+    }
 }

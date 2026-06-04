@@ -14,7 +14,7 @@ import dev.pointandshoot.DngSaveBisectState
 /**
  * LegacySku leaf UW/tele: HAL still [CaptureResult.COLOR_CORRECTION_GAINS] often match the **wide**
  * camera. ReferenceCam aligns AWB on the still **request**; we scale gains before capture only (no post-save
- * TIFF edits when [LegacyFleetPolicy.useProShotPureDngSave] — shipped LegacyDevice).
+ * TIFF edits when [LegacyFleetPolicy.useReferenceAppPureDngSave] — shipped LegacyDevice).
  *
  * See `scripts/compute_wb_scale.py` and [DngForwardMatrixFix.getWbCorrection].
  */
@@ -24,7 +24,7 @@ object LegacyLeafStillColorCorrection {
     @Volatile
     private var pendingCorrectedGains: Pair<String, RggbChannelVector>? = null
 
-    /** Bisect-only: [LeafDngHalReconcile] ASN TIFF patch when [LegacyFleetPolicy.useProShotPureDngSave] is false. */
+    /** Bisect-only: [LeafDngHalReconcile] ASN TIFF patch when [LegacyFleetPolicy.useReferenceAppPureDngSave] is false. */
     fun takePendingCorrectedGains(sessionCameraId: String): RggbChannelVector? {
         val pending = pendingCorrectedGains ?: return null
         if (pending.first != sessionCameraId) return null
@@ -38,15 +38,15 @@ object LegacyLeafStillColorCorrection {
     internal fun appliesCaptureTimeGainsWhen(
         deviceApplies: Boolean,
         sessionCameraId: String,
-        proShotPureDngSave: Boolean = LegacyFleetPolicy.useProShotPureDngSave(),
-        uwProShotAsnReconcile: Boolean = LegacyFleetPolicy.useLegacyLeafAuxColorReconcile(),
-        proShotReferenceCalibration: Boolean = LegacyFleetPolicy.useProShotReferenceCalibration(),
+        proShotPureDngSave: Boolean = LegacyFleetPolicy.useReferenceAppPureDngSave(),
+        uwReferenceAppAsnReconcile: Boolean = LegacyFleetPolicy.useLegacyLeafAuxColorReconcile(),
+        proShotReferenceCalibration: Boolean = LegacyFleetPolicy.useReferenceAppReferenceCalibration(),
     ): Boolean {
         if (!deviceApplies) return false
         if (proShotPureDngSave) {
             // Only UW gets capture-time WB gain correction. Tele's HAL gains appear closer to truth
             // and the static scale table over-corrects on LegacySku (see structural_verify tele ASN).
-            return (uwProShotAsnReconcile || proShotReferenceCalibration) &&
+            return (uwReferenceAppAsnReconcile || proShotReferenceCalibration) &&
                 sessionCameraId == LegacyFleetPolicy.CANONICAL_UW
         }
         if (DngSaveBisectState.skipOp13CaptureTimeColorGains) return false
@@ -90,9 +90,9 @@ object LegacyLeafStillColorCorrection {
         }
         req.set(CaptureRequest.COLOR_CORRECTION_GAINS, corrected)
         val stashPending =
-            !LegacyFleetPolicy.useProShotPureDngSave() ||
+            !LegacyFleetPolicy.useReferenceAppPureDngSave() ||
                 ((LegacyFleetPolicy.useLegacyLeafAuxColorReconcile() ||
-                    LegacyFleetPolicy.useProShotReferenceCalibration()) &&
+                    LegacyFleetPolicy.useReferenceAppReferenceCalibration()) &&
                     sessionCameraId == LegacyFleetPolicy.CANONICAL_UW)
         if (stashPending) {
             pendingCorrectedGains = sessionCameraId to corrected

@@ -93,6 +93,22 @@ def main() -> None:
     if not isinstance(root, dict):
         _fail("root must be object")
     validate_root(root)
+    product = root.get("product")
+    if isinstance(product, dict):
+        launch = product.get("hardwareLaunch")
+        if not isinstance(launch, dict):
+            print(
+                "FLEET MATRIX SCHEMA: WARN — product.hardwareLaunch missing "
+                "(rescan after hardware-shutter app update)",
+                file=sys.stderr,
+            )
+        else:
+            still = launch.get("stillImageCamera")
+            if not isinstance(still, dict):
+                print(
+                    "FLEET MATRIX SCHEMA: WARN — product.hardwareLaunch.stillImageCamera missing",
+                    file=sys.stderr,
+                )
     n = len(root["cameras"])
     tier = root["scanMeta"]["scanTier"]
     _pass(f"tier={tier} cameras={n}")

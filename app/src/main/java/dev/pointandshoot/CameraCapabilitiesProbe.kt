@@ -102,7 +102,7 @@ const val EXTRA_PNS_PREVIEW_JPEG_COMPANION = "pns_preview_jpeg_companion"
 const val EXTRA_PNS_PREVIEW_DNG_SKIP_STILL_METADATA = "pns_preview_dng_skip_still_metadata"
 
 /**
- * Override still DNG backend on LegacyDevice: `framework_proshot` | `motioncam_inspired`.
+ * Override still DNG backend on LegacyDevice: `framework_referenceapp` | `altreferenceapp_inspired`.
  * See [DngSaveBisectState] and `docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md`.
  */
 const val EXTRA_PNS_PREVIEW_STILL_DNG_BACKEND = "pns_preview_still_dng_backend"
@@ -241,6 +241,12 @@ const val EXTRA_PNS_PREVIEW_FOCAL_MM_SLOT = "pns_preview_focal_mm_slot"
 const val EXTRA_PNS_PREVIEW_READOUT_ISO = "pns_preview_readout_iso"
 /** Sprint **15.10** — lock shutter speed (ns) so ISO chase can be proven over ADB. */
 const val EXTRA_PNS_PREVIEW_READOUT_SHUTTER_NS = "pns_preview_readout_shutter_ns"
+/**
+ * Optional **`--ei pns_preview_aperture_cycles N`** with [PNS_SCREEN_PREVIEW]: after preview settles on a
+ * variable-aperture camera, cycles [CaptureRequest.LENS_APERTURE] **N** times; logs **`apertureCycle`** +
+ * **`PNS.AdbValidation apertureCycle ok=`** for **`scripts/pns_aperture_readout_verify.ps1`**.
+ */
+const val EXTRA_PNS_PREVIEW_APERTURE_CYCLES = "pns_preview_aperture_cycles"
 /** Sprint **15.11** — video shutter-angle preset (`Angle180`, …) for `pns_shutter_angle_verify.ps1`. */
 const val EXTRA_PNS_PREVIEW_VIDEO_SHUTTER_ANGLE = "pns_preview_video_shutter_angle"
 /** Sprint **15.1** — ADB seed: enable eye AF HUD overlay on preview start. */
@@ -248,6 +254,9 @@ const val EXTRA_PNS_PREVIEW_EYE_AF_OVERLAY = "pns_preview_eye_af_overlay"
 
 /** Sprint **15.19** — after preview settles, synthesize media play/pause → `shutterFired source=bt_media`. */
 const val EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY = "pns_preview_automation_bt_media_key"
+
+/** Hardware camera key automation — after preview settles, synthesize KEYCODE_CAMERA → `shutterFired source=camera_key`. */
+const val EXTRA_PNS_PREVIEW_AUTOMATION_HARDWARE_KEY = "pns_preview_automation_hardware_key"
 
 /**
  * Optional **`--ez pns_preview_primary_photo false`** with [PNS_SCREEN_PREVIEW]: cold-start **video-primary**
@@ -473,6 +482,8 @@ const val PROBE_EXPORT_LATEST_FILE = "PROBE_EXPORT_LATEST.md"
 const val PNS_SCREEN_PREVIEW = "preview"
 /** Value for [EXTRA_PNS_SCREEN] — opens [FaceMeterProbeScreen] (face / eye / AE-AF static probe). */
 const val PNS_SCREEN_FACE_METER = "facemeter"
+/** Value for [EXTRA_PNS_SCREEN] — interactive hardware button keyCode probe (engineering). */
+const val PNS_SCREEN_HARDWARE_KEY_PROBE = "hardwarekeyprobe"
 
 /** Value for [EXTRA_PNS_SCREEN] — headless **`CameraDevice.createExtensionSession`** smoke (Milestone 4). */
 const val PNS_SCREEN_CAMERA_EXT_SMOKE = "cameraextsmoke"
@@ -532,6 +543,7 @@ fun CameraCapabilitiesProbe(
     exhaustiveHfrOnly: Boolean = false,
     autoLegacyCamera1: Boolean = false,
     autoFaceMeterProbe: Boolean = false,
+    previewLaunchExtras: PreviewLaunchExtras = PreviewLaunchExtras.EMPTY,
 ) {
     val context = LocalContext.current
 
@@ -545,7 +557,10 @@ fun CameraCapabilitiesProbe(
     var shallowScanHubLine by remember { mutableStateOf<String?>(null) }
     var capabilityGateLines by remember { mutableStateOf(listOf<String>()) }
     var showMapping by remember { mutableStateOf(false) }
-    var showPreviewEngine by remember { mutableStateOf(false) }
+    // Preview routes must open synchronously — deferring via LaunchedEffect flashed DebugMenuScreen for one frame.
+    var showPreviewEngine by remember(launchScreen) {
+        mutableStateOf(launchScreen == PNS_SCREEN_PREVIEW)
+    }
     var showEncoderProbe by remember { mutableStateOf(false) }
     var showLegacyCamera1 by remember { mutableStateOf(false) }
     var showDeepCaps by remember { mutableStateOf(false) }
@@ -571,6 +586,7 @@ fun CameraCapabilitiesProbe(
     var showNativeDiagnostics by remember { mutableStateOf(false) }
     var showRootSettings by remember { mutableStateOf(false) }
     var showFaceMeterProbe by remember { mutableStateOf(false) }
+    var showHardwareKeyProbe by remember { mutableStateOf(false) }
     var showQrScan by remember { mutableStateOf(false) }
     var showDebugMenu by remember { mutableStateOf(false) }
     var showEyeOverlayCalibrator by remember { mutableStateOf(false) }
@@ -775,6 +791,10 @@ fun CameraCapabilitiesProbe(
             showFaceMeterProbe = true
             return@LaunchedEffect
         }
+        if (launchScreen == PNS_SCREEN_HARDWARE_KEY_PROBE) {
+            showHardwareKeyProbe = true
+            return@LaunchedEffect
+        }
         if (launchScreen == PNS_SCREEN_QR_SCAN) {
             showQrScan = true
             return@LaunchedEffect
@@ -833,7 +853,7 @@ fun CameraCapabilitiesProbe(
     }
 
     LaunchedEffect(hasCameraPermission, launchScreen, shallowRescanSeq) {
-        if (launchScreen == PNS_SCREEN_FACE_METER || launchScreen == PNS_SCREEN_QR_SCAN) {
+        if (launchScreen == PNS_SCREEN_FACE_METER || launchScreen == PNS_SCREEN_QR_SCAN || launchScreen == PNS_SCREEN_HARDWARE_KEY_PROBE) {
             return@LaunchedEffect
         }
         if (!hasCameraPermission) {
@@ -955,15 +975,18 @@ fun CameraCapabilitiesProbe(
         val adbFocalMmSlotProbe = activity?.intent.previewFocalMmSlotExtra()
         val adbReadoutIsoProbe = activity?.intent.previewReadoutIsoProbeExtra()
         val adbReadoutShutterNsProbe = activity?.intent.previewReadoutShutterNsProbeExtra()
+        val adbApertureCycleProbe = activity?.intent.previewApertureCycleProbeExtra()
         val adbVideoShutterAngleProbe = activity?.intent.previewVideoShutterAngleExtra()
         val intentPrimaryPhotoSeed =
             activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) }
                 ?.getBooleanExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, true)
         val previewSeedPrimaryPhoto =
-            intentPrimaryPhotoSeed ?: (
-                activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA &&
-                    activity?.intent?.action != MediaStore.ACTION_VIDEO_CAPTURE
-            )
+            previewLaunchExtras.primaryPhoto
+                ?: intentPrimaryPhotoSeed
+                ?: (
+                    activity?.intent?.action != MediaStore.INTENT_ACTION_VIDEO_CAMERA &&
+                        activity?.intent?.action != MediaStore.ACTION_VIDEO_CAPTURE
+                )
         /**
          * Sticky `Intent` problem: ADB / Studio may leave `pns_preview_raw_count`, `pns_preview_raw_stream`,
          * `pns_preview_jpeg_companion`, etc. on [ComponentActivity.getIntent]. Re-reading those every
@@ -1134,37 +1157,49 @@ fun CameraCapabilitiesProbe(
                 (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_BITRATE_SCALE, 0) ?: 0) > 0
         val useIntentAutomationPipeline = trustIntentForPreviewPipeline && automationWantsIntentPipeline
         val adbAutomationVideoRawSec =
-            if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
-                intentRawVideoAutomationSec
-            } else {
-                0
+            when {
+                previewLaunchExtras.rawVideoAutomationSec > 0 ->
+                    previewLaunchExtras.rawVideoAutomationSec
+                trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW ->
+                    intentRawVideoAutomationSec
+                else -> 0
             }
         val adbAutomationInAppVideoSec =
-            if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
-                intentInAppVideoAutomationSec
-            } else {
-                0
+            when {
+                previewLaunchExtras.inAppVideoAutomationSec > 0 ->
+                    previewLaunchExtras.inAppVideoAutomationSec
+                trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW ->
+                    intentInAppVideoAutomationSec
+                else -> 0
             }
         val adbAutomationVideoFps =
-            if (trustIntentForPreviewPipeline) {
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_FPS, 0) ?: 0).let { if (it > 0) it else null }
-            } else {
-                null
-            }
+            previewLaunchExtras.videoFps
+                ?: if (trustIntentForPreviewPipeline) {
+                    (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_FPS, 0) ?: 0)
+                        .let { if (it > 0) it else null }
+                } else {
+                    null
+                }
         val adbAutomationVideoEncodeW =
-            if (trustIntentForPreviewPipeline) {
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W, 0) ?: 0).let { if (it > 0) it else null }
-            } else {
-                null
-            }
+            previewLaunchExtras.videoEncodeW
+                ?: if (trustIntentForPreviewPipeline) {
+                    (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W, 0) ?: 0)
+                        .let { if (it > 0) it else null }
+                } else {
+                    null
+                }
         val adbAutomationVideoEncodeH =
-            if (trustIntentForPreviewPipeline) {
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H, 0) ?: 0).let { if (it > 0) it else null }
-            } else {
-                null
-            }
+            previewLaunchExtras.videoEncodeH
+                ?: if (trustIntentForPreviewPipeline) {
+                    (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H, 0) ?: 0)
+                        .let { if (it > 0) it else null }
+                } else {
+                    null
+                }
         val adbAutomationVideoTenBit =
-            if (trustIntentForPreviewPipeline) {
+            if (previewLaunchExtras.wantsVideoAutomation) {
+                previewLaunchExtras.videoTenBit
+            } else if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_TENBIT, false) ?: false
             } else {
                 false
@@ -1182,12 +1217,13 @@ fun CameraCapabilitiesProbe(
                 false
             }
         val adbAutomationVideoCodecOrdinal =
-            if (trustIntentForPreviewPipeline) {
-                (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL, -1) ?: -1)
-                    .takeIf { it >= 0 }
-            } else {
-                null
-            }
+            previewLaunchExtras.videoCodecOrdinal
+                ?: if (trustIntentForPreviewPipeline) {
+                    (activity?.intent?.getIntExtra(EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL, -1) ?: -1)
+                        .takeIf { it >= 0 }
+                } else {
+                    null
+                }
         val adbAutomationVideoStabilization =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_VIDEO_STABILIZATION, false) ?: false
@@ -1197,6 +1233,12 @@ fun CameraCapabilitiesProbe(
         val adbAutomationBtMediaKey =
             if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_AUTOMATION_BT_MEDIA_KEY, false) ?: false
+            } else {
+                false
+            }
+        val adbAutomationHardwareKey =
+            if (trustIntentForPreviewPipeline && launchScreen == PNS_SCREEN_PREVIEW) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_AUTOMATION_HARDWARE_KEY, false) ?: false
             } else {
                 false
             }
@@ -1461,12 +1503,27 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
-        val adbSequentialRawStills = if (trustIntentForPreviewPipeline) adbRawCountRaw else 0
+        val adbSequentialRawStills =
+            when {
+                previewLaunchExtras.wantsVideoAutomation -> 0
+                !trustIntentForPreviewPipeline -> 0
+                adbAutomationInAppVideoSec > 0 || adbAutomationVideoRawSec > 0 -> 0
+                else -> adbRawCountRaw
+            }
         val adbBracketPattern = if (trustIntentForPreviewPipeline) adbBracketRaw else null
         val adbRawStreamPreference = if (useIntentAutomationPipeline) adbRawStreamFromIntent else null
         val adbJpegCompanionSeed = if (useIntentAutomationPipeline) adbJpegCompanionFromIntent else null
         val adbRawStillFastAutomation = if (trustIntentForPreviewPipeline) adbRawStillFastRaw else false
-        val adbInitialDial = if (trustIntentForPreviewPipeline) adbDialRaw else null
+        val adbInitialDial =
+            when {
+                previewLaunchExtras.inAppVideoAutomationSec > 0 -> CommandDialMode.Auto
+                previewLaunchExtras.rawVideoAutomationSec > 0 ->
+                    adbDialRaw?.takeUnless { it == CommandDialMode.H } ?: CommandDialMode.Auto
+                !trustIntentForPreviewPipeline -> null
+                adbAutomationInAppVideoSec > 0 || adbAutomationVideoRawSec > 0 ->
+                    adbDialRaw?.takeUnless { it == CommandDialMode.H } ?: CommandDialMode.Auto
+                else -> adbDialRaw
+            }
         val adbInitialImagingProfile = if (trustIntentForPreviewPipeline) adbImagingProfileRaw else null
         val adbStillExportFormat = if (trustIntentForPreviewPipeline) adbStillFormatRaw else null
         val adbPhotoResolutionMode = if (trustIntentForPreviewPipeline) adbStillResolutionModeRaw else null
@@ -1550,6 +1607,7 @@ fun CameraCapabilitiesProbe(
             adbFocalMmSlotProbe = adbFocalMmSlotProbe,
             adbReadoutIsoProbe = adbReadoutIsoProbe,
             adbReadoutShutterNsProbe = adbReadoutShutterNsProbe,
+            adbApertureCycleProbe = adbApertureCycleProbe,
             adbVideoShutterAngleProbe = adbVideoShutterAngleProbe,
             adbEyeAfOverlaySeed = adbEyeAfOverlaySeed,
             imageCaptureReturn = imageCaptureReturn,
@@ -1566,6 +1624,7 @@ fun CameraCapabilitiesProbe(
             adbAutomationVideoStabilization = adbAutomationVideoStabilization,
             adbAutomationVideoRawSec = adbAutomationVideoRawSec,
             adbAutomationBtMediaKey = adbAutomationBtMediaKey,
+            adbAutomationHardwareKey = adbAutomationHardwareKey,
             adbDngBisectActive = adbDngBisectActive,
             adbStillCaptureMode = adbStillCaptureMode,
             adbBurstStillCount = adbBurstStillCount,
@@ -1797,6 +1856,18 @@ fun CameraCapabilitiesProbe(
                 }
             },
             startAuto = autoFaceMeterProbe,
+        )
+        return
+    }
+
+    if (showHardwareKeyProbe) {
+        HardwareKeyProbeScreen(
+            onBack = {
+                showHardwareKeyProbe = false
+                if (launchScreen == PNS_SCREEN_HARDWARE_KEY_PROBE) {
+                    activity?.finish()
+                }
+            },
         )
         return
     }
@@ -2691,6 +2762,13 @@ internal fun Intent?.previewReadoutIsoProbeExtra(): Int? =
 internal fun Intent?.previewReadoutShutterNsProbeExtra(): Long? =
     if (this != null && hasExtra(EXTRA_PNS_PREVIEW_READOUT_SHUTTER_NS)) {
         getLongExtra(EXTRA_PNS_PREVIEW_READOUT_SHUTTER_NS, 0L).takeIf { it > 0L }
+    } else {
+        null
+    }
+
+internal fun Intent?.previewApertureCycleProbeExtra(): Int? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_APERTURE_CYCLES)) {
+        getIntExtra(EXTRA_PNS_PREVIEW_APERTURE_CYCLES, 0).takeIf { it > 0 }
     } else {
         null
     }

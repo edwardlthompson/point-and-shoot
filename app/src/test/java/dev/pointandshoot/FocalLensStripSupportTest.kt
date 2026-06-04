@@ -97,4 +97,51 @@ class FocalLensStripSupportTest {
         assertEquals("wide", assignments.first { it.targetEqMm == 24 }.cameraId)
         assertEquals("tele", assignments.first { it.targetEqMm == 85 }.cameraId)
     }
+
+    @Test
+    fun primeAssignments_fallsBackToNearestNativeWhenNoCropCandidateExists() {
+        val assignments =
+            FocalLensStripSupport.resolvePrimeLensAssignmentsFromCandidates(
+                candidates =
+                    listOf(
+                        FocalLensStripSupport.PrimeLensCandidate(
+                            cameraId = "uw",
+                            nativeEqMm = 15,
+                            focalMm = 1.7f,
+                            sensorMp = 12.0,
+                        ),
+                        FocalLensStripSupport.PrimeLensCandidate(
+                            cameraId = "wide",
+                            nativeEqMm = 23,
+                            focalMm = 2.9f,
+                            sensorMp = 12.5,
+                        ),
+                    ),
+                targets = listOf(14),
+            )
+        assertEquals(1, assignments.size)
+        assertEquals("uw", assignments.first().cameraId)
+        assertEquals(15, assignments.first().nativeEqMm)
+    }
+
+    @Test
+    fun primeAssignments_retainsLowMpStaticCropAssignmentForMatrixRouting() {
+        val assignments =
+            FocalLensStripSupport.resolvePrimeLensAssignmentsFromCandidates(
+                candidates =
+                    listOf(
+                        FocalLensStripSupport.PrimeLensCandidate(
+                            cameraId = "wide",
+                            nativeEqMm = 23,
+                            focalMm = 3.0f,
+                            sensorMp = 12.6,
+                        ),
+                    ),
+                targets = listOf(35),
+            )
+        assertEquals(1, assignments.size)
+        assertEquals("wide", assignments.first().cameraId)
+        assertEquals(35, assignments.first().targetEqMm)
+        assertTrue(assignments.first().effectiveMp > 0.0)
+    }
 }

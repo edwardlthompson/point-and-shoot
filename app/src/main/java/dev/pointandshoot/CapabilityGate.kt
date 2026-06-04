@@ -121,6 +121,8 @@ data class HardwareCaps(
     val supportsPrivateReprocessing: Boolean = false,
     val reprocessMaxCaptureStall: Int? = null,
     val reprocessEffectiveExposureRequestKey: Boolean = false,
+    /** [CameraCharacteristics.LENS_INFO_AVAILABLE_APERTURES] count on the active preview camera. */
+    val activeApertureCount: Int = 0,
 )
 
 enum class Feature(val displayName: String) {

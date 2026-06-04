@@ -53,6 +53,8 @@ $LicenseMap = @{
   'androidx.camera:camera-core'                  = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.camera:camera-lifecycle'             = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.camera:camera-view'                  = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
+  'androidx.camera:camera-extensions'            = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
+  'androidx.documentfile:documentfile'           = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'com.google.zxing:core'                        = @{ Spdx = 'Apache-2.0'; Scope = 'runtime'; Notes = 'ZXing core (decode only); https://github.com/zxing/zxing' }
   'androidx.graphics:graphics-core'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.exifinterface:exifinterface'         = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }

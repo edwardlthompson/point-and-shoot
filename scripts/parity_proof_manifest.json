@@ -48,8 +48,13 @@
     {
       "catalogId": "video.hfr.24",
       "script": "pns_hfr_fps_parity_verify.ps1",
-      "alsoProves": ["video.hfr.30", "video.hfr.60", "video.hfr.120", "video.hfr.240"],
+      "alsoProves": ["video.hfr.30", "video.hfr.60", "video.hfr.240"],
       "scriptArgs": { "AllFps": true },
+      "matrixGate": "cameraAny.featureGates.hfr.sessionOk"
+    },
+    {
+      "catalogId": "video.hfr.120",
+      "script": "pns_4k120_verify.ps1",
       "matrixGate": "cameraAny.featureGates.hfr.sessionOk"
     },
     {

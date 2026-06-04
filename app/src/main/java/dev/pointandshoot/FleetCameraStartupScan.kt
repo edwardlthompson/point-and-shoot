@@ -128,6 +128,7 @@ object FleetCameraStartupScan {
         val out = mutableListOf<SlotEntry>()
         for (id in cm.cameraIdList) {
             val chars = runCatching { cm.getCameraCharacteristics(id) }.getOrNull() ?: continue
+            if (!isFocalRoutingCandidate(chars)) continue
             val focal = focalLength35mm(chars) ?: continue
             val mpProbe = sensorMegapixelProbe(chars)
             val overrideMp = overrides[id]?.megapixels ?: 0.0
@@ -146,6 +147,17 @@ object FleetCameraStartupScan {
             )
         }
         return out.sortedBy { it.focalMm35 }
+    }
+
+    private fun isFocalRoutingCandidate(chars: CameraCharacteristics): Boolean {
+        if (chars.get(CameraCharacteristics.LENS_FACING) != CameraCharacteristics.LENS_FACING_BACK) {
+            return false
+        }
+        val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: return false
+        if (!caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_BACKWARD_COMPATIBLE)) {
+            return false
+        }
+        return sensorMegapixels(chars) >= 2.0
     }
 
     fun scanStillResolutionAdvertised(context: Context): List<StillResolutionAdvertisedEntry> {

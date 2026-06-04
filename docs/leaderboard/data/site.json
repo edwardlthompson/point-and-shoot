@@ -1,0 +1,40 @@
+{
+  "schema": "pns.fleet_leaderboard_site.v1",
+  "updatedUtc": "2026-06-04T13:33:45.3908721Z",
+  "catalogVersion": 3,
+  "deviceCount": 2,
+  "oemRankings": [
+    {
+      "manufacturer": "OnePlus",
+      "opennessPercent": 76.5,
+      "gateHonestyPercent": 37.5,
+      "compositePercent": 60.9,
+      "restrictionIndex": 39.1,
+      "withheldFeatureCount": 20,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "718a8115ff142454"
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "opennessPercent": 88.0,
+      "gateHonestyPercent": 74.4,
+      "compositePercent": 82.6,
+      "restrictionIndex": 17.4,
+      "withheldFeatureCount": 13,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "acf7a326d2a12131"
+      ]
+    }
+  ],
+  "deviceSlugs": [
+    "718a8115ff142454",
+    "acf7a326d2a12131"
+  ],
+  "devices": [
+    "OnePlus|CPH2583|961221c0f0bc2eee",
+    "Sony|XQ-BE62|aa6273fd9666679d"
+  ]
+}

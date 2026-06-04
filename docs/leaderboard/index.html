@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Point & Shoot — Fleet Camera Parity Leaderboard</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <link rel="alternate" type="application/json" href="data/feed.json" title="Leaderboard feed">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <h1><a href="#/">Camera Parity Leaderboard</a></h1>
+      <p class="tagline">Third-party Camera2 access vs OEM marketing — for informed phone purchases</p>
+      <div class="header-actions">
+        <button type="button" id="theme-toggle" aria-label="Toggle dark mode">Theme</button>
+        <button type="button" id="methodology-toggle">How we score</button>
+      </div>
+    </div>
+  </header>
+
+  <aside id="methodology-drawer" class="drawer hidden" aria-hidden="true">
+    <div class="drawer-content">
+      <h2>Methodology</h2>
+      <p>Scores reflect what third-party apps can access via Android Camera2 through Point & Shoot — not what the OEM camera app shows on the box.</p>
+      <ul>
+        <li><strong>Features / Resolutions:</strong> catalog cells — proven (10 pts), matrix-gated skip (8), advertised-only (4)</li>
+        <li><strong>Capabilities:</strong> per-camera feature gates — advertised + appEnabled + sessionOk</li>
+        <li><strong>Honesty %:</strong> proven ÷ HAL-advertised cells</li>
+        <li><strong>Tested API:</strong> Android version (SDK/API level) on the device when the parity sweep ran — OEM updates can change Camera2 behavior</li>
+        <li><strong>Restriction Index:</strong> OEM composite (lower openness = more gating)</li>
+      </ul>
+      <p>AnTuTu scores are fleet averages from public rankings, not your specific unit.</p>
+      <p><a href="https://github.com/edwardlthompson/point-and-shoot/blob/main/docs/FLEET_PARITY_SWEEP.md">Full parity sweep docs</a></p>
+      <button type="button" id="methodology-close">Close</button>
+    </div>
+  </aside>
+
+  <nav class="toolbar" id="toolbar">
+    <div class="persona-presets">
+      <button type="button" data-persona="default" class="active">Default</button>
+      <button type="button" data-persona="photographer">Photographer</button>
+      <button type="button" data-persona="videographer">Videographer</button>
+      <button type="button" data-persona="tinkerer">Tinkerer</button>
+    </div>
+    <input type="search" id="search" placeholder="Search device…" aria-label="Search devices">
+    <select id="filter-oem" aria-label="Filter OEM"><option value="">All OEMs</option></select>
+    <select id="filter-trust" aria-label="Trust tier">
+      <option value="">All sources</option>
+      <option value="maintainer">Fleet tested only</option>
+      <option value="community">Community</option>
+      <option value="exclude_root">Stock ROM only</option>
+    </select>
+    <label class="wishlist-label">Wishlist:</label>
+    <div id="wishlist" class="wishlist"></div>
+  </nav>
+
+  <main id="app" class="main"></main>
+
+  <footer class="site-footer">
+    <p>Point & Shoot · <a href="data/feed.json">Device feed</a> · <a href="https://github.com/edwardlthompson/point-and-shoot">GitHub</a></p>
+    <p class="disclaimer">Camera2 parity ≠ OEM app experience. Scores reflect the Android API level noted on each entry. Root/custom ROM may change results.</p>
+  </footer>
+
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>

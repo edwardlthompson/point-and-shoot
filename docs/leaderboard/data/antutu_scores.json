@@ -1,0 +1,249 @@
+{
+  "schema": "pns.antutu_scores.v1",
+  "scrapedUtc": "2026-06-04T13:31:35.225718+00:00",
+  "sourceUrl": "https://www.antutu.com/web/ranking",
+  "sourceMonth": "2026-06",
+  "stale": false,
+  "rankings": [
+    {
+      "deviceName": "unknown",
+      "total": 1156656,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1449043,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 859987,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3964036,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1101685,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1416249,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 515740,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 842430,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3876104,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1089374,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1440017,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 790189,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3764432,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1057377,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1390675,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 858689,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3726374,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1054522,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1341119,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 757807,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3646063,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1080210,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1340190,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 793498,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3636163,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1036799,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1338940,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 738255,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 3607590,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    },
+    {
+      "deviceName": "unknown",
+      "total": 1058739,
+      "cpu": null,
+      "gpu": null,
+      "mem": null,
+      "ux": null
+    }
+  ]
+}

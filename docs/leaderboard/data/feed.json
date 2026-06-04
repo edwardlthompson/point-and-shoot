@@ -1,0 +1,18 @@
+{
+  "schema": "pns.leaderboard_feed.v1",
+  "updatedUtc": "2026-06-04T13:33:45.4020916Z",
+  "items": [
+    {
+      "timestampUtc": "2026-06-04T13:31:23.0083172Z",
+      "slug": "acf7a326d2a12131",
+      "marketingName": "Sony Xperia 5 V",
+      "event": "device_added"
+    },
+    {
+      "timestampUtc": "2026-06-04T13:31:22.9903401Z",
+      "slug": "718a8115ff142454",
+      "marketingName": "OnePlus 12",
+      "event": "device_added"
+    }
+  ]
+}

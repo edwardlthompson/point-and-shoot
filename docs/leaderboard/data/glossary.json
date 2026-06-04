@@ -1,0 +1,55 @@
+{
+  "schema": "pns.leaderboard_glossary.v1",
+  "terms": [
+    {
+      "term": "HAL advertised",
+      "id": "hal_advertised",
+      "definition": "The device Camera2 HAL reports this capability as supported in its characteristics or stream maps."
+    },
+    {
+      "term": "Proven",
+      "id": "proven",
+      "definition": "Point & Shoot parity sweep successfully exercised this capability on a real device session."
+    },
+    {
+      "term": "Session OK",
+      "id": "sessionOk",
+      "definition": "A capture session could be created that includes this capability without immediate failure."
+    },
+    {
+      "term": "Honesty %",
+      "id": "honesty",
+      "definition": "Percentage of HAL-advertised catalog cells that were proven in the parity sweep."
+    },
+    {
+      "term": "Restriction Index",
+      "id": "restriction_index",
+      "definition": "OEM score for how much advertised hardware is gated from third-party Camera2 apps (higher = more restrictive)."
+    },
+    {
+      "term": "Sensor sum (mm²)",
+      "id": "sensor_sum",
+      "definition": "Combined physical sensor area of rear non-logical cameras; larger often correlates with better light gathering."
+    },
+    {
+      "term": "Camera2 API",
+      "id": "camera2",
+      "definition": "Android's standard camera API used by third-party apps — not the OEM's proprietary camera app."
+    },
+    {
+      "term": "Tested API",
+      "id": "tested_api",
+      "definition": "The Android SDK/API level (and marketing version when known) running on the device during the parity sweep. Scores may differ after major OS updates."
+    },
+    {
+      "term": "Fleet tested",
+      "id": "trust_maintainer",
+      "definition": "Maintainer USB sweep published from the project's regression fleet."
+    },
+    {
+      "term": "Community verified",
+      "id": "trust_community",
+      "definition": "User-submitted Full parity sweep that passed automated validation."
+    }
+  ]
+}

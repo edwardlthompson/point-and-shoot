@@ -17,6 +17,14 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 - **DNG safety and memory:** DNG/JPEG metadata writes now stage bytes before final URI replacement to reduce truncate-risk windows and lower peak post-patch churn.
 - **Fleet matrix/catalog correctness:** policy/visibility/parity semantics tightened for cross-device consistency.
 - **Fleet focal + parity hardening:** focal resolver now fails closed for non-openable ids and parity sweep can promote optional subtracks to blocking via script flag when requested.
+## [0.14.0-beta.9] - 2026-06-05
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.9.apk`
+
+- **Camera2 source-of-truth leaderboard shipped (M25)** — live GitHub Pages leaderboard with product groups, OEM accountability rollups, CSV/RSS/catalog exports, and submit/merge pipeline for approved community parity submissions.
+- **Fleet parity closure pipeline (M26)** — debt/intake generation (`FLEET_PARITY_DEBT_LEDGER*`, `FLEET_PARITY_BUILD_PLAN_INTAKE*`), proof-pack merge hardening, and ownership mapping updates for recurring not-proven/unautomated rows.
+- **4K120 truthfulness + stability hardening (M24)** — strict HFR policy and telemetry, endurance classification, and parity truth-class handoff to avoid over-claiming delivered 4K120 behavior.
+- **Fleet-adapted UI and capability gating** — device-adapted format/catalog gating, readiness-aware visibility, and expanded hub/diagnostics reporting for cross-device honesty.
 ## Unreleased
 
 _(Nothing yet — add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_

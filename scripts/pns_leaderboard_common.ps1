@@ -1,5 +1,21 @@
 # Shared leaderboard scoring helpers for refresh + site publish.
 
+function Write-LeaderboardJson {
+    param(
+        [Parameter(Mandatory = $true)]$Object,
+        [Parameter(Mandatory = $true)][string]$Path,
+        [int]$Depth = 10,
+        [switch]$Compress
+    )
+    $json = if ($Compress) { $Object | ConvertTo-Json -Depth $Depth -Compress } else { $Object | ConvertTo-Json -Depth $Depth }
+    $dir = Split-Path -Parent $Path
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($Path, $json, $utf8NoBom)
+}
+
 function Get-CategoryScoreFromCells($Cells) {
     $score = 0
     $maxScore = 0

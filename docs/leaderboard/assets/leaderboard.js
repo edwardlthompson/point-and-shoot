@@ -194,7 +194,12 @@ export function renderHome(devices, state) {
   const compareBar = state.compareSlugs.size
     ? `<p><a class="btn btn-primary" href="#/compare?devices=${[...state.compareSlugs].join(',')}">Compare ${state.compareSlugs.size} devices</a></p>`
     : '';
-  const cta = devices.length < 5
+  const loadWarning = devices.length === 0
+    ? '<div class="cta-box"><p><strong>No device profiles loaded.</strong> Check the browser console for JSON fetch errors, then hard-refresh.</p></div>'
+    : (sorted.length === 0
+      ? '<div class="cta-box"><p>No devices match the current filters.</p></div>'
+      : '');
+  const cta = devices.length > 0 && devices.length < 5
     ? `<div class="cta-box"><h3>Help grow the fleet</h3><p>Only ${devices.length} device(s) tested. Run Point & Shoot on your phone and contribute via Engineering Hub → Parity Sweep → Submit.</p>
        <a class="btn" href="https://github.com/edwardlthompson/point-and-shoot">Get the app</a></div>`
     : '';
@@ -206,6 +211,7 @@ export function renderHome(devices, state) {
       <button type="button" data-tab="oem" onclick="location.hash='#/oem'">OEM accountability</button>
     </div>
     ${compareBar}
+    ${loadWarning}
     ${table}
     <div class="device-grid cards-only mobile-cards-only">${cards}</div>
     ${cta}`;

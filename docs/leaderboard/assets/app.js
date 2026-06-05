@@ -25,11 +25,26 @@ const state = {
 
 let dataCacheBust = '';
 
+/** Parse JSON tolerating UTF-8 BOM from PowerShell-published files. */
+function parseJsonText(text) {
+  const clean = text.replace(/^\uFEFF/, '').trim();
+  if (!clean) throw new Error('empty JSON body');
+  return JSON.parse(clean);
+}
+
 async function loadJson(path) {
   const url = dataCacheBust && !path.includes('?') ? `${path}?v=${encodeURIComponent(dataCacheBust)}` : path;
   const r = await fetch(url, { cache: 'no-cache' });
-  if (!r.ok) throw new Error(path);
-  return r.json();
+  if (!r.ok) throw new Error(`${path} (${r.status})`);
+  return parseJsonText(await r.text());
+}
+
+function showBootError(err) {
+  const app = document.getElementById('app');
+  if (!app) return;
+  const msg = err?.message || String(err);
+  app.innerHTML = `<div class="cta-box"><p><strong>Leaderboard failed to load.</strong></p><p class="software-line">${msg}</p><p>Try a hard refresh. If this persists, device JSON may be unavailable on GitHub Pages.</p></div>`;
+  console.error('[leaderboard boot]', err);
 }
 
 async function loadDevices(slugs) {
@@ -223,16 +238,20 @@ async function boot() {
     try { state.oemAccountability = await loadJson('data/oem_accountability.json'); } catch { /* */ }
     try { state.glossary = await loadJson('data/glossary.json'); } catch { /* */ }
   } catch (e) {
-    document.getElementById('app').innerHTML = `<div class="cta-box"><p>Leaderboard data not published yet. Run <code>pns_leaderboard_site_publish.ps1</code>.</p></div>`;
+    showBootError(e);
     return;
   }
   populateOemFilter();
   bindToolbar();
   updateFooterStaleNote(state.site);
   applyPreset('most_capable');
-  window.addEventListener('pns-route', render);
-  window.addEventListener('hashchange', render);
-  await render();
+  window.addEventListener('pns-route', () => { render().catch(showBootError); });
+  window.addEventListener('hashchange', () => { render().catch(showBootError); });
+  try {
+    await render();
+  } catch (e) {
+    showBootError(e);
+  }
 }
 
-boot();
+boot().catch(showBootError);

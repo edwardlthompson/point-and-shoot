@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Point & Shoot — Fleet Camera Parity Leaderboard</title>
-  <link rel="stylesheet" href="assets/style.css?v=20260605b">
+  <link rel="stylesheet" href="assets/style.css?v=20260605c">
   <link rel="alternate" type="application/rss+xml" href="data/feed.xml" title="Leaderboard RSS">
   <link rel="alternate" type="application/json" href="data/feed.json" title="Leaderboard feed">
 </head>
 <body>
   <header class="site-header">
-    <div class="header-inner">
+    <div class="header-inner page-container">
       <h1><a href="#/">Camera Parity Leaderboard</a></h1>
       <p class="tagline">Tested Camera2 capability vs OEM marketing — for informed purchases and custom ROM buyers</p>
       <div class="header-actions">
@@ -41,7 +41,7 @@
   </aside>
 
   <nav class="toolbar" id="toolbar">
-    <div class="toolbar-inner">
+    <div class="toolbar-inner page-container">
     <div class="buyer-presets">
       <span class="preset-label">Presets:</span>
       <button type="button" data-preset="most_capable" class="active">Most capable</button>
@@ -69,13 +69,15 @@
     </div>
   </nav>
 
-  <main id="app" class="main"></main>
+  <main id="app" class="main page-container"></main>
 
   <footer class="site-footer">
-    <p>Point & Shoot · <a href="data/feed.json">Device feed</a> · <a href="data/feed.xml">RSS</a> · <a href="data/leaderboard.csv">Download CSV</a> · <a href="https://github.com/edwardlthompson/point-and-shoot">GitHub</a></p>
-    <p class="disclaimer">Camera2 parity ≠ OEM app experience. GSMArena advertised rows are spec-sheet only. Scores reflect Full parity sweeps on the API level noted per device.</p>
+    <div class="page-container">
+      <p>Point & Shoot · <a href="data/feed.json">Device feed</a> · <a href="data/feed.xml">RSS</a> · <a href="data/leaderboard.csv">Download CSV</a> · <a href="https://github.com/edwardlthompson/point-and-shoot">GitHub</a></p>
+      <p class="disclaimer">Camera2 parity ≠ OEM app experience. GSMArena advertised rows are spec-sheet only. Scores reflect Full parity sweeps on the API level noted per device.</p>
+    </div>
   </footer>
 
-  <script type="module" src="assets/app.js?v=20260605b"></script>
+  <script type="module" src="assets/app.js?v=20260605c"></script>
 </body>
 </html>

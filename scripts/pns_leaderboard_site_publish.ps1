@@ -423,7 +423,7 @@ $catalogVersion = 3
 
 foreach ($p in $sorted) {
     $path = Join-Path $devicesDir "$($p.slug).json"
-    $p | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $path -Encoding utf8
+    Write-LeaderboardJson -Object $p -Path $path -Depth 12
 
     # History jsonl — dedupe same timestamp + scores
     $histPath = Join-Path $historyDir "$($p.slug).jsonl"
@@ -456,19 +456,19 @@ foreach ($p in $sorted) {
 }
 
 $productGroupsPath = Join-Path $OutDir "product_groups.json"
-[ordered]@{
+Write-LeaderboardJson -Object ([ordered]@{
     schema = "pns.leaderboard_product_groups.v1"
     updatedUtc = [DateTime]::UtcNow.ToString("o")
     groups = $productGroups
-} | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $productGroupsPath -Encoding utf8
+}) -Path $productGroupsPath -Depth 12
 
 $oemAccountabilityPath = Join-Path $OutDir "oem_accountability.json"
-[ordered]@{
+Write-LeaderboardJson -Object ([ordered]@{
     schema = "pns.leaderboard_oem_accountability.v1"
     updatedUtc = [DateTime]::UtcNow.ToString("o")
     subtitle = "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality."
     oems = $oemAccountability
-} | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $oemAccountabilityPath -Encoding utf8
+}) -Path $oemAccountabilityPath -Depth 10
 
 $gsmarenaSpecsStale = $false
 if ($gsmarenaSpecsObj -and $gsmarenaSpecsObj.stale -eq $true) { $gsmarenaSpecsStale = $true }
@@ -486,7 +486,7 @@ $site = [ordered]@{
     deviceSlugs = @($sorted | ForEach-Object { $_.slug })
     devices = @($sorted | ForEach-Object { $_.deviceKey })
 }
-$site | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $OutDir "site.json") -Encoding utf8
+Write-LeaderboardJson -Object $site -Path (Join-Path $OutDir "site.json") -Depth 10
 
 # Feed
 $feedItems = @()
@@ -508,7 +508,7 @@ foreach ($p in $sorted) {
     }
 }
 $feed = [ordered]@{ schema = "pns.leaderboard_feed.v1"; updatedUtc = [DateTime]::UtcNow.ToString("o"); items = @($feedItems | Select-Object -First 50) }
-$feed | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $feedPath -Encoding utf8
+Write-LeaderboardJson -Object $feed -Path $feedPath -Depth 6
 
 & (Join-Path $PSScriptRoot "pns_fleet_parity_leaderboard_refresh.ps1") -RunsRoot $RunsRoot
 

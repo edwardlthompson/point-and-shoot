@@ -144,7 +144,7 @@ function Get-ChangelogSectionForTag([string]$ChangelogText, [string]$SemverTag) 
     if ($ChangelogText -notmatch "(?ms)^$([regex]::Escape($header)) - .*?\r?\n(.*?)(?=^## \[|\z)") {
         return $null
     }
-    $section = $Matches[2].Trim()
+    $section = $Matches[1].Trim()
     return $section
 }
 

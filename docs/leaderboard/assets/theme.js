@@ -165,6 +165,19 @@ export function glossaryLabel(text, glossary, termId) {
   return `<span class="glossary-term" title="${term.definition.replace(/"/g, '&quot;')}">${text}</span>`;
 }
 
+const MP_RATIO_THRESHOLD = 1.25;
+
+function mpFromSize(s) {
+  if (!s) return 0;
+  const mp = s.mp ?? (s.width && s.height ? (s.width * s.height) / 1e6 : 0);
+  return mp > 0 ? mp : 0;
+}
+
+/** Default still MP on the Camera2 path for a resolution-honesty row. */
+export function defaultMpFromEntry(r) {
+  return Math.max(mpFromSize(r?.defaultJpeg), mpFromSize(r?.defaultRawSensor));
+}
+
 /** Max MP from Camera2 HAL stream maps on a resolution-honesty row. */
 export function maxHalMpFromEntry(r) {
   const sizes = [
@@ -201,22 +214,73 @@ export function maxAdvertisedRearMp(d) {
   return fromSpec > 0 ? fromSpec : null;
 }
 
+function isBetrayedEntry(d, r) {
+  if (r.hasLargerThanDefault) return true;
+  const defaultMp = defaultMpFromEntry(r);
+  const maxHal = maxHalMpFromEntry(r);
+  if (defaultMp > 0 && maxHal > 0 && maxHal / defaultMp >= MP_RATIO_THRESHOLD) return true;
+  const spec = advertisedMpForCamera(d, r.cameraId);
+  if (defaultMp > 0 && spec > 0 && spec / defaultMp >= MP_RATIO_THRESHOLD) return true;
+  return false;
+}
+
+/** Client-side resolution betrayal index (0–100), mirrors [ResolutionBetrayal.kt]. */
+export function computeBetrayalIndex(d) {
+  const entries = d?.stillResolutionHonesty || d?.resolutionBetrayal?.entries || [];
+  if (!entries.length) return null;
+  const betrayed = entries.filter((r) => isBetrayedEntry(d, r)).length;
+  return Math.round((betrayed * 100) / entries.length);
+}
+
+export function betrayalIndex(d) {
+  const computed = computeBetrayalIndex(d);
+  const stored = d?.resolutionBetrayal?.index;
+  if (computed != null) return computed;
+  if (stored != null && stored !== '') return Number(stored);
+  return null;
+}
+
+/** Recompute betrayal from honesty rows so stale published JSON still renders correctly. */
+export function normalizeDeviceProfile(d) {
+  if (!d) return d;
+  const idx = computeBetrayalIndex(d);
+  if (idx != null) {
+    d.resolutionBetrayal = { ...(d.resolutionBetrayal || {}), index: idx };
+  }
+  return d;
+}
+
+export function betrayalBadgeHtml(d) {
+  const idx = betrayalIndex(d);
+  if (idx == null) return '';
+  let cls = 'badge-betrayal-none';
+  if (idx >= 50) cls = 'badge-betrayal-high';
+  else if (idx >= 25) cls = 'badge-betrayal-mid';
+  else if (idx > 0) cls = 'badge-betrayal-low';
+  return `<span class="badge ${cls}" title="Resolution withholding index — % of cameras where spec or alternate HAL maps exceed Camera2 default by ≥25%">Res betrayal ${idx}</span>`;
+}
+
 export function renderSensorSvg(device) {
   const lenses = device?.sensors?.rearLenses?.length
     ? device.sensors.rearLenses.filter((l) => l.role !== 'selfie')
     : (device?.sensors?.sensors || []).filter((s) => s.role !== 'FRONT');
   if (!lenses.length) return '';
+  const barW = 32;
+  const gap = 16;
+  const pad = 8;
+  const chartW = pad * 2 + lenses.length * (barW + gap) - gap;
+  const chartH = 48;
   const max = Math.max(...lenses.map((l) => l.areaMm2 || 0), 1);
   const bars = lenses.map((l, i) => {
-    const h = Math.max(4, ((l.areaMm2 || 0) / max) * 36);
-    const x = 8 + i * 48;
-    const y = 40 - h;
+    const h = Math.max(4, ((l.areaMm2 || 0) / max) * 32);
+    const x = pad + i * (barW + gap);
+    const y = chartH - 14 - h;
     const mp = l.megapixels ?? (l.cameraId != null ? advertisedMpForCamera(device, l.cameraId) : null);
     const roleLabel = l.role || l.cameraId || i;
-    const mpLabel = mp ? `<text x="${x + 16}" y="12" text-anchor="middle" font-size="7" fill="var(--text)">${Math.round(mp)}MP</text>` : '';
-    return `<rect x="${x}" y="${y}" width="32" height="${h}" fill="var(--accent)" rx="2"/>${mpLabel}<text x="${x + 16}" y="38" text-anchor="middle" font-size="8" fill="var(--muted)">${roleLabel}</text>`;
+    const mpLabel = mp ? `<text x="${x + barW / 2}" y="10" text-anchor="middle" font-size="8" fill="var(--text)">${Math.round(mp)}MP</text>` : '';
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="var(--accent)" rx="2"/>${mpLabel}<text x="${x + barW / 2}" y="${chartH - 4}" text-anchor="middle" font-size="9" fill="var(--muted)">${roleLabel}</text>`;
   }).join('');
-  return `<svg class="sensor-chart" viewBox="0 0 200 40" width="200" height="40">${bars}</svg>`;
+  return `<svg class="sensor-chart" viewBox="0 0 ${chartW} ${chartH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Rear sensor area chart">${bars}</svg>`;
 }
 
 export function cellChip(advertised, proven, gap) {

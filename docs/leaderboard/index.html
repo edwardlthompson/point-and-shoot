@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Point & Shoot — Fleet Camera Parity Leaderboard</title>
-  <link rel="stylesheet" href="assets/style.css">
+  <link rel="stylesheet" href="assets/style.css?v=20260605b">
   <link rel="alternate" type="application/rss+xml" href="data/feed.xml" title="Leaderboard RSS">
   <link rel="alternate" type="application/json" href="data/feed.json" title="Leaderboard feed">
 </head>
@@ -29,6 +29,7 @@
         <li><strong>Features / Resolutions:</strong> catalog cells — proven (10 pts), matrix-gated skip (8), advertised-only (4)</li>
         <li><strong>Capabilities:</strong> per-camera feature gates — advertised + appEnabled + sessionOk</li>
         <li><strong>Honesty %:</strong> proven ÷ HAL-advertised cells</li>
+        <li><strong>Res betrayal:</strong> % of rear cameras where spec-sheet / focal-row MP or alternate HAL stream maps exceed the Camera2 default still path by ≥25% (0 = honest; higher = more withholding)</li>
         <li><strong>Tested API:</strong> Android version (SDK/API level) on the device when the parity sweep ran — OEM updates can change Camera2 behavior</li>
         <li><strong>Sensor sum (mm²):</strong> combined physical area of rear cameras — from Camera2 HAL when scanned on-device, otherwise GSMArena published sensor types</li>
         <li><strong>Restriction Index:</strong> OEM composite (lower openness = more gating)</li>
@@ -40,6 +41,7 @@
   </aside>
 
   <nav class="toolbar" id="toolbar">
+    <div class="toolbar-inner">
     <div class="buyer-presets">
       <span class="preset-label">Presets:</span>
       <button type="button" data-preset="most_capable" class="active">Most capable</button>
@@ -64,6 +66,7 @@
     <label class="wishlist-label"><input type="checkbox" id="filter-ship-safe"> Hide ship-blocker devices</label>
     <label class="wishlist-label">Wishlist:</label>
     <div id="wishlist" class="wishlist"></div>
+    </div>
   </nav>
 
   <main id="app" class="main"></main>
@@ -73,6 +76,6 @@
     <p class="disclaimer">Camera2 parity ≠ OEM app experience. GSMArena advertised rows are spec-sheet only. Scores reflect Full parity sweeps on the API level noted per device.</p>
   </footer>
 
-  <script type="module" src="assets/app.js"></script>
+  <script type="module" src="assets/app.js?v=20260605b"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { initTheme, initMethodology, initWishlist, getWishlistSelected } from './theme.js';
+import { initTheme, initMethodology, initWishlist, getWishlistSelected, normalizeDeviceProfile } from './theme.js';
 import { parseRoute, navTo } from './router.js';
 import { renderHome } from './leaderboard.js';
 import { renderDeviceDetail, attachSparkline, attachDeviceDetailApiToggle } from './device-detail.js';
@@ -23,8 +23,11 @@ const state = {
   hideShipBlockers: false,
 };
 
+let dataCacheBust = '';
+
 async function loadJson(path) {
-  const r = await fetch(path);
+  const url = dataCacheBust && !path.includes('?') ? `${path}?v=${encodeURIComponent(dataCacheBust)}` : path;
+  const r = await fetch(url, { cache: 'no-cache' });
   if (!r.ok) throw new Error(path);
   return r.json();
 }
@@ -33,7 +36,8 @@ async function loadDevices(slugs) {
   const list = [];
   for (const slug of slugs) {
     try {
-      list.push(await loadJson(`data/devices/${slug}.json`));
+      const d = normalizeDeviceProfile(await loadJson(`data/devices/${slug}.json`));
+      list.push(d);
     } catch (e) {
       console.warn('Missing device', slug);
     }
@@ -171,7 +175,7 @@ async function render() {
   if (route.view === 'device' && route.slug) {
     let d = state.devices.find((x) => x.slug === route.slug);
     if (!d) {
-      try { d = await loadJson(`data/devices/${route.slug}.json`); } catch { /* */ }
+      try { d = normalizeDeviceProfile(await loadJson(`data/devices/${route.slug}.json`)); } catch { /* */ }
     }
     if (!d) { app.innerHTML = '<p>Device not found.</p>'; return; }
     const history = await loadHistory(route.slug);
@@ -213,6 +217,7 @@ async function boot() {
   initMethodology();
   try {
     state.site = await loadJson('data/site.json');
+    dataCacheBust = state.site?.updatedUtc || String(Date.now());
     state.devices = await loadDevices(state.site.deviceSlugs || []);
     try { state.productGroups = (await loadJson('data/product_groups.json')).groups || []; } catch { /* */ }
     try { state.oemAccountability = await loadJson('data/oem_accountability.json'); } catch { /* */ }

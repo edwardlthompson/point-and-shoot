@@ -13,15 +13,13 @@ import {
   specLinksHtml,
   glossaryLabel,
   maxHalMpFromEntry,
+  defaultMpFromEntry,
   advertisedMpForCamera,
+  betrayalIndex,
 } from './theme.js';
 import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js';
 import { drawSparkline } from './charts.js';
 import { shareDeviceUrl } from './router.js';
-
-function defaultMpFromEntry(r) {
-  return r.defaultJpeg?.mp ?? r.defaultRawSensor?.mp ?? 0;
-}
 
 function resolutionNotes(d, r) {
   const halMax = maxHalMpFromEntry(r);
@@ -53,7 +51,7 @@ function renderResolutionBetrayalPanel(d, glossary) {
   return `
     <section class="device-card resolution-panel">
       <h3>${glossaryLabel('Resolution withholding', glossary, 'resolution_betrayal')}</h3>
-      <p class="software-line">Betrayal index: <strong>${idx}</strong> (% of cameras where spec/focal-row MP or alternate HAL maps exceed Camera2 default by ≥25%)</p>
+      <p class="software-line">Betrayal index: <strong>${idxLabel}</strong> (% of cameras where spec/focal-row MP or alternate HAL maps exceed Camera2 default by ≥25%)</p>
       <p>Counts hidden high-res stream maps and spec-sheet megapixel claims above the default Camera2 still path.</p>
       <table class="data-table"><thead><tr><th>Camera</th><th>Default MP</th><th>Max advertised MP</th><th>Notes</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
     </section>`;

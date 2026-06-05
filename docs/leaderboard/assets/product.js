@@ -1,4 +1,4 @@
-import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry } from './theme.js';
+import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry, betrayalIndex } from './theme.js';
 
 function pickVariant(variants, romFlavors) {
   if (!variants?.length) return null;
@@ -67,7 +67,7 @@ export function renderProductGroup(group, devicesBySlug) {
       label: d.slug,
       pts: d.scores?.total?.score ?? '—',
       honesty: `${d.disparity?.honestyPercent ?? '—'}%`,
-      betrayal: d.resolutionBetrayal?.index ?? variant.resolutionBetrayalIndex ?? '—',
+      betrayal: betrayalIndex(d) ?? variant.resolutionBetrayalIndex ?? '—',
       maxMp,
       hfr: hfrCell ? 'pass' : 'fail',
       device: d,

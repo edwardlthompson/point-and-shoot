@@ -1,4 +1,15 @@
-import { trustBadge, fmtNum, progressBar, cellChip, apiLevelBadge, sensorSumLabel, sensorSourceNote, gsmarenaLinkHtml } from './theme.js';
+import {
+  trustBadge,
+  fmtNum,
+  progressBar,
+  cellChip,
+  apiLevelBadge,
+  sensorSumLabel,
+  sensorSourceNote,
+  gsmarenaLinkHtml,
+  betrayalIndex,
+  betrayalBadgeHtml,
+} from './theme.js';
 
 const PERSONA_SORT = {
   default: (a, b) => (b.scores?.total?.score ?? 0) - (a.scores?.total?.score ?? 0),
@@ -8,8 +19,8 @@ const PERSONA_SORT = {
     const aRaw = a.rawSummary?.dngProven ? 1 : 0;
     const bRaw = b.rawSummary?.dngProven ? 1 : 0;
     if (bRaw !== aRaw) return bRaw - aRaw;
-    const aBet = a.resolutionBetrayal?.index ?? 100;
-    const bBet = b.resolutionBetrayal?.index ?? 100;
+    const aBet = betrayalIndex(a) ?? 100;
+    const bBet = betrayalIndex(b) ?? 100;
     if (aBet !== bBet) return aBet - bBet;
     return (b.sensors?.sensorSumMm2 ?? 0) - (a.sensors?.sensorSumMm2 ?? 0);
   },
@@ -87,14 +98,6 @@ function withheldPills(d) {
   }).join('')}</div>`;
 }
 
-function betrayalBadge(d) {
-  const idx = d.resolutionBetrayal?.index;
-  if (idx == null) return '';
-  if (idx >= 50) return `<span class="badge badge-betrayal-high" title="Resolution withholding index">Res betrayal ${idx}</span>`;
-  if (idx >= 25) return `<span class="badge badge-betrayal-mid">Res betrayal ${idx}</span>`;
-  return '';
-}
-
 export function renderDeviceCard(d, { selected }) {
   const mode = d.meta?.lastSweepMode || '';
   const tier = d.meta?.trustTier || 'community_preview';
@@ -112,7 +115,7 @@ export function renderDeviceCard(d, { selected }) {
         ${trustBadge(tier, d.software?.romFlavor)}
         ${apiLevelBadge(d)}
         ${freshness}
-        ${betrayalBadge(d)}
+        ${betrayalBadgeHtml(d)}
         ${shipCount ? `<span class="badge badge-ship-blocker">${shipCount} ship-blocker${shipCount > 1 ? 's' : ''}</span>` : ''}
         ${d.software?.romFlavor === 'stock' ? '<span class="badge badge-stock">Stock ROM</span>' : ''}
       </div>
@@ -142,7 +145,7 @@ export function renderLeaderboardTable(devices, sortKey, sortDir, selectedSlugs)
     { key: 'parity', label: 'Parity pts', get: (d) => d.scores?.total?.score ?? 0 },
     { key: 'value', label: 'Parity/$', get: (d) => d.value?.parityPerUsd ?? 0 },
     { key: 'honesty', label: 'Honesty %', get: (d) => d.disparity?.honestyPercent ?? 0 },
-    { key: 'betrayal', label: 'Res betrayal', get: (d) => d.resolutionBetrayal?.index ?? 0 },
+    { key: 'betrayal', label: 'Res betrayal', get: (d) => betrayalIndex(d) ?? -1 },
     { key: 'sensor', label: 'Sensor mm²', get: (d) => d.sensors?.sensorSumMm2 ?? 0 },
     { key: 'video', label: 'HFR@1080', get: (d) => d.videoSummary?.hfrMaxFps1080 ?? 0 },
     { key: 'api', label: 'Tested API', get: (d) => d.software?.sdkInt ?? 0 },
@@ -171,7 +174,7 @@ export function renderLeaderboardTable(devices, sortKey, sortDir, selectedSlugs)
       <td>${d.scores?.total?.score ?? '—'} <small class="muted">(${d.scores?.total?.percent ?? '—'}%)</small></td>
       <td>${d.value?.parityPerUsd ?? '—'}</td>
       <td>${d.disparity?.honestyPercent ?? '—'}%</td>
-      <td>${d.resolutionBetrayal?.index ?? '—'}</td>
+      <td class="col-betrayal">${betrayalIndex(d) ?? '—'}</td>
       <td>${fmtNum(d.sensors?.sensorSumMm2)}</td>
       <td>${d.videoSummary?.hfrMaxFps1080 ?? '—'}</td>
       <td>${d.software?.apiLevelLabel || (d.software?.sdkInt ? `API ${d.software.sdkInt}` : '—')}</td>

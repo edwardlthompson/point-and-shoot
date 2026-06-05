@@ -1,81 +1,7 @@
 {
   "schema": "pns.leaderboard_product_groups.v1",
-  "updatedUtc": "2026-06-05T03:01:46.5092057Z",
+  "updatedUtc": "2026-06-05T04:27:03.3075770Z",
   "groups": [
-    {
-      "groupId": "oneplus-12",
-      "marketingName": "OnePlus 12",
-      "testedVariants": [
-        {
-          "lineItemKind": "camera2_tested",
-          "romFlavor": "root_unlocked",
-          "slug": "718a8115ff142454",
-          "testedApiLevel": "Android 16 (API 36)",
-          "parityScore": 1636,
-          "honestyPercent": 81.7,
-          "trustTier": "maintainer",
-          "resolutionBetrayalIndex": 0
-        }
-      ],
-      "advertisedSpec": {
-        "lineItemKind": "advertised_gsmarena",
-        "measurementStatus": "advertised_spec_untested",
-        "trustTier": "advertised_spec",
-        "source": "gsmarena",
-        "gsmarenaUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-        "advertisedClaims": [
-          {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "50 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (tele)",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_tele",
-            "advertisedValue": "64 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_ultrawide",
-            "advertisedValue": "48 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.tele",
-            "advertisedValue": "70mm tele",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (wide)",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_max",
-            "advertisedValue": "64 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          }
-        ]
-      }
-    },
     {
       "groupId": "oneplus-cph2655",
       "marketingName": "OnePlus CPH2655",
@@ -116,15 +42,8 @@
         "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
         "advertisedClaims": [
           {
-            "catalogId": "still.resolution_max",
+            "catalogId": "still.resolution_wide",
             "advertisedValue": "48 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (wide)",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
             "verified": false
@@ -137,70 +56,17 @@
             "verified": false
           },
           {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "48 MP",
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (wide)",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          }
-        ]
-      }
-    },
-    {
-      "groupId": "htc-exodus-1",
-      "marketingName": "HTC Exodus 1",
-      "testedVariants": [
-        {
-          "lineItemKind": "camera2_tested",
-          "romFlavor": "stock",
-          "slug": "088f8b18916ff4ea",
-          "testedApiLevel": "Android API 28 (API 28)",
-          "parityScore": 1290,
-          "honestyPercent": 84.1,
-          "trustTier": "maintainer",
-          "resolutionBetrayalIndex": 0
-        }
-      ],
-      "advertisedSpec": {
-        "lineItemKind": "advertised_gsmarena",
-        "measurementStatus": "advertised_spec_untested",
-        "trustTier": "advertised_spec",
-        "source": "gsmarena",
-        "gsmarenaUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-        "advertisedClaims": [
-          {
-            "catalogId": "lens.tele",
-            "advertisedValue": "yes",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "12 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_tele",
-            "advertisedValue": "16 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
           },
           {
             "catalogId": "still.resolution_max",
-            "advertisedValue": "16 MP",
+            "advertisedValue": "48 MP",
             "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (wide)",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
             "verified": false
           }
         ]
@@ -215,8 +81,8 @@
           "romFlavor": "custom_likely",
           "slug": "dff79fd1b3808b1d",
           "testedApiLevel": "Android 15 (API 35)",
-          "parityScore": 1268,
-          "honestyPercent": 83.8,
+          "parityScore": 1370,
+          "honestyPercent": 80.2,
           "trustTier": "maintainer",
           "resolutionBetrayalIndex": 0
         }
@@ -240,6 +106,140 @@
             "advertisedValue": "13 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          }
+        ]
+      }
+    },
+    {
+      "groupId": "htc-exodus-1",
+      "marketingName": "HTC Exodus 1",
+      "testedVariants": [
+        {
+          "lineItemKind": "camera2_tested",
+          "romFlavor": "stock",
+          "slug": "088f8b18916ff4ea",
+          "testedApiLevel": "Android API 28 (API 28)",
+          "parityScore": 1349,
+          "honestyPercent": 78.9,
+          "trustTier": "maintainer",
+          "resolutionBetrayalIndex": 0
+        }
+      ],
+      "advertisedSpec": {
+        "lineItemKind": "advertised_gsmarena",
+        "measurementStatus": "advertised_spec_untested",
+        "trustTier": "advertised_spec",
+        "source": "gsmarena",
+        "gsmarenaUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+        "advertisedClaims": [
+          {
+            "catalogId": "still.resolution_wide",
+            "advertisedValue": "12 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_max",
+            "advertisedValue": "16 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_tele",
+            "advertisedValue": "16 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (wide)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.tele",
+            "advertisedValue": "yes",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          }
+        ]
+      }
+    },
+    {
+      "groupId": "oneplus-12",
+      "marketingName": "OnePlus 12",
+      "testedVariants": [
+        {
+          "lineItemKind": "camera2_tested",
+          "romFlavor": "root_unlocked",
+          "slug": "718a8115ff142454",
+          "testedApiLevel": "Android 16 (API 36)",
+          "parityScore": 1246,
+          "honestyPercent": 50.8,
+          "trustTier": "maintainer",
+          "resolutionBetrayalIndex": 0
+        }
+      ],
+      "advertisedSpec": {
+        "lineItemKind": "advertised_gsmarena",
+        "measurementStatus": "advertised_spec_untested",
+        "trustTier": "advertised_spec",
+        "source": "gsmarena",
+        "gsmarenaUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+        "advertisedClaims": [
+          {
+            "catalogId": "lens.tele",
+            "advertisedValue": "70mm tele",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_wide",
+            "advertisedValue": "50 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (wide)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_ultrawide",
+            "advertisedValue": "48 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_tele",
+            "advertisedValue": "64 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (tele)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_max",
+            "advertisedValue": "64 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
             "verified": false
           }
         ]

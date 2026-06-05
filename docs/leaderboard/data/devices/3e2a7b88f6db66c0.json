@@ -112,15 +112,15 @@
       "maxScore": 2180,
       "percent": 74.6
     },
-    "rank": 2
+    "rank": 1
   },
   "disparity": {
     "advertisedCellCount": 127,
     "provenAdvertisedCount": 105,
     "honestyPercent": 82.7,
     "gapBreakdown": {
-      "GAP_ADVERTISED_NOT_PROVEN": 21,
-      "GAP_DELIVERY_MISMATCH": 1
+      "GAP_DELIVERY_MISMATCH": 1,
+      "GAP_ADVERTISED_NOT_PROVEN": 21
     }
   },
   "withheldFeatures": [
@@ -286,20 +286,20 @@
     }
   ],
   "cellsByCategory": {
-    "Lens": [
+    "Still capture": [
       {
-        "catalogId": "lens.multi",
-        "displayName": "Focal slots / multi-cam",
+        "catalogId": "raw.dng",
+        "displayName": "RAW DNG capture",
         "advertised": true,
         "provenOk": true,
-        "sessionOk": null,
+        "sessionOk": true,
         "gap": null,
         "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
+        "consumerImpact": "INFORMATIONAL"
       },
       {
-        "catalogId": "lens.ois",
-        "displayName": "Optical stabilization",
+        "catalogId": "raw.ultra_max",
+        "displayName": "Ultra-Max imaging profile",
         "advertised": false,
         "provenOk": false,
         "sessionOk": null,
@@ -308,18 +308,170 @@
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
-        "catalogId": "lens.eis",
-        "displayName": "Electronic stabilization",
-        "advertised": false,
+        "catalogId": "still.bracket",
+        "displayName": "Exposure bracketing (BKT dial)",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "still.zsl",
+        "displayName": "ZSL still capture",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "still.avif",
+        "displayName": "10-bit AVIF still",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "still.jxl",
+        "displayName": "JPEG XL still export",
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
+        "failReason": "not_proven",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "still.nightscape",
+        "displayName": "Nightscape stacking",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "still.intervalometer",
+        "displayName": "Intervalometer",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "still.heic",
+        "displayName": "HEIC still export",
+        "advertised": true,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_proven",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "still.motion_photo",
+        "displayName": "Motion Photo",
+        "advertised": true,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_proven",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "still.tiff16",
+        "displayName": "TIFF 16-bit export",
+        "advertised": true,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_proven",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "still.independent_tonal",
+        "displayName": "Independent tonal still",
+        "advertised": true,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_proven",
+        "consumerImpact": "ENGINEERING_ONLY"
+      }
+    ],
+    "Preview HUD": [
+      {
+        "catalogId": "hud.zebra",
+        "displayName": "Zebra / false color",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "hud.histogram",
+        "displayName": "Histogram",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "hud.highlight_meter",
+        "displayName": "Highlight metering (H)",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "hud.focus_peaking",
+        "displayName": "Focus peaking",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "preview.qr",
+        "displayName": "QR scan mode",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "preview.pip",
+        "displayName": "Concurrent PiP preview",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": false,
+        "gap": null,
         "failReason": "not_advertised",
-        "consumerImpact": "SHIP_BLOCKER"
+        "consumerImpact": "ENGINEERING_ONLY"
       },
       {
-        "catalogId": "lens.focal_row",
-        "displayName": "Fleet adaptive focal row",
+        "catalogId": "preview.measured_fps",
+        "displayName": "Preview measured FPS",
         "advertised": true,
         "provenOk": true,
         "sessionOk": null,
@@ -328,8 +480,8 @@
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
-        "catalogId": "lens.uw",
-        "displayName": "Ultra-wide native",
+        "catalogId": "preview.ae_lock",
+        "displayName": "Preview AE lock",
         "advertised": true,
         "provenOk": true,
         "sessionOk": null,
@@ -338,28 +490,8 @@
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
-        "catalogId": "lens.wide",
-        "displayName": "Wide native",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "lens.tele",
-        "displayName": "Tele native",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "lens.fleet_focal_row",
-        "displayName": "Fleet adaptive focal row",
+        "catalogId": "hud.readout_strip",
+        "displayName": "Preview readout strip",
         "advertised": true,
         "provenOk": true,
         "sessionOk": null,
@@ -368,10 +500,20 @@
         "consumerImpact": "SHIP_BLOCKER"
       }
     ],
-    "CameraX": [
+    "Fleet": [
       {
-        "catalogId": "camerax.night",
-        "displayName": "CameraX NIGHT",
+        "catalogId": "fleet.matrix",
+        "displayName": "Device capability matrix",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "fleet.deep_caps",
+        "displayName": "Deep caps probe",
         "advertised": false,
         "provenOk": false,
         "sessionOk": null,
@@ -380,8 +522,48 @@
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
-        "catalogId": "camerax.bokeh",
-        "displayName": "CameraX BOKEH",
+        "catalogId": "fleet.parity_sweep",
+        "displayName": "Fleet Parity Sweep",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "product.format_picker",
+        "displayName": "Format quality picker",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "tether.http",
+        "displayName": "Tether HTTP status",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "tether.wifi_direct",
+        "displayName": "Wi-Fi Direct tether",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "policy.os_flavor_plugin",
+        "displayName": "OS flavor fleet policy",
         "advertised": false,
         "provenOk": false,
         "sessionOk": null,
@@ -390,14 +572,116 @@
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
-        "catalogId": "camerax.hdr",
-        "displayName": "CameraX HDR",
+        "catalogId": "product.obtainium_updates",
+        "displayName": "Obtainium update channel",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "fleet.macro_benchmark_export",
+        "displayName": "Fleet macro benchmark CSV",
         "advertised": false,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
         "failReason": "not_advertised",
         "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "workflow.presets_from_matrix",
+        "displayName": "Workflow presets from matrix",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "fleet.regression_pack",
+        "displayName": "Fleet regression pack",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "tether.nsd",
+        "displayName": "NSD tether registrar",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "ENGINEERING_ONLY"
+      }
+    ],
+    "Face & AF": [
+      {
+        "catalogId": "face.detect",
+        "displayName": "Face detection",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": true,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "face.eye_af",
+        "displayName": "Eye-AF overlay",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": true,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "face.priority_ae",
+        "displayName": "Face-priority AE",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": true,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "af.manual",
+        "displayName": "Manual focus (M dial)",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "af.rack",
+        "displayName": "Rack focus pull",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "af.macro",
+        "displayName": "Super Macro",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
       }
     ],
     "Video": [
@@ -570,6 +854,184 @@
         "gap": null,
         "failReason": null,
         "consumerImpact": "SHIP_BLOCKER"
+      }
+    ],
+    "Root": [
+      {
+        "catalogId": "root.vendor_keys",
+        "displayName": "Vendor key probe",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "root.cpu_governor",
+        "displayName": "CPU governor pin",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "root.hfr_unlock",
+        "displayName": "HFR above matrix ceiling",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "ENGINEERING_ONLY"
+      }
+    ],
+    "Lens": [
+      {
+        "catalogId": "lens.multi",
+        "displayName": "Focal slots / multi-cam",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.ois",
+        "displayName": "Optical stabilization",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.eis",
+        "displayName": "Electronic stabilization",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.focal_row",
+        "displayName": "Fleet adaptive focal row",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.uw",
+        "displayName": "Ultra-wide native",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.wide",
+        "displayName": "Wide native",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.tele",
+        "displayName": "Tele native",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "lens.fleet_focal_row",
+        "displayName": "Fleet adaptive focal row",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      }
+    ],
+    "Audio": [
+      {
+        "catalogId": "audio.hifi",
+        "displayName": "Hi-Fi AAC capture",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": "OK",
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "audio.external_mic",
+        "displayName": "External mic preference",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "audio.spatial",
+        "displayName": "Spatial audio",
+        "advertised": true,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_proven",
+        "consumerImpact": "ENGINEERING_ONLY"
+      }
+    ],
+    "CameraX": [
+      {
+        "catalogId": "camerax.night",
+        "displayName": "CameraX NIGHT",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "camerax.bokeh",
+        "displayName": "CameraX BOKEH",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "ENGINEERING_ONLY"
+      },
+      {
+        "catalogId": "camerax.hdr",
+        "displayName": "CameraX HDR",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "ENGINEERING_ONLY"
       }
     ],
     "Unknown": [
@@ -1663,468 +2125,6 @@
         "failReason": "not_advertised",
         "consumerImpact": "SHIP_BLOCKER"
       }
-    ],
-    "Audio": [
-      {
-        "catalogId": "audio.hifi",
-        "displayName": "Hi-Fi AAC capture",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": "OK",
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "audio.external_mic",
-        "displayName": "External mic preference",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "audio.spatial",
-        "displayName": "Spatial audio",
-        "advertised": true,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      }
-    ],
-    "Face & AF": [
-      {
-        "catalogId": "face.detect",
-        "displayName": "Face detection",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": true,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "face.eye_af",
-        "displayName": "Eye-AF overlay",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": true,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "face.priority_ae",
-        "displayName": "Face-priority AE",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": true,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "af.manual",
-        "displayName": "Manual focus (M dial)",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "af.rack",
-        "displayName": "Rack focus pull",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "af.macro",
-        "displayName": "Super Macro",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      }
-    ],
-    "Still capture": [
-      {
-        "catalogId": "raw.dng",
-        "displayName": "RAW DNG capture",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": true,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "INFORMATIONAL"
-      },
-      {
-        "catalogId": "raw.ultra_max",
-        "displayName": "Ultra-Max imaging profile",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "still.bracket",
-        "displayName": "Exposure bracketing (BKT dial)",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "still.zsl",
-        "displayName": "ZSL still capture",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "still.avif",
-        "displayName": "10-bit AVIF still",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "still.jxl",
-        "displayName": "JPEG XL still export",
-        "advertised": true,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.nightscape",
-        "displayName": "Nightscape stacking",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "still.intervalometer",
-        "displayName": "Intervalometer",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "still.heic",
-        "displayName": "HEIC still export",
-        "advertised": true,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.motion_photo",
-        "displayName": "Motion Photo",
-        "advertised": true,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.tiff16",
-        "displayName": "TIFF 16-bit export",
-        "advertised": true,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.independent_tonal",
-        "displayName": "Independent tonal still",
-        "advertised": true,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      }
-    ],
-    "Fleet": [
-      {
-        "catalogId": "fleet.matrix",
-        "displayName": "Device capability matrix",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "fleet.deep_caps",
-        "displayName": "Deep caps probe",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "fleet.parity_sweep",
-        "displayName": "Fleet Parity Sweep",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "product.format_picker",
-        "displayName": "Format quality picker",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "tether.http",
-        "displayName": "Tether HTTP status",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "tether.wifi_direct",
-        "displayName": "Wi-Fi Direct tether",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "policy.os_flavor_plugin",
-        "displayName": "OS flavor fleet policy",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "product.obtainium_updates",
-        "displayName": "Obtainium update channel",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "fleet.macro_benchmark_export",
-        "displayName": "Fleet macro benchmark CSV",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "workflow.presets_from_matrix",
-        "displayName": "Workflow presets from matrix",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "fleet.regression_pack",
-        "displayName": "Fleet regression pack",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "tether.nsd",
-        "displayName": "NSD tether registrar",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "ENGINEERING_ONLY"
-      }
-    ],
-    "Root": [
-      {
-        "catalogId": "root.vendor_keys",
-        "displayName": "Vendor key probe",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "root.cpu_governor",
-        "displayName": "CPU governor pin",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "root.hfr_unlock",
-        "displayName": "HFR above matrix ceiling",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "ENGINEERING_ONLY"
-      }
-    ],
-    "Preview HUD": [
-      {
-        "catalogId": "hud.zebra",
-        "displayName": "Zebra / false color",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "hud.histogram",
-        "displayName": "Histogram",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "hud.highlight_meter",
-        "displayName": "Highlight metering (H)",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "hud.focus_peaking",
-        "displayName": "Focus peaking",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "preview.qr",
-        "displayName": "QR scan mode",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "preview.pip",
-        "displayName": "Concurrent PiP preview",
-        "advertised": false,
-        "provenOk": false,
-        "sessionOk": false,
-        "gap": null,
-        "failReason": "not_advertised",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "preview.measured_fps",
-        "displayName": "Preview measured FPS",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "preview.ae_lock",
-        "displayName": "Preview AE lock",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      },
-      {
-        "catalogId": "hud.readout_strip",
-        "displayName": "Preview readout strip",
-        "advertised": true,
-        "provenOk": true,
-        "sessionOk": null,
-        "gap": null,
-        "failReason": null,
-        "consumerImpact": "SHIP_BLOCKER"
-      }
     ]
   },
   "gatesByCamera": [
@@ -2824,7 +2824,7 @@
   ],
   "antutu": null,
   "meta": {
-    "lastSweepUtc": "06/05/2026 03:01:32",
+    "lastSweepUtc": "06/05/2026 03:16:46",
     "lastSweepMode": "Full",
     "appVersionCode": 22001,
     "scanTier": "full",

@@ -1,16 +1,16 @@
 {
   "schema": "pns.leaderboard_oem_accountability.v1",
-  "updatedUtc": "2026-06-05T03:01:46.5128490Z",
+  "updatedUtc": "2026-06-05T04:27:03.3128917Z",
   "subtitle": "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
   "oems": [
     {
       "manufacturer": "HTC",
-      "restrictionIndex": 29.5,
-      "opennessPercent": 84.1,
-      "gateHonestyPercent": 50.0,
+      "restrictionIndex": 31.3,
+      "opennessPercent": 78.9,
+      "gateHonestyPercent": 53.3,
       "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 1,
-      "withheldFeatureCount": 18,
+      "totalShipBlockers": 4,
+      "withheldFeatureCount": 20,
       "deviceCount": 1,
       "worstOffenders": [
         {
@@ -18,19 +18,19 @@
           "deviceCount": 1
         },
         {
-          "catalogId": "video.color.hdr10",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.heic",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "audio.spatial",
+          "catalogId": "video.4k_regular",
           "deviceCount": 1
         },
         {
           "catalogId": "still.independent_tonal",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.hfr",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.hfr.120",
           "deviceCount": 1
         }
       ],
@@ -39,38 +39,39 @@
       ]
     },
     {
-      "manufacturer": "Essential Products",
-      "restrictionIndex": 29.7,
-      "opennessPercent": 83.8,
-      "gateHonestyPercent": 50.0,
+      "manufacturer": "OnePlus",
+      "restrictionIndex": 34.1,
+      "opennessPercent": 67.2,
+      "gateHonestyPercent": 63.9,
       "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 5,
-      "withheldFeatureCount": 18,
-      "deviceCount": 1,
+      "totalShipBlockers": 38,
+      "withheldFeatureCount": 40,
+      "deviceCount": 2,
       "worstOffenders": [
         {
-          "catalogId": "video.color.hlg10",
+          "catalogId": "still.motion_photo",
           "deviceCount": 1
         },
         {
-          "catalogId": "video.av1",
+          "catalogId": "video.color.pq",
           "deviceCount": 1
         },
         {
-          "catalogId": "video.av1.8k",
+          "catalogId": "still.tiff16",
           "deviceCount": 1
         },
         {
-          "catalogId": "video.color.hdr10",
+          "catalogId": "perf.capture_latency",
           "deviceCount": 1
         },
         {
-          "catalogId": "still.heic",
+          "catalogId": "face.eye_af",
           "deviceCount": 1
         }
       ],
       "deviceSlugs": [
-        "dff79fd1b3808b1d"
+        "3e2a7b88f6db66c0",
+        "718a8115ff142454"
       ]
     },
     {
@@ -84,23 +85,23 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
-          "catalogId": "video.color.hlg10",
+          "catalogId": "still.motion_photo",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.tiff16",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.pq",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "audio.spatial",
           "deviceCount": 1
         },
         {
           "catalogId": "video.delivery_honesty",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "product.hardware_camera_key",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.bt709",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.motion_photo",
           "deviceCount": 1
         }
       ],
@@ -109,39 +110,38 @@
       ]
     },
     {
-      "manufacturer": "OnePlus",
-      "restrictionIndex": 15.0,
-      "opennessPercent": 82.2,
-      "gateHonestyPercent": 89.3,
+      "manufacturer": "Essential Products",
+      "restrictionIndex": 31.9,
+      "opennessPercent": 80.2,
+      "gateHonestyPercent": 50.0,
       "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 5,
-      "withheldFeatureCount": 40,
-      "deviceCount": 2,
+      "totalShipBlockers": 1,
+      "withheldFeatureCount": 20,
+      "deviceCount": 1,
       "worstOffenders": [
         {
-          "catalogId": "video.color.hlg10",
-          "deviceCount": 2
+          "catalogId": "video.av1",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.4k_regular",
+          "deviceCount": 1
         },
         {
           "catalogId": "video.av1.4k",
-          "deviceCount": 2
+          "deviceCount": 1
         },
         {
-          "catalogId": "video.av1",
-          "deviceCount": 2
-        },
-        {
-          "catalogId": "video.av1.8k",
-          "deviceCount": 2
+          "catalogId": "still.independent_tonal",
+          "deviceCount": 1
         },
         {
           "catalogId": "video.color.hdr10",
-          "deviceCount": 2
+          "deviceCount": 1
         }
       ],
       "deviceSlugs": [
-        "718a8115ff142454",
-        "3e2a7b88f6db66c0"
+        "dff79fd1b3808b1d"
       ]
     }
   ]

@@ -1,9 +1,21 @@
 {
   "schema": "pns.fleet_leaderboard_site.v1",
-  "updatedUtc": "2026-06-05T04:27:28.9294001Z",
+  "updatedUtc": "2026-06-05T04:27:47.6608455Z",
   "catalogVersion": 3,
   "deviceCount": 5,
   "oemRankings": [
+    {
+      "manufacturer": "Sony",
+      "opennessPercent": 88.0,
+      "gateHonestyPercent": 74.4,
+      "compositePercent": 82.6,
+      "restrictionIndex": 17.4,
+      "withheldFeatureCount": 13,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "acf7a326d2a12131"
+      ]
+    },
     {
       "manufacturer": "Essential Products",
       "opennessPercent": 80.2,
@@ -39,18 +51,6 @@
       "deviceSlugs": [
         "3e2a7b88f6db66c0",
         "718a8115ff142454"
-      ]
-    },
-    {
-      "manufacturer": "Sony",
-      "opennessPercent": 88.0,
-      "gateHonestyPercent": 74.4,
-      "compositePercent": 82.6,
-      "restrictionIndex": 17.4,
-      "withheldFeatureCount": 13,
-      "deviceCount": 1,
-      "deviceSlugs": [
-        "acf7a326d2a12131"
       ]
     }
   ],

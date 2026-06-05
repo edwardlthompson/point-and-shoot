@@ -1,8 +1,43 @@
 {
   "schema": "pns.leaderboard_oem_accountability.v1",
-  "updatedUtc": "2026-06-05T04:27:28.9265259Z",
+  "updatedUtc": "2026-06-05T04:27:47.6581373Z",
   "subtitle": "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
   "oems": [
+    {
+      "manufacturer": "Sony",
+      "restrictionIndex": 17.4,
+      "opennessPercent": 88.0,
+      "gateHonestyPercent": 74.4,
+      "avgResolutionBetrayal": 0.0,
+      "totalShipBlockers": 1,
+      "withheldFeatureCount": 13,
+      "deviceCount": 1,
+      "worstOffenders": [
+        {
+          "catalogId": "video.delivery_honesty",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "product.hardware_camera_key",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "audio.spatial",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.pq",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.flat",
+          "deviceCount": 1
+        }
+      ],
+      "deviceSlugs": [
+        "acf7a326d2a12131"
+      ]
+    },
     {
       "manufacturer": "Essential Products",
       "restrictionIndex": 31.9,
@@ -14,23 +49,23 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
+          "catalogId": "video.delivery_honesty",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.motion_photo",
+          "deviceCount": 1
+        },
+        {
           "catalogId": "video.color.hdr10",
           "deviceCount": 1
         },
         {
-          "catalogId": "still.monochrome_capture",
+          "catalogId": "still.tiff16",
           "deviceCount": 1
         },
         {
-          "catalogId": "video.color.hlg10",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.heic",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "perf.capture_latency",
+          "catalogId": "video.av1.4k",
           "deviceCount": 1
         }
       ],
@@ -49,23 +84,23 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
-          "catalogId": "video.color.hdr10",
+          "catalogId": "video.delivery_honesty",
           "deviceCount": 1
         },
         {
-          "catalogId": "video.hfr",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.independent_tonal",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.hlg10",
+          "catalogId": "video.hfr.120",
           "deviceCount": 1
         },
         {
           "catalogId": "still.heic",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.tiff16",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.hfr.24",
           "deviceCount": 1
         }
       ],
@@ -84,43 +119,7 @@
       "deviceCount": 2,
       "worstOffenders": [
         {
-          "catalogId": "video.color.pq",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "audio.external_mic",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.hfr.120",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "face.detect",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "audio.voiceover_duck",
-          "deviceCount": 1
-        }
-      ],
-      "deviceSlugs": [
-        "3e2a7b88f6db66c0",
-        "718a8115ff142454"
-      ]
-    },
-    {
-      "manufacturer": "Sony",
-      "restrictionIndex": 17.4,
-      "opennessPercent": 88.0,
-      "gateHonestyPercent": 74.4,
-      "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 1,
-      "withheldFeatureCount": 13,
-      "deviceCount": 1,
-      "worstOffenders": [
-        {
-          "catalogId": "video.color.hdr10",
+          "catalogId": "audio.wind_filter",
           "deviceCount": 1
         },
         {
@@ -128,20 +127,21 @@
           "deviceCount": 1
         },
         {
-          "catalogId": "video.color.hlg10",
+          "catalogId": "still.independent_tonal",
           "deviceCount": 1
         },
         {
-          "catalogId": "audio.spatial",
+          "catalogId": "hud.storage_remaining",
           "deviceCount": 1
         },
         {
-          "catalogId": "still.motion_photo",
+          "catalogId": "video.color.pq",
           "deviceCount": 1
         }
       ],
       "deviceSlugs": [
-        "acf7a326d2a12131"
+        "3e2a7b88f6db66c0",
+        "718a8115ff142454"
       ]
     }
   ]

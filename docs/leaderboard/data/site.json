@@ -1,9 +1,21 @@
 {
   "schema": "pns.fleet_leaderboard_site.v1",
-  "updatedUtc": "2026-06-05T04:27:03.3165304Z",
+  "updatedUtc": "2026-06-05T04:27:28.9294001Z",
   "catalogVersion": 3,
   "deviceCount": 5,
   "oemRankings": [
+    {
+      "manufacturer": "Essential Products",
+      "opennessPercent": 80.2,
+      "gateHonestyPercent": 50.0,
+      "compositePercent": 68.1,
+      "restrictionIndex": 31.9,
+      "withheldFeatureCount": 20,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "dff79fd1b3808b1d"
+      ]
+    },
     {
       "manufacturer": "HTC",
       "opennessPercent": 78.9,
@@ -39,18 +51,6 @@
       "deviceCount": 1,
       "deviceSlugs": [
         "acf7a326d2a12131"
-      ]
-    },
-    {
-      "manufacturer": "Essential Products",
-      "opennessPercent": 80.2,
-      "gateHonestyPercent": 50.0,
-      "compositePercent": 68.1,
-      "restrictionIndex": 31.9,
-      "withheldFeatureCount": 20,
-      "deviceCount": 1,
-      "deviceSlugs": [
-        "dff79fd1b3808b1d"
       ]
     }
   ],

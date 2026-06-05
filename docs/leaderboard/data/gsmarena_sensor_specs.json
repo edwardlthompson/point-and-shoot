@@ -1,9 +1,9 @@
 {
   "schema": "pns.gsmarena_sensor_specs.v1",
   "source": "GSMArena",
-  "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm² via 25.4/denom diagonal (4:3).",
-  "scrapedUtc": "2026-06-04T13:52:58.545561+00:00",
-  "stale": false,
+  "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm\u00b2 via 25.4/denom diagonal (4:3).",
+  "scrapedUtc": "2026-06-05T02:29:41.704252+00:00",
+  "stale": true,
   "devices": [
     {
       "model": "CPH2583",
@@ -12,7 +12,7 @@
       "pageTitle": "OnePlus 12 - Full phone specifications",
       "lenses": [
         {
-          "rawLine": "50 MP, f/1.6, 23mm (wide), 1/1.43\", 1.12µm, multi-directional PDAF, OIS",
+          "rawLine": "50 MP, f/1.6, 23mm (wide), 1/1.43\", 1.12\u00b5m, multi-directional PDAF, OIS",
           "megapixels": 50.0,
           "focalLengthMm": 23.0,
           "role": "wide",
@@ -22,7 +22,7 @@
           "areaMm2": 151.44
         },
         {
-          "rawLine": "64 MP, f/2.6, 70mm (periscope telephoto), 1/2.0\", 0.7µm, PDAF, OIS, 3x optical zoom",
+          "rawLine": "64 MP, f/2.6, 70mm (periscope telephoto), 1/2.0\", 0.7\u00b5m, PDAF, OIS, 3x optical zoom",
           "megapixels": 64.0,
           "focalLengthMm": 70.0,
           "role": "tele",
@@ -32,7 +32,7 @@
           "areaMm2": 77.42
         },
         {
-          "rawLine": "48 MP, f/2.2, 14mm, 114˚ (ultrawide), 1/2.0\", 0.8µm, PDAF",
+          "rawLine": "48 MP, f/2.2, 14mm, 114\u02da (ultrawide), 1/2.0\", 0.8\u00b5m, PDAF",
           "megapixels": 48.0,
           "focalLengthMm": 14.0,
           "role": "ultrawide",
@@ -54,7 +54,7 @@
       "pageTitle": "Sony Xperia 5 V - Full phone specifications",
       "lenses": [
         {
-          "rawLine": "48 MP, f/1.9, 24mm (wide), 1/1.35\", 1.12µm, dual pixel PDAF, OIS",
+          "rawLine": "48 MP, f/1.9, 24mm (wide), 1/1.35\", 1.12\u00b5m, dual pixel PDAF, OIS",
           "megapixels": 48.0,
           "focalLengthMm": 24.0,
           "role": "wide",
@@ -86,7 +86,7 @@
       "pageTitle": "HTC Exodus 1 - Full phone specifications",
       "lenses": [
         {
-          "rawLine": "12 MP, f/1.8, 1/2.55\", 1.4µm, dual pixel PDAF, OIS",
+          "rawLine": "12 MP, f/1.8, 1/2.55\", 1.4\u00b5m, dual pixel PDAF, OIS",
           "megapixels": 12.0,
           "focalLengthMm": null,
           "role": "wide",
@@ -96,7 +96,7 @@
           "areaMm2": 47.62
         },
         {
-          "rawLine": "16 MP (12 MP effective), f/2.6, 1/3.1\", 1.0µm, 2x optical zoom, AF",
+          "rawLine": "16 MP (12 MP effective), f/2.6, 1/3.1\", 1.0\u00b5m, 2x optical zoom, AF",
           "megapixels": 16.0,
           "focalLengthMm": null,
           "role": "tele",
@@ -144,5 +144,26 @@
       "scrapedOk": true
     }
   ],
-  "errors": []
+  "errors": [
+    {
+      "model": "CPH2583",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "XQ-BE62",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "CPH2649",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "EXODUS 1",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "PH-1",
+      "error": "HTTP Error 429: Too Many Requests"
+    }
+  ]
 }

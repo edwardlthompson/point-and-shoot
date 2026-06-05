@@ -59,3 +59,25 @@ python scripts/gsmarena_device_specs_scrape.py
 On HTTP 429, use `-SkipGsmarenaScrape` and committed cache JSON.
 
 Weekly CI: `leaderboard-pages.yml` (non-blocking scrapes).
+
+## Phase 5 verification checklist (host)
+
+After publish, run:
+
+```powershell
+.\scripts\pns_leaderboard_host_smoke.ps1
+.\scripts\pns_m25_gate.ps1 -HostOnly
+```
+
+Manual spot-checks (when USB + Pages live):
+
+| Check | Pass signal |
+|-------|-------------|
+| Resolution betrayal panel | Device with `resolutionBetrayalIndex > 0` shows withheld % + OEM loss summary |
+| OEM accountability page | OnePlus row lists resolution-withholding aggregates from `oem_accountability.json` |
+| GSMArena untested label | Advertised column on `#/product/*` shows "untested" / separate from Camera2 tested |
+| Camera2 vs CameraX toggle | `#/device/{slug}` → CameraX panel lists Night/Bokeh/HDR when `cameraXProbed=true` |
+| Community payload | Ingest JSON includes `resolutionBetrayalIndex`, `measurementContext`, `buildDisplay` |
+| RSS + CSV footer | Site footer links resolve to `data/feed.xml` and `data/leaderboard.csv` |
+
+USB gates: `pns_fleet_matrix_scan.ps1 -ScanTier full` + `pns_fleet_parity_sweep.ps1 -Mode Full` on primary **CPH2583**.

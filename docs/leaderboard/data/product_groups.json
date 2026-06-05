@@ -1,6 +1,6 @@
 {
   "schema": "pns.leaderboard_product_groups.v1",
-  "updatedUtc": "2026-06-05T02:24:55.3406066Z",
+  "updatedUtc": "2026-06-05T02:38:44.8574497Z",
   "groups": [
     {
       "groupId": "oneplus-12",
@@ -25,20 +25,6 @@
         "gsmarenaUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
         "advertisedClaims": [
           {
-            "catalogId": "still.resolution_tele",
-            "advertisedValue": "64 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "50 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
             "catalogId": "still.resolution_ultrawide",
             "advertisedValue": "48 MP",
             "source": "gsmarena",
@@ -53,8 +39,8 @@
             "verified": false
           },
           {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (wide)",
+            "catalogId": "still.resolution_tele",
+            "advertisedValue": "64 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
             "verified": false
@@ -62,6 +48,20 @@
           {
             "catalogId": "lens.ois",
             "advertisedValue": "yes (tele)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (wide)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_wide",
+            "advertisedValue": "50 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
             "verified": false
@@ -75,6 +75,23 @@
           }
         ]
       }
+    },
+    {
+      "groupId": "oneplus-cph2655",
+      "marketingName": "OnePlus CPH2655",
+      "testedVariants": [
+        {
+          "lineItemKind": "camera2_tested",
+          "romFlavor": "engineering",
+          "slug": "3e2a7b88f6db66c0",
+          "testedApiLevel": "Android 16 (API 36)",
+          "parityScore": 1577,
+          "honestyPercent": 81.6,
+          "trustTier": "maintainer",
+          "resolutionBetrayalIndex": 0
+        }
+      ],
+      "advertisedSpec": null
     },
     {
       "groupId": "sony-xperia-5-v",
@@ -99,13 +116,6 @@
         "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
         "advertisedClaims": [
           {
-            "catalogId": "still.resolution_ultrawide",
-            "advertisedValue": "12 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          },
-          {
             "catalogId": "lens.ois",
             "advertisedValue": "yes (wide)",
             "source": "gsmarena",
@@ -125,26 +135,16 @@
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
             "verified": false
+          },
+          {
+            "catalogId": "still.resolution_ultrawide",
+            "advertisedValue": "12 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+            "verified": false
           }
         ]
       }
-    },
-    {
-      "groupId": "oneplus-cph2655",
-      "marketingName": "OnePlus CPH2655",
-      "testedVariants": [
-        {
-          "lineItemKind": "camera2_tested",
-          "romFlavor": "engineering",
-          "slug": "3e2a7b88f6db66c0",
-          "testedApiLevel": "Android 16 (API 36)",
-          "parityScore": 1414,
-          "honestyPercent": 78.2,
-          "trustTier": "maintainer",
-          "resolutionBetrayalIndex": 0
-        }
-      ],
-      "advertisedSpec": null
     },
     {
       "groupId": "htc-exodus-1",
@@ -169,8 +169,8 @@
         "gsmarenaUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
         "advertisedClaims": [
           {
-            "catalogId": "still.resolution_tele",
-            "advertisedValue": "16 MP",
+            "catalogId": "still.resolution_wide",
+            "advertisedValue": "12 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
@@ -183,13 +183,6 @@
             "verified": false
           },
           {
-            "catalogId": "still.resolution_max",
-            "advertisedValue": "16 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-            "verified": false
-          },
-          {
             "catalogId": "lens.tele",
             "advertisedValue": "yes",
             "source": "gsmarena",
@@ -197,8 +190,15 @@
             "verified": false
           },
           {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "12 MP",
+            "catalogId": "still.resolution_max",
+            "advertisedValue": "16 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_tele",
+            "advertisedValue": "16 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
@@ -229,14 +229,14 @@
         "gsmarenaUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
         "advertisedClaims": [
           {
-            "catalogId": "still.resolution_max",
+            "catalogId": "still.resolution_wide",
             "advertisedValue": "13 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
             "verified": false
           },
           {
-            "catalogId": "still.resolution_wide",
+            "catalogId": "still.resolution_max",
             "advertisedValue": "13 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",

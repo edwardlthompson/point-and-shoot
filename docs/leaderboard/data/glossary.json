@@ -2,74 +2,74 @@
   "schema": "pns.leaderboard_glossary.v1",
   "terms": [
     {
-      "id": "hal_advertised",
+      "term": "HAL advertised",
       "definition": "The device Camera2 HAL reports this capability as supported in its characteristics or stream maps.",
-      "term": "HAL advertised"
+      "id": "hal_advertised"
     },
     {
-      "id": "proven",
+      "term": "Proven",
       "definition": "Point and Shoot parity sweep successfully exercised this capability on a real device session.",
-      "term": "Proven"
+      "id": "proven"
     },
     {
-      "id": "sessionOk",
+      "term": "Session OK",
       "definition": "A capture session could be created that includes this capability without immediate failure.",
-      "term": "Session OK"
+      "id": "sessionOk"
     },
     {
-      "id": "honesty",
+      "term": "Honesty %",
       "definition": "Percentage of HAL-advertised catalog cells that were proven in the parity sweep.",
-      "term": "Honesty %"
+      "id": "honesty"
     },
     {
-      "id": "restriction_index",
+      "term": "Restriction Index",
       "definition": "OEM score for how much advertised hardware is gated from third-party Camera2 apps. Higher means more restrictive.",
-      "term": "Restriction Index"
+      "id": "restriction_index"
     },
     {
-      "id": "sensor_sum",
+      "term": "Sensor sum (mm2)",
       "definition": "Combined physical sensor area of rear non-logical cameras from HAL or GSMArena.",
-      "term": "Sensor sum (mm2)"
+      "id": "sensor_sum"
     },
     {
-      "id": "camera2",
+      "term": "Camera2 API",
       "definition": "Android standard camera API used by third-party apps, not the OEM proprietary camera app.",
-      "term": "Camera2 API"
+      "id": "camera2"
     },
     {
-      "id": "tested_api",
+      "term": "Tested API",
       "definition": "Android SDK/API level running on the device during the parity sweep.",
-      "term": "Tested API"
+      "id": "tested_api"
     },
     {
-      "id": "trust_maintainer",
+      "term": "Fleet tested",
       "definition": "Maintainer USB sweep published from the project regression fleet.",
-      "term": "Fleet tested"
+      "id": "trust_maintainer"
     },
     {
-      "id": "trust_community",
+      "term": "Community verified",
       "definition": "User-submitted Full parity sweep that passed automated validation.",
-      "term": "Community verified"
+      "id": "trust_community"
     },
     {
-      "id": "advertised_spec",
+      "term": "Advertised (GSMArena)",
       "definition": "Marketing spec-sheet data from GSMArena. Not verified by Point and Shoot Camera2 sweeps.",
-      "term": "Advertised (GSMArena)"
+      "id": "advertised_spec"
     },
     {
-      "id": "camera2_stock_tested",
+      "term": "Camera2 on stock (tested)",
       "definition": "USB Full parity sweep on stock ROM. Separate from GSMArena advertised specs.",
-      "term": "Camera2 on stock (tested)"
+      "id": "camera2_stock_tested"
     },
     {
-      "id": "resolution_betrayal",
+      "term": "Resolution betrayal index",
       "definition": "0-100 score for rear cameras with higher MP on alternate HAL stream maps vs Camera2 default path.",
-      "term": "Resolution betrayal index"
+      "id": "resolution_betrayal"
     },
     {
-      "id": "parity_pts",
+      "term": "Parity points",
       "definition": "Weighted sum of proven catalog features, resolutions, and capability gates. Primary capability rank.",
-      "term": "Parity points"
+      "id": "parity_pts"
     }
   ]
 }

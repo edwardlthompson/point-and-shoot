@@ -1,36 +1,36 @@
-{
-  "schema": "pns.leaderboard_feed.v1",
-  "updatedUtc": "2026-06-05T04:27:47.6695168Z",
-  "items": [
-    {
-      "timestampUtc": "2026-06-05T02:24:55.3550891Z",
-      "slug": "3e2a7b88f6db66c0",
-      "marketingName": "OnePlus CPH2655",
-      "event": "device_added"
-    },
-    {
-      "timestampUtc": "2026-06-04T13:47:38.2541562Z",
-      "slug": "dff79fd1b3808b1d",
-      "marketingName": "Essential Products PH-1",
-      "event": "device_added"
-    },
-    {
-      "timestampUtc": "2026-06-04T13:47:38.2526198Z",
-      "slug": "088f8b18916ff4ea",
-      "marketingName": "HTC EXODUS 1",
-      "event": "device_added"
-    },
-    {
-      "timestampUtc": "2026-06-04T13:31:23.0083172Z",
-      "slug": "acf7a326d2a12131",
-      "marketingName": "Sony Xperia 5 V",
-      "event": "device_added"
-    },
-    {
-      "timestampUtc": "2026-06-04T13:31:22.9903401Z",
-      "slug": "718a8115ff142454",
-      "marketingName": "OnePlus 12",
-      "event": "device_added"
-    }
-  ]
+﻿{
+    "schema":  "pns.leaderboard_feed.v1",
+    "updatedUtc":  "2026-06-05T04:36:57.1130751Z",
+    "items":  [
+                  {
+                      "timestampUtc":  "2026-06-05T02:24:55.3550891Z",
+                      "slug":  "3e2a7b88f6db66c0",
+                      "marketingName":  "OnePlus CPH2655",
+                      "event":  "device_added"
+                  },
+                  {
+                      "timestampUtc":  "2026-06-04T13:47:38.2541562Z",
+                      "slug":  "dff79fd1b3808b1d",
+                      "marketingName":  "Essential Products PH-1",
+                      "event":  "device_added"
+                  },
+                  {
+                      "timestampUtc":  "2026-06-04T13:47:38.2526198Z",
+                      "slug":  "088f8b18916ff4ea",
+                      "marketingName":  "HTC EXODUS 1",
+                      "event":  "device_added"
+                  },
+                  {
+                      "timestampUtc":  "2026-06-04T13:31:23.0083172Z",
+                      "slug":  "acf7a326d2a12131",
+                      "marketingName":  "Sony Xperia 5 V",
+                      "event":  "device_added"
+                  },
+                  {
+                      "timestampUtc":  "2026-06-04T13:31:22.9903401Z",
+                      "slug":  "718a8115ff142454",
+                      "marketingName":  "OnePlus 12",
+                      "event":  "device_added"
+                  }
+              ]
 }

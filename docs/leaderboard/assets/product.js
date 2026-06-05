@@ -1,4 +1,4 @@
-import { fmtNum, progressBar } from './theme.js';
+import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry } from './theme.js';
 
 function pickVariant(variants, romFlavors) {
   if (!variants?.length) return null;
@@ -50,17 +50,25 @@ export function renderProductGroup(group, devicesBySlug) {
         hfr: '—',
       };
     }
-    const maxMp = (d.stillResolutionHonesty || []).reduce((m, r) => {
-      const mp = r.defaultJpeg?.mp ?? r.defaultRawSensor?.mp ?? 0;
-      return Math.max(m, mp);
-    }, 0);
+    const specMp = maxAdvertisedRearMp(d);
+    const halMax = (d.stillResolutionHonesty || []).reduce((m, r) => Math.max(m, maxHalMpFromEntry(r)), 0);
+    const halRounded = halMax > 0 ? Math.round(halMax * 10) / 10 : 0;
+    let maxMp = '—';
+    if (specMp) {
+      const specRounded = Math.round(specMp * 10) / 10;
+      maxMp = halRounded > 0 && halRounded < specRounded * 0.9
+        ? `${specRounded} spec · ${halRounded} Camera2`
+        : `${specRounded} MP`;
+    } else if (halRounded > 0) {
+      maxMp = `${halRounded} (Camera2)`;
+    }
     const hfrCell = Object.values(d.cellsByCategory || {}).flat().find((c) => c.catalogId?.startsWith('video.hfr') && c.provenOk);
     return {
       label: d.slug,
       pts: d.scores?.total?.score ?? '—',
       honesty: `${d.disparity?.honestyPercent ?? '—'}%`,
       betrayal: d.resolutionBetrayal?.index ?? variant.resolutionBetrayalIndex ?? '—',
-      maxMp: maxMp ? `${maxMp} (proven)` : '—',
+      maxMp,
       hfr: hfrCell ? 'pass' : 'fail',
       device: d,
     };

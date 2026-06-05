@@ -165,6 +165,42 @@ export function glossaryLabel(text, glossary, termId) {
   return `<span class="glossary-term" title="${term.definition.replace(/"/g, '&quot;')}">${text}</span>`;
 }
 
+/** Max MP from Camera2 HAL stream maps on a resolution-honesty row. */
+export function maxHalMpFromEntry(r) {
+  const sizes = [
+    r.defaultJpeg,
+    r.highResJpeg,
+    r.maxResMapJpeg,
+    r.multiResJpeg,
+    r.defaultRawSensor,
+    r.highResRawSensor,
+    r.maxResMapRawSensor,
+  ];
+  return sizes.reduce((m, s) => {
+    const mp = s?.mp ?? (s?.width && s?.height ? (s.width * s.height) / 1e6 : 0);
+    return Math.max(m, mp || 0);
+  }, 0);
+}
+
+/** Spec / focal-row advertised MP for a logical camera id (matches lens strip). */
+export function advertisedMpForCamera(d, cameraId) {
+  if (d == null || cameraId == null) return null;
+  const entries = d.stillResolutionHonesty || d.resolutionBetrayal?.entries || [];
+  const row = entries.find((e) => String(e.cameraId) === String(cameraId));
+  if (row?.advertisedMegapixels != null) return row.advertisedMegapixels;
+  const slot = (d.lensLineup || []).find((s) => String(s.cameraId) === String(cameraId));
+  if (slot?.megapixels != null) return slot.megapixels;
+  return null;
+}
+
+/** Highest rear advertised MP from focal row or GSMArena lens list. */
+export function maxAdvertisedRearMp(d) {
+  const fromLineup = (d.lensLineup || []).reduce((m, s) => Math.max(m, s.megapixels ?? 0), 0);
+  if (fromLineup > 0) return fromLineup;
+  const fromSpec = (d.sensors?.rearLenses || []).reduce((m, l) => Math.max(m, l.megapixels ?? 0), 0);
+  return fromSpec > 0 ? fromSpec : null;
+}
+
 export function renderSensorSvg(device) {
   const lenses = device?.sensors?.rearLenses?.length
     ? device.sensors.rearLenses.filter((l) => l.role !== 'selfie')
@@ -175,7 +211,10 @@ export function renderSensorSvg(device) {
     const h = Math.max(4, ((l.areaMm2 || 0) / max) * 36);
     const x = 8 + i * 48;
     const y = 40 - h;
-    return `<rect x="${x}" y="${y}" width="32" height="${h}" fill="var(--accent)" rx="2"/><text x="${x + 16}" y="38" text-anchor="middle" font-size="8" fill="var(--muted)">${l.role || l.cameraId || i}</text>`;
+    const mp = l.megapixels ?? (l.cameraId != null ? advertisedMpForCamera(device, l.cameraId) : null);
+    const roleLabel = l.role || l.cameraId || i;
+    const mpLabel = mp ? `<text x="${x + 16}" y="12" text-anchor="middle" font-size="7" fill="var(--text)">${Math.round(mp)}MP</text>` : '';
+    return `<rect x="${x}" y="${y}" width="32" height="${h}" fill="var(--accent)" rx="2"/>${mpLabel}<text x="${x + 16}" y="38" text-anchor="middle" font-size="8" fill="var(--muted)">${roleLabel}</text>`;
   }).join('');
   return `<svg class="sensor-chart" viewBox="0 0 200 40" width="200" height="40">${bars}</svg>`;
 }

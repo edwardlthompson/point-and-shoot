@@ -1,15 +1,43 @@
-import { trustBadge, fmtNum, progressBar, cellChip, formatApiLevel, apiLevelBadge, sensorSumLabel, sensorSourceNote, renderRearLensTable, renderSensorSvg, gsmarenaLinkHtml, specLinksHtml, glossaryLabel } from './theme.js';
+import {
+  trustBadge,
+  fmtNum,
+  progressBar,
+  cellChip,
+  formatApiLevel,
+  apiLevelBadge,
+  sensorSumLabel,
+  sensorSourceNote,
+  renderRearLensTable,
+  renderSensorSvg,
+  gsmarenaLinkHtml,
+  specLinksHtml,
+  glossaryLabel,
+  maxHalMpFromEntry,
+  advertisedMpForCamera,
+} from './theme.js';
 import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js';
 import { drawSparkline } from './charts.js';
 import { shareDeviceUrl } from './router.js';
 
-function maxMpFromEntry(r) {
-  const sizes = [r.defaultJpeg, r.highResJpeg, r.maxResMapJpeg, r.multiResJpeg, r.defaultRawSensor, r.highResRawSensor, r.maxResMapRawSensor];
-  return sizes.reduce((m, s) => Math.max(m, s?.mp ?? s?.width * s?.height / 1e6 ?? 0), 0);
-}
-
 function defaultMpFromEntry(r) {
   return r.defaultJpeg?.mp ?? r.defaultRawSensor?.mp ?? 0;
+}
+
+function resolutionNotes(d, r) {
+  const halMax = maxHalMpFromEntry(r);
+  const parts = [];
+  if (r.hasLargerThanDefault) {
+    parts.push('hidden high-res on alt map');
+  } else if (halMax > 0) {
+    parts.push(`Camera2 max map ${fmtNum(Math.round(halMax * 10) / 10)} MP`);
+  } else {
+    parts.push('default path only');
+  }
+  const advertised = advertisedMpForCamera(d, r.cameraId);
+  if (advertised != null && halMax > 0 && advertised > halMax * 1.05) {
+    parts.push('spec MP above Camera2 default');
+  }
+  return parts.join(' · ');
 }
 
 function renderResolutionBetrayalPanel(d, glossary) {
@@ -18,15 +46,15 @@ function renderResolutionBetrayalPanel(d, glossary) {
   const idx = d.resolutionBetrayal?.index ?? '—';
   const rows = entries.map((r) => {
     const def = fmtNum(defaultMpFromEntry(r));
-    const max = fmtNum(maxMpFromEntry(r));
-    const proven = r.hasLargerThanDefault ? 'hidden high-res on alt map' : 'default path only';
-    return `<tr><td>${r.cameraId}</td><td>${def} MP</td><td>${max} MP</td><td>${proven}</td></tr>`;
+    const advertised = advertisedMpForCamera(d, r.cameraId);
+    const max = fmtNum(advertised != null ? Math.round(advertised * 10) / 10 : null);
+    return `<tr><td>${r.cameraId}</td><td>${def} MP</td><td>${max !== '—' ? `${max} MP` : '—'}</td><td>${resolutionNotes(d, r)}</td></tr>`;
   }).join('');
   return `
     <section class="device-card resolution-panel">
       <h3>${glossaryLabel('Resolution withholding', glossary, 'resolution_betrayal')}</h3>
-      <p class="software-line">Betrayal index: <strong>${idx}</strong> (higher = more cameras with HAL high-res maps above Camera2 default)</p>
-      <p>OEM stream maps may expose higher resolutions to the stock camera app via alternate maps; Camera2 default sessions may be capped lower.</p>
+      <p class="software-line">Betrayal index: <strong>${idx}</strong> (% of cameras where spec/focal-row MP or alternate HAL maps exceed Camera2 default by ≥25%)</p>
+      <p>Counts hidden high-res stream maps and spec-sheet megapixel claims above the default Camera2 still path.</p>
       <table class="data-table"><thead><tr><th>Camera</th><th>Default MP</th><th>Max advertised MP</th><th>Notes</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
     </section>`;
 }

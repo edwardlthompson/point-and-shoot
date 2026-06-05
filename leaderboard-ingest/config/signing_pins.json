@@ -1,0 +1,4 @@
+{
+  "allowedCertSha256": [],
+  "note": "Add release APK signing cert SHA-256 fingerprints to allow community submissions"
+}

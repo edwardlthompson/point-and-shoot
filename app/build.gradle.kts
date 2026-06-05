@@ -87,6 +87,17 @@ android {
                 arguments += listOf("-DANDROID_STL=c++_shared")
             }
         }
+
+        buildConfigField(
+            "String",
+            "LEADERBOARD_INGEST_URL",
+            "\"https://pns-leaderboard-ingest.onrender.com\"",
+        )
+        buildConfigField(
+            "String",
+            "LEADERBOARD_PUBLIC_BASE_URL",
+            "\"https://edwardlthompson.github.io/point-and-shoot/leaderboard\"",
+        )
     }
 
     signingConfigs {
@@ -137,6 +148,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {

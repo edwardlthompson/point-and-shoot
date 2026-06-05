@@ -34,6 +34,68 @@
 
 ## Active entries
 
+### REG-20260605-003 — M25 resolution betrayal rows promoted to ship-blocker
+
+- **Status:** active
+- **Area:** fleet / leaderboard
+- **Symptom:** `still.resolution_maximum_map` and `still.hidden_highres` were marked informational, so OEM high-resolution withholding could stay non-blocking in parity/leaderboard.
+- **Cause:** Catalog rows hard-pinned `consumerImpact=INFORMATIONAL` despite M25 buyer-facing source-of-truth objective.
+- **Fix shipped:** Promoted both rows to `SHIP_BLOCKER` in `CameraCapabilityCatalog`; GSMArena scrape lane now retries 429/title mismatch bursts before falling back to cache so advertised-vs-proven context is less stale.
+- **Do not:** Demote these two rows back to informational without fresh USB evidence on >=2 SKUs and maintainer sign-off.
+- **Proves OK:** `scripts/pns_fleet_parity_sweep.ps1 -Mode Full -Serial b5214fc6` (`hfr-runs/parity_sweep_20260605_105238/`) and `-Serial adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp` (`hfr-runs/parity_sweep_20260605_105702/`) with full-tier matrix refresh.
+- **Also test:** `scripts/pns_m25_gate.ps1 -HostOnly`; `scripts/pns_leaderboard_host_smoke.ps1`; `scripts/pns_fleet_parity_leaderboard_refresh.ps1` after catalog impact changes.
+- **Touches:** `CameraCapabilityCatalog.kt`, `gsmarena_sensor_scrape.py`, `gsmarena_device_specs_scrape.py`, `docs/leaderboard/data/gsmarena_device_specs.json`
+- **Conflicts with:** REG-20260530-001
+
+### REG-20260605-001 — GLES preview buffer sizing + session abandon retry (M24)
+
+- **Status:** active
+- **Area:** preview / video
+- **Symptom:** Cold preview/video automation: `IllegalArgumentException: Surface was abandoned` on every `createCaptureSession`; `inAppVideoSaved` / `captureRawStill` never fire; `truthClass=blocked_unstable`
+- **Cause:** Main-thread `SurfaceTexture.setDefaultBufferSize` after `closeCamera` abandons the external-OES producer queue before Camera2 binds `OutputConfiguration`; rapid `maybeRestart` churn exhausts retry budget without GL-thread publish delay
+- **Fix shipped:** `LutCameraPreviewRenderer.queueSetPreviewBufferSize` (GL thread + 300ms publish delay); `maybeRestartBody` uses renderer path; bounded abandon rebuild retry (`HFR_SURFACE_ABANDON_RETRY_*`); video-primary lean warmup skips RAW/JPEG until record armed; `adbHfrFpsDeferred` warms ≤60 fps before HFR automation
+- **Do not:** Call `setDefaultBufferSize` on main thread in `maybeRestartBody` without USB proof; do not call `maybeRestart()` from `onSurfaceTextureAvailable` while `device != null` unless surface was null/invalid (Sprint 5.3 abandon regression)
+- **Proves OK:** `pns_photo_capture_verify.ps1` + `pns_in_app_video_verify.ps1` + `pns_4k120_verify.ps1` on **CPH2583** (pending device reconnect after 2026-06-05 reboot); host `pns_m24_gate.ps1 -HostOnly`; JVM `StrictHfrPolicyTest`
+- **Also test:** `pns_m24_gate.ps1` full USB chain alone on one serial; never parallel with `pns_photo_capture_verify` on same device
+- **Touches:** `LutCameraPreviewRenderer.kt`, `PreviewEngineScreen.kt`, `StrictHfrPolicy.kt`
+- **Conflicts with:** `preview-chrome-ui-lock.mdc` (behavioral only)
+
+### REG-20260604-001 — minSdk 28 runtime API guards (ApiLevelGuards)
+
+- **Status:** active
+- **Area:** fleet / probe / capture
+- **Symptom:** `NoSuchMethodError` (`MediaCodecInfo.isAlias`) or `NoSuchFieldError` (`REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES`, `THERMAL_STATUS_*`) on API 28 — probe hub / parity sweep crash with 0 cells
+- **Cause:** Direct use of SDK static fields/methods not present in the device framework JAR below their introduction API
+- **Fix shipped:** `ApiLevelGuards.kt` top-level helpers; thermal literals; `isNonAliasEncoder()`; DR/CC/stream-use-case/session-query accessors; `writeBytesCompat`
+- **Do not:** Reference `isAlias`, `PowerManager.THERMAL_STATUS_*`, or API 33+ Camera2 keys outside `ApiLevelGuards` (or equivalent SDK_INT branch) on paths reachable from `PnsApplication` / probe hub / preview
+- **Proves OK:** USB EXODUS API 28 — `PNS.FleetParity sweepComplete mode=quick cells=56` after `probehub` launch; JVM `ApiLevelGuardsTest`
+- **Also test:** `pns_fleet_parity_sweep.ps1 -Mode Full` on API 28 fleet device when matrix/parity scripts change
+- **Touches:** `ApiLevelGuards.kt`, `MediaCodecCapabilityProbe.kt`, `CameraCapabilitiesProbe.kt`, `PreviewThermalLabels.kt`, `PreviewPowerThermalMonitor.kt`, `PreviewAdaptiveFpsPolicy.kt`, `MulticamMeltThermalPolicy.kt`, `DngMetadataResolver.kt`, `PreviewEngineScreen.kt`, …
+
+### REG-20260604-003 — Fleet-honest consumer UI (sessionOk gates + DeviceAdaptedCatalog)
+
+- **Status:** active
+- **Area:** fleet / chrome / video / focal
+- **Symptom:** EXODUS (API 28): all prime focal chips shown; no still/video capture; video picker HDR trap emptied all options; focal crop inert
+- **Cause:** Consumer UI used matrix **`advertised`** only; static color-space list; `pickForRecording` synth forced DCG/10-bit; prime row `enabled=true` always
+- **Fix shipped:** `FleetConsumerAvailability` + `FleetUiVisibilityGate` uses **`sessionOk && appEnabled`**; `DeviceAdaptedCatalog` / `DeviceAdaptedPrefs`; prime focal filter ≥12 MP; JPEG coerce when `raw.sessionOk=false`; video picker transitive color spaces; HFR record gated on `hfr.sessionOk`; 2-back roles = wide+tele
+- **Do not:** Show HDR10 / RAW DNG / HFR >119 on consumer chrome when matrix `sessionOk=false`; do not synth codecs outside adapted catalog in `pickForRecording`
+- **Proves OK:** JVM `FleetConsumerAvailabilityTest`, `DeviceAdaptedCatalogTest`, `BackCameraRoleResolverTest`; USB `pns_in_app_video_verify` + manual preview on EXODUS
+- **Also test:** `pns_chrome_ux_gate.ps1` (not parallel with capture verify on one device)
+- **Touches:** `FleetConsumerAvailability.kt`, `DeviceAdaptedCatalog.kt`, `DeviceAdaptedPrefs.kt`, `FleetUiVisibilityGate.kt`, `InAppVideoFormatSelection.kt`, `VideoFormatPickerSheet.kt`, `PreviewEngineScreen.kt`, `FleetFocalRowProductBuilder.kt`, `BackCameraRoleResolver.kt`, `VideoRecordingController.kt`
+
+### REG-20260604-002 — Preview session omits RAW when fleet matrix `raw.sessionOk=false`
+
+- **Status:** active
+- **Area:** capture / preview session
+- **Symptom:** Black finder on all focal lengths; `createCaptureSession` `CameraAccessException` / `Function not implemented (-38)` with preview+RAW_SENSOR+JPEG (HTC EXODUS 1 / API 28)
+- **Cause:** `createSession` attached RAW/JPEG still surfaces even when on-device matrix already marked `featureGates.raw.sessionOk=false`
+- **Fix shipped:** `FleetCapabilityGate.isRawSessionOk` gate in `PreviewController.createSession` — skip RAW (+ JPEG companion) when matrix says `sessionOk=false`; log `RAW preview stream omitted` + `matrixRawSessionOk=false` in `PNS.PreviewSessionCtx`
+- **Do not:** Re-attach RAW to REGULAR preview session on cameras with matrix `raw.sessionOk=false` without fresh USB proof that HAL accepts the combo
+- **Proves OK:** USB EXODUS `FA8BW1F00538` — `RAW preview stream omitted` + `Normal repeatingRequest started` + `previewGeometry … buf=1920x1440` (no `createCaptureSession threw`)
+- **Also test:** `pns_chrome_ux_gate.ps1` focal taps; `pns_photo_capture_verify.ps1` must stay skipped or expect JPEG-only on this SKU (RAW disabled)
+- **Touches:** `PreviewEngineScreen.kt`, `FleetCapabilityGate.kt`
+
 ### REG-20260603-001 — Variable aperture readout (per-cameraId map)
 
 - **Status:** active
@@ -209,7 +271,7 @@
 - **Fix shipped:** Added ADB seeds for experimental toggles/safe mode in preview startup (`pns_preview_experimental_*`, `pns_preview_force_safe_mode`) and upgraded `pns_still_resolution_mode_verify.ps1` to a 3-scenario matrix (`baseline`, `experimental`, `safe_mode_forced`) with rollback signals.
 - **Do not:** Claim max-res unlock progress without `unlockProducedDelta=true` and `safeModeForced.failClosed=true` in `still_resolution_mode_verify_summary.json`.
 - **Proves OK:** `scripts/pns_still_resolution_mode_verify.ps1`; log needles `preview seeded experimental ...`, `preview seeded experimental safeMode=true (forced)`, `maxResUnlock active=... applied=...`.
-- **Also test:** `scripts/pns_fleet_parity_sweep.ps1 -Mode Quick` (ensure `experimentalUnlockState` emitted) and `scripts/pns_root_privileged_smoke.ps1` (root wiring) after unlock lane edits.
+- **Also test:** `scripts/pns_fleet_parity_sweep.ps1 -Mode Delta` (ensure `experimentalUnlockState` emitted) and `scripts/pns_root_privileged_smoke.ps1` (root wiring) after unlock lane edits.
 - **Touches:** `CameraCapabilitiesProbe.kt`, `PreviewEngineScreen.kt`, `scripts/pns_still_resolution_mode_verify.ps1`, `scripts/pns_fleet_parity_sweep.ps1`, `scripts/pns_root_privileged_smoke.ps1`
 - **Conflicts with:** REG-20260512-001, REG-20260530-001
 
@@ -365,7 +427,7 @@
 - **Fix shipped:** `FocalLensStripSupport` now prefers matrix `product.focalRow` camera ids and static slot availability in focal chip interaction and native focal hint selection; runtime resolver remains fallback when matrix row is missing.
 - **Do not:** Revert focal chip interaction/native hint paths to resolver-first behavior without matrix-first fallback and fleet USB gate proof.
 - **Proves OK:** `scripts/pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.BackCameraRoleResolverTest --tests dev.pointandshoot.SensorCropGeometryTest`; `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` -> `hfr-runs/chrome_ux_gate_20260603_023928/chrome_ux_gate.json` (`teleFocalSlotOk=true`, `pass=True`).
-- **Also test:** `scripts/pns_fleet_matrix_scan.ps1` and parity quick sweep after focal-row builder/policy edits.
+- **Also test:** `scripts/pns_fleet_matrix_scan.ps1` and parity delta sweep after focal-row builder/policy edits.
 - **Touches:** `FocalLensStripSupport.kt`
 - **Conflicts with:** REG-20260528-003
 
@@ -377,7 +439,7 @@
 - **Fix shipped:** `FleetFocalRowProductBuilder` now builds `product.focalRow` from mathematical prime assignments for chip targets (`14/23/35/50/73/85/150`) using `FocalLensStripSupport.resolvePrimeLensAssignments(..., targets)`; overlap resolution prefers least crop first, then higher effective MP, and writes per-slot assignment metadata (`slotAssignments`) consumed by matrix-first focal chip mapping.
 - **Do not:** Reintroduce role-first/static-estimate focal row generation without target-level assignment math and fleet scan verification.
 - **Proves OK:** `scripts/pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.FocalLensStripSupportTest --tests dev.pointandshoot.fleet.FleetFocalRowPolicyTest`; `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` -> `hfr-runs/chrome_ux_gate_20260603_025656/chrome_ux_gate.json` (`teleFocalSlotOk=true`, `pass=True`).
-- **Also test:** `scripts/pns_fleet_matrix_scan.ps1` + parity quick sweep after focal-row builder / startup scan math changes.
+- **Also test:** `scripts/pns_fleet_matrix_scan.ps1` + parity delta sweep after focal-row builder / startup scan math changes.
 - **Touches:** `FocalLensStripSupport.kt`, `fleet/FleetFocalRowProductBuilder.kt`
 - **Conflicts with:** REG-20260603-013
 
@@ -389,7 +451,7 @@
 - **Fix shipped:** `resolvePrimeLensAssignmentsFromCandidates` now always emits a best-fit assignment per target: first least-crop among crop-compatible candidates, else nearest native fallback for wider-than-native targets. MP gating stays in `staticSlots` availability (not in assignment generation), so matrix keeps full routing metadata while still disabling low-MP static slots.
 - **Do not:** Reintroduce assignment-time MP filtering or strict `target >= native` drop behavior for all targets; keep assignment generation separate from UI enable gates.
 - **Proves OK:** `scripts/pns_gradlew.ps1 :app:testDebugUnitTest --tests dev.pointandshoot.FocalLensStripSupportTest --tests dev.pointandshoot.fleet.FleetFocalRowPolicyTest`; `scripts/pns_fleet_matrix_scan.ps1 -Serial 8bf09993 -ScanTier quick -SkipInstall` -> `hfr-runs/fleet_matrix_20260603_035231/fleet_matrix_scan.json` (`pass=true`) with `product.focalRow.slotAssignments` populated for all seven slots.
-- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` and parity quick sweep after any focal assignment comparator or slot-gating edits.
+- **Also test:** `scripts/pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 150` and parity delta sweep after any focal assignment comparator or slot-gating edits.
 - **Touches:** `FocalLensStripSupport.kt`, `FocalLensStripSupportTest.kt`
 - **Conflicts with:** REG-20260603-014
 
@@ -488,6 +550,30 @@
 - **Also test:** `scripts/pns_4k120_verify.ps1`; `scripts/pns_4k120_endurance.ps1`; `scripts/pns_fleet_parity_sweep.ps1 -Mode Full` (sequential on one device); `scripts/pns_capture_pipeline_verify.ps1` after any capture/session coupling edits.
 - **Touches:** `PreviewEngineScreen.kt`, `scripts/pns_mediacodec_hfr_verify.ps1`, `scripts/pns_fleet_parity_sweep.ps1`, `scripts/parity_proof_manifest.json`, `scripts/pns_4k120_endurance.ps1`, `scripts/pns_m24_gate.ps1`
 - **Conflicts with:** REG-20260530-001, REG-20260603-021
+
+### REG-20260605-002 — 4K fleet honesty (fourKRegular gate + parity session proof)
+
+- **Status:** active
+- **Area:** fleet / video / parity
+- **Symptom:** EXODUS parity/leaderboard marked `video.uhd60` `provenOk=true` on quick-tier matrix; 4K@30 picker rows used ungated `video.h264`/`video.hevc`; `uhd60.appEnabled=true` while `sessionOk=false`; 4K HEVC + missing storage broke record on API 28
+- **Cause:** Quick-tier matrix nulls `sessionOk`; codec-only feature ids bypass session gates; `uhd60.appEnabled` ignored session; no `regular_3840x2160` probe; stale 4K HEVC prefs
+- **Fix shipped:** `fourKRegular` matrix gate + `video.4k_regular` catalog row; `FleetChromeVisibility` maps ≥4K → `video.uhd60` (≥60 fps) or `video.4k_regular` (<60); `uhd60.appEnabled = advertised && sessionOk`; parity `proveOk=false` for `SESSION_GATED_CATALOG_IDS` when `sessionOk==null` and matrix tier ≠ full; `DeviceAdaptedPrefs` gates 4K on `fourKRegularSessionOk`; API ≤28 blocks 4K non-H.264; `pns_4k_regular_verify.ps1`; full matrix scan uses `-ScanTier full`; `buildFull` runs session probe before deep caps (API 28 foreground guard)
+- **Do not:** Mark `video.uhd60` / `video.4k_regular` / `video.hfr` proven on quick-tier matrix alone; surface 4K tiers when `fourKRegular.sessionOk=false` or `uhd60.sessionOk=false`; run parity leaderboard promotion without full-tier matrix
+- **Proves OK:** USB EXODUS `FA8BW1F00538` — `hfr-runs/fleet_matrix_20260605_031323` (`fourKRegular.sessionOk=false`, `uhd60.appEnabled=false`); `hfr-runs/parity_sweep_20260605_031400` log `failReason=session_failed` for `video.uhd60`/`video.4k_regular`; `pns_in_app_video_verify` PASS; `pns_4k_regular_verify` SKIP (gate false); JVM `FleetChromeVisibilityTest`, `FleetParityGoldenSweepTest`, `DeviceAdaptedCatalogTest`
+- **Also test:** `pns_fleet_regression_pack.ps1` (matrix tier full); do not run capture verify parallel with chrome gate on one device
+- **Touches:** `FleetDeviceMatrixStructured.kt`, `SessionMatrixProbeCore.kt`, `FleetParitySweepRunner.kt`, `FleetChromeVisibility.kt`, `DeviceAdaptedPrefs.kt`, `InAppVideoFormatSelection.kt`, `CameraCapabilityCatalog.kt`, `FleetDeviceMatrixBuilder.kt`, `CameraCapabilitiesProbe.kt`, `scripts/pns_4k_regular_verify.ps1`, `scripts/pns_fleet_parity_sweep.ps1`, `scripts/pns_fleet_regression_pack.ps1`
+- **Conflicts with:** none
+
+### REG-20260605-001 — probehub shallow scan must not downgrade adb full matrix
+- **Status:** active
+- **Area:** fleet | probehub | automation
+- **Symptom:** `pns_fleet_matrix_scan.ps1 -ScanTier full` intermittently pulled `scanTier=quick` despite full scan completing; empty logcat when PATH `adb` ≠ SDK platform-tools.
+- **Cause:** `buildProbeReport` always persisted quick matrix at end, racing `buildFullAndSave` from `pns_fleet_matrix_scan=full` ADB extra.
+- **Fix shipped:** Skip quick persist when ADB requests full tier or disk already holds full tier; matrix scan script polls disk every 5s for `scanTier=full`.
+- **Do not:** Re-enable unconditional quick save at end of `buildProbeReport` without the guards above.
+- **Proves OK:** `scripts/pns_fleet_matrix_scan.ps1 -ScanTier full` → `pass=True`, log `lensInfo rear=`, `scanTier=full cameras=`; artifact `hfr-runs/fleet_matrix_20260605_014559/`.
+- **Also test:** `scripts/pns_m25_gate.ps1 -HostOnly`; prefer SDK `platform-tools` on PATH for device scripts.
+- **Touches:** `CameraCapabilitiesProbe.kt`, `scripts/pns_fleet_matrix_scan.ps1`
 
 ---
 

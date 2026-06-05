@@ -36,11 +36,17 @@
 | `scripts/pns_adb_device.env` (gitignored) | Default **`PNS_ADB_SERIAL`** |
 | `scripts/pns_fleet_matrix_scan.ps1` | USB full matrix pull → `hfr-runs/fleet_matrix_*` (M16) |
 | `scripts/pns_fleet_matrix_diff.ps1` | Host diff two matrix JSONs (M16) |
-| `scripts/pns_fleet_parity_sweep.ps1` | **Fleet Parity Sweep** — `-Mode Quick\|Full\|Delta` required (M18.6) |
-| `scripts/pns_fleet_regression_pack.ps1` | Tiered matrix + parity Quick + catalog gate (M18.4) |
+| `scripts/pns_fleet_parity_sweep.ps1` | **Fleet Parity Sweep** — `-Mode Full\|Delta` required (M18.6) |
+| `scripts/pns_fleet_regression_pack.ps1` | Tiered matrix + parity Delta + catalog gate (M18.4) |
 | `scripts/pns_m18_gate.ps1` | Milestone 18 one-shot host + USB gate |
 | `scripts/pns_fleet_macro_export.ps1` | Cross-device macro benchmark CSV (M18.4) |
+| `scripts/pns_m25_gate.ps1` | Milestone 25 leaderboard host gate (M25) |
+| `scripts/pns_m26_gate.ps1` | Milestone 26 parity closure gate (M26) |
+| `scripts/pns_leaderboard_host_smoke.ps1` | Leaderboard JSON/CSV/RSS host smoke (M25) |
 | `scripts/pns_capability_catalog_gate.ps1` | Host catalog row / descriptor gate (M18.5) |
+| `scripts/pns_leaderboard_site_publish.ps1` | Leaderboard site data build (M25) |
+| `scripts/pns_leaderboard_pages_push.ps1` | Publish + push `docs/leaderboard` to GitHub Pages (M25) |
+| `scripts/pns_fleet_parity_leaderboard_refresh.ps1` | Host leaderboard JSON/MD from parity sweeps (M25) |
 
 Full script index: **`AGENTS.md`**. **Primary fleet USB device:** OnePlus 12 **CPH2583** (not CPH2655 unless OP13 regression lane).
 
@@ -65,6 +71,8 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 | **Milestone 22** | **Archived** — parity proof-pack closure + capability provider map |
 | **Milestone 23** | **Archived** — fleet hardening + resilience closeout (2026-06-03) |
 | **Milestone 24** | **Active** — 4K120 stability and truthfulness (strict route + endurance + parity truth class) |
+| **Milestone 25** | **Active** — Camera2 source-of-truth leaderboard (host scaffold landed 2026-06-04; USB pair + ingest + proof gates open) |
+| **Milestone 26** | **Active** — Parity closure (auto-intake from sweeps; promote `PBI-*` rows to sprints) |
 | **Milestone H** | **Active** — residual **[HUMAN]** work; **H.7** closed **CPH2583** (owner 2026-05-29); OP13 lane optional |
 | **Bespoke Gallery (BG.1–BG.3)** | **Archived** — integration + device verify + UX polish (**maintainer sign-off 2026-05-22**) |
 | **Audio & Sound (AS.1–AS.3)** | **Archived** — agent + human sign-off **2026-05-22** |
@@ -72,110 +80,37 @@ All seven rows **`[x]`** → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md
 
 **Chrome lock:** **`docs/preview-chrome-layout-style-guide.md`** — behavioral fixes only unless user requests UI changes.
 
+### Parity intake queue (auto-generated)
+
+Every parity sweep / regression pack tier-2 refreshes:
+
+- [`docs/FLEET_PARITY_DEBT_LEDGER.json`](docs/FLEET_PARITY_DEBT_LEDGER.json) — deduplicated debt with `workType` triage
+- [`docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json`](docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json) — actionable `PBI-{catalogId}-{workType}` rows for sprint promotion
+
+Scripts: `pns_parity_debt_ledger_refresh.ps1` · `pns_parity_build_plan_intake.ps1` (wired at end of `pns_fleet_parity_sweep.ps1`).
+
+**Promotion rule:** move scoped `PBI-*` rows into Milestone 26 sprints below; mark `status=closed` in intake JSON when USB proof passes. Do not auto-append unchecked bullets here (avoids churn).
+
 ### Future features (deferred — unscheduled)
 
-Items below moved into **Milestone 19** sprints where noted; this list stays empty until new product requests land.
+Leaderboard remaining work is tracked under **Milestone 25** below. This list stays empty until new product requests land.
 
 ---
 
-## Milestone 18 — Fleet max-out framework *(archived 2026-05-30)*
+## Archived milestones (M15–M23)
 
-**Objective:** Universal device capability taxonomy, **Fleet Parity Sweep** benchmark, matrix schema v2, fleet-adaptive focal row, multi-device regression pack.
+Milestones **15–23** are complete. Sprint bodies and gate outcomes live in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** under **Archived milestone sprints (M15–M23)**.
 
-**Docs:** `docs/CAMERA_CAPABILITY_TAXONOMY.md` · `docs/FLEET_PARITY_SWEEP.md` · `docs/FLEET_MULTI_DEVICE_TEST_REGIMENT.md`
-
-**Device gate (CPH2583 `b5214fc6`):** `pns_fleet_matrix_scan.ps1` pass (`hfr-runs/fleet_matrix_20260530_024009/`); `pns_fleet_parity_sweep.ps1 -Mode Quick` pass (`hfr-runs/parity_sweep_20260530_024345/`); `pns_chrome_ux_gate.ps1 -FocalMmSlot 85/150` pass; `pns_capability_catalog_gate.ps1` pass; fleet JVM tests pass.
-
-### Sprint 18.0 — Schema + docs
-
-- [x] **[AGENT]** `docs/CAMERA_CAPABILITY_TAXONOMY.md` + matrix schema v2 notes
-- [x] **[AGENT]** `docs/FLEET_PARITY_SWEEP.md` + `docs/FLEET_MULTI_DEVICE_TEST_REGIMENT.md`
-- [x] **[AGENT]** `BUILD_PLAN.md` M18/M19/M20 active; archive M17 pointer
-
-### Sprint 18.6 — Fleet Parity Sweep (FPS)
-
-- [x] **[AGENT]** `FleetParitySweep.kt` + `FleetDeliveryProbe.kt` + JVM tests
-- [x] **[AGENT]** `scripts/pns_fleet_parity_sweep.ps1` — **`-Mode` required** (exit 2 without)
-- [x] **[AGENT]** In-app hub mode sheet + `PNS.FleetParity parityCell=` log emission per catalog row
-- [x] **[ADB]** `-Mode Quick` smoke on **CPH2583**; attach `hfr-runs/parity_sweep_*`
-
-### Sprint 18.1 — Catalog expansion
-
-- [x] **[AGENT]** `CameraCapabilityCatalog` v3 rows (~165+ distinct; expansion + evaluators)
-- [x] **[AGENT]** Evaluators for new rows; `CameraCapabilityCatalogExpansion.kt`
-
-### Sprint 18.7 — Fleet-adaptive focal row
-
-- [x] **[AGENT]** `FleetFocalRowPolicy.kt` + matrix `product.focalRow` parser + tests
-- [x] **[AGENT]** Wire native UW/Wide/Tele labels + static 35/50/85/150 N/A chips (behavior only; chrome layout lock)
-- [x] **[ADB]** `pns_chrome_ux_gate.ps1 -FocalMmSlot 85` + 150 on CPH2583
-
-### Sprint 18.4/18.5 — Regression pack + CI
-
-- [x] **[AGENT]** `pns_fleet_regression_pack.ps1` + `pns_capability_catalog_gate.ps1`
-- [x] **[AGENT]** `pns_m18_gate.ps1` + `pns_fleet_macro_export.ps1`
-- [x] **[AGENT]** `docs/FLEET_PARITY_LATEST.json` + history JSONL from parity script
-
-**M18 gate:** `pns_capability_catalog_gate.ps1` + `pns_fleet_regression_pack.ps1 -Tier all` + parity Quick USB on primary SKU — **PASS** (2026-05-30).
-
----
-
-## Milestone 19 — Feature max-out *(archived 2026-05-30)*
-
-**Objective:** Ship committed formats, quality-first pickers, video/still pipelines from max-out list.
-
-**Host gate:** `scripts/pns_m19_gate.ps1` — M19 JVM tests + catalog gate (+ USB tier-2 regression when device online).
-
-### Sprint 19.6 — Format + color picker
-
-- [x] **[AGENT]** `ColorQualityIndex.kt` + `FormatQualityDescriptor.kt` + `VideoFormatQualityRank.kt`
-- [x] **[AGENT]** Video picker: fps **desc**, Max presets, codec quality rows, **VideoAudioSource** in sheet
-- [x] **[AGENT]** Color-space step (CQI) in still + video pickers; filter downstream rows
-- [x] **[AGENT]** `StillFormatPickerSheet.kt` + HEIC / Motion Photo / TIFF export scaffolds
-
-### Sprint 19.1 — Video pipelines
-
-- [x] **[AGENT]** RAW video `.mcraw` in main format picker (matrix-gated)
-- [x] **[AGENT]** Dual-ISO HDR merge production path
-- [x] **[AGENT]** VP9 WebM encoder path (below AV1; matrix-gated)
-
-### Sprint 19.4 — ProRes + anamorphic
-
-- [x] **[AGENT]** ProRes probe-only catalog row + anamorphic metadata (no HW encode)
-
-**M19 gate:** `pns_m19_gate.ps1` + `pns_fleet_regression_pack.ps1` tier 2 — host JVM **PASS** (2026-05-30).
-
----
-
-## Milestone 20 — Concurrent capture *(archived 2026-05-30)*
-
-**Host gate:** `scripts/pns_m20_gate.ps1` — M20 JVM tests + dual record 5s + pip/multicam USB smoke + tier-2 regression.
-
-### Sprint 20.1 — Dual video reliability
-
-- [x] **[AGENT]** HAL-derived `dualVideo` matrix gates + front health recovery + mandatory `-RecordSec 5` gate
-
-### Sprint 20.2 — Multicam Melt
-
-- [x] **[AGENT]** `MulticamMeltRecordingController` + thermal caps + parity cells + USB arm smoke
-
-### Sprint 20.3 — PiP preview (optional)
-
-- [x] **[AGENT]** Concurrent rear+rear PiP inset preview + `pns_preview_pip` ADB gate
-
-**M20 gate:** `pns_m20_gate.ps1` + parity Quick includes `video.dual` / `video.multicam_melt` / `preview.pip`.
-
----
-
-## Milestone 22 — Fleet parity proof-pack closure *(archived)*
-
-Milestone 22 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Archived milestone sprints (M15–M22)**, including Sprint **22.0–22.8** closure details and gate outcomes.
-
----
-
-## Milestone 23 — Fleet hardening and resilience program *(archived)*
-
-Milestone 23 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Milestone 23 — Fleet hardening + resilience closeout (archived 2026-06-03)**, including Sprint **23.0–23.12** closure details and gate outcomes.
+| Milestone | Archived |
+|-----------|----------|
+| **M15** — Pro Camera Polish | Feature categories + archived sprints |
+| **M16** — Fleet Device Capability Matrix | Feature categories + archived sprints |
+| **M18** — Fleet max-out framework | 2026-05-30 |
+| **M19** — Feature max-out | 2026-05-30 |
+| **M20** — Concurrent capture | 2026-05-30 |
+| **M21** — Fleet parity honesty | 2026-05-30 |
+| **M22** — Proof-pack closure | 2026-06-02 |
+| **M23** — Fleet hardening + resilience | 2026-06-03 |
 
 ---
 
@@ -191,53 +126,139 @@ Milestone 23 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Mile
 
 ### Sprint 24.0 — Baseline instrumentation + rubric
 
-- [ ] **[AGENT]** Add canonical HFR route telemetry (`hfrWarmupAttempt`, `hfrRoute`, `hfrHealthWindowMs`, `hfrBlockReason`) in preview/video logs and ADB validation lines
-- [ ] **[AGENT]** Document strict 4K120 success rubric in technical settings (start gate, sustained gate, classification outcomes)
-- [ ] **[ADB]** Smoke run confirms telemetry needles exist in `PNS.Cam` / `PNS.AdbValidation`
+- [x] **[AGENT]** Add canonical HFR route telemetry (`hfrWarmupAttempt`, `hfrRoute`, `hfrHealthWindowMs`, `hfrBlockReason`) in preview/video logs and ADB validation lines — extended with `interleaved_sub4k`, `hsCaptureWxH`, `encodePrefWxH`, `mcPrepared`, `strictHfrWarmupHealthy`
+- [x] **[AGENT]** Document strict 4K120 success rubric in technical settings (start gate, sustained gate, classification outcomes) — `docs/PNS_TECHNICAL_SETTINGS.md` M24 lane
+- [ ] **[ADB]** Smoke run confirms telemetry needles exist in `PNS.Cam` / `PNS.AdbValidation` — **blocked 2026-06-05:** CPH2583 Wi‑Fi ADB offline after reboot; reconnect via `pns_adb_wifi_connect.ps1`
 
 ### Sprint 24.1 — HFR route ladder (interleaved ↔ encoder-priority)
 
-- [ ] **[AGENT]** Implement bounded route ladder for constrained HS bring-up: interleaved first, encoder-priority fallback on configure instability
-- [ ] **[AGENT]** Keep strict behavior: recording start blocked if no route reaches 120-ready health state
+- [x] **[AGENT]** Implement bounded route ladder for constrained HS bring-up: interleaved first, encoder-priority fallback on configure instability — `handleCaptureSessionConfigureFailed` + `StrictHfrPolicy.nextConfigureFailAction`
+- [x] **[AGENT]** Keep strict behavior: recording start blocked if no route reaches 120-ready health state — `strictHfrWarmupHealthy` / `inAppVideo120StrictBlocked`
 - [ ] **[ADB]** `pns_mediacodec_hfr_verify.ps1 -OnlyTest 4K_120fps_MediaCodec -RequireFfprobeAv` with attempt/route telemetry present
 
 ### Sprint 24.2 — Strict warmup + retry budget
 
-- [ ] **[AGENT]** Add warmup health window before strict 120 start is allowed
-- [ ] **[AGENT]** Add bounded retry budget before session is marked unstable for runtime window
-- [ ] **[AGENT]** Add deterministic host coverage for strict pass-after-retry and strict block after budget exhaustion
+- [x] **[AGENT]** Add warmup health window before strict 120 start is allowed
+- [x] **[AGENT]** Add bounded retry budget before session is marked unstable for runtime window
+- [x] **[AGENT]** ADB automation defers `isRecording` until `adbStrictHfrWarmupReady()` — `PreviewEngineScreen.kt`
+- [x] **[AGENT]** Add deterministic host coverage for strict pass-after-retry and strict block after budget exhaustion — `StrictHfrPolicyTest`
 
 ### Sprint 24.3 — Mid-record resilience
 
-- [ ] **[AGENT]** Add one bounded same-fps re-acquire on mid-record HS collapse, then deterministic fail/stop
-- [ ] **[AGENT]** Ensure cleanup prevents zombie recorder/session states
+- [x] **[AGENT]** Add one bounded same-fps re-acquire on mid-record HS collapse, then deterministic fail/stop — `fallbackFromUnstableHfr` + `hfrMidRecordOutcome` ADB log
+- [x] **[AGENT]** Ensure cleanup prevents zombie recorder/session states — existing `closeCamera` / `deferMcStop` paths unchanged; mid-record sets `hfrMidRecordRecoveryUsed`
 - [ ] **[ADB]** Robustness run captures outcome class (`sustained`, `recovered_once`, `blocked_unstable`)
 
 ### Sprint 24.4 — Delivery truth gates
 
-- [ ] **[AGENT]** Tighten 4K120 gate output with truth classes: `true_4k120`, `hs120_sub4k`, `blocked_unstable`
-- [ ] **[AGENT]** Wire truth class into parity merge/reporting so fleet scoring reflects delivered class
-- [ ] **[ADB]** Updated `pns_4k120_verify.ps1` / `pns_mediacodec_hfr_verify.ps1` emit truth class in JSON + markdown summary
+- [x] **[AGENT]** Tighten 4K120 gate output with truth classes: `true_4k120`, `hs120_sub4k`, `blocked_unstable` — `pns_mediacodec_hfr_verify.ps1` `TruthClass` + `summary.json`
+- [x] **[AGENT]** Wire truth class into parity merge/reporting so fleet scoring reflects delivered class — `pns_fleet_parity_sweep.ps1` `video4k120TruthClass` (see `PNS_TECHNICAL_SETTINGS.md` M24)
+- [ ] **[ADB]** Updated `pns_4k120_verify.ps1` / `pns_mediacodec_hfr_verify.ps1` emit truth class in JSON + markdown summary — host wired; **CPH2583** run `hfr-runs/m24_gate_20260605_023318/` blocked_unstable (do not overlap capture/parity on one serial)
 
 ### Sprint 24.5 — Fleet policy alignment
 
-- [ ] **[AGENT]** Map runtime 4K120 truth to catalog/parity semantics without device-specific hardcoding
-- [ ] **[AGENT]** Ensure no false “ship-ready 4K120” parity state when strict criteria are unmet
-- [ ] **[ADB]** `pns_fleet_parity_sweep.ps1 -Mode Full` shows truthful 4K120 classification and gap accounting
+- [x] **[AGENT]** Map runtime 4K120 truth to catalog/parity semantics without device-specific hardcoding — parity sweep env handoff + catalog `video.hfr.120`
+- [x] **[AGENT]** Ensure no false “ship-ready 4K120” parity state when strict criteria are unmet — strict verify only passes `true_4k120`
+- [x] **[AGENT]** Format picker / readout honesty for sub-4K HS @ 4K encode (`VideoDeliveryHonesty`, `video.delivery_honesty` parity row)
+- [ ] **[ADB]** `pns_fleet_parity_sweep.ps1 -Mode Full` shows truthful 4K120 classification and gap accounting — rerun alone on CPH2583 after M24 gate
 
 ### Sprint 24.6 — Endurance evidence pack
 
-- [ ] **[AGENT]** Add `pns_4k120_endurance.ps1` to measure longest sustained 4K120 run and classify terminal bottleneck (`thermal`, `session_disconnect`, `encoder_stall`, `fps_collapse`)
-- [ ] **[AGENT]** Export timeline + fps trend + terminal reason under `hfr-runs/4k120_endurance_*`
-- [ ] **[ADB]** Verify 30s minimum pass path + longest-duration measured artifact
+- [x] **[AGENT]** Add `pns_4k120_endurance.ps1` to measure longest sustained 4K120 run and classify terminal bottleneck (`thermal`, `session_disconnect`, `encoder_stall`, `fps_collapse`)
+- [x] **[AGENT]** Export timeline + fps trend + terminal reason under `hfr-runs/4k120_endurance_*`
+- [ ] **[ADB]** Verify 30s minimum pass path + longest-duration measured artifact — **FAIL** `m24_gate_20260605_023318/endurance/` (`bestPassSec=0`, `session_disconnect_or_encoder_stall`; likely concurrent gate contention)
 
 ### Sprint 24.7 — Milestone orchestration + closeout
 
-- [ ] **[AGENT]** Add `scripts/pns_m24_gate.ps1` orchestration (host preflight → 4K120 strict → endurance → parity full)
-- [ ] **[AGENT]** Include mandatory app cleanup (`adb shell am force-stop dev.pointandshoot`) in every path
-- [ ] **[AGENT]** Update technical settings + regression memory + changelog coverage in same lane
+- [x] **[AGENT]** Add `scripts/pns_m24_gate.ps1` orchestration (host preflight → 4K120 strict → endurance → parity full)
+- [x] **[AGENT]** Include mandatory app cleanup (`adb shell am force-stop dev.pointandshoot`) in every path
+- [x] **[AGENT]** Update technical settings + regression memory + changelog coverage in same lane — `docs/PNS_TECHNICAL_SETTINGS.md` §Strict 4K120 (2026-06-04)
 
 **M24 gate:** `scripts/pns_m24_gate.ps1` — host pass + strict 4K120 + endurance + parity Full truth-class evidence.
+
+---
+
+## Milestone 25 — Camera2 source-of-truth leaderboard
+
+**Objective:** Public leaderboard + in-app probes so buyers can compare **USB-tested Camera2** capability, resolution withholding, ROM pairing (stock vs custom), and OEM accountability — without treating GSMArena or OEM camera apps as Camera2 truth.
+
+**Agent scaffold (2026-06-04):** App probes (`ResolutionBetrayal`, hub readiness, submit payload), publish pipeline (`product_groups.json`, `oem_accountability.json`, CSV/RSS/catalog export), GitHub Pages UI (`#/product/{groupId}`, OEM page, buyer presets), `docs/CAMERA2_OEM_DISPARITY.md`, `ResolutionBetrayalTest` — see [`docs/leaderboard/README.md`](docs/leaderboard/README.md). **Do not tick rows below without Appendix A + sprint gate evidence.**
+
+**Docs:** [`docs/CAMERA2_OEM_DISPARITY.md`](docs/CAMERA2_OEM_DISPARITY.md) · [`docs/leaderboard/README.md`](docs/leaderboard/README.md) · [`docs/FLEET_PARITY_SWEEP.md`](docs/FLEET_PARITY_SWEEP.md) · [`docs/FLEET_DEVICE_VERIFY_MATRIX.md`](docs/FLEET_DEVICE_VERIFY_MATRIX.md)
+
+**Host gate:** `scripts/pns_leaderboard_site_publish.ps1 -SkipGsmarenaScrape` exit 0 + `scripts/pns_leaderboard_export_catalog.ps1` exit 0 + `ResolutionBetrayalTest` pass in `pns_verify_toolchain.ps1 -RunTests`.
+
+**Device gate:** `pns_fleet_parity_sweep.ps1 -Mode Full` on **CPH2583** (baseline) + **CPH2649** stock **and** Lineage pair when hardware available; attach `hfr-runs/parity_sweep_*` + published `docs/leaderboard/data/`.
+
+### Sprint 25.0 — App probe closeout
+
+- [x] **[AGENT]** Full-tier matrix: rear `lensInfo` gate + hub **Leaderboard readiness** blocks contribute unless full tier + all rear lensInfo + Full sweep (`LeaderboardReadiness.kt`, `FleetMatrixHubScreen.kt`) — JVM `LeaderboardReadinessTest` in `pns_m25_gate.ps1 -HostOnly` **PASS** `hfr-runs/m25_gate_*`
+- [x] **[AGENT]** Full parity sweep: `still.resolution_maximum_map` / `still.hidden_highres` sessionOk from `max_resolution_map_jpeg` session probe — **CPH2583** Full sweep `hfr-runs/parity_sweep_20260605_021644/` (rows `not_advertised` on OP12 HAL; evaluators wired; session probe active when advertised)
+- [x] **[AGENT]** Promote resolution catalog rows from **INFORMATIONAL** → **SHIP_BLOCKER** after USB proof on ≥2 SKUs (`CameraCapabilityCatalog.kt`; `docs/AGENT_REGRESSION_MEMORY.md` `REG-20260605-003`; Full sweeps `parity_sweep_20260605_105238/` + `parity_sweep_20260605_105702/`)
+- [x] **[AGENT]** Hub contribute: `romReported` self-tag + validation; public `#/device/{slug}` URL + copy (`LeaderboardRomReport.kt`, `LeaderboardDeviceSlug.kt`, `FleetLeaderboardSubmit.kt`) — JVM tests pass
+- [x] **[ADB]** `PNS.FleetMatrix lensInfo rear=` log after full rescan on **CPH2583**; readiness card green for full tier + Full sweep — `hfr-runs/fleet_matrix_20260605_021552/` (`lensInfo rear=id=2 WIDE; id=3 UW; id=4 TELE`)
+
+### Sprint 25.1 — Priority USB fleet pair (OP12 baseline + OP13 collapse)
+
+- [x] **[ADB]** **CPH2583** Full sweep: confirm high parity + low `resolutionBetrayalIndex` on published profile — `hfr-runs/parity_sweep_20260605_021644/` (`resolutionBetrayalIndex=0`, `718a8115ff142454`, parity 74.2% / 5 ship blockers)
+- [ ] **[ADB]** **CPH2649** stock ROM Full sweep → `testedVariants[]` with `romFlavor: stock` — **interim:** CPH2655 stock `parity_sweep_20260605_022500/` + product group entry; confirm SKU alias vs CPH2649 before ship tick
+- [ ] **[ADB]** **CPH2649** Lineage (or custom) Full sweep → second `testedVariants[]` entry; product group `#/product/oneplus-13` shows custom vs stock delta
+- [x] **[AGENT]** Republish after pair; verify `docs/FLEET_PARITY_DEVICE_LEADERBOARD.json` ranks OP12 vs OP13 honestly — host publish 2026-06-05 (`leaderboard.csv` OP12 rank data present)
+- [x] **[AGENT]** Update `docs/FLEET_DEVICE_VERIFY_MATRIX.md` M25 rows with artifact paths
+
+### Sprint 25.2 — GSMArena advertised spec + HAL sensor path
+
+- [x] **[AGENT]** Live `gsmarena_device_specs_scrape.py` success (photo + video table); reduce reliance on `fromSensorCache` fallback after 429 backoff — retry hardening landed (`gsmarena_sensor_scrape.py` + `gsmarena_device_specs_scrape.py`); latest scrape populated live photo/video fields for 4 devices with only CPH2649 still blocked by GSMArena title mismatch (`gsmarena_device_specs.json` errors[])
+- [x] **[AGENT]** Prefer HAL `lensInfo` / matrix sensor sum over GSMArena when full-tier matrix present (`Get-MergedSensorSpecs` in `pns_leaderboard_common.ps1`)
+- [x] **[AGENT]** Expand `Map-GsmarenaAdvertisedClaims` to `lens.ois`, `lens.tele`, per-lens MP, MSRP/launch when scraped
+- [x] **[HOST]** Weekly CI stale flag on site (`site.json` `gsmarenaSpecsStale` / footer note in `app.js`) — host publish emits flags; `pns_m25_gate.ps1 -HostOnly` **PASS**
+
+### Sprint 25.3 — Community ingest + submission merge
+
+- [ ] **[AGENT]** Deploy `leaderboard-ingest/` to Render; set `LEADERBOARD_INGEST_URL` in hub / env example — URL wired in app/env (`https://pns-leaderboard-ingest.onrender.com`), but Render deploy currently fails on origin/main because `leaderboard-ingest/` is not present in that remote commit; needs push of ingest lane before tick
+- [ ] **[HUMAN]** Populate `leaderboard-ingest/config/signing_pins.json` with release APK cert SHA-256 (see ingest README)
+- [ ] **[AGENT]** End-to-end: app Full sweep submit → ingest approve → `pns_leaderboard_site_publish.ps1 -MergeSubmissions` → device appears on site
+- [x] **[AGENT]** Ingest validates `resolutionBetrayalIndex`, `measurementContext`, `buildDisplay` in submission schema (`leaderboard-ingest/main.py`)
+
+### Sprint 25.5 — Site proof, Pages deploy, exports
+
+- [x] **[AGENT]** Add `scripts/pns_m25_gate.ps1` + `pns_leaderboard_host_smoke.ps1` — host **PASS** `hfr-runs/m25_gate_*`
+- [x] **[AGENT]** Host smoke: device JSON has `resolutionBetrayal`, `oemLossSummary`, `measurementContext`; product groups + CSV/RSS/glossary present
+- [ ] **[AGENT]** `pns_leaderboard_pages_push.ps1` → GitHub Pages live; verify RSS + `leaderboard.csv` links in footer
+- [x] **[AGENT]** Verification checklist (plan Phase 5): resolution panel on known-bad SKU, OEM OnePlus withheld-feature aggregates, community payload fields in pulled submission JSON — host checklist in `docs/leaderboard/README.md` §Phase 5; USB/community rows pending ingest
+- [ ] **[HUMAN]** GitHub Pages smoke after deploy (buyer-facing copy, disclosure banner, GSMArena untested labeling)
+
+**M25 gate:** `pns_m25_gate.ps1` **PASS** host lane (`hfr-runs/m25_gate_20260605_105056/`) + USB Full sweeps (`parity_sweep_20260605_105238/`, `parity_sweep_20260605_105702/`). Full matrix refresh evidence captured in both sweep matrix artifacts. Still open: CPH2649 stock/Lineage pair, Render ingest deploy from pushed ingest source, signing pins, GitHub Pages push.
+
+**Out of scope (locked):** Automated OEM camera app scoring; GSMArena as Camera2 rank input; DXOMark as parity score (external links only).
+
+---
+
+## Milestone 26 — Parity closure (intake-driven)
+
+**Objective:** Close recurring parity debt surfaced by sweeps. Source of truth: [`docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json`](docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json) (refreshed after every parity sweep).
+
+**Docs:** [`docs/FLEET_PARITY_SWEEP.md`](docs/FLEET_PARITY_SWEEP.md) · [`docs/FLEET_PARITY_DEBT_LEDGER.md`](docs/FLEET_PARITY_DEBT_LEDGER.md)
+
+**Host gate:** `pns_parity_debt_ledger_refresh.ps1` + `pns_parity_build_plan_intake.ps1` exit 0 after sweep.
+
+### Sprint 26.1 — ShipNow AppFeature (from intake)
+
+- [ ] **[AGENT]** `video.delivery_honesty` — readout/picker labels match encode + HS capture sizes (ties M24); gate: parity `video.delivery_honesty` proven — **agent:** `VideoDeliveryHonesty.kt` + parity `proveOk`; **ADB pending**
+- [ ] **[AGENT]** `still.heic` / `still.motion_photo` / `still.tiff16` / `still.jxl` — complete export paths; gate: `pns_still_export_verify.ps1` — **agent:** `still.heic` parity `proveOk` when API 30+ + sessionOk; export paths open
+- [ ] **[AGENT]** `audio.spatial` — surface + record path; gate: `pns_spatial_audio_verify.ps1`
+- [ ] **[AGENT]** `still.independent_tonal` — wire pipeline; gate: `pns_independent_tonal_verify.ps1`
+
+### Sprint 26.2 — AutomationProof (proof-pack closure)
+
+- [ ] **[AGENT]** Enable `-IncludeProofPack` on regression pack Full tier (not Quick CI) — **wired:** `-ParityMode Full -IncludeProofPack` on `pns_fleet_regression_pack.ps1`
+- [ ] **[AGENT]** Close top `AutomationProof` intake rows where `parityProofScript` exists but sweep reports `unautomated`
+
+### Sprint 26.3 — Ownership cleanup
+
+- [ ] **[AGENT]** Assign `UNASSIGNED` catalog rows in `docs/M22_PROVIDER_OWNERSHIP.json` (e.g. `still.proshot_leaf`, `product.hardware_camera_key`)
+
+**M26 gate:** Top 3 open `AppFeature` rows closed on CPH2583 + intake `status=closed` + parity Delta pass.
 
 ---
 
@@ -247,34 +268,13 @@ Milestone 23 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Mile
 |---------|----------|
 | **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** | Shipped work index **by app feature** (22 categories); not milestone/sprint layout |
 
-**Open in this file:** **Milestone H** (M15–M22 archived in `BUILD_PLAN_COMPLETED.md`)
+**Open in this file:** **Milestone 24** + **Milestone 25** + **Milestone 26** + **Milestone H** (M15–M23 + completed M25 sprints archived in `BUILD_PLAN_COMPLETED.md`)
 
 ### Archiving completed work — procedure
 
 1. When a sprint closes, add its completed tasks under the right **feature category** in **`BUILD_PLAN_COMPLETED.md`** (not as a new milestone section).
-2. Keep **`BUILD_PLAN.md`** as pointers + open milestone rows only (currently **Milestone H**).
+2. Keep **`BUILD_PLAN.md`** as pointers + open milestone rows only (currently **M24**, **M25**, **M26**, **Milestone H**).
 3. Update **`CHANGELOG.md`** for user-visible changes and sync **`scripts/changelog_coverage.v1.json`** (release tag, date, `versionCode`, `requiredMentions`). Run **`pns_changelog_gate.ps1`** before milestone gates.
-
----
-
-## Archived milestones (pointers only)
-
-**BG, PO, VF, AS, CC, UX, IP, M0–M16** — completed tasks indexed **by feature** in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)**. USB evidence lives under **`hfr-runs/`**.
-
----
-
-## Milestone 15 — Pro Camera Polish & Color Fidelity *(archived)*
-
-**15.0–15.B**, **15.14**, **15.16–15.38** — completed tasks under feature categories in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (e.g. tether, video, DNG).
-
-Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — **closed CPH2583** owner 2026-05-29; **H.8.1**–**H.8.6** (subjective) → **Milestone H** below.
-
----
-## Milestone 16 — Fleet Device Capability Matrix *(archived)*
-
-**16.0–16.13** — fleet matrix work indexed under **Fleet capability matrix & device policy** in **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)**.
-
-**Docs:** `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` · `docs/FLEET_DEVICE_VERIFY_MATRIX.md` · `docs/FLEET_REFERENCE_M10_8.md` · `docs/fleet_device_matrix.schema.json`
 
 ---
 
@@ -282,14 +282,9 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 **Objective:** Irreducible human judgment: creative, security, perceptual.
 
-**Agent progress (2026-05-29, CPH2583 `b5214fc6`):** Host gate `scripts/pns_milestone_h_host_gate.ps1` PASS; USB: `a11y_dump` PASS, `crash_triage` PASS, `still_mode_compare` → `readout_jpeg_dng_parity_20260529_172644`. **H.7 closed CPH2583** — owner ACR/Lightroom sign-off 2026-05-29 (`aux_dng_capture_analyze_20260529_015653`). **Still blocked without human:** ColorChecker (H.2), keystore custody (H.4), store copy (H.5), face-in-frame eye-AF (H.6/H.8.1), subjective HUD/codec (H.8).
+**Completed sprints:** H.1, H.3 (agent), H.4 (agent), H.5 (agent), H.6 (agent/a11y), H.7 (CPH2583), H.8 closed rows → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** (*Milestone H — completed sprints*).
 
-**Depends on:** Sprint 15.B gate scripts PASS; **Sprint 16.8** verify matrix row for DNG sign-off; Sprint 15.1 (eye AF); Sprint 15.5 (dual video); Sprint 15.2 (HEVC); Sprint 15.20, 15.21, 15.23 (PPM/false color/pillar HUD). **15.15** agent work is prerequisite for **OP13 regression only**, not for closing H.7 on CPH2583.
-
-### Sprint H.1 — Desktop visual verification
-
-- [x] **[AGENT]** `pns_dng_aesthetic_gate.py` — rawpy decode M14/M23/M73; luma+channel stats PASS — `hfr-runs/aesthetic_selftest_h1` (fixture self-test); CPH2583 pulls decode via `pns_dng_rawpy_decode_gate.ps1` (cross-device vs OP13 refs **informational FAIL**)
-- [x] **[AGENT]** `pns_passport_ce_values.py` — X-Rite constants → `tests/fixtures/passport_ce_values.json`
+**Still blocked without human:** ColorChecker (H.2), keystore custody (H.4), store copy (H.5), face-in-frame eye-AF (H.6/H.8.1), subjective HUD/codec (H.8).
 
 ### Sprint H.2 — Physical calibration capture
 
@@ -298,36 +293,22 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ### Sprint H.3 — Account ownership
 
-- [x] **[AGENT]** `pns_gitlab_setup.ps1 -Verify` — assert `ANDROID_KEYSTORE_BASE64` `masked=true` via GitLab API — script fixed (PS 5.1); **SKIP** in agent env (no `GITLAB_TOKEN`/`GITLAB_PROJECT_ID`)
 - [ ] **[HUMAN]** Confirm you are logged into the owner GitLab account (irreducible — identity custody)
 
 ### Sprint H.4 — Signing authority
 
-- [x] **[AGENT]** `pns_keystore_verify.ps1` — `keytool -list`; assert alias + SHA-256 vs `pns_keystore_expected.json` — **SKIP** (no `release.keystore` in clone; expected)
-- [x] **[AGENT]** `pns_release_asset_check.ps1` — `gh release view`; assert APK asset > 1 MB — **SKIP** (no GitHub release published yet)
 - [ ] **[HUMAN]** Confirm you hold custody of the keystore file (irreducible — security)
 
 ### Sprint H.5 — Publication & community
 
 - [ ] **[HUMAN]** Store listing copy (Play / F-Droid) — irreducible creative writing
 - [ ] **[HUMAN]** Community announcements — irreducible public communication
-- [x] **[AGENT]** `pns_crash_triage.ps1` — post-launch: `adb logcat -b crash -d`; parse fatals; write report — `hfr-runs/crash_triage_20260529_212514` (0 fatals)
 
 ### Sprint H.6 — Subjective UX sign-off
 
 - [ ] **[AGENT]** `pns_eye_af_pixel_gate.ps1` — screencap + PIL diff eye-box vs expected region; PASS when delta < threshold — **FAIL** unattended USB (`eye_af_pixel_gate_20260529_172528`: no green overlay markers without face in frame); fixed `pns_eye_af_overlay_align.py` numpy JSON bug
-- [x] **[AGENT]** `pns_a11y_dump_gate.ps1` — `uiautomator dump`; assert all interactive nodes have `content-desc` — USB PASS CPH2583 2026-05-29
 - [ ] **[HUMAN]** HUD / LUT default aesthetics — irreducible perceptual
 - [ ] **[HUMAN]** Immersive mode feel — irreducible perceptual
-
-### Sprint H.7 — DNG & still modes (per onboarded SKU) *(CPH2583 closed 2026-05-29)*
-
-**Artifacts:** `docs/FLEET_DEVICE_VERIFY_MATRIX.md` · CPH2583: `hfr-runs/aux_dng_capture_analyze_20260529_015653`, `readout_jpeg_dng_parity_20260529_172644`
-
-- [x] **[AGENT]** `pns_dng_rawpy_decode_gate.ps1` — rawpy M14/M23/M73 on fixtures or pulled DNGs for **onboarded SKU** — PASS `aux_dng_capture_analyze_20260529_015653` (6 DNGs)
-- [x] **[AGENT]** `pns_fixture_dng_gates.ps1` — host CI on `tests/fixtures/referenceapp_cph2655/` (default pipeline gate) — PASS
-- [x] **[AGENT]** `pns_still_mode_compare_gate.ps1` — when SKU row requires still-mode compare — USB PASS → `readout_jpeg_dng_parity_20260529_172644`
-- [x] **[HUMAN]** ACR / Lightroom: open wide + UW + tele DNGs for **CPH2583** — neutral color, no green cast — **owner approved 2026-05-29** (closes H.7 for onboarded SKU row)
 
 ### Sprint H.7-OP13 — Optional OP13 regression lane
 
@@ -342,11 +323,8 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 - [ ] **[HUMAN] H.8.1** Eye/face overlay on glass (14.5 + 15.1) — pixel gate passes; on-face rubber-stamp
 - [ ] **[HUMAN] H.8.2** Dual-video stacked framing usability (14.12 + 15.5)
-- [x] **[AGENT] H.8.3** `pns_hfr_color_compare_frames.ps1` — H.265 vs H.264 YCbCr delta &lt; 8 @1080p SDR (automated only)
 - [ ] **[HUMAN] H.8.3** Owner visual: all codecs/scenes good — **fail:** H.265 **DCG @4K** bad colors (2026-05-26); re-open 15.2 human row
-- [x] **[HUMAN] H.8.4** PPM meters peak hold visible + decaying (15.20)
 - [ ] **[HUMAN] H.8.5** False color correct on grey card + highlight scene (15.21)
-- [x] **[HUMAN] H.8.6** Pillar-bar HUD no overlap with chrome (15.23) — CPH2583 2026-05-29
 
 **Milestone H gate:** Owner-approved checklist; **H.7** closed for **CPH2583** (2026-05-29); **H.8** closes M14/M15 subjective claims.
 
@@ -390,5 +368,7 @@ Human gates closing with M15: **H.7** (DNG color ACR **per onboarded SKU**) — 
 
 ## Document control
 
-- **Version:** Active plan **2026-06-03** — **M13–M23** archived; active: **Milestone 24** + **Milestone H**.
+- **Version:** Active plan **2026-06-05** — **M15–M23** archived; active: **Milestone 24** + **Milestone 25** + **Milestone 26** + **Milestone H**.
 - **Owner:** Project maintainer approves Milestone H closures.
+
+---

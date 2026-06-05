@@ -1,6 +1,6 @@
-﻿rank,slug,marketingName,manufacturer,model,parityPts,parityPct,honestyPct,resolutionBetrayalIndex,formatPickerHonestyScore,sensorSumMm2,testedApi,romFlavor,buildDisplay,msrpUsd,parityPerUsd,shipBlockerCount,trustTier,lastSweepMode,gsmarenaUrl
-,acf7a326d2a12131,Sony Xperia 5 V,Sony,XQ-BE62,1416,65.7,88.0,0,68,219.47,Android 13 (API 33),unknown,,999,1.42,1,maintainer,Full,https://www.gsmarena.com/sony_xperia_5_v-12534.php
-,dff79fd1b3808b1d,Essential PH-1,Essential Products,PH-1,1370,67.3,80.2,0,69,33.23,Android 15 (API 35),custom_likely,lineage_mata-userdebug 15 BP1A.250505.005 dc3756dcc3,,,1,maintainer,Full,https://www.gsmarena.com/_essential_ph_1-8710.php
-,718a8115ff142454,OnePlus 12,OnePlus,CPH2583,1246,55.3,50.8,83,3,306.28,Android 16 (API 36),root_unlocked,BP4A.251205.006,799,1.56,38,maintainer,Full,https://www.gsmarena.com/oneplus_12-12725.php
+rank,slug,marketingName,manufacturer,model,parityPts,parityPct,honestyPct,resolutionBetrayalIndex,formatPickerHonestyScore,sensorSumMm2,testedApi,romFlavor,buildDisplay,msrpUsd,parityPerUsd,shipBlockerCount,trustTier,lastSweepMode,gsmarenaUrl
 ,088f8b18916ff4ea,HTC Exodus 1,HTC,EXODUS 1,1349,68.7,78.9,0,69,23.9,Android API 28 (API 28),stock,PQ2A.190205.003 release-keys,,,4,maintainer,Full,https://www.gsmarena.com/htc_exodus_1-9385.php
 ,3e2a7b88f6db66c0,OnePlus CPH2655,OnePlus,CPH2655,1627,74.6,82.7,0,81,115.96,Android 16 (API 36),engineering,BP4A.251205.006,,,0,maintainer,Full,
+,718a8115ff142454,OnePlus 12,OnePlus,CPH2583,1694,75.2,84.3,83,81,125.76,Android 16 (API 36),root_unlocked,BP4A.251205.006,799,2.12,0,maintainer,Full,https://www.gsmarena.com/oneplus_12-12725.php
+,acf7a326d2a12131,Sony Xperia 5 V,Sony,XQ-BE62,1416,65.7,88,0,68,219.47,Android 13 (API 33),unknown,,999,1.42,1,maintainer,Full,https://www.gsmarena.com/sony_xperia_5_v-12534.php
+,dff79fd1b3808b1d,Essential PH-1,Essential Products,PH-1,1370,67.3,80.2,0,69,33.23,Android 15 (API 35),custom_likely,lineage_mata-userdebug 15 BP1A.250505.005 dc3756dcc3,,,1,maintainer,Full,https://www.gsmarena.com/_essential_ph_1-8710.php

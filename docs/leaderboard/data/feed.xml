@@ -1,43 +1,43 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
     <title>Point &amp; Shoot Camera Parity Leaderboard</title>
     <link>https://edwardlthompson.github.io/point-and-shoot/leaderboard/</link>
     <description>Tested Camera2 capability rankings for Android phones</description>
-    <lastBuildDate>2026-06-05T04:36:57.1130751Z</lastBuildDate>
+    <lastBuildDate>06/05/2026 11:20:07</lastBuildDate>
     <item>
       <title>OnePlus CPH2655</title>
       <link>https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/3e2a7b88f6db66c0</link>
       <guid isPermaLink="true">https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/3e2a7b88f6db66c0</guid>
-      <pubDate>2026-06-05T02:24:55.3550891Z</pubDate>
+      <pubDate>06/05/2026 02:24:55</pubDate>
       <description>Device added to parity leaderboard: OnePlus CPH2655</description>
     </item>
     <item>
       <title>Essential Products PH-1</title>
       <link>https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/dff79fd1b3808b1d</link>
       <guid isPermaLink="true">https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/dff79fd1b3808b1d</guid>
-      <pubDate>2026-06-04T13:47:38.2541562Z</pubDate>
+      <pubDate>06/04/2026 13:47:38</pubDate>
       <description>Device added to parity leaderboard: Essential Products PH-1</description>
     </item>
     <item>
       <title>HTC EXODUS 1</title>
       <link>https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/088f8b18916ff4ea</link>
       <guid isPermaLink="true">https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/088f8b18916ff4ea</guid>
-      <pubDate>2026-06-04T13:47:38.2526198Z</pubDate>
+      <pubDate>06/04/2026 13:47:38</pubDate>
       <description>Device added to parity leaderboard: HTC EXODUS 1</description>
     </item>
     <item>
       <title>Sony Xperia 5 V</title>
       <link>https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/acf7a326d2a12131</link>
       <guid isPermaLink="true">https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/acf7a326d2a12131</guid>
-      <pubDate>2026-06-04T13:31:23.0083172Z</pubDate>
+      <pubDate>06/04/2026 13:31:23</pubDate>
       <description>Device added to parity leaderboard: Sony Xperia 5 V</description>
     </item>
     <item>
       <title>OnePlus 12</title>
       <link>https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/718a8115ff142454</link>
       <guid isPermaLink="true">https://edwardlthompson.github.io/point-and-shoot/leaderboard/#/device/718a8115ff142454</guid>
-      <pubDate>2026-06-04T13:31:22.9903401Z</pubDate>
+      <pubDate>06/04/2026 13:31:22</pubDate>
       <description>Device added to parity leaderboard: OnePlus 12</description>
     </item>
   </channel>

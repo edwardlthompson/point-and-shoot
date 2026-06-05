@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_sensor_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm\u00b2 via 25.4/denom diagonal (4:3).",
-  "scrapedUtc": "2026-06-05T10:47:13.157265+00:00",
+  "scrapedUtc": "2026-06-05T11:12:24.522913+00:00",
   "stale": true,
   "devices": [
     {
@@ -146,8 +146,24 @@
   ],
   "errors": [
     {
+      "model": "CPH2583",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "XQ-BE62",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
       "model": "CPH2649",
-      "error": "GSMArena page title mismatch for OnePlus 13: got 'Honor Play 60 Plus - Full phone specifications' from https://www.gsmarena.com/oneplus_13-13161.php"
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "EXODUS 1",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "PH-1",
+      "error": "HTTP Error 429: Too Many Requests"
     }
   ]
 }

@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_device_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Marketing/spec-sheet aggregation; not verified Camera2 capability.",
-  "scrapedUtc": "2026-06-05T10:47:53.879119+00:00",
+  "scrapedUtc": "2026-06-05T11:16:14.696470+00:00",
   "stale": true,
   "devices": [
     {
@@ -181,6 +181,14 @@
     }
   ],
   "errors": [
+    {
+      "model": "CPH2583",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "XQ-BE62",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
     {
       "model": "CPH2649",
       "error": "HTTP Error 429: Too Many Requests"

@@ -7,10 +7,11 @@
 #>
 param(
     [string]$Serial = "",
-    [int]$WaitSec = 90,
+    [int]$WaitSec = 0,
     [switch]$SkipAssemble,
     [switch]$SkipInstall,
-    [switch]$RescanMatrix
+    [switch]$RescanMatrix,
+    [switch]$Manual
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,15 +56,30 @@ $outDir = Join-Path $projRoot "hfr-runs\hardware_key_probe_$utc"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $logPath = Join-Path $outDir "logcat_hardware_key_probe.txt"
 
-Write-Host "[hardware_key_probe] Press dedicated + shortcut hardware buttons on device, then tap Save probe JSON in app."
-Write-Host "[hardware_key_probe] Waiting ${WaitSec}s..."
+$autoProbe = -not $Manual
+if ($WaitSec -le 0) {
+    $WaitSec = if ($autoProbe) { 12 } else { 90 }
+}
+
+if ($autoProbe) {
+    Write-Host "[hardware_key_probe] Auto probe: synthesize KEYCODE_CAMERA and save JSON (${WaitSec}s wait)."
+} else {
+    Write-Host "[hardware_key_probe] Press dedicated + shortcut hardware buttons on device, then tap Save probe JSON in app."
+    Write-Host "[hardware_key_probe] Waiting ${WaitSec}s..."
+}
 
 & adb @adbPrefix shell logcat -c 2>$null | Out-Null
 & adb @adbPrefix shell am force-stop $pkg 2>$null | Out-Null
 Start-Sleep -Milliseconds 600
-& adb @adbPrefix shell am start -W -n "${pkg}/.MainActivity" `
-    --activity-clear-task `
-    --es pns_screen hardwarekeyprobe 2>&1 | Out-Null
+$startArgs = @(
+    "shell", "am", "start", "-W", "-n", "${pkg}/.MainActivity",
+    "--activity-clear-task",
+    "--es", "pns_screen", "hardwarekeyprobe"
+)
+if ($autoProbe) {
+    $startArgs += @("--ez", "pns_auto_hardware_key_probe", "true")
+}
+& adb @adbPrefix @startArgs 2>&1 | Out-Null
 
 Start-Sleep -Seconds $WaitSec
 & adb @adbPrefix exec-out logcat -d -s "PNS.HardwareKeyProbe:I" "PNS.SWEEP_SIGNAL:I" 2>$null | Out-File -LiteralPath $logPath -Encoding utf8

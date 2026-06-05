@@ -1,4 +1,4 @@
-# Milestone 21 — one-shot gate: parity honesty JVM tests + catalog gate + golden sweep + USB Quick/Full.
+# Milestone 21 — one-shot gate: parity honesty JVM tests + catalog gate + golden sweep + USB Delta/Full.
 #
 # USB steps run when an authorized device is online; otherwise host-only steps still execute.
 
@@ -23,7 +23,7 @@ pns_m21_gate.ps1 — Milestone 21 gate
     pns_fleet_parity_sweep.ps1 -HostOnlyFixture
 
   USB (when device online):
-    pns_fleet_parity_sweep.ps1 -Mode Quick [-SkipMatrixRefresh]
+    pns_fleet_parity_sweep.ps1 -Mode Delta [-SkipMatrixRefresh]
     pns_fleet_parity_sweep.ps1 -Mode Full (fresh install)
 
   -HostOnly   skip USB steps even if device present
@@ -83,15 +83,15 @@ if (-not $HostOnly) {
         Add-Step "assemble_debug" $LASTEXITCODE
     }
 
-    $quickArgs = @{
-        Mode = "Quick"
-        OutDir = (Join-Path $OutDir "parity_quick")
+    $deltaArgs = @{
+        Mode = "Delta"
+        OutDir = (Join-Path $OutDir "parity_delta")
     }
-    if ($Serial) { $quickArgs.Serial = $Serial }
-    if ($SkipInstall) { $quickArgs.SkipInstall = $true }
-    if ($SkipMatrixRefresh) { $quickArgs.SkipMatrixRefresh = $true }
-    & (Join-Path $PSScriptRoot "pns_fleet_parity_sweep.ps1") @quickArgs
-    Add-Step "parity_quick_usb" $LASTEXITCODE
+    if ($Serial) { $deltaArgs.Serial = $Serial }
+    if ($SkipInstall) { $deltaArgs.SkipInstall = $true }
+    if ($SkipMatrixRefresh) { $deltaArgs.SkipMatrixRefresh = $true }
+    & (Join-Path $PSScriptRoot "pns_fleet_parity_sweep.ps1") @deltaArgs
+    Add-Step "parity_delta_usb" $LASTEXITCODE
 
     $fullArgs = @{
         Mode = "Full"
@@ -118,7 +118,7 @@ if (-not $HostOnly) {
         & adb shell am force-stop dev.pointandshoot 2>$null
     }
 } else {
-    foreach ($name in @("parity_quick_usb", "parity_full_usb")) {
+    foreach ($name in @("parity_delta_usb", "parity_full_usb")) {
         $results.steps += [ordered]@{ name = $name; exitCode = 0; pass = $true; skipped = "HostOnly" }
     }
 }

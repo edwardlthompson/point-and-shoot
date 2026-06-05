@@ -75,4 +75,21 @@ class HfrInterleavedPreviewSupportTest {
             ),
         )
     }
+
+    @Test
+    fun prefersInterleaved_encoderPriorityFallbackSkipsInterleaved() {
+        assertFalse(
+            HfrInterleavedPreviewSupport.prefersInterleavedOverEncoderOnlyFor4KEncode(
+                desiredFps = 120,
+                wantsMediaCodecPath = true,
+                encodePrefWidth = 3840,
+                encodePrefHeight = 2160,
+                hsCaptureWidth = 3840,
+                hsCaptureHeight = 2160,
+                preferSub4kCapture = false,
+                forceInterleavedAfterConfigureFail = false,
+                encoderPriorityFallback = true,
+            ),
+        )
+    }
 }

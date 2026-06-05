@@ -33,6 +33,8 @@ param(
     [switch]$Build,
     [switch]$SkipBuild,
     [string]$LaunchScreen = "preview",
+    [switch]$SecureLaunch,
+    [switch]$LockscreenPreflight,
     [switch]$ColdStart,
     [string[]]$ExtraArgs = @()
 )
@@ -84,6 +86,27 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
     }
     else {
         & adb @CmdArgs 2>$null
+    }
+}
+
+function Write-LockscreenPreflight {
+    Write-Host "`[sideload_launch] lockscreen preflight:"
+    try {
+        $state = if ($Serial) { & adb -s $Serial shell dumpsys window policy 2>$null } else { & adb shell dumpsys window policy 2>$null }
+        if ($state) {
+            $lines =
+                $state |
+                    Select-String -Pattern "isStatusBarKeyguard|showing|secure|Keyguard" |
+                    Select-Object -First 20
+            if ($lines) {
+                $lines | ForEach-Object { Write-Host "  $($_.Line.Trim())" }
+            } else {
+                Write-Host "  (no keyguard lines found)"
+            }
+        }
+    }
+    catch {
+        Write-Warning "[sideload_launch] lockscreen preflight failed: $_"
     }
 }
 
@@ -200,10 +223,16 @@ Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.RECORD_AUDI
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_IMAGES")
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_MEDIA_VIDEO")
 Invoke-AdbIgnore @("shell", "pm", "grant", $pkg, "android.permission.POST_NOTIFICATIONS")
+if ($LockscreenPreflight) {
+    Write-LockscreenPreflight
+}
 
 # --activity-clear-task: after install, otherwise some devices leave another app (e.g. Gallery)
 # on top and `am start` only "delivers" to a background task.
 $startArgs = @("shell", "am", "start", "-W", "-n", $activity, "--activity-clear-task")
+if ($SecureLaunch) {
+    $startArgs += "-a", "android.media.action.STILL_IMAGE_CAMERA_SECURE"
+}
 if ($ColdStart) {
     $startArgs += "-S"
 }

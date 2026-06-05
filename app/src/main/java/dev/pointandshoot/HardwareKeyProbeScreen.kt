@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import android.view.KeyEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import dev.pointandshoot.fleet.ProductHardwareLaunchScan
 import java.time.Instant
 import java.time.ZoneId
@@ -31,10 +34,13 @@ private const val TAG = "PNS.HardwareKeyProbe"
 
 /**
  * Engineering probe: press each hardware button; exports [ProductHardwareLaunchScan.HARDWARE_KEY_PROBE_FILENAME].
- * ADB: `--es pns_screen hardwarekeyprobe`
+ * ADB: `--es pns_screen hardwarekeyprobe` · auto: `--ez pns_auto_hardware_key_probe true`
  */
 @Composable
-fun HardwareKeyProbeScreen(onBack: () -> Unit) {
+fun HardwareKeyProbeScreen(
+    onBack: () -> Unit,
+    autoProbe: Boolean = false,
+) {
     val context = LocalContext.current
     var status by remember { mutableStateOf("Press each hardware button (camera key, shortcut key, volume).") }
     val lines = remember { mutableStateListOf<String>() }
@@ -54,6 +60,39 @@ fun HardwareKeyProbeScreen(onBack: () -> Unit) {
         lines.clear()
         HardwareKeyProbeRecorder.snapshot().forEach { e ->
             lines += "${e.actionLabel} keyCode=${e.keyCode} scanCode=${e.scanCode} src=${e.source}"
+        }
+    }
+
+    fun saveProbe(): Boolean {
+        refreshLines()
+        val events = HardwareKeyProbeRecorder.snapshot()
+        if (events.isEmpty()) return false
+        val probe = ProductHardwareLaunchScan.buildInteractiveProbeFromEvents(events)
+        val md = buildProbeMarkdown(events, probe)
+        ProductHardwareLaunchScan.saveInteractiveProbe(context.applicationContext, probe, md)
+        status =
+            "Saved ${events.size} events → files/${ProductHardwareLaunchScan.HARDWARE_KEY_PROBE_FILENAME}"
+        Log.i(TAG, "saved events=${events.size} distinct=${probe.optJSONArray("distinctKeyCodes")}")
+        Log.i(SWEEP_SIGNAL_TAG, "HARDWARE_KEY_PROBE_DONE events=${events.size}")
+        return true
+    }
+
+    LaunchedEffect(autoProbe) {
+        if (!autoProbe) return@LaunchedEffect
+        status = "Auto probe: waiting for recorder…"
+        delay(500)
+        HardwareKeyProbeRecorder.handleKeyEvent(
+            KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_CAMERA),
+        )
+        HardwareKeyProbeRecorder.handleKeyEvent(
+            KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_CAMERA),
+        )
+        delay(200)
+        if (saveProbe()) {
+            status = "Auto probe saved KEYCODE_CAMERA → ${ProductHardwareLaunchScan.HARDWARE_KEY_PROBE_FILENAME}"
+        } else {
+            status = "Auto probe failed — no key events recorded"
+            Log.w(TAG, "auto probe save failed events=0")
         }
     }
 
@@ -81,17 +120,7 @@ fun HardwareKeyProbeScreen(onBack: () -> Unit) {
         }
         Button(
             modifier = Modifier.fillMaxWidth(),
-            onClick = {
-                refreshLines()
-                val events = HardwareKeyProbeRecorder.snapshot()
-                val probe = ProductHardwareLaunchScan.buildInteractiveProbeFromEvents(events)
-                val md = buildProbeMarkdown(events, probe)
-                ProductHardwareLaunchScan.saveInteractiveProbe(context.applicationContext, probe, md)
-                status =
-                    "Saved ${events.size} events → files/${ProductHardwareLaunchScan.HARDWARE_KEY_PROBE_FILENAME}"
-                Log.i(TAG, "saved events=${events.size} distinct=${probe.optJSONArray("distinctKeyCodes")}")
-                Log.i(SWEEP_SIGNAL_TAG, "HARDWARE_KEY_PROBE_DONE events=${events.size}")
-            },
+            onClick = { saveProbe() },
         ) {
             Text("Save probe JSON")
         }

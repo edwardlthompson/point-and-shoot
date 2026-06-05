@@ -4,7 +4,9 @@ import android.content.Context
 import android.hardware.camera2.CameraManager
 import android.util.Log
 import dev.pointandshoot.HardwareCapsSnapshot
+import dev.pointandshoot.InAppVideoFormatSelection
 import dev.pointandshoot.RootCapabilityStore
+import dev.pointandshoot.VideoDeliveryHonesty
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -15,8 +17,23 @@ object FleetParitySweepRunner {
     private const val ADB_TAG = "PNS.AdbValidation"
     const val PARITY_REPORT_FILE_PREFIX = "parity_report_"
 
+    /** Catalog rows backed by matrix featureGates.sessionOk — never proven on quick-tier matrix alone. */
+    internal val SESSION_GATED_CATALOG_IDS: Set<String> =
+        setOf(
+            "raw.dng",
+            "video.hfr",
+            "video.uhd60",
+            "video.4k_regular",
+            "video.dcg_hdr",
+            "video.av1",
+            "video.raw",
+            "video.raw_picker",
+            "face.detect",
+            "face.eye_af",
+            "face.priority_ae",
+        )
+
     enum class Mode(val wire: String) {
-        QUICK("quick"),
         FULL("full"),
         DELTA("delta"),
     }
@@ -63,6 +80,7 @@ object FleetParitySweepRunner {
                     val ok = formatPickerCells.count { it.provenOk && it.advertised }
                     (ok * 100 / formatPickerCells.size)
                 }
+            val resolutionBetrayalIndex = ResolutionBetrayal.computeFromMatrix(matrix)
             val scanMeta = matrix.optJSONObject(FleetDeviceMatrix.KEY_SCAN_META)
             return JSONObject().apply {
                 put("schema", "pns.fleet_parity_sweep.v2")
@@ -75,7 +93,16 @@ object FleetParitySweepRunner {
                 put("appVersionCode", scanMeta?.optInt("appVersionCode") ?: JSONObject.NULL)
                 put("fingerprintSha256Prefix", scanMeta?.optString("fingerprintSha256Prefix") ?: JSONObject.NULL)
                 put("formatPickerHonestyScore", formatScore)
+                put("resolutionBetrayalIndex", resolutionBetrayalIndex)
                 put("stillResolutionAdvertised", matrix.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONArray("stillResolutionAdvertised") ?: JSONArray())
+                put(
+                    "measurementContext",
+                    JSONObject().apply {
+                        put("api", "camera2")
+                        put("cameraXProbed", matrix.optJSONObject(FleetDeviceMatrix.KEY_CAMERA_X) != null)
+                        put("oemCameraAppTested", false)
+                    },
+                )
                 put(
                     "experimentalUnlockState",
                     matrix.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("experimentalUnlockState")
@@ -119,66 +146,6 @@ object FleetParitySweepRunner {
             c.gapClass?.let { put("gap", it.name) }
         }
 
-    private val quickCellIds: Set<String> =
-        setOf(
-            "raw.dng",
-            "still.zsl",
-            "still.bracket",
-            "still.referenceapp_leaf",
-            "still.nightscape",
-            "still.avif",
-            "video.h264",
-            "video.hevc",
-            "video.hfr",
-            "video.regular.1080p30",
-            "video.dcg_hdr",
-            "video.uhd60",
-            "video.vp9",
-            "video.av1",
-            "video.raw",
-            "video.raw_picker",
-            "video.dual_iso",
-            "video.dual",
-            "video.multicam_melt",
-            "video.timelapse",
-            "face.detect",
-            "face.eye_af",
-            "face.priority_ae",
-            "af.manual",
-            "af.rack",
-            "hud.zebra",
-            "hud.histogram",
-            "hud.highlight_meter",
-            "hud.focus_peaking",
-            "preview.qr",
-            "preview.ae_lock",
-            "preview.pip",
-            "lens.multi",
-            "lens.focal_row",
-            "lens.uw",
-            "lens.wide",
-            "lens.tele",
-            "lens.ois",
-            "lens.eis",
-            "focal.slot.14",
-            "focal.slot.23",
-            "focal.slot.73",
-            "fleet.matrix",
-            "fleet.parity_sweep",
-            "root.max_res_unlock_cph2583",
-            "product.format_picker",
-            "tether.http",
-            "tether.wifi_direct",
-            "audio.hifi",
-            "audio.wind_filter",
-            "audio.spatial",
-            "perf.capture_latency",
-            "perf.battery_adaptive_fps",
-            "workflow.preset.street",
-            "workflow.preset.portrait",
-            "workflow.preset.video_log",
-        )
-
     fun run(
         context: Context,
         matrix: JSONObject,
@@ -191,7 +158,6 @@ object FleetParitySweepRunner {
         val evaluated = CameraCapabilityCatalogBuilder.evaluatedRows(matrix)
         val rows =
             when (mode) {
-                Mode.QUICK -> evaluated.filter { quickCellIds.contains(it.row.id) }
                 Mode.FULL -> evaluated
                 Mode.DELTA ->
                     evaluated.filter { row ->
@@ -264,7 +230,7 @@ object FleetParitySweepRunner {
     ): FleetParitySweep.ParityCellResult {
         val row = evaluated.row
         val t0 = System.nanoTime()
-        val impact = FleetParityConsumerImpact.resolve(row)
+        val impact = FleetParityConsumerImpact.resolve(row, matrix)
         if (row.sweepSkipReason != null) {
             return skippedCell(row, row.sweepSkipReason, System.nanoTime() - t0, impact)
         }
@@ -272,19 +238,18 @@ object FleetParitySweepRunner {
             return plannedCell(row.id, System.nanoTime() - t0, impact)
         }
         val advertised = evaluated.deviceSupported
-        val provenOk = proveOk(evaluated, matrix, mode, includeRecord)
+        val provenOk = proveOk(context, evaluated, matrix, mode, includeRecord)
         val surfacingFail = surfacingGap(context, evaluated, provenOk, matrix)
         val failReason =
             when {
                 surfacingFail != null -> surfacingFail
                 provenOk -> null
                 !advertised -> "not_advertised"
+                evaluated.sessionOk == null &&
+                    row.id in SESSION_GATED_CATALOG_IDS &&
+                    FleetDeviceMatrix.parseScanTier(matrix) != FleetDeviceMatrix.ScanTier.FULL ->
+                    "matrix_tier_quick"
                 evaluated.sessionOk == false -> "session_failed"
-                row.parityProofScript == null &&
-                    (row.appStatus == CameraCapabilityCatalog.AppStatus.Partial ||
-                        row.appStatus == CameraCapabilityCatalog.AppStatus.Shipped) &&
-                    mode == Mode.FULL ->
-                    "unautomated"
                 else -> "not_proven"
             }
         val cell =
@@ -329,7 +294,23 @@ object FleetParitySweepRunner {
         }
     }
 
+    private fun proveDeliveryHonesty(context: Context): Boolean {
+        val hsMap = VideoDeliveryHonesty.wideHighSpeedMap(context)
+        val catalog =
+            InAppVideoFormatSelection.loadCatalog(
+                supportsDcg = false,
+                highSpeedMap = hsMap,
+            )
+        return VideoDeliveryHonesty.isCatalogHonest(catalog, hsMap)
+    }
+
+    private fun proveStillHeic(evaluated: CameraCapabilityCatalog.EvaluatedRow): Boolean =
+        evaluated.deviceSupported &&
+            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R &&
+            evaluated.sessionOk != false
+
     private fun proveOk(
+        context: Context,
         evaluated: CameraCapabilityCatalog.EvaluatedRow,
         matrix: JSONObject,
         mode: Mode,
@@ -345,32 +326,53 @@ object FleetParitySweepRunner {
                 else -> evaluated.deviceSupported && row.parityProofScript != null
             }
         }
+        if (row.id == "video.delivery_honesty") return proveDeliveryHonesty(context)
+        if (row.id == "still.heic") return proveStillHeic(evaluated)
+        return proveOkFromEvaluated(evaluated, matrix, mode)
+    }
+
+    private fun proveOkFromEvaluated(
+        evaluated: CameraCapabilityCatalog.EvaluatedRow,
+        matrix: JSONObject,
+        mode: Mode,
+    ): Boolean {
+        val row = evaluated.row
         return when {
             evaluated.sessionOk == true &&
-                evaluated.row.id !in setOf("video.dual", "video.multicam_melt", "preview.pip") -> true
+                row.id !in setOf("video.dual", "video.multicam_melt", "preview.pip") -> true
             evaluated.sessionOk == false -> false
-            evaluated.row.id == "video.dual" ->
+            row.id == "video.dual" ->
                 evaluated.deviceSupported && evaluated.sessionOk != false
-            evaluated.row.id == "video.multicam_melt" ->
+            row.id == "video.multicam_melt" ->
                 evaluated.deviceSupported && evaluated.sessionOk != false
-            evaluated.row.id == "preview.pip" ->
+            row.id == "preview.pip" ->
                 evaluated.deviceSupported && evaluated.sessionOk != false
-            evaluated.row.id == "fleet.matrix" -> FleetDeviceMatrix.isValidRoot(matrix)
-            evaluated.row.id == "fleet.parity_sweep" -> true
-            evaluated.row.id.startsWith("lens.focal") || evaluated.row.id.startsWith("focal.slot") ->
+            row.id == "fleet.matrix" -> FleetDeviceMatrix.isValidRoot(matrix)
+            row.id == "fleet.parity_sweep" -> true
+            row.id.startsWith("lens.focal") || row.id.startsWith("focal.slot") ->
                 matrix.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.has("focalRow") == true ||
                     focalSlotCount(matrix) > 0
-            evaluated.row.id.startsWith("tether.") -> true
-            evaluated.row.appStatus == CameraCapabilityCatalog.AppStatus.Shipped -> evaluated.deviceSupported
-            evaluated.row.appStatus == CameraCapabilityCatalog.AppStatus.Partial ->
-                when {
-                    mode == Mode.FULL && row.parityProofScript != null && evaluated.sessionOk != true ->
-                        false
-                    else ->
-                        evaluated.deviceSupported &&
-                            (row.parityProofScript != null || evaluated.sessionOk == true)
-                }
+            row.id.startsWith("tether.") -> true
+            row.id in SESSION_GATED_CATALOG_IDS &&
+                evaluated.sessionOk == null &&
+                FleetDeviceMatrix.parseScanTier(matrix) != FleetDeviceMatrix.ScanTier.FULL -> false
+            row.appStatus == CameraCapabilityCatalog.AppStatus.Shipped -> evaluated.deviceSupported
+            row.appStatus == CameraCapabilityCatalog.AppStatus.Partial ->
+                provePartialRow(evaluated, mode)
             else -> false
+        }
+    }
+
+    private fun provePartialRow(
+        evaluated: CameraCapabilityCatalog.EvaluatedRow,
+        mode: Mode,
+    ): Boolean {
+        val row = evaluated.row
+        return when {
+            mode == Mode.FULL && row.parityProofScript != null && evaluated.sessionOk != true -> false
+            else ->
+                evaluated.deviceSupported &&
+                    (row.parityProofScript != null || evaluated.sessionOk == true)
         }
     }
 
@@ -408,7 +410,7 @@ object FleetParitySweepRunner {
                 durationMs = elapsedNs / 1_000_000L,
                 consumerImpact = impact,
             )
-        logCell(cell, Mode.QUICK, row)
+        logCell(cell, Mode.DELTA, row)
         return cell
     }
 

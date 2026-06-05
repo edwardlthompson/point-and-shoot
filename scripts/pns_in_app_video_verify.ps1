@@ -209,6 +209,9 @@ if (-not $SkipInstall) {
 }
 Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.CAMERA") 60000 | Out-Null
 Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.RECORD_AUDIO") 60000 | Out-Null
+# API 28 and below: MediaStore video insert still requires legacy storage write.
+Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.WRITE_EXTERNAL_STORAGE") 60000 | Out-Null
+Invoke-AdbTimedIgnore @("shell", "pm", "grant", $pkg, "android.permission.READ_EXTERNAL_STORAGE") 60000 | Out-Null
 Invoke-AdbTimedIgnore @("shell", "logcat", "-G", "64M") 15000 | Out-Null
 
 $utc = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")

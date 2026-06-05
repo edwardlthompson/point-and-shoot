@@ -43,22 +43,10 @@ internal object PreviewHdrSessionSupport {
         if (!wantHdrPreview) return null
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
         if (outputSurfaces.isEmpty()) return null
-        val drp =
-            runCatching {
-                chars.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) as? DynamicRangeProfiles
-            }.getOrNull()
-                ?: return null
+        val drp = chars.getAvailableDynamicRangeProfilesOrNull() ?: return null
         val supported = drp.supportedProfiles?.toList().orEmpty()
         if (supported.isEmpty()) return null
-        val recTenBit: Long? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                runCatching {
-                    @Suppress("NewApi")
-                    chars.get(CameraCharacteristics.REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE)
-                }.getOrNull()
-            } else {
-                null
-            }
+        val recTenBit = chars.getRecommendedTenBitDynamicRangeProfileOrNull()
         val ordered = orderedDynamicRangeCandidates(recTenBit, supported)
         for (p in ordered) {
             if (isMultiOutputSessionSupportedWithDynamicRangeOnPreview(device, outputSurfaces, p)) {

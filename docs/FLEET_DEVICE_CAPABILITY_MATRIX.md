@@ -126,6 +126,21 @@ Shallow hub validate (`pns_shallow_scan_hub_validate.ps1`) also asserts matrix p
 
 Per-SKU checklists: **`docs/FLEET_DEVICE_VERIFY_MATRIX.md`**.
 
+### MONO + lockscreen rollout checks
+
+For SKUs with `product.focalRow.specialRoles.dedicatedMonochrome=true`, run:
+
+```powershell
+.\scripts\pns_mono_capture_verify.ps1
+.\scripts\pns_lockscreen_camera_verify.ps1
+```
+
+Expected proof:
+
+- `MONO_FALLBACK_SNAPSHOT_SAVED` **or** `captureIndependentTonalStill composed_smoke ok=true saved=`
+- `secureLaunchPolicy showWhenLocked=true turnScreenOn=true`
+- `secureSession=true mode=...`
+
 
 
 ## Agents

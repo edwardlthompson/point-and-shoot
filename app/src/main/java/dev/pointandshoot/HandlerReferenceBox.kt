@@ -108,7 +108,7 @@ object HandlerReferenceBox {
         writeUint32Be(out, 0)
         // name (NUL-terminated UTF-8)
         if (name.isNotEmpty()) {
-            out.writeBytes(name.toByteArray(Charsets.UTF_8))
+            out.writeBytesCompat(name.toByteArray(Charsets.UTF_8))
         }
         out.write(0)
         return out.toByteArray()

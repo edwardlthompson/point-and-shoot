@@ -34,7 +34,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
@@ -46,6 +48,7 @@ import android.hardware.camera2.CameraMetadata
 import dev.pointandshoot.fleet.FleetCameraProfileBuilder
 import dev.pointandshoot.fleet.FleetCameraProfileStore
 import dev.pointandshoot.fleet.FleetCameraProfiles
+import dev.pointandshoot.fleet.FleetDeviceMatrix
 import dev.pointandshoot.fleet.FleetDeviceMatrixBuilder
 import dev.pointandshoot.fleet.FleetDeviceMatrixStore
 import dev.pointandshoot.fleet.FleetProbeMatrixMarkdown
@@ -484,6 +487,9 @@ const val PNS_SCREEN_PREVIEW = "preview"
 const val PNS_SCREEN_FACE_METER = "facemeter"
 /** Value for [EXTRA_PNS_SCREEN] — interactive hardware button keyCode probe (engineering). */
 const val PNS_SCREEN_HARDWARE_KEY_PROBE = "hardwarekeyprobe"
+
+/** With [PNS_SCREEN_HARDWARE_KEY_PROBE]: synthesize KEYCODE_CAMERA and auto-save probe JSON (ADB automation). */
+const val EXTRA_PNS_AUTO_HARDWARE_KEY_PROBE = "pns_auto_hardware_key_probe"
 
 /** Value for [EXTRA_PNS_SCREEN] — headless **`CameraDevice.createExtensionSession`** smoke (Milestone 4). */
 const val PNS_SCREEN_CAMERA_EXT_SMOKE = "cameraextsmoke"
@@ -944,6 +950,16 @@ fun CameraCapabilitiesProbe(
         if (!hasCameraPermission || fleetMatrixScanTier != "full" || fleetMatrixFullScanDone) return@LaunchedEffect
         fleetMatrixFullScanDone = true
         Log.i(FleetDeviceMatrixBuilder.TAG, "scanTier=full starting (adb pns_fleet_matrix_scan)")
+        // API 28+ rejects openCamera until the hosting activity is RESUMED (not merely STARTED).
+        val act = activity
+        if (act != null) {
+            var waited = 0
+            while (act.lifecycle.currentState < Lifecycle.State.RESUMED && waited < 200) {
+                delay(100)
+                waited++
+            }
+        }
+        delay(1500)
         withContext(Dispatchers.IO) {
             runCatching { FleetDeviceMatrixBuilder.buildFullAndSave(appCtx) }
                 .onFailure { e -> Log.e(FleetDeviceMatrixBuilder.TAG, "scanTier=full failed", e) }
@@ -1524,6 +1540,13 @@ fun CameraCapabilitiesProbe(
                     adbDialRaw?.takeUnless { it == CommandDialMode.H } ?: CommandDialMode.Auto
                 else -> adbDialRaw
             }
+        val secureLaunchSession =
+            when (activity?.intent?.action) {
+                MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE,
+                MediaStore.ACTION_IMAGE_CAPTURE_SECURE,
+                -> true
+                else -> false
+            }
         val adbInitialImagingProfile = if (trustIntentForPreviewPipeline) adbImagingProfileRaw else null
         val adbStillExportFormat = if (trustIntentForPreviewPipeline) adbStillFormatRaw else null
         val adbPhotoResolutionMode = if (trustIntentForPreviewPipeline) adbStillResolutionModeRaw else null
@@ -1569,6 +1592,7 @@ fun CameraCapabilitiesProbe(
             },
             startAutoSweep = autoSweep,
             adbInitialDial = adbInitialDial,
+            secureLaunchSession = secureLaunchSession,
             adbSequentialRawStills = adbSequentialRawStills,
             adbRawStillFastAutomation = adbRawStillFastAutomation,
             adbBracketPattern = adbBracketPattern,
@@ -1861,6 +1885,8 @@ fun CameraCapabilitiesProbe(
     }
 
     if (showHardwareKeyProbe) {
+        val autoHardwareKeyProbe =
+            activity?.intent?.getBooleanExtra(EXTRA_PNS_AUTO_HARDWARE_KEY_PROBE, false) == true
         HardwareKeyProbeScreen(
             onBack = {
                 showHardwareKeyProbe = false
@@ -1868,6 +1894,7 @@ fun CameraCapabilitiesProbe(
                     activity?.finish()
                 }
             },
+            autoProbe = autoHardwareKeyProbe,
         )
         return
     }
@@ -2040,6 +2067,13 @@ fun CameraCapabilitiesProbe(
     }
 
     if (launchScreen == null) {
+        val secureLaunchSession =
+            when (activity?.intent?.action) {
+                MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE,
+                MediaStore.ACTION_IMAGE_CAPTURE_SECURE,
+                -> true
+                else -> false
+            }
         val intentPrimaryPhotoDefault =
             activity?.intent?.takeIf { it.hasExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO) }
                 ?.getBooleanExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, true)
@@ -2056,6 +2090,7 @@ fun CameraCapabilitiesProbe(
             adbAutomationInAppVideoSec = 0,
             themeMode = themeMode,
             onThemeModeChange = onThemeModeChange,
+            secureLaunchSession = secureLaunchSession,
         )
         return
     }
@@ -2218,14 +2253,19 @@ internal fun buildProbeReport(context: Context, scanBudgetMs: Long = 4000L): Str
             ?: "null"
         sb.appendLine("- android.request.availableCapabilities: $capabilities")
 
-        val dynRangeProfiles = cc.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES)
-            ?.supportedProfiles
-            ?.joinToString(prefix = "[", postfix = "]") { it.toString() }
-            ?: "null"
-        sb.appendLine("- android.request.availableDynamicRangeProfiles: $dynRangeProfiles")
-
-        val recommendedTenBit = cc.get(CameraCharacteristics.REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE)
-        sb.appendLine("- android.request.recommendedTenBitDynamicRangeProfile: ${recommendedTenBit?.toString() ?: "null"}")
+        val drp = cc.getAvailableDynamicRangeProfilesOrNull()
+        if (drp != null) {
+            val dynRangeProfiles =
+                drp.supportedProfiles
+                    ?.joinToString(prefix = "[", postfix = "]") { it.toString() }
+                    ?: "null"
+            sb.appendLine("- android.request.availableDynamicRangeProfiles: $dynRangeProfiles")
+            val recommendedTenBit = cc.getRecommendedTenBitDynamicRangeProfileOrNull()
+            sb.appendLine("- android.request.recommendedTenBitDynamicRangeProfile: ${recommendedTenBit?.toString() ?: "null"}")
+        } else {
+            sb.appendLine("- android.request.availableDynamicRangeProfiles: n/a (API < 33)")
+            sb.appendLine("- android.request.recommendedTenBitDynamicRangeProfile: n/a (API < 33)")
+        }
 
         val aeFpsRanges = cc.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
         sb.appendLine("- android.control.aeAvailableTargetFpsRanges: ${aeFpsRanges?.joinToString(prefix = "[", postfix = "]") ?: "null"}")
@@ -2301,19 +2341,32 @@ internal fun buildProbeReport(context: Context, scanBudgetMs: Long = 4000L): Str
     FleetCameraProfileStore.appendCatalogMarkdown(sb, context.applicationContext, probeHiddenIds = false)
     FleetCameraProfiles.invalidateMemoryCache()
 
-    val matrixBuilt =
-        FleetDeviceMatrixBuilder.buildQuick(
-            context.applicationContext,
-            prebuiltCameras = camerasJson,
-            prebuiltShallowRoot = shallowRoot,
-            prebuiltDegraded = scanDegraded,
+    // Host `pns_fleet_matrix_scan -ScanTier full` runs [buildFullAndSave] in parallel; persisting quick here
+    // would race and downgrade scanMeta.scanTier on disk (REG-20260605-001).
+    val adbFullMatrixScan =
+        (context as? ComponentActivity)?.intent
+            ?.getStringExtra(EXTRA_PNS_FLEET_MATRIX_SCAN)
+            ?.lowercase()
+            ?.trim() == "full"
+    val existingFullTier =
+        FleetDeviceMatrixStore.loadValid(context.applicationContext)
+            ?.optJSONObject(FleetDeviceMatrix.KEY_SCAN_META)
+            ?.optString("scanTier") == "full"
+    if (!adbFullMatrixScan && !existingFullTier) {
+        val matrixBuilt =
+            FleetDeviceMatrixBuilder.buildQuick(
+                context.applicationContext,
+                prebuiltCameras = camerasJson,
+                prebuiltShallowRoot = shallowRoot,
+                prebuiltDegraded = scanDegraded,
+            )
+        FleetDeviceMatrixStore.save(context.applicationContext, matrixBuilt.root)
+        Log.i(
+            FleetDeviceMatrixBuilder.TAG,
+            "scanTier=quick cameras=${matrixBuilt.cameraCount} degraded=${matrixBuilt.degraded} " +
+                "ms=${matrixBuilt.scanDurationMs}",
         )
-    FleetDeviceMatrixStore.save(context.applicationContext, matrixBuilt.root)
-    Log.i(
-        FleetDeviceMatrixBuilder.TAG,
-        "scanTier=quick cameras=${matrixBuilt.cameraCount} degraded=${matrixBuilt.degraded} " +
-            "ms=${matrixBuilt.scanDurationMs}",
-    )
+    }
 
     FleetProbeMatrixMarkdown.appendSummary(sb, context.applicationContext)
 

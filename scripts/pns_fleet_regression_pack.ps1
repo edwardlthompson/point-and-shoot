@@ -1,9 +1,12 @@
-# Milestone 18.4/18.5 — tiered fleet regression pack (matrix + parity Quick).
+# Milestone 18.4/18.5 — tiered fleet regression pack (matrix + parity Delta).
 
 param(
     [string]$Serial = "",
     [ValidateSet("1", "2", "all")]
     [string]$Tier = "all",
+    [ValidateSet("Delta", "Full")]
+    [string]$ParityMode = "Delta",
+    [switch]$IncludeProofPack,
     [switch]$SkipInstall,
     [switch]$AssembleDebug
 )
@@ -38,6 +41,7 @@ if ($Tier -eq "1" -or $Tier -eq "all") {
     $matrixOut = Join-Path $OutDir "tier1_matrix"
     $matrixArgs = New-UsbArgs
     $matrixArgs.OutDir = $matrixOut
+    $matrixArgs.ScanTier = "full"
     & (Join-Path $PSScriptRoot "pns_fleet_matrix_scan.ps1") @matrixArgs
     Add-Step "tier1_matrix_scan" $LASTEXITCODE
 }
@@ -46,14 +50,20 @@ if ($Tier -eq "2" -or $Tier -eq "all") {
     $parityOut = Join-Path $OutDir "tier2_parity"
     $parityArgs = New-UsbArgs
     $parityArgs.OutDir = $parityOut
-    $parityArgs.Mode = "Quick"
+    $parityArgs.Mode = $ParityMode
+    if ($IncludeProofPack) { $parityArgs.IncludeProofPack = $true }
     & (Join-Path $PSScriptRoot "pns_fleet_parity_sweep.ps1") @parityArgs
-    Add-Step "tier2_parity_quick" $LASTEXITCODE
+    Add-Step "tier2_parity_delta" $LASTEXITCODE
 }
 
 if ($Tier -eq "all") {
     & (Join-Path $PSScriptRoot "pns_capability_catalog_gate.ps1") -HostOnly
     Add-Step "catalog_gate" $LASTEXITCODE
+}
+
+if ($Tier -eq "2" -or $Tier -eq "all") {
+    & (Join-Path $PSScriptRoot "pns_parity_debt_ledger_refresh.ps1") -RunsRoot (Join-Path $projRoot "hfr-runs")
+    & (Join-Path $PSScriptRoot "pns_parity_build_plan_intake.ps1")
 }
 
 $results.pass = -not ($results.steps | Where-Object { -not $_.pass })

@@ -56,6 +56,9 @@ object FleetCapabilityGate {
     fun isHfrSessionOk(context: Context, cameraId: String): Boolean? =
         featureGate(context, cameraId, "hfr")?.sessionOk
 
+    fun isFourKRegularSessionOk(context: Context, cameraId: String): Boolean? =
+        featureGate(context, cameraId, "fourKRegular")?.sessionOk
+
     fun isHfrAppEnabled(context: Context, cameraId: String): Boolean? =
         featureGate(context, cameraId, "hfr")?.appEnabled
 

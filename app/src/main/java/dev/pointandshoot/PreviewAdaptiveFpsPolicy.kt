@@ -54,9 +54,9 @@ object PreviewAdaptiveFpsPolicy {
 
     private fun thermalCapFps(thermalStatus: Int): Int? =
         when {
-            thermalStatus >= PowerManager.THERMAL_STATUS_CRITICAL -> 30
-            thermalStatus >= PowerManager.THERMAL_STATUS_SEVERE -> 60
-            thermalStatus >= PowerManager.THERMAL_STATUS_MODERATE -> 90
+            thermalStatus >= ApiLevelGuards.THERMAL_STATUS_CRITICAL -> 30
+            thermalStatus >= ApiLevelGuards.THERMAL_STATUS_SEVERE -> 60
+            thermalStatus >= ApiLevelGuards.THERMAL_STATUS_MODERATE -> 90
             else -> null
         }
 

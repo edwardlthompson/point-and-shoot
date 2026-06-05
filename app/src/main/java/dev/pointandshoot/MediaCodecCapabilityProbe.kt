@@ -139,7 +139,7 @@ object MediaCodecCapabilityProbe {
     private fun runProbe(): CapabilityMatrix {
         val list = MediaCodecList(MediaCodecList.ALL_CODECS)
         val hevcEncoders = list.codecInfos
-            .filter { it.isEncoder && !it.isAlias }
+            .filter { it.isNonAliasEncoder() }
             .filter { MIME_HEVC in it.supportedTypes }
 
         val encoderInfos = mutableListOf<EncoderInfo>()
@@ -250,7 +250,7 @@ object MediaCodecCapabilityProbe {
 
         val avcEncoders =
             list.codecInfos
-                .filter { it.isEncoder && !it.isAlias && MIME_AVC in it.supportedTypes }
+                .filter { it.isNonAliasEncoder() && MIME_AVC in it.supportedTypes }
                 .filter { it.name.contains("qti", ignoreCase = true) || it.name.contains("android", ignoreCase = true) }
         for (codec in avcEncoders) {
             val caps =
@@ -289,7 +289,7 @@ object MediaCodecCapabilityProbe {
 
         val av1EncoderNames =
             list.codecInfos
-                .filter { it.isEncoder && !it.isAlias && MIME_AV1 in it.supportedTypes }
+                .filter { it.isNonAliasEncoder() && MIME_AV1 in it.supportedTypes }
                 .map { it.name }
                 .distinct()
                 .sorted()
@@ -297,7 +297,7 @@ object MediaCodecCapabilityProbe {
 
         val vp9EncoderNames =
             list.codecInfos
-                .filter { it.isEncoder && !it.isAlias && MIME_VP9 in it.supportedTypes }
+                .filter { it.isNonAliasEncoder() && MIME_VP9 in it.supportedTypes }
                 .map { it.name }
                 .distinct()
                 .sorted()

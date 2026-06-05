@@ -175,20 +175,37 @@ internal class VideoRecordingController(
      */
     fun isStartFailureHold(): Boolean = startFailureHold
 
+    /** Clears latch after prefs sanitization or user retry (fleet-honest video path). */
+    fun clearStartFailureHold() {
+        startFailureHold = false
+    }
+
     /**
      * Sprint 13.8: Returns the peak audio amplitude of the current [MediaRecorder] recording
      * (0..32767), or 0 when no MediaRecorder is active (MediaCodec path or not recording).
      * Resets the internal peak counter on each call, matching [MediaRecorder.getMaxAmplitude] semantics.
      */
-    fun peekAudioAmplitude(): Int = mcRecorder?.peekAmplitude() ?: mediaRecorder?.maxAmplitude ?: 0
+    fun peekAudioAmplitude(): Int {
+        mcRecorder?.peekAmplitude()?.let { return it }
+        if (!recorderStarted) return 0
+        return safeMediaRecorderMaxAmplitude()
+    }
 
     /** L/R peaks for pillar stereo meters; mono paths duplicate the same level on both channels. */
     fun peekAudioAmplitudeStereo(): Pair<Int, Int> {
-        val mc = mcRecorder?.peekAmplitudeStereo()
-        if (mc != null) return mc
-        val mono = mediaRecorder?.maxAmplitude ?: 0
+        mcRecorder?.peekAmplitudeStereo()?.let { return it }
+        if (!recorderStarted) return 0 to 0
+        val mono = safeMediaRecorderMaxAmplitude()
         return mono to mono
     }
+
+    /** [MediaRecorder.getMaxAmplitude] throws when prepare/start has not completed or after stop. */
+    private fun safeMediaRecorderMaxAmplitude(): Int =
+        try {
+            mediaRecorder?.maxAmplitude ?: 0
+        } catch (_: IllegalStateException) {
+            0
+        }
 
     fun peekMcVideoSamplesWritten(): Long = mcRecorder?.peekVideoSamplesWritten() ?: 0L
 
@@ -430,6 +447,10 @@ internal class VideoRecordingController(
             PnsAudioCaptureSupport.logInputDevices(appContext)
             Log.i(TAG, "videoAudioProfile audioSource=${audioSource.logTag()} ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
             PnsAdbLog.i(appContext, "videoAudioProfile audioSource=${audioSource.logTag()} ${PnsAudioCaptureSupport.diagSummary(audioProfile)}")
+            PnsAdbLog.i(
+                appContext,
+                "spatialAudioMeta=${MediaCodecVideoRecorder.spatialAudioMetaLogLabel(audioProfile.channelConfig)}",
+            )
         }
         recordingCaptureInfo =
             VideoCaptureMetadata.CaptureInfo(

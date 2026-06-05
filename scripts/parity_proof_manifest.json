@@ -48,7 +48,7 @@
     {
       "catalogId": "video.hfr.24",
       "script": "pns_hfr_fps_parity_verify.ps1",
-      "alsoProves": ["video.hfr.30", "video.hfr.60", "video.hfr.240"],
+      "alsoProves": ["video.hfr", "video.hfr.30", "video.hfr.60", "video.hfr.240"],
       "scriptArgs": { "AllFps": true },
       "matrixGate": "cameraAny.featureGates.hfr.sessionOk"
     },
@@ -63,7 +63,19 @@
     },
     {
       "catalogId": "audio.unprocessed",
-      "script": "pns_audio_unprocessed_verify.ps1"
+      "script": "pns_audio_unprocessed_verify.ps1",
+      "alsoProves": ["audio.hifi"]
+    },
+    {
+      "catalogId": "video.4k_regular",
+      "script": "pns_4k_regular_verify.ps1",
+      "matrixGate": "cameraAny.featureGates.fourKRegular.sessionOk"
+    },
+    {
+      "catalogId": "video.uhd60",
+      "script": "pns_mediacodec_hfr_verify.ps1",
+      "scriptArgs": { "GateProfile": "vf" },
+      "matrixGate": "cameraAny.featureGates.uhd60.sessionOk"
     },
     {
       "catalogId": "video.color.hdr10",
@@ -97,6 +109,26 @@
       "catalogId": "still.independent_tonal",
       "script": "pns_independent_tonal_verify.ps1",
       "matrixGate": "cameraAny.featureGates.dcgZsl.advertised"
+    },
+    {
+      "catalogId": "product.still_image_camera_secure_launch",
+      "script": "pns_lockscreen_camera_verify.ps1",
+      "matrixGate": "product.hardwareLaunch.stillImageCameraSecure.resolvable"
+    },
+    {
+      "catalogId": "product.hardware_camera_key",
+      "script": "pns_hardware_key_probe.ps1",
+      "matrixGate": "product.hardwareButtons.dedicatedCameraKeyLikely"
+    },
+    {
+      "catalogId": "perf.capture_latency",
+      "script": "pns_memory_profiler.ps1",
+      "alsoProves": ["perf.cold_preview_ms", "perf.first_frame_ms"]
+    },
+    {
+      "catalogId": "perf.thermal_adaptive",
+      "script": "pns_battery_life_test.ps1",
+      "alsoProves": ["perf.battery_adaptive_fps"]
     }
   ]
 }

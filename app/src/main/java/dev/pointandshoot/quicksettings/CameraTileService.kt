@@ -18,7 +18,12 @@ class CameraTileService : TileService() {
         super.onClick()
         
         val intent = Intent(this, MainActivity::class.java).apply {
-            action = android.provider.MediaStore.ACTION_IMAGE_CAPTURE
+            action =
+                if (isLocked) {
+                    android.provider.MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE
+                } else {
+                    android.provider.MediaStore.ACTION_IMAGE_CAPTURE
+                }
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         

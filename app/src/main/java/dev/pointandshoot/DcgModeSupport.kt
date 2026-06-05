@@ -40,9 +40,7 @@ object DcgModeSupport {
         }
         
         // Check if device advertises HLG10 or HDR10+ (required for DCG)
-        val drp = runCatching {
-            chars.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) as? android.hardware.camera2.params.DynamicRangeProfiles
-        }.getOrNull() ?: run {
+        val drp = chars.getAvailableDynamicRangeProfilesOrNull() ?: run {
             Log.d(TAG, "DynamicRangeProfiles not available")
             return false
         }
@@ -94,9 +92,8 @@ object DcgModeSupport {
      * Returns HLG10 for most devices, HDR10+ if available.
      */
     fun getRecommendedDcgProfile(chars: CameraCharacteristics): Long? {
-        val drp = runCatching {
-            chars.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) as? android.hardware.camera2.params.DynamicRangeProfiles
-        }.getOrNull() ?: return null
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+        val drp = chars.getAvailableDynamicRangeProfilesOrNull() ?: return null
         
         val supportedProfiles = drp.supportedProfiles ?: return null
         

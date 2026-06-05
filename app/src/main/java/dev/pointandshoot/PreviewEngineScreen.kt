@@ -325,21 +325,6 @@ private fun resolveChromeGridDragTarget(
     return targetRow to targetCol
 }
 
-private fun findDedicatedMonochromeCameraId(
-    context: Context,
-    cameraIds: List<String>,
-): String? {
-    val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-    for (cameraId in cameraIds) {
-        val chars = runCatching { cm.getCameraCharacteristics(cameraId) }.getOrNull() ?: continue
-        val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: continue
-        if (caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
-            return cameraId
-        }
-    }
-    return null
-}
-
 /**
  * Scroll-area shortcuts: **7 columns × 3 logical shortcut rows** (plus a separate focal-length row of 7).
  * Target FPS lives on the readout strip. Empty grid coordinates render as inert cells.
@@ -873,6 +858,8 @@ fun PreviewEngineScreen(
     themeMode: PnsThemeMode = PnsThemeMode.System,
     onThemeModeChange: (PnsThemeMode) -> Unit = {},
     startAutoSweep: Boolean = false,
+    /** True when launched from secure lockscreen camera intent actions. */
+    secureLaunchSession: Boolean = false,
     /** From `am start` extras — see `EXTRA_PNS_PREVIEW_*` in [CameraCapabilitiesProbe]. */
     adbInitialDial: CommandDialMode? = null,
     adbSequentialRawStills: Int = 0,
@@ -1090,6 +1077,7 @@ fun PreviewEngineScreen(
     val captureScope = rememberCoroutineScope()
     val snackbarHostState = LocalPnsSnackbarHostState.current
     val controller = remember { PreviewController(context.applicationContext) }
+    controller.setAdbPendingRawStillAutomationCount(adbSequentialRawStills)
     if (adbAutomationVideoCodecOrdinal != null) {
         controller.adbAutomationVideoCodecOrdinal = adbAutomationVideoCodecOrdinal
     }
@@ -1412,16 +1400,24 @@ fun PreviewEngineScreen(
         }
     }
 
+    val adbHfrFpsDeferred =
+        remember(adbAutomationInAppVideoSec, adbAutomationVideoFps) {
+            mutableStateOf(adbAutomationInAppVideoSec > 0 && (adbAutomationVideoFps ?: 0) >= 120)
+        }
     LaunchedEffect(
         adbAutomationVideoFps,
         adbAutomationInAppVideoSec,
         adbAutomationVideoDcg,
         adbAutomationVideoCodecOrdinal,
+        adbHfrFpsDeferred.value,
     ) {
         val fps = adbAutomationVideoFps
         if (fps != null && fps > 0) {
-            selectedFps = fps.coerceIn(15, 480)
-            userSelectedFps = selectedFps
+            val deferHfrFps = adbHfrFpsDeferred.value && fps >= 120
+            if (!deferHfrFps) {
+                selectedFps = fps.coerceIn(15, 480)
+                userSelectedFps = selectedFps
+            }
             val c = chromePrefs.current
             var next = c.copy(inAppVideoFps = selectedFps)
             if (
@@ -1434,7 +1430,11 @@ fun PreviewEngineScreen(
             if (next != c) {
                 chromePrefs.update(next)
             }
-            PnsAdbLog.i(context, "preview seeded videoFps=$fps (adb)")
+            if (deferHfrFps) {
+                PnsAdbLog.i(context, "preview deferred videoFps=$fps until texture stable (adb)")
+            } else {
+                PnsAdbLog.i(context, "preview seeded videoFps=$fps (adb)")
+            }
         }
     }
 
@@ -1656,13 +1656,25 @@ fun PreviewEngineScreen(
         }
     }
 
-    LaunchedEffect(selectedCameraId, selectedFps, primaryPhoto, sweepJob) {
+    LaunchedEffect(selectedCameraId, selectedFps, primaryPhoto, sweepJob, adbHfrFpsDeferred.value) {
         // Photo mode must honor [selectedFps] (FPS sheet / readout). Forcing 120 here ignored user picks like 60,
         // left [PreviewController.desiredFps] ≥ 120, and blocked RAW/DNG ([canCaptureRawStill] requires < 120).
-        controller.setDesired(selectedCameraId = selectedCameraId, desiredFps = selectedFps)
+        // HFR USB gates warm up at ≤60 fps until automation pumps preview frames, then bump to scripted fps.
+        val desiredForCamera =
+            if (adbHfrFpsDeferred.value && (adbAutomationVideoFps ?: 0) >= 120) {
+                minOf(selectedFps, 60)
+            } else {
+                selectedFps
+            }
+        controller.setDesired(selectedCameraId = selectedCameraId, desiredFps = desiredForCamera)
     }
     SideEffect {
         controller.setVideoPrimarySession(!primaryPhoto)
+    }
+    if (secureLaunchSession) {
+        SideEffect {
+            Log.i("PNS.ChromeUx", "secureLaunchSession=true")
+        }
     }
 
     val insets = rememberSystemInsetsDp()
@@ -4176,13 +4188,6 @@ fun PreviewEngineScreen(
         } else {
             delay(2500)
         }
-        adbAutomationVideoFps?.takeIf { it >= 120 }?.let { targetFps ->
-            selectedFps = targetFps.coerceIn(15, 480)
-            controller.setDesired(selectedCameraIdState.value, targetFps)
-            PnsAdbLog.i(context, "inAppVideoAutomation hfrSettle fps=$targetFps")
-            delay(4000)
-            if (targetFps >= 480) delay(6000)
-        }
         var waited = 0
         while (selectedCameraIdState.value.isNullOrBlank() && waited < 200) {
             delay(100)
@@ -4195,6 +4200,28 @@ fun PreviewEngineScreen(
         ) {
             delay(120)
             pumpWait++
+        }
+        adbAutomationVideoFps?.takeIf { it >= 120 }?.let { targetFps ->
+            controller.clearHfrSurfaceAbandonRetries()
+            adbHfrFpsDeferred.value = false
+            selectedFps = targetFps.coerceIn(15, 480)
+            userSelectedFps = selectedFps
+            controller.setDesired(selectedCameraIdState.value, targetFps)
+            PnsAdbLog.i(context, "inAppVideoAutomation hfrSettle fps=$targetFps")
+            delay(4000)
+            if (targetFps >= 480) delay(6000)
+            var warmupWait = 0
+            while (warmupWait < 120 && !controller.adbStrictHfrWarmupReady()) {
+                delay(200)
+                warmupWait++
+            }
+            if (controller.adbStrictHfrWarmupReady()) {
+                controller.markAdbStrictHfrWarmupSatisfied()
+            }
+            PnsAdbLog.i(
+                context,
+                "inAppVideoAutomation hfrWarmupReady=${controller.adbStrictHfrWarmupReady()} waitedMs=${warmupWait * 200}",
+            )
         }
         isRecording = true
         if (dualAutomation) {
@@ -10940,6 +10967,8 @@ private class PreviewController(
 
         /** When [SurfaceTexture.setDefaultBufferSize] races teardown, retry after layout catches up. */
         private const val SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS = 120L
+        private const val HFR_SURFACE_ABANDON_RETRY_DELAY_MS = 350L
+        private const val HFR_SURFACE_ABANDON_RETRY_CAP = 8
 
         /** EMA alpha when [highlightDarkenEngageEma] falls (slower release — less brighten pump). */
         private const val HIGHLIGHT_ENGAGE_EMA_FALL_ALPHA = 0.22
@@ -10957,11 +10986,12 @@ private class PreviewController(
         private const val CAMERA_FAULT_REOPEN_WINDOW_MS = 4_000L
         private const val CAMERA_FAULT_REOPEN_MAX_ATTEMPTS = 2
         private const val CAMERA_FAULT_RETRY_DEFER_MS = 240L
+        /** Cool-down after [closeCamera] before another full teardown (HAL checkPidStatus storms). */
+        private const val MIN_PIPELINE_TEARDOWN_INTERVAL_MS = 450L
+        private const val CAMERA_FAULT_START_REPEAT_BACKOFF_MS = 650L
         private const val HFR_RECOVERY_FPS_CAP_WINDOW_MS = 90_000L
-        private const val HFR_STRICT_START_RETRY_BUDGET = 2
-        private const val HFR_STRICT_HEALTH_WINDOW_MS = 2_500L
-        private const val HFR_STRICT_MIN_WARMUP_FPS = 90.0
-        private const val HFR_STRICT_MAX_STALL_MS = 1_200L
+        private const val HFR_STRICT_START_RETRY_BUDGET = StrictHfrPolicy.START_RETRY_BUDGET
+        private const val HFR_STRICT_HEALTH_WINDOW_MS = StrictHfrPolicy.HEALTH_WINDOW_MS
     }
 
     private val cm = appContext.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -10979,6 +11009,8 @@ private class PreviewController(
         hfrHealthWindowMs = 0L
         hfrCurrentRoute = "none"
         hfrBlockReason = null
+        hfrMidRecordRecoveryUsed = false
+        adbStrictHfrWarmupSatisfied = false
     }
 
     private fun beginStrictHfrAttempt(reason: String) {
@@ -11000,14 +11032,21 @@ private class PreviewController(
     }
 
     private fun strictHfrWarmupHealthy(): Boolean {
-        if (desiredFps < VideoRecordingController.HFR_THRESHOLD_FPS) return false
-        if (captureSessionAsyncConfigurePending || videoRecordingSessionRebuildPending) return false
-        if (device == null || session == null) return false
         val lastNs = lastPreviewActivityNs()
-        if (lastNs <= 0L) return false
-        val stallMs = (SystemClock.elapsedRealtimeNanos() - lastNs) / 1_000_000.0
+        val stallMs =
+            if (lastNs <= 0L) {
+                Double.MAX_VALUE
+            } else {
+                (SystemClock.elapsedRealtimeNanos() - lastNs) / 1_000_000.0
+            }
         val fps = maxOf(smoothedFps, maxOf(smoothedFrameFps, smoothedWallFps))
-        return stallMs <= HFR_STRICT_MAX_STALL_MS && fps >= HFR_STRICT_MIN_WARMUP_FPS
+        return StrictHfrPolicy.isWarmupHealthy(
+            desiredFps = desiredFps,
+            sessionReady = device != null && session != null,
+            configurePending = captureSessionAsyncConfigurePending || videoRecordingSessionRebuildPending,
+            stallMs = stallMs,
+            smoothedFps = fps,
+        )
     }
 
     private fun setHfrRoute(route: String) {
@@ -11054,6 +11093,7 @@ private class PreviewController(
     private var cameraFaultRecoveryCameraId: String? = null
     private var cameraFaultRecoveryWindowStartMs: Long = 0L
     private var cameraFaultRecoveryAttempts: Int = 0
+    private var lastPipelineTeardownMs: Long = 0L
     @Volatile private var hfrRecoveryFpsCap: Int? = null
     @Volatile private var hfrRecoveryCapUntilMs: Long = 0L
     @Volatile private var hfrStrict120Requested: Boolean = false
@@ -11063,6 +11103,22 @@ private class PreviewController(
     @Volatile private var hfrCurrentRoute: String = "none"
     @Volatile private var hfrBlockReason: String? = null
     @Volatile private var hsRepeatingEverStarted: Boolean = false
+    private var hfrSurfaceAbandonRetries: Int = 0
+    @Volatile private var hfrMidRecordRecoveryUsed: Boolean = false
+    @Volatile private var adbStrictHfrWarmupSatisfied: Boolean = false
+
+    fun clearHfrSurfaceAbandonRetries() {
+        hfrSurfaceAbandonRetries = 0
+    }
+
+    fun adbStrictHfrWarmupReady(): Boolean =
+        desiredFps < VideoRecordingController.HFR_THRESHOLD_FPS ||
+            adbStrictHfrWarmupSatisfied ||
+            strictHfrWarmupHealthy()
+
+    fun markAdbStrictHfrWarmupSatisfied() {
+        adbStrictHfrWarmupSatisfied = true
+    }
 
     /**
      * Latest preview repeating [TotalCaptureResult] metadata (debuggable builds only), sampled for
@@ -11342,6 +11398,11 @@ private class PreviewController(
      * between burst shots when [captureBusy] briefly clears).
      */
     private val adbScriptedStillAutomationActive = AtomicBoolean(false)
+    @Volatile private var adbPendingRawStillAutomationCount: Int = 0
+
+    fun setAdbPendingRawStillAutomationCount(count: Int) {
+        adbPendingRawStillAutomationCount = count.coerceAtLeast(0)
+    }
 
     private val faceTracker = TrackerState()
 
@@ -13387,6 +13448,43 @@ private class PreviewController(
 
     private fun locationForStillMetadata(): Location? =
         if (stillEmbedLocationInFiles) CaptureLocationBridge.snapshot() else null
+
+    private fun shouldSkipStablePreviewPipelineRestart(
+        camId: String,
+        surf: Surface,
+        ws: Size?,
+    ): Boolean {
+        if (ws == null) return false
+        if (device?.id != camId || session == null || !surf.isValid) return false
+        if (currentSurfaceSize?.width != ws.width || currentSurfaceSize?.height != ws.height) return false
+        if (sessionCommittedGeneration != generation) return false
+        if (videoRecordingSessionRebuildPending) return false
+        if (captureSessionAsyncConfigurePending || cameraDeviceOpenPending) return false
+        if (wantsRawStillSurfacesInSession() && rawImageReader == null) return false
+        return true
+    }
+
+    private fun pipelineTeardownDeferMs(): Long {
+        val sinceTeardown = SystemClock.uptimeMillis() - lastPipelineTeardownMs
+        return if (sinceTeardown < MIN_PIPELINE_TEARDOWN_INTERVAL_MS) {
+            MIN_PIPELINE_TEARDOWN_INTERVAL_MS - sinceTeardown
+        } else {
+            0L
+        }
+    }
+
+    /** True when [createSession] would attach RAW (+ JPEG companion) still surfaces. */
+    private fun wantsRawStillSurfacesInSession(): Boolean {
+        if (dualVideoActive) return false
+        if (videoController.isRecorderPresent()) return false
+        if (imagingProfileForStreams is ImagingProfile.JpegOnly) return false
+        if (desiredFps >= VideoRecordingController.HFR_THRESHOLD_FPS) return false
+        val rawAutomationPending =
+            adbPendingRawStillAutomationCount > 0 || adbScriptedStillAutomationActive.get()
+        if (rawAutomationPending) return true
+        if (videoPrimarySession && !inAppVideoRecordingArmed) return false
+        return true
+    }
 
     /** RAW DNG path requires non-HFR session with [ImageReader] attached (BUILD_PLAN §4). */
     fun canCaptureRawStill(): Boolean {
@@ -17819,6 +17917,7 @@ private class PreviewController(
      * session. Full teardown paths ([stop], texture destroyed, errors) pass true (default).
      */
     private fun closeCamera(teardownPreparedMediaRecorder: Boolean = true) {
+        lastPipelineTeardownMs = SystemClock.uptimeMillis()
         if (!dualVideoActive) {
             closeDualFrontCamera()
             dualVideoEncoderSink.release()
@@ -18011,6 +18110,7 @@ private class PreviewController(
         h.postDelayed(maybeRestartDebouncedRunnable, MAYBE_RESTART_DEBOUNCE_MS)
     }
 
+    @Suppress("ReturnCount", "CyclomaticComplexMethod")
     private fun maybeRestartBody() {
         val deferScriptedSurfaceRestart =
             adbScriptedStillAutomationActive.get() && device != null
@@ -18105,6 +18205,19 @@ private class PreviewController(
                 else -> pickNormalPreviewSize(map, activeArray, chars) ?: emergencyPreview
             }
         desiredSurfaceSize = wantedSurfaceSize
+        val ws = wantedSurfaceSize
+
+        if (shouldSkipStablePreviewPipelineRestart(camId, surf, ws)) {
+            Log.d(tag, "maybeRestartBody: skip stable pipeline cam=$camId ${ws?.width}x${ws?.height} gen=$generation")
+            return
+        }
+
+        val teardownDeferMs = pipelineTeardownDeferMs()
+        if (teardownDeferMs > 0L) {
+            Log.d(tag, "maybeRestartBody: defer teardown ${teardownDeferMs}ms (recent closeCamera)")
+            handler?.postDelayed({ maybeRestartBody() }, teardownDeferMs)
+            return
+        }
 
         // Tear down the camera session before replacing the TextureView Surface. Releasing the old
         // Surface while createCaptureSession is still configuring causes IllegalArgumentException:
@@ -18130,33 +18243,18 @@ private class PreviewController(
                 (device == null || device?.id == camId)
         closeCamera(teardownPreparedMediaRecorder = !preservePreparedMediaRecorder)
         val h = handler ?: return
-        val ws = wantedSurfaceSize
-        // [SurfaceTexture.setDefaultBufferSize] can race GL/TextureView teardown when invoked from
-        // the camera thread immediately after [closeCamera] while Compose is still swapping the
-        // underlying BufferQueue (cold start / camera-id seed). Run sizing on the main looper,
-        // then continue open on [handler] so the ST reference matches what the view published.
+        // Main-thread [SurfaceTexture.setDefaultBufferSize] abandons the GLES producer queue.
+        // Size on the GL thread via [LutCameraPreviewRenderer.queueSetPreviewBufferSize], then
+        // rebuild [previewSurface] and open on [handler].
         if (ws != null) {
-            mainHandler.post {
-                val stTex = previewSurfaceTexture
-                if (stTex == null) {
-                    Log.w(tag, "maybeRestart: no SurfaceTexture on main after close; deferring")
+            val continueAfterBufferSized: () -> Unit = {
+                currentSurfaceSize = ws
+                rebuildSurfaceIfPossible(ws)
+                if (previewSurface?.isValid != true) {
+                    Log.w(tag, "maybeRestart: preview Surface invalid after buffer resize; deferring")
                     h.postDelayed({ maybeRestartBody() }, SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS)
-                    return@post
-                }
-                val sizedOk =
-                    runCatching {
-                        stTex.setDefaultBufferSize(ws.width, ws.height)
-                        true
-                    }.getOrDefault(false)
-                if (!sizedOk) {
-                    Log.w(tag, "setDefaultBufferSize failed on main after close; deferring restart")
-                    h.postDelayed({ maybeRestartBody() }, SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS)
-                    return@post
-                }
-                h.post {
-                    currentSurfaceSize = ws
-                    rebuildSurfaceIfPossible()
-                    Log.d(tag, "setDefaultBufferSize ${ws.width}x${ws.height} (main-thread sized)")
+                } else {
+                    Log.d(tag, "setDefaultBufferSize ${ws.width}x${ws.height} (gl-thread sized)")
                     Log.i(
                         "PNS.VideoEncode",
                         "sessionBufferSet ${ws.width}x${ws.height} encodePref=" +
@@ -18165,6 +18263,32 @@ private class PreviewController(
                     )
                     Log.d(tag, "openAndStart (after close) cameraId=$camId fps=$desiredFps")
                     openAndStart(camId)
+                }
+            }
+            val renderer = lutPreviewRendererForDual
+            if (renderer != null) {
+                renderer.queueSetPreviewBufferSize(ws.width, ws.height) {
+                    h.post { continueAfterBufferSized() }
+                }
+            } else {
+                mainHandler.post {
+                    val stTex = previewSurfaceTexture
+                    if (stTex == null) {
+                        Log.w(tag, "maybeRestart: no SurfaceTexture on main after close; deferring")
+                        h.postDelayed({ maybeRestartBody() }, SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS)
+                        return@post
+                    }
+                    val sizedOk =
+                        runCatching {
+                            stTex.setDefaultBufferSize(ws.width, ws.height)
+                            true
+                        }.getOrDefault(false)
+                    if (!sizedOk) {
+                        Log.w(tag, "setDefaultBufferSize failed on main after close; deferring restart")
+                        h.postDelayed({ maybeRestartBody() }, SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS)
+                        return@post
+                    }
+                    h.post { continueAfterBufferSized() }
                 }
             }
             return
@@ -18179,9 +18303,15 @@ private class PreviewController(
         openAndStart(camId)
     }
 
-    private fun rebuildSurfaceIfPossible() {
+    private fun rebuildSurfaceIfPossible(requiredSize: Size? = null) {
         val st = previewSurfaceTexture ?: return
-        runCatching { previewSurface?.release() }
+        val existing = previewSurface
+        val sizeUnchanged =
+            requiredSize != null &&
+                currentSurfaceSize?.width == requiredSize.width &&
+                currentSurfaceSize?.height == requiredSize.height
+        if (existing != null && existing.isValid && sizeUnchanged) return
+        runCatching { existing?.release() }
         previewSurface = Surface(st)
     }
 
@@ -18339,6 +18469,16 @@ private class PreviewController(
             h.postDelayed({ scheduleCameraFaultRecovery(camId, reason) }, CAMERA_FAULT_RETRY_DEFER_MS)
             return
         }
+        val sinceTeardown = now - lastPipelineTeardownMs
+        if (sinceTeardown < CAMERA_FAULT_START_REPEAT_BACKOFF_MS) {
+            val delay = CAMERA_FAULT_START_REPEAT_BACKOFF_MS - sinceTeardown
+            Log.w(
+                tag,
+                "camera fault recovery defer reopen ${delay}ms camId=$camId reason=$reason",
+            )
+            h.postDelayed({ scheduleCameraFaultRecovery(camId, reason) }, delay)
+            return
+        }
         cameraFaultRecoveryAttempts += 1
         val attempt = cameraFaultRecoveryAttempts
         Log.w(
@@ -18355,6 +18495,19 @@ private class PreviewController(
         reason: String,
     ): Boolean {
         if (desiredFps < VideoRecordingController.HFR_THRESHOLD_FPS) return false
+        if (
+            inAppVideoRecordingArmed &&
+                videoController.isRecorderStarted() &&
+                StrictHfrPolicy.midRecordRecoveryAllowed(!hfrMidRecordRecoveryUsed)
+        ) {
+            hfrMidRecordRecoveryUsed = true
+            beginStrictHfrAttempt("mid_record_reacquire:$reason")
+            PnsAdbLog.i(
+                appContext,
+                "hfrMidRecordOutcome=${StrictHfrPolicy.MidRecordOutcome.RECOVERED_ONCE.name.lowercase()} reason=$reason",
+            )
+            return true
+        }
         if (hfrStrict120Requested && hfrStrictRetryBudgetRemaining > 0) {
             hfrStrictRetryBudgetRemaining -= 1
             beginStrictHfrAttempt("fault_retry:$reason")
@@ -18388,6 +18541,12 @@ private class PreviewController(
         desiredFps = fallbackFps
         hfrForceInterleavedMcCapture = false
         hfrSub4kCaptureFallback = false
+        if (inAppVideoRecordingArmed) {
+            PnsAdbLog.i(
+                appContext,
+                "hfrMidRecordOutcome=${StrictHfrPolicy.MidRecordOutcome.BLOCKED_UNSTABLE.name.lowercase()} reason=$reason",
+            )
+        }
         return true
     }
 
@@ -18856,7 +19015,12 @@ private class PreviewController(
             videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { surfaces.add(it) }
         }
         if (!useHighSpeed && !dualVideoActive) {
-            if (!videoController.isRecorderPresent()) {
+            val leanVideoWarmup =
+                videoPrimarySession &&
+                    !inAppVideoRecordingArmed &&
+                    adbPendingRawStillAutomationCount <= 0 &&
+                    !adbScriptedStillAutomationActive.get()
+            if (!videoController.isRecorderPresent() && !leanVideoWarmup) {
             val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
             val mapForStreams =
                 chars?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
@@ -19277,9 +19441,29 @@ private class PreviewController(
                     mapOf("camId" to camId, "path" to "normal"),
                     flushToFile = true,
                 )
-                // Full teardown + generation bump (TextureView / am-start cold paths recover via
-                // [maybeRestart] from layout callbacks).
-                closeCamera()
+                val abandoned =
+                    e is IllegalArgumentException &&
+                        e.message?.contains("abandoned", ignoreCase = true) == true
+                if (abandoned && hfrSurfaceAbandonRetries < HFR_SURFACE_ABANDON_RETRY_CAP) {
+                    hfrSurfaceAbandonRetries++
+                    Log.w(
+                        tag,
+                        "regular session surface abandoned; scheduling rebuild retry " +
+                            "$hfrSurfaceAbandonRetries/$HFR_SURFACE_ABANDON_RETRY_CAP",
+                    )
+                    closeCamera()
+                    h.postDelayed(
+                        {
+                            mainHandler.post {
+                                rebuildSurfaceIfPossible()
+                                h.post { maybeRestartBody() }
+                            }
+                        },
+                        HFR_SURFACE_ABANDON_RETRY_DELAY_MS,
+                    )
+                } else {
+                    closeCamera()
+                }
             }
             return
         }
@@ -19356,6 +19540,7 @@ private class PreviewController(
                             sessionPreviewDynamicRangeShort = null
                             videoRecordingSessionRebuildPending = false
                             hsRepeatingEverStarted = false
+                            hfrSurfaceAbandonRetries = 0
                             val fpsRange = target!!.second
                             // Start MediaCodec before HS repeating — otherwise GraphicBufferSource
                             // queues pre-start buffers that are flushed when the codec starts.
@@ -19413,8 +19598,30 @@ private class PreviewController(
                 mapOf("camId" to camId, "path" to "hfr"),
                 flushToFile = true,
             )
-            runCatching { camera.close() }
-            device = null
+            val abandoned =
+                e is IllegalArgumentException &&
+                    e.message?.contains("abandoned", ignoreCase = true) == true
+            if (abandoned && hfrSurfaceAbandonRetries < HFR_SURFACE_ABANDON_RETRY_CAP) {
+                hfrSurfaceAbandonRetries++
+                Log.w(
+                    tag,
+                    "HFR surface abandoned; scheduling rebuild retry " +
+                        "$hfrSurfaceAbandonRetries/$HFR_SURFACE_ABANDON_RETRY_CAP",
+                )
+                closeCamera()
+                h.postDelayed(
+                    {
+                        mainHandler.post {
+                            rebuildSurfaceIfPossible()
+                            h.post { maybeRestartBody() }
+                        }
+                    },
+                    HFR_SURFACE_ABANDON_RETRY_DELAY_MS,
+                )
+            } else {
+                runCatching { camera.close() }
+                device = null
+            }
         }
     }
 

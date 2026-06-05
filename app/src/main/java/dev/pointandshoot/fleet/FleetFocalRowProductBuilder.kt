@@ -1,8 +1,6 @@
 package dev.pointandshoot.fleet
 
 import android.content.Context
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
 import android.util.Log
 import dev.pointandshoot.FocalMmSlot
 import dev.pointandshoot.fleet.FleetCameraProfiles
@@ -77,7 +75,10 @@ object FleetFocalRowProductBuilder {
                             if (assignment == null) {
                                 put("available", false)
                             } else {
-                                put("available", true)
+                                val chromeSafe =
+                                    assignment.targetEqMm == assignment.nativeEqMm ||
+                                        assignment.effectiveMp >= FleetFocalRowPolicy.MIN_CROP_MP
+                                put("available", chromeSafe)
                                 put("cameraId", assignment.cameraId)
                                 put("nativeEqMm", assignment.nativeEqMm)
                                 put("effectiveMp", assignment.effectiveMp)
@@ -102,6 +103,11 @@ object FleetFocalRowProductBuilder {
                 JSONObject().apply {
                     put("dedicatedMacro", teleCameraId != null && hasMacroCandidate(focalEntries))
                     put("dedicatedMonochrome", monochromeCameraId != null)
+                    put(
+                        "monochromeCaptureTierHint",
+                        if (monochromeCameraId != null) "tiered_raw_jpeg_preview_fallback" else "none",
+                    )
+                    put("monochromeCaptureFallbackArmed", monochromeCameraId != null)
                     monochromeCameraId?.let { put("monochromeCameraId", it) }
                 },
             )
@@ -128,16 +134,5 @@ object FleetFocalRowProductBuilder {
     private fun dedicatedMonochromeCameraId(
         context: Context,
         cameraIds: List<String>,
-    ): String? {
-        val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        for (cameraId in cameraIds) {
-            val chars = runCatching { cm.getCameraCharacteristics(cameraId) }.getOrNull() ?: continue
-            val caps =
-                chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: continue
-            if (caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
-                return cameraId
-            }
-        }
-        return null
-    }
+    ): String? = dev.pointandshoot.findDedicatedMonochromeCameraId(context, cameraIds)
 }

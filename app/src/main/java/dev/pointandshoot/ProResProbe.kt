@@ -28,7 +28,7 @@ object ProResProbe {
         val names =
             runCatching {
                 MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
-                    .filter { it.isEncoder && !it.isAlias }
+                    .filter { it.isNonAliasEncoder() }
                     .filter { info ->
                         info.supportedTypes.any { mime ->
                             mime.contains("prores", ignoreCase = true) ||

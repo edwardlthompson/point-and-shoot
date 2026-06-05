@@ -293,7 +293,7 @@ object ItemInfoEntry {
     /** Write [s] as UTF-8 bytes followed by a single trailing 0 byte. */
     private fun writeNulTerminated(out: ByteArrayOutputStream, s: String) {
         if (s.isNotEmpty()) {
-            out.writeBytes(s.toByteArray(Charsets.UTF_8))
+            out.writeBytesCompat(s.toByteArray(Charsets.UTF_8))
         }
         out.write(0)
     }

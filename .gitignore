@@ -37,6 +37,10 @@ keystore.b64
 # Release APK copies at repo root (GitHub release assets only)
 Point-and-Shoot_*.apk
 dist/
+/*.apk
+/*.aab
+/*.apks
+/*.ipa
 
 # jadx bundle (downloaded on demand by pns_*_apk_decompile.ps1)
 tools/jadx/*
@@ -45,3 +49,17 @@ tools/jadx/*
 # CycloneDX SBOM artifacts emitted on demand by scripts/pns_sbom.ps1
 # (gate verifies in-memory; no need to commit the JSON).
 docs/sbom.json
+
+# Guardrails for accidental non-source artifacts.
+# Keep intentional media/fixtures under tests/fixtures, docs, or app resources.
+/hfr_test_video*.mp4
+/hfr_test_video*.mov
+/hfr_test_video*.avi
+/hfr_test_video*.mkv
+/hfr_test_video*.webm
+/scripts/*_test_video*.mp4
+/scripts/*_test_video*.mov
+/scripts/*_test_video*.avi
+/scripts/*_test_video*.mkv
+/scripts/*_test_video*.webm
+/scripts/*_video_gate_20*.json

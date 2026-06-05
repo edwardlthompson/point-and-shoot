@@ -1,8 +1,6 @@
 package dev.pointandshoot
 
 import android.content.Context
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -120,13 +118,10 @@ fun CommandDial(
 }
 
 private fun hasDedicatedMonochromeCamera(context: Context): Boolean {
-    val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    val cm = context.getSystemService(Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
     for (cameraId in cm.cameraIdList) {
         val chars = runCatching { cm.getCameraCharacteristics(cameraId) }.getOrNull() ?: continue
-        val caps = chars.get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES) ?: continue
-        if (caps.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME)) {
-            return true
-        }
+        if (isDedicatedMonochromeCamera(chars)) return true
     }
     return false
 }

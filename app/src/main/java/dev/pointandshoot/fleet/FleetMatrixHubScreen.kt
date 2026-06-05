@@ -41,7 +41,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.app.Activity
+import android.widget.Toast
+import dev.pointandshoot.BuildConfig
 import dev.pointandshoot.EXTRA_PNS_AUTO_PARITY_SWEEP
+import dev.pointandshoot.PnsConnectivity
 import dev.pointandshoot.EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD
 import dev.pointandshoot.EXTRA_PNS_PARITY_SWEEP_MODE
 import dev.pointandshoot.ProbeLiveLogPanel
@@ -100,6 +103,9 @@ fun FleetMatrixHubScreen(
     var featuresQuery by remember(initialFeaturesQuery) { mutableStateOf(initialFeaturesQuery.orEmpty()) }
     var showParitySheet by remember { mutableStateOf(false) }
     var lastParitySummary by remember { mutableStateOf<String?>(null) }
+    var lastParityJson by remember { mutableStateOf<JSONObject?>(null) }
+    var lastParityModeWire by remember { mutableStateOf<String?>(null) }
+    var romReported by remember { mutableStateOf(LeaderboardRomReport.Reported.UNSPECIFIED) }
 
     fun runParity(mode: FleetParitySweepRunner.Mode, includeRecord: Boolean) {
         if (isRunning) return
@@ -110,9 +116,20 @@ fun FleetMatrixHubScreen(
         scanLines.add("${Instant.now()} — parity ${mode.wire}")
         scope.launch {
             try {
+                val autoSweep =
+                    (context as? Activity)?.intent?.getBooleanExtra(EXTRA_PNS_AUTO_PARITY_SWEEP, false) == true
                 val root =
                     withContext(Dispatchers.IO) {
-                        var m = matrix ?: FleetDeviceMatrixStore.loadValid(appCtx)
+                        var m =
+                            if (autoSweep) {
+                                FleetDeviceMatrixStore.loadValid(appCtx)
+                                    ?: runCatching {
+                                        val f = FleetDeviceMatrixStore.matrixFile(appCtx)
+                                        if (f.exists()) JSONObject(f.readText()) else null
+                                    }.getOrNull()
+                            } else {
+                                matrix ?: FleetDeviceMatrixStore.loadValid(appCtx)
+                            }
                         if (m == null) {
                             FleetDeviceMatrixBuilder.buildQuickAndSave(appCtx, forceRescan = true)
                             m = FleetDeviceMatrixStore.loadValid(appCtx)
@@ -126,6 +143,8 @@ fun FleetMatrixHubScreen(
                 val gaps = report.gapCounts[FleetParitySweep.GapClass.GAP_ADVERTISED_NOT_PROVEN] ?: 0
                 val mismatch = report.gapCounts[FleetParitySweep.GapClass.GAP_DELIVERY_MISMATCH] ?: 0
                 lastParitySummary = "cells=${report.cells.size} gaps=$gaps mismatch=$mismatch"
+                lastParityModeWire = mode.wire
+                lastParityJson = report.toJson()
                 status = "Parity ${mode.wire} OK — $lastParitySummary"
                 scanLines.appendProbeLine(status)
                 val closurePlan = FleetParitySweepRunner.writeClosurePlan(report)
@@ -166,7 +185,7 @@ fun FleetMatrixHubScreen(
             when (modeWire) {
                 "full" -> FleetParitySweepRunner.Mode.FULL
                 "delta" -> FleetParitySweepRunner.Mode.DELTA
-                else -> FleetParitySweepRunner.Mode.QUICK
+                else -> FleetParitySweepRunner.Mode.DELTA
             }
         val includeRecord = act.intent.getBooleanExtra(EXTRA_PNS_PARITY_SWEEP_INCLUDE_RECORD, false)
         runParity(mode, includeRecord)
@@ -317,6 +336,44 @@ fun FleetMatrixHubScreen(
         }
         lastParitySummary?.let {
             Text("Last parity: $it", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
+        }
+        LeaderboardReadinessCard(
+            matrix = matrix,
+            parityReport = lastParityJson,
+            ingestConfigured = FleetLeaderboardSubmit.ingestUrl() != null,
+            publicBaseUrl = BuildConfig.LEADERBOARD_PUBLIC_BASE_URL,
+            romReported = romReported,
+            onRomReportedChange = { romReported = it },
+        )
+        if (lastParityJson != null && lastParityModeWire == "full" && PnsConnectivity.isLeaderboardContributeEnabled(appCtx)) {
+            val readiness =
+                LeaderboardReadiness.evaluate(
+                    matrix,
+                    lastParityJson,
+                    FleetLeaderboardSubmit.ingestUrl() != null,
+                    BuildConfig.LEADERBOARD_PUBLIC_BASE_URL,
+                )
+            OutlinedButton(
+                onClick = {
+                    val parity = lastParityJson ?: return@OutlinedButton
+                    val mat = matrix ?: return@OutlinedButton
+                    scope.launch {
+                        val result =
+                            withContext(Dispatchers.IO) {
+                                FleetLeaderboardSubmit.submit(appCtx, parity, mat, romReported)
+                            }
+                        Toast.makeText(
+                            appCtx,
+                            if (result.ok) "Leaderboard submitted (${result.submissionId ?: "ok"})" else "Submit failed: ${result.message}",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                },
+                enabled = !isRunning && readiness.contributeEnabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Contribute to public leaderboard")
+            }
         }
         if (showParitySheet) {
             FleetParityModeSheet(
@@ -752,6 +809,98 @@ private fun EncoderCard(encoder: JSONObject?) {
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun LeaderboardReadinessCard(
+    matrix: JSONObject?,
+    parityReport: JSONObject?,
+    ingestConfigured: Boolean,
+    publicBaseUrl: String,
+    romReported: LeaderboardRomReport.Reported,
+    onRomReportedChange: (LeaderboardRomReport.Reported) -> Unit,
+) {
+    val context = LocalContext.current
+    val report = LeaderboardReadiness.evaluate(matrix, parityReport, ingestConfigured, publicBaseUrl)
+    val border =
+        when (report.overall) {
+            LeaderboardReadiness.Level.GREEN -> Color(0xFF2E7D4F)
+            LeaderboardReadiness.Level.YELLOW -> Color(0xFFB8860B)
+            LeaderboardReadiness.Level.RED -> Color(0xFF8B3A3A)
+        }
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1F2E)),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Leaderboard readiness", style = MaterialTheme.typography.titleSmall, color = border)
+            report.checks.forEach { check ->
+                val dot =
+                    when (check.level) {
+                        LeaderboardReadiness.Level.GREEN -> "●"
+                        LeaderboardReadiness.Level.YELLOW -> "◐"
+                        LeaderboardReadiness.Level.RED -> "○"
+                    }
+                Text(
+                    "$dot ${check.label}: ${check.detail}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.85f),
+                )
+            }
+            report.publicDeviceUrl?.let { url ->
+                Text(
+                    "Public profile: $url",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF88CCFF),
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                OutlinedButton(
+                    onClick = {
+                        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        cm.setPrimaryClip(ClipData.newPlainText("leaderboard_url", url))
+                        Toast.makeText(context, "Leaderboard URL copied", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Copy public device URL")
+                }
+            }
+            val romDetail = report.checks.firstOrNull { it.label.contains("ROM") }?.detail.orEmpty()
+            if (romDetail.contains("custom") || romDetail.contains("lineage", ignoreCase = true)) {
+                Text(
+                    "On custom ROM? Also contribute a stock-ROM Camera2 sweep on the same phone for product comparison.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFFAACCEE),
+                )
+            }
+            Text("ROM self-tag (optional)", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                LeaderboardRomReport.Reported.entries.forEach { option ->
+                    val selected = romReported == option
+                    OutlinedButton(
+                        onClick = { onRomReportedChange(option) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            when (option) {
+                                LeaderboardRomReport.Reported.UNSPECIFIED -> "Auto"
+                                LeaderboardRomReport.Reported.STOCK -> "Stock"
+                                LeaderboardRomReport.Reported.LINEAGE -> "Lineage"
+                                LeaderboardRomReport.Reported.OTHER_CUSTOM -> "Custom"
+                            },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            Text(
+                if (report.contributeEnabled) "Ready to contribute (Full sweep + full matrix)." else "Complete full matrix rescan + Full parity sweep to contribute.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.65f),
+            )
         }
     }
 }

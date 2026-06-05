@@ -87,7 +87,7 @@ $gate | ConvertTo-Json | Set-Content (Join-Path $outDir "gate.json") -Encoding U
 adb -s $Serial shell am force-stop $pkg 2>$null | Out-Null
 
 if (-not $pass) {
-    Write-Host "FAIL wind noise filter gate — $outDir" -ForegroundColor Red
+    Write-Host "FAIL wind noise filter gate - $outDir" -ForegroundColor Red
     exit 1
 }
-Write-Host "PASS wind noise filter gate — $outDir" -ForegroundColor Green
+Write-Host "PASS wind noise filter gate - $outDir" -ForegroundColor Green

@@ -1,8 +1,10 @@
 package dev.pointandshoot.fleet
 
 import android.content.Context
+import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.OutputConfiguration
@@ -104,6 +106,7 @@ object SessionMatrixProbeCore {
         pickSize(640, 480)?.let { regularCases += "regular_640x480" to it }
         pickSize(1280, 720)?.let { regularCases += "regular_1280x720" to it }
         pickSize(1920, 1080)?.let { regularCases += "regular_1920x1080" to it }
+        pickSize(3840, 2160)?.let { regularCases += "regular_3840x2160" to it }
 
         val hsSizes = runCatching { map?.highSpeedVideoSizes?.toList() }.getOrNull().orEmpty()
         val hsFirst = hsSizes.minByOrNull { it.width * it.height }
@@ -177,6 +180,29 @@ object SessionMatrixProbeCore {
                     "SESS_CFG cam=$cameraId high_speed_first HS supported=$supportedHs ${hsFirst.width}x${hsFirst.height}",
                 )
                 onProgress("$cameraId high_speed ${hsFirst.width}x${hsFirst.height} -> $supportedHs")
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val maxMap = cc.get(SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION)
+                val maxJpeg =
+                    maxMap?.getOutputSizes(ImageFormat.JPEG)?.maxByOrNull { it.width.toLong() * it.height }
+                if (maxJpeg != null) {
+                    val supportedMax = testSessionSupport(d, SessionConfiguration.SESSION_REGULAR, listOf(maxJpeg))
+                    testsArr.put(
+                        JSONObject().apply {
+                            put("name", "max_resolution_map_jpeg")
+                            put("sessionType", "REGULAR")
+                            put("w", maxJpeg.width)
+                            put("h", maxJpeg.height)
+                            put("supported", supportedMax)
+                        },
+                    )
+                    Log.i(
+                        SWEEP_SIGNAL_TAG,
+                        "SESS_CFG cam=$cameraId max_resolution_map_jpeg supported=$supportedMax ${maxJpeg.width}x${maxJpeg.height}",
+                    )
+                    onProgress("$cameraId max_resolution_map ${maxJpeg.width}x${maxJpeg.height} -> $supportedMax")
+                }
             }
 
             camJson.put("tests", testsArr)

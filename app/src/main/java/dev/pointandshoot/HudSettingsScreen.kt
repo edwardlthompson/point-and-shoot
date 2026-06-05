@@ -1668,6 +1668,19 @@ private fun ProFeaturesHudSection(
                 },
             ),
         )
+        var leaderboardContribute by remember { mutableStateOf(PnsConnectivity.isLeaderboardContributeEnabled(ctx)) }
+        HudToggle(
+            HudToggleRow(
+                title = "Contribute to public leaderboard",
+                description =
+                    "After Full parity sweep, opt-in upload of redacted matrix + parity JSON (no photos, no serial). Requires ingest URL in release build.",
+                enabled = leaderboardContribute,
+                onChange = { on ->
+                    leaderboardContribute = on
+                    PnsConnectivity.setLeaderboardContributeEnabled(ctx, on)
+                },
+            ),
+        )
         Text("Flash strength", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.7f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(25, 50, 75, 100).forEach { pct ->

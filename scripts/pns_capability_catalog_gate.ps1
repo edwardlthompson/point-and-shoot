@@ -47,14 +47,19 @@ foreach ($codec in @("H264", "H265", "AV1", "DCG")) {
 }
 
 function Test-HasProofScriptForCatalogId([string]$CatalogId, [string[]]$Sources) {
+    $suffix = if ($CatalogId -match '\.([^.]+)$') { $Matches[1] } else { $null }
     foreach ($src in $Sources) {
-        $idx = $src.IndexOf("`"$CatalogId`"")
-        while ($idx -ge 0) {
-            $start = [Math]::Max(0, $idx - 120)
-            $len = [Math]::Min(1200, $src.Length - $start)
-            $chunk = $src.Substring($start, $len)
-            if ($chunk -match 'parityProofScript\s*=') { return $true }
-            $idx = $src.IndexOf("`"$CatalogId`"", $idx + 1)
+        $needles = @("`"$CatalogId`"")
+        if ($suffix) { $needles += "`"$suffix`"" }
+        foreach ($needle in $needles) {
+            $idx = $src.IndexOf($needle)
+            while ($idx -ge 0) {
+                $start = [Math]::Max(0, $idx - 120)
+                $len = [Math]::Min(1200, $src.Length - $start)
+                $chunk = $src.Substring($start, $len)
+                if ($chunk -match 'parityProofScript\s*=' -or $chunk -match 'proofScript\s*=') { return $true }
+                $idx = $src.IndexOf($needle, $idx + 1)
+            }
         }
     }
     return $false

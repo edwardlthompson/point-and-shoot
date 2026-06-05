@@ -105,12 +105,12 @@ class MediaCodecVideoRecorder(
          */
         fun pickEncoder(config: Config): String {
             val list = MediaCodecList(MediaCodecList.ALL_CODECS)
-            val all = list.codecInfos.filter { it.isEncoder && !it.isAlias }
+            val all = list.codecInfos.filter { it.isNonAliasEncoder() }
                 .map { it.name }
             if (config.encoderKind == VideoEncoderKind.AV1) {
                 val av1Names =
                     list.codecInfos
-                        .filter { it.isEncoder && !it.isAlias && MediaFormat.MIMETYPE_VIDEO_AV1 in it.supportedTypes }
+                        .filter { it.isNonAliasEncoder() && MediaFormat.MIMETYPE_VIDEO_AV1 in it.supportedTypes }
                         .map { it.name }
                 val qti = av1Names.firstOrNull { it.contains("qti", ignoreCase = true) }
                 if (config.fps >= 120) {
@@ -127,7 +127,7 @@ class MediaCodecVideoRecorder(
                 val vp9Mime = "video/x-vnd.on2.vp9"
                 val vp9Names =
                     list.codecInfos
-                        .filter { it.isEncoder && !it.isAlias && vp9Mime in it.supportedTypes }
+                        .filter { it.isNonAliasEncoder() && vp9Mime in it.supportedTypes }
                         .map { it.name }
                 return vp9Names.firstOrNull { it.contains("qti", ignoreCase = true) }
                     ?: vp9Names.firstOrNull { it == ANDROID_VP9_ENCODER }
@@ -137,7 +137,7 @@ class MediaCodecVideoRecorder(
             if (config.encoderKind == VideoEncoderKind.H264) {
                 val avcNames =
                     list.codecInfos
-                        .filter { it.isEncoder && !it.isAlias && MediaFormat.MIMETYPE_VIDEO_AVC in it.supportedTypes }
+                        .filter { it.isNonAliasEncoder() && MediaFormat.MIMETYPE_VIDEO_AVC in it.supportedTypes }
                         .map { it.name }
                 return avcNames.firstOrNull { it.contains("qti", ignoreCase = true) }
                     ?: avcNames.firstOrNull { it == QTI_AVC_ENCODER }

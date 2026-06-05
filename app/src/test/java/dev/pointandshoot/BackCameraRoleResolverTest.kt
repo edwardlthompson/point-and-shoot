@@ -54,17 +54,17 @@ class BackCameraRoleResolverTest {
     }
 
     @Test
-    fun `two physical backs assign shorter focal to uw longer to wide`() {
+    fun `two physical backs assign shorter focal to wide longer to tele`() {
         val r =
             BackCameraRoleResolver.rolesFromEnumeratedPhysicalsForTests(
                 listOf(
-                    "10" to 2.2f,
-                    "11" to 6.8f,
+                    "10" to 4.28f,
+                    "11" to 6.0f,
                 ),
             )
-        assertEquals("10", r.ultraWide)
-        assertEquals("11", r.wide)
-        assertNull(r.tele)
+        assertNull(r.ultraWide)
+        assertEquals("10", r.wide)
+        assertEquals("11", r.tele)
     }
 
     @Test

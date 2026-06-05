@@ -8,6 +8,8 @@ import android.util.Log
 import dev.pointandshoot.CameraXExtensionProbe
 import dev.pointandshoot.DeviceCameraCapabilityCache
 import dev.pointandshoot.FleetCameraStartupScan
+import dev.pointandshoot.LensInfoExtractor
+import dev.pointandshoot.LensInfoSummaryJson
 import dev.pointandshoot.MediaCodecCapabilityProbe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -86,6 +88,14 @@ object FleetDeviceMatrixBuilder {
                             deviceGates,
                         ),
                     )
+                    cc?.let { characteristics ->
+                        runCatching {
+                            put(LensInfoSummaryJson.KEY_LENS_INFO, LensInfoExtractor.extractToJson(id, characteristics))
+                        }.onFailure { e ->
+                            degraded = true
+                            Log.w(TAG, "lensInfo quick id=$id failed: ${e.message}")
+                        }
+                    }
                 },
             )
         }
@@ -126,13 +136,14 @@ object FleetDeviceMatrixBuilder {
             val cm = app.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             var degraded = false
 
-            onProgress("Deep caps probe…")
-            val deepRoot = DeepCapsProbeCore.probe(app, onProgress)
-            val deepById = camerasById(deepRoot.optJSONArray("cameras"))
-
+            // Session probe opens cameras — run while the hosting activity is still foreground (API 28 background guard).
             onProgress("Session matrix probe…")
             val sessionRoot = SessionMatrixProbeCore.probe(app, onProgress)
             val sessionById = camerasById(sessionRoot.optJSONArray("cameras"))
+
+            onProgress("Deep caps probe…")
+            val deepRoot = DeepCapsProbeCore.probe(app, onProgress)
+            val deepById = camerasById(deepRoot.optJSONArray("cameras"))
 
             onProgress("HAL dumpsys (redacted)…")
             val halDumpsys = FleetHalAppendix.captureRedacted()
@@ -270,6 +281,7 @@ object FleetDeviceMatrixBuilder {
         val built = buildFull(context, onProgress)
         FleetDeviceMatrixStore.saveWithArtifacts(context, CameraCapabilityCatalogBuilder.attachTo(built.root), rotatePreviousToHistory = true)
         MediaCodecCapabilityProbe.invalidateAndReprobe()
+        logRearLensInfoSummary(built.root)
         val diffSummary = built.diff?.summaryLines?.joinToString("; ") ?: "none"
         Log.i(
             TAG,
@@ -322,6 +334,15 @@ object FleetDeviceMatrixBuilder {
                     put("manufacturer", android.os.Build.MANUFACTURER)
                     put("brand", android.os.Build.BRAND)
                     put("sdkInt", android.os.Build.VERSION.SDK_INT)
+                },
+            )
+            put(
+                "buildIdentity",
+                JSONObject().apply {
+                    put("display", Build.DISPLAY?.take(80) ?: JSONObject.NULL)
+                    put("tags", Build.TAGS ?: JSONObject.NULL)
+                    put("type", Build.TYPE ?: JSONObject.NULL)
+                    put("fingerprintPrefix", FleetDeviceMatrixStore.liveFingerprintPrefix())
                 },
             )
             put("hardwareLaunch", ProductHardwareLaunchScan.scanLaunchIntents(context))
@@ -433,5 +454,21 @@ object FleetDeviceMatrixBuilder {
         return JSONObject().apply {
             put("cameras", arr)
         }
+    }
+
+    private fun logRearLensInfoSummary(root: JSONObject) {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return
+        val parts = mutableListOf<String>()
+        for (i in 0 until cams.length()) {
+            val cam = cams.optJSONObject(i) ?: continue
+            val role = cam.optJSONObject("fleetPolicy")?.optString("role").orEmpty()
+            if (role in setOf("LOGICAL", "FRONT", "UNKNOWN")) continue
+            val id = cam.optString("cameraId")
+            val w = cam.optJSONObject("lensInfo")?.optJSONObject("sensorPhysicalSizeMm")?.optDouble("widthMm") ?: 0.0
+            val h = cam.optJSONObject("lensInfo")?.optJSONObject("sensorPhysicalSizeMm")?.optDouble("heightMm") ?: 0.0
+            val area = if (w > 0 && h > 0) w * h else 0.0
+            parts += "id=$id role=$role areaMm2=${"%.2f".format(area)}"
+        }
+        Log.i(TAG, "lensInfo rear=${parts.joinToString("; ")}")
     }
 }

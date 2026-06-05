@@ -153,14 +153,14 @@ object CameraCapabilityCatalogExpansion {
 
         val perfFeatures =
             listOf(
-                "thermal_adaptive" to CameraCapabilityCatalog.AppStatus.Partial,
-                "capture_latency" to CameraCapabilityCatalog.AppStatus.Partial,
-                "cold_preview_ms" to CameraCapabilityCatalog.AppStatus.Partial,
-                "first_frame_ms" to CameraCapabilityCatalog.AppStatus.Partial,
-                "battery_adaptive_fps" to CameraCapabilityCatalog.AppStatus.Shipped,
+                Triple("thermal_adaptive", CameraCapabilityCatalog.AppStatus.Partial, "pns_battery_life_test.ps1"),
+                Triple("capture_latency", CameraCapabilityCatalog.AppStatus.Partial, "pns_memory_profiler.ps1"),
+                Triple("cold_preview_ms", CameraCapabilityCatalog.AppStatus.Partial, "pns_cold_start_capture.ps1"),
+                Triple("first_frame_ms", CameraCapabilityCatalog.AppStatus.Partial, "pns_adb_preview_validate.ps1"),
+                Triple("battery_adaptive_fps", CameraCapabilityCatalog.AppStatus.Shipped, "pns_battery_life_test.ps1"),
             )
-        for ((id, st) in perfFeatures) {
-            add(row("perf.$id", "Performance $id", "Performance", status = st))
+        for ((id, st, script) in perfFeatures) {
+            add(row("perf.$id", "Performance $id", "Performance", status = st, proofScript = script))
         }
 
         val tetherFeatures =
@@ -279,6 +279,7 @@ object CameraCapabilityCatalogExpansion {
                 sourceLayer = CameraCapabilityCatalog.SourceLayer.Product,
                 appStatus = CameraCapabilityCatalog.AppStatus.Partial,
                 parityProofScript = "pns_parity_proof_pack.ps1",
+                buildPlanSprint = "26.1",
             ),
         )
         add(row("preview.measured_fps", "Preview measured FPS", "Preview HUD", status = CameraCapabilityCatalog.AppStatus.Shipped))

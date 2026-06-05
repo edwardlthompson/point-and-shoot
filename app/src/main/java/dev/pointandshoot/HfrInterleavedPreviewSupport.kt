@@ -30,7 +30,9 @@ object HfrInterleavedPreviewSupport {
         hsCaptureHeight: Int,
         preferSub4kCapture: Boolean,
         forceInterleavedAfterConfigureFail: Boolean,
+        encoderPriorityFallback: Boolean = false,
     ): Boolean {
+        if (encoderPriorityFallback) return false
         if (forceInterleavedAfterConfigureFail) return true
         if (desiredFps < 120 || !wantsMediaCodecPath) return false
         if (preferSub4kCapture) return false

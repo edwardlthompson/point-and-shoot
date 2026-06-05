@@ -122,8 +122,9 @@ object ResolutionBetrayal {
                 val slot = focalSlots.optJSONObject(i) ?: continue
                 val id = slot.optString("cameraId", "")
                 val mp = slot.optDouble("megapixels", Double.NaN)
-                if (id.isBlank() || !mp.isFinite() || mp <= 0.0) continue
-                put(id, mp)
+                if (id.isNotBlank() && mp.isFinite() && mp > 0.0) {
+                    put(id, mp)
+                }
             }
         }
     }

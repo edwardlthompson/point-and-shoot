@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.pointandshoot.fleet.DeviceAdaptedCatalog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -131,12 +132,24 @@ fun VideoFormatPickerSheet(
                 MediaCodecCapabilityProbe.probeSync()
             }
     }
-    val colorSpaces = remember { ColorQualityIndex.videoSpacesForPicker() }
-    var pickedColorOrdinal by remember(chrome.inAppVideoColorSpaceOrdinal) {
+    val colorSpaces =
+        remember(formats) {
+            DeviceAdaptedCatalog.videoColorSpacesForDevice(formats)
+        }
+    var pickedColorOrdinal by remember(chrome.inAppVideoColorSpaceOrdinal, colorSpaces) {
         mutableIntStateOf(
-            chrome.inAppVideoColorSpaceOrdinal.takeIf { it >= 0 }
-                ?: colorSpaces.indexOfFirst { it.id == "rec709" }.coerceAtLeast(0),
+            chrome.inAppVideoColorSpaceOrdinal.takeIf { ord ->
+                ord >= 0 && colorSpaces.getOrNull(ord) != null
+            } ?: colorSpaces.indexOfFirst { it.id == "rec709" }.coerceAtLeast(0),
         )
+    }
+    LaunchedEffect(colorSpaces, pickedColorOrdinal) {
+        if (colorSpaces.isEmpty()) return@LaunchedEffect
+        if (colorSpaces.getOrNull(pickedColorOrdinal) == null) {
+            val rec709 = colorSpaces.indexOfFirst { it.id == "rec709" }.coerceAtLeast(0)
+            pickedColorOrdinal = rec709
+            patchChrome { it.copy(inAppVideoColorSpaceOrdinal = rec709) }
+        }
     }
     val pickedColorSpace = colorSpaces.getOrNull(pickedColorOrdinal)
     val maxColorOrdinal =
@@ -300,12 +313,13 @@ fun VideoFormatPickerSheet(
 
             if (filteredFormats.isEmpty() && !rawVideoAvailable) {
                 Text(
-                    text = "No formats available for current settings.",
+                    text =
+                        "No video formats on this device for the selected color space. " +
+                            "Choose Rec.709 SDR below or dismiss.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.55f),
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
-                return@Column
             }
 
             LazyColumn(contentPadding = PaddingValues(bottom = 8.dp)) {
@@ -751,7 +765,11 @@ fun VideoFormatChip(
     val label = if (selectedFormat != null) {
         val aspect = videoAspectRatio(selectedFormat.resolution.width, selectedFormat.resolution.height).label
         val res = resolutionShortLabel(selectedFormat.resolution.width, selectedFormat.resolution.height)
-        "$aspect · $res · ${selectedFormat.frameRate}fps · ${selectedFormat.getLabel()}"
+        val hsHint =
+            selectedFormat.hfrCaptureSize?.let { cap ->
+                " · ${cap.width}x${cap.height} HS"
+            }.orEmpty()
+        "$aspect · $res · ${selectedFormat.frameRate}fps · ${selectedFormat.getLabel()}$hsHint"
     } else {
         "Video Settings"
     }

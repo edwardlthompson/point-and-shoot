@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Sprint 14.13 — host release APK packaging (no GitHub CLI).
+  Sprint 14.13 - host release APK packaging (no GitHub CLI).
 
 .DESCRIPTION
   assembleRelease (optional), copy to dist/{AppDisplayName}-{versionName}.apk, zipalign -c -v 4.

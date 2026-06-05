@@ -6,10 +6,22 @@ Per-onboarded-SKU checklist for Milestone **16.8**. Update a row after matrix re
 
 | SKU | Serial | Matrix quick | Matrix full | Shallow hub | Capture verify | Video verify | Chrome UX | DNG aux (if RAW) | Last rescan (UTC) | Notes |
 |-----|--------|--------------|-------------|-------------|----------------|--------------|-----------|------------------|-------------------|-------|
-| **CPH2583** | `b5214fc6` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 2026-05-29 | DNG: `aux_dng_capture_analyze_20260529_015653` (3/3, open gate PASS); **H.7** owner ACR sign-off 2026-05-29. **15.14** exiftool gate pending (install ExifTool). |
+| **CPH2583** | `b5214fc6` | PASS | PASS | PASS | PASS | PASS | PASS | PASS | 2026-06-05 | **M25:** full matrix `fleet_matrix_20260605_021552/`; Full parity `parity_sweep_20260605_021644/` (`resolutionBetrayalIndex=0`). **Capture:** `photo_capture_verify_20260605_024927` (sequential USB). **Regression pack:** `fleet_regression_pack_20260605_023355/` tier1+2 PASS. DNG: `aux_dng_capture_analyze_20260529_015653`. |
+| **CPH2655** (OP13-class) | `8bf09993` | PASS | PASS | — | — | — | — | — | 2026-06-05 | **M25 stock lane:** full matrix `hfr-runs/fleet_matrix_20260605_025643/` (`cameraKeyConfirmed=true`); Full parity `hfr-runs/parity_sweep_20260605_025715/` (**74.6%, pass=true, 0 ship blockers**, `resolutionBetrayalIndex=0`). AV1 tiers ENGINEERING_ONLY (no QTI HW encoder); hardware key auto-probe cleared `product.hardware_camera_key`. |
 | **legacy SKU** (legacy device regression) | `legacy serial` | — | — | — | — | — | — | — | — | Archived primary; use `-LegacyOp13FleetPolicy` / plugin for DNG parity lane only. |
 
 **M21.6 concurrency (parity matrix truth):** **CPH2583** advertises **`dualVideo`** only; **`pipPreview`** and **`multicamMelt`** are **not** advertised on primary fleet device. PiP + Multicam melt USB smoke runs via `pns_legacy_regression_pack.ps1` when connected device model is **legacy SKU / legacy device** (optional regression lane).
+
+## Leaderboard priority devices (Milestone 19)
+
+| Priority | Device | Sweeps needed |
+|----------|--------|----------------|
+| P0 | **OnePlus 12 (CPH2583)** | Stock Full sweep — baseline good Camera2 parity (published) |
+| P0 | **OnePlus 13** | **Stock + Lineage** Full pair — ROM collapse vs OP12 |
+| P1 | Sony XQ-BE62 | Stock (published) |
+| P1 | Community | `leaderboard_device_request` issue template |
+
+Product groups keep **Camera2 stock (tested)** and **GSMArena advertised (untested)** as separate line items. See `docs/CAMERA2_OEM_DISPARITY.md`.
 
 ## Column definitions
 

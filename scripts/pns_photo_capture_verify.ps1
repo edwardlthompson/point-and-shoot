@@ -41,6 +41,8 @@ param(
     [int]$MaxAttempts = 30,
     [int]$WaitSec = 55,
     [switch]$Fast,
+    [string]$Dial = "H",
+    [switch]$MonoMode,
     [switch]$SweepCameraIds,
     [string]$PreviewStillMode = "",
     [string]$PreviewStillFormat = "",
@@ -279,6 +281,16 @@ function Complete-PhotoCaptureVerify([int]$Code, [string]$Message = "") {
     exit $Code
 }
 
+function Ensure-DeviceInteractive() {
+    # Legacy/Lineage devices can put the app UID into idle when the display sleeps, which blocks
+    # CameraService connects ("can't use the camera from an idle UID"). Keep the device awake
+    # before each cold-start capture attempt.
+    Invoke-AdbTimedIgnore @("shell", "svc", "power", "stayon", "true") 15000 | Out-Null
+    Invoke-AdbTimedIgnore @("shell", "input", "keyevent", "KEYCODE_WAKEUP") 15000 | Out-Null
+    Invoke-AdbTimedIgnore @("shell", "wm", "dismiss-keyguard") 15000 | Out-Null
+    Invoke-AdbTimedIgnore @("shell", "input", "keyevent", "82") 15000 | Out-Null
+}
+
 $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
 $pkg = "dev.pointandshoot"
@@ -337,10 +349,31 @@ $outDir = Join-Path $projRoot "hfr-runs\photo_capture_verify_$utc"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 Write-Host "[photo_capture_verify] artifacts -> $outDir"
 
+$dialNorm = if ([string]::IsNullOrWhiteSpace($Dial)) { "H" } else { $Dial.Trim().ToUpper() }
+$monoModeActive = $MonoMode.IsPresent -or @("MONO", "MONOCHROME", "BW", "B&W").Contains($dialNorm)
+$dialToUse = if ($monoModeActive) { "MONO" } else { $dialNorm }
+
 $formatMode = -not [string]::IsNullOrWhiteSpace($PreviewStillFormat)
-$successNeedle = if ($formatMode) { "captureComposedStill composed_smoke ok=true" } else { "captureRawStill 1/1 ok=true saved=" }
+$successNeedle =
+if ($monoModeActive) {
+    "MONO_FALLBACK_SNAPSHOT_SAVED"
+}
+elseif ($formatMode) {
+    "captureComposedStill composed_smoke ok=true"
+}
+else {
+    "captureRawStill 1/1 ok=true saved="
+}
 $failNeedles =
-if ($formatMode) {
+if ($monoModeActive) {
+    @(
+        "captureJpegHardwareStill composed_smoke ok=false",
+        "captureIndependentTonalStill composed_smoke ok=false",
+        "MONO_FALLBACK_SNAPSHOT_FAIL",
+        "FATAL EXCEPTION"
+    )
+}
+elseif ($formatMode) {
     @(
         "captureComposedStill composed_smoke ok=false",
         "composed still smoke aborted",
@@ -375,21 +408,29 @@ foreach ($camSeed in $seedList) {
         Invoke-AdbTimedIgnore @("shell", "logcat", "-G", "64M") 15000 | Out-Null
         Invoke-AdbTimedIgnore @("shell", "am", "force-stop", $pkg) 30000 | Out-Null
         Start-Sleep -Milliseconds 800
+        Ensure-DeviceInteractive
+        Start-Sleep -Milliseconds 500
 
         $camId = if ([string]::IsNullOrWhiteSpace($camSeed)) { "" } else { $camSeed }
         $camSeedArg = if ([string]::IsNullOrWhiteSpace($camId)) { "" } else { " --es pns_preview_camera_id $camId" }
-        if ($formatMode) {
+        if ($monoModeActive) {
+            $amShell =
+                "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
+                "--es pns_screen preview --es pns_preview_dial $dialToUse --ei pns_preview_raw_count 0 " +
+                "--es pns_preview_imaging_profile jpeg_only --ez pns_preview_composed_still true$camSeedArg"
+        }
+        elseif ($formatMode) {
             $fmt = $PreviewStillFormat.Trim().ToLower()
             $amShell =
                 "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
-                "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 0 " +
+                "--es pns_screen preview --es pns_preview_dial $dialToUse --ei pns_preview_raw_count 0 " +
                 "--es pns_preview_imaging_profile jpeg_only --es pns_preview_still_format $fmt " +
                 "--ez pns_preview_composed_still true$camSeedArg"
         }
         else {
             $amShell =
                 "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
-                "--es pns_screen preview --es pns_preview_dial H --ei pns_preview_raw_count 1 " +
+                "--es pns_screen preview --es pns_preview_dial $dialToUse --ei pns_preview_raw_count 1 " +
                 "--es pns_preview_imaging_profile standard_pro$camSeedArg " +
                 "--ei pns_preview_video_fps 60"
         }
@@ -539,7 +580,13 @@ foreach ($camSeed in $seedList) {
             }
             [System.IO.File]::WriteAllText($attemptPath, $logText, [System.Text.UTF8Encoding]::new($false))
         }
-        $ok = $haystack.Contains($successNeedle)
+        $ok =
+            if ($monoModeActive) {
+                $haystack.Contains("MONO_FALLBACK_SNAPSHOT_SAVED") -or
+                    $haystack.Contains("captureIndependentTonalStill composed_smoke ok=true saved=")
+            } else {
+                $haystack.Contains($successNeedle)
+            }
         $badFinal = $false
         foreach ($n in $failNeedles) {
             if ($haystack.Contains($n)) {

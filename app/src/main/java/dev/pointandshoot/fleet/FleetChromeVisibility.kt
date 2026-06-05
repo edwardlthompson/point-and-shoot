@@ -2,6 +2,7 @@ package dev.pointandshoot.fleet
 
 import dev.pointandshoot.CommandDialMode
 import dev.pointandshoot.PreviewFpsSupport
+import dev.pointandshoot.UltraHd60RecordSupport
 import dev.pointandshoot.VideoCodec
 import dev.pointandshoot.VideoFormat
 
@@ -41,6 +42,13 @@ object FleetChromeVisibility {
 
     fun videoFormatFeatureId(codec: VideoCodec, width: Int, height: Int, fps: Int): String? {
         if (fps >= 120) return "video.hfr"
+        if (UltraHd60RecordSupport.isUltraHdSize(width, height)) {
+            return if (fps >= UltraHd60RecordSupport.TARGET_FPS) {
+                "video.uhd60"
+            } else {
+                "video.4k_regular"
+            }
+        }
         if (width == 1920 && height == 1080 && fps == 30) {
             return "video.regular.1080p30"
         }

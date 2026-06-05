@@ -9,6 +9,7 @@ import android.hardware.camera2.params.RggbChannelVector
 import android.os.Build
 import android.util.Log
 import dev.pointandshoot.DngForwardMatrixFix
+import dev.pointandshoot.getColorCorrectionAvailableModesOrEmpty
 import dev.pointandshoot.DngSaveBisectState
 
 /**
@@ -69,7 +70,7 @@ object LegacyLeafStillColorCorrection {
                 ?: return
         val corrected =
             LeafDngHalReconcile.applyHalWbGainCorrection(halGains, sessionCameraId)
-        val modes = chars.get(CameraCharacteristics.COLOR_CORRECTION_AVAILABLE_MODES) ?: intArrayOf()
+        val modes = chars.getColorCorrectionAvailableModesOrEmpty()
         when {
             modes.contains(CameraMetadata.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX) -> {
                 req.set(

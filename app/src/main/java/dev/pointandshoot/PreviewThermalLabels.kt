@@ -1,26 +1,25 @@
 package dev.pointandshoot
 
-import android.os.PowerManager
-
 /**
- * Maps [PowerManager.getCurrentThermalStatus] (API 29+) to user-facing labels for Sprint **13V.12**.
+ * Maps thermal status (API 29+ from [PowerManager.getCurrentThermalStatus]) to user-facing labels.
+ * Uses [ApiLevelGuards] literals so API 28 devices never resolve [PowerManager.THERMAL_STATUS_*] fields.
  */
 object PreviewThermalLabels {
-    const val THERMAL_WARNING_MIN_STATUS = PowerManager.THERMAL_STATUS_MODERATE
+    const val THERMAL_WARNING_MIN_STATUS = ApiLevelGuards.THERMAL_STATUS_MODERATE
 
     fun labelForStatus(status: Int): String =
         when (status) {
-            PowerManager.THERMAL_STATUS_NONE -> "OK"
-            PowerManager.THERMAL_STATUS_LIGHT -> "WARM"
-            PowerManager.THERMAL_STATUS_MODERATE -> "HOT"
-            PowerManager.THERMAL_STATUS_SEVERE -> "SEVERE"
-            PowerManager.THERMAL_STATUS_CRITICAL -> "CRITICAL"
-            PowerManager.THERMAL_STATUS_EMERGENCY -> "EMERGENCY"
-            PowerManager.THERMAL_STATUS_SHUTDOWN -> "SHUTDOWN"
+            ApiLevelGuards.THERMAL_STATUS_NONE -> "OK"
+            ApiLevelGuards.THERMAL_STATUS_LIGHT -> "WARM"
+            ApiLevelGuards.THERMAL_STATUS_MODERATE -> "HOT"
+            ApiLevelGuards.THERMAL_STATUS_SEVERE -> "SEVERE"
+            ApiLevelGuards.THERMAL_STATUS_CRITICAL -> "CRITICAL"
+            ApiLevelGuards.THERMAL_STATUS_EMERGENCY -> "EMERGENCY"
+            ApiLevelGuards.THERMAL_STATUS_SHUTDOWN -> "SHUTDOWN"
             else -> "?"
         }
 
     fun isThermalWarning(status: Int): Boolean = status >= THERMAL_WARNING_MIN_STATUS
 
-    fun isSevereOrWorse(status: Int): Boolean = status >= PowerManager.THERMAL_STATUS_SEVERE
+    fun isSevereOrWorse(status: Int): Boolean = status >= ApiLevelGuards.THERMAL_STATUS_SEVERE
 }

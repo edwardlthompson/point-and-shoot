@@ -5,7 +5,7 @@
 
 .DESCRIPTION
   Industry-aligned conventions:
-  - versionName: semver in app/build.gradle.kts (e.g. 0.14.0-beta.6) — user-visible.
+  - versionName: semver in app/build.gradle.kts (e.g. 0.14.0-beta.6) - user-visible.
   - versionCode: monotonic positive integer (Android requirement); derived from semver when
     the encoded value exceeds the installed baseline so upgrades keep working.
   - APK filename: {AppDisplayName}-{versionName}.apk (hyphens, no spaces).
@@ -141,5 +141,5 @@ function Get-PnsNextSemverVersionName {
     if ($semver -match '^(\d+)\.(\d+)\.(\d+)$') {
         return "$($Matches[1]).$($Matches[2]).$([int]$Matches[3] + 1)"
     }
-    throw "Cannot auto-increment versionName '$CurrentVersionName' — pass an explicit tag."
+    throw "Cannot auto-increment versionName '$CurrentVersionName' - pass an explicit tag."
 }

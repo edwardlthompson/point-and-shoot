@@ -195,9 +195,17 @@ foreach ($row in @($manifest.rows)) {
     $cacheKey = $scriptName + "|" + ($row.scriptArgs | ConvertTo-Json -Compress)
     if (-not $scriptCache.ContainsKey($cacheKey)) {
         Write-Host "[proof_pack] running $scriptName ..."
-        $childArgs = @{ OutDir = (Join-Path $OutDir ("proof_" + ($scriptName -replace '\.ps1$',''))) }
-        if ($Serial) { $childArgs.Serial = $Serial }
-        if ($SkipInstall) { $childArgs.SkipInstall = $true; $childArgs.SkipAssemble = $true }
+        $childArgs = @{}
+        $cmd = Get-Command $scriptPath -ErrorAction SilentlyContinue
+        $supports = if ($cmd) { $cmd.Parameters.Keys } else { @() }
+        if ($supports -contains "OutDir") {
+            $childArgs.OutDir = (Join-Path $OutDir ("proof_" + ($scriptName -replace '\.ps1$','')))
+        }
+        if ($Serial -and $supports -contains "Serial") { $childArgs.Serial = $Serial }
+        if ($SkipInstall) {
+            if ($supports -contains "SkipInstall") { $childArgs.SkipInstall = $true }
+            if ($supports -contains "SkipAssemble") { $childArgs.SkipAssemble = $true }
+        }
         if ($row.scriptArgs) {
             $row.scriptArgs.PSObject.Properties | ForEach-Object { $childArgs[$_.Name] = $_.Value }
         }

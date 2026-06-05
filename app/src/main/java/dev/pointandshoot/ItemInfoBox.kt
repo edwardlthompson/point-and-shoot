@@ -97,7 +97,7 @@ object ItemInfoBox {
             writeUint32Be(out, infeBoxes.size)
         }
         for (infe in infeBoxes) {
-            out.writeBytes(infe)
+            out.writeBytesCompat(infe)
         }
         return out.toByteArray()
     }

@@ -21,8 +21,8 @@
     "Milestone 24"
   ],
   "requiredPaths": [
-    "hfr-runs/m24_gate_2026-06-03",
-    "hfr-runs/4k120_endurance_2026-06-03"
+    "hfr-runs/m24_gate_20260605_065405",
+    "hfr-runs/m24_gate_20260605_060318"
   ],
   "reportPrefix": "milestone_closeout_m24"
 }

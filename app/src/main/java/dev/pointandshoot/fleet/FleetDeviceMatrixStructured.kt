@@ -4,6 +4,7 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.os.Build
 import dev.pointandshoot.CameraXExtensionProbe
+import dev.pointandshoot.getScalerAvailableStreamUseCasesOrNull
 import dev.pointandshoot.LensInfoSummaryJson
 import dev.pointandshoot.MediaCodecCapabilityProbe
 import org.json.JSONArray
@@ -163,10 +164,8 @@ object FleetDeviceMatrixStructured {
                 else -> names.add("CAP_$c")
             }
         }
-        if (Build.VERSION.SDK_INT >= 31) {
-            cc?.get(CameraCharacteristics.SCALER_AVAILABLE_STREAM_USE_CASES)?.let { useCases ->
-                if (useCases.isNotEmpty()) names.add("STREAM_USE_CASES_ADVERTISED")
-            }
+        cc?.getScalerAvailableStreamUseCasesOrNull()?.let { useCases ->
+            if (useCases.isNotEmpty()) names.add("STREAM_USE_CASES_ADVERTISED")
         }
         return JSONArray(names.sorted())
     }
@@ -238,6 +237,21 @@ object FleetDeviceMatrixStructured {
         }
     }
 
+    private fun deepCamAdvertises4kMediaRecorder(deepCam: JSONObject?): Boolean {
+        val map = deepCam?.optJSONObject("streamConfigurationMap") ?: return false
+        val arr =
+            map.optJSONObject("outputSizesByFormat")?.optJSONArray("mediaRecorder")
+                ?: map.optJSONObject("outputSizes")?.optJSONArray("mediaRecorder")
+                ?: return false
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val w = o.optInt("w")
+            val h = o.optInt("h")
+            if ((w >= 3840 && h >= 2160) || (w >= 2160 && h >= 3840)) return true
+        }
+        return false
+    }
+
     private fun cfaPatternLabel(arrangement: Int?): String =
         when (arrangement) {
             CameraMetadata.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB -> "RGGB"
@@ -289,6 +303,12 @@ object FleetDeviceMatrixStructured {
         val hevc10SessionOk = hevc10Advertised
         val uhd60Advertised = shallow.optInt("hfrMaxFpsAt1080", 0) >= 60
         val uhd60SessionOk = uhd60Advertised && hfrSessionOk
+        val uhd60AppEnabled = uhd60Advertised && uhd60SessionOk
+        val fourKRegularAdvertised = deepCamAdvertises4kMediaRecorder(deepCam)
+        val fourKRegularSessionOk =
+            fourKRegularAdvertised &&
+                SessionMatrixProbeCore.sessionTestSupported(sessionCam, "regular_3840x2160")
+        val fourKRegularAppEnabled = fourKRegularAdvertised && fourKRegularSessionOk
         val rawVideoAdvertised = rawAdvertised
         val rawVideoSessionOk = rawSessionOk
         val dualGate = deviceGates?.dualVideo ?: FeatureGate(false, false, false)
@@ -302,7 +322,11 @@ object FleetDeviceMatrixStructured {
             put("dcgZsl", FeatureGate(dcgAdvertised, dcgSessionOk, dcgAppEnabled).toJson())
             put("av1", FeatureGate(av1Advertised, av1SessionOk, av1SessionOk).toJson())
             put("hevc10", FeatureGate(hevc10Advertised, hevc10SessionOk, hevc10Advertised).toJson())
-            put("uhd60", FeatureGate(uhd60Advertised, uhd60SessionOk, uhd60Advertised).toJson())
+            put("uhd60", FeatureGate(uhd60Advertised, uhd60SessionOk, uhd60AppEnabled).toJson())
+            put(
+                "fourKRegular",
+                FeatureGate(fourKRegularAdvertised, fourKRegularSessionOk, fourKRegularAppEnabled).toJson(),
+            )
             put("rawVideo", FeatureGate(rawVideoAdvertised, rawVideoSessionOk, rawVideoAdvertised).toJson())
             put("dualVideo", dualGate.toJson())
             put("multicamMelt", meltGate.toJson())

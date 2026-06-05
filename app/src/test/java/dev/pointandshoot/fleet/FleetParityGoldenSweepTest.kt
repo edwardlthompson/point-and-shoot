@@ -53,4 +53,46 @@ class FleetParityGoldenSweepTest {
         val cross = FleetParityEncoderCrossCheck.build(matrix)
         assertTrue(cross.getJSONArray("rows").length() > 0)
     }
+
+    @Test
+    fun `quick tier matrix nulls sessionOk for fourKRegular gate`() {
+        val matrix =
+            JSONObject().apply {
+                put(FleetDeviceMatrix.KEY_SCHEMA_VERSION, FleetDeviceMatrix.SCHEMA_VERSION)
+                put(
+                    FleetDeviceMatrix.KEY_SCAN_META,
+                    JSONObject().put("scanTier", "quick"),
+                )
+                put(
+                    FleetDeviceMatrix.KEY_CAMERAS,
+                    org.json.JSONArray().put(
+                        JSONObject().apply {
+                            put("cameraId", "2")
+                            put(
+                                "featureGates",
+                                JSONObject().apply {
+                                    put(
+                                        "fourKRegular",
+                                        JSONObject().apply {
+                                            put("advertised", true)
+                                            put("sessionOk", true)
+                                            put("appEnabled", true)
+                                        },
+                                    )
+                                },
+                            )
+                        },
+                    ),
+                )
+            }
+        val row = CameraCapabilityCatalogBuilder.evaluatedRows(matrix).first { it.row.id == "video.4k_regular" }
+        assertTrue(row.deviceSupported)
+        assertEquals(null, row.sessionOk)
+    }
+
+    @Test
+    fun `session gated catalog ids include fourKRegular`() {
+        assertTrue(FleetParitySweepRunner.SESSION_GATED_CATALOG_IDS.contains("video.4k_regular"))
+        assertTrue(FleetParitySweepRunner.SESSION_GATED_CATALOG_IDS.contains("video.uhd60"))
+    }
 }

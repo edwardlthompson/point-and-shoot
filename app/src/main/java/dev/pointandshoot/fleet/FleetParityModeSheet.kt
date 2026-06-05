@@ -42,9 +42,6 @@ fun FleetParityModeSheet(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
             )
             HorizontalDivider(color = Color.White.copy(alpha = 0.12f))
-            ParityModeRow("Quick (~3–5 min)", "CI smoke; scripted catalog rows") {
-                onRun(FleetParitySweepRunner.Mode.QUICK, false)
-            }
             ParityModeRow("Full (~15–30 min)", "Every catalog row; optional record saves") {
                 includeRecord.value = false
                 onRun(FleetParitySweepRunner.Mode.FULL, includeRecord.value)

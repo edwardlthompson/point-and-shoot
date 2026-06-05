@@ -129,8 +129,7 @@ object PnsAacEncoderSupport {
         val list = MediaCodecList(MediaCodecList.ALL_CODECS)
         return list.codecInfos
             .filter { info ->
-                info.isEncoder &&
-                    !info.isAlias &&
+                info.isNonAliasEncoder() &&
                     MediaFormat.MIMETYPE_AUDIO_AAC in info.supportedTypes
             }
             .map { it.name }

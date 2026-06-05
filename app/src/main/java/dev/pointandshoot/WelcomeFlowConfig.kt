@@ -37,6 +37,14 @@ object WelcomeFlowConfig {
                 requiredToEnterApp = false,
             ),
             WelcomeRuntimePermissionStep(
+                permission = Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                title = "Storage",
+                rationaleBody =
+                    "On older Android versions, saving videos to your gallery folder needs storage access. " +
+                        "Newer devices use scoped storage and do not show this step.",
+                requiredToEnterApp = false,
+            ),
+            WelcomeRuntimePermissionStep(
                 permission = Manifest.permission.ACCESS_FINE_LOCATION,
                 title = "Location",
                 rationaleBody =

@@ -18,6 +18,7 @@ internal object CameraCapabilityCatalogEvaluators {
             row.id == "video.av1" || row.id.startsWith("video.av1.") -> gateTriple(root, "av1")
             row.id == "video.hevc" || row.id.startsWith("video.hevc.") -> gateTriple(root, "hevc10")
             row.id == "video.uhd60" -> gateTriple(root, "uhd60")
+            row.id == "video.4k_regular" -> gateTriple(root, "fourKRegular")
             row.id == "video.raw" || row.id == "video.raw_picker" -> gateTriple(root, "rawVideo")
             row.id == "video.vp9" || row.id.startsWith("video.vp9.") -> {
                 val ok = MediaCodecCapabilityProbe.probeSyncSafe().supportsVp9
@@ -30,13 +31,17 @@ internal object CameraCapabilityCatalogEvaluators {
             row.id == "video.dual_iso" -> gateTriple(root, "dcgZsl")
             row.id == "video.anamorphic" -> Triple(true, null, "anamorphicSar=metadata")
             row.id == "still.referenceapp_leaf" -> Triple(false, null, "legacy_regression_lane")
+            row.id == "still.resolution_maximum_map" -> stillResolutionMaximumMap(root)
+            row.id == "still.hidden_highres" -> stillHiddenHighRes(root)
             row.id == "dial.monochrome" -> monochromeDial(root)
+            row.id == "still.monochrome_capture" -> monochromeStillCapture(root)
             row.id == "still.monochrome_sensor" -> Triple(false, null, "probeOnly=monochrome_sensor_inventory")
             row.id == "af.macro_dedicated" -> Triple(false, null, "probeOnly=macro_dedicated_inventory")
             row.id == "legacy.camera1" -> Triple(false, null, "probeOnly=camera1_inventory")
             row.id == "legacy.mediarecorder_hfr_cap" -> Triple(false, null, "probeOnly=mediarecorder_hfr_cap_inventory")
             row.id == "product.toolbox" -> Triple(false, null, "probeOnly=toolbox_inventory")
             row.id == "product.still_image_camera_launch" -> stillImageCameraLaunch(root)
+            row.id == "product.still_image_camera_secure_launch" -> stillImageCameraSecureLaunch(root)
             row.id == "product.hardware_camera_key" -> hardwareCameraKey(root)
             row.id == "product.programmable_hardware_button" -> programmableHardwareButton(root)
             row.id == "gallery.lut_preview" -> Triple(false, null, "probeOnly=lut_preview_inventory")
@@ -109,6 +114,75 @@ internal object CameraCapabilityCatalogEvaluators {
         return Triple(registered && resolvable, null, "pnsRegistered=$registered resolvable=$resolvable")
     }
 
+    private fun stillImageCameraSecureLaunch(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val slice =
+            root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)
+                ?.optJSONObject("hardwareLaunch")
+                ?.optJSONObject("stillImageCameraSecure")
+        val registered = slice?.optBoolean("pnsRegistered", false) == true
+        val resolvable = slice?.optBoolean("resolvable", false) == true
+        return Triple(registered && resolvable, null, "pnsRegistered=$registered resolvable=$resolvable")
+    }
+
+    private fun stillResolutionMaximumMap(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val arr = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONArray("stillResolutionAdvertised") ?: return Triple(false, null, "empty")
+        var anyMax = false
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (!o.isNull("maxResMapJpeg") || !o.isNull("maxResMapRawSensor")) {
+                anyMax = true
+                break
+            }
+        }
+        val sessionOk = if (anyMax) maxResolutionMapSessionOk(root) else null
+        return Triple(anyMax, sessionOk, "maxResMapPresent=$anyMax sessionOk=$sessionOk")
+    }
+
+    private fun stillHiddenHighRes(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val arr = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONArray("stillResolutionAdvertised") ?: return Triple(false, null, "empty")
+        var anyHidden = false
+        for (i in 0 until arr.length()) {
+            if (arr.optJSONObject(i)?.optBoolean("hasLargerThanDefault") == true) {
+                anyHidden = true
+                break
+            }
+        }
+        val sessionOk = if (anyHidden) maxResolutionMapSessionOk(root) else null
+        return Triple(anyHidden, sessionOk, "hasLargerThanDefault=$anyHidden sessionOk=$sessionOk")
+    }
+
+    private fun maxResolutionMapSessionOk(root: JSONObject): Boolean {
+        val sessionRoot = root.optJSONObject(FleetDeviceMatrix.KEY_APPENDIX)?.optJSONObject("sessionMatrix") ?: return false
+        val cams = sessionRoot.optJSONArray("cameras") ?: return false
+        var rearTested = 0
+        var rearOk = 0
+        for (i in 0 until cams.length()) {
+            val sessionCam = cams.optJSONObject(i) ?: continue
+            val cameraId = sessionCam.optString("cameraId")
+            val matrixCam = cameraById(root, cameraId) ?: continue
+            if (!isRearCameraEntry(matrixCam)) continue
+            rearTested++
+            if (SessionMatrixProbeCore.sessionTestSupported(sessionCam, "max_resolution_map_jpeg")) {
+                rearOk++
+            }
+        }
+        return rearTested > 0 && rearOk == rearTested
+    }
+
+    private fun cameraById(root: JSONObject, cameraId: String): JSONObject? {
+        val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return null
+        for (i in 0 until cams.length()) {
+            val cam = cams.optJSONObject(i) ?: continue
+            if (cam.optString("cameraId") == cameraId) return cam
+        }
+        return null
+    }
+
+    private fun isRearCameraEntry(cam: JSONObject): Boolean {
+        val role = cam.optJSONObject("fleetPolicy")?.optString("role").orEmpty()
+        return role !in setOf("LOGICAL", "FRONT") && role.isNotBlank()
+    }
+
     private fun hardwareCameraKey(root: JSONObject): Triple<Boolean, Boolean?, String> {
         val buttons = root.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("hardwareButtons")
         val probe = buttons?.optJSONObject("interactiveProbe")
@@ -116,7 +190,8 @@ internal object CameraCapabilityCatalogEvaluators {
             probe?.optBoolean("cameraKeyConfirmed", false) == true ||
                 probe?.optBoolean("focusKeyConfirmed", false) == true
         val likely = buttons?.optBoolean("dedicatedCameraKeyLikely", false) == true
-        return Triple(confirmed || likely, null, "cameraKeyConfirmed=$confirmed dedicatedLikely=$likely")
+        val sessionOk = if (confirmed) true else null
+        return Triple(confirmed || likely, sessionOk, "cameraKeyConfirmed=$confirmed dedicatedLikely=$likely")
     }
 
     private fun programmableHardwareButton(root: JSONObject): Triple<Boolean, Boolean?, String> {
@@ -302,6 +377,17 @@ internal object CameraCapabilityCatalogEvaluators {
             null,
             "dedicatedMonochrome=$fromFocalRow monoCamId=${monoCamId ?: "-"} capabilityMono=$fromCapabilities",
         )
+    }
+
+    private fun monochromeStillCapture(root: JSONObject): Triple<Boolean, Boolean?, String> {
+        val monoDial = monochromeDial(root).first
+        if (!monoDial) return Triple(false, null, "monochrome_dial_unavailable")
+        val rawGate = firstCameraGate(root, "raw")
+        val rawSessionOk = rawGate?.optBoolean("sessionOk", false) == true
+        val rawAppEnabled = rawGate?.optBoolean("appEnabled", false) == true
+        val tier = if (rawSessionOk && rawAppEnabled) "raw_or_jpeg" else "preview_fallback"
+        val sessionOk = if (rawGate == null) null else rawSessionOk
+        return Triple(true, sessionOk, "tier=$tier rawSessionOk=$rawSessionOk rawAppEnabled=$rawAppEnabled")
     }
 
     private fun hasMonochromeCapability(root: JSONObject): Boolean {

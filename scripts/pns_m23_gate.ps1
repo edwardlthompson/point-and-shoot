@@ -17,7 +17,7 @@ USB chain (default):
   1) pns_fleet_matrix_scan.ps1 -ScanTier quick
   2) pns_capture_pipeline_verify.ps1
   3) pns_chrome_ux_gate.ps1 -FocalMmSlot 150
-  4) pns_fleet_parity_sweep.ps1 -Mode Quick
+  4) pns_fleet_parity_sweep.ps1 -Mode Delta
   5) pns_verify_toolchain.ps1 -RunTests
   6) pns_milestone_closeout.ps1 -ConfigPath scripts/milestones/m23.closeout.json [-Apply]
 
@@ -81,14 +81,14 @@ if ($HostOnly) {
     Add-Step "chrome_150" $LASTEXITCODE
 
     $parityArgs = @{
-        Mode = "Quick"
-        OutDir = (Join-Path $outDir "parity_quick")
+        Mode = "Delta"
+        OutDir = (Join-Path $outDir "parity_delta")
     }
     if ($Serial) { $parityArgs.Serial = $Serial }
     if ($SkipInstall) { $parityArgs.SkipInstall = $true }
     if ($SkipMatrixRefresh) { $parityArgs.SkipMatrixRefresh = $true }
     & (Join-Path $PSScriptRoot "pns_fleet_parity_sweep.ps1") @parityArgs
-    Add-Step "parity_quick" $LASTEXITCODE
+    Add-Step "parity_delta" $LASTEXITCODE
 
     & (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1") -RunTests
     Add-Step "toolchain_verify" $LASTEXITCODE

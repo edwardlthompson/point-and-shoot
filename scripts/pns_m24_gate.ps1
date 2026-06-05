@@ -54,6 +54,8 @@ if ($HostOnly) {
     & (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1") -RunTests
     Add-Step "toolchain_verify" $LASTEXITCODE
 } else {
+    & (Join-Path $PSScriptRoot "pns_usb_gate_mutex.ps1") -Serial $Serial -GateName "m24_gate"
+    try {
     $capOutDir = Join-Path $outDir "video_capability_probe"
     $capArgs = @{ OutDir = $capOutDir }
     if ($Serial) { $capArgs.Serial = $Serial }
@@ -144,6 +146,9 @@ if ($HostOnly) {
 
     & (Join-Path $PSScriptRoot "pns_verify_toolchain.ps1") -RunTests
     Add-Step "toolchain_verify" $LASTEXITCODE
+    } finally {
+        & (Join-Path $PSScriptRoot "pns_usb_gate_mutex.ps1") -Serial $Serial -GateName "m24_gate" -Release
+    }
 }
 
 if (-not $HostOnly) {

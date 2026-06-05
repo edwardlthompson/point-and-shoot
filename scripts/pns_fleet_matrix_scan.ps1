@@ -1,4 +1,4 @@
-# Milestone 16.3 — pull fleet_device_matrix.json after cold-start probehub scan.
+# Milestone 16.3 - pull fleet_device_matrix.json after cold-start probehub scan.
 #
 # - Installs debug APK (unless -SkipInstall).
 # - Grants CAMERA, cold-starts `pns_screen=probehub`.
@@ -77,6 +77,17 @@ if ([string]::IsNullOrWhiteSpace($Serial)) {
     }
 }
 
+if ($Serial -match ':\d+$') {
+    $wifiConnect = Join-Path $PSScriptRoot "pns_adb_wifi_connect.ps1"
+    if (Test-Path -LiteralPath $wifiConnect) {
+        & $wifiConnect -ConnectHostPort $Serial -SkipPair -Quiet
+    } else {
+        Write-Host "[fleet_matrix] adb connect $Serial (Wi-Fi serial)"
+        Invoke-AdbIgnore @("connect", $Serial)
+        Start-Sleep -Seconds 2
+    }
+}
+
 function Invoke-Adb([string[]]$CmdArgs) {
     if ($Serial) { & adb -s $Serial @CmdArgs } else { & adb @CmdArgs }
     if ($LASTEXITCODE -ne 0) { throw "adb $($CmdArgs -join ' ') failed exit=$LASTEXITCODE" }
@@ -84,6 +95,11 @@ function Invoke-Adb([string[]]$CmdArgs) {
 
 function Invoke-AdbIgnore([string[]]$CmdArgs) {
     if ($Serial) { & adb -s $Serial @CmdArgs 2>$null } else { & adb @CmdArgs 2>$null }
+}
+
+function Write-Utf8NoBom([string]$Path, [string]$Text) {
+    $enc = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Text, $enc)
 }
 
 function Test-AdbAuthorizedDevice {
@@ -119,7 +135,7 @@ function Write-StubGate([string]$Reason) {
 }
 
 if (-not (Test-AdbAuthorizedDevice)) {
-    Write-Warning "[fleet_matrix] No authorized adb device — stub JSON only."
+    Write-Warning "[fleet_matrix] No authorized adb device - stub JSON only."
     Write-StubGate "no_authorized_device"
 }
 
@@ -156,7 +172,35 @@ if ($LegacyOp13FleetPolicy.IsPresent) {
 if ($Serial) { & adb -s $Serial @startArgs } else { & adb @startArgs }
 if ($LASTEXITCODE -ne 0) { throw "am start failed exit=$LASTEXITCODE" }
 
-Start-Sleep -Seconds $WaitSec
+$pollSec = if ($ScanTier -eq "full") { 5 } else { $WaitSec }
+$waitStarted = [DateTime]::UtcNow
+$deadline = $waitStarted.AddSeconds($WaitSec)
+while ([DateTime]::UtcNow -lt $deadline) {
+    Start-Sleep -Seconds $pollSec
+    if ($ScanTier -ne "full") { break }
+    try {
+        $peek = ""
+        if ($Serial) {
+            $peek = (& adb -s $Serial exec-out run-as $pkg cat "files/$matrixFile" 2>$null | Out-String)
+        } else {
+            $peek = (& adb exec-out run-as $pkg cat "files/$matrixFile" 2>$null | Out-String)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($peek)) {
+            $peekObj = $peek | ConvertFrom-Json
+            $peekTier = "$($peekObj.scanMeta.scanTier)"
+            if ($peekTier -eq "full") {
+                $elapsed = [int]([DateTime]::UtcNow - $waitStarted).TotalSeconds
+                Write-Host "[fleet_matrix] observed scanTier=full on disk after ${elapsed}s poll"
+                break
+            }
+        }
+    } catch {
+        # keep polling until deadline
+    }
+}
+if ($ScanTier -ne "full") {
+    Start-Sleep -Seconds ([Math]::Max(0, $WaitSec - $pollSec))
+}
 
 $logPath = Join-Path $OutDir "logcat_fleet_matrix.txt"
 $ErrorActionPreference = "Continue"
@@ -199,11 +243,15 @@ $pulled = $false
 $pullAttempts = if ($ScanTier -eq "full") { 12 } else { 6 }
 for ($i = 0; $i -lt $pullAttempts; $i++) {
     try {
+        $matrixText = ""
         if ($Serial) {
-            & adb -s $Serial exec-out run-as $pkg cat "files/$matrixFile" | Set-Content -LiteralPath $matrixOut -Encoding utf8
+            $matrixText = (& adb -s $Serial exec-out run-as $pkg cat "files/$matrixFile" 2>$null | Out-String)
         }
         else {
-            & adb exec-out run-as $pkg cat "files/$matrixFile" | Set-Content -LiteralPath $matrixOut -Encoding utf8
+            $matrixText = (& adb exec-out run-as $pkg cat "files/$matrixFile" 2>$null | Out-String)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($matrixText)) {
+            Write-Utf8NoBom -Path $matrixOut -Text $matrixText
         }
         if ((Test-Path -LiteralPath $matrixOut) -and ((Get-Item -LiteralPath $matrixOut).Length -gt 64)) {
             $pulled = $true
@@ -241,10 +289,14 @@ $summaryOut = Join-Path $OutDir $summaryFile
 $summaryPulled = $false
 if ($pulled) {
     try {
+        $summaryText = ""
         if ($Serial) {
-            & adb -s $Serial exec-out run-as $pkg cat "files/$summaryFile" | Set-Content -LiteralPath $summaryOut -Encoding utf8
+            $summaryText = (& adb -s $Serial exec-out run-as $pkg cat "files/$summaryFile" 2>$null | Out-String)
         } else {
-            & adb exec-out run-as $pkg cat "files/$summaryFile" | Set-Content -LiteralPath $summaryOut -Encoding utf8
+            $summaryText = (& adb exec-out run-as $pkg cat "files/$summaryFile" 2>$null | Out-String)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($summaryText)) {
+            Write-Utf8NoBom -Path $summaryOut -Text $summaryText
         }
         if ((Test-Path -LiteralPath $summaryOut) -and ((Get-Item -LiteralPath $summaryOut).Length -gt 32)) {
             $summaryPulled = $true
@@ -277,7 +329,7 @@ if ($pulled) {
             }
         }
         else {
-            Write-Warning "[fleet_matrix] python not on PATH — skip fleet_matrix_schema_validate.py"
+            Write-Warning "[fleet_matrix] python not on PATH - skip fleet_matrix_schema_validate.py"
             $schemaValidateOk = $true
         }
     }
@@ -312,18 +364,24 @@ if ($pulled) {
     try {
         $maxResProbeRan = $true
         $dumpsysPath = Join-Path $OutDir "dumpsys_media_camera_v2.txt"
+        $dumpsysText = ""
         if ($Serial) {
-            & adb -s $Serial shell dumpsys media.camera -v 2 2>&1 | Set-Content -LiteralPath $dumpsysPath -Encoding utf8
+            $dumpsysText = (& adb -s $Serial shell dumpsys media.camera -v 2 2>&1 | Out-String)
         } else {
-            & adb shell dumpsys media.camera -v 2 2>&1 | Set-Content -LiteralPath $dumpsysPath -Encoding utf8
+            $dumpsysText = (& adb shell dumpsys media.camera -v 2 2>&1 | Out-String)
         }
+        Write-Utf8NoBom -Path $dumpsysPath -Text $dumpsysText
         $maxResProbeRelPath = "dumpsys_media_camera_v2.txt"
 
         $focalMapPulledPath = Join-Path $OutDir "fleet_focal_map.json"
+        $focalMapText = ""
         if ($Serial) {
-            & adb -s $Serial exec-out run-as $pkg cat "files/fleet_focal_map.json" | Set-Content -LiteralPath $focalMapPulledPath -Encoding utf8
+            $focalMapText = (& adb -s $Serial exec-out run-as $pkg cat "files/fleet_focal_map.json" 2>$null | Out-String)
         } else {
-            & adb exec-out run-as $pkg cat "files/fleet_focal_map.json" | Set-Content -LiteralPath $focalMapPulledPath -Encoding utf8
+            $focalMapText = (& adb exec-out run-as $pkg cat "files/fleet_focal_map.json" 2>$null | Out-String)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($focalMapText)) {
+            Write-Utf8NoBom -Path $focalMapPulledPath -Text $focalMapText
         }
 
         $manifestPath = Join-Path $PSScriptRoot "fleet_focal_mp_override_manifest.json"
@@ -422,7 +480,7 @@ Write-Host "[fleet_matrix] Wrote $jsonPath pass=$pass pulled=$pulled schemaOk=$s
 Invoke-AdbIgnore @("shell", "am", "force-stop", $pkg)
 
 if (-not $pass) {
-    Write-Host "[fleet_matrix] FAIL — see $jsonPath and $logPath"
+    Write-Host "[fleet_matrix] FAIL - see $jsonPath and $logPath"
     exit 1
 }
 exit 0

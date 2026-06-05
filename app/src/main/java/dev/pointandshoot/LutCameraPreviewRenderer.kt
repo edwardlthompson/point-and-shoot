@@ -194,6 +194,31 @@ class LutCameraPreviewRenderer(
         frontBufferSize.set(intArrayOf(bufferW.coerceAtLeast(0), bufferH.coerceAtLeast(0)))
     }
 
+    /**
+     * Resize the camera-facing external-OES [SurfaceTexture] on the GL thread so
+     * [Surface.isValid] stays true for [OutputConfiguration] (main-thread
+     * [SurfaceTexture.setDefaultBufferSize] abandons the producer queue).
+     */
+    fun queueSetPreviewBufferSize(bufferW: Int, bufferH: Int, onComplete: () -> Unit) {
+        val w = bufferW.coerceAtLeast(0)
+        val h = bufferH.coerceAtLeast(0)
+        val glv = glSurfaceViewRef
+        if (glv == null || w <= 0 || h <= 0) {
+            mainHandler.post(onComplete)
+            return
+        }
+        glv.queueEvent {
+            val st = surfaceTexture
+            if (st != null) {
+                runCatching { st.setDefaultBufferSize(w, h) }
+                lastBufferW = w
+                lastBufferH = h
+            }
+            glv.requestRender()
+            mainHandler.postDelayed(onComplete, PREVIEW_BUFFER_QUEUE_PUBLISH_DELAY_MS)
+        }
+    }
+
     /** Stacked front (top) + rear (bottom) for Sprint **14.12** / **15.5** dual video. */
     fun setDualSplitEnabled(
         enabled: Boolean,
@@ -975,5 +1000,8 @@ class LutCameraPreviewRenderer(
     companion object {
         private const val TAG = "PNS.GLES.Preview"
         private val IDENTITY_WB = floatArrayOf(1f, 1f, 1f)
+
+        /** Delay after GL-thread buffer resize before Camera2 binds [OutputConfiguration]. */
+        private const val PREVIEW_BUFFER_QUEUE_PUBLISH_DELAY_MS = 300L
     }
 }

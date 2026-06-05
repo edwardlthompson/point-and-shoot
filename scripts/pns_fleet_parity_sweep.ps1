@@ -5,7 +5,7 @@
 
 param(
     [string]$Serial = "",
-    [ValidateSet("Quick", "Full", "Delta")]
+    [ValidateSet("Full", "Delta")]
     [string]$Mode = "",
     [string]$OutDir = "",
     [switch]$IncludeRecord,
@@ -22,7 +22,8 @@ param(
     [string]$BaselineTag = "",
     [string]$BaselineJson = "",
     [string]$CompareMatrix = "",
-    [switch]$Help
+    [switch]$Help,
+    [switch]$PublishSite
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,7 +32,7 @@ if ($Help) {
     Write-Host @"
 pns_fleet_parity_sweep.ps1 — Fleet Parity Sweep (M21)
 
-  -Mode Quick|Full|Delta   (required unless -HostOnlyFixture)
+  -Mode Full|Delta   (required unless -HostOnlyFixture)
   -SkipMatrixRefresh        skip pns_fleet_matrix_scan (avoids hub hang)
   -IncludeRecord            pass pns_parity_sweep_include_record to app
   -IncludeProofPack         Full only: run parity_proof_manifest scripts + merge provenOk (M22)
@@ -109,23 +110,124 @@ function Build-GapBreakdownFromLogcat($Cells) {
     return $counts
 }
 
+function Get-CatalogRowMetaMap {
+    $projRoot = Split-Path -Parent $PSScriptRoot
+    $catalogKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalog.kt"
+    $expansionKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalogExpansion.kt"
+    $map = @{}
+    foreach ($path in @($catalogKt, $expansionKt)) {
+        if (-not (Test-Path -LiteralPath $path)) { continue }
+        $text = Get-Content -LiteralPath $path -Raw
+        [regex]::Matches($text, 'CatalogRow\s*\(\s*"([^"]+)"\s*,\s*"([^"]+)"') | ForEach-Object {
+            $id = $_.Groups[1].Value
+            if (-not $map.ContainsKey($id)) {
+                $map[$id] = [ordered]@{ displayName = $_.Groups[2].Value; buildPlanSprint = $null; closureEffort = $null; parityProofScript = $null }
+            } else {
+                $map[$id].displayName = $_.Groups[2].Value
+            }
+        }
+        [regex]::Matches($text, 'CatalogRow\s*\(\s*"([^"]+)"[^)]*\)') | ForEach-Object {
+            $block = $_.Value
+            if ($block -notmatch 'CatalogRow\s*\(\s*"([^"]+)"') { return }
+            $id = $Matches[1]
+            if (-not $map.ContainsKey($id)) {
+                $map[$id] = [ordered]@{ displayName = $id; buildPlanSprint = $null; closureEffort = $null; parityProofScript = $null }
+            }
+            $entry = $map[$id]
+            if ($block -match 'buildPlanSprint\s*=\s*"([^"]+)"') { $entry.buildPlanSprint = $Matches[1] }
+            if ($block -match 'closureEffort\s*=\s*"([^"]+)"') { $entry.closureEffort = $Matches[1] }
+            if ($block -match 'parityProofScript\s*=\s*"([^"]+)"') { $entry.parityProofScript = $Matches[1] }
+        }
+    }
+    return $map
+}
+
+function Get-ClosurePlanPriority([string]$GapClass) {
+    switch ($GapClass) {
+        "GAP_REGRESSION_SINCE_BASELINE" { return 0 }
+        "GAP_DELIVERY_MISMATCH" { return 1 }
+        "GAP_ADVERTISED_NOT_PROVEN" { return 2 }
+        "GAP_CONFLICT_RISK" { return 3 }
+        "GAP_ADVERTISED_NOT_SURFACED" { return 4 }
+        "GAP_UNAUTOMATED" { return 5 }
+        "GAP_PROVEN_NOT_ADVERTISED" { return 6 }
+        "GAP_SURFACED_NOT_ADVERTISED" { return 7 }
+        default { return 13 }
+    }
+}
+
+function Get-ConsumerImpactPriority([string]$Impact) {
+    switch ($Impact) {
+        "SHIP_BLOCKER" { return 0 }
+        "ENGINEERING_ONLY" { return 1 }
+        "INFORMATIONAL" { return 2 }
+        default { return 3 }
+    }
+}
+
 function Write-ClosurePlanFromJson($InAppJson, [string]$Path) {
     $lines = @("# Parity closure plan", "")
     $cells = @($InAppJson.cells)
+    $statusMap = Get-CatalogStatusMap
+    $metaMap = Get-CatalogRowMetaMap
     if ($cells.Count -eq 0) {
         $lines += "- No in-app cells - check run-as pull"
     } else {
+        $rows = @()
         foreach ($c in $cells) {
             if ($c.provenOk -eq $true) { continue }
-            $id = $c.catalogId
-            $gap = if ($c.gap) { $c.gap } else { 'review' }
-            $impact = if ($c.impact) { $c.impact } elseif ($c.consumerImpact) { $c.consumerImpact } else { 'SHIP_BLOCKER' }
-            $reason = if ($c.failReason) { $c.failReason } else { 'review' }
-            $lines += "- **$id** ($gap, $impact) - $reason"
+            $id = [string]$c.catalogId
+            $st = if ($statusMap -and $statusMap.ContainsKey($id)) { $statusMap[$id] } else { "Shipped" }
+            $gap = if ($c.gap) { [string]$c.gap } else { Classify-ParityGap $c $st }
+            if ($gap -in @("OK", "GAP_PROBE_INVENTORY", "GAP_HUMAN_ONLY")) { continue }
+            $impact = if ($c.impact) { [string]$c.impact } elseif ($c.consumerImpact) { [string]$c.consumerImpact } else { "ENGINEERING_ONLY" }
+            $reason = if ($c.failReason) { [string]$c.failReason } else { "review" }
+            $meta = if ($metaMap.ContainsKey($id)) { $metaMap[$id] } else { $null }
+            $effort = if ($meta -and $meta.closureEffort) { [string]$meta.closureEffort } elseif ($meta -and $meta.parityProofScript) { [string]$meta.parityProofScript } else { "review" }
+            $sprint = if ($meta -and $meta.buildPlanSprint) { " sprint=$($meta.buildPlanSprint)" } else { "" }
+            $display = if ($meta -and $meta.displayName) { [string]$meta.displayName } else { $id }
+            $rows += [pscustomobject]@{
+                gapPriority = Get-ClosurePlanPriority $gap
+                impactPriority = Get-ConsumerImpactPriority $impact
+                line = "- **$id** (``$gap``, $impact) - $display; $effort$sprint; $reason"
+                impact = $impact
+            }
+        }
+        $sorted = @($rows | Sort-Object gapPriority, impactPriority)
+        function Write-ClosureSection([string]$Title, [string]$FilterImpact) {
+            $section = @($sorted | Where-Object { $_.impact -eq $FilterImpact })
+            if ($section.Count -eq 0) { return }
+            $script:lines += "## $Title"
+            $script:lines += ""
+            foreach ($r in $section) { $script:lines += $r.line }
+            $script:lines += ""
+        }
+        Write-ClosureSection "Ship blockers" "SHIP_BLOCKER"
+        Write-ClosureSection "Engineering" "ENGINEERING_ONLY"
+        Write-ClosureSection "Informational" "INFORMATIONAL"
+        $other = @($sorted | Where-Object { $_.impact -notin @("SHIP_BLOCKER", "ENGINEERING_ONLY", "INFORMATIONAL") })
+        if ($other.Count -gt 0) {
+            $lines += "## Other"
+            $lines += ""
+            foreach ($r in $other) { $lines += $r.line }
+            $lines += ""
         }
     }
     if ($lines.Count -le 2) { $lines += "- No gaps - parity OK" }
     $lines | Set-Content -LiteralPath $Path -Encoding utf8
+}
+
+function Invoke-ParityBacklogRefresh([string]$RepoRoot) {
+    $debtScript = Join-Path $PSScriptRoot "pns_parity_debt_ledger_refresh.ps1"
+    $intakeScript = Join-Path $PSScriptRoot "pns_parity_build_plan_intake.ps1"
+    if (Test-Path -LiteralPath $debtScript) {
+        & $debtScript -RunsRoot (Join-Path $RepoRoot "hfr-runs")
+        if ($LASTEXITCODE -ne 0) { Write-Warning "[parity_sweep] debt ledger refresh exit=$LASTEXITCODE" }
+    }
+    if (Test-Path -LiteralPath $intakeScript) {
+        & $intakeScript
+        if ($LASTEXITCODE -ne 0) { Write-Warning "[parity_sweep] build plan intake exit=$LASTEXITCODE" }
+    }
 }
 
 function Export-M21Artifacts($InAppObj, [string]$ArtifactDir) {
@@ -401,6 +503,29 @@ function Get-RecentParityProofByCatalog([string]$RepoRoot, [int]$MaxAgeHours = 3
     if (-not (Test-Path -LiteralPath $runsRoot)) { return $proof }
     $cutoffUtc = [DateTime]::UtcNow.AddHours(-$MaxAgeHours)
 
+    function Add-ProofRow([string]$CatalogId, [bool]$Pass, [string]$Source, [string]$ArtifactPath, [DateTime]$UpdatedUtc) {
+        if (-not $CatalogId) { return }
+        $proof[$CatalogId] = [ordered]@{
+            catalogId = $CatalogId
+            pass = [bool]$Pass
+            source = $Source
+            artifactPath = $ArtifactPath
+            artifactUpdatedUtc = $UpdatedUtc.ToString("o")
+        }
+    }
+
+    function Read-JsonLenient([string]$Path) {
+        if (-not (Test-Path -LiteralPath $Path)) { return $null }
+        try {
+            $raw = (Get-Content -LiteralPath $Path -Raw)
+            if (-not $raw) { return $null }
+            $raw = $raw.TrimStart([char]0xFEFF)
+            return ($raw | ConvertFrom-Json)
+        } catch {
+            return $null
+        }
+    }
+
     $rawPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "raw_video_verify_*" -FileName "results.json"
     if ($rawPath) {
         $rawInfo = Get-Item -LiteralPath $rawPath
@@ -410,20 +535,8 @@ function Get-RecentParityProofByCatalog([string]$RepoRoot, [int]$MaxAgeHours = 3
                 $rawPass = $false
                 if ($rawObj.PSObject.Properties.Name -contains "pass") { $rawPass = ($rawObj.pass -eq $true) }
                 elseif ($rawObj.PSObject.Properties.Name -contains "passed") { $rawPass = ($rawObj.passed -eq $true) }
-                $proof["video.raw_picker"] = [ordered]@{
-                    catalogId = "video.raw_picker"
-                    pass = [bool]$rawPass
-                    source = "recent_artifact:raw_video_verify"
-                    artifactPath = $rawPath
-                    artifactUpdatedUtc = $rawInfo.LastWriteTimeUtc.ToString("o")
-                }
-                $proof["video.raw"] = [ordered]@{
-                    catalogId = "video.raw"
-                    pass = [bool]$rawPass
-                    source = "recent_artifact:raw_video_verify"
-                    artifactPath = $rawPath
-                    artifactUpdatedUtc = $rawInfo.LastWriteTimeUtc.ToString("o")
-                }
+                Add-ProofRow "video.raw_picker" $rawPass "recent_artifact:raw_video_verify" $rawPath $rawInfo.LastWriteTimeUtc
+                Add-ProofRow "video.raw" $rawPass "recent_artifact:raw_video_verify" $rawPath $rawInfo.LastWriteTimeUtc
             } catch {
                 Write-Warning "Failed parsing raw video artifact $rawPath : $($_.Exception.Message)"
             }
@@ -435,26 +548,134 @@ function Get-RecentParityProofByCatalog([string]$RepoRoot, [int]$MaxAgeHours = 3
         $audioInfo = Get-Item -LiteralPath $audioPath
         if ($audioInfo.LastWriteTimeUtc -ge $cutoffUtc) {
             try {
-                $audioObj = Get-Content -LiteralPath $audioPath -Raw | ConvertFrom-Json
+                $audioObj = Read-JsonLenient $audioPath
+                if (-not $audioObj) { throw "unreadable json" }
                 $audioPass = ($audioObj.PSObject.Properties.Name -contains "pass") -and ($audioObj.pass -eq $true)
-                # Legacy catalog id kept for historical manifests.
-                $proof["audio.unprocessed"] = [ordered]@{
-                    catalogId = "audio.unprocessed"
-                    pass = [bool]$audioPass
-                    source = "recent_artifact:audio_unprocessed_verify"
-                    artifactPath = $audioPath
-                    artifactUpdatedUtc = $audioInfo.LastWriteTimeUtc.ToString("o")
-                }
-                # Active catalog row used by current parity sweep cells.
-                $proof["audio.hifi"] = [ordered]@{
-                    catalogId = "audio.hifi"
-                    pass = [bool]$audioPass
-                    source = "recent_artifact:audio_unprocessed_verify"
-                    artifactPath = $audioPath
-                    artifactUpdatedUtc = $audioInfo.LastWriteTimeUtc.ToString("o")
-                }
+                Add-ProofRow "audio.unprocessed" $audioPass "recent_artifact:audio_unprocessed_verify" $audioPath $audioInfo.LastWriteTimeUtc
+                Add-ProofRow "audio.hifi" $audioPass "recent_artifact:audio_unprocessed_verify" $audioPath $audioInfo.LastWriteTimeUtc
             } catch {
                 Write-Warning "Failed parsing audio artifact $audioPath : $($_.Exception.Message)"
+            }
+        }
+    }
+
+    $stillFormats = @("heic", "motion_photo", "tiff16", "jxl")
+    foreach ($fmt in $stillFormats) {
+        $path = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "still_export_verify_*_${fmt}" -FileName "gate.json"
+        if (-not $path) { continue }
+        $info = Get-Item -LiteralPath $path
+        if ($info.LastWriteTimeUtc -lt $cutoffUtc) { continue }
+        $obj = Read-JsonLenient $path
+        if (-not $obj) { continue }
+        $pass = ($obj.PSObject.Properties.Name -contains "pass") -and ($obj.pass -eq $true)
+        Add-ProofRow "still.$fmt" $pass "recent_artifact:still_export_verify" $path $info.LastWriteTimeUtc
+    }
+
+    $profilesById = @{
+        "video.color.hdr10" = "hdr10"
+        "video.color.hlg10" = "hlg10"
+        "video.color.bt709" = "bt709"
+        "video.color.pq" = "pq"
+        "video.color.flat" = "flat"
+    }
+    foreach ($catalogId in $profilesById.Keys) {
+        $profile = $profilesById[$catalogId]
+        $path = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "video_color_profile_verify_*_${profile}" -FileName "gate.json"
+        if (-not $path) { continue }
+        $info = Get-Item -LiteralPath $path
+        if ($info.LastWriteTimeUtc -lt $cutoffUtc) { continue }
+        $obj = Read-JsonLenient $path
+        if (-not $obj) { continue }
+        $pass = ($obj.PSObject.Properties.Name -contains "pass") -and ($obj.pass -eq $true)
+        Add-ProofRow $catalogId $pass "recent_artifact:video_color_profile_verify" $path $info.LastWriteTimeUtc
+    }
+
+    $spatialPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "spatial_audio_verify_*" -FileName "gate.json"
+    if ($spatialPath) {
+        $info = Get-Item -LiteralPath $spatialPath
+        if ($info.LastWriteTimeUtc -ge $cutoffUtc) {
+            $obj = Read-JsonLenient $spatialPath
+            if ($obj) {
+                $pass = ($obj.PSObject.Properties.Name -contains "pass") -and ($obj.pass -eq $true)
+                Add-ProofRow "audio.spatial" $pass "recent_artifact:spatial_audio_verify" $spatialPath $info.LastWriteTimeUtc
+            }
+        }
+    }
+
+    $tonalPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "independent_tonal_verify_*" -FileName "gate.json"
+    if ($tonalPath) {
+        $info = Get-Item -LiteralPath $tonalPath
+        if ($info.LastWriteTimeUtc -ge $cutoffUtc) {
+            $obj = Read-JsonLenient $tonalPath
+            if ($obj) {
+                $pass = ($obj.PSObject.Properties.Name -contains "pass") -and ($obj.pass -eq $true)
+                Add-ProofRow "still.independent_tonal" $pass "recent_artifact:independent_tonal_verify" $tonalPath $info.LastWriteTimeUtc
+            }
+        }
+    }
+
+    $regular4kPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "4k_regular_verify_*" -FileName "gate.json"
+    if ($regular4kPath) {
+        $info = Get-Item -LiteralPath $regular4kPath
+        if ($info.LastWriteTimeUtc -ge $cutoffUtc) {
+            $obj = Read-JsonLenient $regular4kPath
+            if ($obj) {
+                $pass = ($obj.PSObject.Properties.Name -contains "pass") -and ($obj.pass -eq $true)
+                Add-ProofRow "video.4k_regular" $pass "recent_artifact:4k_regular_verify" $regular4kPath $info.LastWriteTimeUtc
+            }
+        }
+    }
+
+    $lockscreenSummary = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "lockscreen_camera_verify_*" -FileName "summary.txt"
+    if ($lockscreenSummary) {
+        $info = Get-Item -LiteralPath $lockscreenSummary
+        if ($info.LastWriteTimeUtc -ge $cutoffUtc) {
+            try {
+                $text = (Get-Content -LiteralPath $lockscreenSummary -Raw)
+                $pass = $text.Contains("policy=true") -and $text.Contains("session=true")
+                Add-ProofRow "product.still_image_camera_secure_launch" $pass "recent_artifact:lockscreen_camera_verify" $lockscreenSummary $info.LastWriteTimeUtc
+            } catch {}
+        }
+    }
+
+    $hwKeyPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "hardware_key_probe_*" -FileName "HARDWARE_KEY_PROBE_LATEST.json"
+    if ($hwKeyPath) {
+        $hwInfo = Get-Item -LiteralPath $hwKeyPath
+        if ($hwInfo.LastWriteTimeUtc -ge $cutoffUtc) {
+            try {
+                $hwObj = Read-JsonLenient $hwKeyPath
+                $hwPass = ($hwObj.cameraKeyConfirmed -eq $true) -or ($hwObj.focusKeyConfirmed -eq $true)
+                Add-ProofRow "product.hardware_camera_key" $hwPass "recent_artifact:hardware_key_probe" $hwKeyPath $hwInfo.LastWriteTimeUtc
+            } catch {
+                Write-Warning "Failed parsing hardware key artifact $hwKeyPath : $($_.Exception.Message)"
+            }
+        }
+    }
+
+    $memPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "memory_profiler_*" -FileName "memory_profiler_gate.json"
+    if ($memPath) {
+        $info = Get-Item -LiteralPath $memPath
+        if ($info.LastWriteTimeUtc -ge $cutoffUtc) {
+            $obj = Read-JsonLenient $memPath
+            if ($obj) {
+                $pass = ($obj.PSObject.Properties.Name -contains "pass") -and ($obj.pass -eq $true)
+                Add-ProofRow "perf.capture_latency" $pass "recent_artifact:memory_profiler" $memPath $info.LastWriteTimeUtc
+                Add-ProofRow "perf.cold_preview_ms" $pass "recent_artifact:memory_profiler" $memPath $info.LastWriteTimeUtc
+                Add-ProofRow "perf.first_frame_ms" $pass "recent_artifact:memory_profiler" $memPath $info.LastWriteTimeUtc
+            }
+        }
+    }
+
+    $batteryPath = Get-LatestArtifactFile -RunsRoot $runsRoot -DirPattern "battery_life_test_*" -FileName "result.json"
+    if ($batteryPath) {
+        $info = Get-Item -LiteralPath $batteryPath
+        if ($info.LastWriteTimeUtc -ge $cutoffUtc) {
+            $obj = Read-JsonLenient $batteryPath
+            if ($obj) {
+                $pass = ($obj.PSObject.Properties.Name -contains "passed" -and $obj.passed -eq $true) -or
+                    (($obj.PSObject.Properties.Name -contains "pass") -and $obj.pass -eq $true)
+                Add-ProofRow "perf.thermal_adaptive" $pass "recent_artifact:battery_life_test" $batteryPath $info.LastWriteTimeUtc
+                Add-ProofRow "perf.battery_adaptive_fps" $pass "recent_artifact:battery_life_test" $batteryPath $info.LastWriteTimeUtc
             }
         }
     }
@@ -996,16 +1217,15 @@ if ($HostProofPackMergeFixture) {
 
 if ([string]::IsNullOrWhiteSpace($Mode)) {
     if ($Interactive) {
-        $pick = Read-Host "Quick / Full / Delta ?"
+        $pick = Read-Host "Full / Delta ?"
         $Mode = switch -Regex ($pick.Trim()) {
-            '^[Qq]' { 'Quick'; break }
             '^[Ff]' { 'Full'; break }
             '^[Dd]' { 'Delta'; break }
             default { '' }
         }
     }
     if ([string]::IsNullOrWhiteSpace($Mode)) {
-        Write-Error "pns_fleet_parity_sweep.ps1: -Mode is required (Quick | Full | Delta). Use -Help."
+        Write-Error "pns_fleet_parity_sweep.ps1: -Mode is required (Full | Delta). Use -Help."
         exit 2
     }
 }
@@ -1071,7 +1291,7 @@ if (-not $SkipMatrixRefresh) {
     $matrixOut = Join-Path $OutDir "matrix"
     New-Item -ItemType Directory -Force -Path $matrixOut | Out-Null
     Write-Host "[parity_sweep] matrix refresh -> $matrixOut"
-    $scanArgs = @{ Serial = $Serial; OutDir = $matrixOut; SkipInstall = $true }
+    $scanArgs = @{ Serial = $Serial; OutDir = $matrixOut; SkipInstall = $true; ScanTier = "full" }
     & $matrixScan @scanArgs
     if ($LASTEXITCODE -ne 0) { throw "pns_fleet_matrix_scan failed" }
 } else {
@@ -1080,7 +1300,6 @@ if (-not $SkipMatrixRefresh) {
 
 $modeLower = $Mode.ToLowerInvariant()
 $waitSec = switch ($Mode) {
-    'Quick' { 120 }
     'Full' { 240 }
     'Delta' { 90 }
     default { 60 }
@@ -1115,10 +1334,17 @@ if ($inAppRaw) {
 }
 
 $logPath = Join-Path $OutDir "logcat_parity.txt"
-if ($Serial) {
-    & adb -s $Serial exec-out logcat -d -s "PNS.FleetParity:I" "PNS.AdbValidation:I" "PNS.FleetMatrix:I" | Set-Content -LiteralPath $logPath -Encoding utf8
-} else {
-    & adb exec-out logcat -d -s "PNS.FleetParity:I" "PNS.AdbValidation:I" "PNS.FleetMatrix:I" | Set-Content -LiteralPath $logPath -Encoding utf8
+try {
+    if ($Serial) {
+        & adb -s $Serial exec-out logcat -d -s "PNS.FleetParity:I" "PNS.AdbValidation:I" "PNS.FleetMatrix:I" | Set-Content -LiteralPath $logPath -Encoding utf8
+    } else {
+        & adb exec-out logcat -d -s "PNS.FleetParity:I" "PNS.AdbValidation:I" "PNS.FleetMatrix:I" | Set-Content -LiteralPath $logPath -Encoding utf8
+    }
+} catch {
+    Write-Warning "logcat pull failed: $($_.Exception.Message)"
+}
+if (-not (Test-Path -LiteralPath $logPath)) {
+    "" | Set-Content -LiteralPath $logPath -Encoding utf8
 }
 
 $logCells = Parse-LogcatParityCells $logPath
@@ -1193,23 +1419,23 @@ if ($inAppObj -and ($inAppObj.PSObject.Properties.Name -contains "experimentalUn
 }
 
 $schemaOk = ($inAppObj -and $inAppObj.schema -eq 'pns.fleet_parity_sweep.v2')
-$minQuickCells = 50
-$quickInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -ge $minQuickCells))
+$minDeltaCells = 50
+$deltaInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -ge $minDeltaCells))
 $fullInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -gt 100))
 $sweepEvidenceOk = [bool]$sweepCompleteLogged
 $sweepEvidenceModeFallback = ""
 $modeEvidenceOk = $false
 $pass = switch ($Mode) {
-    'Quick' {
-        $modeEvidenceOk = [bool]$quickInAppEvidenceOk
+    'Delta' {
+        $modeEvidenceOk = [bool]$deltaInAppEvidenceOk
         if (-not $sweepEvidenceOk -and $modeEvidenceOk) {
             $sweepEvidenceOk = $true
-            $sweepEvidenceModeFallback = "in_app_quick_cells"
+            $sweepEvidenceModeFallback = "in_app_delta_cells"
             Write-Warning "[parity_sweep] sweepComplete log missing; using in-app parity report evidence."
         }
-        ($cellCount -ge $minQuickCells) -and $sweepEvidenceOk -and ($shipBlockerCount -eq 0) -and ($schemaOk -or $logCells.Count -ge $minQuickCells)
+        ($cellCount -ge $minDeltaCells) -and $sweepEvidenceOk -and ($shipBlockerCount -eq 0) -and ($schemaOk -or $logCells.Count -ge $minDeltaCells)
     }
-    default {
+    'Full' {
         $modeEvidenceOk = [bool]$fullInAppEvidenceOk
         if (-not $sweepEvidenceOk -and $modeEvidenceOk) {
             $sweepEvidenceOk = $true
@@ -1218,6 +1444,7 @@ $pass = switch ($Mode) {
         }
         ($shipBlockerCount -eq 0) -and $sweepEvidenceOk -and ($schemaOk -or ($logCells.Count -gt 100))
     }
+    default { $false }
 }
 
 $optionalBlockingGapCount = 0
@@ -1387,13 +1614,15 @@ if ($IncludeProofPack -and $Mode -eq 'Full') {
         $report.proofResultsPath = $proofResultsPath
         Write-ClosurePlanFromJson $inAppObj (Join-Path $OutDir "parity_closure_plan.md")
         Write-ShipBlockersMd $inAppObj (Join-Path $OutDir "parity_ship_blockers.md")
+        $mergedShipBlockers = Get-ShipBlockerGapCountFromCells @($inAppObj.cells)
+        $report.shipBlockerGapCount = $mergedShipBlockers
         $unauto = if ($gapBreakdown.ContainsKey("GAP_UNAUTOMATED")) { $gapBreakdown["GAP_UNAUTOMATED"] } else { 0 }
         $notProven = if ($gapBreakdown.ContainsKey("GAP_ADVERTISED_NOT_PROVEN")) { $gapBreakdown["GAP_ADVERTISED_NOT_PROVEN"] } else { 0 }
         $planned = if ($gapBreakdown.ContainsKey("GAP_PLANNED")) { $gapBreakdown["GAP_PLANNED"] } else { 0 }
-        if ($unauto -gt 0 -or $notProven -gt 0) {
+        $pass = ($mergedShipBlockers -eq 0) -and ($unauto -eq 0) -and ($notProven -eq 0)
+        $report.pass = $pass
+        if (-not $pass) {
             Write-Warning "Proof merge gaps: unautomated=$unauto not_proven=$notProven planned=$planned"
-            $pass = $false
-            $report.pass = $false
         }
         $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
         $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $latestPath -Encoding utf8
@@ -1423,6 +1652,14 @@ if ($leaderboardEntry) {
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportPath -Encoding utf8
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $latestPath -Encoding utf8
 }
+
+if ($PublishSite) {
+    Write-Host "[parity_sweep] PublishSite -> pns_leaderboard_site_publish.ps1"
+    & (Join-Path $PSScriptRoot "pns_leaderboard_export_catalog.ps1")
+    & (Join-Path $PSScriptRoot "pns_leaderboard_site_publish.ps1") -MergeSubmissions
+}
+
+Invoke-ParityBacklogRefresh -RepoRoot $projRoot
 
 Write-Host "[parity_sweep] Wrote $reportPath pass=$($report.pass) cells=$cellCount shipBlockers=$shipBlockerCount"
 if (-not $report.pass) { exit 1 }

@@ -26,100 +26,12 @@ Options:
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "pns_leaderboard_common.ps1")
 if (-not $RunsRoot) { $RunsRoot = Join-Path $repoRoot "hfr-runs" }
 if (-not $LeaderboardJsonPath) { $LeaderboardJsonPath = Join-Path $repoRoot "docs\FLEET_PARITY_DEVICE_LEADERBOARD.json" }
 if (-not $LeaderboardMarkdownPath) { $LeaderboardMarkdownPath = Join-Path $repoRoot "docs\FLEET_PARITY_DEVICE_LEADERBOARD.md" }
 
-function Get-CategoryScoreFromCells($Cells) {
-    $score = 0
-    $maxScore = 0
-    foreach ($c in @($Cells)) {
-        $maxScore += 10
-        if ($c.provenOk -eq $true) { $score += 10; continue }
-        if ($c.failReason -like "skip:matrix_gate:*" -or $c.proofSkipped -like "matrix_gate:*") { $score += 8; continue }
-        if ($c.advertised -eq $true) { $score += 4; continue }
-    }
-    $pct = if ($maxScore -gt 0) { [math]::Round(($score * 100.0) / $maxScore, 1) } else { 0.0 }
-    return [ordered]@{
-        score = $score
-        maxScore = $maxScore
-        percent = $pct
-        cellCount = @($Cells).Count
-        provenCount = @($Cells | Where-Object { $_.provenOk -eq $true }).Count
-    }
-}
-
-function Get-CapabilityScoreFromMatrix($MatrixObj) {
-    $score = 0
-    $maxScore = 0
-    $featureGateCount = 0
-    if (-not $MatrixObj -or -not $MatrixObj.cameras) {
-        return [ordered]@{ score = 0; maxScore = 0; percent = 0.0; gateCount = 0; cameraCount = 0 }
-    }
-    foreach ($cam in @($MatrixObj.cameras)) {
-        if (-not $cam.featureGates) { continue }
-        foreach ($prop in $cam.featureGates.PSObject.Properties) {
-            $gate = $prop.Value
-            if (-not $gate) { continue }
-            $featureGateCount++
-            $maxScore += 6
-            if ($gate.advertised -eq $true) { $score += 1 }
-            if ($gate.appEnabled -eq $true) { $score += 2 }
-            if ($gate.sessionOk -eq $true) { $score += 3 }
-        }
-    }
-    $pct = if ($maxScore -gt 0) { [math]::Round(($score * 100.0) / $maxScore, 1) } else { 0.0 }
-    return [ordered]@{
-        score = $score
-        maxScore = $maxScore
-        percent = $pct
-        gateCount = $featureGateCount
-        cameraCount = @($MatrixObj.cameras).Count
-    }
-}
-
-function Get-ParityScoreBreakdown($InAppObj, $MatrixObj) {
-    $cells = if ($InAppObj -and $InAppObj.cells) { @($InAppObj.cells) } else { @() }
-    $resolutionPattern = '(?i)(\.720p|\.1080p|\.4k|\.8k|video\.hfr\.)'
-    $resolutionCells = @($cells | Where-Object { $_.catalogId -match $resolutionPattern })
-    $featureCells = @($cells | Where-Object { $_.catalogId -notmatch $resolutionPattern })
-    $featureScore = Get-CategoryScoreFromCells $featureCells
-    $resolutionScore = Get-CategoryScoreFromCells $resolutionCells
-    $capabilityScore = Get-CapabilityScoreFromMatrix $MatrixObj
-
-    $totalScore = [int]($featureScore.score + $resolutionScore.score + $capabilityScore.score)
-    $totalMax = [int]($featureScore.maxScore + $resolutionScore.maxScore + $capabilityScore.maxScore)
-    $totalPct = if ($totalMax -gt 0) { [math]::Round(($totalScore * 100.0) / $totalMax, 1) } else { 0.0 }
-    return [ordered]@{
-        features = $featureScore
-        resolutions = $resolutionScore
-        capabilities = $capabilityScore
-        total = [ordered]@{
-            score = $totalScore
-            maxScore = $totalMax
-            percent = $totalPct
-        }
-    }
-}
-
-function Get-MatrixFromSweepDir([string]$SweepDir) {
-    $candidates = @(
-        (Join-Path $SweepDir "matrix\fleet_device_matrix.json"),
-        (Join-Path $SweepDir "fleet_device_matrix_pulled.json")
-    )
-    foreach ($path in $candidates) {
-        if (-not (Test-Path -LiteralPath $path)) { continue }
-        try {
-            return (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json)
-        } catch { }
-    }
-    return $null
-}
-
-function Parse-Utc([string]$Value) {
-    if ([string]::IsNullOrWhiteSpace($Value)) { return [DateTime]::MinValue }
-    try { return [DateTime]::Parse($Value).ToUniversalTime() } catch { return [DateTime]::MinValue }
-}
+# Scoring helpers live in pns_leaderboard_common.ps1 (dot-sourced above).
 
 function Write-LeaderboardMarkdown($LeaderboardObj, [string]$MarkdownPath) {
     $lines = @(
@@ -133,6 +45,11 @@ function Write-LeaderboardMarkdown($LeaderboardObj, [string]$MarkdownPath) {
         $lines += ("  - features: {0}/{1} ({2}%)" -f $entry.score.features.score, $entry.score.features.maxScore, $entry.score.features.percent)
         $lines += ("  - resolutions: {0}/{1} ({2}%)" -f $entry.score.resolutions.score, $entry.score.resolutions.maxScore, $entry.score.resolutions.percent)
         $lines += ("  - capabilities: {0}/{1} ({2}%)" -f $entry.score.capabilities.score, $entry.score.capabilities.maxScore, $entry.score.capabilities.percent)
+        if ($entry.testedApiLevel) {
+            $lines += "  - tested API: $($entry.testedApiLevel)"
+        } elseif ($entry.sdkInt) {
+            $lines += "  - tested API: API $($entry.sdkInt)"
+        }
         $lines += "  - last sweep: $($entry.lastSeenUtc) ($($entry.lastSweepDir))"
         $lines += ""
     }
@@ -165,6 +82,7 @@ foreach ($dir in $sweepDirs) {
         continue
     }
     if (-not $inApp -or -not $inApp.cells) { continue }
+    $inApp = Apply-ProofEvidenceToInApp $inApp $report $dir.FullName
     $matrix = Get-MatrixFromSweepDir $dir.FullName
 
     $manufacturer = if ($matrix -and $matrix.device -and $matrix.device.manufacturer) { [string]$matrix.device.manufacturer } else { "Unknown" }
@@ -174,6 +92,7 @@ foreach ($dir in $sweepDirs) {
     $serialSuffix = if ($serialRaw.Length -ge 4) { $serialRaw.Substring($serialRaw.Length - 4) } else { $serialRaw }
     $deviceKey = "$manufacturer|$model|$fingerprint"
     $score = Get-ParityScoreBreakdown $inApp $matrix
+    $sdkInt = if ($matrix -and $matrix.scanMeta) { $matrix.scanMeta.sdkInt } else { $null }
 
     $entry = [ordered]@{
         deviceKey = $deviceKey
@@ -182,6 +101,8 @@ foreach ($dir in $sweepDirs) {
         model = $model
         fingerprintSha256Prefix = $fingerprint
         serialSuffix = $serialSuffix
+        sdkInt = $sdkInt
+        testedApiLevel = if ($sdkInt) { Get-AndroidApiLabel $sdkInt } else { $null }
         lastSeenUtc = if ($report.timestampUtc) { [string]$report.timestampUtc } else { [DateTime]::UtcNow.ToString("o") }
         lastSweepTimestampUtc = if ($report.timestampUtc) { [string]$report.timestampUtc } else { [DateTime]::UtcNow.ToString("o") }
         lastSweepMode = $report.mode
@@ -203,7 +124,7 @@ foreach ($dir in $sweepDirs) {
 }
 
 $entries = @($byDevice.Values)
-$sorted = @($entries | Sort-Object @{ Expression = { [double]$_.score.total.percent }; Descending = $true }, @{ Expression = { [double]$_.score.total.score }; Descending = $true }, @{ Expression = { $_.lastSeenUtc }; Descending = $true })
+$sorted = @($entries | Sort-Object @{ Expression = { [double]$_.score.total.score }; Descending = $true }, @{ Expression = { [double]$_.score.total.percent }; Descending = $true }, @{ Expression = { $_.lastSeenUtc }; Descending = $true })
 for ($i = 0; $i -lt $sorted.Count; $i++) {
     $sorted[$i] | Add-Member -NotePropertyName rank -NotePropertyValue ($i + 1) -Force
 }

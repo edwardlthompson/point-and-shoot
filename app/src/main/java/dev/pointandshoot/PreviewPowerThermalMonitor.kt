@@ -2,7 +2,6 @@ package dev.pointandshoot
 
 import android.content.Context
 import android.os.BatteryManager
-import android.os.Build
 import android.os.PowerManager
 import android.os.SystemClock
 
@@ -32,12 +31,7 @@ class PreviewPowerThermalMonitor(context: Context) {
         if (pct != null) {
             appendSample(pct, now)
         }
-        val thermal =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                powerManager.currentThermalStatus
-            } else {
-                PowerManager.THERMAL_STATUS_NONE
-            }
+        val thermal = powerManager.currentThermalStatusCompat()
         return Snapshot(
             batteryPct = pct,
             drainPctPerHour = PreviewBatteryDrainEstimator.estimateDrainPctPerHour(samples.toList()),

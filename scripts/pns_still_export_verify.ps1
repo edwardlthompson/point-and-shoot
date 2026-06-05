@@ -71,12 +71,12 @@ if (-not $isShipped) {
     exit 1
 }
 
-$args = @{ Fast = $true; PreviewStillFormat = $Format }
-if ($Serial) { $args.Serial = $Serial }
-if ($SkipInstall) { $args.SkipInstall = $true; $args.SkipAssemble = $true }
-if ($SkipAssemble) { $args.SkipAssemble = $true }
+$captureArgs = @{ Fast = $true; PreviewStillFormat = $Format; MaxAttempts = 5; WaitSec = 45 }
+if ($Serial) { $captureArgs.Serial = $Serial }
+if ($SkipInstall) { $captureArgs.SkipInstall = $true; $captureArgs.SkipAssemble = $true }
+if ($SkipAssemble) { $captureArgs.SkipAssemble = $true }
 
-& (Join-Path $PSScriptRoot "pns_photo_capture_verify.ps1") @args
+& (Join-Path $PSScriptRoot "pns_photo_capture_verify.ps1") @captureArgs
 $captureExit = $LASTEXITCODE
 
 $pullDir = Join-Path $OutDir "pull_dcim"

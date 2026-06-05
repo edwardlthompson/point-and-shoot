@@ -138,13 +138,8 @@ object DngMetadataResolver {
             runCatching { logicalCharacteristics.physicalCameraIds?.toSet().orEmpty() }
                 .getOrDefault(emptySet())
 
-        val activeFromResult = totalResult.get(CaptureResult.LOGICAL_MULTI_CAMERA_ACTIVE_PHYSICAL_ID)
-        val physicalTotals: Map<String, TotalCaptureResult>? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                runCatching { totalResult.physicalCameraTotalResults }.getOrNull()
-            } else {
-                null
-            }
+        val activeFromResult = totalResult.getLogicalMultiCameraActivePhysicalIdOrNull()
+        val physicalTotals = totalResult.getPhysicalCameraTotalResultsOrNull()
         val physicalTotalResultKeys = physicalTotals?.keys?.toSet()
 
         fun resolution(

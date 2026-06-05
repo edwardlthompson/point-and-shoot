@@ -20,6 +20,16 @@ object PnsConnectivity {
     private const val KEY_WEBDAV_USER = "webdav_user"
     private const val KEY_WEBDAV_PASS = "webdav_pass"
     private const val KEY_SOCIAL_WEBHOOK = "social_webhook_url"
+    private const val KEY_LEADERBOARD_CONTRIBUTE = "leaderboard_contribute_enabled"
+
+    fun isLeaderboardContributeEnabled(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_LEADERBOARD_CONTRIBUTE, false)
+
+    fun setLeaderboardContributeEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_LEADERBOARD_CONTRIBUTE, enabled).commit()
+        PnsAdbLog.i(context, "connectivity leaderboardContribute=$enabled")
+        Log.i(TAG, "leaderboardContribute=$enabled")
+    }
 
     fun isLanTransferEnabled(context: Context): Boolean =
         prefs(context).getBoolean(KEY_LAN_TRANSFER, false)

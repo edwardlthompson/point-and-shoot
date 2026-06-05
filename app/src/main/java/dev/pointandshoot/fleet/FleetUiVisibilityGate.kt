@@ -117,22 +117,13 @@ object FleetUiVisibilityGate {
         activeCameraId: String?,
     ): Boolean? {
         if (matrix == null || activeCameraId.isNullOrBlank()) return null
-        val family =
-            when (featureId) {
-                "face.eye_af", "face.detect", "face.priority_ae" -> "face"
-                "raw.dng" -> "raw"
-                "video.hfr" -> "hfr"
-                "video.dcg_hdr" -> "dcgZsl"
-                "video.av1" -> "av1"
-                "video.hevc", "video.hevc10" -> "hevc10"
-                "video.uhd60" -> "uhd60"
-                "video.raw", "video.raw_picker" -> "rawVideo"
-                "video.dual" -> "dualVideo"
-                "video.multicam_melt" -> "multicamMelt"
-                "preview.pip" -> "pipPreview"
-                else -> return null
-            }
-        return FleetCapabilityGate.featureGate(matrix, activeCameraId, family)?.advertised
+        val family = FleetConsumerAvailability.featureFamily(featureId) ?: return null
+        val gate = FleetCapabilityGate.featureGate(matrix, activeCameraId, family) ?: return false
+        val selectable = gate.sessionOk && gate.appEnabled
+        if (!selectable && gate.advertised) {
+            logHidden(featureId, "session_not_ok")
+        }
+        return selectable
     }
 
     private fun catalogDeviceSupported(featureId: String, ctx: VisibilityContext): Boolean? {

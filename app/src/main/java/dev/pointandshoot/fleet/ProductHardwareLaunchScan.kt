@@ -256,7 +256,10 @@ object ProductHardwareLaunchScan {
                     put("sources", dev.sources)
                     put("keyboardType", dev.keyboardType)
                     put("heuristicMatch", heuristic)
-                    put("isExternal", dev.isExternal)
+                    put(
+                        "isExternal",
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) dev.isExternal else JSONObject.NULL,
+                    )
                 },
             )
         }

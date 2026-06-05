@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.Intent
 import android.hardware.display.DisplayManager
+import android.app.KeyguardManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
         PnsLog.init(applicationContext)
 
         intent?.let { PlatformIntegration.applyDeepLinkToIntent(it) }
+        applySecureLockscreenWindowPolicyIfNeeded(intent)
 
         // Capture before consume/strip — `am start -n …/MainActivity` still matches MAIN+LAUNCHER.
         val gateLaunchScreen = intent?.getStringExtra(EXTRA_PNS_SCREEN)?.trim()?.takeIf { it.isNotEmpty() }
@@ -276,6 +278,7 @@ class MainActivity : ComponentActivity() {
         if (!fromExtra.isNullOrEmpty()) return fromExtra
         return when (intent?.action) {
             MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA,
+            MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE,
             MediaStore.INTENT_ACTION_VIDEO_CAMERA,
             MediaStore.ACTION_VIDEO_CAPTURE,
             MediaStore.ACTION_IMAGE_CAPTURE_SECURE,
@@ -283,6 +286,25 @@ class MainActivity : ComponentActivity() {
             -> PNS_SCREEN_PREVIEW
             else -> null
         }
+    }
+
+    private fun isSecureLockscreenLaunch(intent: Intent?): Boolean =
+        when (intent?.action) {
+            MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE,
+            MediaStore.ACTION_IMAGE_CAPTURE_SECURE,
+            -> true
+            else -> false
+        }
+
+    private fun applySecureLockscreenWindowPolicyIfNeeded(intent: Intent?) {
+        if (!isSecureLockscreenLaunch(intent)) return
+        setShowWhenLocked(true)
+        setTurnScreenOn(true)
+        val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        Log.i(
+            "PNS.HardwareKey",
+            "secureLaunchPolicy showWhenLocked=true turnScreenOn=true keyguardLocked=${km?.isKeyguardLocked == true}",
+        )
     }
 
     private fun resolveImageCaptureReturn(): ImageCaptureReturnContract? {

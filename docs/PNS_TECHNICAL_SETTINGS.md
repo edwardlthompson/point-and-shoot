@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-06-04 (M24 4K120 reliability hardening — HS startup ordering, strict telemetry retries, capability-class gating, parity truth handoff).
+**Last synced with tree:** 2026-06-05 (EXODUS 4K fleet honesty — `video.4k_regular` gate, parity session proof, API 28 legacy record policy).
 
 **Related deep dives (not duplicated here):**
 
@@ -59,7 +59,7 @@
 | **M** | M | **Manual focus distance** on preview (drag); ISO/shutter from **readout chips**, not “full manual” on the dial alone. |
 | **H** | H | **Highlight protection** — see [§2](#2-h-mode-highlight). |
 | **S** | S | Street: AF at **infinity**; tap preview to refocus. |
-| **Monochrome** | MONO | Dedicated hardware **monochrome sensor** mode (not LUT emulation). Dial option appears only when a camera advertises `REQUEST_AVAILABLE_CAPABILITIES_MONOCHROME`; selecting it routes capture to that camera id. |
+| **Monochrome** | MONO | Dedicated hardware **monochrome sensor** mode (not LUT emulation). Dial option appears only when a dedicated monochrome camera is detected (`MonochromeCameraSupport`). Selecting MONO routes to that camera id and enables tiered still fallback: hardware still (`RAW/JPEG` when healthy) → safe JPEG retry → preview-frame fallback snapshot (`MONO_FALLBACK_SNAPSHOT_SAVED`). |
 | **BKT** | BKT | AE bracket burst (3/5/7); RAW12 + `GroupingID` when enabled. |
 | **Macro** | MACRO | Close-up focus (&lt;10 cm class); session/macro probes. |
 | **Night** | NIGHT | **NightScape** — burst **4/6/8** hardware JPEGs at max ISO + **≤1 s** exposure → block-align → average → **AVIF/JXL** per IMG tier (`NightScapeCapture.kt`, `HudSettings.nightScapeFrameCount`). Progress: `PNS.NightScape frame=N/M`. Requires preview **≤119 fps** + JPEG in IMG. |
@@ -479,7 +479,9 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **Strict 4K120 truth lane (M24):**
 
-- Preview controller tracks strict-start telemetry: `hfrWarmupAttempt`, `hfrRoute`, `hfrHealthWindowMs`, `hfrBlockReason` (logs in `PNS.Cam` + `PNS.AdbValidation`).
+- Preview controller tracks strict-start telemetry: `hfrWarmupAttempt`, `hfrRoute` (`interleaved_primary` vs **`interleaved_sub4k`** when HS capture is below encode pref), `hsCaptureWxH`, `encodePrefWxH`, `hfrHealthWindowMs`, `hfrBlockReason`, `mcPrepared`, `strictHfrWarmupHealthy` (logs in `PNS.Cam` + `PNS.AdbValidation`).
+- Format picker / readout: 4K@120 rows with sub-4K HS capture carry **`hfrDeliveryTier=HS_SUB4K_CAPTURE`** and show capture WxH in the video format chip (`VideoDeliveryHonesty.kt`). Parity row **`video.delivery_honesty`** passes when catalog tiers are honestly labeled.
+- ADB automation defers `isRecording=true` until `adbStrictHfrWarmupReady()` (strict warmup healthy or fps below HFR threshold).
 - HS startup hardening: constrained-HS sessions now start MediaCodec before repeating burst for in-app record, route burst failures into camera fault recovery, skip first `stopRepeating()` on fresh HS start, and defer fault-reopen retries while open/configure is still pending.
 - Strict 120 start path uses a bounded retry budget before falling back to recovery-cap block behavior. If strict warmup cannot become healthy, start is rejected (`inAppVideo120StrictBlocked ... reason=warmup_unhealthy`).
 - `scripts/pns_mediacodec_hfr_verify.ps1` emits per-test `TruthClass`:
@@ -509,7 +511,18 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **Gallery:** `VideoCaptureMetadata` embeds **measured** fps (frame count ÷ duration or retriever capture-framerate) in MediaStore **DESCRIPTION** after finalize; `mergeFrameRateForDisplay` prefers measured rate over the capture target so 4K@60 picks that mux ~30 are not labeled 60. MediaCodec mux finalize writes **effective** mux fps into description. **Hi-Fi FAB:** `PnsAacEncoderSupport.maxHiFiMuxSampleRateHz` probes AAC encoders once per process — menu shows **48 kHz** / **96 kHz** etc. for this device, not a static “96 kHz when supported”.
 
-**4K @ 60 (UHD60, fleet):** When **3840×2160 SurfaceTexture** preview caps ~30 fps but the HAL lists **MediaRecorder @ 4K** and H.264 encoder perf @ 60 (`UltraHd60RecordSupport.isCatalogTierSupported`), the picker offers **H.264 3840×2160@60**. Record path: **interleaved** REGULAR session — max-60-fps ST preview (typically **1920×1080**) + **MediaRecorder** @ 4K on the same camera — plus session template **AE 60–60** (`UltraHd60SessionParameters`). Do **not** align preview to 4K for this tier. Log: `PNS.UltraHd60 uhd60Interleaved`. USB **CPH2583:** measured **~59 fps**, ~63 MB / 8 s. Encoder-only MR/MC REGULAR sessions receive no frames on this HAL class.
+**4K gates (fleet — two tiers, do not conflate):**
+
+| Catalog id | Matrix gate | Consumer rule |
+|------------|-------------|---------------|
+| `video.4k_regular` | `featureGates.fourKRegular` — `advertised` = MR map lists 3840×2160; `sessionOk` = `regular_3840x2160` session probe; `appEnabled = advertised && sessionOk` | Picker rows ≥3840×2160 under 60 fps map here via `FleetChromeVisibility.videoFormatFeatureId`. Hidden when `sessionOk=false`. |
+| `video.uhd60` | `featureGates.uhd60` — `sessionOk = uhd60Advertised && hfr.sessionOk`; **`appEnabled = advertised && sessionOk`** (same as HFR) | Picker rows ≥3840×2160 at 60 fps (below 120). Requires proven HS session + `UltraHd60SessionParameters` (API **33+** for template). |
+
+**Parity:** `FleetParitySweepRunner.SESSION_GATED_CATALOG_IDS` includes both ids — `provenOk=false` when `sessionOk=false`, or when `sessionOk=null` and matrix `scanTier≠full`. Host scripts refresh matrix with `-ScanTier full` before parity (`pns_fleet_parity_sweep.ps1`, `pns_fleet_regression_pack.ps1`).
+
+**API 28 legacy record:** Grant `WRITE_EXTERNAL_STORAGE` / `READ_EXTERNAL_STORAGE` (`maxSdkVersion=28` in manifest; welcome flow + `pns_in_app_video_verify.ps1` grants). `DeviceAdaptedPrefs` migrates stale **4K HEVC** → **H.264** when `fourKRegularSessionOk=false` or `SDK_INT≤28`. `InAppVideoFormatSelection` blocks **4K non-H.264** on API ≤28. USB gate: `scripts/pns_4k_regular_verify.ps1` (skips when `fourKRegular.sessionOk=false`).
+
+**4K @ 60 (UHD60, fleet):** When **3840×2160 SurfaceTexture** preview caps ~30 fps but the HAL lists **MediaRecorder @ 4K** and H.264 encoder perf @ 60 (`UltraHd60RecordSupport.isCatalogTierSupported`), the picker offers **H.264 3840×2160@60**. Record path: **interleaved** REGULAR session — max-60-fps ST preview (typically **1920×1080**) + **MediaRecorder** @ 4K on the same camera — plus session template **AE 60–60** (`UltraHd60SessionParameters`). Do **not** align preview to 4K for this tier. Log: `PNS.UltraHd60 uhd60Interleaved`. USB **CPH2583:** measured **~59 fps**, ~63 MB / 8 s. Encoder-only MR/MC REGULAR sessions receive no frames on this HAL class. **Not offered** when `uhd60.sessionOk=false` (e.g. EXODUS: no 4K HS sizes).
 
 **Video format FAB:** `VideoFormatPickerSheet` step **A — Audio** (Hi-Fi, wind NS, external mic, compression, ducking) — persists via `PreviewChromePreferences`.
 
@@ -528,6 +541,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | Extra | Effect |
 |-------|--------|
 | `pns_preview_dial=H` | Initial command dial |
+| `pns_preview_dial=MONO` | Initial command dial forced to MONO; scripted mono verify accepts either hardware still success or fallback snapshot log |
 | `pns_preview_raw_count=N` | Sequential RAW stills (keep face pipeline) |
 | `pns_preview_focal_mm_slot=` | Focal mm for chrome gate |
 | `pns_preview_imaging_profile` | Imaging profile override |
@@ -575,7 +589,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 
 **Platform integration (IP.1):** Deep links `pointandshoot://preview|camera|video|gallery|share` → [PlatformIntegration.applyDeepLinkToIntent]. Share ingress: [ShareReceiveActivity] (`ACTION_SEND` / `SEND_MULTIPLE`). Home widget: [PnsCameraWidgetProvider]. Sharing: [SharingManager] + `dev.pointandshoot.fileprovider`. Quick Settings tiles unchanged (`quicksettings/*TileService`).
 
-**Connectivity (IP.2):** [LanMediaTransferServer] HTTP on Wi‑Fi (`0.0.0.0`, preferred **28766**, ephemeral fallback) — `GET /status`, `/files`, `/file?id=`. HUD: **LAN media transfer** toggle (`pns_connectivity.xml`). WebDAV PUT: [NetworkStorageClient] (user URL in prefs; no bundled FTP/SMB). Social: optional HTTPS webhook ([SocialStreamHooks]). Cloud: [CloudCaptureBackup] (UX.3). Collaborative: [CollaborativeCapture] + tether POST `/capture` (CC.3).
+**Connectivity (IP.2):** [LanMediaTransferServer] HTTP on Wi‑Fi (`0.0.0.0`, preferred **28766**, ephemeral fallback) — `GET /status`, `/files`, `/file?id=`. HUD: **LAN media transfer** toggle (`pns_connectivity.xml`). **Leaderboard contribute:** HUD toggle `PnsConnectivity.isLeaderboardContributeEnabled` — after Engineering Hub Full parity sweep, posts redacted bundle via [FleetLeaderboardSubmit] to `BuildConfig.LEADERBOARD_INGEST_URL` (empty = disabled). WebDAV PUT: [NetworkStorageClient] (user URL in prefs; no bundled FTP/SMB). Social: optional HTTPS webhook ([SocialStreamHooks]). Cloud: [CloudCaptureBackup] (UX.3). Collaborative: [CollaborativeCapture] + tether POST `/capture` (CC.3).
 
 **IP gates:** `scripts/pns_platform_integration_test.ps1`, `scripts/pns_connectivity_test.ps1` (LAN status via `adb reverse` + host `curl` fallback on device).
 
@@ -704,6 +718,7 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 | `PNS.FleetVisibility` | Consumer chrome hide / root-only tap (`hidden`, `rootOnlyTap`) |
 | `PNS.ProbeHub` | Engineering hub search picks (`settingsSearchPick`) |
 | `PNS.VideoCapProbe` | MediaCodec perf matrix; `capProbeInvalidate` on rescan |
+| `PNS.HardwareKey` | Secure lockscreen launch policy marker (`secureLaunchPolicy showWhenLocked=true turnScreenOn=true …`) |
 
 ---
 

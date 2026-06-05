@@ -48,23 +48,24 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Name:** Fleet Parity Sweep (FPS) · log tag **`PNS.FleetParity`** · script **`scripts/pns_fleet_parity_sweep.ps1`**
 
-**`-Mode` is required:** `Quick` | `Full` | `Delta`. Script exits **2** without `-Mode` (except `-Help` or human `-Interactive`).
+**`-Mode` is required:** `Full` | `Delta`. Script exits **2** without `-Mode` (except `-Help` or human `-Interactive`).
 
-**Agent rule:** If the user asks to run parity sweep / FPS **without** naming a mode → **AskQuestion** with Quick / Full / Delta labels. **Do not** default silently. If they say "full parity sweep" or "quick FPS", map it and skip AskQuestion.
+**Agent rule:** If the user asks to run parity sweep / FPS **without** naming a mode → **AskQuestion** with Full / Delta labels. **Do not** default silently.
 
 | Mode | Use |
 |------|-----|
-| `Quick` | CI smoke (~3–5 min); scripted row coverage |
 | `Full` | Every catalog row; optional `-IncludeRecord`; delivery verify |
 | `Delta` | Rows changed since last catalog/matrix version |
 
 ```powershell
-.\scripts\pns_fleet_parity_sweep.ps1 -Mode Quick
+.\scripts\pns_fleet_parity_sweep.ps1 -Mode Delta
 .\scripts\pns_fleet_parity_sweep.ps1 -Mode Full -IncludeRecord
 .\scripts\pns_fleet_regression_pack.ps1 -Tier all
 ```
 
-**Artifacts:** `hfr-runs/parity_sweep_*/parity_report.json` · `docs/FLEET_PARITY_LATEST.json` · `docs/FLEET_PARITY_HISTORY.jsonl` · Full mode: `delivery_mismatch.md`
+**Artifacts:** `hfr-runs/parity_sweep_*/parity_report.json` · `docs/FLEET_PARITY_LATEST.json` · `docs/FLEET_PARITY_HISTORY.jsonl` · `docs/FLEET_PARITY_DEBT_LEDGER.json` · `docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json` · Full mode: `delivery_mismatch.md`
+
+**Backlog:** Each sweep runs `pns_parity_debt_ledger_refresh.ps1` + `pns_parity_build_plan_intake.ps1`. Promote `PBI-*` rows from intake into **BUILD_PLAN.md** Milestone 26. USB gates must not overlap on one serial — use `scripts/pns_usb_gate_mutex.ps1` (wired in `pns_m24_gate.ps1`).
 
 **Docs:** `docs/FLEET_PARITY_SWEEP.md` · `docs/CAMERA_CAPABILITY_TAXONOMY.md`
 
@@ -295,6 +296,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_capture_still_forensics.ps1` | Cold **preview** + **`pns_preview_dial=H`** + **`pns_preview_raw_count`**: install (optional), pull pid + ring logcat into **`hfr-runs/capture_still_forensics_*`** (use after DNG save failures; see **`PNS.CaptureStill`**). **`-Fast`** passes **`pns_preview_raw_still_fast`** for shorter in-app ADB settle and a shorter default wait. |
 | `pns_photo_capture_verify.ps1` | Loop **assembleDebug** (optional) → install → cold preview + one scripted RAW still; retries until **`PNS.AdbValidation`** shows **`captureRawStill 1/1 ok=true saved=`** or **`-MaxAttempts`**. Optional **`-SweepCameraIds`** tries **`pns_preview_camera_id`** **`(default),0,1,2,3`** in one artifact folder. Uses timeout-wrapped **adb**; artifacts **`hfr-runs/photo_capture_verify_*`** (logcat + **`run-as`** `files/PNS_CAPTURE_PIPELINE_DIAGNOSTICS.txt` when present). Logcat filter includes **`PNS.Cam:I`** for **`PNS.PreviewSessionCtx`**. Prefer **`pns_capture_pipeline_verify.ps1`** for **`docs/CAPTURE_PIPELINE_VERIFY_*.json`** (BUILD_PLAN item **11**). |
 | `pns_in_app_video_verify.ps1` | Cold **preview** with **`pns_preview_primary_photo=false`** + **`pns_preview_automation_in_app_video_sec`**: install (optional), **`assembleDebug`** (optional), assert **`PNS.AdbValidation`** **`inAppVideoSaved ok=true`** and **`bytes ≥ MinBytes`**; artifacts **`hfr-runs/in_app_video_verify_*`**. Uses **`adb exec-out logcat -s …`** for OEM-stable tag dumps. Gate after in-app **`MediaRecorder`** / **`PreviewEngineScreen`** session changes alongside **`pns_capture_pipeline_verify.ps1`** when RAW session wiring moves. |
+| `pns_4k_regular_verify.ps1` | **4K @ 30 H.264** in-app record when matrix **`fourKRegular.sessionOk=true`**: cold video-primary preview, **`pns_preview_video_encode_w/h=3840/2160`**, 5 s clip; asserts **`inAppVideoSaved ok=true`**. **Exit 0 SKIP** when gate false (expected on EXODUS-class). Grants legacy storage on API ≤28. Artifacts **`hfr-runs/4k_regular_verify_*`**. |
 | `pns_audio_quality_test.ps1` | Sprint **AS.1** — hi-fi audio extras + scripted in-app video; asserts **`videoAudioProfile`** **`hiFi=true`** and **`sampleRate=`** 48k/96k. Artifacts **`hfr-runs/audio_quality_test_*`**. |
 | `pns_shutter_sound_test.ps1` | Sprint **AS.2** — **`pns_preview_composed_still`** + **`pns_preview_shutter_sound_pack`**; asserts **`shutterSound ok=true`**. Artifacts **`hfr-runs/shutter_sound_test_*`**. |
 | `pns_audio_sprint_gate.ps1` | Sprint **AS** — unit tests + optional USB **`pns_audio_quality_test`** + **`pns_shutter_sound_test`** (**`-HostOnly`** for CI). |
@@ -307,9 +309,9 @@ Use these from repo root unless a script documents otherwise.
 | `pns_raw_capture_matrix.ps1` | **20-cell** matrix (optional **`-Quick`** for 4 cells): **`pns_preview_imaging_profile`** × **`pns_preview_raw_stream`** (`default`, `raw_sensor_first`, `raw12_only`, `raw_sensor_only`, `raw10_only`) × **`pns_preview_jpeg_companion`**, plus optional **`-CameraId`**. Artifacts **`hfr-runs/raw_capture_matrix_*`** (`matrix.csv`, `matrix.md`, per-cell logcat). See **`docs/RAW_CAPTURE_DEVICE_MATRIX.md`**. |
 | `pns_deep_caps_diff.ps1` | Host-side **Markdown** diff of two **`deep_caps_*.json`** pulls (**HFR max**, **HDR DR** summary, **`maxNumOutputRaw`**, **`rawCapabilityAdvertised`** per `cameraId`). See **`docs/FLEET_REFERENCE_M10_8.md`** (Milestone **10.8** fleet evidence). |
 | `pns_fleet_matrix_scan.ps1` | Milestone **16.3** — cold **`pns_screen=probehub`** + optional **`-ScanTier full`**, pull **`files/fleet_device_matrix.json`** → **`hfr-runs/fleet_matrix_*`**, assert **`PNS.FleetMatrix scanTier=`** + **`schemaVersion`**; runs **`fleet_matrix_schema_validate.py`** when Python on PATH; **`-Redact`** writes **`hal_dumpsys_media_camera_redacted.txt`** when full-tier appendix includes HAL excerpt. |
-| `pns_fleet_parity_sweep.ps1` | Milestone **18.6** — **`-Mode Quick\|Full\|Delta` required**; matrix refresh + parity ADB extras; **`parity_report.json`** + **`docs/FLEET_PARITY_LATEST.json`**. |
+| `pns_fleet_parity_sweep.ps1` | Milestone **18.6** — **`-Mode Full\|Delta` required**; matrix refresh + parity ADB extras; **`parity_report.json`** + **`docs/FLEET_PARITY_LATEST.json`**. |
 | `pns_fleet_parity_diff.ps1` | Host diff two **`parity_report.json`** files. |
-| `pns_fleet_regression_pack.ps1` | Milestone **18.4** — tier 1 matrix + tier 2 parity Quick + catalog gate. |
+| `pns_fleet_regression_pack.ps1` | Milestone **18.4** — tier 1 matrix + tier 2 parity Delta + catalog gate. |
 | `pns_m18_gate.ps1` | Milestone **18** one-shot — catalog gate + `pns_verify_toolchain.ps1 -RunTests` + regression pack (`-Serial` for USB). |
 | `pns_fleet_macro_export.ps1` | Milestone **18.4** — cross-device CSV from latest matrix + parity artifacts. |
 | `pns_capability_catalog_gate.ps1` | Milestone **18.5** — host catalog version + row count + format descriptor gate. |

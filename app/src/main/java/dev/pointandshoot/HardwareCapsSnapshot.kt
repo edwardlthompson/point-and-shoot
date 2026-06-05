@@ -110,11 +110,7 @@ object HardwareCapsSnapshot {
             }.getOrDefault(false)
         val hasMacro = uwMacro || vendorMacro || activeVendorMacro
 
-        val has10Hdr =
-            Build.VERSION.SDK_INT >= 33 &&
-                runCatching {
-                    cc.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) != null
-                }.getOrDefault(false)
+        val has10Hdr = cc.getAvailableDynamicRangeProfilesOrNull() != null
 
         val lens = LensInfoExtractor.extract(activeCameraId, cc)
 

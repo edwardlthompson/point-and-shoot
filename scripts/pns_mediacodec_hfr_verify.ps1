@@ -482,12 +482,17 @@ pns_mediacodec_hfr_verify.ps1 - HFR/codec matrix verify
             $hfrBlockReason = $blockMatches[$blockMatches.Count - 1].Groups[1].Value
         }
         $strict120Blocked = $allLog -match "inAppVideo120StrictBlocked"
+        $strictWarmupHealthy = $allLog -match "strictHfrWarmupHealthy=true"
+        $hfrMidRecordOutcome = ""
+        if ($allLog -match "hfrMidRecordOutcome=([a-z_]+)") {
+            $hfrMidRecordOutcome = $Matches[1]
+        }
         $routeInterleavedOk = $allLog -match "HFR repeatingBurst started.*interleaved=true"
         $routeEncoderOnlyOk = $allLog -match "HFR repeatingBurst encoder-only"
         $interleavedOk = if ($needs4k120Proof) {
             if ($hfrRoute -like "interleaved*") {
                 $routeInterleavedOk
-            } elseif ($hfrRoute -like "encoder_only*") {
+            } elseif ($hfrRoute -like "encoder_only*" -or $hfrRoute -eq "encoder_priority") {
                 $routeEncoderOnlyOk
             } else {
                 $routeInterleavedOk -or $routeEncoderOnlyOk
@@ -610,6 +615,9 @@ pns_mediacodec_hfr_verify.ps1 - HFR/codec matrix verify
         if ($needs4k120Proof) {
             Write-Log "  strict120 blocked    : $strict120Blocked reason=$hfrBlockReason"
             Write-Log "  hfrWarmupAttempt     : $hfrWarmupAttempt"
+            if ($hfrMidRecordOutcome) {
+                Write-Log "  hfrMidRecordOutcome  : $hfrMidRecordOutcome"
+            }
         }
         Write-Log "  Correct fps in log   : $correctFps"
         Write-Log "  codec pref patched   : $codecPrefPatched"
@@ -645,6 +653,7 @@ pns_mediacodec_hfr_verify.ps1 - HFR/codec matrix verify
             HfrWarmupAttempt = $hfrWarmupAttempt
             HfrBlockReason = $hfrBlockReason
             Strict120Blocked = $strict120Blocked
+            HfrMidRecordOutcome = $hfrMidRecordOutcome
         }
     }
 

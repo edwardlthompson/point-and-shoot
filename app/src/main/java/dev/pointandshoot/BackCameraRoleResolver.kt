@@ -84,10 +84,11 @@ object BackCameraRoleResolver {
         }
         if (infos.size == 2) {
             val sorted = infos.sortedBy { it.focalMm ?: 0f }
+            // Wide + tele stack (no dedicated UW): shorter focal = wide, longer = tele.
             return Roles(
-                ultraWide = sorted[0].id,
-                wide = sorted[1].id,
-                tele = null,
+                ultraWide = null,
+                wide = sorted[0].id,
+                tele = sorted[1].id,
                 longTele = null,
             )
         }

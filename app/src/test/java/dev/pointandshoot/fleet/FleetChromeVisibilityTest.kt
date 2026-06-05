@@ -104,4 +104,24 @@ class FleetChromeVisibilityTest {
             FleetChromeVisibility.videoFormatFeatureId(VideoCodec.H264, 1920, 1080, 30),
         )
     }
+
+    @Test
+    fun videoFormatFeatureId_maps4k30ToFourKRegular() {
+        assertEquals(
+            "video.4k_regular",
+            FleetChromeVisibility.videoFormatFeatureId(VideoCodec.H264, 3840, 2160, 30),
+        )
+        assertEquals(
+            "video.4k_regular",
+            FleetChromeVisibility.videoFormatFeatureId(VideoCodec.H265, 3840, 2160, 30),
+        )
+    }
+
+    @Test
+    fun videoFormatFeatureId_maps4k60ToUhd60() {
+        assertEquals(
+            "video.uhd60",
+            FleetChromeVisibility.videoFormatFeatureId(VideoCodec.H264, 3840, 2160, 60),
+        )
+    }
 }

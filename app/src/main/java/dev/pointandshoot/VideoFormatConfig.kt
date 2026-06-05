@@ -24,13 +24,24 @@ enum class VideoCodec {
     VP9,        // VP9 WebM (matrix-gated; below AV1 in picker)
 }
 
+enum class HfrDeliveryTier {
+    /** Container and HS capture both at 4K @ target fps. */
+    STRICT_4K120,
+    /** 4K encode container with sub-4K high-speed capture (honest labeling required). */
+    HS_SUB4K_CAPTURE,
+}
+
 data class VideoFormat(
     val codec: VideoCodec,
     val resolution: Size,
     val frameRate: Int,
     val bitrate: Int,
     val isTenBit: Boolean = false,
-    val isDcg: Boolean = false
+    val isDcg: Boolean = false,
+    /** When set, readout/picker must disclose HS capture vs encode container (M24 delivery honesty). */
+    val hfrDeliveryTier: HfrDeliveryTier? = null,
+    /** High-speed capture size when [hfrDeliveryTier] is [HfrDeliveryTier.HS_SUB4K_CAPTURE]. */
+    val hfrCaptureSize: Size? = null,
 ) {
     fun getMediaRecorderVideoEncoder(): Int = when (codec) {
         VideoCodec.H264 -> MediaRecorder.VideoEncoder.H264

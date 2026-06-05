@@ -52,9 +52,7 @@ private fun hdrDynamicRangeJson(cc: CameraCharacteristics): JSONObject =
             put("note", "REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES requires API 33+")
             return@apply
         }
-        val drp = runCatching {
-            cc.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) as? DynamicRangeProfiles
-        }.getOrNull()
+        val drp = cc.getAvailableDynamicRangeProfilesOrNull()
         if (drp == null) {
             put("supported", false)
             put("profiles", JSONArray())
@@ -64,9 +62,7 @@ private fun hdrDynamicRangeJson(cc: CameraCharacteristics): JSONObject =
         val arr = JSONArray()
         runCatching { drp.supportedProfiles }.getOrNull()?.forEach { p -> arr.put(p.toString()) }
         put("profiles", arr)
-        val rec = runCatching {
-            cc.get(CameraCharacteristics.REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE)
-        }.getOrNull()
+        val rec = cc.getRecommendedTenBitDynamicRangeProfileOrNull()
         put("recommendedTenBitProfile", rec?.toString() ?: JSONObject.NULL)
     }
 
@@ -128,11 +124,7 @@ private fun requestPipelineJson(cc: CameraCharacteristics): JSONObject =
         )
         put(
             "sessionConfigurationQueryVersion",
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                cc.get(CameraCharacteristics.INFO_SESSION_CONFIGURATION_QUERY_VERSION)?.toString() ?: JSONObject.NULL
-            } else {
-                JSONObject.NULL
-            },
+            cc.getInfoSessionConfigurationQueryVersionOrNull()?.toString() ?: JSONObject.NULL,
         )
     }
 
@@ -172,11 +164,9 @@ private fun rawVsHdrHintsJson(cc: CameraCharacteristics): JSONObject =
             "rawCapabilityAdvertised",
             caps.any { it == CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_RAW },
         )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val drp = runCatching {
-                cc.get(CameraCharacteristics.REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES) as? DynamicRangeProfiles
-            }.getOrNull()
-            val n = runCatching { drp?.supportedProfiles?.size ?: 0 }.getOrDefault(0)
+        val drp = cc.getAvailableDynamicRangeProfilesOrNull()
+        if (drp != null) {
+            val n = runCatching { drp.supportedProfiles?.size ?: 0 }.getOrDefault(0)
             put("dynamicRangeProfileCount", n)
         } else {
             put("dynamicRangeProfileCount", JSONObject.NULL)

@@ -49,8 +49,11 @@ object MlKitFaceTrackSupport {
         rotationDegrees: Int,
         timeoutMs: Long = 250L,
     ): Float? {
-        if (image.width <= 0 || image.height <= 0) return null
-        val input = InputImage.fromMediaImage(image, rotationDegrees)
+        val yuvDims =
+            runCatching { image.width to image.height }.getOrNull()
+                ?: return null
+        if (yuvDims.first <= 0 || yuvDims.second <= 0) return null
+        val input = runCatching { InputImage.fromMediaImage(image, rotationDegrees) }.getOrNull() ?: return null
         val faces: List<Face> =
             runCatching {
                 Tasks.await(smileDetector.process(input), timeoutMs, TimeUnit.MILLISECONDS)
@@ -93,12 +96,17 @@ object MlKitFaceTrackSupport {
         }
         // Snapshot dimensions before [Tasks.await]: ML Kit may release the [Image] when detection
         // completes, so [Image.getWidth] after await can throw "Image is already closed".
-        val yuvW = image.width
-        val yuvH = image.height
+        val yuvDims =
+            runCatching { image.width to image.height }.getOrNull()
+                ?: return MlFaceHudDetections(emptyList(), emptyList())
+        val yuvW = yuvDims.first
+        val yuvH = yuvDims.second
         if (yuvW <= 0 || yuvH <= 0) {
             return MlFaceHudDetections(emptyList(), emptyList())
         }
-        val input = InputImage.fromMediaImage(image, rotationDegrees)
+        val input =
+            runCatching { InputImage.fromMediaImage(image, rotationDegrees) }.getOrNull()
+                ?: return MlFaceHudDetections(emptyList(), emptyList())
         val faces: List<Face> =
             runCatching {
                 Tasks.await(detector.process(input), timeoutMs, TimeUnit.MILLISECONDS)

@@ -1,4 +1,4 @@
-import { fmtNum, progressBar, formatApiLevel } from './theme.js';
+import { fmtNum, progressBar, formatApiLevel, gsmarenaLinkHtml } from './theme.js';
 import { drawRadar, heatmapColor } from './charts.js';
 import { lensStripHtml, videoOneLiner } from './leaderboard.js';
 
@@ -38,10 +38,27 @@ export function renderCompare(devices) {
     return `<p>Select at least 2 devices from the leaderboard compare checkboxes.</p><p><a href="#/">Back</a></p>`;
   }
   const trustWarning = new Set(devices.map((d) => d.meta?.trustTier)).size > 1
-    ? '<p class="pill">Mixed trust tiers — interpret with care.</p>' : '';
+    ? '<p class="pill pill-info">Mixed trust tiers — interpret with care.</p>' : '';
+  const romWarning = new Set(devices.map((d) => d.software?.romFlavor)).size > 1
+    ? '<p class="pill pill-engineering">Mixed ROM flavors — compare Camera2 on same ROM when possible.</p>' : '';
+  const wishIds = ['raw.dng', 'video.hfr', 'face.eye_af', 'video.4k'];
+  const matrixHeader = `<tr><th>Feature</th>${devices.map((d) => `<th>${d.identity?.marketingName?.slice(0, 14)}</th>`).join('')}</tr>`;
+  const matrixRows = wishIds.map((id) => {
+    const cells = devices.map((d) => {
+      let cell = null;
+      for (const cat of Object.values(d.cellsByCategory || {})) {
+        cell = cat.find((c) => c.catalogId === id || c.catalogId?.startsWith(id));
+        if (cell) break;
+      }
+      if (!cell) return '<td>—</td>';
+      return `<td>${cell.provenOk ? '✓ proven' : cell.advertised ? '✗ gap' : 'n/a'}</td>`;
+    }).join('');
+    return `<tr><td>${id}</td>${cells}</tr>`;
+  }).join('');
   const cols = devices.map((d) => `
     <div class="device-card">
       <h3>${d.identity?.marketingName}</h3>
+      ${gsmarenaLinkHtml(d) ? `<p>${gsmarenaLinkHtml(d)}</p>` : ''}
       <p>Parity ${d.scores?.total?.percent}% · Honesty ${d.disparity?.honestyPercent}%</p>
       <p>Tested ${formatApiLevel(d) || '—'}</p>
       <p>AnTuTu ${fmtNum(d.antutu?.total)} · ${fmtNum(d.sensors?.sensorSumMm2)} mm²</p>
@@ -54,9 +71,12 @@ export function renderCompare(devices) {
     <p><a href="#/">&larr; Back</a></p>
     <h2>Compare ${devices.length} devices</h2>
     ${trustWarning}
+    ${romWarning}
     <button type="button" class="btn" id="export-png">Export compare PNG</button>
     <div id="compare-export-target">
       <div class="compare-grid">${cols}</div>
+      <h3>Wishlist feature matrix</h3>
+      <table class="data-table"><thead>${matrixHeader}</thead><tbody>${matrixRows}</tbody></table>
       <h3>Category heatmap</h3>
       ${heatmapHtml(devices)}
     </div>`;

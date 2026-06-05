@@ -7,6 +7,9 @@ export function parseRoute() {
   if (hash.startsWith('/compare')) {
     return { view: 'compare', slugs: q.get('devices')?.split(',').filter(Boolean) || [] };
   }
+  if (hash.startsWith('/product/')) {
+    return { view: 'product', groupId: hash.split('/')[2], slugs: [] };
+  }
   if (hash.startsWith('/oem')) return { view: 'oem', slugs: [] };
   return {
     view: 'home',

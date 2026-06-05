@@ -1,33 +1,33 @@
 {
   "schema": "pns.fleet_leaderboard_device.v1",
-  "slug": "acf7a326d2a12131",
-  "deviceKey": "Sony|XQ-BE62|aa6273fd9666679d",
+  "slug": "dff79fd1b3808b1d",
+  "deviceKey": "Essential Products|PH-1|3ed247c9b6af0f1b",
   "identity": {
-    "manufacturer": "Sony",
-    "model": "XQ-BE62",
-    "marketingName": "Sony Xperia 5 V",
-    "fingerprintPrefix": "aa6273fd9666679d",
+    "manufacturer": "Essential Products",
+    "model": "PH-1",
+    "marketingName": "Essential PH-1",
+    "fingerprintPrefix": "3ed247c9b6af0f1b",
     "specLinks": [
       {
         "label": "GSMArena",
-        "url": "https://www.gsmarena.com/sony_xperia_5_v-12534.php"
+        "url": "https://www.gsmarena.com/_essential_ph_1-8710.php"
       }
     ],
-    "msrpUsd": 999,
+    "msrpUsd": null,
     "variants": null,
-    "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-    "productGroupId": "sony-xperia-5-v",
+    "gsmarenaUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+    "productGroupId": "essential-ph-1",
     "externalScores": null
   },
   "software": {
-    "sdkInt": 33,
-    "apiLevelLabel": "Android 13 (API 33)",
+    "sdkInt": 35,
+    "apiLevelLabel": "Android 15 (API 35)",
     "firstApiLevel": null,
-    "securityPatch": "2023-11-01",
+    "securityPatch": "2026-05-01",
     "rootGranted": false,
-    "romFlavor": "unknown",
-    "buildTags": null,
-    "buildDisplay": null
+    "romFlavor": "custom_likely",
+    "buildTags": "release-keys",
+    "buildDisplay": "lineage_mata-userdebug 15 BP1A.250505.005 dc3756dcc3"
   },
   "measurementContext": {
     "api": "camera2",
@@ -35,92 +35,82 @@
     "oemCameraAppTested": false
   },
   "sensors": {
-    "sensorSumMm2": 219.47,
+    "sensorSumMm2": 64.44,
     "sensorSumMethod": "gsmarena_type_fraction",
     "source": "gsmarena",
     "sourceLabel": "GSMArena sensor type",
-    "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+    "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
     "sensors": [],
     "rearLenses": [
       {
-        "rawLine": "48 MP, f/1.9, 24mm (wide), 1/1.35\", 1.12µm, dual pixel PDAF, OIS",
-        "megapixels": 48.0,
-        "focalLengthMm": 24.0,
+        "rawLine": "13 MP, f/1.9, 1/3.1\", PDAF",
+        "megapixels": 13.0,
+        "focalLengthMm": null,
         "role": "wide",
-        "sensorTypeFraction": "1/1.35",
-        "widthMm": 15.05,
-        "heightMm": 11.29,
-        "areaMm2": 169.92
+        "sensorTypeFraction": "1/3.1",
+        "widthMm": 6.55,
+        "heightMm": 4.92,
+        "areaMm2": 32.22
       },
       {
-        "rawLine": "12 MP, f/2.2, 16mm (ultrawide), 1/2.5\", dual pixel PDAF",
-        "megapixels": 12.0,
-        "focalLengthMm": 16.0,
-        "role": "ultrawide",
-        "sensorTypeFraction": "1/2.5",
-        "widthMm": 8.13,
-        "heightMm": 6.1,
-        "areaMm2": 49.55
+        "rawLine": "13 MP B/W, f/1.9, 1/3.1\"",
+        "megapixels": 13.0,
+        "focalLengthMm": null,
+        "role": "wide",
+        "sensorTypeFraction": "1/3.1",
+        "widthMm": 6.55,
+        "heightMm": 4.92,
+        "areaMm2": 32.22
       }
     ]
   },
   "lensLineup": [
     {
-      "cameraId": "4",
-      "focalMm35": 16,
-      "megapixels": 12.824064
-    },
-    {
       "cameraId": "0",
-      "focalMm35": 24,
-      "megapixels": 12.192768
+      "focalMm35": 25,
+      "megapixels": 13.246464
     },
     {
       "cameraId": "2",
-      "focalMm35": 24,
-      "megapixels": 12.192768
-    },
-    {
-      "cameraId": "3",
-      "focalMm35": 48,
-      "megapixels": 12.712192
+      "focalMm35": 25,
+      "megapixels": 13.246464
     }
   ],
   "scores": {
     "features": {
-      "score": 1102,
+      "score": 1086,
       "maxScore": 1540,
-      "percent": 71.6,
+      "percent": 70.5,
       "cellCount": 154,
-      "provenCount": 105
+      "provenCount": 103
     },
     "resolutions": {
-      "score": 120,
+      "score": 136,
       "maxScore": 220,
-      "percent": 54.5,
+      "percent": 61.8,
       "cellCount": 22,
       "provenCount": 12
     },
     "capabilities": {
-      "score": 194,
-      "maxScore": 396,
-      "percent": 49.0,
-      "gateCount": 66,
-      "cameraCount": 6
+      "score": 46,
+      "maxScore": 132,
+      "percent": 34.8,
+      "gateCount": 22,
+      "cameraCount": 2
     },
     "total": {
-      "score": 1416,
-      "maxScore": 2156,
-      "percent": 65.7
+      "score": 1268,
+      "maxScore": 1892,
+      "percent": 67.0
     },
-    "rank": 2
+    "rank": 5
   },
   "disparity": {
-    "advertisedCellCount": 108,
-    "provenAdvertisedCount": 95,
-    "honestyPercent": 88.0,
+    "advertisedCellCount": 111,
+    "provenAdvertisedCount": 93,
+    "honestyPercent": 83.8,
     "gapBreakdown": {
-      "GAP_ADVERTISED_NOT_PROVEN": 13,
+      "GAP_ADVERTISED_NOT_PROVEN": 18,
       "GAP_DELIVERY_MISMATCH": 1
     }
   },
@@ -128,6 +118,38 @@
     {
       "catalogId": "product.hardware_camera_key",
       "displayName": "product.hardware_camera_key",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.1080p",
+      "displayName": "video.av1.1080p",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.4k",
+      "displayName": "video.av1.4k",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.720p",
+      "displayName": "video.av1.720p",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.8k",
+      "displayName": "video.av1.8k",
       "category": "Unknown",
       "gap": "GAP_ADVERTISED_NOT_PROVEN",
       "failReason": "not_proven",
@@ -177,6 +199,14 @@
       "catalogId": "still.tiff16",
       "displayName": "TIFF 16-bit export",
       "category": "Still capture",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "ENGINEERING_ONLY"
+    },
+    {
+      "catalogId": "video.av1",
+      "displayName": "AV1 video",
+      "category": "Video",
       "gap": "GAP_ADVERTISED_NOT_PROVEN",
       "failReason": "not_proven",
       "consumerImpact": "ENGINEERING_ONLY"
@@ -419,11 +449,11 @@
       {
         "catalogId": "dial.monochrome",
         "displayName": "dial.monochrome",
-        "advertised": false,
-        "provenOk": false,
+        "advertised": true,
+        "provenOk": true,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": null,
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
@@ -539,41 +569,41 @@
       {
         "catalogId": "video.av1.720p",
         "displayName": "video.av1.720p",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
         "catalogId": "video.av1.1080p",
         "displayName": "video.av1.1080p",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
         "catalogId": "video.av1.4k",
         "displayName": "video.av1.4k",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
         "catalogId": "video.av1.8k",
         "displayName": "video.av1.8k",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
@@ -1503,11 +1533,11 @@
       {
         "catalogId": "root.hfr_unlock",
         "displayName": "HFR above matrix ceiling",
-        "advertised": true,
-        "provenOk": true,
+        "advertised": false,
+        "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": null,
+        "failReason": "not_advertised",
         "consumerImpact": "ENGINEERING_ONLY"
       }
     ],
@@ -1535,11 +1565,11 @@
       {
         "catalogId": "video.av1",
         "displayName": "AV1 video",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
@@ -1655,11 +1685,11 @@
       {
         "catalogId": "video.multicam_melt",
         "displayName": "Multicam Melt record",
-        "advertised": true,
-        "provenOk": true,
+        "advertised": false,
+        "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": null,
+        "failReason": "not_advertised",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
@@ -1851,11 +1881,11 @@
       {
         "catalogId": "preview.pip",
         "displayName": "Concurrent PiP preview",
-        "advertised": true,
-        "provenOk": true,
+        "advertised": false,
+        "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": null,
+        "failReason": "not_advertised",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
@@ -2042,7 +2072,7 @@
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2072,15 +2102,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         }
       ]
     },
@@ -2089,148 +2119,6 @@
       "gates": [
         {
           "name": "raw",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hfr",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "face",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "dcgZsl",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "av1",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hevc10",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "rawVideo",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "dualVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        }
-      ]
-    },
-    {
-      "cameraId": "2",
-      "gates": [
-        {
-          "name": "raw",
-          "advertised": true,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hfr",
-          "advertised": true,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "face",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "dcgZsl",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "av1",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hevc10",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "uhd60",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": false
-        },
-        {
-          "name": "rawVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": false
-        },
-        {
-          "name": "dualVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        }
-      ]
-    },
-    {
-      "cameraId": "3",
-      "gates": [
-        {
-          "name": "raw",
           "advertised": true,
           "appEnabled": false,
           "sessionOk": false
@@ -2255,7 +2143,7 @@
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2285,157 +2173,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        }
-      ]
-    },
-    {
-      "cameraId": "4",
-      "gates": [
-        {
-          "name": "raw",
-          "advertised": true,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hfr",
           "advertised": false,
           "appEnabled": false,
           "sessionOk": false
-        },
-        {
-          "name": "face",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "dcgZsl",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "av1",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hevc10",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "rawVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": false
-        },
-        {
-          "name": "dualVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        }
-      ]
-    },
-    {
-      "cameraId": "5",
-      "gates": [
-        {
-          "name": "raw",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hfr",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "face",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "dcgZsl",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "av1",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hevc10",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "rawVideo",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "dualVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
         }
       ]
     }
@@ -2443,22 +2189,22 @@
   "formatPickerHonestyScore": 68,
   "resolutionBetrayal": {
     "index": 0,
-    "cameraCount": 6,
+    "cameraCount": 3,
     "entries": [
       {
         "cameraId": "0",
         "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4160,
+          "height": 3120,
+          "mp": 12.9792
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
         "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4208,
+          "height": 3120,
+          "mp": 13.12896
         },
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
@@ -2467,14 +2213,18 @@
       {
         "cameraId": "1",
         "defaultJpeg": {
-          "width": 3264,
-          "height": 2448,
-          "mp": 7.990272
+          "width": 3840,
+          "height": 2160,
+          "mp": 8.2944
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
-        "defaultRawSensor": null,
+        "defaultRawSensor": {
+          "width": 3872,
+          "height": 2192,
+          "mp": 8.487424
+        },
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
         "hasLargerThanDefault": false
@@ -2482,67 +2232,18 @@
       {
         "cameraId": "2",
         "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4160,
+          "height": 3120,
+          "mp": 12.9792
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
         "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4208,
+          "height": 3120,
+          "mp": 13.12896
         },
-        "highResRawSensor": null,
-        "maxResMapRawSensor": null,
-        "hasLargerThanDefault": false
-      },
-      {
-        "cameraId": "3",
-        "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
-        },
-        "highResJpeg": null,
-        "maxResMapJpeg": null,
-        "multiResJpeg": null,
-        "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
-        },
-        "highResRawSensor": null,
-        "maxResMapRawSensor": null,
-        "hasLargerThanDefault": false
-      },
-      {
-        "cameraId": "4",
-        "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
-        },
-        "highResJpeg": null,
-        "maxResMapJpeg": null,
-        "multiResJpeg": null,
-        "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
-        },
-        "highResRawSensor": null,
-        "maxResMapRawSensor": null,
-        "hasLargerThanDefault": false
-      },
-      {
-        "cameraId": "5",
-        "defaultJpeg": null,
-        "highResJpeg": null,
-        "maxResMapJpeg": null,
-        "multiResJpeg": null,
-        "defaultRawSensor": null,
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
         "hasLargerThanDefault": false
@@ -2552,12 +2253,44 @@
   "oemLossSummary": {
     "measurementApi": "camera2",
     "oemCameraAppTested": false,
-    "shipBlockerCount": 1,
+    "shipBlockerCount": 5,
     "deliveryMismatchCount": 1,
     "topLosses": [
       {
         "catalogId": "product.hardware_camera_key",
         "displayName": "product.hardware_camera_key",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.1080p",
+        "displayName": "video.av1.1080p",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.4k",
+        "displayName": "video.av1.4k",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.720p",
+        "displayName": "video.av1.720p",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.8k",
+        "displayName": "video.av1.8k",
         "category": "Unknown",
         "gap": "GAP_ADVERTISED_NOT_PROVEN",
         "failReason": "not_proven",
@@ -2586,45 +2319,13 @@
         "gap": "GAP_ADVERTISED_NOT_PROVEN",
         "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.jxl",
-        "displayName": "JPEG XL still export",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.motion_photo",
-        "displayName": "Motion Photo",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.tiff16",
-        "displayName": "TIFF 16-bit export",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "video.color.bt709",
-        "displayName": "video.color.bt709",
-        "category": "Unknown",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
       }
     ]
   },
   "cameraXSummary": null,
   "value": {
-    "msrpUsd": 999,
-    "parityPerUsd": 1.42
+    "msrpUsd": null,
+    "parityPerUsd": null
   },
   "videoSummary": {
     "hfrMaxFps1080": 120,
@@ -2645,17 +2346,17 @@
     {
       "cameraId": "0",
       "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4160,
+        "height": 3120,
+        "mp": 12.9792
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
       "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4208,
+        "height": 3120,
+        "mp": 13.12896
       },
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
@@ -2664,14 +2365,18 @@
     {
       "cameraId": "1",
       "defaultJpeg": {
-        "width": 3264,
-        "height": 2448,
-        "mp": 7.990272
+        "width": 3840,
+        "height": 2160,
+        "mp": 8.2944
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
-      "defaultRawSensor": null,
+      "defaultRawSensor": {
+        "width": 3872,
+        "height": 2192,
+        "mp": 8.487424
+      },
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
       "hasLargerThanDefault": false
@@ -2679,88 +2384,30 @@
     {
       "cameraId": "2",
       "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4160,
+        "height": 3120,
+        "mp": 12.9792
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
       "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4208,
+        "height": 3120,
+        "mp": 13.12896
       },
-      "highResRawSensor": null,
-      "maxResMapRawSensor": null,
-      "hasLargerThanDefault": false
-    },
-    {
-      "cameraId": "3",
-      "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
-      },
-      "highResJpeg": null,
-      "maxResMapJpeg": null,
-      "multiResJpeg": null,
-      "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
-      },
-      "highResRawSensor": null,
-      "maxResMapRawSensor": null,
-      "hasLargerThanDefault": false
-    },
-    {
-      "cameraId": "4",
-      "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
-      },
-      "highResJpeg": null,
-      "maxResMapJpeg": null,
-      "multiResJpeg": null,
-      "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
-      },
-      "highResRawSensor": null,
-      "maxResMapRawSensor": null,
-      "hasLargerThanDefault": false
-    },
-    {
-      "cameraId": "5",
-      "defaultJpeg": null,
-      "highResJpeg": null,
-      "maxResMapJpeg": null,
-      "multiResJpeg": null,
-      "defaultRawSensor": null,
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
       "hasLargerThanDefault": false
     }
   ],
-  "antutu": {
-    "total": 1200000,
-    "cpu": 280000,
-    "gpu": 450000,
-    "mem": 280000,
-    "ux": 190000,
-    "matchedName": "Sony Xperia 5 V",
-    "matchConfidence": "manual_override",
-    "sourceMonth": "2026-06"
-  },
+  "antutu": null,
   "meta": {
-    "lastSweepUtc": "06/04/2026 13:05:41",
+    "lastSweepUtc": "06/04/2026 14:21:56",
     "lastSweepMode": "Full",
-    "appVersionCode": 22000,
+    "appVersionCode": 22001,
     "scanTier": "quick",
     "trustTier": "maintainer",
-    "testedApiLevel": "Android 13 (API 33)"
+    "testedApiLevel": "Android 15 (API 35)"
   }
 }

@@ -1,21 +1,26 @@
 import { initTheme, initMethodology, initWishlist, getWishlistSelected } from './theme.js';
 import { parseRoute, navTo } from './router.js';
 import { renderHome } from './leaderboard.js';
-import { renderDeviceDetail, attachSparkline } from './device-detail.js';
+import { renderDeviceDetail, attachSparkline, attachDeviceDetailApiToggle } from './device-detail.js';
 import { renderCompare, attachCompareCharts, exportComparePng } from './compare.js';
 import { renderOemIndex } from './oem-index.js';
+import { renderProductGroup } from './product.js';
 
 const state = {
   site: null,
   devices: [],
+  productGroups: [],
+  oemAccountability: null,
   glossary: null,
-  persona: 'default',
+  persona: 'most_capable',
+  preset: 'most_capable',
   sortKey: 'parity',
   sortDir: 'desc',
   compareSlugs: new Set(),
   search: '',
   oem: '',
   trust: '',
+  hideShipBlockers: false,
 };
 
 async function loadJson(path) {
@@ -45,6 +50,10 @@ async function loadHistory(slug) {
   }
 }
 
+function devicesBySlug(devices) {
+  return Object.fromEntries(devices.map((d) => [d.slug, d]));
+}
+
 function populateOemFilter() {
   const sel = document.getElementById('filter-oem');
   if (!sel) return;
@@ -57,7 +66,25 @@ function populateOemFilter() {
   });
 }
 
+function applyPreset(preset) {
+  state.preset = preset;
+  state.persona = preset;
+  state.sortKey = preset === 'best_value' ? 'value' : 'parity';
+  state.sortDir = 'desc';
+  state.trust = preset === 'custom_rom' ? 'custom_lane' : state.trust === 'custom_lane' ? '' : state.trust;
+  state.hideShipBlockers = preset === 'custom_rom';
+  document.querySelectorAll('[data-preset]').forEach((b) => {
+    b.classList.toggle('active', b.dataset.preset === preset);
+  });
+}
+
 function bindToolbar() {
+  document.querySelectorAll('[data-preset]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyPreset(btn.dataset.preset);
+      render();
+    });
+  });
   document.querySelectorAll('[data-persona]').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('[data-persona]').forEach((b) => b.classList.remove('active'));
@@ -78,7 +105,20 @@ function bindToolbar() {
     state.trust = e.target.value;
     render();
   });
+  document.getElementById('filter-ship-safe')?.addEventListener('change', (e) => {
+    state.hideShipBlockers = e.target.checked;
+    render();
+  });
   initWishlist(() => render());
+}
+
+function updateFooterStaleNote(site) {
+  const footer = document.querySelector('.site-footer .disclaimer');
+  if (!footer || !site) return;
+  let extra = '';
+  if (site.gsmarenaSpecsStale) extra += ' GSMArena advertised specs may be stale (rate-limited scrape).';
+  if (site.gsmarenaSpecsFromCache) extra += ' Some GSMArena rows use cached sensor data.';
+  if (extra) footer.textContent += extra;
 }
 
 function bindTableSort(container) {
@@ -118,7 +158,13 @@ async function render() {
   }
 
   if (route.view === 'oem') {
-    app.innerHTML = renderOemIndex(state.site, state.devices);
+    app.innerHTML = renderOemIndex(state.site, state.devices, state.oemAccountability);
+    return;
+  }
+
+  if (route.view === 'product' && route.groupId) {
+    const group = state.productGroups.find((g) => g.groupId === route.groupId);
+    app.innerHTML = renderProductGroup(group, devicesBySlug(state.devices));
     return;
   }
 
@@ -130,6 +176,7 @@ async function render() {
     if (!d) { app.innerHTML = '<p>Device not found.</p>'; return; }
     const history = await loadHistory(route.slug);
     app.innerHTML = renderDeviceDetail(d, history, state.glossary);
+    attachDeviceDetailApiToggle(app);
     attachSparkline(app, history);
     return;
   }
@@ -151,6 +198,7 @@ async function render() {
     search: state.search,
     oem: state.oem,
     trust: state.trust,
+    hideShipBlockers: state.hideShipBlockers,
     wishlist: getWishlistSelected(),
     sortKey: state.sortKey,
     sortDir: state.sortDir,
@@ -166,6 +214,8 @@ async function boot() {
   try {
     state.site = await loadJson('data/site.json');
     state.devices = await loadDevices(state.site.deviceSlugs || []);
+    try { state.productGroups = (await loadJson('data/product_groups.json')).groups || []; } catch { /* */ }
+    try { state.oemAccountability = await loadJson('data/oem_accountability.json'); } catch { /* */ }
     try { state.glossary = await loadJson('data/glossary.json'); } catch { /* */ }
   } catch (e) {
     document.getElementById('app').innerHTML = `<div class="cta-box"><p>Leaderboard data not published yet. Run <code>pns_leaderboard_site_publish.ps1</code>.</p></div>`;
@@ -173,6 +223,8 @@ async function boot() {
   }
   populateOemFilter();
   bindToolbar();
+  updateFooterStaleNote(state.site);
+  applyPreset('most_capable');
   window.addEventListener('pns-route', render);
   window.addEventListener('hashchange', render);
   await render();

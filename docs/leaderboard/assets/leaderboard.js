@@ -1,7 +1,19 @@
-import { trustBadge, fmtNum, progressBar, cellChip, apiLevelBadge } from './theme.js';
+import { trustBadge, fmtNum, progressBar, cellChip, apiLevelBadge, sensorSumLabel, sensorSourceNote, gsmarenaLinkHtml } from './theme.js';
 
 const PERSONA_SORT = {
-  default: (a, b) => (b.scores?.total?.percent ?? 0) - (a.scores?.total?.percent ?? 0),
+  default: (a, b) => (b.scores?.total?.score ?? 0) - (a.scores?.total?.score ?? 0),
+  most_capable: (a, b) => (b.scores?.total?.score ?? 0) - (a.scores?.total?.score ?? 0),
+  best_value: (a, b) => (b.value?.parityPerUsd ?? 0) - (a.value?.parityPerUsd ?? 0),
+  pro_photo: (a, b) => {
+    const aRaw = a.rawSummary?.dngProven ? 1 : 0;
+    const bRaw = b.rawSummary?.dngProven ? 1 : 0;
+    if (bRaw !== aRaw) return bRaw - aRaw;
+    const aBet = a.resolutionBetrayal?.index ?? 100;
+    const bBet = b.resolutionBetrayal?.index ?? 100;
+    if (aBet !== bBet) return aBet - bBet;
+    return (b.sensors?.sensorSumMm2 ?? 0) - (a.sensors?.sensorSumMm2 ?? 0);
+  },
+  custom_rom: (a, b) => (b.disparity?.honestyPercent ?? 0) - (a.disparity?.honestyPercent ?? 0),
   photographer: (a, b) => (b.sensors?.sensorSumMm2 ?? 0) - (a.sensors?.sensorSumMm2 ?? 0),
   videographer: (a, b) => (b.videoSummary?.hfrMaxFps1080 ?? 0) - (a.videoSummary?.hfrMaxFps1080 ?? 0),
   tinkerer: (a, b) => (b.disparity?.honestyPercent ?? 0) - (a.disparity?.honestyPercent ?? 0),
@@ -12,7 +24,7 @@ export function personaSort(devices, persona) {
   return [...devices].sort(fn);
 }
 
-export function filterDevices(devices, { search, oem, trust, wishlist, minAntutu, minSensor, stockOnly }) {
+export function filterDevices(devices, { search, oem, trust, wishlist, minAntutu, minSensor, stockOnly, hideShipBlockers }) {
   return devices.filter((d) => {
     if (search) {
       const q = search.toLowerCase();
@@ -23,7 +35,9 @@ export function filterDevices(devices, { search, oem, trust, wishlist, minAntutu
     if (trust === 'maintainer' && d.meta?.trustTier !== 'maintainer') return false;
     if (trust === 'community' && d.meta?.trustTier === 'maintainer') return false;
     if (trust === 'exclude_root' && (d.software?.rootGranted || d.software?.romFlavor === 'custom_likely')) return false;
+    if (trust === 'custom_lane' && !['custom_likely', 'root_unlocked', 'engineering'].includes(d.software?.romFlavor)) return false;
     if (stockOnly && d.software?.romFlavor !== 'stock') return false;
+    if (hideShipBlockers && (d.oemLossSummary?.shipBlockerCount ?? 0) > 0) return false;
     if (minAntutu && (d.antutu?.total ?? 0) < minAntutu) return false;
     if (minSensor && (d.sensors?.sensorSumMm2 ?? 0) < minSensor) return false;
     if (wishlist?.length) {
@@ -62,42 +76,60 @@ function lensStripHtml(d) {
 }
 
 function withheldPills(d) {
-  const w = (d.withheldFeatures || []).slice(0, 3);
+  const w = d.withheldFeatures || [];
   if (!w.length) return '';
-  return `<div class="pills">${w.map((x) => `<span class="pill">${x.displayName || x.catalogId}</span>`).join('')}</div>`;
+  const ship = w.filter((x) => x.consumerImpact === 'SHIP_BLOCKER');
+  const rest = w.filter((x) => x.consumerImpact !== 'SHIP_BLOCKER');
+  const ordered = [...ship, ...rest].slice(0, 5);
+  return `<div class="pills">${ordered.map((x) => {
+    const cls = x.consumerImpact === 'SHIP_BLOCKER' ? 'pill pill-ship-blocker' : x.consumerImpact === 'ENGINEERING_ONLY' ? 'pill pill-engineering' : 'pill pill-info';
+    return `<span class="${cls}">${x.displayName || x.catalogId}</span>`;
+  }).join('')}</div>`;
 }
 
-export function renderDeviceCard(d, { selected, onToggleCompare, glossary }) {
+function betrayalBadge(d) {
+  const idx = d.resolutionBetrayal?.index;
+  if (idx == null) return '';
+  if (idx >= 50) return `<span class="badge badge-betrayal-high" title="Resolution withholding index">Res betrayal ${idx}</span>`;
+  if (idx >= 25) return `<span class="badge badge-betrayal-mid">Res betrayal ${idx}</span>`;
+  return '';
+}
+
+export function renderDeviceCard(d, { selected }) {
   const mode = d.meta?.lastSweepMode || '';
   const tier = d.meta?.trustTier || 'community_preview';
   const freshness = mode.toLowerCase() === 'full'
     ? '<span class="badge badge-full">Full sweep</span>'
     : '<span class="badge badge-quick">Quick sweep</span>';
-  const valueScore = d.identity?.msrpUsd && d.antutu?.total
-    ? Math.round(d.antutu.total / d.identity.msrpUsd)
-    : null;
+  const parityPerUsd = d.value?.parityPerUsd;
+  const gsmLink = gsmarenaLinkHtml(d);
+  const shipCount = d.oemLossSummary?.shipBlockerCount ?? 0;
   return `
     <article class="device-card" data-slug="${d.slug}">
       <h2><a href="#/device/${d.slug}">${d.identity?.marketingName || d.identity?.model}</a></h2>
-      <p class="sub">${d.identity?.manufacturer} ${d.identity?.model} · tested ${(d.meta?.lastSweepUtc || '').slice(0, 10)}${formatApiSubline(d)}</p>
+      <p class="sub">${d.identity?.manufacturer} ${d.identity?.model} · tested ${(d.meta?.lastSweepUtc || '').slice(0, 10)}${formatApiSubline(d)}${gsmLink ? ` · ${gsmLink}` : ''}</p>
       <div class="badges">
         ${trustBadge(tier, d.software?.romFlavor)}
         ${apiLevelBadge(d)}
         ${freshness}
+        ${betrayalBadge(d)}
+        ${shipCount ? `<span class="badge badge-ship-blocker">${shipCount} ship-blocker${shipCount > 1 ? 's' : ''}</span>` : ''}
         ${d.software?.romFlavor === 'stock' ? '<span class="badge badge-stock">Stock ROM</span>' : ''}
       </div>
       <div class="stat-row">
-        <div class="stat"><strong>${d.scores?.total?.percent ?? '—'}%</strong> Parity ${progressBar(d.scores?.total?.percent)}</div>
+        <div class="stat"><strong>#${d.scores?.rank ?? '—'}</strong> Rank</div>
+        <div class="stat"><strong>${d.scores?.total?.score ?? '—'}</strong> Parity pts <small class="muted">(${d.scores?.total?.percent ?? '—'}%)</small> ${progressBar(d.scores?.total?.percent)}</div>
         <div class="stat"><strong>${d.disparity?.honestyPercent ?? '—'}%</strong> Honesty ${progressBar(d.disparity?.honestyPercent)}</div>
         <div class="stat"><strong>${fmtNum(d.antutu?.total)}</strong> AnTuTu</div>
-        <div class="stat"><strong>${fmtNum(d.sensors?.sensorSumMm2)}</strong> mm² sensors</div>
-        ${valueScore ? `<div class="stat"><strong>${valueScore}</strong> Value (AnTuTu/$)</div>` : ''}
+        <div class="stat"><strong>${sensorSumLabel(d)}</strong> mm² sensors${sensorSourceNote(d) ? `<br><small class="muted">${sensorSourceNote(d)}</small>` : ''}</div>
+        ${parityPerUsd ? `<div class="stat"><strong>${parityPerUsd}</strong> Parity/$</div>` : ''}
       </div>
       <p class="video-line" style="font-size:0.8rem;color:var(--muted)">${videoOneLiner(d)}</p>
       ${lensStripHtml(d)}
       ${withheldPills(d)}
       <div style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
         <a class="btn btn-primary" href="#/device/${d.slug}">Details</a>
+        ${d.identity?.productGroupId ? `<a class="btn" href="#/product/${d.identity.productGroupId}">Product compare</a>` : ''}
         <label><input type="checkbox" data-compare="${d.slug}" ${selected ? 'checked' : ''}> Compare</label>
       </div>
     </article>`;
@@ -107,10 +139,12 @@ export function renderLeaderboardTable(devices, sortKey, sortDir, selectedSlugs)
   const cols = [
     { key: 'rank', label: '#', get: (d) => d.scores?.rank },
     { key: 'name', label: 'Device', get: (d) => d.identity?.marketingName },
-    { key: 'antutu', label: 'AnTuTu', get: (d) => d.antutu?.total ?? 0 },
-    { key: 'sensor', label: 'Sensor mm²', get: (d) => d.sensors?.sensorSumMm2 ?? 0 },
-    { key: 'parity', label: 'Parity %', get: (d) => d.scores?.total?.percent ?? 0 },
+    { key: 'parity', label: 'Parity pts', get: (d) => d.scores?.total?.score ?? 0 },
+    { key: 'value', label: 'Parity/$', get: (d) => d.value?.parityPerUsd ?? 0 },
     { key: 'honesty', label: 'Honesty %', get: (d) => d.disparity?.honestyPercent ?? 0 },
+    { key: 'betrayal', label: 'Res betrayal', get: (d) => d.resolutionBetrayal?.index ?? 0 },
+    { key: 'sensor', label: 'Sensor mm²', get: (d) => d.sensors?.sensorSumMm2 ?? 0 },
+    { key: 'video', label: 'HFR@1080', get: (d) => d.videoSummary?.hfrMaxFps1080 ?? 0 },
     { key: 'api', label: 'Tested API', get: (d) => d.software?.sdkInt ?? 0 },
     { key: 'oem', label: 'OEM', get: (d) => d.identity?.manufacturer },
   ];
@@ -132,11 +166,14 @@ export function renderLeaderboardTable(devices, sortKey, sortDir, selectedSlugs)
     <tr data-slug="${d.slug}">
       <td>${d.scores?.rank ?? '—'}</td>
       <td><a href="#/device/${d.slug}">${d.identity?.marketingName}</a>
-        ${trustBadge(d.meta?.trustTier, d.software?.romFlavor)}</td>
-      <td>${fmtNum(d.antutu?.total)}</td>
-      <td>${fmtNum(d.sensors?.sensorSumMm2)}</td>
-      <td>${d.scores?.total?.percent ?? '—'}%</td>
+        ${trustBadge(d.meta?.trustTier, d.software?.romFlavor)}
+        ${gsmarenaLinkHtml(d) ? `<br><small>${gsmarenaLinkHtml(d)}</small>` : ''}</td>
+      <td>${d.scores?.total?.score ?? '—'} <small class="muted">(${d.scores?.total?.percent ?? '—'}%)</small></td>
+      <td>${d.value?.parityPerUsd ?? '—'}</td>
       <td>${d.disparity?.honestyPercent ?? '—'}%</td>
+      <td>${d.resolutionBetrayal?.index ?? '—'}</td>
+      <td>${fmtNum(d.sensors?.sensorSumMm2)}</td>
+      <td>${d.videoSummary?.hfrMaxFps1080 ?? '—'}</td>
       <td>${d.software?.apiLevelLabel || (d.software?.sdkInt ? `API ${d.software.sdkInt}` : '—')}</td>
       <td>${d.identity?.manufacturer}</td>
       <td><input type="checkbox" data-compare="${d.slug}" ${selectedSlugs.has(d.slug) ? 'checked' : ''}></td>
@@ -149,7 +186,6 @@ export function renderHome(devices, state) {
   const sorted = personaSort(filtered, state.persona);
   const cards = sorted.map((d) => renderDeviceCard(d, {
     selected: state.compareSlugs.has(d.slug),
-    onToggleCompare: null,
   })).join('');
   const table = renderLeaderboardTable(sorted, state.sortKey, state.sortDir, state.compareSlugs);
   const compareBar = state.compareSlugs.size
@@ -160,9 +196,11 @@ export function renderHome(devices, state) {
        <a class="btn" href="https://github.com/edwardlthompson/point-and-shoot">Get the app</a></div>`
     : '';
   return `
+    <p class="disclosure-banner"><strong>Camera2 only:</strong> Rankings reflect tested third-party Camera2 capability — not the OEM camera app. <a href="#/oem">OEM accountability index</a></p>
+    <p class="hero-sub">Ranked by tested Camera2 capability (parity points from Full sweeps).</p>
     <div class="tabs">
       <button type="button" class="active" data-tab="leaderboard">Leaderboard</button>
-      <button type="button" data-tab="oem" onclick="location.hash='#/oem'">OEM Index</button>
+      <button type="button" data-tab="oem" onclick="location.hash='#/oem'">OEM accountability</button>
     </div>
     ${compareBar}
     ${table}

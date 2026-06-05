@@ -8,6 +8,8 @@ on:
       - 'docs/index.html'
       - 'docs/.nojekyll'
   workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
@@ -28,6 +30,10 @@ jobs:
           python-version: '3.12'
       - name: Scrape AnTuTu (non-blocking)
         run: python scripts/antutu_ranking_scrape.py || true
+      - name: Scrape GSMArena sensors (non-blocking)
+        run: python scripts/gsmarena_sensor_scrape.py || true
+      - name: Scrape GSMArena device specs (non-blocking)
+        run: python scripts/gsmarena_device_specs_scrape.py || true
 
   deploy:
     needs: antutu

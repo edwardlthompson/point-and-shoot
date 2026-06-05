@@ -1,33 +1,28 @@
 {
   "schema": "pns.fleet_leaderboard_device.v1",
-  "slug": "acf7a326d2a12131",
-  "deviceKey": "Sony|XQ-BE62|aa6273fd9666679d",
+  "slug": "3e2a7b88f6db66c0",
+  "deviceKey": "OnePlus|CPH2655|4917ad5d3e111fca",
   "identity": {
-    "manufacturer": "Sony",
-    "model": "XQ-BE62",
-    "marketingName": "Sony Xperia 5 V",
-    "fingerprintPrefix": "aa6273fd9666679d",
-    "specLinks": [
-      {
-        "label": "GSMArena",
-        "url": "https://www.gsmarena.com/sony_xperia_5_v-12534.php"
-      }
-    ],
-    "msrpUsd": 999,
+    "manufacturer": "OnePlus",
+    "model": "CPH2655",
+    "marketingName": "OnePlus CPH2655",
+    "fingerprintPrefix": "4917ad5d3e111fca",
+    "specLinks": [],
+    "msrpUsd": null,
     "variants": null,
-    "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-    "productGroupId": "sony-xperia-5-v",
+    "gsmarenaUrl": null,
+    "productGroupId": "oneplus-cph2655",
     "externalScores": null
   },
   "software": {
-    "sdkInt": 33,
-    "apiLevelLabel": "Android 13 (API 33)",
+    "sdkInt": 36,
+    "apiLevelLabel": "Android 16 (API 36)",
     "firstApiLevel": null,
-    "securityPatch": "2023-11-01",
+    "securityPatch": "2026-05-01",
     "rootGranted": false,
-    "romFlavor": "unknown",
-    "buildTags": null,
-    "buildDisplay": null
+    "romFlavor": "engineering",
+    "buildTags": "release-keys",
+    "buildDisplay": "BP4A.251205.006"
   },
   "measurementContext": {
     "api": "camera2",
@@ -35,93 +30,72 @@
     "oemCameraAppTested": false
   },
   "sensors": {
-    "sensorSumMm2": 219.47,
-    "sensorSumMethod": "gsmarena_type_fraction",
-    "source": "gsmarena",
-    "sourceLabel": "GSMArena sensor type",
-    "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+    "sensorSumMm2": 0,
+    "sensorSumMethod": "physical_mm2",
+    "source": "unavailable",
+    "sourceLabel": null,
+    "sourceUrl": null,
     "sensors": [],
-    "rearLenses": [
-      {
-        "rawLine": "48 MP, f/1.9, 24mm (wide), 1/1.35\", 1.12µm, dual pixel PDAF, OIS",
-        "megapixels": 48.0,
-        "focalLengthMm": 24.0,
-        "role": "wide",
-        "sensorTypeFraction": "1/1.35",
-        "widthMm": 15.05,
-        "heightMm": 11.29,
-        "areaMm2": 169.92
-      },
-      {
-        "rawLine": "12 MP, f/2.2, 16mm (ultrawide), 1/2.5\", dual pixel PDAF",
-        "megapixels": 12.0,
-        "focalLengthMm": 16.0,
-        "role": "ultrawide",
-        "sensorTypeFraction": "1/2.5",
-        "widthMm": 8.13,
-        "heightMm": 6.1,
-        "areaMm2": 49.55
-      }
-    ]
+    "rearLenses": []
   },
   "lensLineup": [
     {
-      "cameraId": "4",
-      "focalMm35": 16,
-      "megapixels": 12.824064
+      "cameraId": "3",
+      "focalMm35": 15,
+      "megapixels": 12.582912
     },
     {
       "cameraId": "0",
-      "focalMm35": 24,
-      "megapixels": 12.192768
+      "focalMm35": 23,
+      "megapixels": 12.582912
     },
     {
       "cameraId": "2",
-      "focalMm35": 24,
-      "megapixels": 12.192768
+      "focalMm35": 23,
+      "megapixels": 12.582912
     },
     {
-      "cameraId": "3",
-      "focalMm35": 48,
-      "megapixels": 12.712192
+      "cameraId": "4",
+      "focalMm35": 73,
+      "megapixels": 12.582912
     }
   ],
   "scores": {
     "features": {
-      "score": 1102,
-      "maxScore": 1540,
-      "percent": 71.6,
-      "cellCount": 154,
-      "provenCount": 105
+      "score": 1098,
+      "maxScore": 1570,
+      "percent": 69.9,
+      "cellCount": 157,
+      "provenCount": 103
     },
     "resolutions": {
-      "score": 120,
+      "score": 156,
       "maxScore": 220,
-      "percent": 54.5,
+      "percent": 70.9,
       "cellCount": 22,
       "provenCount": 12
     },
     "capabilities": {
-      "score": 194,
-      "maxScore": 396,
-      "percent": 49.0,
-      "gateCount": 66,
-      "cameraCount": 6
+      "score": 160,
+      "maxScore": 330,
+      "percent": 48.5,
+      "gateCount": 55,
+      "cameraCount": 5
     },
     "total": {
-      "score": 1416,
-      "maxScore": 2156,
-      "percent": 65.7
+      "score": 1414,
+      "maxScore": 2120,
+      "percent": 66.7
     },
-    "rank": 2
+    "rank": 3
   },
   "disparity": {
-    "advertisedCellCount": 108,
-    "provenAdvertisedCount": 95,
-    "honestyPercent": 88.0,
+    "advertisedCellCount": 119,
+    "provenAdvertisedCount": 93,
+    "honestyPercent": 78.2,
     "gapBreakdown": {
-      "GAP_ADVERTISED_NOT_PROVEN": 13,
-      "GAP_DELIVERY_MISMATCH": 1
+      "GAP_DELIVERY_MISMATCH": 1,
+      "GAP_ADVERTISED_NOT_PROVEN": 25
     }
   },
   "withheldFeatures": [
@@ -131,6 +105,54 @@
       "category": "Unknown",
       "gap": "GAP_ADVERTISED_NOT_PROVEN",
       "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.1080p",
+      "displayName": "video.av1.1080p",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.4k",
+      "displayName": "video.av1.4k",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.720p",
+      "displayName": "video.av1.720p",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.av1.8k",
+      "displayName": "video.av1.8k",
+      "category": "Unknown",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.hfr",
+      "displayName": "High-speed video (120+ fps)",
+      "category": "Video",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "advertised_not_surfaced",
+      "consumerImpact": "SHIP_BLOCKER"
+    },
+    {
+      "catalogId": "video.uhd60",
+      "displayName": "4K @ 60 fps regular",
+      "category": "Video",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "advertised_not_surfaced",
       "consumerImpact": "SHIP_BLOCKER"
     },
     {
@@ -177,6 +199,14 @@
       "catalogId": "still.tiff16",
       "displayName": "TIFF 16-bit export",
       "category": "Still capture",
+      "gap": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "consumerImpact": "ENGINEERING_ONLY"
+    },
+    {
+      "catalogId": "video.av1",
+      "displayName": "AV1 video",
+      "category": "Video",
       "gap": "GAP_ADVERTISED_NOT_PROVEN",
       "failReason": "not_proven",
       "consumerImpact": "ENGINEERING_ONLY"
@@ -387,13 +417,33 @@
     ],
     "Unknown": [
       {
-        "catalogId": "lens.aperture",
-        "displayName": "lens.aperture",
+        "catalogId": "still.resolution_maximum_map",
+        "displayName": "still.resolution_maximum_map",
         "advertised": false,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
         "failReason": "not_advertised",
+        "consumerImpact": "INFORMATIONAL"
+      },
+      {
+        "catalogId": "still.hidden_highres",
+        "displayName": "still.hidden_highres",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "INFORMATIONAL"
+      },
+      {
+        "catalogId": "lens.aperture",
+        "displayName": "lens.aperture",
+        "advertised": true,
+        "provenOk": true,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": null,
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
@@ -405,6 +455,16 @@
         "gap": null,
         "failReason": "not_advertised",
         "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "product.oem_app_manual_smoke",
+        "displayName": "product.oem_app_manual_smoke",
+        "advertised": false,
+        "provenOk": false,
+        "sessionOk": null,
+        "gap": null,
+        "failReason": "not_advertised",
+        "consumerImpact": "INFORMATIONAL"
       },
       {
         "catalogId": "root.max_res_unlock_cph2583",
@@ -539,41 +599,41 @@
       {
         "catalogId": "video.av1.720p",
         "displayName": "video.av1.720p",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
         "catalogId": "video.av1.1080p",
         "displayName": "video.av1.1080p",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
         "catalogId": "video.av1.4k",
         "displayName": "video.av1.4k",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
         "catalogId": "video.av1.8k",
         "displayName": "video.av1.8k",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
@@ -619,37 +679,37 @@
       {
         "catalogId": "video.hfr.24",
         "displayName": "video.hfr.24",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
         "catalogId": "video.hfr.30",
         "displayName": "video.hfr.30",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
         "catalogId": "video.hfr.60",
         "displayName": "video.hfr.60",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
         "catalogId": "video.hfr.120",
         "displayName": "video.hfr.120",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": "GAP_DELIVERY_MISMATCH",
@@ -659,11 +719,11 @@
       {
         "catalogId": "video.hfr.240",
         "displayName": "video.hfr.240",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
@@ -1535,21 +1595,21 @@
       {
         "catalogId": "video.av1",
         "displayName": "AV1 video",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
         "catalogId": "video.hfr",
         "displayName": "High-speed video (120+ fps)",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "advertised_not_surfaced",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
@@ -1635,11 +1695,11 @@
       {
         "catalogId": "video.uhd60",
         "displayName": "4K @ 60 fps regular",
-        "advertised": false,
+        "advertised": true,
         "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": "not_advertised",
+        "failReason": "advertised_not_surfaced",
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
@@ -1655,11 +1715,11 @@
       {
         "catalogId": "video.multicam_melt",
         "displayName": "Multicam Melt record",
-        "advertised": true,
-        "provenOk": true,
+        "advertised": false,
+        "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": null,
+        "failReason": "not_advertised",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
@@ -1851,11 +1911,11 @@
       {
         "catalogId": "preview.pip",
         "displayName": "Concurrent PiP preview",
-        "advertised": true,
-        "provenOk": true,
+        "advertised": false,
+        "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": null,
+        "failReason": "not_advertised",
         "consumerImpact": "ENGINEERING_ONLY"
       },
       {
@@ -1894,10 +1954,10 @@
         "catalogId": "raw.dng",
         "displayName": "RAW DNG capture",
         "advertised": true,
-        "provenOk": true,
+        "provenOk": false,
         "sessionOk": null,
         "gap": null,
-        "failReason": null,
+        "failReason": "advertised_not_surfaced",
         "consumerImpact": "INFORMATIONAL"
       },
       {
@@ -2024,7 +2084,7 @@
         },
         {
           "name": "hfr",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2037,12 +2097,12 @@
         {
           "name": "dcgZsl",
           "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
+          "appEnabled": true,
+          "sessionOk": true
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2054,8 +2114,8 @@
         },
         {
           "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
+          "advertised": true,
+          "appEnabled": true,
           "sessionOk": false
         },
         {
@@ -2072,15 +2132,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         }
       ]
     },
@@ -2089,13 +2149,13 @@
       "gates": [
         {
           "name": "raw",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
         {
           "name": "hfr",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2108,12 +2168,12 @@
         {
           "name": "dcgZsl",
           "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
+          "appEnabled": true,
+          "sessionOk": true
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2125,14 +2185,14 @@
         },
         {
           "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
+          "advertised": true,
+          "appEnabled": true,
           "sessionOk": false
         },
         {
           "name": "rawVideo",
-          "advertised": false,
-          "appEnabled": false,
+          "advertised": true,
+          "appEnabled": true,
           "sessionOk": false
         },
         {
@@ -2143,15 +2203,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         }
       ]
     },
@@ -2179,12 +2239,12 @@
         {
           "name": "dcgZsl",
           "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
+          "appEnabled": true,
+          "sessionOk": true
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2214,15 +2274,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         }
       ]
     },
@@ -2237,7 +2297,7 @@
         },
         {
           "name": "hfr",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2250,12 +2310,12 @@
         {
           "name": "dcgZsl",
           "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
+          "appEnabled": true,
+          "sessionOk": true
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2267,8 +2327,8 @@
         },
         {
           "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
+          "advertised": true,
+          "appEnabled": true,
           "sessionOk": false
         },
         {
@@ -2285,15 +2345,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         }
       ]
     },
@@ -2308,7 +2368,7 @@
         },
         {
           "name": "hfr",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2321,12 +2381,12 @@
         {
           "name": "dcgZsl",
           "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
+          "appEnabled": true,
+          "sessionOk": true
         },
         {
           "name": "av1",
-          "advertised": false,
+          "advertised": true,
           "appEnabled": false,
           "sessionOk": false
         },
@@ -2338,8 +2398,8 @@
         },
         {
           "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
+          "advertised": true,
+          "appEnabled": true,
           "sessionOk": false
         },
         {
@@ -2356,86 +2416,15 @@
         },
         {
           "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
+          "advertised": false,
+          "appEnabled": false,
+          "sessionOk": false
         },
         {
           "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        }
-      ]
-    },
-    {
-      "cameraId": "5",
-      "gates": [
-        {
-          "name": "raw",
           "advertised": false,
           "appEnabled": false,
           "sessionOk": false
-        },
-        {
-          "name": "hfr",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "face",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "dcgZsl",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "av1",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "hevc10",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "uhd60",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "rawVideo",
-          "advertised": false,
-          "appEnabled": false,
-          "sessionOk": false
-        },
-        {
-          "name": "dualVideo",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "multicamMelt",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
-        },
-        {
-          "name": "pipPreview",
-          "advertised": true,
-          "appEnabled": true,
-          "sessionOk": true
         }
       ]
     }
@@ -2443,22 +2432,26 @@
   "formatPickerHonestyScore": 68,
   "resolutionBetrayal": {
     "index": 0,
-    "cameraCount": 6,
+    "cameraCount": 5,
     "entries": [
       {
         "cameraId": "0",
         "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
-        "multiResJpeg": null,
+        "multiResJpeg": {
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
+        },
         "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
@@ -2467,14 +2460,18 @@
       {
         "cameraId": "1",
         "defaultJpeg": {
-          "width": 3264,
-          "height": 2448,
-          "mp": 7.990272
+          "width": 3280,
+          "height": 2464,
+          "mp": 8.08192
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
-        "defaultRawSensor": null,
+        "defaultRawSensor": {
+          "width": 3280,
+          "height": 2464,
+          "mp": 8.08192
+        },
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
         "hasLargerThanDefault": false
@@ -2482,17 +2479,17 @@
       {
         "cameraId": "2",
         "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
         "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
@@ -2501,17 +2498,17 @@
       {
         "cameraId": "3",
         "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
         "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
@@ -2520,29 +2517,18 @@
       {
         "cameraId": "4",
         "defaultJpeg": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
         "highResJpeg": null,
         "maxResMapJpeg": null,
         "multiResJpeg": null,
         "defaultRawSensor": {
-          "width": 4032,
-          "height": 3024,
-          "mp": 12.192768
+          "width": 4096,
+          "height": 3072,
+          "mp": 12.582912
         },
-        "highResRawSensor": null,
-        "maxResMapRawSensor": null,
-        "hasLargerThanDefault": false
-      },
-      {
-        "cameraId": "5",
-        "defaultJpeg": null,
-        "highResJpeg": null,
-        "maxResMapJpeg": null,
-        "multiResJpeg": null,
-        "defaultRawSensor": null,
         "highResRawSensor": null,
         "maxResMapRawSensor": null,
         "hasLargerThanDefault": false
@@ -2552,7 +2538,7 @@
   "oemLossSummary": {
     "measurementApi": "camera2",
     "oemCameraAppTested": false,
-    "shipBlockerCount": 1,
+    "shipBlockerCount": 7,
     "deliveryMismatchCount": 1,
     "topLosses": [
       {
@@ -2564,57 +2550,57 @@
         "consumerImpact": "SHIP_BLOCKER"
       },
       {
+        "catalogId": "video.av1.1080p",
+        "displayName": "video.av1.1080p",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.4k",
+        "displayName": "video.av1.4k",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.720p",
+        "displayName": "video.av1.720p",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.av1.8k",
+        "displayName": "video.av1.8k",
+        "category": "Unknown",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "not_proven",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.hfr",
+        "displayName": "High-speed video (120+ fps)",
+        "category": "Video",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "advertised_not_surfaced",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
+        "catalogId": "video.uhd60",
+        "displayName": "4K @ 60 fps regular",
+        "category": "Video",
+        "gap": "GAP_ADVERTISED_NOT_PROVEN",
+        "failReason": "advertised_not_surfaced",
+        "consumerImpact": "SHIP_BLOCKER"
+      },
+      {
         "catalogId": "audio.spatial",
         "displayName": "Spatial audio",
         "category": "Audio",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.heic",
-        "displayName": "HEIC still export",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.independent_tonal",
-        "displayName": "Independent tonal still",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.jxl",
-        "displayName": "JPEG XL still export",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.motion_photo",
-        "displayName": "Motion Photo",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "still.tiff16",
-        "displayName": "TIFF 16-bit export",
-        "category": "Still capture",
-        "gap": "GAP_ADVERTISED_NOT_PROVEN",
-        "failReason": "not_proven",
-        "consumerImpact": "ENGINEERING_ONLY"
-      },
-      {
-        "catalogId": "video.color.bt709",
-        "displayName": "video.color.bt709",
-        "category": "Unknown",
         "gap": "GAP_ADVERTISED_NOT_PROVEN",
         "failReason": "not_proven",
         "consumerImpact": "ENGINEERING_ONLY"
@@ -2623,11 +2609,11 @@
   },
   "cameraXSummary": null,
   "value": {
-    "msrpUsd": 999,
-    "parityPerUsd": 1.42
+    "msrpUsd": null,
+    "parityPerUsd": null
   },
   "videoSummary": {
-    "hfrMaxFps1080": 120,
+    "hfrMaxFps1080": 480,
     "video4k120Class": "blocked_unstable",
     "codecs": {
       "h264": true,
@@ -2637,7 +2623,7 @@
     }
   },
   "rawSummary": {
-    "dngProven": true,
+    "dngProven": false,
     "rawFormats": [],
     "maxRawMp": null
   },
@@ -2645,17 +2631,21 @@
     {
       "cameraId": "0",
       "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
-      "multiResJpeg": null,
+      "multiResJpeg": {
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
+      },
       "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
@@ -2664,14 +2654,18 @@
     {
       "cameraId": "1",
       "defaultJpeg": {
-        "width": 3264,
-        "height": 2448,
-        "mp": 7.990272
+        "width": 3280,
+        "height": 2464,
+        "mp": 8.08192
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
-      "defaultRawSensor": null,
+      "defaultRawSensor": {
+        "width": 3280,
+        "height": 2464,
+        "mp": 8.08192
+      },
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
       "hasLargerThanDefault": false
@@ -2679,17 +2673,17 @@
     {
       "cameraId": "2",
       "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
       "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
@@ -2698,17 +2692,17 @@
     {
       "cameraId": "3",
       "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
       "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
@@ -2717,50 +2711,30 @@
     {
       "cameraId": "4",
       "defaultJpeg": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
       "highResJpeg": null,
       "maxResMapJpeg": null,
       "multiResJpeg": null,
       "defaultRawSensor": {
-        "width": 4032,
-        "height": 3024,
-        "mp": 12.192768
+        "width": 4096,
+        "height": 3072,
+        "mp": 12.582912
       },
-      "highResRawSensor": null,
-      "maxResMapRawSensor": null,
-      "hasLargerThanDefault": false
-    },
-    {
-      "cameraId": "5",
-      "defaultJpeg": null,
-      "highResJpeg": null,
-      "maxResMapJpeg": null,
-      "multiResJpeg": null,
-      "defaultRawSensor": null,
       "highResRawSensor": null,
       "maxResMapRawSensor": null,
       "hasLargerThanDefault": false
     }
   ],
-  "antutu": {
-    "total": 1200000,
-    "cpu": 280000,
-    "gpu": 450000,
-    "mem": 280000,
-    "ux": 190000,
-    "matchedName": "Sony Xperia 5 V",
-    "matchConfidence": "manual_override",
-    "sourceMonth": "2026-06"
-  },
+  "antutu": null,
   "meta": {
-    "lastSweepUtc": "06/04/2026 13:05:41",
+    "lastSweepUtc": "06/05/2026 02:21:51",
     "lastSweepMode": "Full",
-    "appVersionCode": 22000,
+    "appVersionCode": 22001,
     "scanTier": "quick",
     "trustTier": "maintainer",
-    "testedApiLevel": "Android 13 (API 33)"
+    "testedApiLevel": "Android 16 (API 36)"
   }
 }

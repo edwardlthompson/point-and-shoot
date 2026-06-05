@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Point & Shoot — Fleet Camera Parity Leaderboard</title>
   <link rel="stylesheet" href="assets/style.css">
+  <link rel="alternate" type="application/rss+xml" href="data/feed.xml" title="Leaderboard RSS">
   <link rel="alternate" type="application/json" href="data/feed.json" title="Leaderboard feed">
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
       <h1><a href="#/">Camera Parity Leaderboard</a></h1>
-      <p class="tagline">Third-party Camera2 access vs OEM marketing — for informed phone purchases</p>
+      <p class="tagline">Tested Camera2 capability vs OEM marketing — for informed purchases and custom ROM buyers</p>
       <div class="header-actions">
         <button type="button" id="theme-toggle" aria-label="Toggle dark mode">Theme</button>
         <button type="button" id="methodology-toggle">How we score</button>
@@ -24,10 +25,12 @@
       <h2>Methodology</h2>
       <p>Scores reflect what third-party apps can access via Android Camera2 through Point & Shoot — not what the OEM camera app shows on the box.</p>
       <ul>
+        <li><strong>Parity pts:</strong> weighted total = features + resolutions + capabilities (proven 10 pts, matrix-gated skip 8, advertised-only 4; plus gate tiers). Higher absolute score ranks higher — not the same as “number of features confirmed.”</li>
         <li><strong>Features / Resolutions:</strong> catalog cells — proven (10 pts), matrix-gated skip (8), advertised-only (4)</li>
         <li><strong>Capabilities:</strong> per-camera feature gates — advertised + appEnabled + sessionOk</li>
         <li><strong>Honesty %:</strong> proven ÷ HAL-advertised cells</li>
         <li><strong>Tested API:</strong> Android version (SDK/API level) on the device when the parity sweep ran — OEM updates can change Camera2 behavior</li>
+        <li><strong>Sensor sum (mm²):</strong> combined physical area of rear cameras — from Camera2 HAL when scanned on-device, otherwise GSMArena published sensor types</li>
         <li><strong>Restriction Index:</strong> OEM composite (lower openness = more gating)</li>
       </ul>
       <p>AnTuTu scores are fleet averages from public rankings, not your specific unit.</p>
@@ -37,8 +40,14 @@
   </aside>
 
   <nav class="toolbar" id="toolbar">
+    <div class="buyer-presets">
+      <span class="preset-label">Presets:</span>
+      <button type="button" data-preset="most_capable" class="active">Most capable</button>
+      <button type="button" data-preset="best_value">Best value</button>
+      <button type="button" data-preset="pro_photo">Pro photo</button>
+      <button type="button" data-preset="custom_rom">Custom ROM</button>
+    </div>
     <div class="persona-presets">
-      <button type="button" data-persona="default" class="active">Default</button>
       <button type="button" data-persona="photographer">Photographer</button>
       <button type="button" data-persona="videographer">Videographer</button>
       <button type="button" data-persona="tinkerer">Tinkerer</button>
@@ -50,7 +59,9 @@
       <option value="maintainer">Fleet tested only</option>
       <option value="community">Community</option>
       <option value="exclude_root">Stock ROM only</option>
+      <option value="custom_lane">Custom ROM lane</option>
     </select>
+    <label class="wishlist-label"><input type="checkbox" id="filter-ship-safe"> Hide ship-blocker devices</label>
     <label class="wishlist-label">Wishlist:</label>
     <div id="wishlist" class="wishlist"></div>
   </nav>
@@ -58,8 +69,8 @@
   <main id="app" class="main"></main>
 
   <footer class="site-footer">
-    <p>Point & Shoot · <a href="data/feed.json">Device feed</a> · <a href="https://github.com/edwardlthompson/point-and-shoot">GitHub</a></p>
-    <p class="disclaimer">Camera2 parity ≠ OEM app experience. Scores reflect the Android API level noted on each entry. Root/custom ROM may change results.</p>
+    <p>Point & Shoot · <a href="data/feed.json">Device feed</a> · <a href="data/feed.xml">RSS</a> · <a href="data/leaderboard.csv">Download CSV</a> · <a href="https://github.com/edwardlthompson/point-and-shoot">GitHub</a></p>
+    <p class="disclaimer">Camera2 parity ≠ OEM app experience. GSMArena advertised rows are spec-sheet only. Scores reflect Full parity sweeps on the API level noted per device.</p>
   </footer>
 
   <script type="module" src="assets/app.js"></script>

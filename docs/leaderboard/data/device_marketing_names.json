@@ -8,7 +8,7 @@
       "antutuScoreOverride": { "total": 2100000, "cpu": 520000, "gpu": 850000, "mem": 380000, "ux": 350000 },
       "msrpUsd": 799,
       "specLinks": [
-        { "label": "GSMArena", "url": "https://www.gsmarena.com/oneplus_12-12773.php" },
+        { "label": "GSMArena", "url": "https://www.gsmarena.com/oneplus_12-12725.php" },
         { "label": "OnePlus", "url": "https://www.oneplus.com/12" }
       ],
       "variants": []
@@ -20,7 +20,32 @@
       "antutuScoreOverride": { "total": 1200000, "cpu": 280000, "gpu": 450000, "mem": 280000, "ux": 190000 },
       "msrpUsd": 999,
       "specLinks": [
-        { "label": "GSMArena", "url": "https://www.gsmarena.com/sony_xperia_5_v-12567.php" }
+        { "label": "GSMArena", "url": "https://www.gsmarena.com/sony_xperia_5_v-12534.php" }
+      ],
+      "variants": []
+    },
+    {
+      "model": "CPH2649",
+      "marketingName": "OnePlus 13",
+      "specLinks": [
+        { "label": "GSMArena", "url": "https://www.gsmarena.com/oneplus_13-13161.php" }
+      ],
+      "variants": [],
+      "note": "Add stock + Lineage Camera2 sweeps when onboarded (M19 P0 pair target)."
+    },
+    {
+      "model": "EXODUS 1",
+      "marketingName": "HTC Exodus 1",
+      "specLinks": [
+        { "label": "GSMArena", "url": "https://www.gsmarena.com/htc_exodus_1-9385.php" }
+      ],
+      "variants": []
+    },
+    {
+      "model": "PH-1",
+      "marketingName": "Essential PH-1",
+      "specLinks": [
+        { "label": "GSMArena", "url": "https://www.gsmarena.com/_essential_ph_1-8710.php" }
       ],
       "variants": []
     }

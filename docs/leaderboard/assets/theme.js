@@ -83,9 +83,101 @@ export function fmtNum(n) {
   return typeof n === 'number' ? n.toLocaleString() : n;
 }
 
+export function getGsmarenaUrl(device) {
+  if (device?.identity?.gsmarenaUrl) return device.identity.gsmarenaUrl;
+  const links = device?.identity?.specLinks;
+  const list = Array.isArray(links) ? links : links?.url ? [links] : [];
+  const match = list.find((l) => /gsmarena\.com/i.test(l?.url || ''));
+  if (match?.url) return match.url;
+  const src = device?.sensors?.sourceUrl;
+  if (/gsmarena\.com/i.test(src || '')) return src;
+  return null;
+}
+
+export function gsmarenaLinkHtml(device, className = 'ext-spec-link') {
+  const url = getGsmarenaUrl(device);
+  if (!url) return '';
+  const cls = className ? ` class="${className}"` : '';
+  return `<a href="${url}" target="_blank" rel="noopener noreferrer"${cls}>GSMArena</a>`;
+}
+
+export function specLinksHtml(device) {
+  const links = device?.identity?.specLinks;
+  const list = Array.isArray(links) ? links : links?.url ? [links] : [];
+  const gsmUrl = getGsmarenaUrl(device);
+  const parts = [];
+  if (gsmUrl) {
+    parts.push(`<a href="${gsmUrl}" target="_blank" rel="noopener noreferrer" class="ext-spec-link">GSMArena</a>`);
+  }
+  for (const l of list) {
+    if (!l?.url || /gsmarena\.com/i.test(l.url)) continue;
+    parts.push(`<a href="${l.url}" target="_blank" rel="noopener noreferrer">${l.label || 'Specs'}</a>`);
+  }
+  return parts.join(' · ');
+}
+
+export function sensorSumLabel(device) {
+  const mm2 = device?.sensors?.sensorSumMm2;
+  if (mm2 == null || mm2 === 0) return '—';
+  return fmtNum(mm2);
+}
+
+export function sensorSourceNote(device) {
+  const s = device?.sensors;
+  if (!s?.sourceLabel) return '';
+  const gsm = gsmarenaLinkHtml(device, 'ext-spec-link inline');
+  if (gsm && s.source === 'gsmarena') return gsm;
+  const url = s.sourceUrl ? ` <a href="${s.sourceUrl}" target="_blank" rel="noopener noreferrer">source</a>` : '';
+  return `${s.sourceLabel}${url}`;
+}
+
+export function renderRearLensTable(device) {
+  const lenses = device?.sensors?.rearLenses || [];
+  const hal = device?.sensors?.sensors || [];
+  if (lenses.length) {
+    const rows = lenses.map((l) => {
+      const type = l.sensorTypeFraction ? `${l.sensorTypeFraction}"` : '—';
+      const area = l.areaMm2 ? `${l.areaMm2} mm²` : '—';
+      const role = l.role || 'rear';
+      const mp = l.megapixels ? `${l.megapixels} MP` : '';
+      const focal = l.focalLengthMm ? `${l.focalLengthMm}mm` : '';
+      return `<tr><td>${role}</td><td>${[mp, focal].filter(Boolean).join(' · ') || '—'}</td><td>${type}</td><td>${area}</td></tr>`;
+    }).join('');
+    return `<table class="data-table sensor-table"><thead><tr><th>Role</th><th>Spec</th><th>Sensor type</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  if (hal.length) {
+    const rows = hal.map((s) =>
+      `<tr><td>${s.role || s.cameraId}</td><td>${s.megapixels ? `${Math.round(s.megapixels * 10) / 10} MP` : '—'}</td><td>${s.widthMm && s.heightMm ? `${s.widthMm}×${s.heightMm} mm` : '—'}</td><td>${s.areaMm2 ? `${s.areaMm2} mm²` : '—'}</td></tr>`
+    ).join('');
+    return `<table class="data-table sensor-table"><thead><tr><th>Role</th><th>MP</th><th>Physical size</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  return '<p>No sensor size data.</p>';
+}
+
 export function progressBar(pct) {
   const p = Math.min(100, Math.max(0, Number(pct) || 0));
   return `<div class="progress" title="${p}%"><span style="width:${p}%"></span></div>`;
+}
+
+export function glossaryLabel(text, glossary, termId) {
+  const term = glossary?.terms?.find((t) => t.id === termId);
+  if (!term) return text;
+  return `<span class="glossary-term" title="${term.definition.replace(/"/g, '&quot;')}">${text}</span>`;
+}
+
+export function renderSensorSvg(device) {
+  const lenses = device?.sensors?.rearLenses?.length
+    ? device.sensors.rearLenses.filter((l) => l.role !== 'selfie')
+    : (device?.sensors?.sensors || []).filter((s) => s.role !== 'FRONT');
+  if (!lenses.length) return '';
+  const max = Math.max(...lenses.map((l) => l.areaMm2 || 0), 1);
+  const bars = lenses.map((l, i) => {
+    const h = Math.max(4, ((l.areaMm2 || 0) / max) * 36);
+    const x = 8 + i * 48;
+    const y = 40 - h;
+    return `<rect x="${x}" y="${y}" width="32" height="${h}" fill="var(--accent)" rx="2"/><text x="${x + 16}" y="38" text-anchor="middle" font-size="8" fill="var(--muted)">${l.role || l.cameraId || i}</text>`;
+  }).join('');
+  return `<svg class="sensor-chart" viewBox="0 0 200 40" width="200" height="40">${bars}</svg>`;
 }
 
 export function cellChip(advertised, proven, gap) {

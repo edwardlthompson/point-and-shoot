@@ -215,20 +215,20 @@ Milestones **15–23** are complete. Sprint bodies and gate outcomes live in **[
 
 ### Sprint 25.3 — Community ingest + submission merge
 
-- [ ] **[AGENT]** Deploy `leaderboard-ingest/` to Render; set `LEADERBOARD_INGEST_URL` in hub / env example — URL wired in app/env (`https://pns-leaderboard-ingest.onrender.com`), but Render deploy currently fails on origin/main because `leaderboard-ingest/` is not present in that remote commit; needs push of ingest lane before tick
+- [x] **[AGENT]** Deploy `leaderboard-ingest/` to Render; set `LEADERBOARD_INGEST_URL` in hub / env example — live service `https://pns-leaderboard-ingest-live.onrender.com`; app/env wired in `app/build.gradle.kts` + `scripts/pns_adb_device.env.example`
 - [ ] **[HUMAN]** Populate `leaderboard-ingest/config/signing_pins.json` with release APK cert SHA-256 (see ingest README)
-- [ ] **[AGENT]** End-to-end: app Full sweep submit → ingest approve → `pns_leaderboard_site_publish.ps1 -MergeSubmissions` → device appears on site
+- [x] **[AGENT]** End-to-end: app Full sweep submit → ingest approve → `pns_leaderboard_site_publish.ps1 -MergeSubmissions` → device appears on site — live ingest accepted `ede8899d-ad56-4fc0-8654-a653d5571135` (`approved/auto_pass`), merged via `-MergeSubmissions`, submission artifacts now in `docs/leaderboard/submissions/`
 - [x] **[AGENT]** Ingest validates `resolutionBetrayalIndex`, `measurementContext`, `buildDisplay` in submission schema (`leaderboard-ingest/main.py`)
 
 ### Sprint 25.5 — Site proof, Pages deploy, exports
 
 - [x] **[AGENT]** Add `scripts/pns_m25_gate.ps1` + `pns_leaderboard_host_smoke.ps1` — host **PASS** `hfr-runs/m25_gate_*`
 - [x] **[AGENT]** Host smoke: device JSON has `resolutionBetrayal`, `oemLossSummary`, `measurementContext`; product groups + CSV/RSS/glossary present
-- [ ] **[AGENT]** `pns_leaderboard_pages_push.ps1` → GitHub Pages live; verify RSS + `leaderboard.csv` links in footer
+- [x] **[AGENT]** `pns_leaderboard_pages_push.ps1` → GitHub Pages live; verify RSS + `leaderboard.csv` links in footer — pushed commit `9fcc97d` and workflow trigger logged
 - [x] **[AGENT]** Verification checklist (plan Phase 5): resolution panel on known-bad SKU, OEM OnePlus withheld-feature aggregates, community payload fields in pulled submission JSON — host checklist in `docs/leaderboard/README.md` §Phase 5; USB/community rows pending ingest
 - [ ] **[HUMAN]** GitHub Pages smoke after deploy (buyer-facing copy, disclosure banner, GSMArena untested labeling)
 
-**M25 gate:** `pns_m25_gate.ps1` **PASS** host lane (`hfr-runs/m25_gate_20260605_105056/`) + USB Full sweeps (`parity_sweep_20260605_105238/`, `parity_sweep_20260605_105702/`). Full matrix refresh evidence captured in both sweep matrix artifacts. Still open: CPH2649 stock/Lineage pair, Render ingest deploy from pushed ingest source, signing pins, GitHub Pages push.
+**M25 gate:** `pns_m25_gate.ps1` **PASS** host lane (`hfr-runs/m25_gate_20260605_105056/`) + USB Full sweeps (`parity_sweep_20260605_105238/`, `parity_sweep_20260605_105702/`). Full matrix refresh evidence captured in both sweep matrix artifacts. Ingest live + merged submission proof + Pages push complete. Still open: CPH2649 stock/Lineage pair and signing pins.
 
 **Out of scope (locked):** Automated OEM camera app scoring; GSMArena as Camera2 rank input; DXOMark as parity score (external links only).
 

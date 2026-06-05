@@ -91,7 +91,7 @@ android {
         buildConfigField(
             "String",
             "LEADERBOARD_INGEST_URL",
-            "\"https://pns-leaderboard-ingest.onrender.com\"",
+            "\"https://pns-leaderboard-ingest-live.onrender.com\"",
         )
         buildConfigField(
             "String",

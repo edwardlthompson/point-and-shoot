@@ -2,7 +2,9 @@
 
 All notable changes to **Point & Shoot** are documented here. The project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions and [Semantic Versioning](https://semver.org/) once tagged releases begin.
 
-## Unreleased
+## [0.14.0-beta.8] - 2026-06-05
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.8.apk`
 
 - **GitHub release automation** — `scripts/pns_github_release.ps1` prepares semver version bumps, cuts CHANGELOG sections, and publishes GitHub releases with changelog body + APK (`Point-and-Shoot-{version}.apk`) + attached `CHANGELOG.md`. About → **What's new** / **Full changelog** open GitHub release notes.
 - **Milestone 23 hardening (in progress, not shipped)** — workstream placeholder for fleet resilience improvements. Items below remain draft until M23 closeout gates pass.
@@ -15,7 +17,9 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 - **DNG safety and memory:** DNG/JPEG metadata writes now stage bytes before final URI replacement to reduce truncate-risk windows and lower peak post-patch churn.
 - **Fleet matrix/catalog correctness:** policy/visibility/parity semantics tightened for cross-device consistency.
 - **Fleet focal + parity hardening:** focal resolver now fails closed for non-openable ids and parity sweep can promote optional subtracks to blocking via script flag when requested.
+## Unreleased
 
+_(Nothing yet — add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
 ## [0.14.0-beta.7] - 2026-06-04
 
 Pre-release for **Milestone 24 reliability hardening**, fleet truth wiring, and ReferenceApp naming/fixture migration cleanup.

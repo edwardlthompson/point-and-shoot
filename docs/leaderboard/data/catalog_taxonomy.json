@@ -1,51 +1,36 @@
 {
   "schema": "pns.catalog_taxonomy.v1",
   "catalogVersion": 3,
-  "updatedUtc": "2026-06-05T11:20:09.6667749Z",
+  "updatedUtc": "2026-06-06T04:45:43.0854337Z",
   "rows": [
     {
-      "id": "still.$fmt",
-      "displayName": "Still $fmt export",
-      "category": "Still capture"
+      "id": "af.macro",
+      "displayName": "Super Macro",
+      "category": "Face & AF"
     },
     {
-      "id": "preview.measured_fps",
-      "displayName": "Preview measured FPS",
-      "category": "Preview HUD"
+      "id": "af.rack",
+      "displayName": "Rack focus pull",
+      "category": "Face & AF"
     },
     {
-      "id": "video.dcg_hdr",
-      "displayName": "HDR / DCG video",
+      "id": "video.hevc",
+      "displayName": "HEVC video",
       "category": "Video"
     },
     {
-      "id": "hud.zebra",
-      "displayName": "Zebra / false color",
-      "category": "Preview HUD"
+      "id": "fleet.macro_benchmark_export",
+      "displayName": "Fleet macro benchmark CSV",
+      "category": "Fleet"
     },
     {
-      "id": "preview.ae_lock",
-      "displayName": "Preview AE lock",
-      "category": "Preview HUD"
+      "id": "camerax.night",
+      "displayName": "CameraX NIGHT",
+      "category": "CameraX"
     },
     {
-      "id": "still.zsl",
-      "displayName": "ZSL still capture",
-      "category": "Still capture"
-    },
-    {
-      "id": "still.heic",
-      "displayName": "HEIC still export",
-      "category": "Still capture"
-    },
-    {
-      "id": "perf.$id",
-      "displayName": "Performance $id",
-      "category": "Performance"
-    },
-    {
-      "id": "hud.histogram",
-      "displayName": "Histogram",
+      "id": "preview.qr",
+      "displayName": "QR scan mode",
       "category": "Preview HUD"
     },
     {
@@ -59,94 +44,9 @@
       "category": "Face & AF"
     },
     {
-      "id": "video.prores_probe",
-      "displayName": "ProRes probe",
-      "category": "Video"
-    },
-    {
-      "id": "fleet.regression_pack",
-      "displayName": "Fleet regression pack",
-      "category": "Fleet"
-    },
-    {
-      "id": "hud.readout_strip",
-      "displayName": "Preview readout strip",
-      "category": "Preview HUD"
-    },
-    {
-      "id": "video.multicam_melt",
-      "displayName": "Multicam Melt record",
-      "category": "Video"
-    },
-    {
-      "id": "video.dual",
-      "displayName": "Dual video composite",
-      "category": "Video"
-    },
-    {
-      "id": "video.hevc",
-      "displayName": "HEVC video",
-      "category": "Video"
-    },
-    {
-      "id": "video.timelapse",
-      "displayName": "Time lapse video",
-      "category": "Video"
-    },
-    {
-      "id": "face.priority_ae",
-      "displayName": "Face-priority AE",
+      "id": "af.manual",
+      "displayName": "Manual focus (M dial)",
       "category": "Face & AF"
-    },
-    {
-      "id": "hud.focus_peaking",
-      "displayName": "Focus peaking",
-      "category": "Preview HUD"
-    },
-    {
-      "id": "still.jxl",
-      "displayName": "JPEG XL still export",
-      "category": "Still capture"
-    },
-    {
-      "id": "fleet.macro_benchmark_export",
-      "displayName": "Fleet macro benchmark CSV",
-      "category": "Fleet"
-    },
-    {
-      "id": "audio.spatial",
-      "displayName": "Spatial audio",
-      "category": "Audio"
-    },
-    {
-      "id": "video.raw",
-      "displayName": "RAW video",
-      "category": "Video"
-    },
-    {
-      "id": "fleet.parity_sweep",
-      "displayName": "Fleet Parity Sweep",
-      "category": "Fleet"
-    },
-    {
-      "id": "fleet.matrix",
-      "displayName": "Device capability matrix",
-      "category": "Fleet"
-    },
-    {
-      "id": "still.independent_tonal",
-      "displayName": "Independent tonal still",
-      "category": "Still capture"
-    },
-    {
-      "id": "lens.uw",
-      "displayName": "Ultra-wide native",
-      "category": "Lens"
-    },
-    {
-      "id": "video.side_panels",
-      "displayName": "Video side panels",
-      "category": "Video"
     },
     {
       "id": "lens.fleet_focal_row",
@@ -154,23 +54,128 @@
       "category": "Lens"
     },
     {
-      "id": "lens.focal_row",
-      "displayName": "Fleet adaptive focal row",
-      "category": "Lens"
+      "id": "video.raw_picker",
+      "displayName": "RAW video in format picker",
+      "category": "Video"
     },
     {
-      "id": "dial.$dial",
-      "displayName": "Command dial $dial",
-      "category": "Still capture"
+      "id": "video.raw",
+      "displayName": "RAW video",
+      "category": "Video"
     },
     {
-      "id": "tether.http",
-      "displayName": "Tether HTTP status",
+      "id": "tether.nsd",
+      "displayName": "NSD tether registrar",
       "category": "Fleet"
     },
     {
-      "id": "video.dual_iso",
-      "displayName": "Dual-ISO HDR merge",
+      "id": "video.side_panels",
+      "displayName": "Video side panels",
+      "category": "Video"
+    },
+    {
+      "id": "video.vp9",
+      "displayName": "VP9 WebM video",
+      "category": "Video"
+    },
+    {
+      "id": "fleet.matrix",
+      "displayName": "Device capability matrix",
+      "category": "Fleet"
+    },
+    {
+      "id": "still.tiff16",
+      "displayName": "TIFF 16-bit export",
+      "category": "Still capture"
+    },
+    {
+      "id": "session.$suffix",
+      "displayName": "Session $suffix",
+      "category": "Fleet"
+    },
+    {
+      "id": "face.priority_ae",
+      "displayName": "Face-priority AE",
+      "category": "Face & AF"
+    },
+    {
+      "id": "audio.external_mic",
+      "displayName": "External mic preference",
+      "category": "Audio"
+    },
+    {
+      "id": "video.h264",
+      "displayName": "H.264 video",
+      "category": "Video"
+    },
+    {
+      "id": "lens.ois",
+      "displayName": "Optical stabilization",
+      "category": "Lens"
+    },
+    {
+      "id": "hud.histogram",
+      "displayName": "Histogram",
+      "category": "Preview HUD"
+    },
+    {
+      "id": "lens.uw",
+      "displayName": "Ultra-wide native",
+      "category": "Lens"
+    },
+    {
+      "id": "product.obtainium_updates",
+      "displayName": "Obtainium update channel",
+      "category": "Fleet"
+    },
+    {
+      "id": "hud.zebra",
+      "displayName": "Zebra / false color",
+      "category": "Preview HUD"
+    },
+    {
+      "id": "fleet.deep_caps",
+      "displayName": "Deep caps probe",
+      "category": "Fleet"
+    },
+    {
+      "id": "still.nightscape",
+      "displayName": "Nightscape stacking",
+      "category": "Still capture"
+    },
+    {
+      "id": "lens.eis",
+      "displayName": "Electronic stabilization",
+      "category": "Lens"
+    },
+    {
+      "id": "hud.readout_strip",
+      "displayName": "Preview readout strip",
+      "category": "Preview HUD"
+    },
+    {
+      "id": "video.regular.1080p30",
+      "displayName": "1080p @ 30 fps (regular)",
+      "category": "Video"
+    },
+    {
+      "id": "still.avif",
+      "displayName": "10-bit AVIF still",
+      "category": "Still capture"
+    },
+    {
+      "id": "audio.hifi",
+      "displayName": "Hi-Fi AAC capture",
+      "category": "Audio"
+    },
+    {
+      "id": "audio.spatial",
+      "displayName": "Spatial audio",
+      "category": "Audio"
+    },
+    {
+      "id": "video.multicam_melt",
+      "displayName": "Multicam Melt record",
       "category": "Video"
     },
     {
@@ -179,19 +184,59 @@
       "category": "Lens"
     },
     {
-      "id": "tether.nsd",
-      "displayName": "NSD tether registrar",
-      "category": "Fleet"
-    },
-    {
-      "id": "root.hfr_unlock",
-      "displayName": "HFR above matrix ceiling",
-      "category": "Root"
-    },
-    {
       "id": "root.cpu_governor",
       "displayName": "CPU governor pin",
       "category": "Root"
+    },
+    {
+      "id": "fleet.parity_sweep",
+      "displayName": "Fleet Parity Sweep",
+      "category": "Fleet"
+    },
+    {
+      "id": "tether.$id",
+      "displayName": "Tether $id",
+      "category": "Fleet"
+    },
+    {
+      "id": "face.eye_af",
+      "displayName": "Eye-AF overlay",
+      "category": "Face & AF"
+    },
+    {
+      "id": "lens.focal_row",
+      "displayName": "Fleet adaptive focal row",
+      "category": "Lens"
+    },
+    {
+      "id": "workflow.presets_from_matrix",
+      "displayName": "Workflow presets from matrix",
+      "category": "Fleet"
+    },
+    {
+      "id": "video.dcg_hdr",
+      "displayName": "HDR / DCG video",
+      "category": "Video"
+    },
+    {
+      "id": "still.motion_photo",
+      "displayName": "Motion Photo",
+      "category": "Still capture"
+    },
+    {
+      "id": "lens.wide",
+      "displayName": "Wide native",
+      "category": "Lens"
+    },
+    {
+      "id": "dial.$dial",
+      "displayName": "Command dial $dial",
+      "category": "Still capture"
+    },
+    {
+      "id": "product.format_picker",
+      "displayName": "Format quality picker",
+      "category": "Fleet"
     },
     {
       "id": "root.vendor_keys",
@@ -199,24 +244,24 @@
       "category": "Root"
     },
     {
-      "id": "still.bracket",
-      "displayName": "Exposure bracketing (BKT dial)",
+      "id": "raw.ultra_max",
+      "displayName": "Ultra-Max imaging profile",
       "category": "Still capture"
     },
     {
-      "id": "still.nightscape",
-      "displayName": "Nightscape stacking",
-      "category": "Still capture"
+      "id": "hud.focus_peaking",
+      "displayName": "Focus peaking",
+      "category": "Preview HUD"
     },
     {
-      "id": "policy.os_flavor_plugin",
-      "displayName": "OS flavor fleet policy",
+      "id": "tether.http",
+      "displayName": "Tether HTTP status",
       "category": "Fleet"
     },
     {
-      "id": "af.rack",
-      "displayName": "Rack focus pull",
-      "category": "Face & AF"
+      "id": "camerax.hdr",
+      "displayName": "CameraX HDR",
+      "category": "CameraX"
     },
     {
       "id": "camerax.bokeh",
@@ -224,8 +269,13 @@
       "category": "CameraX"
     },
     {
-      "id": "still.avif",
-      "displayName": "10-bit AVIF still",
+      "id": "still.bracket",
+      "displayName": "Exposure bracketing (BKT dial)",
+      "category": "Still capture"
+    },
+    {
+      "id": "still.zsl",
+      "displayName": "ZSL still capture",
       "category": "Still capture"
     },
     {
@@ -234,49 +284,14 @@
       "category": "Preview HUD"
     },
     {
-      "id": "lens.eis",
-      "displayName": "Electronic stabilization",
-      "category": "Lens"
-    },
-    {
-      "id": "audio.hifi",
-      "displayName": "Hi-Fi AAC capture",
-      "category": "Audio"
-    },
-    {
-      "id": "camerax.hdr",
-      "displayName": "CameraX HDR",
-      "category": "CameraX"
-    },
-    {
-      "id": "audio.external_mic",
-      "displayName": "External mic preference",
-      "category": "Audio"
-    },
-    {
-      "id": "raw.dng",
-      "displayName": "RAW DNG capture",
+      "id": "still.independent_tonal",
+      "displayName": "Independent tonal still",
       "category": "Still capture"
     },
     {
-      "id": "product.obtainium_updates",
-      "displayName": "Obtainium update channel",
-      "category": "Fleet"
-    },
-    {
-      "id": "lens.ois",
-      "displayName": "Optical stabilization",
-      "category": "Lens"
-    },
-    {
-      "id": "af.macro",
-      "displayName": "Super Macro",
-      "category": "Face & AF"
-    },
-    {
-      "id": "video.regular.1080p30",
-      "displayName": "1080p @ 30 fps (regular)",
-      "category": "Video"
+      "id": "still.$fmt",
+      "displayName": "Still $fmt export",
+      "category": "Still capture"
     },
     {
       "id": "video.av1",
@@ -284,49 +299,24 @@
       "category": "Video"
     },
     {
-      "id": "product.format_picker",
-      "displayName": "Format quality picker",
-      "category": "Fleet"
-    },
-    {
-      "id": "focal.slot.$mm",
-      "displayName": "Focal slot ${mm}mm eq.",
-      "category": "Lens"
-    },
-    {
-      "id": "fleet.deep_caps",
-      "displayName": "Deep caps probe",
-      "category": "Fleet"
-    },
-    {
-      "id": "lens.wide",
-      "displayName": "Wide native",
-      "category": "Lens"
-    },
-    {
-      "id": "camerax.night",
-      "displayName": "CameraX NIGHT",
-      "category": "CameraX"
-    },
-    {
-      "id": "video.h264",
-      "displayName": "H.264 video",
-      "category": "Video"
-    },
-    {
-      "id": "session.$suffix",
-      "displayName": "Session $suffix",
-      "category": "Fleet"
-    },
-    {
       "id": "lens.tele",
       "displayName": "Tele native",
       "category": "Lens"
     },
     {
-      "id": "workflow.presets_from_matrix",
-      "displayName": "Workflow presets from matrix",
+      "id": "video.dual_iso",
+      "displayName": "Dual-ISO HDR merge",
+      "category": "Video"
+    },
+    {
+      "id": "fleet.regression_pack",
+      "displayName": "Fleet regression pack",
       "category": "Fleet"
+    },
+    {
+      "id": "video.timelapse",
+      "displayName": "Time lapse video",
+      "category": "Video"
     },
     {
       "id": "video.time_lapse",
@@ -339,43 +329,33 @@
       "category": "Still capture"
     },
     {
-      "id": "raw.ultra_max",
-      "displayName": "Ultra-Max imaging profile",
-      "category": "Still capture"
+      "id": "focal.slot.$mm",
+      "displayName": "Focal slot ${mm}mm eq.",
+      "category": "Lens"
     },
     {
-      "id": "video.vp9",
-      "displayName": "VP9 WebM video",
-      "category": "Video"
+      "id": "hud.$id",
+      "displayName": "Preview HUD",
+      "category": "qs_grid"
     },
     {
-      "id": "audio.$id",
-      "displayName": "Audio $id",
-      "category": "Audio"
-    },
-    {
-      "id": "tether.$id",
-      "displayName": "Tether $id",
+      "id": "policy.os_flavor_plugin",
+      "displayName": "OS flavor fleet policy",
       "category": "Fleet"
     },
     {
-      "id": "af.manual",
-      "displayName": "Manual focus (M dial)",
-      "category": "Face & AF"
-    },
-    {
-      "id": "face.eye_af",
-      "displayName": "Eye-AF overlay",
-      "category": "Face & AF"
-    },
-    {
-      "id": "video.raw_picker",
-      "displayName": "RAW video in format picker",
+      "id": "video.prores_probe",
+      "displayName": "ProRes probe",
       "category": "Video"
     },
     {
-      "id": "still.motion_photo",
-      "displayName": "Motion Photo",
+      "id": "root.hfr_unlock",
+      "displayName": "HFR above matrix ceiling",
+      "category": "Root"
+    },
+    {
+      "id": "raw.dng",
+      "displayName": "RAW DNG capture",
       "category": "Still capture"
     },
     {
@@ -384,19 +364,39 @@
       "category": "Fleet"
     },
     {
-      "id": "hud.$id",
-      "displayName": "Preview HUD",
-      "category": "qs_grid"
-    },
-    {
-      "id": "still.tiff16",
-      "displayName": "TIFF 16-bit export",
+      "id": "still.heic",
+      "displayName": "HEIC still export",
       "category": "Still capture"
     },
     {
-      "id": "preview.qr",
-      "displayName": "QR scan mode",
+      "id": "preview.ae_lock",
+      "displayName": "Preview AE lock",
       "category": "Preview HUD"
+    },
+    {
+      "id": "audio.$id",
+      "displayName": "Audio $id",
+      "category": "Audio"
+    },
+    {
+      "id": "still.jxl",
+      "displayName": "JPEG XL still export",
+      "category": "Still capture"
+    },
+    {
+      "id": "video.dual",
+      "displayName": "Dual video composite",
+      "category": "Video"
+    },
+    {
+      "id": "preview.measured_fps",
+      "displayName": "Preview measured FPS",
+      "category": "Preview HUD"
+    },
+    {
+      "id": "perf.$id",
+      "displayName": "Performance $id",
+      "category": "Performance"
     }
   ]
 }

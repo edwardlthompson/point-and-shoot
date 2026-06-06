@@ -1,28 +1,16 @@
 {
   "schema": "pns.fleet_leaderboard_site.v1",
-  "updatedUtc": "2026-06-05T11:20:07.8273644Z",
+  "updatedUtc": "2026-06-06T04:45:41.8611758Z",
   "catalogVersion": 3,
   "deviceCount": 5,
   "oemRankings": [
     {
-      "manufacturer": "Sony",
-      "opennessPercent": 88.0,
-      "gateHonestyPercent": 74.4,
-      "compositePercent": 82.6,
-      "restrictionIndex": 17.4,
-      "withheldFeatureCount": 13,
-      "deviceCount": 1,
-      "deviceSlugs": [
-        "acf7a326d2a12131"
-      ]
-    },
-    {
       "manufacturer": "OnePlus",
-      "opennessPercent": 83.5,
+      "opennessPercent": 90.9,
       "gateHonestyPercent": 89.8,
-      "compositePercent": 86.0,
-      "restrictionIndex": 14.0,
-      "withheldFeatureCount": 40,
+      "compositePercent": 90.5,
+      "restrictionIndex": 9.5,
+      "withheldFeatureCount": 23,
       "deviceCount": 2,
       "deviceSlugs": [
         "718a8115ff142454",
@@ -39,6 +27,18 @@
       "deviceCount": 1,
       "deviceSlugs": [
         "dff79fd1b3808b1d"
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "opennessPercent": 88.0,
+      "gateHonestyPercent": 74.4,
+      "compositePercent": 82.6,
+      "restrictionIndex": 17.4,
+      "withheldFeatureCount": 13,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "acf7a326d2a12131"
       ]
     },
     {

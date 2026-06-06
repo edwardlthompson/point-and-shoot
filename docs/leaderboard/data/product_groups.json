@@ -1,6 +1,6 @@
 {
   "schema": "pns.leaderboard_product_groups.v1",
-  "updatedUtc": "2026-06-06T05:00:03.6589303Z",
+  "updatedUtc": "2026-06-06T12:15:57.9679825Z",
   "groups": [
     {
       "groupId": "oneplus-12",
@@ -25,71 +25,8 @@
         "gsmarenaUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
         "advertisedClaims": [
           {
-            "catalogId": "still.resolution_tele",
-            "advertisedValue": "64 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
             "catalogId": "still.resolution_ultrawide",
             "advertisedValue": "48 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.tele",
-            "advertisedValue": "70mm tele",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (wide)",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "video.8k",
-            "advertisedValue": "yes",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "50 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "product.launch_date",
-            "advertisedValue": "Released 2023, December 11\n\r\n      220g, 9.2mm thickness\n\r\n      Android 14, up to 4 major upgrades\n\r\n      256GB/512GB/1TB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       7.3%\r\n      5,798,391 hits\r\n    \r\n      \r\n        798\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.82\"1440x3168 pixels\r\n    \r\n    \r\n      \r\n      50MP\r\n       4320p\r\n    \r\n      \r\n      12-24GB RAM \r\n      Snapdragon 8 Gen 3\r\n\r\n\r\n    \r\n    \r\n    \r\n    5400mAh100W50W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "video.4k",
-            "advertisedValue": "yes",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_max",
-            "advertisedValue": "64 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
-            "verified": false
-          },
-          {
-            "catalogId": "video.hfr.120",
-            "advertisedValue": "480fps",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
             "verified": false
@@ -102,8 +39,71 @@
             "verified": false
           },
           {
+            "catalogId": "product.launch_date",
+            "advertisedValue": "Released 2023, December 11\n\r\n      220g, 9.2mm thickness\n\r\n      Android 14, up to 4 major upgrades\n\r\n      256GB/512GB/1TB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       7.3%\r\n      5,798,391 hits\r\n    \r\n      \r\n        798\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.82\"1440x3168 pixels\r\n    \r\n    \r\n      \r\n      50MP\r\n       4320p\r\n    \r\n      \r\n      12-24GB RAM \r\n      Snapdragon 8 Gen 3\r\n\r\n\r\n    \r\n    \r\n    \r\n    5400mAh100W50W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.tele",
+            "advertisedValue": "70mm tele",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "video.8k",
+            "advertisedValue": "yes",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
             "catalogId": "lens.ois",
             "advertisedValue": "yes (tele)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (wide)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_wide",
+            "advertisedValue": "50 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "video.hfr.120",
+            "advertisedValue": "480fps",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_max",
+            "advertisedValue": "64 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "video.4k",
+            "advertisedValue": "yes",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_tele",
+            "advertisedValue": "64 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/oneplus_12-12725.php",
             "verified": false
@@ -129,6 +129,73 @@
       "advertisedSpec": null
     },
     {
+      "groupId": "essential-ph-1",
+      "marketingName": "Essential PH-1",
+      "testedVariants": [
+        {
+          "lineItemKind": "camera2_tested",
+          "romFlavor": "custom_likely",
+          "slug": "dff79fd1b3808b1d",
+          "testedApiLevel": "Android 15 (API 35)",
+          "parityScore": 1430,
+          "honestyPercent": 88.4,
+          "trustTier": "maintainer",
+          "resolutionBetrayalIndex": 0
+        }
+      ],
+      "advertisedSpec": {
+        "lineItemKind": "advertised_gsmarena",
+        "measurementStatus": "advertised_spec_untested",
+        "trustTier": "advertised_spec",
+        "source": "gsmarena",
+        "gsmarenaUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+        "advertisedClaims": [
+          {
+            "catalogId": "video.hfr.120",
+            "advertisedValue": "120fps",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          },
+          {
+            "catalogId": "product.launch_date",
+            "advertisedValue": "Released 2017, August\n\r\n      185g, 7.8mm thickness\n\r\n      Android 7.1, up to Android 10\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.2%\r\n      2,044,074 hits\r\n    \r\n      \r\n        417\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      5.71\"1312x2560 pixels\r\n    \r\n    \r\n      \r\n      13MP\r\n       2160p\r\n    \r\n      \r\n      4GB RAM \r\n      Snapdragon 835\r\n\r\n\r\n    \r\n    \r\n    \r\n    3040mAh27W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nHands-onPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\nVersions: Unlocked; Sprint\r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_unknown",
+            "advertisedValue": "13 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          },
+          {
+            "catalogId": "product.msrp",
+            "advertisedValue": "About 330 EUR",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          },
+          {
+            "catalogId": "video.4k",
+            "advertisedValue": "yes",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_max",
+            "advertisedValue": "13 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
+            "verified": false
+          }
+        ]
+      }
+    },
+    {
       "groupId": "sony-xperia-5-v",
       "marketingName": "Sony Xperia 5 V",
       "testedVariants": [
@@ -151,36 +218,8 @@
         "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
         "advertisedClaims": [
           {
-            "catalogId": "video.4k",
-            "advertisedValue": "yes",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          },
-          {
             "catalogId": "still.resolution_ultrawide",
             "advertisedValue": "12 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          },
-          {
-            "catalogId": "lens.ois",
-            "advertisedValue": "yes (wide)",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          },
-          {
-            "catalogId": "product.launch_date",
-            "advertisedValue": "Released 2023, September 25\n\r\n      182g, 8.6mm thickness\n\r\n      Android 13, up to Android 15\n\r\n      128GB/256GB storage, microSDXC  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       3.3%\r\n      2,771,435 hits\r\n    \r\n      \r\n        382\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.1\"1080x2520 pixels\r\n    \r\n    \r\n      \r\n      48MP\r\n       2160p\r\n    \r\n      \r\n      8GB RAM \r\n      Snapdragon 8 Gen 2\r\n\r\n\r\n    \r\n    \r\n    \r\n    5000mAh30W11W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_wide",
-            "advertisedValue": "48 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
             "verified": false
@@ -193,8 +232,15 @@
             "verified": false
           },
           {
-            "catalogId": "product.msrp",
-            "advertisedValue": "&#36;&thinsp;2,435.00 / &#8364;&thinsp;573.64 / &#163;&thinsp;449.99",
+            "catalogId": "lens.ois",
+            "advertisedValue": "yes (wide)",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+            "verified": false
+          },
+          {
+            "catalogId": "still.resolution_wide",
+            "advertisedValue": "48 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
             "verified": false
@@ -202,6 +248,27 @@
           {
             "catalogId": "still.resolution_max",
             "advertisedValue": "48 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+            "verified": false
+          },
+          {
+            "catalogId": "video.4k",
+            "advertisedValue": "yes",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+            "verified": false
+          },
+          {
+            "catalogId": "product.launch_date",
+            "advertisedValue": "Released 2023, September 25\n\r\n      182g, 8.6mm thickness\n\r\n      Android 13, up to Android 15\n\r\n      128GB/256GB storage, microSDXC  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       3.3%\r\n      2,771,435 hits\r\n    \r\n      \r\n        382\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.1\"1080x2520 pixels\r\n    \r\n    \r\n      \r\n      48MP\r\n       2160p\r\n    \r\n      \r\n      8GB RAM \r\n      Snapdragon 8 Gen 2\r\n\r\n\r\n    \r\n    \r\n    \r\n    5000mAh30W11W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
+            "verified": false
+          },
+          {
+            "catalogId": "product.msrp",
+            "advertisedValue": "&#36;&thinsp;2,435.00 / &#8364;&thinsp;573.64 / &#163;&thinsp;449.99",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
             "verified": false
@@ -232,15 +299,22 @@
         "gsmarenaUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
         "advertisedClaims": [
           {
-            "catalogId": "video.4k",
-            "advertisedValue": "yes",
+            "catalogId": "still.resolution_unknown",
+            "advertisedValue": "12 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
           },
           {
-            "catalogId": "still.resolution_unknown",
-            "advertisedValue": "12 MP",
+            "catalogId": "still.resolution_max",
+            "advertisedValue": "16 MP",
+            "source": "gsmarena",
+            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
+            "verified": false
+          },
+          {
+            "catalogId": "product.msrp",
+            "advertisedValue": "About BTC 0.15/ETH 4.78(crypto curr)",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
@@ -260,22 +334,22 @@
             "verified": false
           },
           {
-            "catalogId": "product.msrp",
-            "advertisedValue": "About BTC 0.15/ETH 4.78(crypto curr)",
+            "catalogId": "product.launch_date",
+            "advertisedValue": "Released 2018, December 06\n\r\n      188g, 8.7mm thickness\n\r\n      Android 8.1\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.1%\r\n      1,014,784 hits\r\n    \r\n      \r\n        146\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.0\"1440x2880 pixels\r\n    \r\n    \r\n      \r\n      16MP\r\n       2160p\r\n    \r\n      \r\n      6GB RAM \r\n      Snapdragon 845\r\n\r\n\r\n    \r\n    \r\n    \r\n    3500mAh18W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
           },
           {
-            "catalogId": "still.resolution_max",
+            "catalogId": "still.resolution_unknown",
             "advertisedValue": "16 MP",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
           },
           {
-            "catalogId": "product.launch_date",
-            "advertisedValue": "Released 2018, December 06\n\r\n      188g, 8.7mm thickness\n\r\n      Android 8.1\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.1%\r\n      1,014,784 hits\r\n    \r\n      \r\n        146\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.0\"1440x2880 pixels\r\n    \r\n    \r\n      \r\n      16MP\r\n       2160p\r\n    \r\n      \r\n      6GB RAM \r\n      Snapdragon 845\r\n\r\n\r\n    \r\n    \r\n    \r\n    3500mAh18W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+            "catalogId": "video.4k",
+            "advertisedValue": "yes",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
             "verified": false
@@ -285,80 +359,6 @@
             "advertisedValue": "yes (unknown)",
             "source": "gsmarena",
             "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_unknown",
-            "advertisedValue": "16 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/htc_exodus_1-9385.php",
-            "verified": false
-          }
-        ]
-      }
-    },
-    {
-      "groupId": "essential-ph-1",
-      "marketingName": "Essential PH-1",
-      "testedVariants": [
-        {
-          "lineItemKind": "camera2_tested",
-          "romFlavor": "custom_likely",
-          "slug": "dff79fd1b3808b1d",
-          "testedApiLevel": "Android 15 (API 35)",
-          "parityScore": 1370,
-          "honestyPercent": 80.2,
-          "trustTier": "maintainer",
-          "resolutionBetrayalIndex": 0
-        }
-      ],
-      "advertisedSpec": {
-        "lineItemKind": "advertised_gsmarena",
-        "measurementStatus": "advertised_spec_untested",
-        "trustTier": "advertised_spec",
-        "source": "gsmarena",
-        "gsmarenaUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
-        "advertisedClaims": [
-          {
-            "catalogId": "product.launch_date",
-            "advertisedValue": "Released 2017, August\n\r\n      185g, 7.8mm thickness\n\r\n      Android 7.1, up to Android 10\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.2%\r\n      2,044,074 hits\r\n    \r\n      \r\n        417\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      5.71\"1312x2560 pixels\r\n    \r\n    \r\n      \r\n      13MP\r\n       2160p\r\n    \r\n      \r\n      4GB RAM \r\n      Snapdragon 835\r\n\r\n\r\n    \r\n    \r\n    \r\n    3040mAh27W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nHands-onPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\nVersions: Unlocked; Sprint\r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
-            "verified": false
-          },
-          {
-            "catalogId": "video.4k",
-            "advertisedValue": "yes",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_max",
-            "advertisedValue": "13 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
-            "verified": false
-          },
-          {
-            "catalogId": "still.resolution_unknown",
-            "advertisedValue": "13 MP",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
-            "verified": false
-          },
-          {
-            "catalogId": "product.msrp",
-            "advertisedValue": "About 330 EUR",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
-            "verified": false
-          },
-          {
-            "catalogId": "video.hfr.120",
-            "advertisedValue": "120fps",
-            "source": "gsmarena",
-            "sourceUrl": "https://www.gsmarena.com/_essential_ph_1-8710.php",
             "verified": false
           }
         ]

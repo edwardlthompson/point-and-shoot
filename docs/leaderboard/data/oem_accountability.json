@@ -1,43 +1,8 @@
 {
   "schema": "pns.leaderboard_oem_accountability.v1",
-  "updatedUtc": "2026-06-06T05:00:03.6614448Z",
+  "updatedUtc": "2026-06-06T12:15:57.9700456Z",
   "subtitle": "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
   "oems": [
-    {
-      "manufacturer": "HTC",
-      "restrictionIndex": 26.5,
-      "opennessPercent": 87.0,
-      "gateHonestyPercent": 53.3,
-      "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 3,
-      "withheldFeatureCount": 16,
-      "deviceCount": 1,
-      "worstOffenders": [
-        {
-          "catalogId": "video.hfr.120",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.hfr.60",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "perf.first_frame_ms",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.hfr.30",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.heic",
-          "deviceCount": 1
-        }
-      ],
-      "deviceSlugs": [
-        "088f8b18916ff4ea"
-      ]
-    },
     {
       "manufacturer": "OnePlus",
       "restrictionIndex": 9.5,
@@ -49,64 +14,29 @@
       "deviceCount": 2,
       "worstOffenders": [
         {
-          "catalogId": "perf.first_frame_ms",
-          "deviceCount": 2
-        },
-        {
           "catalogId": "video.av1.720p",
           "deviceCount": 2
         },
         {
-          "catalogId": "video.av1.8k",
-          "deviceCount": 2
-        },
-        {
-          "catalogId": "still.independent_tonal",
+          "catalogId": "video.color.bt709",
           "deviceCount": 2
         },
         {
           "catalogId": "perf.cold_preview_ms",
+          "deviceCount": 2
+        },
+        {
+          "catalogId": "video.color.flat",
+          "deviceCount": 2
+        },
+        {
+          "catalogId": "video.av1",
           "deviceCount": 2
         }
       ],
       "deviceSlugs": [
         "718a8115ff142454",
         "3e2a7b88f6db66c0"
-      ]
-    },
-    {
-      "manufacturer": "Essential Products",
-      "restrictionIndex": 31.9,
-      "opennessPercent": 80.2,
-      "gateHonestyPercent": 50.0,
-      "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 1,
-      "withheldFeatureCount": 20,
-      "deviceCount": 1,
-      "worstOffenders": [
-        {
-          "catalogId": "still.monochrome_capture",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.hlg10",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.pq",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.av1",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.flat",
-          "deviceCount": 1
-        }
-      ],
-      "deviceSlugs": [
-        "dff79fd1b3808b1d"
       ]
     },
     {
@@ -120,11 +50,15 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
-          "catalogId": "video.delivery_honesty",
+          "catalogId": "video.color.pq",
           "deviceCount": 1
         },
         {
-          "catalogId": "still.tiff16",
+          "catalogId": "video.color.hlg10",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.hdr10",
           "deviceCount": 1
         },
         {
@@ -132,16 +66,82 @@
           "deviceCount": 1
         },
         {
-          "catalogId": "still.independent_tonal",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.hdr10",
+          "catalogId": "video.color.bt709",
           "deviceCount": 1
         }
       ],
       "deviceSlugs": [
         "acf7a326d2a12131"
+      ]
+    },
+    {
+      "manufacturer": "HTC",
+      "restrictionIndex": 26.5,
+      "opennessPercent": 87.0,
+      "gateHonestyPercent": 53.3,
+      "avgResolutionBetrayal": 0.0,
+      "totalShipBlockers": 3,
+      "withheldFeatureCount": 16,
+      "deviceCount": 1,
+      "worstOffenders": [
+        {
+          "catalogId": "raw.dng",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.uhd60",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "perf.cold_preview_ms",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.heic",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.4k_regular",
+          "deviceCount": 1
+        }
+      ],
+      "deviceSlugs": [
+        "088f8b18916ff4ea"
+      ]
+    },
+    {
+      "manufacturer": "Essential Products",
+      "restrictionIndex": 27.0,
+      "opennessPercent": 88.4,
+      "gateHonestyPercent": 50.0,
+      "avgResolutionBetrayal": 0.0,
+      "totalShipBlockers": 1,
+      "withheldFeatureCount": 14,
+      "deviceCount": 1,
+      "worstOffenders": [
+        {
+          "catalogId": "raw.dng",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.av1.720p",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.4k_regular",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.bt709",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.monochrome_capture",
+          "deviceCount": 1
+        }
+      ],
+      "deviceSlugs": [
+        "dff79fd1b3808b1d"
       ]
     }
   ]

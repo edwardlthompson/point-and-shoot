@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_device_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Marketing/spec-sheet aggregation; not verified Camera2 capability.",
-  "scrapedUtc": "2026-06-06T04:41:49.906943+00:00",
+  "scrapedUtc": "2026-06-06T04:56:11.791495+00:00",
   "stale": true,
   "devices": [
     {

@@ -53,9 +53,9 @@
 - **Area:** preview / video
 - **Symptom:** Cold preview/video automation: `IllegalArgumentException: Surface was abandoned` on every `createCaptureSession`; `inAppVideoSaved` / `captureRawStill` never fire; `truthClass=blocked_unstable`
 - **Cause:** Main-thread `SurfaceTexture.setDefaultBufferSize` after `closeCamera` abandons the external-OES producer queue before Camera2 binds `OutputConfiguration`; rapid `maybeRestart` churn exhausts retry budget without GL-thread publish delay
-- **Fix shipped:** `LutCameraPreviewRenderer.queueSetPreviewBufferSize` (GL thread + 300ms publish delay); `maybeRestartBody` uses renderer path; bounded abandon rebuild retry (`HFR_SURFACE_ABANDON_RETRY_*`); video-primary lean warmup skips RAW/JPEG until record armed; `adbHfrFpsDeferred` warms ≤60 fps before HFR automation
-- **Do not:** Call `setDefaultBufferSize` on main thread in `maybeRestartBody` without USB proof; do not call `maybeRestart()` from `onSurfaceTextureAvailable` while `device != null` unless surface was null/invalid (Sprint 5.3 abandon regression)
-- **Proves OK:** `pns_photo_capture_verify.ps1` + `pns_in_app_video_verify.ps1` + `pns_4k120_verify.ps1` on **CPH2583** (pending device reconnect after 2026-06-05 reboot); host `pns_m24_gate.ps1 -HostOnly`; JVM `StrictHfrPolicyTest`
+- **Fix shipped:** `LutCameraPreviewRenderer.queueSetPreviewBufferSize` (GL thread + 300ms publish delay); `maybeRestartBody` uses renderer path; bounded abandon rebuild retry (`HFR_SURFACE_ABANDON_RETRY_*`); video-primary lean warmup skips RAW/JPEG until record armed (except `adbPendingRawStillAutomationCount`); pipeline teardown throttle + stable-session skip; `adbHfrFpsDeferred` warms ≤60 fps before HFR automation; `VideoRecordingController.safeMediaRecorderMaxAmplitude`
+- **Do not:** Call `setDefaultBufferSize` on main thread in `maybeRestartBody` without USB proof; do not call `maybeRestart()` from `onSurfaceTextureAvailable` while `device != null` unless surface was null/invalid (Sprint 5.3 abandon regression); do not skip RAW session rebuild when `wantsRawStillSurfacesInSession()` and `rawImageReader==null`
+- **Proves OK:** **CPH2583 USB** `photo_capture_verify_20260605_110845`, `in_app_video_verify_20260605_110935`, `verify_4k120_20260605_072906/attempt_3` (`TruthClass=blocked_unstable`, `hfrRoute=interleaved_primary`); `m24_gate_20260605_113804`; host detekt; JVM `StrictHfrPolicyTest`
 - **Also test:** `pns_m24_gate.ps1` full USB chain alone on one serial; never parallel with `pns_photo_capture_verify` on same device
 - **Touches:** `LutCameraPreviewRenderer.kt`, `PreviewEngineScreen.kt`, `StrictHfrPolicy.kt`
 - **Conflicts with:** `preview-chrome-ui-lock.mdc` (behavioral only)
@@ -574,6 +574,17 @@
 - **Proves OK:** `scripts/pns_fleet_matrix_scan.ps1 -ScanTier full` → `pass=True`, log `lensInfo rear=`, `scanTier=full cameras=`; artifact `hfr-runs/fleet_matrix_20260605_014559/`.
 - **Also test:** `scripts/pns_m25_gate.ps1 -HostOnly`; prefer SDK `platform-tools` on PATH for device scripts.
 - **Touches:** `CameraCapabilitiesProbe.kt`, `scripts/pns_fleet_matrix_scan.ps1`
+
+### REG-20260605-004 — H11 still-export + color-profile proof gates need deterministic automation seeds
+- **Status:** active
+- **Area:** capture | video | automation
+- **Symptom:** H11 residual rows (`still.jxl`, `still.motion_photo`, `still.tiff16`, `video.color.hdr10`, `video.color.hlg10`, `video.color.pq`) stayed red despite working camera session paths; still-export smoke aborted (`canCaptureStill=false`), and HLG always encoded as SDR.
+- **Cause:** Proof scripts launched still-export runs in `primary_photo=false` video lane (no JPEG capture surface), HLG verifier wrote invalid storage id (`hlg10` vs `hlg`), and HDR gate was over-strict on container VUI even when HDR SEI metadata was present.
+- **Fix shipped:** `pns_photo_capture_verify` now forces `pns_preview_primary_photo=true` for format-mode still-export smoke; parity manifest still-export waits raised to 70s (`MaxAttempts=1` retained); HLG verifier seeds `video_color_profile=hlg`; HDR verifier seeds DCG codec/profile deterministically and accepts vendor HDR SEI evidence (mastering + content-light + non-zero MaxCLL) when ffprobe VUI fields are reserved.
+- **Do not:** Revert still-export format mode to video-primary automation (`primary_photo=false`), do not seed HLG with `hlg10`, and do not require strict bt2020/smpte2084-only ffprobe VUI when HDR SEI metadata is present on this vendor path.
+- **Proves OK:** USB CPH2583 (`b5214fc6`) artifacts: `photo_capture_verify_20260606_015651` (JXL), `photo_capture_verify_20260606_015759` (TIFF16), `photo_capture_verify_20260606_015822` (motion photo), `video_color_profile_verify_20260605_220627_hlg10/gate.json` (`pass=true`), `hdr10_meta_verify_20260605_220910` + `hdr10_meta_verify_20260605_220955` (`GATE: PASS` for HDR10/PQ delegated lane).
+- **Also test:** `scripts/pns_fleet_parity_sweep.ps1 -Mode Full` after proof-script or manifest edits; `scripts/pns_photo_capture_verify.ps1 -PreviewStillFormat <fmt>`; keep capture/chrome gates sequential on one device.
+- **Touches:** `scripts/pns_photo_capture_verify.ps1`, `scripts/pns_video_color_profile_verify.ps1`, `scripts/pns_video_hdr10_metadata_verify.ps1`, `scripts/parity_proof_manifest.json`, `PreviewEngineScreen.kt`
 
 ---
 

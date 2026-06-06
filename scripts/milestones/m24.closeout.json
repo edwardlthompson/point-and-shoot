@@ -13,7 +13,7 @@
     "",
     "Milestone 24 is complete and moved to **`BUILD_PLAN_COMPLETED.md`** under **Milestone 24 4K120 closure section**, including Sprint **24.0+** gate outcomes and endurance artifacts."
   ],
-  "requiredCompletedHeading": "### Milestone 24 — 4K120 stability and truthfulness *(archived 2026-06-03)*",
+  "requiredCompletedHeading": "### Milestone 24 — 4K120 stability and truthfulness *(archived 2026-06-05)*",
   "requiredChangelogMentions": [
     "Milestone 24"
   ],
@@ -21,8 +21,10 @@
     "Milestone 24"
   ],
   "requiredPaths": [
-    "hfr-runs/m24_gate_20260605_065405",
-    "hfr-runs/m24_gate_20260605_060318"
+    "hfr-runs/m24_gate_20260605_113804",
+    "hfr-runs/photo_capture_verify_20260605_110845",
+    "hfr-runs/in_app_video_verify_20260605_110935",
+    "hfr-runs/verify_4k120_20260605_072906"
   ],
   "reportPrefix": "milestone_closeout_m24"
 }

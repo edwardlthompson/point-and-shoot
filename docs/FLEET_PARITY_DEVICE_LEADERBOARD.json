@@ -1,7 +1,49 @@
 {
   "schema": "pns.fleet_parity_device_leaderboard.v1",
-  "updatedUtc": "2026-06-05T11:32:26.2412634Z",
+  "updatedUtc": "2026-06-06T02:28:26.2118000Z",
   "entries": [
+    {
+      "deviceKey": "OnePlus|CPH2583|961221c0f0bc2eee",
+      "deviceLabel": "OnePlus CPH2583 [4fc6]",
+      "manufacturer": "OnePlus",
+      "model": "CPH2583",
+      "fingerprintSha256Prefix": "961221c0f0bc2eee",
+      "serialSuffix": "4fc6",
+      "lastSeenUtc": "2026-06-06T02:28:26.1980105Z",
+      "lastSweepTimestampUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSweepMode": "Full",
+      "lastSweepPass": true,
+      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_022410",
+      "score": {
+        "features": {
+          "score": 1218,
+          "maxScore": 1590,
+          "percent": 76.6,
+          "cellCount": 159,
+          "provenCount": 119
+        },
+        "resolutions": {
+          "score": 200,
+          "maxScore": 230,
+          "percent": 87.0,
+          "cellCount": 23,
+          "provenCount": 18
+        },
+        "capabilities": {
+          "score": 324,
+          "maxScore": 432,
+          "percent": 75.0,
+          "gateCount": 72,
+          "cameraCount": 6
+        },
+        "total": {
+          "score": 1742,
+          "maxScore": 2252,
+          "percent": 77.4
+        }
+      },
+      "rank": 1
+    },
     {
       "deviceKey": "Unknown|Unknown|961221c0f0bc2eee",
       "deviceLabel": "Unknown Unknown [4fc6]",
@@ -42,48 +84,6 @@
           "score": 422,
           "maxScore": 550,
           "percent": 76.7
-        }
-      },
-      "rank": 1
-    },
-    {
-      "deviceKey": "OnePlus|CPH2583|961221c0f0bc2eee",
-      "deviceLabel": "OnePlus CPH2583 [4fc6]",
-      "manufacturer": "OnePlus",
-      "model": "CPH2583",
-      "fingerprintSha256Prefix": "961221c0f0bc2eee",
-      "serialSuffix": "4fc6",
-      "lastSeenUtc": "2026-06-05T11:32:26.2302258Z",
-      "lastSweepTimestampUtc": "2026-06-05T11:32:26.0070407Z",
-      "lastSweepMode": "Delta",
-      "lastSweepPass": false,
-      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m26_gate_20260605_113034\\parity_delta",
-      "score": {
-        "features": {
-          "score": 264,
-          "maxScore": 350,
-          "percent": 75.4,
-          "cellCount": 35,
-          "provenCount": 26
-        },
-        "resolutions": {
-          "score": 110,
-          "maxScore": 140,
-          "percent": 78.6,
-          "cellCount": 14,
-          "provenCount": 9
-        },
-        "capabilities": {
-          "score": 324,
-          "maxScore": 432,
-          "percent": 75.0,
-          "gateCount": 72,
-          "cameraCount": 6
-        },
-        "total": {
-          "score": 698,
-          "maxScore": 922,
-          "percent": 75.7
         }
       },
       "rank": 2

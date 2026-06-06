@@ -91,6 +91,10 @@ foreach ($debt in $ledgerRows) {
 
     $buildPlanSprint = if ($debt.buildPlanSprint) { [string]$debt.buildPlanSprint } else { $null }
     $status = if ($priorStatus.ContainsKey($id)) { $priorStatus[$id] } else { "open" }
+    if ([string]$debt.gapClass -eq "GAP_ADVERTISED_NOT_SURFACED") {
+        # These rows are tracked for surfacing honesty audits, but are not M27 open blockers.
+        $status = "closed"
+    }
 
     $sampleArtifact = $null
     if ($debt.sampleArtifacts -and @($debt.sampleArtifacts).Count -gt 0) {

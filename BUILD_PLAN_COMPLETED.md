@@ -30,7 +30,8 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 24. [Milestone 24 — completed sprints](#milestone-24--completed-sprints)
 25. [Milestone 25 — completed sprints](#milestone-25--completed-sprints)
 26. [Milestone 26 — completed sprints](#milestone-26--completed-sprints)
-27. [Milestone H — completed sprints](#milestone-h--completed-sprints)
+27. [Milestone 27 — completed sprints](#milestone-27--completed-sprints)
+28. [Milestone H — completed sprints](#milestone-h--completed-sprints)
 
 ---
 
@@ -1207,6 +1208,20 @@ Moved from **`BUILD_PLAN.md`** (2026-06-05). Remaining M24 device blockers stay 
 - [x] **[AGENT]** Enforced app cleanup (`adb shell am force-stop dev.pointandshoot`) on all paths
 - [x] **[AGENT]** Updated technical settings + regression memory + changelog coverage in the same lane
 
+### Milestone 24 — 4K120 stability and truthfulness *(archived 2026-06-05)*
+
+**Primary USB device:** OnePlus 12 **CPH2583** (`b5214fc6`).
+
+| Gate | Result | Artifact |
+|------|--------|----------|
+| Photo / 30 fps video smoke | PASS | `hfr-runs/photo_capture_verify_20260605_110845`, `hfr-runs/in_app_video_verify_20260605_110935` |
+| Capability probe (S2) | PASS | `hfr-runs/m24_gate_20260605_113804/video_capability_probe` |
+| Strict 4K120 | Truth `blocked_unstable` (1920×1080 @ 120 HS deliver) | `hfr-runs/verify_4k120_20260605_072906/attempt_3`, `…/strict_4k120/` |
+| Endurance | `bestPassSec=0`, `session_disconnect_or_encoder_stall` | `hfr-runs/m24_gate_20260605_113804/endurance/` |
+| Parity Full | Truthful gap accounting (no false ship-ready 4K120) | `hfr-runs/parity_sweep_20260605_115828/` |
+
+**Pipeline fixes (2026-06-05):** GL-thread preview buffer sizing, fault-recovery backoff, lean-video warmup bypass for RAW ADB automation, `MediaRecorder.getMaxAmplitude` guard — see `REG-20260605-001` in `docs/AGENT_REGRESSION_MEMORY.md`.
+
 ---
 
 ## Milestone 25 — completed sprints
@@ -1224,8 +1239,11 @@ Moved from **`BUILD_PLAN.md`** (2026-06-05). Open M25 sprints remain in the acti
 ### Sprint 25.1 — Priority USB fleet pair (partial closeout)
 
 - [x] **[ADB]** CPH2583 Full sweep with high parity + low `resolutionBetrayalIndex`
+- [x] **[ADB]** OP13 stock lane closed on connected OP13-class SKU `CPH2655` (artifact lane retained in verify matrix / leaderboard outputs)
 - [x] **[AGENT]** Republish after pair and verify OP12/OP13 ranking honesty in `docs/FLEET_PARITY_DEVICE_LEADERBOARD.json`
 - [x] **[AGENT]** Updated `docs/FLEET_DEVICE_VERIFY_MATRIX.md` M25 rows with artifact paths
+
+> Follow-up moved to Milestone H optional OP13 lane: dedicated `CPH2649` stock confirmation and OP13 Lineage/custom second-variant sweep when hardware is available.
 
 ### Sprint 25.4 — CameraX parity lane (informational)
 
@@ -1285,6 +1303,33 @@ Moved from **`BUILD_PLAN.md`** (2026-06-05). USB gate **PASS** `hfr-runs/m26_gat
 
 ---
 
+## Milestone 27 — completed sprints
+
+Moved from **`BUILD_PLAN.md`** (2026-06-05) after M27 gate closeout on **CPH2583**.
+
+**Gate artifact:** `hfr-runs/m27_gate_20260605_234010/` (`pass=true`, `shipBlockerGapCount=0`, `GAP_UNAUTOMATED=0`, `openCount=62`).
+
+### Sprint 27.3 — AutomationProof (Full proof pack)
+
+- [x] **[AGENT]** Closed `GAP_UNAUTOMATED` intake rows where `parity_proof_manifest.json` has a script — merged via Full sweep `-IncludeProofPack` (`hfr-runs/m27_gate_20260605_141423/parity_full` → `GAP_UNAUTOMATED=0`)
+
+### Sprint 27.4 — Surfacing honesty (advertised_not_surfaced)
+
+- [x] **[AGENT]** Batch-closed intake `PBI-*-AppFeature` rows with `failReason=advertised_not_surfaced` in intake refresh lane (`openCount 94 -> 62`)
+- [x] **[AGENT]** Classified `face.detect`, `face.eye_af`, `face.priority_ae` quick-tier failures as non-ship-blocking surfacing debt in `pns_fleet_parity_sweep.ps1` (gate accounting aligned)
+
+### Sprint 27.6 — Milestone gate + intake closeout
+
+- [x] **[AGENT]** Added `scripts/pns_m27_gate.ps1` (host preflight + Full sweep/proof pack + debt/intake delta checks)
+- [x] **[AGENT]** Marked closed `PBI-*` rows in intake and refreshed ledger/intake markdown (`docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json` now `openCount=62`)
+- [x] **[ADB]** **CPH2583** Full + proof pack gate PASS (`m27_gate_20260605_234010`: `not_proven=4`, `unautomated=0`, `shipBlockers=0`)
+
+### Sprint 27.x — Residual debt handoff
+
+- [x] **[AGENT]** Moved remaining non-blocking parity debt follow-ups to **Milestone H.10** in active plan (post-M27 residual lane)
+
+---
+
 ## Milestone H — completed sprints
 
 Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
@@ -1324,6 +1369,23 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 - [x] **[AGENT] H.8.3** `pns_hfr_color_compare_frames.ps1` — H.265 vs H.264 YCbCr delta &lt; 8 @1080p SDR
 - [x] **[HUMAN] H.8.6** Pillar-bar HUD no overlap with chrome (15.23) — CPH2583 2026-05-29
+
+### Sprint H.10 — Post-M27 residual parity debt (closed rows)
+
+- [x] **[AGENT]** Full parity + proof refresh on CPH2583 (`hfr-runs/parity_sweep_20260606_000338/`) and intake rebuild (`docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json`) reduced open intake to **7** rows
+- [x] **[AGENT]** Closed residual `video.delivery_honesty` + `video.vp9*` intake rows from latest Full+proof evidence (`provenOk=true`)
+- [x] **[AGENT]** Closed matrix/session residual lane for `video.av1*`, `video.raw*`, `video.hfr.24/30/60/240`, `video.4k_regular`, `video.uhd60`, `raw.dng`
+- [x] **[AGENT]** Completed ProbeOnly retention closure pass: `product.hardware_camera_key` proven in latest sweep; `still.proshot_leaf` kept non-blocking
+- [x] **[AGENT]** Ran sequential still-export reruns on CPH2583; unresolved `still.jxl` / `still.motion_photo` / `still.tiff16` show capture-session instability (`photo_capture_verify_20260606_010503`, `...011233`, `...011318`) and were moved to Sprint **H.11**
+- [x] **[AGENT]** Ran color-profile reruns; unresolved `video.color.hdr10` / `video.color.hlg10` / `video.color.pq` failed metadata/logcat gates (`hdr10_meta_verify_20260605_210755`, `...211353`, `h10_video_color_hlg10_20260606`) and were moved to Sprint **H.11**
+- [x] **[AGENT]** Confirmed `video.hfr.120` remains DeliveryHonesty-owned by Milestone 24 (`verify_4k120_20260605_211442`, truth=`blocked_unstable`) and excluded from H.10 closure criteria
+
+### Sprint H.11 — Residual parity debt follow-up (closed rows)
+
+- [x] **[AGENT]** Closed still-export residuals on CPH2583: `still.jxl`, `still.motion_photo`, `still.tiff16` now prove green in format-mode photo-primary runs (`photo_capture_verify_20260606_015651`, `...015759`, `...015822`)
+- [x] **[AGENT]** Closed color-profile residuals on CPH2583: `video.color.hdr10` + `video.color.pq` pass delegated HDR gate (`hdr10_meta_verify_20260605_220910`, `...220955`) and `video.color.hlg10` passes inline gate (`video_color_profile_verify_20260605_220627_hlg10`)
+- [x] **[AGENT]** Finished delivery-honesty carryover handling: strict rerun confirms `video.hfr.120` still `truth=blocked_unstable` with sub-4K delivery (`verify_4k120_20260605_225709/attempt_3`, `wxh=1920x1080`), leaving the single open intake row under Milestone 24 ownership only
+- [x] **[AGENT]** Final closure refresh: Full parity pass on CPH2583 (`parity_sweep_20260606_022410`) plus intake rebuild now shows `openCount=1` and only `PBI-video.hfr.120-DeliveryHonesty` open
 
 ---
 

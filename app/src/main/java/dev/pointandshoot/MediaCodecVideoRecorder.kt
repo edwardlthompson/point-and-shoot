@@ -656,6 +656,11 @@ class MediaCodecVideoRecorder(
                         val muxFormat = MediaFormat(format).apply {
                             setInteger(MediaFormat.KEY_FRAME_RATE, targetFpsForPts)
                             runCatching { setInteger("capture-fps", targetFpsForPts) }
+                            if (config.encoderKind == VideoEncoderKind.HEVC) {
+                                // Some vendor codecs emit SDR defaults in output-format despite HDR input
+                                // configuration. Re-apply intended VUI/profile on mux track format.
+                                runCatching { applyHevcColorMetadata(this, config) }
+                            }
                         }
                         videoTrack =
                             runCatching { muxer?.addTrack(muxFormat) ?: -1 }

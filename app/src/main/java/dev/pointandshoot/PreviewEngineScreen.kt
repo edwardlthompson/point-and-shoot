@@ -4533,12 +4533,18 @@ fun PreviewEngineScreen(
         val readyFinal =
             if (nightSmoke) controller.canCaptureNightScape() else controller.canCaptureStill()
         if (!readyFinal) {
+            val readinessReason =
+                if (nightSmoke) {
+                    controller.composedCaptureBlockedReason(resolveActiveComposedPlan(composedStillIntent))
+                } else {
+                    controller.rawStillNotReadyReason()
+                } ?: "unknown"
             PnsAdbLog.e(
                 context,
                 if (nightSmoke) {
-                    "nightScape smoke aborted: canCaptureNightScape=false"
+                    "nightScape smoke aborted: canCaptureNightScape=false reason=$readinessReason"
                 } else {
-                    "composed still smoke aborted: canCaptureStill=false"
+                    "composed still smoke aborted: canCaptureStill=false reason=$readinessReason"
                 },
             )
             return@LaunchedEffect
@@ -13503,12 +13509,11 @@ private class PreviewController(
 
     /** Independent tonal still (hardware JPEG → JXL/AVIF/JPEG file). */
     fun canCaptureIndependentTonalStill(): Boolean {
-        val selected = selectedCameraId?.takeIf { it.isNotBlank() } ?: return false
+        selectedCameraId?.takeIf { it.isNotBlank() } ?: return false
         return wantsIndependentTonalStill &&
-            jpegImageReader != null &&
+            jpegCaptureSurface() != null &&
             session != null &&
             device != null &&
-            device?.id == selected &&
             desiredFps < 120 &&
             sessionCommittedGeneration == generation &&
             !captureSessionAsyncConfigurePending &&
@@ -13522,7 +13527,7 @@ private class PreviewController(
     /** Sprint **15.27** — intervalometer video frame (hardware JPEG bytes only). */
     fun canCaptureTimelapseJpeg(): Boolean {
         val selected = selectedCameraId?.takeIf { it.isNotBlank() } ?: return false
-        return jpegImageReader != null &&
+        return jpegCaptureSurface() != null &&
             session != null &&
             device != null &&
             device?.id == selected &&
@@ -13795,7 +13800,7 @@ private class PreviewController(
         if (imagingProfileForStreams is ImagingProfile.JpegOnly) {
             if (canCaptureJpegHardwareStill()) return null
             val parts = mutableListOf<String>()
-            if (jpegImageReader == null) parts += "no JPEG ImageReader"
+            if (jpegCaptureSurface() == null) parts += "no JPEG capture surface"
             if (session == null) parts += "no capture session"
             if (device == null) parts += "no CameraDevice"
             if (desiredFps >= 120) parts += "HFR path active (desiredFps=$desiredFps)"

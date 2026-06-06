@@ -424,6 +424,7 @@ foreach ($camSeed in $seedList) {
             $amShell =
                 "am start -W -n ${pkg}/.MainActivity --activity-clear-task " +
                 "--es pns_screen preview --es pns_preview_dial $dialToUse --ei pns_preview_raw_count 0 " +
+                "--ez pns_preview_primary_photo true " +
                 "--es pns_preview_imaging_profile jpeg_only --es pns_preview_still_format $fmt " +
                 "--ez pns_preview_composed_still true$camSeedArg"
         }

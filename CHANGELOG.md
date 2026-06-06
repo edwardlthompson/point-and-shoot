@@ -8,7 +8,7 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **GitHub release automation** — `scripts/pns_github_release.ps1` prepares semver version bumps, cuts CHANGELOG sections, and publishes GitHub releases with changelog body + APK (`Point-and-Shoot-{version}.apk`) + attached `CHANGELOG.md`. About → **What's new** / **Full changelog** open GitHub release notes.
 - **Milestone 23 hardening (in progress, not shipped)** — workstream placeholder for fleet resilience improvements. Items below remain draft until M23 closeout gates pass.
-- **Milestone 24 4K120 stability/truth lane (in progress, not shipped)** — strict 4K120 now carries explicit truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`), parity reports ingest recent 4K120 truth signal, and new gates `pns_4k120_endurance.ps1` + `pns_m24_gate.ps1` track longest sustained run and milestone closure chain.
+- **Milestone 24 4K120 stability/truth lane (USB-closed on CPH2583, 2026-06-05)** — strict 4K120 truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`) with parity/endurance evidence; OnePlus 12 classifies **blocked_unstable** (120 fps HS at 1920×1080 deliver, not false `true_4k120`); pipeline fixes for GLES buffer sizing, RAW automation vs lean-video warmup, and audio-meter crash guard.
 
 ### Milestone 23 hardening bucket (placeholder)
 
@@ -25,6 +25,13 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 - **Fleet parity closure pipeline (M26)** — debt/intake generation (`FLEET_PARITY_DEBT_LEDGER*`, `FLEET_PARITY_BUILD_PLAN_INTAKE*`), proof-pack merge hardening, and ownership mapping updates for recurring not-proven/unautomated rows.
 - **4K120 truthfulness + stability hardening (M24)** — strict HFR policy and telemetry, endurance classification, and parity truth-class handoff to avoid over-claiming delivered 4K120 behavior.
 - **Fleet-adapted UI and capability gating** — device-adapted format/catalog gating, readiness-aware visibility, and expanded hub/diagnostics reporting for cross-device honesty.
+## [0.14.0-beta.10] - 2026-06-05
+
+Parity closure and Milestone H active-plan cleanup.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.10.apk`
+
+_(No user-visible changes in this drop — version bump / packaging only.)_
 ## Unreleased
 
 _(Nothing yet — add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_

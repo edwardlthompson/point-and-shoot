@@ -3,6 +3,8 @@ param(
     [string]$OutDir = "",
     [ValidateSet("heic", "motion_photo", "tiff16", "jxl")]
     [string]$Format = "jxl",
+    [int]$MaxAttempts = 5,
+    [int]$WaitSec = 45,
     [switch]$SkipInstall,
     [switch]$SkipAssemble
 )
@@ -71,7 +73,7 @@ if (-not $isShipped) {
     exit 1
 }
 
-$captureArgs = @{ Fast = $true; PreviewStillFormat = $Format; MaxAttempts = 5; WaitSec = 45 }
+$captureArgs = @{ Fast = $true; PreviewStillFormat = $Format; MaxAttempts = $MaxAttempts; WaitSec = $WaitSec }
 if ($Serial) { $captureArgs.Serial = $Serial }
 if ($SkipInstall) { $captureArgs.SkipInstall = $true; $captureArgs.SkipAssemble = $true }
 if ($SkipAssemble) { $captureArgs.SkipAssemble = $true }

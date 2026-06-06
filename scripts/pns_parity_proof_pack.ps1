@@ -9,6 +9,7 @@ param(
     [string]$MatrixJsonPath = "",
     [string]$DeliveryMismatchPath = "",
     [switch]$SkipInstall,
+    [switch]$IgnoreFailures,
     [switch]$HostOnly,
     [switch]$Help
 )
@@ -209,10 +210,20 @@ foreach ($row in @($manifest.rows)) {
         if ($row.scriptArgs) {
             $row.scriptArgs.PSObject.Properties | ForEach-Object { $childArgs[$_.Name] = $_.Value }
         }
-        & $scriptPath @childArgs
+        $runExit = 1
+        $runError = $null
+        try {
+            & $scriptPath @childArgs
+            $runExit = $LASTEXITCODE
+        } catch {
+            $runExit = 1
+            $runError = $_.Exception.Message
+            Write-Warning "[proof_pack] $scriptName failed: $runError"
+        }
         $scriptCache[$cacheKey] = [ordered]@{
-            exitCode = $LASTEXITCODE
-            pass = ($LASTEXITCODE -eq 0)
+            exitCode = $runExit
+            pass = ($runExit -eq 0)
+            error = $runError
         }
     }
     $run = $scriptCache[$cacheKey]
@@ -224,6 +235,7 @@ foreach ($row in @($manifest.rows)) {
             pass = [bool]$run.pass
             script = $scriptName
             exitCode = $run.exitCode
+            failReason = if ($run.pass) { $null } elseif ($run.error) { "script_error:$($run.error)" } else { "script_exit_$($run.exitCode)" }
             timestampUtc = [DateTime]::UtcNow.ToString("o")
         }
     }
@@ -247,6 +259,9 @@ $report = [ordered]@{
 $outJson = Join-Path $OutDir "parity_proof_results.json"
 $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $outJson -Encoding utf8
 Write-Host "[proof_pack] rows=$($report.rowCount) pass=$passCount skip=$skipCount fail=$($report.failCount) -> $outJson"
+if ($report.failCount -gt 0 -and $IgnoreFailures) {
+    Write-Warning "[proof_pack] ignoreFailures enabled; continuing with partial proof merge."
+}
 
-if ($report.failCount -gt 0) { exit 1 }
+if ($report.failCount -gt 0 -and -not $IgnoreFailures) { exit 1 }
 exit 0

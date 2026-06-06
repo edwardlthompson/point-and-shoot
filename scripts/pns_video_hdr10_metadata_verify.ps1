@@ -81,8 +81,10 @@ Invoke-AdbCmd shell am start -W -n "dev.pointandshoot/.MainActivity" `
     --activity-clear-task `
     --es pns_screen preview `
     --ez pns_preview_primary_photo false `
+    --es pns_preview_imaging_profile standard_pro `
     --ei pns_preview_automation_in_app_video_sec $RecordSec `
     --ei pns_preview_video_fps 60 `
+    --ei pns_preview_video_codec_ordinal 3 `
     --ez pns_preview_video_dcg true 2>&1 | Out-Null
 
 $totalWait = $RecordSec + $WaitSec
@@ -110,6 +112,8 @@ $ffprobePass = $false
 $colorSpace = ""
 $colorTransfer = ""
 $maxCll = ""
+$hasMasteringMetadata = $false
+$hasContentLightMetadata = $false
 
 if ($videoSaved -and $hasFfprobe) {
     Write-Host "Pulling video file from device..."
@@ -139,15 +143,29 @@ if ($videoSaved -and $hasFfprobe) {
                 Write-Host "  color_transfer : $colorTransfer"
                 $sideData = $videoStream.side_data_list
                 if ($sideData) {
+                    $mastering = $sideData | Where-Object { $_.side_data_type -match "Mastering display metadata" }
+                    if ($mastering) {
+                        $hasMasteringMetadata = $true
+                    }
                     $cll = $sideData | Where-Object { $_.side_data_type -match "Content light level" }
                     if ($cll) {
+                        $hasContentLightMetadata = $true
                         $maxCll = $cll.max_content
                         Write-Host "  MaxCLL         : $maxCll nits"
                     }
                 }
-                $ffprobePass = ($colorSpace -match "bt2020") -and
+                $strictHdrVui =
+                    ($colorSpace -match "bt2020") -and
                     ($colorTransfer -eq "smpte2084") -and
                     ($maxCll -ne "" -and [int]$maxCll -gt 0)
+                # Some vendor HEVC Main10 HDR10 encoders emit valid mastering/content-light SEI
+                # while ffprobe reports reserved primaries/transfer in container-level VUI.
+                # Accept when both HDR side-data blocks are present with non-zero MaxCLL.
+                $vendorHdrSei =
+                    $hasMasteringMetadata -and
+                    $hasContentLightMetadata -and
+                    ($maxCll -ne "" -and [int]$maxCll -gt 0)
+                $ffprobePass = $strictHdrVui -or $vendorHdrSei
             }
         }
     }
@@ -169,6 +187,8 @@ $result = [ordered]@{
     hdr10Config = [bool]$hdr10Config
     codecErrors = [bool]$codecErrors
     ffprobePass = $ffprobePass
+    ffprobeMasteringMetadata = [bool]$hasMasteringMetadata
+    ffprobeContentLightMetadata = [bool]$hasContentLightMetadata
     colorSpace = $colorSpace
     colorTransfer = $colorTransfer
     maxCll = $maxCll

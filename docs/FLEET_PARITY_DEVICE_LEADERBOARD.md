@@ -2,17 +2,17 @@
 
 Scored from parity sweep cells + fleet matrix capability gates. Higher is better.
 
-- #1 **Unknown Unknown [4fc6]** - total 422/550 (76.7%)
+- #1 **OnePlus CPH2583 [4fc6]** - total 1742/2252 (77.4%)
+  - features: 1218/1590 (76.6%)
+  - resolutions: 200/230 (87%)
+  - capabilities: 324/432 (75%)
+  - last sweep: 2026-06-06T02:28:26.1980105Z (C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_022410)
+
+- #2 **Unknown Unknown [4fc6]** - total 422/550 (76.7%)
   - features: 422/540 (78.1%)
   - resolutions: 0/10 (0%)
   - capabilities: 0/0 (0%)
   - last sweep: 05/30/2026 13:01:17 (C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260530_125913)
-
-- #2 **OnePlus CPH2583 [4fc6]** - total 698/922 (75.7%)
-  - features: 264/350 (75.4%)
-  - resolutions: 110/140 (78.6%)
-  - capabilities: 324/432 (75%)
-  - last sweep: 2026-06-05T11:32:26.2302258Z (C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\m26_gate_20260605_113034\parity_delta)
 
 - #3 **OnePlus CPH2655 [4219]** - total 1627/2180 (74.6%)
   - features: 1158/1590 (72.8%)

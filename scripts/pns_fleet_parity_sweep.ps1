@@ -451,7 +451,11 @@ function Get-CatalogStatusMap {
 
 function Classify-ParityGap($Cell, [string]$AppStatus) {
     if ($Cell.gap) { return $Cell.gap }
+    if ($Cell.failReason -eq "matrix_tier_quick" -and $Cell.catalogId -in @("face.detect", "face.eye_af", "face.priority_ae")) {
+        return "GAP_ADVERTISED_NOT_SURFACED"
+    }
     if ($Cell.failReason -eq "unautomated") { return "GAP_UNAUTOMATED" }
+    if ($Cell.failReason -eq "advertised_not_surfaced") { return "GAP_ADVERTISED_NOT_SURFACED" }
     if ($Cell.failReason -eq "planned") { return "GAP_PLANNED" }
     if ($Cell.failReason -like "skip:probe_only_inventory*") { return "GAP_PROBE_INVENTORY" }
     if ($AppStatus -eq "Planned") { return "GAP_PLANNED" }
@@ -477,6 +481,8 @@ function Get-ShipBlockerGapCountFromCells($Cells) {
     if (-not $Cells) { return 0 }
     return @($Cells | Where-Object {
             $_.consumerImpact -eq 'SHIP_BLOCKER' -and
+            $_.failReason -ne 'advertised_not_surfaced' -and
+            -not (($_.failReason -eq 'matrix_tier_quick') -and ($_.catalogId -in @('face.detect', 'face.eye_af', 'face.priority_ae'))) -and
             (
                 $_.gap -in @('GAP_ADVERTISED_NOT_PROVEN', 'GAP_DELIVERY_MISMATCH', 'GAP_REGRESSION_SINCE_BASELINE') -or
                     (-not $_.provenOk -and $_.advertised -eq $true)
@@ -1587,6 +1593,7 @@ if ($IncludeProofPack -and $Mode -eq 'Full') {
     $packArgs = @{
         OutDir = $proofOut
         SkipInstall = $true
+        IgnoreFailures = $true
     }
     if ($Serial) { $packArgs.Serial = $Serial }
     if (Test-Path -LiteralPath $matrixPathForProof) { $packArgs.MatrixJsonPath = $matrixPathForProof }

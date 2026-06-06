@@ -443,6 +443,31 @@ object InAppVideoFormatSelection {
             }
         }
 
+        if (wantDcg || adbAutomationVideoTenBit) {
+            val requestedFormat =
+                catalog.firstOrNull { fmt ->
+                    fmt.resolution.width == recordSize.width &&
+                        fmt.resolution.height == recordSize.height &&
+                        fmt.frameRate == targetFps &&
+                        (!wantDcg || fmt.isDcg) &&
+                        (!adbAutomationVideoTenBit || fmt.isTenBit || fmt.isDcg)
+                }
+                    ?: catalog.firstOrNull { fmt ->
+                        fmt.frameRate == targetFps &&
+                            (!wantDcg || fmt.isDcg) &&
+                            (!adbAutomationVideoTenBit || fmt.isTenBit || fmt.isDcg)
+                    }
+            if (requestedFormat != null) {
+                Log.i(
+                    TAG,
+                    "inAppVideoFormat=requestedPreference label=${requestedFormat.getLabel()} dcg=${requestedFormat.isDcg} " +
+                        "tenBit=${requestedFormat.isTenBit} fps=${requestedFormat.frameRate} wantDcg=$wantDcg " +
+                        "adbTenBit=$adbAutomationVideoTenBit",
+                )
+                return requestedFormat
+            }
+        }
+
         val default =
             DeviceAdaptedCatalog.defaultVideoFormat(catalog, targetFps, hfrSessionOk)
                 ?: if (!hfrSessionOk) {

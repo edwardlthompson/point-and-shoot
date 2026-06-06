@@ -28,22 +28,22 @@
     {
       "catalogId": "still.heic",
       "script": "pns_still_export_verify.ps1",
-      "scriptArgs": { "Format": "heic" }
+      "scriptArgs": { "Format": "heic", "MaxAttempts": 1, "WaitSec": 20 }
     },
     {
       "catalogId": "still.motion_photo",
       "script": "pns_still_export_verify.ps1",
-      "scriptArgs": { "Format": "motion_photo" }
+      "scriptArgs": { "Format": "motion_photo", "MaxAttempts": 1, "WaitSec": 70 }
     },
     {
       "catalogId": "still.tiff16",
       "script": "pns_still_export_verify.ps1",
-      "scriptArgs": { "Format": "tiff16" }
+      "scriptArgs": { "Format": "tiff16", "MaxAttempts": 1, "WaitSec": 70 }
     },
     {
       "catalogId": "still.jxl",
       "script": "pns_still_export_verify.ps1",
-      "scriptArgs": { "Format": "jxl" }
+      "scriptArgs": { "Format": "jxl", "MaxAttempts": 1, "WaitSec": 70 }
     },
     {
       "catalogId": "video.hfr.24",

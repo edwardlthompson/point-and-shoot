@@ -95,7 +95,7 @@ $hud = (Invoke-Adb @("shell", "run-as", $pkg, "cat", $hudPath) -join "`n")
 if ($hud -match "<map>") {
     $targetColor =
         if ($Profile -eq "flat") { "flat_cine" }
-        elseif ($Profile -eq "hlg10") { "hlg10" }
+        elseif ($Profile -eq "hlg10") { "hlg" }
         else { "standard" }
     $hud = Set-HudStringPref $hud "video_color_profile" $targetColor
     $tmpHud = [System.IO.Path]::GetTempFileName() + ".xml"
@@ -108,6 +108,12 @@ if ($hud -match "<map>") {
 
 Invoke-Adb @("shell", "am", "force-stop", $pkg) | Out-Null
 Invoke-Adb @("logcat", "-c") | Out-Null
+$codecOrdinal =
+    if ($Profile -eq "hlg10") {
+        2
+    } else {
+        1
+    }
 Invoke-Adb @(
     "shell", "am", "start", "-W", "-n", "$pkg/.MainActivity",
     "--activity-clear-task",
@@ -115,7 +121,7 @@ Invoke-Adb @(
     "--ez", "pns_preview_primary_photo", "false",
     "--ei", "pns_preview_automation_in_app_video_sec", "6",
     "--ei", "pns_preview_video_fps", "30",
-    "--ei", "pns_preview_video_codec_ordinal", "1",
+    "--ei", "pns_preview_video_codec_ordinal", "$codecOrdinal",
     "--es", "pns_preview_imaging_profile", "standard_pro"
 ) | Out-Null
 Start-Sleep -Seconds 70

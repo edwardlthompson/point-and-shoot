@@ -239,6 +239,11 @@ a.ext-spec-link.inline { font-size: inherit; font-weight: 500; }
 .badge-betrayal-mid { background: #fde68a; color: #78350f; }
 .badge-betrayal-low { background: #ffedd5; color: #9a3412; }
 .badge-betrayal-none { background: #e5e7eb; color: #4b5563; }
+.badge-breakthrough { background: linear-gradient(135deg, #fef3c7, #d1fae5); color: #065f46; border: 1px solid #34d399; font-weight: 700; }
+.row-breakthrough { border-left: 4px solid #34d399; }
+.breakthrough-hero { background: linear-gradient(135deg, rgba(254,243,199,0.35), rgba(209,250,229,0.45)); border: 1px solid #34d399; border-radius: 8px; padding: 1rem 1.25rem; margin: 0 0 1rem; }
+.breakthrough-hero h2 { margin: 0 0 0.5rem; color: #047857; font-size: 1.1rem; }
+.col-fullmp { font-weight: 600; color: #047857; }
 .badge-ship-blocker { background: #fecaca; color: #7f1d1d; }
 .glossary-term { border-bottom: 1px dotted var(--muted); cursor: help; }
 .product-compare th { font-size: 0.75rem; }

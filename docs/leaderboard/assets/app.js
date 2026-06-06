@@ -1,7 +1,7 @@
 import { initTheme, initMethodology, initWishlist, getWishlistSelected, normalizeDeviceProfile } from './theme.js';
 import { parseRoute, navTo } from './router.js';
 import { renderHome } from './leaderboard.js';
-import { renderDeviceDetail, attachSparkline, attachDeviceDetailApiToggle } from './device-detail.js';
+import { renderDeviceDetail, attachSparkline, attachDeviceDetailApiToggle } from './device-detail.js?v=20260606d';
 import { renderCompare, attachCompareCharts, exportComparePng } from './compare.js';
 import { renderOemIndex } from './oem-index.js';
 import { renderProductGroup } from './product.js';

@@ -1,8 +1,43 @@
 {
   "schema": "pns.leaderboard_oem_accountability.v1",
-  "updatedUtc": "2026-06-06T12:15:57.9700456Z",
+  "updatedUtc": "2026-06-06T12:49:06.7794009Z",
   "subtitle": "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
   "oems": [
+    {
+      "manufacturer": "HTC",
+      "restrictionIndex": 26.5,
+      "opennessPercent": 87.0,
+      "gateHonestyPercent": 53.3,
+      "avgResolutionBetrayal": 0.0,
+      "totalShipBlockers": 3,
+      "withheldFeatureCount": 16,
+      "deviceCount": 1,
+      "worstOffenders": [
+        {
+          "catalogId": "video.hfr.240",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "raw.dng",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.flat",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.uhd60",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.hfr.120",
+          "deviceCount": 1
+        }
+      ],
+      "deviceSlugs": [
+        "088f8b18916ff4ea"
+      ]
+    },
     {
       "manufacturer": "OnePlus",
       "restrictionIndex": 9.5,
@@ -14,6 +49,10 @@
       "deviceCount": 2,
       "worstOffenders": [
         {
+          "catalogId": "video.color.flat",
+          "deviceCount": 2
+        },
+        {
           "catalogId": "video.av1.720p",
           "deviceCount": 2
         },
@@ -22,15 +61,11 @@
           "deviceCount": 2
         },
         {
-          "catalogId": "perf.cold_preview_ms",
+          "catalogId": "perf.first_frame_ms",
           "deviceCount": 2
         },
         {
-          "catalogId": "video.color.flat",
-          "deviceCount": 2
-        },
-        {
-          "catalogId": "video.av1",
+          "catalogId": "video.av1.8k",
           "deviceCount": 2
         }
       ],
@@ -50,7 +85,15 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
-          "catalogId": "video.color.pq",
+          "catalogId": "video.color.hdr10",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.flat",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.bt709",
           "deviceCount": 1
         },
         {
@@ -58,55 +101,12 @@
           "deviceCount": 1
         },
         {
-          "catalogId": "video.color.hdr10",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.heic",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.bt709",
+          "catalogId": "video.color.pq",
           "deviceCount": 1
         }
       ],
       "deviceSlugs": [
         "acf7a326d2a12131"
-      ]
-    },
-    {
-      "manufacturer": "HTC",
-      "restrictionIndex": 26.5,
-      "opennessPercent": 87.0,
-      "gateHonestyPercent": 53.3,
-      "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 3,
-      "withheldFeatureCount": 16,
-      "deviceCount": 1,
-      "worstOffenders": [
-        {
-          "catalogId": "raw.dng",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.uhd60",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "perf.cold_preview_ms",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.heic",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.4k_regular",
-          "deviceCount": 1
-        }
-      ],
-      "deviceSlugs": [
-        "088f8b18916ff4ea"
       ]
     },
     {
@@ -120,6 +120,10 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
+          "catalogId": "video.color.flat",
+          "deviceCount": 1
+        },
+        {
           "catalogId": "raw.dng",
           "deviceCount": 1
         },
@@ -128,15 +132,11 @@
           "deviceCount": 1
         },
         {
-          "catalogId": "video.4k_regular",
+          "catalogId": "video.av1",
           "deviceCount": 1
         },
         {
           "catalogId": "video.color.bt709",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.monochrome_capture",
           "deviceCount": 1
         }
       ],

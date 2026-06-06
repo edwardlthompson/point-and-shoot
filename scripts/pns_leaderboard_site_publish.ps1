@@ -53,12 +53,18 @@ function Load-JsonMap([string]$Path) {
     } catch { return @{} }
 }
 
-function Get-MarketingEntry($MapObj, [string]$Model) {
-    if (-not $MapObj -or -not $MapObj.devices) { return $null }
-    foreach ($d in @($MapObj.devices)) {
-        if ([string]$d.model -eq $Model) { return $d }
+function Test-GsmarenaCacheForMarketingMap($MarketingMap, $GsmarenaObj) {
+    if (-not $MarketingMap -or -not $MarketingMap.devices) { return @() }
+    $byModel = Get-GsmarenaSensorByModel $GsmarenaObj
+    $warnings = @()
+    foreach ($d in @($MarketingMap.devices)) {
+        $model = [string]$d.model
+        if (-not $byModel.ContainsKey($model)) { continue }
+        if (-not (Test-GsmarenaMarketingTitleMatch $byModel[$model] $d)) {
+            $warnings += "GSMArena title mismatch for $model / $($d.marketingName): page=$($byModel[$model].pageTitle)"
+        }
     }
-    return $null
+    return $warnings
 }
 
 function Match-Antutu($AntutuObj, $MarketingEntry) {
@@ -202,6 +208,13 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
     }
     $stillHonesty = @(Enrich-StillResolutionHonesty $rawStillEntries $lensLineup)
     $resolutionBetrayal = Get-ResolutionBetrayal $InApp $Matrix $stillHonesty $lensLineup -ForceRecompute
+    $fullMpBreakthrough = Get-Camera2FullMpBreakthrough $Matrix $InApp
+    $commercialName = Get-MarketingCommercialName $manufacturer $marketing
+    $displayLabel = Get-DeviceDisplayLabel $manufacturer $model $marketing $null
+    if ($displayLabel -match '\[\?\]$') {
+        $displayLabel = Get-DeviceDisplayLabel $manufacturer $model $marketing ""
+        $displayLabel = $displayLabel -replace '\s*\[\?\]$', ''
+    }
     $oemLossSummary = Get-OemLossSummary $cells $CatalogMap
     $cameraXSummary = Get-CameraXSummary $Matrix
     $measurementContext = Get-MeasurementContext $InApp $Matrix
@@ -222,7 +235,8 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
         identity = [ordered]@{
             manufacturer = $manufacturer
             model = $model
-            marketingName = if ($marketing) { [string]$marketing.marketingName } else { "$manufacturer $model" }
+            marketingName = if ($commercialName) { $commercialName } elseif ($marketing) { [string]$marketing.marketingName } else { "$manufacturer $model" }
+            displayLabel = if ($displayLabel) { $displayLabel } else { "$manufacturer $model" }
             fingerprintPrefix = $fp
             specLinks = @(Normalize-SpecLinks $(if ($marketing) { $marketing.specLinks } else { $null }))
             msrpUsd = if ($marketing) { $marketing.msrpUsd } else { $null }
@@ -264,6 +278,7 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
         gatesByCamera = @(Get-GatesByCamera $Matrix)
         formatPickerHonestyScore = $InApp.formatPickerHonestyScore
         resolutionBetrayal = $resolutionBetrayal
+        camera2FullMpBreakthrough = $fullMpBreakthrough
         oemLossSummary = $oemLossSummary
         cameraXSummary = $cameraXSummary
         value = [ordered]@{
@@ -315,6 +330,9 @@ if (-not $SkipGsmarenaScrape -and (Test-Path -LiteralPath $gsmSpecsPy)) {
 }
 $gsmarenaObj = Load-JsonMap $GsmarenaPath
 $gsmarenaSpecsObj = Load-JsonMap $GsmarenaSpecsPath
+foreach ($warn in @(Test-GsmarenaCacheForMarketingMap $marketingMap $gsmarenaObj)) {
+    Write-Warning $warn
+}
 $gsmarenaSpecsMap = Get-GsmarenaDeviceSpecsByModel $gsmarenaSpecsObj
 $blocklist = @()
 if (Test-Path -LiteralPath $blocklistPath) {
@@ -473,11 +491,22 @@ Write-LeaderboardJson -Object ([ordered]@{
 $gsmarenaSpecsStale = $false
 if ($gsmarenaSpecsObj -and $gsmarenaSpecsObj.stale -eq $true) { $gsmarenaSpecsStale = $true }
 
+$breakthroughHighlights = @($sorted | Where-Object { $_.camera2FullMpBreakthrough -and $_.camera2FullMpBreakthrough.proven -eq $true } | ForEach-Object {
+    [ordered]@{
+        slug = $_.slug
+        marketingName = $_.identity.marketingName
+        maxMpPerSensor = $_.camera2FullMpBreakthrough.maxMpPerSensor
+        evidenceTier = $_.camera2FullMpBreakthrough.evidenceTier
+    }
+})
+
 $site = [ordered]@{
     schema = "pns.fleet_leaderboard_site.v1"
     updatedUtc = [DateTime]::UtcNow.ToString("o")
     catalogVersion = $catalogVersion
     deviceCount = $sorted.Count
+    breakthroughCount = $breakthroughHighlights.Count
+    highlights = $breakthroughHighlights
     oemRankings = $oemRankings
     oemAccountabilityPath = "oem_accountability.json"
     productGroupsPath = "product_groups.json"
@@ -497,7 +526,7 @@ if (Test-Path -LiteralPath $feedPath) {
     } catch { }
 }
 foreach ($p in $sorted) {
-    $exists = @($feedItems | Where-Object { $_.slug -eq $p.slug }).Count -gt 0
+    $exists = @($feedItems | Where-Object { $_.slug -eq $p.slug -and $_.event -eq "device_added" }).Count -gt 0
     if (-not $exists) {
         $feedItems = @([ordered]@{
             timestampUtc = [DateTime]::UtcNow.ToString("o")
@@ -505,6 +534,25 @@ foreach ($p in $sorted) {
             marketingName = $p.identity.marketingName
             event = "device_added"
         }) + $feedItems
+    }
+    if ($p.camera2FullMpBreakthrough -and $p.camera2FullMpBreakthrough.proven -eq $true) {
+        $btExists = @($feedItems | Where-Object { $_.slug -eq $p.slug -and $_.event -eq "breakthrough" }).Count -gt 0
+        if (-not $btExists) {
+            $feedItems = @([ordered]@{
+                timestampUtc = [DateTime]::UtcNow.ToString("o")
+                slug = $p.slug
+                marketingName = $p.identity.marketingName
+                event = "breakthrough"
+                maxMpPerSensor = $p.camera2FullMpBreakthrough.maxMpPerSensor
+                evidenceTier = $p.camera2FullMpBreakthrough.evidenceTier
+            }) + $feedItems
+            Write-FleetParityHistoryEvent $repoRoot "camera2_full_mp_breakthrough" ([ordered]@{
+                slug = $p.slug
+                deviceKey = $p.deviceKey
+                maxMpPerSensor = $p.camera2FullMpBreakthrough.maxMpPerSensor
+                evidenceTier = $p.camera2FullMpBreakthrough.evidenceTier
+            })
+        }
     }
 }
 $feed = [ordered]@{ schema = "pns.leaderboard_feed.v1"; updatedUtc = [DateTime]::UtcNow.ToString("o"); items = @($feedItems | Select-Object -First 50) }

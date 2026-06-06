@@ -56,6 +56,7 @@ $activity = "$pkg/.MainActivity"
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
 $gradlewHelper = Join-Path $PSScriptRoot "pns_gradlew.ps1"
 $matrixScan = Join-Path $PSScriptRoot "pns_fleet_matrix_scan.ps1"
+. (Join-Path $PSScriptRoot "pns_leaderboard_common.ps1")
 
 function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
     $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
@@ -221,6 +222,7 @@ function Write-ClosurePlanFromJson($InAppJson, [string]$Path) {
 function Invoke-ParityBacklogRefresh([string]$RepoRoot) {
     $debtScript = Join-Path $PSScriptRoot "pns_parity_debt_ledger_refresh.ps1"
     $intakeScript = Join-Path $PSScriptRoot "pns_parity_build_plan_intake.ps1"
+    $shipBlockerSyncScript = Join-Path $PSScriptRoot "pns_build_plan_ship_blockers_sync.ps1"
     if (Test-Path -LiteralPath $debtScript) {
         & $debtScript -RunsRoot (Join-Path $RepoRoot "hfr-runs")
         if ($LASTEXITCODE -ne 0) { Write-Warning "[parity_sweep] debt ledger refresh exit=$LASTEXITCODE" }
@@ -228,6 +230,10 @@ function Invoke-ParityBacklogRefresh([string]$RepoRoot) {
     if (Test-Path -LiteralPath $intakeScript) {
         & $intakeScript
         if ($LASTEXITCODE -ne 0) { Write-Warning "[parity_sweep] build plan intake exit=$LASTEXITCODE" }
+    }
+    if (Test-Path -LiteralPath $shipBlockerSyncScript) {
+        & $shipBlockerSyncScript
+        if ($LASTEXITCODE -ne 0) { Write-Warning "[parity_sweep] ship blocker sync exit=$LASTEXITCODE" }
     }
 }
 
@@ -969,12 +975,19 @@ function Update-FleetParityLeaderboard([string]$RepoRoot, $ReportObj, $InAppObj,
     $serialRaw = if ($ReportObj.serial) { [string]$ReportObj.serial } else { "unknown" }
     $serialSuffix = if ($serialRaw.Length -ge 4) { $serialRaw.Substring($serialRaw.Length - 4) } else { $serialRaw }
     $deviceKey = "$manufacturer|$model|$fingerprint"
-    $deviceLabel = "$manufacturer $model [$serialSuffix]"
+    $marketingMapPath = Join-Path $RepoRoot "docs\leaderboard\data\device_marketing_names.json"
+    $marketingMap = $null
+    if (Test-Path -LiteralPath $marketingMapPath) {
+        try { $marketingMap = Get-Content -LiteralPath $marketingMapPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
+    }
+    $marketingEntry = Get-MarketingEntry $marketingMap $model
+    $deviceLabel = Get-DeviceDisplayLabel $manufacturer $model $marketingEntry $serialSuffix
     $score = Get-ParityScoreBreakdown $InAppObj $MatrixObj
 
     $entry = [ordered]@{
         deviceKey = $deviceKey
         deviceLabel = $deviceLabel
+        marketingName = if ($marketingEntry) { [string]$marketingEntry.marketingName } else { $null }
         manufacturer = $manufacturer
         model = $model
         fingerprintSha256Prefix = $fingerprint
@@ -1667,7 +1680,7 @@ if (-not $SkipSitePublish) {
     if ($LASTEXITCODE -ne 0) { throw "pns_leaderboard_export_catalog.ps1 failed exit=$LASTEXITCODE" }
     & (Join-Path $PSScriptRoot "pns_leaderboard_site_publish.ps1") -MergeSubmissions
     if ($LASTEXITCODE -ne 0) { throw "pns_leaderboard_site_publish.ps1 failed exit=$LASTEXITCODE" }
-    & (Join-Path $PSScriptRoot "pns_leaderboard_pages_push.ps1")
+    & (Join-Path $PSScriptRoot "pns_leaderboard_pages_push.ps1") -SkipPublish -MergeSubmissions
     if ($LASTEXITCODE -ne 0) { throw "pns_leaderboard_pages_push.ps1 failed exit=$LASTEXITCODE" }
 }
 

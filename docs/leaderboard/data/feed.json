@@ -1,7 +1,23 @@
 {
   "schema": "pns.leaderboard_feed.v1",
-  "updatedUtc": "2026-06-06T12:15:58.0154030Z",
+  "updatedUtc": "2026-06-06T12:49:06.8093250Z",
   "items": [
+    {
+      "timestampUtc": "2026-06-06T12:37:59.6513196Z",
+      "slug": "dff79fd1b3808b1d",
+      "marketingName": "Essential Products Essential PH-1",
+      "event": "breakthrough",
+      "maxMpPerSensor": 13.1,
+      "evidenceTier": "default"
+    },
+    {
+      "timestampUtc": "2026-06-06T12:37:59.6433819Z",
+      "slug": "718a8115ff142454",
+      "marketingName": "OnePlus 12",
+      "event": "breakthrough",
+      "maxMpPerSensor": 16.1,
+      "evidenceTier": "default"
+    },
     {
       "timestampUtc": "2026-06-05T02:24:55.3550891Z",
       "slug": "3e2a7b88f6db66c0",

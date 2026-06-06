@@ -1,58 +1,54 @@
-{
-  "schema": "pns.fleet_parity_sweep.v2",
-  "pass": true,
-  "mode": "Full",
-  "includeRecord": false,
-  "serial": "b5214fc6",
-  "timestampUtc": "2026-06-06T03:31:00.3602253Z",
-  "outDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645",
-  "cellCount": 182,
-  "shipBlockerGapCount": 0,
-  "gapBreakdown": {
-    "GAP_ADVERTISED_NOT_PROVEN": 11,
-    "GAP_DELIVERY_MISMATCH": 1
-  },
-  "inAppSchema": "pns.fleet_parity_sweep.v2",
-  "experimentalUnlockState": {
-    "masterEnabled": true,
-    "maxResolutionUnlockEnabled": true,
-    "vendorSessionKeysEnabled": true,
-    "safeModeActive": false,
-    "rootGranted": true,
-    "unlockLane": {
-      "deviceEligibleCph2583": true,
-      "rootGranted": true,
-      "safeModeActive": false,
-      "currentlyObservedProp": null,
-      "lastActive": false,
-      "lastAttempt": {
-        "active": false,
-        "applied": false,
-        "requestedValue": null,
-        "observedValue": null,
-        "reason": "still_mode_not_max_resolution",
-        "cameraId": "2",
-        "timestampUtc": "2026-06-06T03:03:24.631844Z"
-      }
-    }
-  },
-  "sweepCompleteLogged": true,
-  "installedVersionCode": "22003",
-  "builtVersionCode": null,
-  "baselineTag": null,
-  "logPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645\\logcat_parity.txt",
-  "inAppJsonPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645\\in_app_parity_report.json",
-  "sweepEvidenceOk": true,
-  "sweepEvidenceFallback": null,
-  "promoteOptionalBlocking": false,
-  "optionalBlockingGapCount": 0,
-  "recentProofArtifactMerge": true,
-  "recentProofArtifactCount": 17,
-  "video4k120TruthClass": "blocked_unstable",
-  "video4k120TruthArtifactPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_113804\\strict_4k120\\strict_4k120_summary.json",
-  "video4k120TruthSource": "m24_gate_strict_summary",
-  "video4k120TruthSerial": "b5214fc6",
-  "leaderboardRank": 1,
-  "leaderboardDeviceKey": "OnePlus|CPH2583|961221c0f0bc2eee",
-  "leaderboardTotalPercent": 77.4
+﻿{
+    "schema":  "pns.fleet_parity_sweep.v2",
+    "pass":  false,
+    "mode":  "Full",
+    "includeRecord":  false,
+    "serial":  "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+    "timestampUtc":  "2026-06-06T12:46:38.8513772Z",
+    "outDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232",
+    "cellCount":  182,
+    "shipBlockerGapCount":  1,
+    "gapBreakdown":  {
+                         "GAP_ADVERTISED_NOT_PROVEN":  14
+                     },
+    "inAppSchema":  "pns.fleet_parity_sweep.v2",
+    "experimentalUnlockState":  {
+                                    "masterEnabled":  false,
+                                    "maxResolutionUnlockEnabled":  false,
+                                    "vendorSessionKeysEnabled":  false,
+                                    "safeModeActive":  false,
+                                    "rootGranted":  false,
+                                    "unlockLane":  {
+                                                       "deviceEligibleCph2583":  false,
+                                                       "rootGranted":  false,
+                                                       "safeModeActive":  false,
+                                                       "currentlyObservedProp":  null,
+                                                       "lastActive":  false,
+                                                       "lastAttempt":  {
+                                                                           "active":  false,
+                                                                           "applied":  false,
+                                                                           "requestedValue":  null,
+                                                                           "observedValue":  null,
+                                                                           "reason":  "master_toggle_off",
+                                                                           "cameraId":  "2",
+                                                                           "timestampUtc":  "2026-06-05T02:51:56.932919Z"
+                                                                       }
+                                                   }
+                                },
+    "sweepCompleteLogged":  true,
+    "installedVersionCode":  null,
+    "builtVersionCode":  null,
+    "baselineTag":  null,
+    "logPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232\\logcat_parity.txt",
+    "inAppJsonPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232\\in_app_parity_report.json",
+    "sweepEvidenceOk":  true,
+    "sweepEvidenceFallback":  null,
+    "promoteOptionalBlocking":  false,
+    "optionalBlockingGapCount":  0,
+    "recentProofArtifactMerge":  true,
+    "recentProofArtifactCount":  17,
+    "video4k120TruthClass":  null,
+    "video4k120TruthArtifactPath":  null,
+    "video4k120TruthSource":  null,
+    "video4k120TruthSerial":  null
 }

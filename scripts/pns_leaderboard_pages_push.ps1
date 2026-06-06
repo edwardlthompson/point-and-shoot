@@ -26,8 +26,8 @@ Example:
 }
 
 if (-not $SkipPublish) {
-    $pubArgs = @("-SkipGsmarenaScrape")
-    if ($MergeSubmissions) { $pubArgs += "-MergeSubmissions" }
+    $pubArgs = @{ SkipGsmarenaScrape = $true }
+    if ($MergeSubmissions) { $pubArgs.MergeSubmissions = $true }
     & (Join-Path $PSScriptRoot "pns_leaderboard_site_publish.ps1") @pubArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & (Join-Path $PSScriptRoot "pns_leaderboard_export_catalog.ps1")

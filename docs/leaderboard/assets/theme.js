@@ -260,6 +260,31 @@ export function betrayalBadgeHtml(d) {
   return `<span class="badge ${cls}" title="Resolution withholding index — % of cameras where spec or alternate HAL maps exceed Camera2 default by ≥25%">Res betrayal ${idx}</span>`;
 }
 
+export function fullMpBreakthrough(d) {
+  return d?.camera2FullMpBreakthrough ?? null;
+}
+
+export function breakthroughBadgeHtml(d) {
+  const b = fullMpBreakthrough(d);
+  if (!b?.proven) return '';
+  const mp = b.maxMpPerSensor ?? '?';
+  const tier = b.evidenceTier ? ` (${b.evidenceTier})` : '';
+  return `<span class="badge badge-breakthrough" title="Third-party Camera2 verified full sensor resolution (>12 MP) — rare aftermarket access${tier}">Camera2 ${mp} MP ✓</span>`;
+}
+
+export function breakthroughHeroHtml(d) {
+  const b = fullMpBreakthrough(d);
+  if (!b?.proven) return '';
+  const mp = b.maxMpPerSensor ?? '?';
+  const count = b.cameraCount ?? 0;
+  const verified = (d.meta?.lastSweepUtc || '').slice(0, 10) || 'recent sweep';
+  return `
+    <section class="breakthrough-hero" role="status">
+      <h2>Camera2 full resolution breakthrough</h2>
+      <p>Most OEMs bin third-party Camera2 apps to ~12 MP even on 48–64 MP hardware. This device exposed up to <strong>${mp} MP</strong> on ${count} rear sensor(s) through the standard Camera2 API — verified ${verified}.</p>
+    </section>`;
+}
+
 export function renderSensorSvg(device) {
   const lenses = device?.sensors?.rearLenses?.length
     ? device.sensors.rearLenses.filter((l) => l.role !== 'selfie')

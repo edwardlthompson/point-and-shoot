@@ -105,7 +105,7 @@ if (-not $SkipFourKGateCheck) {
                 $gateNote = "fourKRegular advertised=$($gate.advertised) sessionOk=$($gate.sessionOk)"
             } else {
                 $gateOk = $false
-                $gateNote = "fourKRegular gate missing — rescan with pns_fleet_matrix_scan.ps1 -ScanTier full"
+                $gateNote = "fourKRegular gate missing - rescan with pns_fleet_matrix_scan.ps1 -ScanTier full"
             }
         } else {
             $gateOk = $false

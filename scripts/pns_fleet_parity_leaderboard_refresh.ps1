@@ -85,18 +85,30 @@ foreach ($dir in $sweepDirs) {
     $inApp = Apply-ProofEvidenceToInApp $inApp $report $dir.FullName
     $matrix = Get-MatrixFromSweepDir $dir.FullName
 
-    $manufacturer = if ($matrix -and $matrix.device -and $matrix.device.manufacturer) { [string]$matrix.device.manufacturer } else { "Unknown" }
-    $model = if ($matrix -and $matrix.device -and $matrix.device.model) { [string]$matrix.device.model } else { "Unknown" }
+    $manufacturer = if ($matrix -and $matrix.device -and $matrix.device.manufacturer) { [string]$matrix.device.manufacturer } else { "" }
+    $model = if ($matrix -and $matrix.device -and $matrix.device.model) { [string]$matrix.device.model } else { "" }
+    if ([string]::IsNullOrWhiteSpace($manufacturer) -or [string]::IsNullOrWhiteSpace($model) -or
+        $manufacturer.Trim().ToLowerInvariant() -eq "unknown" -or
+        $model.Trim().ToLowerInvariant() -eq "unknown") {
+        continue
+    }
     $fingerprint = if ($matrix -and $matrix.scanMeta -and $matrix.scanMeta.fingerprintSha256Prefix) { [string]$matrix.scanMeta.fingerprintSha256Prefix } elseif ($inApp.fingerprintSha256Prefix) { [string]$inApp.fingerprintSha256Prefix } else { "unknown" }
     $serialRaw = if ($report.serial) { [string]$report.serial } else { "unknown" }
     $serialSuffix = if ($serialRaw.Length -ge 4) { $serialRaw.Substring($serialRaw.Length - 4) } else { $serialRaw }
     $deviceKey = "$manufacturer|$model|$fingerprint"
+    $marketingMapPath = Join-Path $repoRoot "docs\leaderboard\data\device_marketing_names.json"
+    $marketingMap = $null
+    if (Test-Path -LiteralPath $marketingMapPath) {
+        try { $marketingMap = Get-Content -LiteralPath $marketingMapPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
+    }
+    $marketingEntry = Get-MarketingEntry $marketingMap $model
     $score = Get-ParityScoreBreakdown $inApp $matrix
     $sdkInt = if ($matrix -and $matrix.scanMeta) { $matrix.scanMeta.sdkInt } else { $null }
 
     $entry = [ordered]@{
         deviceKey = $deviceKey
-        deviceLabel = "$manufacturer $model [$serialSuffix]"
+        deviceLabel = (Get-DeviceDisplayLabel $manufacturer $model $marketingEntry $serialSuffix)
+        marketingName = if ($marketingEntry) { [string]$marketingEntry.marketingName } else { $null }
         manufacturer = $manufacturer
         model = $model
         fingerprintSha256Prefix = $fingerprint

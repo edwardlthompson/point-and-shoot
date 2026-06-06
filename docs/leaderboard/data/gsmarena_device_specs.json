@@ -58,33 +58,43 @@
     },
     {
       "model": "XQ-BE62",
-      "marketingName": "Sony Xperia 5 V",
-      "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-      "pageTitle": "Sony Xperia 5 V - Full phone specifications",
+      "marketingName": "Sony Xperia PRO-I",
+      "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+      "pageTitle": "Sony Xperia PRO-I - Full phone specifications",
       "lenses": [
         {
-          "rawLine": "48 MP, f/1.9, 24mm (wide), 1/1.35\", 1.12\u00b5m, dual pixel PDAF, OIS",
-          "megapixels": 48.0,
+          "rawLine": "12 MP, f/2.0-4.0, 24mm (wide), 1.0\"-type, 2.4\u00b5m, dual pixel PDAF, OIS",
+          "megapixels": 12.0,
           "focalLengthMm": 24.0,
           "role": "wide",
-          "sensorTypeFraction": "1/1.35",
-          "widthMm": 15.05,
-          "heightMm": 11.29,
-          "areaMm2": 169.92
+          "sensorTypeFraction": "1/1.0",
+          "widthMm": 20.32,
+          "heightMm": 15.24,
+          "areaMm2": 309.68
         },
         {
-          "rawLine": "12 MP, f/2.2, 16mm (ultrawide), 1/2.5\", dual pixel PDAF",
+          "rawLine": "12 MP, f/2.4, 50mm (telephoto), 1/2.9\", PDAF, 2x optical zoom, OIS",
+          "megapixels": 12.0,
+          "focalLengthMm": 50.0,
+          "role": "tele",
+          "sensorTypeFraction": "1/2.9",
+          "widthMm": 7.01,
+          "heightMm": 5.26,
+          "areaMm2": 36.87
+        },
+        {
+          "rawLine": "12 MP, f/2.2, 124\u02da, 16mm (ultrawide), 1/2.55\", dual pixel PDAF",
           "megapixels": 12.0,
           "focalLengthMm": 16.0,
           "role": "ultrawide",
-          "sensorTypeFraction": "1/2.5",
-          "widthMm": 8.13,
-          "heightMm": 6.1,
-          "areaMm2": 49.55
+          "sensorTypeFraction": "1/2.55",
+          "widthMm": 7.97,
+          "heightMm": 5.98,
+          "areaMm2": 47.62
         }
       ],
-      "rearLensCount": 2,
-      "sensorSumMm2": 219.47,
+      "rearLensCount": 3,
+      "sensorSumMm2": 394.17,
       "video": {
         "raw": "4K@24/25/30/60/120fps HDR, 1080p@30/60/120fps; 5-axis gyro-EIS, OIS",
         "max4k": true,
@@ -93,8 +103,8 @@
         "hdr": true,
         "slowMo": false
       },
-      "launched": "Released 2023, September 25\n\r\n      182g, 8.6mm thickness\n\r\n      Android 13, up to Android 15\n\r\n      128GB/256GB storage, microSDXC  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       3.3%\r\n      2,771,435 hits\r\n    \r\n      \r\n        382\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.1\"1080x2520 pixels\r\n    \r\n    \r\n      \r\n      48MP\r\n       2160p\r\n    \r\n      \r\n      8GB RAM \r\n      Snapdragon 8 Gen 2\r\n\r\n\r\n    \r\n    \r\n    \r\n    5000mAh30W11W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
-      "priceText": "&#36;&thinsp;2,435.00 / &#8364;&thinsp;573.64 / &#163;&thinsp;449.99",
+      "launched": "Released 2021, December 14",
+      "priceText": "",
       "scrapedOk": true
     },
     {

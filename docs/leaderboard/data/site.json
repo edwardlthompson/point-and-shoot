@@ -1,15 +1,46 @@
 {
   "schema": "pns.fleet_leaderboard_site.v1",
-  "updatedUtc": "2026-06-06T12:15:57.9726201Z",
+  "updatedUtc": "2026-06-06T12:49:06.7856736Z",
   "catalogVersion": 3,
   "deviceCount": 5,
+  "breakthroughCount": 2,
+  "highlights": [
+    {
+      "slug": "718a8115ff142454",
+      "marketingName": "OnePlus 12",
+      "maxMpPerSensor": 16.1,
+      "evidenceTier": "default"
+    },
+    {
+      "slug": "dff79fd1b3808b1d",
+      "marketingName": "Essential Products Essential PH-1",
+      "maxMpPerSensor": 13.1,
+      "evidenceTier": "default"
+    }
+  ],
   "oemRankings": [
+    {
+      "manufacturer": "HTC",
+      "opennessPercent": 87.0,
+      "gateHonestyPercent": 53.3,
+      "compositePercent": 73.5,
+      "restrictionIndex": 26.5,
+      "avgResolutionBetrayal": 0.0,
+      "breakthroughCount": 0,
+      "withheldFeatureCount": 16,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "088f8b18916ff4ea"
+      ]
+    },
     {
       "manufacturer": "OnePlus",
       "opennessPercent": 90.9,
       "gateHonestyPercent": 89.8,
       "compositePercent": 90.5,
       "restrictionIndex": 9.5,
+      "avgResolutionBetrayal": 0.0,
+      "breakthroughCount": 1,
       "withheldFeatureCount": 23,
       "deviceCount": 2,
       "deviceSlugs": [
@@ -23,22 +54,12 @@
       "gateHonestyPercent": 74.4,
       "compositePercent": 82.6,
       "restrictionIndex": 17.4,
+      "avgResolutionBetrayal": 0.0,
+      "breakthroughCount": 0,
       "withheldFeatureCount": 13,
       "deviceCount": 1,
       "deviceSlugs": [
         "acf7a326d2a12131"
-      ]
-    },
-    {
-      "manufacturer": "HTC",
-      "opennessPercent": 87.0,
-      "gateHonestyPercent": 53.3,
-      "compositePercent": 73.5,
-      "restrictionIndex": 26.5,
-      "withheldFeatureCount": 16,
-      "deviceCount": 1,
-      "deviceSlugs": [
-        "088f8b18916ff4ea"
       ]
     },
     {
@@ -47,6 +68,8 @@
       "gateHonestyPercent": 50.0,
       "compositePercent": 73.0,
       "restrictionIndex": 27.0,
+      "avgResolutionBetrayal": 0.0,
+      "breakthroughCount": 1,
       "withheldFeatureCount": 14,
       "deviceCount": 1,
       "deviceSlugs": [

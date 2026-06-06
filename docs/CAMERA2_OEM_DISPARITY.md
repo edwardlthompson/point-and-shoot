@@ -21,6 +21,19 @@ Android HALs may expose:
 
 The app records `stillResolutionAdvertised[]` per camera and computes **resolution betrayal index** (0–100): share of rear cameras where alternate maps exceed default path resolution.
 
+## Camera2 full MP breakthrough
+
+When a device **proves >12 MP per rear sensor** through Camera2 (default JPEG/RAW path, max-resolution HAL map with `hasLargerThanDefault`, or verified RAW capture), the public leaderboard highlights it as a **breakthrough** — the inverse of betrayal. Manifest/dumpsys focal MP overrides alone do **not** qualify; HAL or capture proof is required.
+
+Per-SKU full-resolution capture unlock paths (beyond labeling):
+
+| Device class | Labeling (host) | Capture unlock |
+|--------------|-----------------|----------------|
+| OnePlus 12 (CPH2583) | `fleet_focal_maxres_probe.py` + manifest bands | Root: `ExperimentalMaxResolutionUnlock` vendor prop; `PhotoResolutionMode.MaxResolution` when HAL exposes max-res map |
+| OnePlus 13 (CPH2655/2649) | Same host probe + manifest seed | USB-verify `PhotoResolutionMode.MaxResolution` + parity sweep |
+| Sony Xperia PRO-I (XQ-BE62) | ~12 MP is OEM truth | No override expected; 12 MP default is correct |
+| Other fleet SKUs | Dumpsys WxH parse first; GSMArena fallback only when max-res blocks present | Matrix `camera2FullMpBreakthrough` from `stillResolutionAdvertised` |
+
 ## ROM pairing protocol
 
 For custom-ROM buyers, publish **both** when possible:

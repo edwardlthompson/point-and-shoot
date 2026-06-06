@@ -1,4 +1,4 @@
-import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry, betrayalIndex } from './theme.js';
+import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry, betrayalIndex, fullMpBreakthrough } from './theme.js';
 
 function pickVariant(variants, romFlavors) {
   if (!variants?.length) return null;
@@ -24,7 +24,7 @@ export function renderProductGroup(group, devicesBySlug) {
 
   const col = (variant, kind) => {
     if (kind === 'advertised') {
-      if (!adv) return { label: '—', pts: '—', honesty: '—', betrayal: '—', maxMp: '—', hfr: '—' };
+      if (!adv) return { label: '—', pts: '—', honesty: '—', betrayal: '—', breakthrough: '—', maxMp: '—', hfr: '—' };
       const maxClaim = (adv.advertisedClaims || []).find((c) => c.catalogId === 'still.resolution_max');
       const hfr = (adv.advertisedClaims || []).some((c) => c.catalogId?.startsWith('video.hfr'));
       return {
@@ -32,12 +32,13 @@ export function renderProductGroup(group, devicesBySlug) {
         pts: '— (not ranked)',
         honesty: '—',
         betrayal: '—',
+        breakthrough: '—',
         maxMp: maxClaim?.advertisedValue || '—',
         hfr: hfr ? 'yes (spec)' : '—',
       };
     }
     if (!variant) {
-      return { label: '—', pts: '—', honesty: '—', betrayal: '—', maxMp: '—', hfr: '—' };
+      return { label: '—', pts: '—', honesty: '—', betrayal: '—', breakthrough: '—', maxMp: '—', hfr: '—' };
     }
     const d = devicesBySlug[variant.slug];
     if (!d) {
@@ -46,6 +47,7 @@ export function renderProductGroup(group, devicesBySlug) {
         pts: variant.parityScore ?? '—',
         honesty: variant.honestyPercent != null ? `${variant.honestyPercent}%` : '—',
         betrayal: variant.resolutionBetrayalIndex ?? '—',
+        breakthrough: '—',
         maxMp: '—',
         hfr: '—',
       };
@@ -63,11 +65,13 @@ export function renderProductGroup(group, devicesBySlug) {
       maxMp = `${halRounded} (Camera2)`;
     }
     const hfrCell = Object.values(d.cellsByCategory || {}).flat().find((c) => c.catalogId?.startsWith('video.hfr') && c.provenOk);
+    const bt = fullMpBreakthrough(d);
     return {
       label: d.slug,
       pts: d.scores?.total?.score ?? '—',
       honesty: `${d.disparity?.honestyPercent ?? '—'}%`,
       betrayal: betrayalIndex(d) ?? variant.resolutionBetrayalIndex ?? '—',
+      breakthrough: bt?.proven ? `yes · ${bt.maxMpPerSensor} MP (${bt.evidenceTier})` : 'no',
       maxMp,
       hfr: hfrCell ? 'pass' : 'fail',
       device: d,
@@ -102,6 +106,7 @@ export function renderProductGroup(group, devicesBySlug) {
           <tr><td>Parity pts</td><td>${customCol.pts}</td><td>${stockCol.pts}</td><td>${advCol.pts}</td></tr>
           <tr><td>Honesty %</td><td>${customCol.honesty}</td><td>${stockCol.honesty}</td><td>${advCol.honesty}</td></tr>
           <tr><td>Resolution betrayal</td><td>${customCol.betrayal}</td><td>${stockCol.betrayal}</td><td>${advCol.betrayal}</td></tr>
+          <tr><td>Camera2 full MP breakthrough</td><td>${customCol.breakthrough}</td><td>${stockCol.breakthrough}</td><td>${advCol.breakthrough}</td></tr>
           <tr><td>Max rear MP</td><td>${customCol.maxMp}</td><td>${stockCol.maxMp}</td><td>${advCol.maxMp}</td></tr>
           <tr><td>4K120 / HFR</td><td>${customCol.hfr}</td><td>${stockCol.hfr}</td><td>${advCol.hfr}</td></tr>
         </tbody>

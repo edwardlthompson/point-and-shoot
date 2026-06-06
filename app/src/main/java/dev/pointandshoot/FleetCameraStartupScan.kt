@@ -7,6 +7,7 @@ import android.hardware.camera2.CameraManager
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.util.Log
 import android.util.Size
+import dev.pointandshoot.fleet.Camera2FullMpBreakthrough
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -174,6 +175,43 @@ object FleetCameraStartupScan {
             put("safeModeActive", ExperimentalSafeModeStore.isSafeModeActive(context.applicationContext))
             put("rootGranted", RootCapabilityStore.loadOrUnknown(context.applicationContext).grantsPrivileged)
             put("unlockLane", ExperimentalMaxResolutionUnlock.snapshotForMatrix(context.applicationContext))
+        }
+    }
+
+    /** Per rear camera: HAL max-resolution map probe (no live capture session). */
+    fun scanMaxResolutionStillProbe(cm: CameraManager): JSONArray {
+        val entries = scanStillResolutionAdvertised(cm)
+        return JSONArray().apply {
+            entries.forEach { entry ->
+                val facing =
+                    runCatching {
+                        cm.getCameraCharacteristics(entry.cameraId).get(CameraCharacteristics.LENS_FACING)
+                    }.getOrNull()
+                if (facing != CameraCharacteristics.LENS_FACING_BACK) return@forEach
+                val defaultMp =
+                    (area(entry.defaultJpeg).coerceAtLeast(area(entry.defaultRawSensor)) / 1_000_000.0)
+                val maxResMp =
+                    listOf(
+                        area(entry.maxResMapJpeg) / 1_000_000.0,
+                        area(entry.maxResMapRawSensor) / 1_000_000.0,
+                    ).maxOrNull() ?: 0.0
+                val suggestedUnlock =
+                    when {
+                        defaultMp >= Camera2FullMpBreakthrough.MP_THRESHOLD -> "default_full"
+                        entry.hasLargerThanDefault && maxResMp >= Camera2FullMpBreakthrough.MP_THRESHOLD ->
+                            "photo_resolution_mode_max"
+                        else -> "none"
+                    }
+                put(
+                    JSONObject().apply {
+                        put("cameraId", entry.cameraId)
+                        put("defaultMp", (defaultMp * 10.0).roundToInt() / 10.0)
+                        put("maxResMapMp", (maxResMp * 10.0).roundToInt() / 10.0)
+                        put("hasLargerThanDefault", entry.hasLargerThanDefault)
+                        put("suggestedUnlock", suggestedUnlock)
+                    },
+                )
+            }
         }
     }
 

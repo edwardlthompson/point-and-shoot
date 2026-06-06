@@ -1,9 +1,9 @@
 {
   "schema": "pns.fleet_parity_build_plan_intake.v1",
-  "generatedUtc": "2026-06-06T03:31:03.6630354Z",
+  "generatedUtc": "2026-06-06T12:16:05.1432320Z",
   "debtLedgerSchema": "pns.fleet_parity_debt_ledger.v2",
-  "debtLedgerGeneratedUtc": "06/06/2026 03:31:03",
-  "latestParitySerial": "b5214fc6",
+  "debtLedgerGeneratedUtc": "06/06/2026 12:16:05",
+  "latestParitySerial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
   "latestParityMode": "Full",
   "openCount": 1,
   "rowCount": 97,
@@ -30,29 +30,29 @@
       "priority": 1,
       "recurrence": 41,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 3
         },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
         },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 13
+        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 13
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 3
         }
       },
       "status": "open",
@@ -73,10 +73,6 @@
       "priority": 2,
       "recurrence": 58,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -85,21 +81,25 @@
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 24
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 24
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
@@ -120,10 +120,6 @@
       "priority": 2,
       "recurrence": 58,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -132,21 +128,25 @@
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 24
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 24
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
@@ -167,10 +167,6 @@
       "priority": 2,
       "recurrence": 58,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -179,21 +175,178 @@
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 24
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
+    },
+    {
+      "id": "PBI-still.independent_tonal-AppFeature",
+      "catalogId": "still.independent_tonal",
+      "displayName": "still.independent_tonal",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "ShipNow",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_independent_tonal_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 57,
+      "devices": {
+        "8bf09993": {
+          "serial": "8bf09993",
+          "count": 3
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 3
+        },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 24
+          "count": 18
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 6
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
+    },
+    {
+      "id": "PBI-video.color.bt709-AppFeature",
+      "catalogId": "video.color.bt709",
+      "displayName": "video.color.bt709",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "ShipNow",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_video_color_profile_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 57,
+      "devices": {
+        "8bf09993": {
+          "serial": "8bf09993",
+          "count": 3
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 3
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 18
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 6
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
+    },
+    {
+      "id": "PBI-video.color.flat-AppFeature",
+      "catalogId": "video.color.flat",
+      "displayName": "video.color.flat",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "ShipNow",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_video_color_profile_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 57,
+      "devices": {
+        "8bf09993": {
+          "serial": "8bf09993",
+          "count": 3
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 3
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 18
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 6
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
@@ -214,10 +367,6 @@
       "priority": 2,
       "recurrence": 54,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -225,167 +374,30 @@
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 20
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 5
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_baseline_delta_smoke"
-    },
-    {
-      "id": "PBI-still.independent_tonal-AppFeature",
-      "catalogId": "still.independent_tonal",
-      "displayName": "still.independent_tonal",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "ShipNow",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_independent_tonal_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 52,
-      "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 5
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 18
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
-    },
-    {
-      "id": "PBI-video.color.bt709-AppFeature",
-      "catalogId": "video.color.bt709",
-      "displayName": "video.color.bt709",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "ShipNow",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_video_color_profile_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 52,
-      "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 5
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 18
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
-    },
-    {
-      "id": "PBI-video.color.flat-AppFeature",
-      "catalogId": "video.color.flat",
-      "displayName": "video.color.flat",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "ShipNow",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_video_color_profile_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 52,
-      "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 5
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 18
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
     },
     {
       "id": "PBI-video.color.hlg10-AppFeature",
@@ -402,10 +414,6 @@
       "priority": 2,
       "recurrence": 51,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -414,21 +422,25 @@
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 17
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 17
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
@@ -449,10 +461,6 @@
       "priority": 2,
       "recurrence": 50,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -461,21 +469,25 @@
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 16
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 16
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
@@ -496,10 +508,6 @@
       "priority": 2,
       "recurrence": 50,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -508,21 +516,25 @@
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 16
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 16
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
@@ -541,86 +553,39 @@
       "proofScript": "pns_still_export_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 42,
+      "recurrence": 43,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
         },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 5
+          "count": 3
         },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
-    },
-    {
-      "id": "PBI-video.delivery_honesty-AppFeature",
-      "catalogId": "video.delivery_honesty",
-      "displayName": "video.delivery_honesty",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "ShipNow",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": null,
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 31,
-      "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 8
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 7
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 2
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 1
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
         }
       },
       "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_005019\\parity_full"
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
     },
     {
       "id": "PBI-video.av1-AppFeature",
@@ -635,15 +600,11 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 30,
+      "recurrence": 34,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 4
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
@@ -652,6 +613,14 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 4
         }
       },
       "status": "closed",
@@ -670,15 +639,11 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 29,
+      "recurrence": 33,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 4
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
@@ -687,6 +652,14 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 4
         }
       },
       "status": "closed",
@@ -705,15 +678,11 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 29,
+      "recurrence": 33,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 4
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
@@ -722,6 +691,14 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 4
         }
       },
       "status": "closed",
@@ -740,15 +717,11 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 29,
+      "recurrence": 33,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 4
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
@@ -757,6 +730,14 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 4
         }
       },
       "status": "closed",
@@ -775,15 +756,11 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 29,
+      "recurrence": 33,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 4
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
@@ -792,127 +769,18 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 4
         }
       },
       "status": "closed",
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_023318\\parity_full"
-    },
-    {
-      "id": "PBI-video.hfr.24-AppFeature",
-      "catalogId": "video.hfr.24",
-      "displayName": "video.hfr.24",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "MatrixGate",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_hfr_fps_parity_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 28,
-      "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_130124\\parity_full"
-    },
-    {
-      "id": "PBI-video.hfr.30-AppFeature",
-      "catalogId": "video.hfr.30",
-      "displayName": "video.hfr.30",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "MatrixGate",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_hfr_fps_parity_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 28,
-      "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_130124\\parity_full"
-    },
-    {
-      "id": "PBI-video.hfr.60-AppFeature",
-      "catalogId": "video.hfr.60",
-      "displayName": "video.hfr.60",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "not_proven",
-      "ownerClass": "MatrixGate",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_hfr_fps_parity_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 28,
-      "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_130124\\parity_full"
     },
     {
       "id": "PBI-perf.capture_latency-AppFeature",
@@ -927,23 +795,27 @@
       "proofScript": "pns_memory_profiler.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 26,
+      "recurrence": 31,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 9
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 3
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
         },
         "b5214fc6": {
           "serial": "b5214fc6",
@@ -952,6 +824,53 @@
       },
       "status": "closed",
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\fleet_regression_pack_20260605_023355\\tier2_parity"
+    },
+    {
+      "id": "PBI-video.delivery_honesty-AppFeature",
+      "catalogId": "video.delivery_honesty",
+      "displayName": "video.delivery_honesty",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "ShipNow",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": null,
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 31,
+      "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 1
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 5
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 7
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_005019\\parity_full"
     },
     {
       "id": "PBI-perf.cold_preview_ms-AppFeature",
@@ -966,23 +885,27 @@
       "proofScript": "pns_memory_profiler.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 24,
+      "recurrence": 29,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
         },
         "b5214fc6": {
           "serial": "b5214fc6",
@@ -1005,23 +928,27 @@
       "proofScript": "pns_memory_profiler.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 24,
+      "recurrence": 29,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
+        "8bf09993": {
+          "serial": "8bf09993",
           "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
         },
         "b5214fc6": {
           "serial": "b5214fc6",
@@ -1030,6 +957,123 @@
       },
       "status": "closed",
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_025917\\parity_full"
+    },
+    {
+      "id": "PBI-video.hfr.24-AppFeature",
+      "catalogId": "video.hfr.24",
+      "displayName": "video.hfr.24",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "MatrixGate",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_hfr_fps_parity_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 28,
+      "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 1
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_130124\\parity_full"
+    },
+    {
+      "id": "PBI-video.hfr.30-AppFeature",
+      "catalogId": "video.hfr.30",
+      "displayName": "video.hfr.30",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "MatrixGate",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_hfr_fps_parity_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 28,
+      "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 1
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_130124\\parity_full"
+    },
+    {
+      "id": "PBI-video.hfr.60-AppFeature",
+      "catalogId": "video.hfr.60",
+      "displayName": "video.hfr.60",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "not_proven",
+      "ownerClass": "MatrixGate",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_hfr_fps_parity_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 28,
+      "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 1
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_130124\\parity_full"
     },
     {
       "id": "PBI-video.raw-AppFeature",
@@ -1050,10 +1094,6 @@
           "serial": "DA7803TC1R",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 1
-        },
         "unknown-device": {
           "serial": "",
           "count": 2
@@ -1061,6 +1101,10 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 1
         }
       },
       "status": "closed",
@@ -1081,6 +1125,14 @@
       "priority": 2,
       "recurrence": 21,
       "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 6
+        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 3
@@ -1092,14 +1144,6 @@
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 3
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 8
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 6
         }
       },
       "status": "closed",
@@ -1124,10 +1168,6 @@
           "serial": "DA7803TC1R",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 1
-        },
         "unknown-device": {
           "serial": "",
           "count": 2
@@ -1135,6 +1175,10 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 14
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 1
         }
       },
       "status": "closed",
@@ -1232,25 +1276,25 @@
       "priority": 2,
       "recurrence": 17,
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 6
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 3
         },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
         },
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 3
+        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "unknown-device": {
           "serial": "",
@@ -1275,18 +1319,6 @@
       "priority": 2,
       "recurrence": 17,
       "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
@@ -1294,6 +1326,18 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 11
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 1
         }
       },
       "status": "closed",
@@ -1314,17 +1358,52 @@
       "priority": 2,
       "recurrence": 12,
       "devices": {
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 11
+        },
+        "unknown-device": {
+          "serial": "",
+          "count": 1
         }
       },
       "status": "closed",
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
+    },
+    {
+      "id": "PBI-raw.dng-AppFeature",
+      "catalogId": "raw.dng",
+      "displayName": "RAW DNG capture",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "session_failed",
+      "ownerClass": "MatrixGate",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": null,
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 11,
+      "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 3
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 3
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full"
     },
     {
       "id": "PBI-video.vp9-AppFeature",
@@ -1350,41 +1429,6 @@
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260531_034007\\parity_full"
     },
     {
-      "id": "PBI-raw.dng-AppFeature",
-      "catalogId": "raw.dng",
-      "displayName": "RAW DNG capture",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "session_failed",
-      "ownerClass": "MatrixGate",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": null,
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 9,
-      "devices": {
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 3
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full"
-    },
-    {
       "id": "PBI-root.max_res_unlock_cph2583-AppFeature",
       "catalogId": "root.max_res_unlock_cph2583",
       "displayName": "Max-resolution unlock lane (CPH2583)",
@@ -1408,6 +1452,33 @@
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260601_124703\\parity_full"
     },
     {
+      "id": "PBI-video.4k_regular-AppFeature",
+      "catalogId": "video.4k_regular",
+      "displayName": "4K @ 30 fps (regular)",
+      "workType": "AppFeature",
+      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
+      "failReason": "session_failed",
+      "ownerClass": "MatrixGate",
+      "buildPlanSprint": null,
+      "suggestedMilestone": "M27.1",
+      "proofScript": "pns_4k_regular_verify.ps1",
+      "closureEffort": null,
+      "priority": 2,
+      "recurrence": 6,
+      "devices": {
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 4
+        }
+      },
+      "status": "closed",
+      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260605_031400"
+    },
+    {
       "id": "PBI-video.hfr-AppFeature",
       "catalogId": "video.hfr",
       "displayName": "High-speed video (120+ fps)",
@@ -1420,14 +1491,14 @@
       "proofScript": "pns_hfr_fps_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 5,
+      "recurrence": 6,
       "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
+          "count": 3
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 3
         }
       },
@@ -1447,46 +1518,19 @@
       "proofScript": "pns_mediacodec_hfr_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 5,
+      "recurrence": 6,
       "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
+          "count": 3
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 3
         }
       },
       "status": "closed",
       "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full"
-    },
-    {
-      "id": "PBI-video.4k_regular-AppFeature",
-      "catalogId": "video.4k_regular",
-      "displayName": "4K @ 30 fps (regular)",
-      "workType": "AppFeature",
-      "gapClass": "GAP_ADVERTISED_NOT_PROVEN",
-      "failReason": "session_failed",
-      "ownerClass": "MatrixGate",
-      "buildPlanSprint": null,
-      "suggestedMilestone": "M27.1",
-      "proofScript": "pns_4k_regular_verify.ps1",
-      "closureEffort": null,
-      "priority": 2,
-      "recurrence": 4,
-      "devices": {
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 1
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        }
-      },
-      "status": "closed",
-      "sampleArtifact": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260605_031400"
     },
     {
       "id": "PBI-still.monochrome_capture-AppFeature",
@@ -1501,11 +1545,11 @@
       "proofScript": null,
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 3,
+      "recurrence": 4,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
+          "count": 4
         }
       },
       "status": "closed",
@@ -1526,13 +1570,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1553,13 +1597,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1580,13 +1624,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1607,13 +1651,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1634,13 +1678,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1661,13 +1705,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1688,13 +1732,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1715,13 +1759,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1742,13 +1786,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1769,13 +1813,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1796,13 +1840,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1823,13 +1867,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1850,13 +1894,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1877,13 +1921,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1904,13 +1948,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1931,13 +1975,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1958,13 +2002,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -1985,13 +2029,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2012,13 +2056,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2039,13 +2083,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2066,13 +2110,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2093,13 +2137,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2120,13 +2164,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2147,13 +2191,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2174,13 +2218,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2201,13 +2245,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2228,13 +2272,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2255,13 +2299,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2282,13 +2326,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2309,13 +2353,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2336,13 +2380,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2363,13 +2407,13 @@
       "priority": 4,
       "recurrence": 6,
       "devices": {
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 4
+        },
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
         }
       },
       "status": "closed",
@@ -2873,6 +2917,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
           "count": 1
@@ -2880,10 +2928,6 @@
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
         }
       },
       "status": "closed",
@@ -2904,6 +2948,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
           "count": 1
@@ -2911,10 +2959,6 @@
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
         }
       },
       "status": "closed",
@@ -2935,6 +2979,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
           "count": 1
@@ -2942,10 +2990,6 @@
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
         }
       },
       "status": "closed",
@@ -2966,6 +3010,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "10.0.0.9:42219": {
+          "serial": "10.0.0.9:42219",
+          "count": 2
+        },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
           "count": 1
@@ -2973,10 +3021,6 @@
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
-        },
-        "10.0.0.9:42219": {
-          "serial": "10.0.0.9:42219",
-          "count": 2
         }
       },
       "status": "closed",

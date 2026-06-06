@@ -9,6 +9,8 @@ import {
   gsmarenaLinkHtml,
   betrayalIndex,
   betrayalBadgeHtml,
+  breakthroughBadgeHtml,
+  fullMpBreakthrough,
 } from './theme.js';
 
 const PERSONA_SORT = {
@@ -108,7 +110,7 @@ export function renderDeviceCard(d, { selected }) {
   const gsmLink = gsmarenaLinkHtml(d);
   const shipCount = d.oemLossSummary?.shipBlockerCount ?? 0;
   return `
-    <article class="device-card" data-slug="${d.slug}">
+    <article class="device-card${fullMpBreakthrough(d)?.proven ? ' row-breakthrough' : ''}" data-slug="${d.slug}">
       <h2><a href="#/device/${d.slug}">${d.identity?.marketingName || d.identity?.model}</a></h2>
       <p class="sub">${d.identity?.manufacturer} ${d.identity?.model} · tested ${(d.meta?.lastSweepUtc || '').slice(0, 10)}${formatApiSubline(d)}${gsmLink ? ` · ${gsmLink}` : ''}</p>
       <div class="badges">
@@ -116,6 +118,7 @@ export function renderDeviceCard(d, { selected }) {
         ${apiLevelBadge(d)}
         ${freshness}
         ${betrayalBadgeHtml(d)}
+        ${breakthroughBadgeHtml(d)}
         ${shipCount ? `<span class="badge badge-ship-blocker">${shipCount} ship-blocker${shipCount > 1 ? 's' : ''}</span>` : ''}
         ${d.software?.romFlavor === 'stock' ? '<span class="badge badge-stock">Stock ROM</span>' : ''}
       </div>
@@ -146,6 +149,7 @@ export function renderLeaderboardTable(devices, sortKey, sortDir, selectedSlugs)
     { key: 'value', label: 'Parity/$', get: (d) => d.value?.parityPerUsd ?? 0 },
     { key: 'honesty', label: 'Honesty %', get: (d) => d.disparity?.honestyPercent ?? 0 },
     { key: 'betrayal', label: 'Res betrayal', get: (d) => betrayalIndex(d) ?? -1 },
+    { key: 'fullmp', label: 'Full MP', get: (d) => fullMpBreakthrough(d)?.maxMpPerSensor ?? 0 },
     { key: 'sensor', label: 'Sensor mm²', get: (d) => d.sensors?.sensorSumMm2 ?? 0 },
     { key: 'video', label: 'HFR@1080', get: (d) => d.videoSummary?.hfrMaxFps1080 ?? 0 },
     { key: 'api', label: 'Tested API', get: (d) => d.software?.sdkInt ?? 0 },
@@ -175,6 +179,7 @@ export function renderLeaderboardTable(devices, sortKey, sortDir, selectedSlugs)
       <td>${d.value?.parityPerUsd ?? '—'}</td>
       <td>${d.disparity?.honestyPercent ?? '—'}%</td>
       <td class="col-betrayal">${betrayalIndex(d) ?? '—'}</td>
+      <td class="col-fullmp">${fullMpBreakthrough(d)?.proven ? `${fullMpBreakthrough(d).maxMpPerSensor} ✓` : '—'}</td>
       <td>${fmtNum(d.sensors?.sensorSumMm2)}</td>
       <td>${d.videoSummary?.hfrMaxFps1080 ?? '—'}</td>
       <td>${d.software?.apiLevelLabel || (d.software?.sdkInt ? `API ${d.software.sdkInt}` : '—')}</td>

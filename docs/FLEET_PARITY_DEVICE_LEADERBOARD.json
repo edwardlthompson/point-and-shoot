@@ -1,16 +1,19 @@
 {
   "schema": "pns.fleet_parity_device_leaderboard.v1",
-  "updatedUtc": "2026-06-06T03:31:00.8790338Z",
+  "updatedUtc": "2026-06-06T12:49:09.4319349Z",
   "entries": [
     {
       "deviceKey": "OnePlus|CPH2583|961221c0f0bc2eee",
-      "deviceLabel": "OnePlus CPH2583 [4fc6]",
+      "deviceLabel": "OnePlus 12 (CPH2583) [4fc6]",
+      "marketingName": "OnePlus 12",
       "manufacturer": "OnePlus",
       "model": "CPH2583",
       "fingerprintSha256Prefix": "961221c0f0bc2eee",
       "serialSuffix": "4fc6",
-      "lastSeenUtc": "2026-06-06T03:31:00.8436238Z",
-      "lastSweepTimestampUtc": "2026-06-06T03:31:00.3602253Z",
+      "sdkInt": 36,
+      "testedApiLevel": "Android 16 (API 36)",
+      "lastSeenUtc": "06/06/2026 03:31:00",
+      "lastSweepTimestampUtc": "06/06/2026 03:31:00",
       "lastSweepMode": "Full",
       "lastSweepPass": true,
       "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645",
@@ -45,77 +48,34 @@
       "rank": 1
     },
     {
-      "deviceKey": "Unknown|Unknown|961221c0f0bc2eee",
-      "deviceLabel": "Unknown Unknown [4fc6]",
-      "manufacturer": "Unknown",
-      "model": "Unknown",
-      "fingerprintSha256Prefix": "961221c0f0bc2eee",
-      "serialSuffix": "4fc6",
-      "sdkInt": null,
-      "testedApiLevel": null,
-      "lastSeenUtc": "05/30/2026 13:01:17",
-      "lastSweepTimestampUtc": "05/30/2026 13:01:17",
-      "lastSweepMode": "Quick",
-      "lastSweepPass": true,
-      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125913",
-      "score": {
-        "features": {
-          "score": 422,
-          "maxScore": 540,
-          "percent": 78.1,
-          "cellCount": 54,
-          "provenCount": 41
-        },
-        "resolutions": {
-          "score": 0,
-          "maxScore": 10,
-          "percent": 0.0,
-          "cellCount": 1,
-          "provenCount": 0
-        },
-        "capabilities": {
-          "score": 0,
-          "maxScore": 0,
-          "percent": 0.0,
-          "gateCount": 0,
-          "cameraCount": 0
-        },
-        "total": {
-          "score": 422,
-          "maxScore": 550,
-          "percent": 76.7
-        }
-      },
-      "rank": 2
-    },
-    {
       "deviceKey": "OnePlus|CPH2655|4917ad5d3e111fca",
-      "deviceLabel": "OnePlus CPH2655 [4219]",
+      "deviceLabel": "OnePlus 13 (CPH2655) [9993]",
+      "marketingName": "OnePlus 13",
       "manufacturer": "OnePlus",
       "model": "CPH2655",
       "fingerprintSha256Prefix": "4917ad5d3e111fca",
-      "serialSuffix": "4219",
+      "serialSuffix": "9993",
       "sdkInt": 36,
       "testedApiLevel": "Android 16 (API 36)",
-      "lastSeenUtc": "06/05/2026 05:09:19",
-      "lastSweepTimestampUtc": "06/05/2026 05:09:19",
+      "lastSeenUtc": "06/06/2026 04:37:58",
+      "lastSweepTimestampUtc": "06/06/2026 04:37:58",
       "lastSweepMode": "Full",
       "lastSweepPass": true,
-      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260605_050516",
+      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_043346",
       "score": {
         "features": {
-          "score": 1158,
+          "score": 1218,
           "maxScore": 1590,
-          "percent": 72.8,
+          "percent": 76.6,
           "cellCount": 159,
-          "provenCount": 109
+          "provenCount": 119
         },
         "resolutions": {
-          "score": 200,
+          "score": 206,
           "maxScore": 230,
-          "percent": 87.0,
+          "percent": 89.6,
           "cellCount": 23,
-          "provenCount": 18
+          "provenCount": 19
         },
         "capabilities": {
           "score": 269,
@@ -125,78 +85,35 @@
           "cameraCount": 5
         },
         "total": {
-          "score": 1627,
+          "score": 1693,
           "maxScore": 2180,
-          "percent": 74.6
+          "percent": 77.7
         }
       },
-      "rank": 3
-    },
-    {
-      "deviceKey": "HTC|EXODUS 1|165bbc786fa1f391",
-      "deviceLabel": "HTC EXODUS 1 [0538]",
-      "manufacturer": "HTC",
-      "model": "EXODUS 1",
-      "fingerprintSha256Prefix": "165bbc786fa1f391",
-      "serialSuffix": "0538",
-      "sdkInt": 28,
-      "testedApiLevel": "Android API 28 (API 28)",
-      "lastSeenUtc": "06/05/2026 03:18:29",
-      "lastSweepTimestampUtc": "06/05/2026 03:18:29",
-      "lastSweepMode": "Full",
-      "lastSweepPass": false,
-      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260605_031400",
-      "score": {
-        "features": {
-          "score": 1140,
-          "maxScore": 1590,
-          "percent": 71.7,
-          "cellCount": 159,
-          "provenCount": 106
-        },
-        "resolutions": {
-          "score": 154,
-          "maxScore": 230,
-          "percent": 67.0,
-          "cellCount": 23,
-          "provenCount": 13
-        },
-        "capabilities": {
-          "score": 55,
-          "maxScore": 144,
-          "percent": 38.2,
-          "gateCount": 24,
-          "cameraCount": 2
-        },
-        "total": {
-          "score": 1349,
-          "maxScore": 1964,
-          "percent": 68.7
-        }
-      },
-      "rank": 4
+      "rank": 2
     },
     {
       "deviceKey": "Essential Products|PH-1|3ed247c9b6af0f1b",
-      "deviceLabel": "Essential Products PH-1 [_tcp]",
+      "deviceLabel": "Essential Products Essential PH-1 (PH-1) [_tcp]",
+      "marketingName": "Essential PH-1",
       "manufacturer": "Essential Products",
       "model": "PH-1",
       "fingerprintSha256Prefix": "3ed247c9b6af0f1b",
       "serialSuffix": "_tcp",
       "sdkInt": 35,
       "testedApiLevel": "Android 15 (API 35)",
-      "lastSeenUtc": "06/05/2026 11:01:34",
-      "lastSweepTimestampUtc": "06/05/2026 11:01:34",
+      "lastSeenUtc": "06/06/2026 12:46:38",
+      "lastSweepTimestampUtc": "06/06/2026 12:46:38",
       "lastSweepMode": "Full",
       "lastSweepPass": false,
-      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260605_105702",
+      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232",
       "score": {
         "features": {
-          "score": 1136,
+          "score": 1196,
           "maxScore": 1590,
-          "percent": 71.4,
+          "percent": 75.2,
           "cellCount": 159,
-          "provenCount": 106
+          "provenCount": 116
         },
         "resolutions": {
           "score": 150,
@@ -213,16 +130,17 @@
           "cameraCount": 3
         },
         "total": {
-          "score": 1370,
+          "score": 1430,
           "maxScore": 2036,
-          "percent": 67.3
+          "percent": 70.2
         }
       },
-      "rank": 5
+      "rank": 3
     },
     {
       "deviceKey": "Sony|XQ-BE62|aa6273fd9666679d",
-      "deviceLabel": "Sony XQ-BE62 [TC1R]",
+      "deviceLabel": "Sony Xperia PRO-I (XQ-BE62) [TC1R]",
+      "marketingName": "Sony Xperia PRO-I",
       "manufacturer": "Sony",
       "model": "XQ-BE62",
       "fingerprintSha256Prefix": "aa6273fd9666679d",
@@ -262,7 +180,52 @@
           "percent": 65.7
         }
       },
-      "rank": 6
+      "rank": 4
+    },
+    {
+      "deviceKey": "HTC|EXODUS 1|165bbc786fa1f391",
+      "deviceLabel": "HTC Exodus 1 (EXODUS 1) [0538]",
+      "marketingName": "HTC Exodus 1",
+      "manufacturer": "HTC",
+      "model": "EXODUS 1",
+      "fingerprintSha256Prefix": "165bbc786fa1f391",
+      "serialSuffix": "0538",
+      "sdkInt": 28,
+      "testedApiLevel": "Android API 28 (API 28)",
+      "lastSeenUtc": "06/06/2026 04:52:20",
+      "lastSweepTimestampUtc": "06/06/2026 04:52:20",
+      "lastSweepMode": "Full",
+      "lastSweepPass": false,
+      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_044750",
+      "score": {
+        "features": {
+          "score": 1200,
+          "maxScore": 1590,
+          "percent": 75.5,
+          "cellCount": 159,
+          "provenCount": 116
+        },
+        "resolutions": {
+          "score": 154,
+          "maxScore": 230,
+          "percent": 67.0,
+          "cellCount": 23,
+          "provenCount": 13
+        },
+        "capabilities": {
+          "score": 55,
+          "maxScore": 144,
+          "percent": 38.2,
+          "gateCount": 24,
+          "cameraCount": 2
+        },
+        "total": {
+          "score": 1409,
+          "maxScore": 1964,
+          "percent": 71.7
+        }
+      },
+      "rank": 5
     }
   ]
 }

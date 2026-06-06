@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Point & Shoot — Fleet Camera Parity Leaderboard</title>
-  <link rel="stylesheet" href="assets/style.css?v=20260605c">
+  <link rel="stylesheet" href="assets/style.css?v=20260606d">
   <link rel="alternate" type="application/rss+xml" href="data/feed.xml" title="Leaderboard RSS">
   <link rel="alternate" type="application/json" href="data/feed.json" title="Leaderboard feed">
 </head>
@@ -30,6 +30,7 @@
         <li><strong>Capabilities:</strong> per-camera feature gates — advertised + appEnabled + sessionOk</li>
         <li><strong>Honesty %:</strong> proven ÷ HAL-advertised cells</li>
         <li><strong>Res betrayal:</strong> % of rear cameras where spec-sheet / focal-row MP or alternate HAL stream maps exceed the Camera2 default still path by ≥25% (0 = honest; higher = more withholding)</li>
+        <li><strong>Full MP breakthrough:</strong> Device proved &gt;12 MP per rear sensor via Camera2 default/max-res map or verified capture — opposite of betrayal; rare aftermarket access</li>
         <li><strong>Tested API:</strong> Android version (SDK/API level) on the device when the parity sweep ran — OEM updates can change Camera2 behavior</li>
         <li><strong>Sensor sum (mm²):</strong> combined physical area of rear cameras — from Camera2 HAL when scanned on-device, otherwise GSMArena published sensor types</li>
         <li><strong>Restriction Index:</strong> OEM composite (lower openness = more gating)</li>
@@ -78,6 +79,6 @@
     </div>
   </footer>
 
-  <script type="module" src="assets/app.js?v=20260605c"></script>
+  <script type="module" src="assets/app.js?v=20260606d"></script>
 </body>
 </html>

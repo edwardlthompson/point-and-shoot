@@ -150,6 +150,141 @@ function Get-DeviceSlug([string]$DeviceKey) {
     return ([BitConverter]::ToString($hash).Replace("-", "").ToLower()).Substring(0, 16)
 }
 
+function Get-MarketingEntry($MapObj, [string]$Model) {
+    if (-not $MapObj -or -not $MapObj.devices) { return $null }
+    foreach ($d in @($MapObj.devices)) {
+        if ([string]$d.model -eq $Model) { return $d }
+    }
+    return $null
+}
+
+function Get-MarketingCommercialName($Manufacturer, $MarketingEntry) {
+    $manufacturer = if ($Manufacturer) { [string]$Manufacturer.Trim() } else { "" }
+    if (-not $MarketingEntry -or -not $MarketingEntry.marketingName) {
+        if ($manufacturer) { return $manufacturer }
+        return $null
+    }
+    $name = [string]$MarketingEntry.marketingName.Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) { return $manufacturer }
+    if ([string]::IsNullOrWhiteSpace($manufacturer)) { return $name }
+    if ($name.ToLower().StartsWith($manufacturer.ToLower())) { return $name }
+    return "$manufacturer $name"
+}
+
+function Get-DeviceDisplayLabel($Manufacturer, $Model, $MarketingEntry, $SerialSuffix) {
+    $suffix = if ($SerialSuffix) { [string]$SerialSuffix } else { "?" }
+    $commercial = Get-MarketingCommercialName $Manufacturer $MarketingEntry
+    $modelStr = if ($Model) { [string]$Model.Trim() } else { "Unknown" }
+    $manufacturerStr = if ($Manufacturer) { [string]$Manufacturer.Trim() } else { "Unknown" }
+    if ($commercial -and $commercial -ne $manufacturerStr -and $modelStr -ne "Unknown") {
+        return "$commercial ($modelStr) [$suffix]"
+    }
+    if ($commercial) {
+        return "$commercial [$suffix]"
+    }
+    return "$manufacturerStr $modelStr [$suffix]"
+}
+
+function Test-GsmarenaMarketingTitleMatch($GsmarenaDevice, $MarketingEntry) {
+    if (-not $GsmarenaDevice -or -not $MarketingEntry) { return $true }
+    $title = if ($GsmarenaDevice.pageTitle) { [string]$GsmarenaDevice.pageTitle } else { "" }
+    $name = if ($MarketingEntry.marketingName) { [string]$MarketingEntry.marketingName } else { "" }
+    if ([string]::IsNullOrWhiteSpace($title) -or [string]::IsNullOrWhiteSpace($name)) { return $true }
+    $norm = {
+        param($v)
+        return ([regex]::Replace([string]$v.ToLower(), '[^a-z0-9]+', ' ')).Trim()
+    }
+    $titleNorm = & $norm $title
+    $parts = @($name.Trim() -split '\s+' | Where-Object { $_ })
+    if ($parts.Count -lt 2) {
+        return $titleNorm.Contains((& $norm $parts[0]))
+    }
+    $first = & $norm $parts[0]
+    $last = & $norm $parts[$parts.Count - 1]
+    return ($titleNorm.Contains($first) -and $titleNorm.Contains($last))
+}
+
+function Get-ResolutionSizeMpFromObject($SizeObj) {
+    return Get-ResolutionSizeMp $SizeObj
+}
+
+function Get-Camera2FullMpBreakthrough($Matrix, $InApp = $null, $CaptureProofMpByCamera = $null) {
+    $mpThreshold = 13.0
+    $entries = @()
+    if ($InApp -and $InApp.stillResolutionAdvertised) {
+        $entries = @($InApp.stillResolutionAdvertised)
+    }
+    elseif ($Matrix -and $Matrix.product -and $Matrix.product.stillResolutionAdvertised) {
+        $entries = @($Matrix.product.stillResolutionAdvertised)
+    }
+    $evidences = @()
+    foreach ($e in @($entries)) {
+        $cid = [string]$e.cameraId
+        if ([string]::IsNullOrWhiteSpace($cid)) { continue }
+        $defaultMp = [Math]::Max((Get-ResolutionDefaultMp $e), 0.0)
+        if ($defaultMp -ge $mpThreshold) {
+            $evidences += [ordered]@{ cameraId = $cid; provenMp = $defaultMp; evidenceTier = "default" }
+            continue
+        }
+        if ($CaptureProofMpByCamera -and $CaptureProofMpByCamera.ContainsKey($cid)) {
+            $capMp = [double]$CaptureProofMpByCamera[$cid]
+            if ($capMp -ge $mpThreshold) {
+                $evidences += [ordered]@{ cameraId = $cid; provenMp = $capMp; evidenceTier = "capture" }
+                continue
+            }
+        }
+        $maxResMp = Get-ResolutionMaxHalMp $e
+        if ($e.hasLargerThanDefault -eq $true -and $maxResMp -ge $mpThreshold) {
+            $evidences += [ordered]@{ cameraId = $cid; provenMp = $maxResMp; evidenceTier = "maxres_map" }
+        }
+    }
+    if ($Matrix -and $Matrix.product -and $Matrix.product.camera2FullMpBreakthrough) {
+        $embedded = $Matrix.product.camera2FullMpBreakthrough
+        if ($embedded.proven -eq $true -and @($evidences).Count -eq 0 -and $embedded.cameras) {
+            foreach ($c in @($embedded.cameras)) {
+                $evidences += [ordered]@{
+                    cameraId = [string]$c.cameraId
+                    provenMp = [double]$c.provenMp
+                    evidenceTier = [string]$c.evidenceTier
+                }
+            }
+        }
+    }
+    $proven = @($evidences).Count -gt 0
+    $maxMp = 0.0
+    foreach ($ev in @($evidences)) {
+        if ([double]$ev.provenMp -gt $maxMp) { $maxMp = [double]$ev.provenMp }
+    }
+    $tier = $null
+    $tierRank = @{ default = 1; maxres_map = 2; capture = 3 }
+    $bestRank = 0
+    foreach ($ev in @($evidences)) {
+        $key = [string]$ev.evidenceTier
+        if (-not $tierRank.ContainsKey($key)) { continue }
+        $r = [int]$tierRank[$key]
+        if ($r -gt $bestRank) { $bestRank = $r; $tier = $key }
+    }
+    return [ordered]@{
+        proven = $proven
+        cameraCount = @($evidences).Count
+        maxMpPerSensor = if ($maxMp -gt 0) { [math]::Round($maxMp, 1) } else { $null }
+        evidenceTier = $tier
+        cameras = @($evidences)
+    }
+}
+
+function Write-FleetParityHistoryEvent([string]$RepoRoot, [string]$EventType, $Payload) {
+    if ([string]::IsNullOrWhiteSpace($RepoRoot)) { return }
+    $path = Join-Path $RepoRoot "docs\FLEET_PARITY_HISTORY.jsonl"
+    $row = [ordered]@{
+        timestampUtc = [DateTime]::UtcNow.ToString("o")
+        eventType = $EventType
+        payload = $Payload
+    }
+    $line = ($row | ConvertTo-Json -Depth 8 -Compress)
+    Add-Content -LiteralPath $path -Value $line -Encoding utf8
+}
+
 function Get-AndroidApiLabel([object]$SdkInt) {
     if ($null -eq $SdkInt -or [string]$SdkInt -eq "") { return $null }
     $api = [int]$SdkInt
@@ -335,12 +470,22 @@ function Get-OemRankings($DeviceProfiles) {
     foreach ($d in @($DeviceProfiles)) {
         $oem = [string]$d.identity.manufacturer
         if (-not $byOem.ContainsKey($oem)) {
-            $byOem[$oem] = @{ advertised = 0; provenAdvertised = 0; gateAdvertised = 0; gateSessionOk = 0; withheld = 0; devices = @() }
+            $byOem[$oem] = @{
+                advertised = 0; provenAdvertised = 0; gateAdvertised = 0; gateSessionOk = 0
+                withheld = 0; breakthroughCount = 0; resBetrayalSum = 0.0; resBetrayalN = 0; devices = @()
+            }
         }
         $b = $byOem[$oem]
         $b.advertised += [int]$d.disparity.advertisedCellCount
         $b.provenAdvertised += [int]$d.disparity.provenAdvertisedCount
         $b.withheld += @($d.withheldFeatures).Count
+        if ($d.camera2FullMpBreakthrough -and $d.camera2FullMpBreakthrough.proven -eq $true) {
+            $b.breakthroughCount++
+        }
+        if ($null -ne $d.resolutionBetrayal -and $null -ne $d.resolutionBetrayal.index) {
+            $b.resBetrayalSum += [double]$d.resolutionBetrayal.index
+            $b.resBetrayalN++
+        }
         $b.devices += $d.slug
         foreach ($cam in @($d.gatesByCamera)) {
             foreach ($g in @($cam.gates)) {
@@ -359,12 +504,15 @@ function Get-OemRankings($DeviceProfiles) {
         $gateHonesty = if ($b.gateAdvertised -gt 0) { [math]::Round(100.0 * $b.gateSessionOk / $b.gateAdvertised, 1) } else { 0.0 }
         $composite = [math]::Round(0.6 * $openness + 0.4 * $gateHonesty, 1)
         $restrictionIndex = [math]::Round(100.0 - $composite, 1)
+        $avgResBetrayal = if ($b.resBetrayalN -gt 0) { [math]::Round($b.resBetrayalSum / $b.resBetrayalN, 0) } else { $null }
         $rankings += [ordered]@{
             manufacturer = $oem
             opennessPercent = $openness
             gateHonestyPercent = $gateHonesty
             compositePercent = $composite
             restrictionIndex = $restrictionIndex
+            avgResolutionBetrayal = $avgResBetrayal
+            breakthroughCount = [int]$b.breakthroughCount
             withheldFeatureCount = $b.withheld
             deviceCount = @($b.devices).Count
             deviceSlugs = @($b.devices)

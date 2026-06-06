@@ -16,6 +16,8 @@ import {
   defaultMpFromEntry,
   advertisedMpForCamera,
   betrayalIndex,
+  breakthroughHeroHtml,
+  breakthroughBadgeHtml,
 } from './theme.js';
 import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js';
 import { drawSparkline } from './charts.js';
@@ -51,7 +53,7 @@ function renderResolutionBetrayalPanel(d, glossary) {
   return `
     <section class="device-card resolution-panel">
       <h3>${glossaryLabel('Resolution withholding', glossary, 'resolution_betrayal')}</h3>
-      <p class="software-line">Betrayal index: <strong>${idxLabel}</strong> (% of cameras where spec/focal-row MP or alternate HAL maps exceed Camera2 default by ≥25%)</p>
+      <p class="software-line">Betrayal index: <strong>${idx}</strong> (% of cameras where spec/focal-row MP or alternate HAL maps exceed Camera2 default by ≥25%)</p>
       <p>Counts hidden high-res stream maps and spec-sheet megapixel claims above the default Camera2 still path.</p>
       <table class="data-table"><thead><tr><th>Camera</th><th>Default MP</th><th>Max advertised MP</th><th>Notes</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
     </section>`;
@@ -137,10 +139,11 @@ export function renderDeviceDetail(d, history, glossary) {
   return `
     <p><a href="#/">&larr; Back</a>${d.identity?.productGroupId ? ` · <a href="#/product/${d.identity.productGroupId}">Product compare</a>` : ''}</p>
     <p class="disclosure-banner"><strong>Camera2 measurement:</strong> Scores reflect third-party Camera2 access — not the OEM camera app.</p>
+    ${breakthroughHeroHtml(d)}
     <div class="device-card">
-      <h1>${d.identity?.marketingName}</h1>
-      <p class="sub">${d.identity?.manufacturer} ${d.identity?.model}${gsmLink ? ` · ${gsmLink}` : ''}</p>
-      <div class="badges">${trustBadge(d.meta?.trustTier, d.software?.romFlavor)} ${apiLevelBadge(d)}</div>
+      <h1>${d.identity?.marketingName || d.identity?.displayLabel}</h1>
+      <p class="sub">${d.identity?.displayLabel || `${d.identity?.manufacturer} ${d.identity?.model}`}${gsmLink ? ` · ${gsmLink}` : ''}</p>
+      <div class="badges">${trustBadge(d.meta?.trustTier, d.software?.romFlavor)} ${apiLevelBadge(d)} ${breakthroughBadgeHtml(d)}</div>
       <p class="software-line"><strong>Tested on:</strong> ${formatApiLevel(d) || '—'}${d.software?.buildDisplay ? ` · ${d.software.buildDisplay}` : ''}${d.software?.securityPatch ? ` · patch ${d.software.securityPatch}` : ''}</p>
       <p style="font-size:0.85rem">${videoOneLiner(d)}</p>
       ${lensStripHtml(d)}

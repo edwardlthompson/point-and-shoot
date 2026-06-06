@@ -470,6 +470,9 @@ const val EXTRA_PNS_AUTO_EXPORT_PROBE = "pns_auto_export_probe"
  */
 const val EXTRA_PNS_FLEET_MATRIX_SCAN = "pns_fleet_matrix_scan"
 
+/** After focal MP override push: `--ez pns_fleet_matrix_rescan true` rebuilds matrix with override-aware focalSlots. */
+const val EXTRA_PNS_FLEET_MATRIX_RESCAN = "pns_fleet_matrix_rescan"
+
 /** Fleet Parity Sweep (M18.6): `--ez pns_auto_parity_sweep true --es pns_parity_sweep_mode quick|full|delta` */
 const val EXTRA_PNS_AUTO_PARITY_SWEEP = "pns_auto_parity_sweep"
 const val EXTRA_PNS_PARITY_SWEEP_MODE = "pns_parity_sweep_mode"
@@ -622,6 +625,9 @@ fun CameraCapabilitiesProbe(
     // (same stale-cache class as preview automation extras below).
     val fleetMatrixScanTier =
         activity?.intent?.getStringExtra(EXTRA_PNS_FLEET_MATRIX_SCAN)?.lowercase()?.trim()
+    val fleetMatrixRescan =
+        activity?.intent?.getBooleanExtra(EXTRA_PNS_FLEET_MATRIX_RESCAN, false) ?: false
+    var fleetMatrixRescanDone by remember { mutableStateOf(false) }
     val legacyOp13FleetPolicy =
         activity?.intent?.getBooleanExtra(EXTRA_PNS_LEGACY_LegacyDevice_FLEET_POLICY, false) ?: false
     var fleetMatrixFullScanDone by remember { mutableStateOf(false) }
@@ -963,6 +969,25 @@ fun CameraCapabilitiesProbe(
         withContext(Dispatchers.IO) {
             runCatching { FleetDeviceMatrixBuilder.buildFullAndSave(appCtx) }
                 .onFailure { e -> Log.e(FleetDeviceMatrixBuilder.TAG, "scanTier=full failed", e) }
+        }
+    }
+
+    LaunchedEffect(hasCameraPermission, fleetMatrixRescan) {
+        if (!hasCameraPermission || !fleetMatrixRescan || fleetMatrixRescanDone) return@LaunchedEffect
+        fleetMatrixRescanDone = true
+        Log.i(FleetDeviceMatrixBuilder.TAG, "scanTier=quick rescan after focal MP override")
+        val act = activity
+        if (act != null) {
+            var waited = 0
+            while (act.lifecycle.currentState < Lifecycle.State.RESUMED && waited < 200) {
+                delay(100)
+                waited++
+            }
+        }
+        delay(800)
+        withContext(Dispatchers.IO) {
+            runCatching { FleetDeviceMatrixBuilder.buildQuickAndSave(appCtx, forceRescan = true) }
+                .onFailure { e -> Log.e(FleetDeviceMatrixBuilder.TAG, "focal MP rescan failed", e) }
         }
     }
 

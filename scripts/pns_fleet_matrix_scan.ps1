@@ -17,7 +17,8 @@ param(
     [switch]$AssembleDebug,
     [int]$WaitSec = 0,
     [switch]$LegacyOp13FleetPolicy,
-    [switch]$Redact
+    [switch]$Redact,
+    [switch]$SkipRescanAfterMaxResOverride
 )
 
 function Redact-HalDumpsysText([string]$Text) {
@@ -38,6 +39,7 @@ if (Test-Path -LiteralPath $resolveAdbForSession) {
 }
 
 $projRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "pns_leaderboard_common.ps1")
 $pkg = "dev.pointandshoot"
 $activity = "$pkg/.MainActivity"
 $matrixFile = "fleet_device_matrix.json"
@@ -100,6 +102,43 @@ function Invoke-AdbIgnore([string[]]$CmdArgs) {
 function Write-Utf8NoBom([string]$Path, [string]$Text) {
     $enc = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($Path, $Text, $enc)
+}
+
+function Merge-FocalOverridesIntoMatrix([string]$MatrixPath, $ProbeObj) {
+    if (-not (Test-Path -LiteralPath $MatrixPath) -or -not $ProbeObj -or -not $ProbeObj.overrides) { return $false }
+    try {
+        $matrix = Get-Content -LiteralPath $MatrixPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (-not $matrix.product -or -not $matrix.product.focalSlots) { return $false }
+        $byCam = @{}
+        foreach ($ov in @($ProbeObj.overrides)) {
+            $byCam[[string]$ov.cameraId] = [double]$ov.megapixels
+        }
+        foreach ($slot in @($matrix.product.focalSlots)) {
+            $cid = [string]$slot.cameraId
+            if (-not $byCam.ContainsKey($cid)) { continue }
+            $slot.megapixels = $byCam[$cid]
+            $slot.grayscaled = ($byCam[$cid] -lt 12.0)
+        }
+        Write-LeaderboardJson -Object $matrix -Path $MatrixPath -Depth 20
+        return $true
+    } catch {
+        Write-Warning "[fleet_matrix] host focalSlots merge failed: $_"
+        return $false
+    }
+}
+
+function Invoke-FleetMatrixRescanAfterOverride([int]$WaitSecRescan = 22) {
+    Write-Host "[fleet_matrix] rescan matrix after focal MP override (wait=${WaitSecRescan}s)"
+    Invoke-AdbIgnore @("shell", "am", "force-stop", $pkg)
+    Start-Sleep -Milliseconds 600
+    $rescanArgs = @(
+        "shell", "am", "start", "-W", "-n", $activity,
+        "--activity-clear-task", "-S",
+        "--es", "pns_screen", "probehub",
+        "--ez", "pns_fleet_matrix_rescan", "true"
+    )
+    if ($Serial) { & adb -s $Serial @rescanArgs } else { & adb @rescanArgs }
+    Start-Sleep -Seconds $WaitSecRescan
 }
 
 function Test-AdbAuthorizedDevice {
@@ -358,6 +397,7 @@ if ($Redact.IsPresent -and $pulled) {
 $maxResProbeRan = $false
 $maxResBlocksPresent = $false
 $maxResOverridesApplied = $false
+$maxResRescanApplied = $false
 $maxResProbeRelPath = ""
 $maxResOverrideRelPath = ""
 if ($pulled) {
@@ -429,6 +469,28 @@ if ($pulled) {
                             & adb shell rm $tmpDevice 2>$null | Out-Null
                         }
                         $maxResOverridesApplied = $true
+                        $hostMergeOk = Merge-FocalOverridesIntoMatrix $matrixOut $probeObj
+                        if ($hostMergeOk) {
+                            Write-Host "[fleet_matrix] merged focal MP overrides into pulled matrix JSON"
+                        }
+                        if (-not $SkipRescanAfterMaxResOverride) {
+                            Invoke-FleetMatrixRescanAfterOverride
+                            try {
+                                $matrixTextRescan = ""
+                                if ($Serial) {
+                                    $matrixTextRescan = (& adb -s $Serial exec-out run-as $pkg cat "files/$matrixFile" 2>$null | Out-String)
+                                } else {
+                                    $matrixTextRescan = (& adb exec-out run-as $pkg cat "files/$matrixFile" 2>$null | Out-String)
+                                }
+                                if (-not [string]::IsNullOrWhiteSpace($matrixTextRescan)) {
+                                    Write-Utf8NoBom -Path $matrixOut -Text $matrixTextRescan
+                                    Write-Host "[fleet_matrix] re-pulled matrix after focal MP rescan"
+                                    $maxResRescanApplied = $true
+                                }
+                            } catch {
+                                Write-Warning "[fleet_matrix] matrix re-pull after rescan failed: $_"
+                            }
+                        }
                     }
                 }
             } else {
@@ -470,6 +532,7 @@ $gate = [ordered]@{
     maxResProbeRan = $maxResProbeRan
     maxResBlocksPresent = $maxResBlocksPresent
     maxResOverridesApplied = $maxResOverridesApplied
+    maxResRescanApplied = $maxResRescanApplied
     maxResProbeRelPath = $maxResProbeRelPath
     maxResOverrideRelPath = $maxResOverrideRelPath
 }

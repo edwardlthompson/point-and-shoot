@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_sensor_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm\u00b2 via 25.4/denom diagonal (4:3).",
-  "scrapedUtc": "2026-06-06T12:08:13.984209+00:00",
+  "scrapedUtc": "2026-06-06T12:38:09.137747+00:00",
   "stale": true,
   "devices": [
     {
@@ -49,33 +49,43 @@
     },
     {
       "model": "XQ-BE62",
-      "marketingName": "Sony Xperia 5 V",
-      "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_5_v-12534.php",
-      "pageTitle": "Sony Xperia 5 V - Full phone specifications",
+      "marketingName": "Sony Xperia PRO-I",
+      "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+      "pageTitle": "Sony Xperia PRO-I - Full phone specifications",
       "lenses": [
         {
-          "rawLine": "48 MP, f/1.9, 24mm (wide), 1/1.35\", 1.12\u00b5m, dual pixel PDAF, OIS",
-          "megapixels": 48.0,
+          "rawLine": "12 MP, f/2.0-4.0, 24mm (wide), 1.0\"-type, 2.4\u00b5m, dual pixel PDAF, OIS",
+          "megapixels": 12.0,
           "focalLengthMm": 24.0,
           "role": "wide",
-          "sensorTypeFraction": "1/1.35",
-          "widthMm": 15.05,
-          "heightMm": 11.29,
-          "areaMm2": 169.92
+          "sensorTypeFraction": "1/1.0",
+          "widthMm": 20.32,
+          "heightMm": 15.24,
+          "areaMm2": 309.68
         },
         {
-          "rawLine": "12 MP, f/2.2, 16mm (ultrawide), 1/2.5\", dual pixel PDAF",
+          "rawLine": "12 MP, f/2.4, 50mm (telephoto), 1/2.9\", PDAF, 2x optical zoom, OIS",
+          "megapixels": 12.0,
+          "focalLengthMm": 50.0,
+          "role": "tele",
+          "sensorTypeFraction": "1/2.9",
+          "widthMm": 7.01,
+          "heightMm": 5.26,
+          "areaMm2": 36.87
+        },
+        {
+          "rawLine": "12 MP, f/2.2, 124\u02da, 16mm (ultrawide), 1/2.55\", dual pixel PDAF",
           "megapixels": 12.0,
           "focalLengthMm": 16.0,
           "role": "ultrawide",
-          "sensorTypeFraction": "1/2.5",
-          "widthMm": 8.13,
-          "heightMm": 6.1,
-          "areaMm2": 49.55
+          "sensorTypeFraction": "1/2.55",
+          "widthMm": 7.97,
+          "heightMm": 5.98,
+          "areaMm2": 47.62
         }
       ],
-      "rearLensCount": 2,
-      "sensorSumMm2": 219.47,
+      "rearLensCount": 3,
+      "sensorSumMm2": 394.17,
       "sensorSumMethod": "gsmarena_type_fraction",
       "scrapedOk": true
     },
@@ -151,6 +161,10 @@
     },
     {
       "model": "XQ-BE62",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "model": "CPH2655",
       "error": "HTTP Error 429: Too Many Requests"
     },
     {

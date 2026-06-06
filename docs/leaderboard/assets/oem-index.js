@@ -15,6 +15,7 @@ export function renderOemIndex(site, devices, oemAccountability) {
       </td>
       <td>${o.opennessPercent ?? '—'}% openness ${progressBar(o.opennessPercent)}</td>
       <td>${o.avgResolutionBetrayal ?? '—'} avg res betrayal</td>
+      <td>${o.breakthroughCount ?? 0} full-MP breakthrough(s)</td>
       <td>${o.totalShipBlockers ?? o.withheldFeatureCount ?? 0} ship-blockers</td>
       <td>${o.deviceCount ?? 0} device(s)</td>
     </tr>`).join('');
@@ -37,8 +38,8 @@ export function renderOemIndex(site, devices, oemAccountability) {
     <p>${subtitle}</p>
     <div class="data-table-wrap">
       <table class="data-table">
-        <thead><tr><th>#</th><th>OEM</th><th>Index</th><th>Openness</th><th>Res betrayal</th><th>Ship-blockers</th><th>Devices</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="7">No OEM data yet</td></tr>'}</tbody>
+        <thead><tr><th>#</th><th>OEM</th><th>Index</th><th>Openness</th><th>Res betrayal</th><th>Breakthroughs</th><th>Ship-blockers</th><th>Devices</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8">No OEM data yet</td></tr>'}</tbody>
       </table>
     </div>
     ${worst ? `<h3>Top withheld catalog features (fleet aggregate)</h3><ul>${worst}</ul>` : ''}

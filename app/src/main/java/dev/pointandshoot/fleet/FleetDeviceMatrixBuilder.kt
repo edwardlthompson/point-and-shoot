@@ -325,6 +325,13 @@ object FleetDeviceMatrixBuilder {
                     stillResolutionAdvertised.forEach { put(it.toJson()) }
                 },
             )
+            put(
+                "camera2FullMpBreakthrough",
+                Camera2FullMpBreakthrough.toSummaryJson(
+                    Camera2FullMpBreakthrough.evaluateFromStillEntries(stillResolutionAdvertised, cm),
+                ),
+            )
+            put("maxResolutionStillProbe", FleetCameraStartupScan.scanMaxResolutionStillProbe(cm))
             put("experimentalUnlockState", FleetCameraStartupScan.scanExperimentalUnlockState(context))
             put("concurrencyGates", deviceGates.toJson())
             put("fleetProfiles", fleetSnap.toJson())

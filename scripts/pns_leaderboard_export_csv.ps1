@@ -30,6 +30,8 @@ foreach ($f in Get-ChildItem -LiteralPath $devicesDir -Filter "*.json") {
         parityPct = $p.scores.total.percent
         honestyPct = $p.disparity.honestyPercent
         resolutionBetrayalIndex = if ($p.resolutionBetrayal) { $p.resolutionBetrayal.index } else { "" }
+        fullMpBreakthrough = if ($p.camera2FullMpBreakthrough) { $p.camera2FullMpBreakthrough.proven } else { $false }
+        maxProvenCamera2Mp = if ($p.camera2FullMpBreakthrough) { $p.camera2FullMpBreakthrough.maxMpPerSensor } else { "" }
         formatPickerHonestyScore = $p.formatPickerHonestyScore
         sensorSumMm2 = $p.sensors.sensorSumMm2
         testedApi = $p.meta.testedApiLevel
@@ -46,7 +48,7 @@ foreach ($f in Get-ChildItem -LiteralPath $devicesDir -Filter "*.json") {
 
 $headers = @(
     "rank", "slug", "marketingName", "manufacturer", "model", "parityPts", "parityPct", "honestyPct",
-    "resolutionBetrayalIndex", "formatPickerHonestyScore", "sensorSumMm2", "testedApi", "romFlavor",
+    "resolutionBetrayalIndex", "fullMpBreakthrough", "maxProvenCamera2Mp", "formatPickerHonestyScore", "sensorSumMm2", "testedApi", "romFlavor",
     "buildDisplay", "msrpUsd", "parityPerUsd", "shipBlockerCount", "trustTier", "lastSweepMode", "gsmarenaUrl"
 )
 $lines = @($headers -join ",")

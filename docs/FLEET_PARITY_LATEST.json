@@ -4,8 +4,8 @@
   "mode": "Full",
   "includeRecord": false,
   "serial": "b5214fc6",
-  "timestampUtc": "2026-06-06T02:28:25.8211326Z",
-  "outDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_022410",
+  "timestampUtc": "2026-06-06T03:31:00.3602253Z",
+  "outDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645",
   "cellCount": 182,
   "shipBlockerGapCount": 0,
   "gapBreakdown": {
@@ -32,7 +32,7 @@
         "observedValue": null,
         "reason": "still_mode_not_max_resolution",
         "cameraId": "2",
-        "timestampUtc": "2026-06-06T02:10:13.504086Z"
+        "timestampUtc": "2026-06-06T03:03:24.631844Z"
       }
     }
   },
@@ -40,8 +40,8 @@
   "installedVersionCode": "22003",
   "builtVersionCode": null,
   "baselineTag": null,
-  "logPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_022410\\logcat_parity.txt",
-  "inAppJsonPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_022410\\in_app_parity_report.json",
+  "logPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645\\logcat_parity.txt",
+  "inAppJsonPath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645\\in_app_parity_report.json",
   "sweepEvidenceOk": true,
   "sweepEvidenceFallback": null,
   "promoteOptionalBlocking": false,

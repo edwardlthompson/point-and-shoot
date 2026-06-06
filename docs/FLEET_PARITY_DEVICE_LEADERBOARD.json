@@ -1,6 +1,6 @@
 {
   "schema": "pns.fleet_parity_device_leaderboard.v1",
-  "updatedUtc": "2026-06-06T02:28:26.2118000Z",
+  "updatedUtc": "2026-06-06T03:31:00.8790338Z",
   "entries": [
     {
       "deviceKey": "OnePlus|CPH2583|961221c0f0bc2eee",
@@ -9,11 +9,11 @@
       "model": "CPH2583",
       "fingerprintSha256Prefix": "961221c0f0bc2eee",
       "serialSuffix": "4fc6",
-      "lastSeenUtc": "2026-06-06T02:28:26.1980105Z",
-      "lastSweepTimestampUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.8436238Z",
+      "lastSweepTimestampUtc": "2026-06-06T03:31:00.3602253Z",
       "lastSweepMode": "Full",
       "lastSweepPass": true,
-      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_022410",
+      "lastSweepDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_032645",
       "score": {
         "features": {
           "score": 1218,

@@ -1,8 +1,8 @@
 {
   "schema": "pns.fleet_parity_debt_ledger.v2",
-  "generatedUtc": "2026-06-06T02:28:28.4353911Z",
+  "generatedUtc": "2026-06-06T03:31:03.5491250Z",
   "runsRoot": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs",
-  "reportCount": 102,
+  "reportCount": 103,
   "rowCount": 113,
   "actionableRowCount": 113,
   "summary": {
@@ -33,14 +33,18 @@
       "closurePriority": 1,
       "workType": "DeliveryHonesty",
       "actionable": true,
-      "recurrence": 40,
+      "recurrence": 41,
       "firstSeenUtc": "2026-06-04T12:03:17.7560940Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 38,
+        "Full": 39,
         "Delta": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -49,9 +53,9 @@
           "serial": "DA7803TC1R",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -59,11 +63,7 @@
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 13
         }
       },
       "sampleArtifacts": [
@@ -119,13 +119,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-06T00:07:51.3515427Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 56
+        "Full": 56,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -135,10 +143,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -146,10 +150,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 24
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -205,13 +205,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-06T00:07:51.3515427Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 56
+        "Full": 56,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -221,10 +229,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -232,10 +236,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 24
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -291,13 +291,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-06T00:07:51.3515427Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 56
+        "Full": 56,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -307,10 +315,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -318,10 +322,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 24
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -377,14 +377,22 @@
       "firstSeenUtc": "2026-05-30T13:58:42.8289901Z",
       "lastSeenUtc": "2026-06-05T11:01:34.6538840Z",
       "modes": {
-        "Unknown": 2,
         "Full": 42,
+        "Unknown": 2,
         "Quick": 10
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -394,10 +402,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -405,10 +409,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 20
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -460,17 +460,25 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 51,
+      "recurrence": 52,
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 49
+        "Full": 50,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -480,21 +488,13 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 18
         }
       },
       "sampleArtifacts": [
@@ -546,17 +546,25 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 51,
+      "recurrence": 52,
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 49
+        "Full": 50,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -566,21 +574,13 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 18
         }
       },
       "sampleArtifacts": [
@@ -632,17 +632,25 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 51,
+      "recurrence": 52,
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 49
+        "Full": 50,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -652,21 +660,13 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 18
         }
       },
       "sampleArtifacts": [
@@ -722,13 +722,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-06T00:07:51.3515427Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 49
+        "Full": 49,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -738,10 +746,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -749,10 +753,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -808,13 +808,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-06T00:07:51.3515427Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 48
+        "Full": 48,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -824,10 +832,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -835,10 +839,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -894,13 +894,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-06T00:07:51.3515427Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 48
+        "Full": 48,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -910,10 +918,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -921,10 +925,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -980,13 +980,21 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-05T11:01:34.6538840Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 40
+        "Full": 40,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -996,10 +1004,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -1007,10 +1011,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -1066,13 +1066,21 @@
       "firstSeenUtc": "2026-06-02T00:55:09.9291543Z",
       "lastSeenUtc": "2026-06-05T11:01:34.6538840Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 29
+        "Full": 29,
+        "Unknown": 2
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -1082,10 +1090,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -1093,10 +1097,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 1
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -1148,13 +1148,13 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 29,
+      "recurrence": 30,
       "firstSeenUtc": "2026-06-05T02:36:25.1561209Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 26,
-        "Quick": 1,
-        "Delta": 2
+        "Full": 27,
+        "Delta": 2,
+        "Quick": 1
       },
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
@@ -1165,13 +1165,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 11
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "sampleArtifacts": [
@@ -1223,11 +1223,11 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 28,
+      "recurrence": 29,
       "firstSeenUtc": "2026-06-05T02:46:53.0776983Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 26,
+        "Full": 27,
         "Delta": 2
       },
       "devices": {
@@ -1239,13 +1239,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "sampleArtifacts": [
@@ -1297,11 +1297,11 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 28,
+      "recurrence": 29,
       "firstSeenUtc": "2026-06-05T02:46:53.0776983Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 26,
+        "Full": 27,
         "Delta": 2
       },
       "devices": {
@@ -1313,13 +1313,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "sampleArtifacts": [
@@ -1371,11 +1371,11 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 28,
+      "recurrence": 29,
       "firstSeenUtc": "2026-06-05T02:46:53.0776983Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 26,
+        "Full": 27,
         "Delta": 2
       },
       "devices": {
@@ -1387,13 +1387,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "sampleArtifacts": [
@@ -1445,11 +1445,11 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 28,
+      "recurrence": 29,
       "firstSeenUtc": "2026-06-05T02:46:53.0776983Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 26,
+        "Full": 27,
         "Delta": 2
       },
       "devices": {
@@ -1461,13 +1461,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "sampleArtifacts": [
@@ -1523,29 +1523,29 @@
       "firstSeenUtc": "2026-05-30T13:08:57.3445356Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 27
+        "Full": 27,
+        "Unknown": 1
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
         }
       },
       "sampleArtifacts": [
@@ -1601,29 +1601,29 @@
       "firstSeenUtc": "2026-05-30T13:08:57.3445356Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 27
+        "Full": 27,
+        "Unknown": 1
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
         }
       },
       "sampleArtifacts": [
@@ -1679,29 +1679,29 @@
       "firstSeenUtc": "2026-05-30T13:08:57.3445356Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 27
+        "Full": 27,
+        "Unknown": 1
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
         }
       },
       "sampleArtifacts": [
@@ -1753,11 +1753,11 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 25,
+      "recurrence": 26,
       "firstSeenUtc": "2026-06-05T02:36:25.1561209Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 23,
+        "Full": 24,
         "Quick": 2
       },
       "devices": {
@@ -1765,20 +1765,20 @@
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 8
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
+          "count": 9
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
           "count": 9
         }
       },
@@ -1831,32 +1831,32 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 23,
+      "recurrence": 24,
       "firstSeenUtc": "2026-06-05T03:13:01.6166767Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 23
+        "Full": 24
       },
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 8
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 9
         }
       },
       "sampleArtifacts": [
@@ -1908,32 +1908,32 @@
       "closurePriority": 2,
       "workType": "AppFeature",
       "actionable": true,
-      "recurrence": 23,
+      "recurrence": 24,
       "firstSeenUtc": "2026-06-05T03:13:01.6166767Z",
-      "lastSeenUtc": "2026-06-06T02:28:25.8211326Z",
+      "lastSeenUtc": "2026-06-06T03:31:00.3602253Z",
       "modes": {
-        "Full": 23
+        "Full": 24
       },
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 8
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 9
         }
       },
       "sampleArtifacts": [
@@ -1989,26 +1989,26 @@
       "firstSeenUtc": "2026-05-30T13:58:42.8289901Z",
       "lastSeenUtc": "2026-06-05T02:29:04.5009399Z",
       "modes": {
-        "Unknown": 2,
         "Full": 16,
+        "Unknown": 2,
         "Quick": 4
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 3
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
         },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 3
         }
       },
       "sampleArtifacts": [
@@ -2071,21 +2071,21 @@
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 6
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 6
         }
       },
       "sampleArtifacts": [
@@ -2141,26 +2141,26 @@
       "firstSeenUtc": "2026-05-30T13:58:42.8289901Z",
       "lastSeenUtc": "2026-06-05T02:29:04.5009399Z",
       "modes": {
-        "Unknown": 1,
         "Full": 16,
+        "Unknown": 1,
         "Quick": 4
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
-          "count": 1
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 2
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
+        "unknown-device": {
+          "serial": "",
+          "count": 1
+        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -2216,25 +2216,25 @@
       "firstSeenUtc": "2026-05-31T03:44:30.4048860Z",
       "lastSeenUtc": "2026-06-05T02:29:04.5009399Z",
       "modes": {
-        "Unknown": 2,
-        "Full": 18
+        "Full": 18,
+        "Unknown": 2
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 3
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
         },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 14
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 3
         }
       },
       "sampleArtifacts": [
@@ -2290,10 +2290,18 @@
       "firstSeenUtc": "2026-05-31T15:36:10.5013119Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 18
+        "Full": 18,
+        "Unknown": 1
       },
       "devices": {
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
         "unknown-device": {
           "serial": "",
           "count": 1
@@ -2302,17 +2310,9 @@
           "serial": "10.0.0.9:42219",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -2368,10 +2368,18 @@
       "firstSeenUtc": "2026-05-31T15:36:10.5013119Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 18
+        "Full": 18,
+        "Unknown": 1
       },
       "devices": {
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
         "unknown-device": {
           "serial": "",
           "count": 1
@@ -2380,17 +2388,9 @@
           "serial": "10.0.0.9:42219",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -2446,10 +2446,18 @@
       "firstSeenUtc": "2026-05-31T15:36:10.5013119Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 18
+        "Full": 18,
+        "Unknown": 1
       },
       "devices": {
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
         "unknown-device": {
           "serial": "",
           "count": 1
@@ -2458,17 +2466,9 @@
           "serial": "10.0.0.9:42219",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -2524,10 +2524,18 @@
       "firstSeenUtc": "2026-05-31T15:36:10.5013119Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 18
+        "Full": 18,
+        "Unknown": 1
       },
       "devices": {
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 2
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
+        },
         "unknown-device": {
           "serial": "",
           "count": 1
@@ -2536,17 +2544,9 @@
           "serial": "10.0.0.9:42219",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -2602,10 +2602,14 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-05T12:02:40.6397891Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 17
+        "Full": 17,
+        "Unknown": 1
       },
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 2
+        },
         "unknown-device": {
           "serial": "",
           "count": 1
@@ -2613,10 +2617,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 15
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -2794,10 +2794,14 @@
       "firstSeenUtc": "2026-06-04T12:03:17.7560940Z",
       "lastSeenUtc": "2026-06-05T03:27:47.7602882Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 16
+        "Full": 16,
+        "Unknown": 1
       },
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 6
@@ -2806,21 +2810,17 @@
           "serial": "DA7803TC1R",
           "count": 3
         },
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+        "unknown-device": {
+          "serial": "",
+          "count": 1
         }
       },
       "sampleArtifacts": [
@@ -2876,29 +2876,29 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-05T05:05:06.1739752Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 16
+        "Full": 16,
+        "Unknown": 1
       },
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 11
         }
       },
       "sampleArtifacts": [
@@ -2954,8 +2954,8 @@
       "firstSeenUtc": "2026-06-01T12:51:38.9826057Z",
       "lastSeenUtc": "2026-06-05T02:13:04.0146541Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 11
+        "Full": 11,
+        "Unknown": 1
       },
       "devices": {
         "unknown-device": {
@@ -3085,6 +3085,14 @@
         "Quick": 3
       },
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 3
+        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
@@ -3092,14 +3100,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 3
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "sampleArtifacts": [
@@ -3351,13 +3351,13 @@
         "Full": 4
       },
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 3
         }
       },
       "sampleArtifacts": [
@@ -5949,17 +5949,17 @@
       "firstSeenUtc": "2026-06-05T02:13:04.0146541Z",
       "lastSeenUtc": "2026-06-05T02:29:04.5009399Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 2
+        "Full": 2,
+        "Unknown": 1
       },
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "unknown-device": {
           "serial": "",
           "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -6005,17 +6005,17 @@
       "firstSeenUtc": "2026-06-05T02:13:04.0146541Z",
       "lastSeenUtc": "2026-06-05T02:29:04.5009399Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 2
+        "Full": 2,
+        "Unknown": 1
       },
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "unknown-device": {
           "serial": "",
           "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -6061,17 +6061,17 @@
       "firstSeenUtc": "2026-06-05T02:13:04.0146541Z",
       "lastSeenUtc": "2026-06-05T02:29:04.5009399Z",
       "modes": {
-        "Unknown": 1,
-        "Full": 2
+        "Full": 2,
+        "Unknown": 1
       },
       "devices": {
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 2
-        },
         "unknown-device": {
           "serial": "",
           "count": 1
+        },
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 2
         }
       },
       "sampleArtifacts": [
@@ -7401,6 +7401,10 @@
         "Full": 4
       },
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -7408,10 +7412,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "sampleArtifacts": [
@@ -7465,6 +7465,10 @@
         "Full": 4
       },
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -7472,10 +7476,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "sampleArtifacts": [
@@ -7529,6 +7529,10 @@
         "Full": 4
       },
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -7536,10 +7540,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "sampleArtifacts": [
@@ -7593,6 +7593,10 @@
         "Full": 4
       },
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -7600,10 +7604,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "sampleArtifacts": [

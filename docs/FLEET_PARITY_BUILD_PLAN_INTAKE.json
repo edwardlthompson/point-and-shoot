@@ -1,8 +1,8 @@
 {
   "schema": "pns.fleet_parity_build_plan_intake.v1",
-  "generatedUtc": "2026-06-06T02:30:12.2647915Z",
+  "generatedUtc": "2026-06-06T03:31:03.6630354Z",
   "debtLedgerSchema": "pns.fleet_parity_debt_ledger.v2",
-  "debtLedgerGeneratedUtc": "06/06/2026 02:28:28",
+  "debtLedgerGeneratedUtc": "06/06/2026 03:31:03",
   "latestParitySerial": "b5214fc6",
   "latestParityMode": "Full",
   "openCount": 1,
@@ -28,8 +28,12 @@
       "proofScript": "pns_4k120_verify.ps1",
       "closureEffort": null,
       "priority": 1,
-      "recurrence": 40,
+      "recurrence": 41,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
@@ -38,9 +42,9 @@
           "serial": "DA7803TC1R",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -48,11 +52,7 @@
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 13
         }
       },
       "status": "open",
@@ -73,9 +73,17 @@
       "priority": 2,
       "recurrence": 58,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -85,10 +93,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -96,10 +100,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 24
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -120,9 +120,17 @@
       "priority": 2,
       "recurrence": 58,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -132,10 +140,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -143,10 +147,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 24
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -167,9 +167,17 @@
       "priority": 2,
       "recurrence": 58,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -179,10 +187,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -190,10 +194,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 24
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -214,9 +214,17 @@
       "priority": 2,
       "recurrence": 54,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -226,10 +234,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -237,10 +241,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 20
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -259,11 +259,19 @@
       "proofScript": "pns_independent_tonal_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 51,
+      "recurrence": 52,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -273,21 +281,13 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 18
         }
       },
       "status": "closed",
@@ -306,11 +306,19 @@
       "proofScript": "pns_video_color_profile_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 51,
+      "recurrence": 52,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -320,21 +328,13 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 18
         }
       },
       "status": "closed",
@@ -353,11 +353,19 @@
       "proofScript": "pns_video_color_profile_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 51,
+      "recurrence": 52,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -367,21 +375,13 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
         },
         "b5214fc6": {
           "serial": "b5214fc6",
-          "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+          "count": 18
         }
       },
       "status": "closed",
@@ -402,9 +402,17 @@
       "priority": 2,
       "recurrence": 51,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -414,10 +422,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -425,10 +429,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 17
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -449,9 +449,17 @@
       "priority": 2,
       "recurrence": 50,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -461,10 +469,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -472,10 +476,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -496,9 +496,17 @@
       "priority": 2,
       "recurrence": 50,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 12
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -508,10 +516,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -519,10 +523,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -543,9 +543,17 @@
       "priority": 2,
       "recurrence": 42,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -555,10 +563,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -566,10 +570,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 12
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -590,9 +590,17 @@
       "priority": 2,
       "recurrence": 31,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 6
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "DA7803TC1R": {
           "serial": "DA7803TC1R",
@@ -602,10 +610,6 @@
           "serial": "",
           "count": 2
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 6
-        },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 5
@@ -613,10 +617,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 1
-        },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
         }
       },
       "status": "closed",
@@ -635,7 +635,7 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 29,
+      "recurrence": 30,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -645,13 +645,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 11
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "status": "closed",
@@ -670,7 +670,7 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 28,
+      "recurrence": 29,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -680,13 +680,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "status": "closed",
@@ -705,7 +705,7 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 28,
+      "recurrence": 29,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -715,13 +715,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "status": "closed",
@@ -740,7 +740,7 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 28,
+      "recurrence": 29,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -750,13 +750,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "status": "closed",
@@ -775,7 +775,7 @@
       "proofScript": "pns_av1_parity_verify.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 28,
+      "recurrence": 29,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
@@ -785,13 +785,13 @@
           "serial": "10.0.0.23:44219",
           "count": 4
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
-        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 10
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 12
         }
       },
       "status": "closed",
@@ -812,25 +812,25 @@
       "priority": 2,
       "recurrence": 28,
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
         }
       },
       "status": "closed",
@@ -851,25 +851,25 @@
       "priority": 2,
       "recurrence": 28,
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
         }
       },
       "status": "closed",
@@ -890,25 +890,25 @@
       "priority": 2,
       "recurrence": 28,
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 22
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 22
         }
       },
       "status": "closed",
@@ -927,26 +927,26 @@
       "proofScript": "pns_memory_profiler.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 25,
+      "recurrence": 26,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
           "count": 3
         },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 8
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
+          "count": 9
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
           "count": 9
         }
       },
@@ -966,27 +966,27 @@
       "proofScript": "pns_memory_profiler.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 23,
+      "recurrence": 24,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
           "count": 3
         },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 8
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 9
         }
       },
       "status": "closed",
@@ -1005,27 +1005,27 @@
       "proofScript": "pns_memory_profiler.ps1",
       "closureEffort": null,
       "priority": 2,
-      "recurrence": 23,
+      "recurrence": 24,
       "devices": {
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
           "count": 3
         },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 8
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 9
         }
       },
       "status": "closed",
@@ -1046,21 +1046,21 @@
       "priority": 2,
       "recurrence": 22,
       "devices": {
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 3
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
         },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 16
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 3
         }
       },
       "status": "closed",
@@ -1085,21 +1085,21 @@
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 3
         },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
         },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 6
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 8
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 6
         }
       },
       "status": "closed",
@@ -1120,21 +1120,21 @@
       "priority": 2,
       "recurrence": 20,
       "devices": {
-        "unknown-device": {
-          "serial": "",
-          "count": 2
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 3
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
         },
+        "unknown-device": {
+          "serial": "",
+          "count": 2
+        },
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 14
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 3
         }
       },
       "status": "closed",
@@ -1155,6 +1155,10 @@
       "priority": 2,
       "recurrence": 18,
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 2
+        },
         "unknown-device": {
           "serial": "",
           "count": 1
@@ -1162,10 +1166,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 15
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 2
         }
       },
       "status": "closed",
@@ -1232,6 +1232,10 @@
       "priority": 2,
       "recurrence": 17,
       "devices": {
+        "10.0.0.23:44219": {
+          "serial": "10.0.0.23:44219",
+          "count": 3
+        },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 6
@@ -1240,21 +1244,17 @@
           "serial": "DA7803TC1R",
           "count": 3
         },
-        "unknown-device": {
-          "serial": "",
-          "count": 1
-        },
-        "10.0.0.23:44219": {
-          "serial": "10.0.0.23:44219",
-          "count": 3
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
+          "count": 2
         },
         "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
           "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
-          "count": 2
+        "unknown-device": {
+          "serial": "",
+          "count": 1
         }
       },
       "status": "closed",
@@ -1275,25 +1275,25 @@
       "priority": 2,
       "recurrence": 17,
       "devices": {
-        "unknown-device": {
-          "serial": "",
+        "FA8BW1F00538": {
+          "serial": "FA8BW1F00538",
           "count": 1
         },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 2
         },
-        "FA8BW1F00538": {
-          "serial": "FA8BW1F00538",
+        "unknown-device": {
+          "serial": "",
           "count": 1
-        },
-        "b5214fc6": {
-          "serial": "b5214fc6",
-          "count": 11
         },
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
+        },
+        "b5214fc6": {
+          "serial": "b5214fc6",
+          "count": 11
         }
       },
       "status": "closed",
@@ -1364,6 +1364,14 @@
       "priority": 2,
       "recurrence": 9,
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 3
+        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 2
@@ -1371,14 +1379,6 @@
         "b5214fc6": {
           "serial": "b5214fc6",
           "count": 3
-        },
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "status": "closed",
@@ -1476,13 +1476,13 @@
       "priority": 2,
       "recurrence": 4,
       "devices": {
-        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
-          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-          "count": 3
-        },
         "FA8BW1F00538": {
           "serial": "FA8BW1F00538",
           "count": 1
+        },
+        "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp": {
+          "serial": "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+          "count": 3
         }
       },
       "status": "closed",
@@ -2873,6 +2873,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -2880,10 +2884,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "status": "closed",
@@ -2904,6 +2904,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -2911,10 +2915,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "status": "closed",
@@ -2935,6 +2935,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -2942,10 +2946,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "status": "closed",
@@ -2966,6 +2966,10 @@
       "priority": 5,
       "recurrence": 4,
       "devices": {
+        "DA7803TC1R": {
+          "serial": "DA7803TC1R",
+          "count": 1
+        },
         "10.0.0.23:44219": {
           "serial": "10.0.0.23:44219",
           "count": 1
@@ -2973,10 +2977,6 @@
         "10.0.0.9:42219": {
           "serial": "10.0.0.9:42219",
           "count": 2
-        },
-        "DA7803TC1R": {
-          "serial": "DA7803TC1R",
-          "count": 1
         }
       },
       "status": "closed",

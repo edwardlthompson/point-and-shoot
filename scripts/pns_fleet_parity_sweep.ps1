@@ -23,7 +23,7 @@ param(
     [string]$BaselineJson = "",
     [string]$CompareMatrix = "",
     [switch]$Help,
-    [switch]$PublishSite
+    [switch]$SkipSitePublish
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +36,7 @@ pns_fleet_parity_sweep.ps1 — Fleet Parity Sweep (M21)
   -SkipMatrixRefresh        skip pns_fleet_matrix_scan (avoids hub hang)
   -IncludeRecord            pass pns_parity_sweep_include_record to app
   -IncludeProofPack         Full only: run parity_proof_manifest scripts + merge provenOk (M22)
+  -SkipSitePublish          skip leaderboard/site publish + pages push (default: publish enabled)
   -HostOnlyFixture          parse bundled sample logcat (no device)
   -HostProofPackMergeFixture  run host-only proof-pack merge fixture (no device)
 
@@ -1660,10 +1661,14 @@ if ($leaderboardEntry) {
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $latestPath -Encoding utf8
 }
 
-if ($PublishSite) {
-    Write-Host "[parity_sweep] PublishSite -> pns_leaderboard_site_publish.ps1"
+if (-not $SkipSitePublish) {
+    Write-Host "[parity_sweep] Auto publish -> export catalog + site publish + pages push"
     & (Join-Path $PSScriptRoot "pns_leaderboard_export_catalog.ps1")
+    if ($LASTEXITCODE -ne 0) { throw "pns_leaderboard_export_catalog.ps1 failed exit=$LASTEXITCODE" }
     & (Join-Path $PSScriptRoot "pns_leaderboard_site_publish.ps1") -MergeSubmissions
+    if ($LASTEXITCODE -ne 0) { throw "pns_leaderboard_site_publish.ps1 failed exit=$LASTEXITCODE" }
+    & (Join-Path $PSScriptRoot "pns_leaderboard_pages_push.ps1")
+    if ($LASTEXITCODE -ne 0) { throw "pns_leaderboard_pages_push.ps1 failed exit=$LASTEXITCODE" }
 }
 
 Invoke-ParityBacklogRefresh -RepoRoot $projRoot

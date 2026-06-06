@@ -6,7 +6,7 @@ Scored from parity sweep cells + fleet matrix capability gates. Higher is better
   - features: 1218/1590 (76.6%)
   - resolutions: 200/230 (87%)
   - capabilities: 324/432 (75%)
-  - last sweep: 2026-06-06T02:28:26.1980105Z (C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_022410)
+  - last sweep: 2026-06-06T03:31:00.8436238Z (C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_032645)
 
 - #2 **Unknown Unknown [4fc6]** - total 422/550 (76.7%)
   - features: 422/540 (78.1%)

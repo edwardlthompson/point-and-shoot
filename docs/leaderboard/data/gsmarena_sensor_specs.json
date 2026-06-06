@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_sensor_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm\u00b2 via 25.4/denom diagonal (4:3).",
-  "scrapedUtc": "2026-06-06T12:38:09.137747+00:00",
+  "scrapedUtc": "2026-06-06T13:17:29.457940+00:00",
   "stale": true,
   "devices": [
     {
@@ -40,6 +40,16 @@
           "widthMm": 10.16,
           "heightMm": 7.62,
           "areaMm2": 77.42
+        },
+        {
+          "rawLine": "32 MP, f/2.4, 21mm (wide), 1/2.74\", 0.8\u00b5m",
+          "megapixels": 32.0,
+          "focalLengthMm": 21.0,
+          "role": "selfie",
+          "sensorTypeFraction": "1/2.74",
+          "widthMm": 7.42,
+          "heightMm": 5.56,
+          "areaMm2": 41.25
         }
       ],
       "rearLensCount": 3,
@@ -82,6 +92,16 @@
           "widthMm": 7.97,
           "heightMm": 5.98,
           "areaMm2": 47.62
+        },
+        {
+          "rawLine": "8 MP, f/2.0, 24mm (wide), 1/4.0\", 1.12\u00b5m",
+          "megapixels": 8.0,
+          "focalLengthMm": 24.0,
+          "role": "selfie",
+          "sensorTypeFraction": "1/4.0",
+          "widthMm": 5.08,
+          "heightMm": 3.81,
+          "areaMm2": 19.35
         }
       ],
       "rearLensCount": 3,
@@ -114,6 +134,26 @@
           "widthMm": 6.55,
           "heightMm": 4.92,
           "areaMm2": 32.22
+        },
+        {
+          "rawLine": "8 MP, f/2.0, 1/4.0\", 1.12\u00b5m",
+          "megapixels": 8.0,
+          "focalLengthMm": null,
+          "role": "selfie",
+          "sensorTypeFraction": "1/4.0",
+          "widthMm": 5.08,
+          "heightMm": 3.81,
+          "areaMm2": 19.35
+        },
+        {
+          "rawLine": "8 MP, f/2.0, 1/4.0\", 1.12\u00b5m",
+          "megapixels": 8.0,
+          "focalLengthMm": null,
+          "role": "selfie",
+          "sensorTypeFraction": "1/4.0",
+          "widthMm": 5.08,
+          "heightMm": 3.81,
+          "areaMm2": 19.35
         }
       ],
       "rearLensCount": 2,
@@ -146,6 +186,16 @@
           "widthMm": 6.55,
           "heightMm": 4.92,
           "areaMm2": 32.22
+        },
+        {
+          "rawLine": "8 MP, f/2.2",
+          "megapixels": 8.0,
+          "focalLengthMm": null,
+          "role": "selfie",
+          "sensorTypeFraction": null,
+          "widthMm": null,
+          "heightMm": null,
+          "areaMm2": null
         }
       ],
       "rearLensCount": 2,

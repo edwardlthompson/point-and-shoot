@@ -1,6 +1,6 @@
-import { fmtNum, progressBar, formatApiLevel, gsmarenaLinkHtml } from './theme.js';
-import { drawRadar, heatmapColor } from './charts.js';
-import { lensStripHtml, videoOneLiner } from './leaderboard.js';
+import { fmtNum, progressBar, formatApiLevel, gsmarenaLinkHtml } from './theme.js?v=20260606g';
+import { drawRadar, heatmapColor } from './charts.js?v=20260606g';
+import { lensStripHtml, videoOneLiner } from './leaderboard.js?v=20260606g';
 
 function radarAxes(d) {
   const antutuNorm = Math.min(100, ((d.antutu?.total ?? 0) / 4000000) * 100);

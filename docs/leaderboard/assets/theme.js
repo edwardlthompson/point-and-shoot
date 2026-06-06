@@ -122,6 +122,13 @@ export function sensorSumLabel(device) {
   return fmtNum(mm2);
 }
 
+/** Stat-row caption: combined rear physical area only (front/selfie excluded). */
+export function sensorSumStatHtml(device) {
+  const mm2 = sensorSumLabel(device);
+  if (mm2 === '—') return '<strong>—</strong> rear mm²';
+  return `<strong>${mm2}</strong> rear mm²`;
+}
+
 export function sensorSourceNote(device) {
   const s = device?.sensors;
   if (!s?.sourceLabel) return '';
@@ -132,26 +139,60 @@ export function sensorSourceNote(device) {
 }
 
 export function renderRearLensTable(device) {
-  const lenses = device?.sensors?.rearLenses || [];
-  const hal = device?.sensors?.sensors || [];
-  if (lenses.length) {
-    const rows = lenses.map((l) => {
+  return renderSensorLensTables(device);
+}
+
+function lensTableRows(lenses, mode) {
+  if (!lenses.length) return '';
+  if (mode === 'gsmarena') {
+    return lenses.map((l) => {
       const type = l.sensorTypeFraction ? `${l.sensorTypeFraction}"` : '—';
       const area = l.areaMm2 ? `${l.areaMm2} mm²` : '—';
-      const role = l.role || 'rear';
+      const role = l.role === 'selfie' ? 'selfie' : (l.role || 'rear');
       const mp = l.megapixels ? `${l.megapixels} MP` : '';
       const focal = l.focalLengthMm ? `${l.focalLengthMm}mm` : '';
       return `<tr><td>${role}</td><td>${[mp, focal].filter(Boolean).join(' · ') || '—'}</td><td>${type}</td><td>${area}</td></tr>`;
     }).join('');
-    return `<table class="data-table sensor-table"><thead><tr><th>Role</th><th>Spec</th><th>Sensor type</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
-  if (hal.length) {
-    const rows = hal.map((s) =>
-      `<tr><td>${s.role || s.cameraId}</td><td>${s.megapixels ? `${Math.round(s.megapixels * 10) / 10} MP` : '—'}</td><td>${s.widthMm && s.heightMm ? `${s.widthMm}×${s.heightMm} mm` : '—'}</td><td>${s.areaMm2 ? `${s.areaMm2} mm²` : '—'}</td></tr>`
-    ).join('');
-    return `<table class="data-table sensor-table"><thead><tr><th>Role</th><th>MP</th><th>Physical size</th><th>Area</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return lenses.map((s) =>
+    `<tr><td>${s.role || s.cameraId}</td><td>${s.megapixels ? `${Math.round(s.megapixels * 10) / 10} MP` : '—'}</td><td>${s.widthMm && s.heightMm ? `${s.widthMm}×${s.heightMm} mm` : '—'}</td><td>${s.areaMm2 ? `${s.areaMm2} mm²` : '—'}</td></tr>`
+  ).join('');
+}
+
+function renderLensTable(title, lenses, mode) {
+  if (!lenses.length) return '';
+  const head = mode === 'gsmarena'
+    ? '<tr><th>Role</th><th>Spec</th><th>Sensor type</th><th>Area</th></tr>'
+    : '<tr><th>Role</th><th>MP</th><th>Physical size</th><th>Area</th></tr>';
+  return `
+    <h4>${title}</h4>
+    <table class="data-table sensor-table">
+      <thead>${head}</thead>
+      <tbody>${lensTableRows(lenses, mode)}</tbody>
+    </table>`;
+}
+
+/** Rear + front/selfie sensor tables (GSMArena advertised and/or Camera2 HAL). */
+export function renderSensorLensTables(device) {
+  const rearGsm = (device?.sensors?.rearLenses || []).filter((l) => l.role !== 'selfie');
+  const frontGsm = device?.sensors?.frontLenses || [];
+  const hal = device?.sensors?.sensors || [];
+  const halRear = hal.filter((s) => s.role !== 'FRONT');
+  const halFront = hal.filter((s) => s.role === 'FRONT');
+
+  const parts = [];
+  if (rearGsm.length) {
+    parts.push(renderLensTable('Rear (GSMArena advertised)', rearGsm, 'gsmarena'));
+  } else if (halRear.length) {
+    parts.push(renderLensTable('Rear (Camera2 HAL)', halRear, 'hal'));
   }
-  return '<p>No sensor size data.</p>';
+  if (frontGsm.length) {
+    parts.push(renderLensTable('Front / selfie (GSMArena advertised)', frontGsm, 'gsmarena'));
+  } else if (halFront.length) {
+    parts.push(renderLensTable('Front / selfie (Camera2 HAL)', halFront, 'hal'));
+  }
+  if (!parts.length) return '<p>No sensor size data.</p>';
+  return parts.join('');
 }
 
 export function progressBar(pct) {
@@ -285,10 +326,14 @@ export function breakthroughHeroHtml(d) {
     </section>`;
 }
 
-export function renderSensorSvg(device) {
-  const lenses = device?.sensors?.rearLenses?.length
-    ? device.sensors.rearLenses.filter((l) => l.role !== 'selfie')
-    : (device?.sensors?.sensors || []).filter((s) => s.role !== 'FRONT');
+function sensorRoleLabel(l) {
+  if (l.role === 'FRONT' || l.role === 'selfie') return 'selfie';
+  if (l.role && l.role !== 'unknown') return String(l.role).toLowerCase();
+  if (l.cameraId != null) return String(l.cameraId);
+  return 'cam';
+}
+
+function renderSensorSvgBars(device, lenses, title, ariaLabel) {
   if (!lenses.length) return '';
   const barW = 32;
   const gap = 16;
@@ -297,15 +342,41 @@ export function renderSensorSvg(device) {
   const chartH = 48;
   const max = Math.max(...lenses.map((l) => l.areaMm2 || 0), 1);
   const bars = lenses.map((l, i) => {
-    const h = Math.max(4, ((l.areaMm2 || 0) / max) * 32);
+    const area = l.areaMm2 || 0;
+    const h = area > 0 ? Math.max(4, (area / max) * 32) : 8;
     const x = pad + i * (barW + gap);
     const y = chartH - 14 - h;
     const mp = l.megapixels ?? (l.cameraId != null ? advertisedMpForCamera(device, l.cameraId) : null);
-    const roleLabel = l.role || l.cameraId || i;
+    const roleLabel = sensorRoleLabel(l);
     const mpLabel = mp ? `<text x="${x + barW / 2}" y="10" text-anchor="middle" font-size="8" fill="var(--text)">${Math.round(mp)}MP</text>` : '';
     return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="var(--accent)" rx="2"/>${mpLabel}<text x="${x + barW / 2}" y="${chartH - 4}" text-anchor="middle" font-size="9" fill="var(--muted)">${roleLabel}</text>`;
   }).join('');
-  return `<svg class="sensor-chart" viewBox="0 0 ${chartW} ${chartH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Rear sensor area chart">${bars}</svg>`;
+  return `<div class="sensor-chart-wrap"><p class="sensor-chart-label">${title}</p><svg class="sensor-chart" viewBox="0 0 ${chartW} ${chartH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${ariaLabel}">${bars}</svg></div>`;
+}
+
+export function renderSensorSvg(device) {
+  const hal = device?.sensors?.sensors || [];
+  const halUsable = hal.filter((s) => s.role !== 'LOGICAL' && s.role !== 'UNKNOWN');
+  const halFront = halUsable.filter((s) => s.role === 'FRONT');
+  const halRear = halUsable.filter((s) => s.role !== 'FRONT');
+
+  if (halUsable.length >= 2 && halFront.length > 0) {
+    const sorted = [...halUsable].sort((a, b) => Number(a.cameraId) - Number(b.cameraId));
+    return renderSensorSvgBars(device, sorted, 'All cameras (Camera2 HAL)', 'All camera sensor areas');
+  }
+
+  const rearGsm = (device?.sensors?.rearLenses || []).filter((l) => l.role !== 'selfie');
+  const frontGsm = device?.sensors?.frontLenses || [];
+  const rear = rearGsm.length ? rearGsm : halRear;
+  const front = frontGsm.length ? frontGsm : halFront;
+  const parts = [];
+  if (rear.length) {
+    parts.push(renderSensorSvgBars(device, rear, 'Rear sensors', 'Rear sensor area chart'));
+  }
+  if (front.length) {
+    parts.push(renderSensorSvgBars(device, front, 'Front / selfie', 'Front selfie sensor area chart'));
+  }
+  return parts.join('');
 }
 
 export function cellChip(advertised, proven, gap) {

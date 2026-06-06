@@ -5,13 +5,14 @@ import {
   cellChip,
   apiLevelBadge,
   sensorSumLabel,
+  sensorSumStatHtml,
   sensorSourceNote,
   gsmarenaLinkHtml,
   betrayalIndex,
   betrayalBadgeHtml,
   breakthroughBadgeHtml,
   fullMpBreakthrough,
-} from './theme.js';
+} from './theme.js?v=20260606g';
 
 const PERSONA_SORT = {
   default: (a, b) => (b.scores?.total?.score ?? 0) - (a.scores?.total?.score ?? 0),
@@ -82,10 +83,17 @@ function videoOneLiner(d) {
 
 function lensStripHtml(d) {
   const slots = d.lensLineup || [];
-  if (!slots.length) return '';
-  return `<div class="lens-strip">${slots.map((s) =>
+  const frontHal = (d.sensors?.sensors || []).find((s) => s.role === 'FRONT');
+  const frontGsm = (d.sensors?.frontLenses || [])[0];
+  const frontMp = frontGsm?.megapixels ?? frontHal?.megapixels;
+  const rearHtml = slots.map((s) =>
     `<div class="lens-slot"><strong>${s.focalMm35 ?? '?'}mm</strong>${fmtNum(Math.round((s.megapixels ?? 0) * 10) / 10)} MP</div>`
-  ).join('')}</div>`;
+  ).join('');
+  const frontHtml = frontMp
+    ? `<div class="lens-slot lens-slot-front"><strong>Selfie</strong>${fmtNum(Math.round(frontMp * 10) / 10)} MP</div>`
+    : '';
+  if (!rearHtml && !frontHtml) return '';
+  return `<div class="lens-strip">${rearHtml}${frontHtml}</div>`;
 }
 
 function withheldPills(d) {
@@ -127,7 +135,7 @@ export function renderDeviceCard(d, { selected }) {
         <div class="stat"><strong>${d.scores?.total?.score ?? '—'}</strong> Parity pts <small class="muted">(${d.scores?.total?.percent ?? '—'}%)</small> ${progressBar(d.scores?.total?.percent)}</div>
         <div class="stat"><strong>${d.disparity?.honestyPercent ?? '—'}%</strong> Honesty ${progressBar(d.disparity?.honestyPercent)}</div>
         <div class="stat"><strong>${fmtNum(d.antutu?.total)}</strong> AnTuTu</div>
-        <div class="stat"><strong>${sensorSumLabel(d)}</strong> mm² sensors${sensorSourceNote(d) ? `<br><small class="muted">${sensorSourceNote(d)}</small>` : ''}</div>
+        <div class="stat">${sensorSumStatHtml(d)}${sensorSourceNote(d) ? `<br><small class="muted">${sensorSourceNote(d)}</small>` : ''}</div>
         ${parityPerUsd ? `<div class="stat"><strong>${parityPerUsd}</strong> Parity/$</div>` : ''}
       </div>
       <p class="video-line" style="font-size:0.8rem;color:var(--muted)">${videoOneLiner(d)}</p>

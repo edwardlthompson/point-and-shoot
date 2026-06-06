@@ -255,6 +255,9 @@ a.ext-spec-link.inline { font-size: inherit; font-weight: 500; }
   min-height: 3rem;
   margin: 0.5rem 0;
 }
+.sensor-chart-wrap + .sensor-chart-wrap { margin-top: 0.75rem; }
+.sensor-chart-label { margin: 0.35rem 0 0.15rem; font-size: 0.8rem; color: var(--muted); }
+.lens-slot-front { border-style: dashed; opacity: 0.95; }
 .resolution-panel { border-left: 4px solid #f59e0b; }
 .resolution-panel .data-table { min-width: 0; white-space: normal; }
 .resolution-panel .data-table td { white-space: normal; }

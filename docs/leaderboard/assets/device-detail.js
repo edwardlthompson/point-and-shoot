@@ -6,6 +6,7 @@ import {
   formatApiLevel,
   apiLevelBadge,
   sensorSumLabel,
+  sensorSumStatHtml,
   sensorSourceNote,
   renderRearLensTable,
   renderSensorSvg,
@@ -18,10 +19,10 @@ import {
   betrayalIndex,
   breakthroughHeroHtml,
   breakthroughBadgeHtml,
-} from './theme.js';
-import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js';
-import { drawSparkline } from './charts.js';
-import { shareDeviceUrl } from './router.js';
+} from './theme.js?v=20260606g';
+import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js?v=20260606g';
+import { drawSparkline } from './charts.js?v=20260606g';
+import { shareDeviceUrl } from './router.js?v=20260606g';
 
 function resolutionNotes(d, r) {
   const halMax = maxHalMpFromEntry(r);
@@ -40,6 +41,29 @@ function resolutionNotes(d, r) {
   return parts.join(' · ');
 }
 
+function historyTrendPoints(history) {
+  if (!history?.length) return [];
+  const seen = new Set();
+  const points = [];
+  for (const p of history) {
+    const key = `${p.totalPercent ?? ''}|${p.honestyPercent ?? ''}|${p.totalScore ?? ''}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    points.push(p);
+  }
+  return points.length >= 2 ? points : [];
+}
+
+function renderScoreTrend(history) {
+  const points = historyTrendPoints(history);
+  if (!points.length) return '';
+  return `
+    <p class="score-trend" title="Parity score % across published Full sweeps (newest right)">
+      Parity trend: <svg class="sparkline" width="160" height="36" aria-label="Parity score trend across sweeps"></svg>
+      <small class="muted"> (${points.length} snapshots)</small>
+    </p>`;
+}
+
 function renderResolutionBetrayalPanel(d, glossary) {
   const entries = d.stillResolutionHonesty || d.resolutionBetrayal?.entries || [];
   if (!entries.length && d.resolutionBetrayal?.index == null) return '';
@@ -56,22 +80,6 @@ function renderResolutionBetrayalPanel(d, glossary) {
       <p class="software-line">Betrayal index: <strong>${idx}</strong> (% of cameras where spec/focal-row MP or alternate HAL maps exceed Camera2 default by ≥25%)</p>
       <p>Counts hidden high-res stream maps and spec-sheet megapixel claims above the default Camera2 still path.</p>
       <table class="data-table"><thead><tr><th>Camera</th><th>Default MP</th><th>Max advertised MP</th><th>Notes</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No data</td></tr>'}</tbody></table>
-    </section>`;
-}
-
-function renderOemLossPanel(d) {
-  const o = d.oemLossSummary;
-  if (!o) return '';
-  const losses = (o.topLosses || []).map((x) => {
-    const cls = x.consumerImpact === 'SHIP_BLOCKER' ? 'pill pill-ship-blocker' : 'pill';
-    return `<span class="${cls}">${x.displayName || x.catalogId}</span>`;
-  }).join(' ');
-  return `
-    <section class="device-card">
-      <h3>OEM app vs Camera2</h3>
-      <p><em>OEM camera app not tested.</em> This device was measured via Camera2 sessions only.</p>
-      <p>Ship-blockers: <strong>${o.shipBlockerCount ?? 0}</strong> · Delivery mismatches: <strong>${o.deliveryMismatchCount ?? 0}</strong></p>
-      <div class="pills">${losses || '<span class="pill pill-info">No major gaps logged</span>'}</div>
     </section>`;
 }
 
@@ -106,15 +114,6 @@ function apiToggleBar() {
       <button type="button" class="api-toggle-btn active" data-api="camera2">Camera2 (ranked)</button>
       <button type="button" class="api-toggle-btn" data-api="camerax">CameraX (info)</button>
     </div>`;
-}
-
-function renderExternalScores(d) {
-  const scores = d.identity?.externalScores || [];
-  if (!scores.length) return '';
-  const links = scores.map((s) =>
-    `<li><a href="${s.url}" target="_blank" rel="noopener">${s.source}</a>${s.score ? `: ${s.score}` : ''} <small>${s.note || ''}</small></li>`
-  ).join('');
-  return `<section class="device-card"><h3>External reviews</h3><p><em>Third-party lab scores measure OEM app output, not Camera2 parity.</em></p><ul>${links}</ul></section>`;
 }
 
 export function renderDeviceDetail(d, history, glossary) {
@@ -153,15 +152,14 @@ export function renderDeviceDetail(d, history, glossary) {
         <div class="stat"><strong>${d.scores?.total?.score ?? '—'}</strong> ${glossaryLabel('Parity pts', glossary, 'parity_pts')} <small class="muted">(${d.scores?.total?.percent ?? '—'}%)</small> ${progressBar(d.scores?.total?.percent)}</div>
         <div class="stat"><strong>${d.disparity?.honestyPercent}%</strong> ${glossaryLabel('Honesty', glossary, 'honesty')} ${progressBar(d.disparity?.honestyPercent)}</div>
         <div class="stat"><strong>${fmtNum(d.antutu?.total)}</strong> AnTuTu</div>
-        <div class="stat"><strong>${sensorSumLabel(d)}</strong> mm² ${sensorSourceNote(d) ? `<br><small>${sensorSourceNote(d)}</small>` : ''}</div>
+        <div class="stat">${sensorSumStatHtml(d)}${sensorSourceNote(d) ? `<br><small>${sensorSourceNote(d)}</small>` : ''}</div>
         ${d.value?.parityPerUsd ? `<div class="stat"><strong>${d.value.parityPerUsd}</strong> Parity/$</div>` : ''}
       </div>
-      ${history?.length ? `<p>Trend: <svg class="sparkline" width="160" height="36"></svg></p>` : ''}
+      ${renderScoreTrend(history)}
       <p>Format picker honesty: ${d.formatPickerHonestyScore ?? '—'}%</p>
       ${specLinks ? `<p class="spec-links">${specLinks}</p>` : ''}
       <p><small>Share: <input readonly value="${shareDeviceUrl(d.slug)}" style="width:100%;max-width:400px"></small></p>
     </div>
-    ${renderOemLossPanel(d)}
     ${apiToggleBar()}
     <div class="api-panel api-panel-camera2">
     ${renderResolutionBetrayalPanel(d, glossary)}
@@ -169,13 +167,12 @@ export function renderDeviceDetail(d, history, glossary) {
     </div>
     ${renderCameraXPanel(d)}
     <section class="device-card">
-      <h3>Rear sensor sizes</h3>
+      <h3>Camera sensors</h3>
       ${renderSensorSvg(d)}
-      <p class="software-line">Combined rear area: <strong>${sensorSumLabel(d)} mm²</strong>${sensorSourceNote(d) ? ` · ${sensorSourceNote(d)}` : ''}</p>
+      <p class="software-line">Combined rear area (front/selfie excluded): <strong>${sensorSumLabel(d)} mm²</strong>${sensorSourceNote(d) ? ` · ${sensorSourceNote(d)}` : ''}</p>
       ${renderRearLensTable(d)}
     </section>
     ${rawPanel}
-    ${renderExternalScores(d)}
     <section class="accordion">${categories}</section>
     <p><a href="https://github.com/edwardlthompson/point-and-shoot/issues/new?template=leaderboard_device_request.md">Request a device</a> ·
        <a href="https://github.com/edwardlthompson/point-and-shoot/issues/new?template=leaderboard_dispute.md">Report incorrect entry</a></p>`;
@@ -183,7 +180,8 @@ export function renderDeviceDetail(d, history, glossary) {
 
 export function attachSparkline(container, history) {
   const svg = container.querySelector('.sparkline');
-  if (svg && history?.length) drawSparkline(svg, history);
+  const points = historyTrendPoints(history);
+  if (svg && points.length) drawSparkline(svg, points);
 }
 
 export function attachDeviceDetailApiToggle(container) {

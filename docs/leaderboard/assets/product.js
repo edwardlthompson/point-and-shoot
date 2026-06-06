@@ -1,4 +1,4 @@
-import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry, betrayalIndex, fullMpBreakthrough } from './theme.js';
+import { fmtNum, progressBar, maxAdvertisedRearMp, maxHalMpFromEntry, betrayalIndex, fullMpBreakthrough } from './theme.js?v=20260606g';
 
 function pickVariant(variants, romFlavors) {
   if (!variants?.length) return null;

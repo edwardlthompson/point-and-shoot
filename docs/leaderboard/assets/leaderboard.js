@@ -12,7 +12,7 @@ import {
   betrayalBadgeHtml,
   breakthroughBadgeHtml,
   fullMpBreakthrough,
-} from './theme.js?v=20260606g';
+} from './theme.js?v=20260606h';
 
 const PERSONA_SORT = {
   default: (a, b) => (b.scores?.total?.score ?? 0) - (a.scores?.total?.score ?? 0),

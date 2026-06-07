@@ -1,7 +1,119 @@
 {
     "schema":  "pns.leaderboard_product_groups.v1",
-    "updatedUtc":  "2026-06-06T13:26:46.3888299Z",
+    "updatedUtc":  "2026-06-06T17:23:58.9897127Z",
     "groups":  [
+                   {
+                       "groupId":  "oneplus-13",
+                       "marketingName":  "OnePlus 13",
+                       "testedVariants":  [
+                                              {
+                                                  "lineItemKind":  "camera2_tested",
+                                                  "romFlavor":  "engineering",
+                                                  "slug":  "3e2a7b88f6db66c0",
+                                                  "testedApiLevel":  "Android 16 (API 36)",
+                                                  "parityScore":  1693,
+                                                  "honestyPercent":  91.3,
+                                                  "trustTier":  "maintainer",
+                                                  "resolutionBetrayalIndex":  0
+                                              }
+                                          ],
+                       "advertisedSpec":  null
+                   },
+                   {
+                       "groupId":  "sony-xperia-pro-i",
+                       "marketingName":  "Sony Xperia PRO-I",
+                       "testedVariants":  [
+                                              {
+                                                  "lineItemKind":  "camera2_tested",
+                                                  "romFlavor":  "unknown",
+                                                  "slug":  "acf7a326d2a12131",
+                                                  "testedApiLevel":  "Android 13 (API 33)",
+                                                  "parityScore":  1624,
+                                                  "honestyPercent":  99.1,
+                                                  "trustTier":  "maintainer",
+                                                  "resolutionBetrayalIndex":  0
+                                              }
+                                          ],
+                       "advertisedSpec":  {
+                                              "lineItemKind":  "advertised_gsmarena",
+                                              "measurementStatus":  "advertised_spec_untested",
+                                              "trustTier":  "advertised_spec",
+                                              "source":  "gsmarena",
+                                              "gsmarenaUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                              "advertisedClaims":  [
+                                                                       {
+                                                                           "catalogId":  "product.launch_date",
+                                                                           "advertisedValue":  "Released 2021, December 14",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_max",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "lens.ois",
+                                                                           "advertisedValue":  "yes (wide)",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_tele",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "video.4k",
+                                                                           "advertisedValue":  "yes",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "video.hfr.120",
+                                                                           "advertisedValue":  "120fps",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "lens.tele",
+                                                                           "advertisedValue":  "50.0mm tele",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_wide",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "lens.ois",
+                                                                           "advertisedValue":  "yes (tele)",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_ultrawide",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       }
+                                                                   ]
+                                          }
+                   },
                    {
                        "groupId":  "oneplus-12",
                        "marketingName":  "OnePlus 12",
@@ -11,8 +123,8 @@
                                                   "romFlavor":  "root_unlocked",
                                                   "slug":  "718a8115ff142454",
                                                   "testedApiLevel":  "Android 16 (API 36)",
-                                                  "parityScore":  1742,
-                                                  "honestyPercent":  90.6,
+                                                  "parityScore":  1520,
+                                                  "honestyPercent":  100,
                                                   "trustTier":  "maintainer",
                                                   "resolutionBetrayalIndex":  0
                                               }
@@ -112,185 +224,6 @@
                                           }
                    },
                    {
-                       "groupId":  "oneplus-13",
-                       "marketingName":  "OnePlus 13",
-                       "testedVariants":  [
-                                              {
-                                                  "lineItemKind":  "camera2_tested",
-                                                  "romFlavor":  "engineering",
-                                                  "slug":  "3e2a7b88f6db66c0",
-                                                  "testedApiLevel":  "Android 16 (API 36)",
-                                                  "parityScore":  1693,
-                                                  "honestyPercent":  91.3,
-                                                  "trustTier":  "maintainer",
-                                                  "resolutionBetrayalIndex":  0
-                                              }
-                                          ],
-                       "advertisedSpec":  null
-                   },
-                   {
-                       "groupId":  "essential-ph-1",
-                       "marketingName":  "Essential Products Essential PH-1",
-                       "testedVariants":  [
-                                              {
-                                                  "lineItemKind":  "camera2_tested",
-                                                  "romFlavor":  "custom_likely",
-                                                  "slug":  "dff79fd1b3808b1d",
-                                                  "testedApiLevel":  "Android 15 (API 35)",
-                                                  "parityScore":  1548,
-                                                  "honestyPercent":  95,
-                                                  "trustTier":  "maintainer",
-                                                  "resolutionBetrayalIndex":  0
-                                              }
-                                          ],
-                       "advertisedSpec":  {
-                                              "lineItemKind":  "advertised_gsmarena",
-                                              "measurementStatus":  "advertised_spec_untested",
-                                              "trustTier":  "advertised_spec",
-                                              "source":  "gsmarena",
-                                              "gsmarenaUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                              "advertisedClaims":  [
-                                                                       {
-                                                                           "catalogId":  "still.resolution_max",
-                                                                           "advertisedValue":  "13 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "video.4k",
-                                                                           "advertisedValue":  "yes",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "video.hfr.120",
-                                                                           "advertisedValue":  "120fps",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_unknown",
-                                                                           "advertisedValue":  "13 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2017, August\n\r\n      185g, 7.8mm thickness\n\r\n      Android 7.1, up to Android 10\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.2%\r\n      2,044,074 hits\r\n    \r\n      \r\n        417\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      5.71\"1312x2560 pixels\r\n    \r\n    \r\n      \r\n      13MP\r\n       2160p\r\n    \r\n      \r\n      4GB RAM \r\n      Snapdragon 835\r\n\r\n\r\n    \r\n    \r\n    \r\n    3040mAh27W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nHands-onPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\nVersions: Unlocked; Sprint\r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "product.msrp",
-                                                                           "advertisedValue":  "About 330 EUR",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
-                                                                           "verified":  false
-                                                                       }
-                                                                   ]
-                                          }
-                   },
-                   {
-                       "groupId":  "sony-xperia-pro-i",
-                       "marketingName":  "Sony Xperia PRO-I",
-                       "testedVariants":  [
-                                              {
-                                                  "lineItemKind":  "camera2_tested",
-                                                  "romFlavor":  "unknown",
-                                                  "slug":  "acf7a326d2a12131",
-                                                  "testedApiLevel":  "Android 13 (API 33)",
-                                                  "parityScore":  1416,
-                                                  "honestyPercent":  88,
-                                                  "trustTier":  "maintainer",
-                                                  "resolutionBetrayalIndex":  0
-                                              }
-                                          ],
-                       "advertisedSpec":  {
-                                              "lineItemKind":  "advertised_gsmarena",
-                                              "measurementStatus":  "advertised_spec_untested",
-                                              "trustTier":  "advertised_spec",
-                                              "source":  "gsmarena",
-                                              "gsmarenaUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                              "advertisedClaims":  [
-                                                                       {
-                                                                           "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2021, December 14",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_max",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "lens.ois",
-                                                                           "advertisedValue":  "yes (wide)",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_tele",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "video.4k",
-                                                                           "advertisedValue":  "yes",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "video.hfr.120",
-                                                                           "advertisedValue":  "120fps",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "lens.tele",
-                                                                           "advertisedValue":  "50.0mm tele",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_wide",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "lens.ois",
-                                                                           "advertisedValue":  "yes (tele)",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_ultrawide",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       }
-                                                                   ]
-                                          }
-                   },
-                   {
                        "groupId":  "htc-exodus-1",
                        "marketingName":  "HTC Exodus 1",
                        "testedVariants":  [
@@ -373,6 +306,73 @@
                                                                            "advertisedValue":  "yes",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/htc_exodus_1-9385.php",
+                                                                           "verified":  false
+                                                                       }
+                                                                   ]
+                                          }
+                   },
+                   {
+                       "groupId":  "essential-ph-1",
+                       "marketingName":  "Essential Products Essential PH-1",
+                       "testedVariants":  [
+                                              {
+                                                  "lineItemKind":  "camera2_tested",
+                                                  "romFlavor":  "custom_likely",
+                                                  "slug":  "dff79fd1b3808b1d",
+                                                  "testedApiLevel":  "Android 15 (API 35)",
+                                                  "parityScore":  1369,
+                                                  "honestyPercent":  100,
+                                                  "trustTier":  "maintainer",
+                                                  "resolutionBetrayalIndex":  0
+                                              }
+                                          ],
+                       "advertisedSpec":  {
+                                              "lineItemKind":  "advertised_gsmarena",
+                                              "measurementStatus":  "advertised_spec_untested",
+                                              "trustTier":  "advertised_spec",
+                                              "source":  "gsmarena",
+                                              "gsmarenaUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
+                                              "advertisedClaims":  [
+                                                                       {
+                                                                           "catalogId":  "still.resolution_max",
+                                                                           "advertisedValue":  "13 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "video.4k",
+                                                                           "advertisedValue":  "yes",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "video.hfr.120",
+                                                                           "advertisedValue":  "120fps",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_unknown",
+                                                                           "advertisedValue":  "13 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "product.launch_date",
+                                                                           "advertisedValue":  "Released 2017, August\n\r\n      185g, 7.8mm thickness\n\r\n      Android 7.1, up to Android 10\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.2%\r\n      2,044,074 hits\r\n    \r\n      \r\n        417\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      5.71\"1312x2560 pixels\r\n    \r\n    \r\n      \r\n      13MP\r\n       2160p\r\n    \r\n      \r\n      4GB RAM \r\n      Snapdragon 835\r\n\r\n\r\n    \r\n    \r\n    \r\n    3040mAh27W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nHands-onPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\nVersions: Unlocked; Sprint\r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "product.msrp",
+                                                                           "advertisedValue":  "About 330 EUR",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
                                                                            "verified":  false
                                                                        }
                                                                    ]

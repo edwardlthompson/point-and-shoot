@@ -19,10 +19,11 @@ import {
   betrayalIndex,
   breakthroughHeroHtml,
   breakthroughBadgeHtml,
-} from './theme.js?v=20260606g';
-import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js?v=20260606g';
-import { drawSparkline } from './charts.js?v=20260606g';
-import { shareDeviceUrl } from './router.js?v=20260606g';
+  antutuStatHtml,
+} from './theme.js?v=20260606i';
+import { lensStripHtml, withheldPills, videoOneLiner } from './leaderboard.js?v=20260606h';
+import { drawSparkline } from './charts.js?v=20260606h';
+import { shareDeviceUrl } from './router.js?v=20260606h';
 
 function resolutionNotes(d, r) {
   const halMax = maxHalMpFromEntry(r);
@@ -54,14 +55,38 @@ function historyTrendPoints(history) {
   return points.length >= 2 ? points : [];
 }
 
-function renderScoreTrend(history) {
+function formatTrendDate(ts) {
+  if (!ts) return '?';
+  const s = String(ts);
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[1]}-${m[2]}`;
+  return s.slice(0, 10);
+}
+
+function renderScoreTrend(history, glossary) {
   const points = historyTrendPoints(history);
   if (!points.length) return '';
+  const percents = points.map((p) => p.totalPercent ?? p.honestyPercent ?? 0);
+  const first = Math.round(percents[0] * 10) / 10;
+  const last = Math.round(percents[percents.length - 1] * 10) / 10;
+  const sweepLines = points.map((p, i) => {
+    const pct = Math.round((p.totalPercent ?? p.honestyPercent ?? 0) * 10) / 10;
+    return `${formatTrendDate(p.timestampUtc)}: ${pct}%`;
+  }).join('\n');
+  const chartTitle = `${sweepLines}\n(left = oldest Full sweep · right = newest)`;
   return `
-    <p class="score-trend" title="Parity score % across published Full sweeps (newest right)">
-      Parity trend: <svg class="sparkline" width="160" height="36" aria-label="Parity score trend across sweeps"></svg>
-      <small class="muted"> (${points.length} snapshots)</small>
-    </p>`;
+    <div class="score-trend">
+      <p class="score-trend-head">
+        ${glossaryLabel('Parity trend', glossary, 'parity_trend')}:
+        <span class="score-trend-chart" title="${chartTitle.replace(/"/g, '&quot;')}">
+          <svg class="sparkline" width="160" height="36" aria-label="Parity score trend across Full sweeps" role="img"></svg>
+        </span>
+        <span class="score-trend-range">${first}% → ${last}%</span>
+        <small class="muted">(${points.length} sweeps)</small>
+      </p>
+      <p class="score-trend-hint"><small>Total Camera2 parity % over time — hover the chart for dates. Not the OEM camera app.</small></p>
+    </div>`;
 }
 
 function renderResolutionBetrayalPanel(d, glossary) {
@@ -151,11 +176,11 @@ export function renderDeviceDetail(d, history, glossary) {
         <div class="stat"><strong>#${d.scores?.rank ?? '—'}</strong> Rank</div>
         <div class="stat"><strong>${d.scores?.total?.score ?? '—'}</strong> ${glossaryLabel('Parity pts', glossary, 'parity_pts')} <small class="muted">(${d.scores?.total?.percent ?? '—'}%)</small> ${progressBar(d.scores?.total?.percent)}</div>
         <div class="stat"><strong>${d.disparity?.honestyPercent}%</strong> ${glossaryLabel('Honesty', glossary, 'honesty')} ${progressBar(d.disparity?.honestyPercent)}</div>
-        <div class="stat"><strong>${fmtNum(d.antutu?.total)}</strong> AnTuTu</div>
+        <div class="stat">${antutuStatHtml(d, glossary)}</div>
         <div class="stat">${sensorSumStatHtml(d)}${sensorSourceNote(d) ? `<br><small>${sensorSourceNote(d)}</small>` : ''}</div>
         ${d.value?.parityPerUsd ? `<div class="stat"><strong>${d.value.parityPerUsd}</strong> Parity/$</div>` : ''}
       </div>
-      ${renderScoreTrend(history)}
+      ${renderScoreTrend(history, glossary)}
       <p>Format picker honesty: ${d.formatPickerHonestyScore ?? '—'}%</p>
       ${specLinks ? `<p class="spec-links">${specLinks}</p>` : ''}
       <p><small>Share: <input readonly value="${shareDeviceUrl(d.slug)}" style="width:100%;max-width:400px"></small></p>

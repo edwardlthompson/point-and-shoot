@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Point & Shoot — Fleet Camera Parity Leaderboard</title>
-  <link rel="stylesheet" href="assets/style.css?v=20260606g">
+  <link rel="stylesheet" href="assets/style.css?v=20260606h">
   <link rel="alternate" type="application/rss+xml" href="data/feed.xml" title="Leaderboard RSS">
   <link rel="alternate" type="application/json" href="data/feed.json" title="Leaderboard feed">
 </head>
@@ -33,9 +33,10 @@
         <li><strong>Full MP breakthrough:</strong> Device proved &gt;12 MP per rear sensor via Camera2 default/max-res map or verified capture — opposite of betrayal; rare aftermarket access</li>
         <li><strong>Tested API:</strong> Android version (SDK/API level) on the device when the parity sweep ran — OEM updates can change Camera2 behavior</li>
         <li><strong>Sensor sum (mm²):</strong> combined physical area of <strong>rear</strong> cameras only — from Camera2 HAL when scanned on-device, otherwise GSMArena published sensor types. Front/selfie is listed separately on the device page.</li>
+        <li><strong>Parity trend:</strong> sparkline of total Camera2 parity % across published Full sweeps on a device (oldest left, newest right) — not OEM app quality</li>
         <li><strong>Restriction Index:</strong> OEM composite (lower openness = more gating)</li>
       </ul>
-      <p>AnTuTu scores are fleet averages from public rankings, not your specific unit.</p>
+      <p>AnTuTu is the average of on-device benchmark submissions (maintainer USB + community). Re-run after major OS updates; more samples improve accuracy.</p>
       <p><a href="https://github.com/edwardlthompson/point-and-shoot/blob/main/docs/FLEET_PARITY_SWEEP.md">Full parity sweep docs</a></p>
       <button type="button" id="methodology-close">Close</button>
     </div>
@@ -79,6 +80,6 @@
     </div>
   </footer>
 
-  <script type="module" src="assets/app.js?v=20260606g"></script>
+  <script type="module" src="assets/app.js?v=20260606h"></script>
 </body>
 </html>

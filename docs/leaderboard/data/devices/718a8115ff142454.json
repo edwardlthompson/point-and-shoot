@@ -40,48 +40,17 @@
                  },
     "measurementContext":  {
                                "api":  "camera2",
-                               "cameraXProbed":  true,
+                               "cameraXProbed":  false,
                                "oemCameraAppTested":  false
                            },
     "sensors":  {
-                    "sensorSumMm2":  125.76,
-                    "sensorSumMethod":  "physical_mm2",
-                    "source":  "camera2_hal",
-                    "sourceLabel":  "Camera2 HAL (device scan) Â· GSMArena advertised lenses",
+                    "sensorSumMm2":  306.28,
+                    "sensorSumMethod":  "gsmarena_type_fraction",
+                    "source":  "gsmarena",
+                    "sourceLabel":  "GSMArena sensor type",
                     "sourceUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
                     "sensors":  [
-                                    {
-                                        "cameraId":  "1",
-                                        "role":  "FRONT",
-                                        "widthMm":  5.2480001449584961,
-                                        "heightMm":  3.9423999786376953,
-                                        "areaMm2":  20.69,
-                                        "megapixels":  8.08192
-                                    },
-                                    {
-                                        "cameraId":  "2",
-                                        "role":  "WIDE",
-                                        "widthMm":  9.1750402450561523,
-                                        "heightMm":  6.8812799453735352,
-                                        "areaMm2":  63.14,
-                                        "megapixels":  12.582912
-                                    },
-                                    {
-                                        "cameraId":  "3",
-                                        "role":  "ULTRA_WIDE",
-                                        "widthMm":  6.4000000953674316,
-                                        "heightMm":  4.8000001907348633,
-                                        "areaMm2":  30.72,
-                                        "megapixels":  12
-                                    },
-                                    {
-                                        "cameraId":  "4",
-                                        "role":  "TELE",
-                                        "widthMm":  6.5145602226257324,
-                                        "heightMm":  4.8971519470214844,
-                                        "areaMm2":  31.9,
-                                        "megapixels":  16.054528
-                                    }
+
                                 ],
                     "rearLenses":  [
                                        {
@@ -127,7 +96,7 @@
                                             "areaMm2":  41.25
                                         }
                                     ],
-                    "advertisedSensorSumMm2":  306.28
+                    "advertisedSensorSumMm2":  null
                 },
     "lensLineup":  [
                        {
@@ -158,139 +127,43 @@
                    ],
     "scores":  {
                    "features":  {
-                                    "score":  1218,
+                                    "score":  1220,
                                     "maxScore":  1590,
-                                    "percent":  76.6,
+                                    "percent":  76.7,
                                     "cellCount":  159,
-                                    "provenCount":  119
+                                    "provenCount":  122
                                 },
                    "resolutions":  {
-                                       "score":  200,
+                                       "score":  120,
                                        "maxScore":  230,
-                                       "percent":  87,
+                                       "percent":  52.2,
                                        "cellCount":  23,
-                                       "provenCount":  18
+                                       "provenCount":  12
                                    },
                    "capabilities":  {
-                                        "score":  324,
+                                        "score":  180,
                                         "maxScore":  432,
-                                        "percent":  75,
+                                        "percent":  41.7,
                                         "gateCount":  72,
                                         "cameraCount":  6
                                     },
                    "total":  {
-                                 "score":  1742,
+                                 "score":  1520,
                                  "maxScore":  2252,
-                                 "percent":  77.4
+                                 "percent":  67.5
                              },
-                   "rank":  1
+                   "rank":  3
                },
     "disparity":  {
-                      "advertisedCellCount":  127,
-                      "provenAdvertisedCount":  115,
-                      "honestyPercent":  90.6,
+                      "advertisedCellCount":  107,
+                      "provenAdvertisedCount":  107,
+                      "honestyPercent":  100,
                       "gapBreakdown":  {
-                                           "GAP_ADVERTISED_NOT_PROVEN":  11,
-                                           "GAP_DELIVERY_MISMATCH":  1
+
                                        }
                   },
     "withheldFeatures":  [
-                             {
-                                 "catalogId":  "still.independent_tonal",
-                                 "displayName":  "Independent tonal still",
-                                 "category":  "Still capture",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.av1",
-                                 "displayName":  "AV1 video",
-                                 "category":  "Video",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "session_failed",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.av1.1080p",
-                                 "displayName":  "video.av1.1080p",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "session_failed",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.av1.4k",
-                                 "displayName":  "video.av1.4k",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "session_failed",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.av1.720p",
-                                 "displayName":  "video.av1.720p",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "session_failed",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.av1.8k",
-                                 "displayName":  "video.av1.8k",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "session_failed",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.bt709",
-                                 "displayName":  "video.color.bt709",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.flat",
-                                 "displayName":  "video.color.flat",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.hfr.120",
-                                 "displayName":  "video.hfr.120",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_DELIVERY_MISMATCH",
-                                 "failReason":  "4k120_truth_blocked_unstable",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "perf.capture_latency",
-                                 "displayName":  "perf.capture_latency",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "INFORMATIONAL"
-                             },
-                             {
-                                 "catalogId":  "perf.cold_preview_ms",
-                                 "displayName":  "perf.cold_preview_ms",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "INFORMATIONAL"
-                             },
-                             {
-                                 "catalogId":  "perf.first_frame_ms",
-                                 "displayName":  "perf.first_frame_ms",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "INFORMATIONAL"
-                             }
+
                          ],
     "cellsByCategory":  {
                             "Unknown":  [
@@ -317,21 +190,21 @@
                                             {
                                                 "catalogId":  "video.hfr",
                                                 "displayName":  "video.hfr",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
                                                 "catalogId":  "video.4k_regular",
                                                 "displayName":  "video.4k_regular",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
@@ -377,11 +250,11 @@
                                             {
                                                 "catalogId":  "video.uhd60",
                                                 "displayName":  "video.uhd60",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
@@ -527,41 +400,41 @@
                                             {
                                                 "catalogId":  "video.av1.720p",
                                                 "displayName":  "video.av1.720p",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "provenOk":  false,
                                                 "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  "session_failed",
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.av1.1080p",
                                                 "displayName":  "video.av1.1080p",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "provenOk":  false,
                                                 "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  "session_failed",
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.av1.4k",
                                                 "displayName":  "video.av1.4k",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "provenOk":  false,
                                                 "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  "session_failed",
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.av1.8k",
                                                 "displayName":  "video.av1.8k",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "provenOk":  false,
                                                 "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  "session_failed",
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -607,51 +480,51 @@
                                             {
                                                 "catalogId":  "video.hfr.24",
                                                 "displayName":  "video.hfr.24",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.30",
                                                 "displayName":  "video.hfr.30",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.60",
                                                 "displayName":  "video.hfr.60",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.120",
                                                 "displayName":  "video.hfr.120",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "provenOk":  false,
-                                                "sessionOk":  true,
-                                                "gap":  "GAP_DELIVERY_MISMATCH",
-                                                "failReason":  "4k120_truth_blocked_unstable",
+                                                "sessionOk":  false,
+                                                "gap":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.240",
                                                 "displayName":  "video.hfr.240",
-                                                "advertised":  true,
-                                                "provenOk":  true,
-                                                "sessionOk":  true,
+                                                "advertised":  false,
+                                                "provenOk":  false,
+                                                "sessionOk":  false,
                                                 "gap":  null,
-                                                "failReason":  null,
+                                                "failReason":  "not_advertised",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -867,7 +740,7 @@
                                             {
                                                 "catalogId":  "perf.thermal_adaptive",
                                                 "displayName":  "perf.thermal_adaptive",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "provenOk":  true,
                                                 "sessionOk":  null,
                                                 "gap":  "OK",
@@ -877,31 +750,31 @@
                                             {
                                                 "catalogId":  "perf.capture_latency",
                                                 "displayName":  "perf.capture_latency",
-                                                "advertised":  true,
-                                                "provenOk":  false,
+                                                "advertised":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
                                                 "catalogId":  "perf.cold_preview_ms",
                                                 "displayName":  "perf.cold_preview_ms",
-                                                "advertised":  true,
-                                                "provenOk":  false,
+                                                "advertised":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
                                                 "catalogId":  "perf.first_frame_ms",
                                                 "displayName":  "perf.first_frame_ms",
-                                                "advertised":  true,
-                                                "provenOk":  false,
+                                                "advertised":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
@@ -1248,10 +1121,10 @@
                                                 "catalogId":  "video.color.bt709",
                                                 "displayName":  "video.color.bt709",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
                                                 "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -1268,10 +1141,10 @@
                                                 "catalogId":  "video.color.flat",
                                                 "displayName":  "video.color.flat",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
                                                 "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -1432,7 +1305,7 @@
                                               "advertised":  true,
                                               "provenOk":  true,
                                               "sessionOk":  null,
-                                              "gap":  "OK",
+                                              "gap":  null,
                                               "failReason":  null,
                                               "consumerImpact":  "ENGINEERING_ONLY"
                                           }
@@ -1555,11 +1428,11 @@
                                                   {
                                                       "catalogId":  "raw.dng",
                                                       "displayName":  "RAW DNG capture",
-                                                      "advertised":  true,
-                                                      "provenOk":  true,
-                                                      "sessionOk":  true,
+                                                      "advertised":  false,
+                                                      "provenOk":  false,
+                                                      "sessionOk":  false,
                                                       "gap":  null,
-                                                      "failReason":  null,
+                                                      "failReason":  "not_advertised",
                                                       "consumerImpact":  "INFORMATIONAL"
                                                   },
                                                   {
@@ -1666,10 +1539,10 @@
                                                       "catalogId":  "still.independent_tonal",
                                                       "displayName":  "Independent tonal still",
                                                       "advertised":  true,
-                                                      "provenOk":  false,
+                                                      "provenOk":  true,
                                                       "sessionOk":  null,
                                                       "gap":  null,
-                                                      "failReason":  "not_proven",
+                                                      "failReason":  null,
                                                       "consumerImpact":  "ENGINEERING_ONLY"
                                                   }
                                               ],
@@ -1697,27 +1570,27 @@
                                           {
                                               "catalogId":  "video.av1",
                                               "displayName":  "AV1 video",
-                                              "advertised":  true,
+                                              "advertised":  false,
                                               "provenOk":  false,
                                               "sessionOk":  false,
                                               "gap":  null,
-                                              "failReason":  "session_failed",
+                                              "failReason":  "not_advertised",
                                               "consumerImpact":  "ENGINEERING_ONLY"
                                           },
                                           {
                                               "catalogId":  "video.regular.1080p30",
                                               "displayName":  "1080p @ 30 fps (regular)",
-                                              "advertised":  true,
-                                              "provenOk":  true,
+                                              "advertised":  false,
+                                              "provenOk":  false,
                                               "sessionOk":  null,
                                               "gap":  null,
-                                              "failReason":  null,
+                                              "failReason":  "not_advertised",
                                               "consumerImpact":  "SHIP_BLOCKER"
                                           },
                                           {
                                               "catalogId":  "video.dcg_hdr",
                                               "displayName":  "HDR / DCG video",
-                                              "advertised":  true,
+                                              "advertised":  false,
                                               "provenOk":  true,
                                               "sessionOk":  true,
                                               "gap":  null,
@@ -1729,8 +1602,8 @@
                                               "displayName":  "RAW video",
                                               "advertised":  true,
                                               "provenOk":  true,
-                                              "sessionOk":  true,
-                                              "gap":  null,
+                                              "sessionOk":  false,
+                                              "gap":  "OK",
                                               "failReason":  null,
                                               "consumerImpact":  "ENGINEERING_ONLY"
                                           },
@@ -1739,8 +1612,8 @@
                                               "displayName":  "RAW video in format picker",
                                               "advertised":  true,
                                               "provenOk":  true,
-                                              "sessionOk":  true,
-                                              "gap":  null,
+                                              "sessionOk":  false,
+                                              "gap":  "OK",
                                               "failReason":  null,
                                               "consumerImpact":  "SHIP_BLOCKER"
                                           },
@@ -2141,14 +2014,14 @@
                                             {
                                                 "name":  "raw",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "hfr",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "face",
@@ -2158,7 +2031,7 @@
                                             },
                                             {
                                                 "name":  "dcgZsl",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "appEnabled":  true,
                                                 "sessionOk":  true
                                             },
@@ -2177,20 +2050,20 @@
                                             {
                                                 "name":  "uhd60",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "fourKRegular",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "advertised":  false,
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "rawVideo",
                                                 "advertised":  true,
                                                 "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "dualVideo",
@@ -2218,14 +2091,14 @@
                                             {
                                                 "name":  "raw",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "hfr",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "face",
@@ -2235,7 +2108,7 @@
                                             },
                                             {
                                                 "name":  "dcgZsl",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "appEnabled":  true,
                                                 "sessionOk":  true
                                             },
@@ -2254,8 +2127,8 @@
                                             {
                                                 "name":  "uhd60",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "fourKRegular",
@@ -2267,7 +2140,7 @@
                                                 "name":  "rawVideo",
                                                 "advertised":  true,
                                                 "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "dualVideo",
@@ -2295,14 +2168,14 @@
                                             {
                                                 "name":  "raw",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "hfr",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "face",
@@ -2312,7 +2185,7 @@
                                             },
                                             {
                                                 "name":  "dcgZsl",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "appEnabled":  true,
                                                 "sessionOk":  true
                                             },
@@ -2331,20 +2204,20 @@
                                             {
                                                 "name":  "uhd60",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "fourKRegular",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "advertised":  false,
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "rawVideo",
                                                 "advertised":  true,
                                                 "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "dualVideo",
@@ -2372,14 +2245,14 @@
                                             {
                                                 "name":  "raw",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "hfr",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "face",
@@ -2389,7 +2262,7 @@
                                             },
                                             {
                                                 "name":  "dcgZsl",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "appEnabled":  true,
                                                 "sessionOk":  true
                                             },
@@ -2408,20 +2281,20 @@
                                             {
                                                 "name":  "uhd60",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "fourKRegular",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "advertised":  false,
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "rawVideo",
                                                 "advertised":  true,
                                                 "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "dualVideo",
@@ -2449,14 +2322,14 @@
                                             {
                                                 "name":  "raw",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "hfr",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "face",
@@ -2466,7 +2339,7 @@
                                             },
                                             {
                                                 "name":  "dcgZsl",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "appEnabled":  true,
                                                 "sessionOk":  true
                                             },
@@ -2485,20 +2358,20 @@
                                             {
                                                 "name":  "uhd60",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "fourKRegular",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "advertised":  false,
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "rawVideo",
                                                 "advertised":  true,
                                                 "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "dualVideo",
@@ -2526,14 +2399,14 @@
                                             {
                                                 "name":  "raw",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "hfr",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "face",
@@ -2543,7 +2416,7 @@
                                             },
                                             {
                                                 "name":  "dcgZsl",
-                                                "advertised":  true,
+                                                "advertised":  false,
                                                 "appEnabled":  true,
                                                 "sessionOk":  true
                                             },
@@ -2562,20 +2435,20 @@
                                             {
                                                 "name":  "uhd60",
                                                 "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "fourKRegular",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "advertised":  false,
+                                                "appEnabled":  false,
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "rawVideo",
                                                 "advertised":  true,
                                                 "appEnabled":  true,
-                                                "sessionOk":  true
+                                                "sessionOk":  false
                                             },
                                             {
                                                 "name":  "dualVideo",
@@ -2598,9 +2471,9 @@
                                         ]
                           }
                       ],
-    "formatPickerHonestyScore":  81,
+    "formatPickerHonestyScore":  69,
     "resolutionBetrayal":  {
-                               "index":  83,
+                               "index":  100,
                                "cameraCount":  6,
                                "entries":  [
                                                {
@@ -2622,7 +2495,7 @@
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
                                                    "advertisedMegapixels":  50,
-                                                   "advertisedSource":  "focal_row"
+                                                   "advertisedSource":  "gsmarena"
                                                },
                                                {
                                                    "cameraId":  "1",
@@ -2641,7 +2514,9 @@
                                                                         },
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
-                                                   "hasLargerThanDefault":  false
+                                                   "hasLargerThanDefault":  false,
+                                                   "advertisedMegapixels":  64,
+                                                   "advertisedSource":  "gsmarena"
                                                },
                                                {
                                                    "cameraId":  "2",
@@ -2661,7 +2536,7 @@
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
-                                                   "advertisedMegapixels":  50,
+                                                   "advertisedMegapixels":  48,
                                                    "advertisedSource":  "gsmarena"
                                                },
                                                {
@@ -2682,7 +2557,7 @@
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
-                                                   "advertisedMegapixels":  64,
+                                                   "advertisedMegapixels":  48,
                                                    "advertisedSource":  "gsmarena"
                                                },
                                                {
@@ -2724,8 +2599,8 @@
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
-                                                   "advertisedMegapixels":  50,
-                                                   "advertisedSource":  "focal_row"
+                                                   "advertisedMegapixels":  48,
+                                                   "advertisedSource":  "gsmarena"
                                                }
                                            ]
                            },
@@ -2746,90 +2621,19 @@
                            "measurementApi":  "camera2",
                            "oemCameraAppTested":  false,
                            "shipBlockerCount":  0,
-                           "deliveryMismatchCount":  1,
+                           "deliveryMismatchCount":  0,
                            "topLosses":  [
-                                             {
-                                                 "catalogId":  "still.independent_tonal",
-                                                 "displayName":  "Independent tonal still",
-                                                 "category":  "Still capture",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.av1",
-                                                 "displayName":  "AV1 video",
-                                                 "category":  "Video",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "session_failed",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.av1.1080p",
-                                                 "displayName":  "video.av1.1080p",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "session_failed",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.av1.4k",
-                                                 "displayName":  "video.av1.4k",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "session_failed",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.av1.720p",
-                                                 "displayName":  "video.av1.720p",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "session_failed",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.av1.8k",
-                                                 "displayName":  "video.av1.8k",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "session_failed",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.color.bt709",
-                                                 "displayName":  "video.color.bt709",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.color.flat",
-                                                 "displayName":  "video.color.flat",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             }
+
                                          ]
                        },
-    "cameraXSummary":  {
-                           "probeComplete":  true,
-                           "hasAny":  false,
-                           "extensions":  [
-
-                                          ],
-                           "informational":  true,
-                           "honestyScore":  0
-                       },
+    "cameraXSummary":  null,
     "value":  {
                   "msrpUsd":  799,
-                  "parityPerUsd":  2.18
+                  "parityPerUsd":  1.9
               },
     "videoSummary":  {
                          "hfrMaxFps1080":  480,
-                         "video4k120Class":  "blocked_unstable",
+                         "video4k120Class":  "unknown",
                          "codecs":  {
                                         "h264":  true,
                                         "hevc":  true,
@@ -2838,12 +2642,11 @@
                                     }
                      },
     "rawSummary":  {
-                       "dngProven":  true,
+                       "dngProven":  false,
                        "rawFormats":  [
-                                          "RAW_SENSOR",
-                                          "RAW10"
+
                                       ],
-                       "maxRawMp":  16.05
+                       "maxRawMp":  null
                    },
     "stillResolutionHonesty":  [
                                    {
@@ -2865,7 +2668,7 @@
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
                                        "advertisedMegapixels":  50,
-                                       "advertisedSource":  "focal_row"
+                                       "advertisedSource":  "gsmarena"
                                    },
                                    {
                                        "cameraId":  "1",
@@ -2884,7 +2687,9 @@
                                                             },
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
-                                       "hasLargerThanDefault":  false
+                                       "hasLargerThanDefault":  false,
+                                       "advertisedMegapixels":  64,
+                                       "advertisedSource":  "gsmarena"
                                    },
                                    {
                                        "cameraId":  "2",
@@ -2904,7 +2709,7 @@
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
-                                       "advertisedMegapixels":  50,
+                                       "advertisedMegapixels":  48,
                                        "advertisedSource":  "gsmarena"
                                    },
                                    {
@@ -2925,7 +2730,7 @@
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
-                                       "advertisedMegapixels":  64,
+                                       "advertisedMegapixels":  48,
                                        "advertisedSource":  "gsmarena"
                                    },
                                    {
@@ -2967,8 +2772,8 @@
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
-                                       "advertisedMegapixels":  50,
-                                       "advertisedSource":  "focal_row"
+                                       "advertisedMegapixels":  48,
+                                       "advertisedSource":  "gsmarena"
                                    }
                                ],
     "antutu":  {
@@ -2978,14 +2783,20 @@
                    "mem":  380000,
                    "ux":  350000,
                    "matchedName":  "OnePlus 12",
-                   "matchConfidence":  "manual_override",
-                   "sourceMonth":  "2026-06"
+                   "matchConfidence":  "fleet_sample_mean",
+                   "sampleCount":  1,
+                   "sourceBreakdown":  {
+                                           "legacy_seed":  1
+                                       },
+                   "totalStdDev":  null,
+                   "lastSubmittedUtc":  "2026-06-01T00:00:00Z",
+                   "source":  "cross_source_samples"
                },
     "meta":  {
-                 "lastSweepUtc":  "2026-06-06T03:31:00.3602253Z",
+                 "lastSweepUtc":  "2026-06-06T16:37:16.7485123Z",
                  "lastSweepMode":  "Full",
-                 "appVersionCode":  22003,
-                 "scanTier":  "full",
+                 "appVersionCode":  22004,
+                 "scanTier":  "quick",
                  "trustTier":  "maintainer",
                  "testedApiLevel":  "Android 16 (API 36)"
              }

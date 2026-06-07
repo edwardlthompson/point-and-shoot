@@ -1,4 +1,4 @@
-import { fmtNum, progressBar } from './theme.js?v=20260606g';
+import { fmtNum, progressBar } from './theme.js?v=20260606h';
 
 export function renderOemIndex(site, devices, oemAccountability) {
   const rankings = oemAccountability?.oems?.length ? oemAccountability.oems : (site?.oemRankings || []);

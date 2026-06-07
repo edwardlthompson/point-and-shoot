@@ -1,6 +1,6 @@
 {
     "schema":  "pns.fleet_leaderboard_site.v1",
-    "updatedUtc":  "2026-06-06T13:26:46.3956469Z",
+    "updatedUtc":  "2026-06-06T17:23:59.0119934Z",
     "catalogVersion":  3,
     "deviceCount":  5,
     "breakthroughCount":  2,
@@ -20,17 +20,18 @@
                    ],
     "oemRankings":  [
                         {
-                            "manufacturer":  "Sony",
-                            "opennessPercent":  88,
-                            "gateHonestyPercent":  74.4,
-                            "compositePercent":  82.6,
-                            "restrictionIndex":  17.4,
+                            "manufacturer":  "OnePlus",
+                            "opennessPercent":  95.3,
+                            "gateHonestyPercent":  63.9,
+                            "compositePercent":  82.7,
+                            "restrictionIndex":  17.3,
                             "avgResolutionBetrayal":  0,
-                            "breakthroughCount":  0,
-                            "withheldFeatureCount":  13,
-                            "deviceCount":  1,
+                            "breakthroughCount":  1,
+                            "withheldFeatureCount":  11,
+                            "deviceCount":  2,
                             "deviceSlugs":  [
-                                                "acf7a326d2a12131"
+                                                "3e2a7b88f6db66c0",
+                                                "718a8115ff142454"
                                             ]
                         },
                         {
@@ -48,32 +49,31 @@
                                             ]
                         },
                         {
-                            "manufacturer":  "Essential Products",
-                            "opennessPercent":  95,
-                            "gateHonestyPercent":  50,
-                            "compositePercent":  77,
-                            "restrictionIndex":  23,
+                            "manufacturer":  "Sony",
+                            "opennessPercent":  99.1,
+                            "gateHonestyPercent":  71.4,
+                            "compositePercent":  88,
+                            "restrictionIndex":  12,
                             "avgResolutionBetrayal":  0,
-                            "breakthroughCount":  1,
-                            "withheldFeatureCount":  6,
+                            "breakthroughCount":  0,
+                            "withheldFeatureCount":  0,
                             "deviceCount":  1,
                             "deviceSlugs":  [
-                                                "dff79fd1b3808b1d"
+                                                "acf7a326d2a12131"
                                             ]
                         },
                         {
-                            "manufacturer":  "OnePlus",
-                            "opennessPercent":  90.9,
-                            "gateHonestyPercent":  89.8,
-                            "compositePercent":  90.5,
-                            "restrictionIndex":  9.5,
+                            "manufacturer":  "Essential Products",
+                            "opennessPercent":  100,
+                            "gateHonestyPercent":  50,
+                            "compositePercent":  80,
+                            "restrictionIndex":  20,
                             "avgResolutionBetrayal":  0,
                             "breakthroughCount":  1,
-                            "withheldFeatureCount":  23,
-                            "deviceCount":  2,
+                            "withheldFeatureCount":  0,
+                            "deviceCount":  1,
                             "deviceSlugs":  [
-                                                "718a8115ff142454",
-                                                "3e2a7b88f6db66c0"
+                                                "dff79fd1b3808b1d"
                                             ]
                         }
                     ],
@@ -82,17 +82,17 @@
     "gsmarenaSpecsStale":  true,
     "gsmarenaSpecsFromCache":  false,
     "deviceSlugs":  [
-                        "718a8115ff142454",
                         "3e2a7b88f6db66c0",
-                        "dff79fd1b3808b1d",
                         "acf7a326d2a12131",
-                        "088f8b18916ff4ea"
+                        "718a8115ff142454",
+                        "088f8b18916ff4ea",
+                        "dff79fd1b3808b1d"
                     ],
     "devices":  [
-                    "OnePlus|CPH2583|961221c0f0bc2eee",
                     "OnePlus|CPH2655|4917ad5d3e111fca",
-                    "Essential Products|PH-1|3ed247c9b6af0f1b",
                     "Sony|XQ-BE62|aa6273fd9666679d",
-                    "HTC|EXODUS 1|165bbc786fa1f391"
+                    "OnePlus|CPH2583|961221c0f0bc2eee",
+                    "HTC|EXODUS 1|165bbc786fa1f391",
+                    "Essential Products|PH-1|3ed247c9b6af0f1b"
                 ]
 }

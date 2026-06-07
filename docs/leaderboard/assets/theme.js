@@ -129,6 +129,30 @@ export function sensorSumStatHtml(device) {
   return `<strong>${mm2}</strong> rear mm²`;
 }
 
+/** AnTuTu stat with cross-source sample tooltip when available. */
+export function antutuStatHtml(device, glossary) {
+  const a = device?.antutu;
+  const total = a?.total;
+  if (total == null) return '<strong>—</strong> AnTuTu';
+  const label = glossaryLabel('AnTuTu', glossary, 'antutu_sample_mean');
+  let tip = '';
+  if (a.sampleCount != null && a.sampleCount > 0) {
+    const parts = [`${a.sampleCount} sample${a.sampleCount === 1 ? '' : 's'}`];
+    if (a.totalStdDev != null && a.sampleCount >= 2) parts.push(`±${fmtNum(a.totalStdDev)}`);
+    if (a.lastSubmittedUtc) {
+      const d = new Date(a.lastSubmittedUtc);
+      if (!Number.isNaN(d.getTime())) parts.push(`last ${d.toISOString().slice(0, 10)}`);
+    }
+    const sb = a.sourceBreakdown;
+    if (sb && typeof sb === 'object') {
+      const srcParts = Object.entries(sb).map(([k, v]) => `${k.replace(/_/g, ' ')} ${v}`);
+      if (srcParts.length) parts.push(srcParts.join(', '));
+    }
+    tip = ` title="${parts.join(' · ')}"`;
+  }
+  return `<strong${tip}>${fmtNum(total)}</strong> ${label}`;
+}
+
 export function sensorSourceNote(device) {
   const s = device?.sensors;
   if (!s?.sourceLabel) return '';

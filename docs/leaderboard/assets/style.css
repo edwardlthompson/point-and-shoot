@@ -258,6 +258,35 @@ a.ext-spec-link.inline { font-size: inherit; font-weight: 500; }
 .sensor-chart-wrap + .sensor-chart-wrap { margin-top: 0.75rem; }
 .sensor-chart-label { margin: 0.35rem 0 0.15rem; font-size: 0.8rem; color: var(--muted); }
 .lens-slot-front { border-style: dashed; opacity: 0.95; }
+.score-trend {
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--card) 92%, var(--accent) 8%);
+}
+.score-trend-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.score-trend-chart {
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  vertical-align: middle;
+}
+.score-trend-range {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.score-trend-hint {
+  margin: 0.35rem 0 0;
+  line-height: 1.35;
+}
 .resolution-panel { border-left: 4px solid #f59e0b; }
 .resolution-panel .data-table { min-width: 0; white-space: normal; }
 .resolution-panel .data-table td { white-space: normal; }

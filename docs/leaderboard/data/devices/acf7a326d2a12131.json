@@ -118,147 +118,43 @@
                    ],
     "scores":  {
                    "features":  {
-                                    "score":  1102,
+                                    "score":  1244,
                                     "maxScore":  1540,
-                                    "percent":  71.6,
+                                    "percent":  80.8,
                                     "cellCount":  154,
-                                    "provenCount":  105
+                                    "provenCount":  124
                                 },
                    "resolutions":  {
-                                       "score":  120,
+                                       "score":  210,
                                        "maxScore":  220,
-                                       "percent":  54.5,
+                                       "percent":  95.5,
                                        "cellCount":  22,
-                                       "provenCount":  12
+                                       "provenCount":  21
                                    },
                    "capabilities":  {
-                                        "score":  194,
-                                        "maxScore":  396,
-                                        "percent":  49,
-                                        "gateCount":  66,
-                                        "cameraCount":  6
+                                        "score":  170,
+                                        "maxScore":  330,
+                                        "percent":  51.5,
+                                        "gateCount":  55,
+                                        "cameraCount":  5
                                     },
                    "total":  {
-                                 "score":  1416,
-                                 "maxScore":  2156,
-                                 "percent":  65.7
+                                 "score":  1624,
+                                 "maxScore":  2090,
+                                 "percent":  77.7
                              },
-                   "rank":  4
+                   "rank":  2
                },
     "disparity":  {
                       "advertisedCellCount":  108,
-                      "provenAdvertisedCount":  95,
-                      "honestyPercent":  88,
+                      "provenAdvertisedCount":  107,
+                      "honestyPercent":  99.1,
                       "gapBreakdown":  {
-                                           "GAP_ADVERTISED_NOT_PROVEN":  13,
-                                           "GAP_DELIVERY_MISMATCH":  1
+                                           "GAP_UNAUTOMATED":  1
                                        }
                   },
     "withheldFeatures":  [
-                             {
-                                 "catalogId":  "product.hardware_camera_key",
-                                 "displayName":  "product.hardware_camera_key",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "SHIP_BLOCKER"
-                             },
-                             {
-                                 "catalogId":  "audio.spatial",
-                                 "displayName":  "Spatial audio",
-                                 "category":  "Audio",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "still.heic",
-                                 "displayName":  "HEIC still export",
-                                 "category":  "Still capture",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "still.independent_tonal",
-                                 "displayName":  "Independent tonal still",
-                                 "category":  "Still capture",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "still.jxl",
-                                 "displayName":  "JPEG XL still export",
-                                 "category":  "Still capture",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "still.motion_photo",
-                                 "displayName":  "Motion Photo",
-                                 "category":  "Still capture",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "still.tiff16",
-                                 "displayName":  "TIFF 16-bit export",
-                                 "category":  "Still capture",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.bt709",
-                                 "displayName":  "video.color.bt709",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.flat",
-                                 "displayName":  "video.color.flat",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.hdr10",
-                                 "displayName":  "video.color.hdr10",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.hlg10",
-                                 "displayName":  "video.color.hlg10",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.color.pq",
-                                 "displayName":  "video.color.pq",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             },
-                             {
-                                 "catalogId":  "video.delivery_honesty",
-                                 "displayName":  "video.delivery_honesty",
-                                 "category":  "Unknown",
-                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                 "failReason":  "not_proven",
-                                 "consumerImpact":  "ENGINEERING_ONLY"
-                             }
+
                          ],
     "cellsByCategory":  {
                             "Unknown":  [
@@ -266,10 +162,10 @@
                                                 "catalogId":  "video.hfr",
                                                 "displayName":  "video.hfr",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
@@ -306,10 +202,10 @@
                                                 "catalogId":  "video.uhd60",
                                                 "displayName":  "video.uhd60",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
@@ -336,10 +232,10 @@
                                                 "catalogId":  "product.hardware_camera_key",
                                                 "displayName":  "product.hardware_camera_key",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
@@ -436,40 +332,40 @@
                                                 "catalogId":  "video.av1.720p",
                                                 "displayName":  "video.av1.720p",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
                                                 "catalogId":  "video.av1.1080p",
                                                 "displayName":  "video.av1.1080p",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
                                                 "catalogId":  "video.av1.4k",
                                                 "displayName":  "video.av1.4k",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
                                                 "catalogId":  "video.av1.8k",
                                                 "displayName":  "video.av1.8k",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "SHIP_BLOCKER"
                                             },
                                             {
@@ -516,50 +412,50 @@
                                                 "catalogId":  "video.hfr.24",
                                                 "displayName":  "video.hfr.24",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.30",
                                                 "displayName":  "video.hfr.30",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.60",
                                                 "displayName":  "video.hfr.60",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.120",
                                                 "displayName":  "video.hfr.120",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  "GAP_DELIVERY_MISMATCH",
-                                                "failReason":  "4k120_truth_blocked_unstable",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.hfr.240",
                                                 "displayName":  "video.hfr.240",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -776,40 +672,40 @@
                                                 "catalogId":  "perf.thermal_adaptive",
                                                 "displayName":  "perf.thermal_adaptive",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
                                                 "catalogId":  "perf.capture_latency",
                                                 "displayName":  "perf.capture_latency",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
                                                 "catalogId":  "perf.cold_preview_ms",
                                                 "displayName":  "perf.cold_preview_ms",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
                                                 "catalogId":  "perf.first_frame_ms",
                                                 "displayName":  "perf.first_frame_ms",
                                                 "advertised":  false,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_advertised",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
                                             {
@@ -818,7 +714,7 @@
                                                 "advertised":  true,
                                                 "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
+                                                "gap":  "OK",
                                                 "failReason":  null,
                                                 "consumerImpact":  "INFORMATIONAL"
                                             },
@@ -1136,50 +1032,50 @@
                                                 "catalogId":  "video.color.hdr10",
                                                 "displayName":  "video.color.hdr10",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.color.hlg10",
                                                 "displayName":  "video.color.hlg10",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.color.bt709",
                                                 "displayName":  "video.color.bt709",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.color.pq",
                                                 "displayName":  "video.color.pq",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
                                                 "catalogId":  "video.color.flat",
                                                 "displayName":  "video.color.flat",
                                                 "advertised":  true,
-                                                "provenOk":  false,
+                                                "provenOk":  true,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "OK",
+                                                "failReason":  null,
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -1268,8 +1164,8 @@
                                                 "advertised":  true,
                                                 "provenOk":  false,
                                                 "sessionOk":  null,
-                                                "gap":  null,
-                                                "failReason":  "not_proven",
+                                                "gap":  "GAP_UNAUTOMATED",
+                                                "failReason":  "unautomated",
                                                 "consumerImpact":  "ENGINEERING_ONLY"
                                             },
                                             {
@@ -1338,10 +1234,10 @@
                                               "catalogId":  "audio.spatial",
                                               "displayName":  "Spatial audio",
                                               "advertised":  true,
-                                              "provenOk":  false,
+                                              "provenOk":  true,
                                               "sessionOk":  null,
-                                              "gap":  null,
-                                              "failReason":  "not_proven",
+                                              "gap":  "OK",
+                                              "failReason":  null,
                                               "consumerImpact":  "ENGINEERING_ONLY"
                                           }
                                       ],
@@ -1514,10 +1410,10 @@
                                                       "catalogId":  "still.jxl",
                                                       "displayName":  "JPEG XL still export",
                                                       "advertised":  true,
-                                                      "provenOk":  false,
+                                                      "provenOk":  true,
                                                       "sessionOk":  null,
-                                                      "gap":  null,
-                                                      "failReason":  "not_proven",
+                                                      "gap":  "OK",
+                                                      "failReason":  null,
                                                       "consumerImpact":  "ENGINEERING_ONLY"
                                                   },
                                                   {
@@ -1544,40 +1440,40 @@
                                                       "catalogId":  "still.heic",
                                                       "displayName":  "HEIC still export",
                                                       "advertised":  true,
-                                                      "provenOk":  false,
+                                                      "provenOk":  true,
                                                       "sessionOk":  null,
-                                                      "gap":  null,
-                                                      "failReason":  "not_proven",
+                                                      "gap":  "OK",
+                                                      "failReason":  null,
                                                       "consumerImpact":  "ENGINEERING_ONLY"
                                                   },
                                                   {
                                                       "catalogId":  "still.motion_photo",
                                                       "displayName":  "Motion Photo",
                                                       "advertised":  true,
-                                                      "provenOk":  false,
+                                                      "provenOk":  true,
                                                       "sessionOk":  null,
-                                                      "gap":  null,
-                                                      "failReason":  "not_proven",
+                                                      "gap":  "OK",
+                                                      "failReason":  null,
                                                       "consumerImpact":  "ENGINEERING_ONLY"
                                                   },
                                                   {
                                                       "catalogId":  "still.tiff16",
                                                       "displayName":  "TIFF 16-bit export",
                                                       "advertised":  true,
-                                                      "provenOk":  false,
+                                                      "provenOk":  true,
                                                       "sessionOk":  null,
-                                                      "gap":  null,
-                                                      "failReason":  "not_proven",
+                                                      "gap":  "OK",
+                                                      "failReason":  null,
                                                       "consumerImpact":  "ENGINEERING_ONLY"
                                                   },
                                                   {
                                                       "catalogId":  "still.independent_tonal",
                                                       "displayName":  "Independent tonal still",
                                                       "advertised":  true,
-                                                      "provenOk":  false,
+                                                      "provenOk":  true,
                                                       "sessionOk":  null,
-                                                      "gap":  null,
-                                                      "failReason":  "not_proven",
+                                                      "gap":  "OK",
+                                                      "failReason":  null,
                                                       "consumerImpact":  "ENGINEERING_ONLY"
                                                   }
                                               ],
@@ -1606,10 +1502,10 @@
                                               "catalogId":  "video.av1",
                                               "displayName":  "AV1 video",
                                               "advertised":  false,
-                                              "provenOk":  false,
+                                              "provenOk":  true,
                                               "sessionOk":  null,
-                                              "gap":  null,
-                                              "failReason":  "not_advertised",
+                                              "gap":  "OK",
+                                              "failReason":  null,
                                               "consumerImpact":  "ENGINEERING_ONLY"
                                           },
                                           {
@@ -1688,8 +1584,8 @@
                                               "advertised":  false,
                                               "provenOk":  true,
                                               "sessionOk":  null,
-                                              "gap":  null,
-                                              "failReason":  "skip:probe_only_inventory",
+                                              "gap":  "OK",
+                                              "failReason":  null,
                                               "consumerImpact":  "ENGINEERING_ONLY"
                                           },
                                           {
@@ -2397,77 +2293,6 @@
                                                 "sessionOk":  true
                                             }
                                         ]
-                          },
-                          {
-                              "cameraId":  "5",
-                              "gates":  [
-                                            {
-                                                "name":  "raw",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "hfr",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "face",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "dcgZsl",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "av1",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "hevc10",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
-                                            },
-                                            {
-                                                "name":  "uhd60",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "rawVideo",
-                                                "advertised":  false,
-                                                "appEnabled":  false,
-                                                "sessionOk":  false
-                                            },
-                                            {
-                                                "name":  "dualVideo",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
-                                            },
-                                            {
-                                                "name":  "multicamMelt",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
-                                            },
-                                            {
-                                                "name":  "pipPreview",
-                                                "advertised":  true,
-                                                "appEnabled":  true,
-                                                "sessionOk":  true
-                                            }
-                                        ]
                           }
                       ],
     "formatPickerHonestyScore":  68,
@@ -2603,83 +2428,20 @@
     "oemLossSummary":  {
                            "measurementApi":  "camera2",
                            "oemCameraAppTested":  false,
-                           "shipBlockerCount":  1,
-                           "deliveryMismatchCount":  1,
+                           "shipBlockerCount":  0,
+                           "deliveryMismatchCount":  0,
                            "topLosses":  [
-                                             {
-                                                 "catalogId":  "product.hardware_camera_key",
-                                                 "displayName":  "product.hardware_camera_key",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "SHIP_BLOCKER"
-                                             },
-                                             {
-                                                 "catalogId":  "audio.spatial",
-                                                 "displayName":  "Spatial audio",
-                                                 "category":  "Audio",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "still.heic",
-                                                 "displayName":  "HEIC still export",
-                                                 "category":  "Still capture",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "still.independent_tonal",
-                                                 "displayName":  "Independent tonal still",
-                                                 "category":  "Still capture",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "still.jxl",
-                                                 "displayName":  "JPEG XL still export",
-                                                 "category":  "Still capture",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "still.motion_photo",
-                                                 "displayName":  "Motion Photo",
-                                                 "category":  "Still capture",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "still.tiff16",
-                                                 "displayName":  "TIFF 16-bit export",
-                                                 "category":  "Still capture",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             },
-                                             {
-                                                 "catalogId":  "video.color.bt709",
-                                                 "displayName":  "video.color.bt709",
-                                                 "category":  "Unknown",
-                                                 "gap":  "GAP_ADVERTISED_NOT_PROVEN",
-                                                 "failReason":  "not_proven",
-                                                 "consumerImpact":  "ENGINEERING_ONLY"
-                                             }
+
                                          ]
                        },
     "cameraXSummary":  null,
     "value":  {
                   "msrpUsd":  999,
-                  "parityPerUsd":  1.42
+                  "parityPerUsd":  1.63
               },
     "videoSummary":  {
                          "hfrMaxFps1080":  120,
-                         "video4k120Class":  "blocked_unstable",
+                         "video4k120Class":  "unknown",
                          "codecs":  {
                                         "h264":  true,
                                         "hevc":  true,
@@ -2817,13 +2579,19 @@
                    "mem":  280000,
                    "ux":  190000,
                    "matchedName":  "Sony Xperia PRO-I",
-                   "matchConfidence":  "manual_override",
-                   "sourceMonth":  "2026-06"
+                   "matchConfidence":  "fleet_sample_mean",
+                   "sampleCount":  1,
+                   "sourceBreakdown":  {
+                                           "legacy_seed":  1
+                                       },
+                   "totalStdDev":  null,
+                   "lastSubmittedUtc":  "2026-06-01T00:00:00Z",
+                   "source":  "cross_source_samples"
                },
     "meta":  {
-                 "lastSweepUtc":  "2026-06-04T13:05:41.7178816Z",
+                 "lastSweepUtc":  "2026-06-06T17:03:01.4825295Z",
                  "lastSweepMode":  "Full",
-                 "appVersionCode":  22000,
+                 "appVersionCode":  22001,
                  "scanTier":  "quick",
                  "trustTier":  "maintainer",
                  "testedApiLevel":  "Android 13 (API 33)"

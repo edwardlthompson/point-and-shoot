@@ -1,10 +1,10 @@
-import { initTheme, initMethodology, initWishlist, getWishlistSelected, normalizeDeviceProfile } from './theme.js?v=20260606g';
-import { parseRoute, navTo } from './router.js?v=20260606g';
-import { renderHome } from './leaderboard.js?v=20260606g';
-import { renderDeviceDetail, attachSparkline, attachDeviceDetailApiToggle } from './device-detail.js?v=20260606g';
-import { renderCompare, attachCompareCharts, exportComparePng } from './compare.js?v=20260606g';
-import { renderOemIndex } from './oem-index.js?v=20260606g';
-import { renderProductGroup } from './product.js?v=20260606g';
+import { initTheme, initMethodology, initWishlist, getWishlistSelected, normalizeDeviceProfile } from './theme.js?v=20260606h';
+import { parseRoute, navTo } from './router.js?v=20260606h';
+import { renderHome } from './leaderboard.js?v=20260606h';
+import { renderDeviceDetail, attachSparkline, attachDeviceDetailApiToggle } from './device-detail.js?v=20260606h';
+import { renderCompare, attachCompareCharts, exportComparePng } from './compare.js?v=20260606h';
+import { renderOemIndex } from './oem-index.js?v=20260606h';
+import { renderProductGroup } from './product.js?v=20260606h';
 
 const state = {
   site: null,

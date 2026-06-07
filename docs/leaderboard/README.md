@@ -46,7 +46,7 @@ Validation: `python scripts/leaderboard_submission_validate.py`
 | `data/leaderboard.csv` | Flat export |
 | `data/feed.xml` | RSS |
 | `data/catalog_taxonomy.json` | Feature display names |
-| `data/glossary.json` | Tooltip definitions |
+| `data/antutu_samples.json` | On-device AnTuTu submission samples (cross-source mean at publish) |
 
 ## GSMArena refresh
 

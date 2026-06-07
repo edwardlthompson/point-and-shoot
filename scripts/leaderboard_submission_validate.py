@@ -25,6 +25,14 @@ def validate_file(path: Path) -> list[str]:
     matrix = body.get("matrix") or {}
     if not matrix.get("scanMeta"):
         errors.append(f"{path.name}: missing scanMeta")
+    antutu = body.get("antutuScore")
+    if antutu is not None:
+        if not isinstance(antutu, dict):
+            errors.append(f"{path.name}: antutuScore must be object")
+        else:
+            total = antutu.get("total")
+            if total is None or not (500_000 <= int(total) <= 4_500_000):
+                errors.append(f"{path.name}: antutuScore.total out of range")
     return errors
 
 

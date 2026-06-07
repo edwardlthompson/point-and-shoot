@@ -50,8 +50,14 @@ else {
     }
 }
 
-foreach ($aux in @("leaderboard.csv", "feed.xml", "glossary.json", "catalog_taxonomy.json")) {
+foreach ($aux in @("leaderboard.csv", "feed.xml", "glossary.json", "catalog_taxonomy.json", "antutu_samples.json")) {
     if (-not (Test-Path -LiteralPath (Join-Path $DataDir $aux))) { Fail "missing $aux" }
+}
+
+$validatePy = Join-Path (Split-Path -Parent $PSScriptRoot) "scripts\antutu_samples_validate.py"
+if (Test-Path -LiteralPath $validatePy) {
+    $null = & python $validatePy (Join-Path $DataDir "antutu_samples.json") 2>&1
+    if ($LASTEXITCODE -ne 0) { Fail "antutu_samples_validate failed" }
 }
 
 $report = [ordered]@{

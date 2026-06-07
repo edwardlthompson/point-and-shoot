@@ -55,10 +55,28 @@ def parse_camera_modules(html: str) -> list[dict]:
 
     lenses: list[dict] = []
     for line in lines:
-        mp_m = re.search(r"(\d+(?:\.\d+)?)\s*MP", line, re.I)
-        type_m = re.search(r'(1/\d+(?:\.\d+)?)"', line)
-        focal_m = re.search(r"(\d+(?:\.\d+)?)\s*mm", line, re.I)
-        role = "unknown"
+        lenses.append(_lens_entry_from_line(line, selfie=False))
+    return lenses
+
+
+def parse_selfie_modules(html: str) -> list[dict]:
+    """Front/selfie camera lines from GSMArena cam2modules cell."""
+    m = re.search(r'data-spec="cam2modules">(.*?)</td>', html, re.S | re.I)
+    if not m:
+        return []
+    block = m.group(1)
+    block = re.sub(r"<br\s*/?>", "\n", block, flags=re.I)
+    block = re.sub(r"<[^>]+>", "", block)
+    lines = [ln.strip() for ln in block.split("\n") if ln.strip()]
+    return [_lens_entry_from_line(line, selfie=True) for line in lines]
+
+
+def _lens_entry_from_line(line: str, selfie: bool) -> dict:
+    mp_m = re.search(r"(\d+(?:\.\d+)?)\s*MP", line, re.I)
+    type_m = re.search(r'(1/\d+(?:\.\d+)?)"', line)
+    focal_m = re.search(r"(\d+(?:\.\d+)?)\s*mm", line, re.I)
+    role = "selfie" if selfie else "unknown"
+    if not selfie:
         lower = line.lower()
         if "periscope" in lower or "telephoto" in lower or "tele" in lower:
             role = "tele"
@@ -69,23 +87,22 @@ def parse_camera_modules(html: str) -> list[dict]:
         elif focal_m and float(focal_m.group(1)) < 20:
             role = "ultrawide"
 
-        entry: dict = {
-            "rawLine": line,
-            "megapixels": float(mp_m.group(1)) if mp_m else None,
-            "focalLengthMm": float(focal_m.group(1)) if focal_m else None,
-            "role": role,
-            "sensorTypeFraction": type_m.group(1) if type_m else None,
-            "widthMm": None,
-            "heightMm": None,
-            "areaMm2": None,
-        }
-        if type_m:
-            w, h, area, _diag = sensor_type_fraction_to_mm2(type_m.group(1))
-            entry["widthMm"] = round(w, 2)
-            entry["heightMm"] = round(h, 2)
-            entry["areaMm2"] = round(area, 2)
-        lenses.append(entry)
-    return lenses
+    entry: dict = {
+        "rawLine": line,
+        "megapixels": float(mp_m.group(1)) if mp_m else None,
+        "focalLengthMm": float(focal_m.group(1)) if focal_m else None,
+        "role": role,
+        "sensorTypeFraction": type_m.group(1) if type_m else None,
+        "widthMm": None,
+        "heightMm": None,
+        "areaMm2": None,
+    }
+    if type_m:
+        w, h, area, _diag = sensor_type_fraction_to_mm2(type_m.group(1))
+        entry["widthMm"] = round(w, 2)
+        entry["heightMm"] = round(h, 2)
+        entry["areaMm2"] = round(area, 2)
+    return entry
 
 
 def fetch_html(url: str) -> str:
@@ -145,7 +162,7 @@ def scrape_device(model: str, marketing_name: str, gsmarena_url: str) -> dict:
         raise ValueError(
             f"GSMArena page title mismatch for {marketing_name}: got {page!r} from {gsmarena_url}"
         )
-    lenses = parse_camera_modules(html)
+    lenses = parse_camera_modules(html) + parse_selfie_modules(html)
     rear = [l for l in lenses if l.get("role") != "selfie"]
     with_area = [l for l in rear if l.get("areaMm2")]
     sensor_sum = round(sum(l["areaMm2"] for l in with_area), 2)

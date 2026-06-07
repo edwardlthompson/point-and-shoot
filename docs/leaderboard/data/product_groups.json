@@ -1,6 +1,6 @@
 {
     "schema":  "pns.leaderboard_product_groups.v1",
-    "updatedUtc":  "2026-06-06T17:23:58.9897127Z",
+    "updatedUtc":  "2026-06-07T01:45:17.3756834Z",
     "groups":  [
                    {
                        "groupId":  "oneplus-13",
@@ -18,101 +18,6 @@
                                               }
                                           ],
                        "advertisedSpec":  null
-                   },
-                   {
-                       "groupId":  "sony-xperia-pro-i",
-                       "marketingName":  "Sony Xperia PRO-I",
-                       "testedVariants":  [
-                                              {
-                                                  "lineItemKind":  "camera2_tested",
-                                                  "romFlavor":  "unknown",
-                                                  "slug":  "acf7a326d2a12131",
-                                                  "testedApiLevel":  "Android 13 (API 33)",
-                                                  "parityScore":  1624,
-                                                  "honestyPercent":  99.1,
-                                                  "trustTier":  "maintainer",
-                                                  "resolutionBetrayalIndex":  0
-                                              }
-                                          ],
-                       "advertisedSpec":  {
-                                              "lineItemKind":  "advertised_gsmarena",
-                                              "measurementStatus":  "advertised_spec_untested",
-                                              "trustTier":  "advertised_spec",
-                                              "source":  "gsmarena",
-                                              "gsmarenaUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                              "advertisedClaims":  [
-                                                                       {
-                                                                           "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2021, December 14",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_max",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "lens.ois",
-                                                                           "advertisedValue":  "yes (wide)",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_tele",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "video.4k",
-                                                                           "advertisedValue":  "yes",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "video.hfr.120",
-                                                                           "advertisedValue":  "120fps",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "lens.tele",
-                                                                           "advertisedValue":  "50.0mm tele",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_wide",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "lens.ois",
-                                                                           "advertisedValue":  "yes (tele)",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       },
-                                                                       {
-                                                                           "catalogId":  "still.resolution_ultrawide",
-                                                                           "advertisedValue":  "12 MP",
-                                                                           "source":  "gsmarena",
-                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-                                                                           "verified":  false
-                                                                       }
-                                                                   ]
-                                          }
                    },
                    {
                        "groupId":  "oneplus-12",
@@ -218,6 +123,101 @@
                                                                            "advertisedValue":  "yes (wide)",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
+                                                                           "verified":  false
+                                                                       }
+                                                                   ]
+                                          }
+                   },
+                   {
+                       "groupId":  "sony-xperia-pro-i",
+                       "marketingName":  "Sony Xperia PRO-I",
+                       "testedVariants":  [
+                                              {
+                                                  "lineItemKind":  "camera2_tested",
+                                                  "romFlavor":  "unknown",
+                                                  "slug":  "acf7a326d2a12131",
+                                                  "testedApiLevel":  "Android 13 (API 33)",
+                                                  "parityScore":  1504,
+                                                  "honestyPercent":  95.4,
+                                                  "trustTier":  "maintainer",
+                                                  "resolutionBetrayalIndex":  0
+                                              }
+                                          ],
+                       "advertisedSpec":  {
+                                              "lineItemKind":  "advertised_gsmarena",
+                                              "measurementStatus":  "advertised_spec_untested",
+                                              "trustTier":  "advertised_spec",
+                                              "source":  "gsmarena",
+                                              "gsmarenaUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                              "advertisedClaims":  [
+                                                                       {
+                                                                           "catalogId":  "product.launch_date",
+                                                                           "advertisedValue":  "Released 2021, December 14",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_max",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "lens.ois",
+                                                                           "advertisedValue":  "yes (wide)",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_tele",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "video.4k",
+                                                                           "advertisedValue":  "yes",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "video.hfr.120",
+                                                                           "advertisedValue":  "120fps",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "lens.tele",
+                                                                           "advertisedValue":  "50.0mm tele",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_wide",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "lens.ois",
+                                                                           "advertisedValue":  "yes (tele)",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "still.resolution_ultrawide",
+                                                                           "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
                                                                            "verified":  false
                                                                        }
                                                                    ]

@@ -71,6 +71,23 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 ---
 
+## CRITICAL — On-device AnTuTu benchmark (leaderboard)
+
+**Script:** `scripts/pns_antutu_benchmark.ps1` · samples **`docs/leaderboard/data/antutu_samples.json`** · history **`docs/leaderboard/data/history/antutu_samples.jsonl`**
+
+**Agent rule:** One full AnTuTu run per invocation (~15 min). Each run appends one sample; publish computes the **mean across all samples** for a model (`maintainer_usb`, `community_submit`, `legacy_seed`). Do **not** run in parallel with **`pns_photo_capture_verify`** / **`pns_chrome_ux_gate`** on the same serial (heat + camera mutex).
+
+```powershell
+.\scripts\pns_antutu_benchmark.ps1
+python scripts\antutu_samples_validate.py
+.\scripts\pns_leaderboard_site_publish.ps1 -SkipGsmarenaScrape
+.\scripts\pns_leaderboard_host_smoke.ps1
+```
+
+Requires AnTuTu Benchmark installed on device (Play Store). Always **`force-stop`** AnTuTu + P&S after the session. Community optional **`antutuScore`** on `pns.leaderboard_submission.v1` (Engineering Hub → optional AnTuTu total field).
+
+---
+
 ## CRITICAL — Agent regression memory (whack-a-mole prevention)
 
 **Before** capture / DNG / GLES preview / fleet / session changes: read **`docs/AGENT_REGRESSION_MEMORY.md`** (grep your target files). **After** any USB-proven fix or reverted experiment: **append a `REG-*` row** in the same commit (`Do not`, `Proves OK`, `Also test`).
@@ -310,6 +327,11 @@ Use these from repo root unless a script documents otherwise.
 | `pns_deep_caps_diff.ps1` | Host-side **Markdown** diff of two **`deep_caps_*.json`** pulls (**HFR max**, **HDR DR** summary, **`maxNumOutputRaw`**, **`rawCapabilityAdvertised`** per `cameraId`). See **`docs/FLEET_REFERENCE_M10_8.md`** (Milestone **10.8** fleet evidence). |
 | `pns_fleet_matrix_scan.ps1` | Milestone **16.3** — cold **`pns_screen=probehub`** + optional **`-ScanTier full`**, pull **`files/fleet_device_matrix.json`** → **`hfr-runs/fleet_matrix_*`**, assert **`PNS.FleetMatrix scanTier=`** + **`schemaVersion`**; runs **`fleet_matrix_schema_validate.py`** when Python on PATH; **`-Redact`** writes **`hal_dumpsys_media_camera_redacted.txt`** when full-tier appendix includes HAL excerpt. |
 | `pns_fleet_parity_sweep.ps1` | Milestone **18.6** — **`-Mode Full\|Delta` required**; matrix refresh + parity ADB extras; **`parity_report.json`** + **`docs/FLEET_PARITY_LATEST.json`**. |
+| `pns_antutu_benchmark.ps1` | **USB** — full-auto single AnTuTu run; appends one row to **`docs/leaderboard/data/antutu_samples.json`**. Artifacts **`hfr-runs/antutu_benchmark_*`**. ~15 min; mutex vs capture/chrome gates. |
+| `antutu_samples_validate.py` | Host schema gate for **`antutu_samples.json`** (wired in **`pns_leaderboard_host_smoke.ps1`**). |
+| `antutu_samples_aggregate.py` | Host helper: mean/stddev by model for publish debugging. |
+| `pns_leaderboard_site_publish.ps1` | Publishes **`docs/leaderboard/data/`**; **`Match-AntutuFromSamples`** mean across **`antutu_samples.json`**. **`-MergeSubmissions`** ingests community **`antutuScore`**. |
+| `pns_leaderboard_host_smoke.ps1` | Host JSON/CSV/RSS smoke including **`antutu_samples.json`**. |
 | `pns_fleet_parity_diff.ps1` | Host diff two **`parity_report.json`** files. |
 | `pns_fleet_regression_pack.ps1` | Milestone **18.4** — tier 1 matrix + tier 2 parity Delta + catalog gate. |
 | `pns_m18_gate.ps1` | Milestone **18** one-shot — catalog gate + `pns_verify_toolchain.ps1 -RunTests` + regression pack (`-Serial` for USB). |

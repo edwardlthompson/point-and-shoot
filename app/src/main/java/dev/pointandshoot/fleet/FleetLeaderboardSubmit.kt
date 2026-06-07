@@ -100,6 +100,20 @@ object FleetLeaderboardSubmit {
                 redactedMatrix.optJSONObject(FleetDeviceMatrix.KEY_PRODUCT)?.optJSONObject("buildIdentity")?.let { bi ->
                     put("buildDisplay", bi.optString("display").take(80))
                 }
+                LeaderboardAntutuPrefs.read(context)?.let { score ->
+                    put(
+                        "antutuScore",
+                        JSONObject().apply {
+                            put("total", score.total)
+                            score.cpu?.let { put("cpu", it) }
+                            score.gpu?.let { put("gpu", it) }
+                            score.mem?.let { put("mem", it) }
+                            score.ux?.let { put("ux", it) }
+                            put("capturedUtc", java.time.Instant.now().toString())
+                            score.antutuAppVersion?.let { put("antutuAppVersion", it) }
+                        },
+                    )
+                }
                 put(
                     "clientMeta",
                     JSONObject().apply {

@@ -277,6 +277,7 @@ object FleetParitySweepRunner {
     ): String? {
         if (!evaluated.deviceSupported || !provenOk) return null
         if (evaluated.row.surfacing.isEmpty()) return null
+        if (isFamilySurfacingRow(evaluated.row)) return null
         val cm = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         val ids = cm.cameraIdList.toList()
         val visCtx =
@@ -286,12 +287,27 @@ object FleetParitySweepRunner {
                 rootGranted = RootCapabilityStore.loadOrUnknown(context).grantsPrivileged,
                 activeCameraId = ids.firstOrNull(),
             )
-        val visible = FleetUiVisibilityGate.visible(evaluated.row.id, visCtx)
+        val visible =
+            FleetUiVisibilityGate.visibleWithAdvertisedFallback(
+                featureId = evaluated.row.id,
+                ctx = visCtx,
+                advertisedFallback = evaluated.deviceSupported,
+            )
         return if (!visible && evaluated.row.visibilityPolicy == CameraCapabilityCatalog.VisibilityPolicy.HideWhenUnavailable) {
             "advertised_not_surfaced"
         } else {
             null
         }
+    }
+
+    /**
+     * Expanded catalog families share a single consumer control (for example one format picker chip)
+     * and are not independently auditable as surfaced/hidden per catalog row id.
+     */
+    private fun isFamilySurfacingRow(row: CameraCapabilityCatalog.CatalogRow): Boolean {
+        val familySurfacing = row.surfacing.any { it == "format_picker" || it == "qs_grid" || it == "settings" }
+        if (!familySurfacing) return false
+        return row.id.startsWith("video.") || row.id.startsWith("audio.") || row.id.startsWith("hud.")
     }
 
     private fun proveDeliveryHonesty(context: Context): Boolean {
@@ -369,12 +385,19 @@ object FleetParitySweepRunner {
     ): Boolean {
         val row = evaluated.row
         return when {
-            mode == Mode.FULL && row.parityProofScript != null && evaluated.sessionOk != true -> false
+            mode == Mode.FULL &&
+                row.parityProofScript != null &&
+                isSessionGatedCatalogId(row.id) &&
+                evaluated.sessionOk != true ->
+                false
             else ->
                 evaluated.deviceSupported &&
                     (row.parityProofScript != null || evaluated.sessionOk == true)
         }
     }
+
+    private fun isSessionGatedCatalogId(catalogId: String): Boolean =
+        catalogId in SESSION_GATED_CATALOG_IDS || catalogId.startsWith("video.av1.")
 
     private fun deliveryProbeForRow(
         row: CameraCapabilityCatalog.CatalogRow,

@@ -22,19 +22,21 @@ Publishes docs/leaderboard/data/ for GitHub Pages from parity sweeps + optional 
   -MergeSubmissions   merge docs/leaderboard/submissions/approved/*.json
   -MarketingMapPath   device_marketing_names.json override
   -CatalogPath        catalog_taxonomy.json override
-  -AntutuPath         antutu_scores.json override
+  -AntutuPath         antutu_scores.json web-scrape fallback override
 "@
     exit 0
 }
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "pns_leaderboard_common.ps1")
+. (Join-Path $PSScriptRoot "pns_antutu_leaderboard.ps1")
 
 if (-not $RunsRoot) { $RunsRoot = Join-Path $repoRoot "hfr-runs" }
 if (-not $OutDir) { $OutDir = Join-Path $repoRoot "docs\leaderboard\data" }
 if (-not $MarketingMapPath) { $MarketingMapPath = Join-Path $OutDir "device_marketing_names.json" }
 if (-not $CatalogPath) { $CatalogPath = Join-Path $OutDir "catalog_taxonomy.json" }
 if (-not $AntutuPath) { $AntutuPath = Join-Path $OutDir "antutu_scores.json" }
+$AntutuSamplesPath = Join-Path $OutDir "antutu_samples.json"
 $GsmarenaPath = Join-Path $OutDir "gsmarena_sensor_specs.json"
 $GsmarenaSpecsPath = Join-Path $OutDir "gsmarena_device_specs.json"
 
@@ -65,40 +67,6 @@ function Test-GsmarenaCacheForMarketingMap($MarketingMap, $GsmarenaObj) {
         }
     }
     return $warnings
-}
-
-function Match-Antutu($AntutuObj, $MarketingEntry) {
-    if ($MarketingEntry -and $MarketingEntry.antutuScoreOverride) {
-        $o = $MarketingEntry.antutuScoreOverride
-        return [ordered]@{
-            total = [int]$o.total
-            cpu = $o.cpu; gpu = $o.gpu; mem = $o.mem; ux = $o.ux
-            matchedName = [string]$MarketingEntry.marketingName
-            matchConfidence = "manual_override"
-            sourceMonth = if ($AntutuObj.sourceMonth) { $AntutuObj.sourceMonth } else { $null }
-        }
-    }
-    if (-not $AntutuObj -or -not $AntutuObj.rankings) { return $null }
-    $aliases = @()
-    if ($MarketingEntry) {
-        if ($MarketingEntry.marketingName) { $aliases += [string]$MarketingEntry.marketingName }
-        if ($MarketingEntry.antutuAliases) { $aliases += @($MarketingEntry.antutuAliases) }
-    }
-    foreach ($rank in @($AntutuObj.rankings)) {
-        $name = [string]$rank.deviceName
-        foreach ($a in $aliases) {
-            if ($name -like "*$a*" -or $a -like "*$name*") {
-                return [ordered]@{
-                    total = $rank.total
-                    cpu = $rank.cpu; gpu = $rank.gpu; mem = $rank.mem; ux = $rank.ux
-                    matchedName = $name
-                    matchConfidence = "high"
-                    sourceMonth = $AntutuObj.sourceMonth
-                }
-            }
-        }
-    }
-    return $null
 }
 
 function Get-VideoSummary($MatrixObj, $InAppObj, $ReportObj) {
@@ -176,7 +144,7 @@ function Normalize-SpecLinks($Links) {
     return @($Links)
 }
 
-function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMap, $AntutuObj, $GsmarenaObj, [string]$TrustTier) {
+function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMap, $AntutuSamplesObj, $AntutuScrapeObj, $GsmarenaObj, [string]$TrustTier) {
     $manufacturer = if ($Matrix -and $Matrix.device) { [string]$Matrix.device.manufacturer } else { "Unknown" }
     $model = if ($Matrix -and $Matrix.device) { [string]$Matrix.device.model } else { "Unknown" }
     if ($manufacturer -eq "Unknown" -and $model -eq "Unknown") { return $null }
@@ -191,6 +159,9 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
     $provenAdvertised = @($cells | Where-Object { $_.advertised -eq $true -and $_.provenOk -eq $true }).Count
     $honesty = if ($advertisedCount -gt 0) { [math]::Round(100.0 * $provenAdvertised / $advertisedCount, 1) } else { 0.0 }
     $sensor = Get-MergedSensorSpecs $Matrix (Get-GsmarenaSensorByModel $GsmarenaObj) $marketing
+    $gsmDevice = $null
+    $gsmByModel = Get-GsmarenaSensorByModel $GsmarenaObj
+    if ($gsmByModel.ContainsKey($model)) { $gsmDevice = $gsmByModel[$model] }
     $withheld = @(Get-WithheldFeatures $cells $CatalogMap | Select-Object -First 20)
     $cellsByCat = Get-CellsByCategory $cells $CatalogMap
     $rom = Get-RomFlavor $Matrix
@@ -206,7 +177,7 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
     else {
         @()
     }
-    $stillHonesty = @(Enrich-StillResolutionHonesty $rawStillEntries $lensLineup)
+    $stillHonesty = @(Enrich-StillResolutionHonesty $rawStillEntries $lensLineup $gsmDevice $Matrix)
     $resolutionBetrayal = Get-ResolutionBetrayal $InApp $Matrix $stillHonesty $lensLineup -ForceRecompute
     $fullMpBreakthrough = Get-Camera2FullMpBreakthrough $Matrix $InApp
     $commercialName = Get-MarketingCommercialName $manufacturer $marketing
@@ -264,6 +235,8 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
             sourceUrl = $sensor.sourceUrl
             sensors = @($sensor.sensors)
             rearLenses = @($sensor.rearLenses)
+            frontLenses = @($sensor.frontLenses)
+            advertisedSensorSumMm2 = if ($sensor.advertisedSensorSumMm2) { $sensor.advertisedSensorSumMm2 } else { $null }
         }
         lensLineup = $lensLineup
         scores = $score
@@ -288,7 +261,7 @@ function Build-DeviceProfile($Report, $InApp, $Matrix, $CatalogMap, $MarketingMa
         videoSummary = Get-VideoSummary $Matrix $InApp $Report
         rawSummary = Get-RawSummary $cells $Matrix
         stillResolutionHonesty = $stillHonesty
-        antutu = Match-Antutu $AntutuObj $marketing
+        antutu = Match-AntutuFromSamples $AntutuSamplesObj $AntutuScrapeObj $model $marketing
         meta = [ordered]@{
             lastSweepUtc = if ($Report.timestampUtc) { [string]$Report.timestampUtc } else { [DateTime]::UtcNow.ToString("o") }
             lastSweepMode = if ($Report.mode) { [string]$Report.mode } else { [string]$InApp.mode }
@@ -311,7 +284,20 @@ if (Test-Path -LiteralPath $CatalogPath) {
 }
 
 $marketingMap = Load-JsonMap $MarketingMapPath
-$antutuObj = Load-JsonMap $AntutuPath
+$antutuScrapeObj = Load-JsonMap $AntutuPath
+$antutuSamplesObj = Load-JsonMap $AntutuSamplesPath
+if (-not $antutuSamplesObj.schema) {
+    $antutuSamplesObj = [ordered]@{ schema = "pns.antutu_samples.v1"; samples = @() }
+}
+if ($MergeSubmissions) {
+    $approvedDir = Join-Path $repoRoot "docs\leaderboard\submissions\approved"
+    $beforeCount = @($antutuSamplesObj.samples).Count
+    $antutuSamplesObj = Merge-AntutuSamplesFromSubmissions $antutuSamplesObj $approvedDir $marketingMap
+    if (@($antutuSamplesObj.samples).Count -gt $beforeCount) {
+        Save-AntutuSamplesFile $antutuSamplesObj $AntutuSamplesPath
+        Write-Host "[leaderboard_publish] merged community antutu samples -> $AntutuSamplesPath"
+    }
+}
 $gsmScrapePy = Join-Path $PSScriptRoot "gsmarena_sensor_scrape.py"
 $gsmSpecsPy = Join-Path $PSScriptRoot "gsmarena_device_specs_scrape.py"
 if (-not $SkipGsmarenaScrape -and (Test-Path -LiteralPath $gsmScrapePy)) {
@@ -341,6 +327,7 @@ if (Test-Path -LiteralPath $blocklistPath) {
 }
 
 $byDevice = @{}
+$builtThisRun = @{}
 
 # Maintainer sweeps from hfr-runs
 if (Test-Path -LiteralPath $RunsRoot) {
@@ -357,7 +344,7 @@ if (Test-Path -LiteralPath $RunsRoot) {
         $inApp = Apply-ProofEvidenceToInApp $inApp $report $dir.FullName
         $matrix = Get-MatrixFromSweepDir $dir.FullName
         if (-not $matrix) { continue }
-        $profile = Build-DeviceProfile $report $inApp $matrix $catalogMap $marketingMap $antutuObj $gsmarenaObj "maintainer"
+        $profile = Build-DeviceProfile $report $inApp $matrix $catalogMap $marketingMap $antutuSamplesObj $antutuScrapeObj $gsmarenaObj "maintainer"
         if (-not $profile) { continue }
         if ($blocklist -contains $profile.deviceKey) { continue }
         $mode = if ($inApp.mode) { [string]$inApp.mode } elseif ($report.mode) { [string]$report.mode } else { "" }
@@ -371,6 +358,7 @@ if (Test-Path -LiteralPath $RunsRoot) {
         } else {
             $byDevice[$key] = $profile
         }
+        $builtThisRun[$key] = $true
     }
 }
 
@@ -383,13 +371,19 @@ if ($MergeSubmissions) {
                 $sub = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json
                 $report = [pscustomobject]@{ timestampUtc = $sub.submittedUtc; mode = $sub.parityReport.mode; video4k120TruthClass = $null }
                 $tier = if ($sub.trustTier) { [string]$sub.trustTier } else { "community_verified" }
-                $profile = Build-DeviceProfile $report $sub.parityReport $sub.matrix $catalogMap $marketingMap $antutuObj $gsmarenaObj $tier
+                $profile = Build-DeviceProfile $report $sub.parityReport $sub.matrix $catalogMap $marketingMap $antutuSamplesObj $antutuScrapeObj $gsmarenaObj $tier
                 if (-not $profile) { continue }
                 if ($blocklist -contains $profile.deviceKey) { continue }
                 $key = $profile.deviceKey
-                if (-not $byDevice.ContainsKey($key)) {
+                if ($byDevice.ContainsKey($key)) {
+                    $existing = $byDevice[$key]
+                    if ((Parse-Utc $profile.meta.lastSweepUtc) -gt (Parse-Utc $existing.meta.lastSweepUtc)) {
+                        $byDevice[$key] = $profile
+                    }
+                } else {
                     $byDevice[$key] = $profile
                 }
+                $builtThisRun[$key] = $true
             } catch { Write-Warning "Skip submission $($f.Name): $_" }
         }
     }
@@ -407,7 +401,7 @@ if (Test-Path -LiteralPath $devicesDir) {
             if ($blocklist -contains $key) { continue }
             if (-not $byDevice.ContainsKey($key)) {
                 $byDevice[$key] = $existing
-            } else {
+            } elseif (-not $builtThisRun.ContainsKey($key)) {
                 $cur = $byDevice[$key]
                 $curUtc = Parse-Utc ([string]$cur.meta.lastSweepUtc)
                 $exUtc = Parse-Utc ([string]$existing.meta.lastSweepUtc)
@@ -420,6 +414,7 @@ $profiles = @($byDevice.Values)
 
 foreach ($p in @($profiles)) {
     $null = Enrich-DeviceProfile $p $catalogMap
+    $null = Refresh-ProfileSensorSpecs $p $marketingMap $gsmarenaObj
 }
 
 $sorted = @($profiles | Where-Object { $_ -and $_.slug } | Sort-Object { [double]$_.scores.total.score } -Descending)

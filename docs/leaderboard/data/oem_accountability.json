@@ -1,19 +1,38 @@
 {
     "schema":  "pns.leaderboard_oem_accountability.v1",
-    "updatedUtc":  "2026-06-06T17:23:58.9945557Z",
+    "updatedUtc":  "2026-06-07T01:45:17.3801248Z",
     "subtitle":  "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
     "oems":  [
                  {
                      "manufacturer":  "Sony",
-                     "restrictionIndex":  12,
-                     "opennessPercent":  99.1,
-                     "gateHonestyPercent":  71.4,
+                     "restrictionIndex":  13,
+                     "opennessPercent":  95.4,
+                     "gateHonestyPercent":  74.4,
                      "avgResolutionBetrayal":  0,
                      "totalShipBlockers":  0,
-                     "withheldFeatureCount":  0,
+                     "withheldFeatureCount":  5,
                      "deviceCount":  1,
                      "worstOffenders":  [
-
+                                            {
+                                                "catalogId":  "still.independent_tonal",
+                                                "deviceCount":  1
+                                            },
+                                            {
+                                                "catalogId":  "still.heic",
+                                                "deviceCount":  1
+                                            },
+                                            {
+                                                "catalogId":  "video.delivery_honesty",
+                                                "deviceCount":  1
+                                            },
+                                            {
+                                                "catalogId":  "video.color.flat",
+                                                "deviceCount":  1
+                                            },
+                                            {
+                                                "catalogId":  "video.color.bt709",
+                                                "deviceCount":  1
+                                            }
                                         ],
                      "deviceSlugs":  [
                                          "acf7a326d2a12131"

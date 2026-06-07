@@ -75,9 +75,16 @@ internal object CameraCapabilityCatalogEvaluators {
         val gates = firstCameraGate(root, key) ?: return Triple(false, null, "no gate")
         val adv = gates.optBoolean("advertised", false)
         val quick = FleetDeviceMatrix.parseScanTier(root) == FleetDeviceMatrix.ScanTier.QUICK
-        val sess = if (quick) null else gates.optBoolean("sessionOk", false)
+        val hasSessionField = gates.has("sessionOk")
+        val sess =
+            when {
+                hasSessionField -> gates.optBoolean("sessionOk", false)
+                quick -> null
+                else -> gates.optBoolean("sessionOk", false)
+            }
         val app = gates.optBoolean("appEnabled", false)
-        return Triple(adv, sess, "advertised=$adv sessionOk=$sess appEnabled=$app")
+        val supported = adv && app
+        return Triple(supported, sess, "advertised=$adv appEnabled=$app sessionOk=$sess supported=$supported")
     }
 
     private fun regular1080p30(root: JSONObject): Triple<Boolean, Boolean?, String> {
@@ -387,7 +394,8 @@ internal object CameraCapabilityCatalogEvaluators {
         val rawAppEnabled = rawGate?.optBoolean("appEnabled", false) == true
         val tier = if (rawSessionOk && rawAppEnabled) "raw_or_jpeg" else "preview_fallback"
         val sessionOk = if (rawGate == null) null else rawSessionOk
-        return Triple(true, sessionOk, "tier=$tier rawSessionOk=$rawSessionOk rawAppEnabled=$rawAppEnabled")
+        val supported = rawSessionOk && rawAppEnabled
+        return Triple(supported, sessionOk, "tier=$tier rawSessionOk=$rawSessionOk rawAppEnabled=$rawAppEnabled supported=$supported")
     }
 
     private fun hasMonochromeCapability(root: JSONObject): Boolean {

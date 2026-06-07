@@ -78,6 +78,16 @@ object FleetUiVisibilityGate {
 
     fun visible(featureId: String, ctx: VisibilityContext): Boolean = tier(featureId, ctx) != Tier.Hidden
 
+    /**
+     * Parity-only visibility path. Uses catalog-evaluated advertised support as a final fallback
+     * when consumer visibility mapping cannot resolve expanded catalog rows.
+     */
+    fun visibleWithAdvertisedFallback(
+        featureId: String,
+        ctx: VisibilityContext,
+        advertisedFallback: Boolean,
+    ): Boolean = tier(featureId, ctx, advertisedFallback) != Tier.Hidden
+
     fun rootOnly(featureId: String, ctx: VisibilityContext): Boolean = tier(featureId, ctx) == Tier.RootOnly
 
     /** FPS chip: stock achievable → visible; else root-only (blue) unless hidden by policy. */
@@ -102,12 +112,49 @@ object FleetUiVisibilityGate {
     }
 
     private fun deviceSupported(featureId: String, ctx: VisibilityContext): Boolean {
+        return deviceSupported(featureId, ctx, null)
+    }
+
+    private fun tier(
+        featureId: String,
+        ctx: VisibilityContext,
+        advertisedFallback: Boolean?,
+    ): Tier {
+        val row = CameraCapabilityCatalog.registry.firstOrNull { it.id == featureId }
+        if (row == null) {
+            // Default-deny: unknown/unmapped catalog ids never surface on consumer chrome.
+            return Tier.Hidden
+        }
+        val deviceSupported = deviceSupported(featureId, ctx, advertisedFallback)
+        val policy = row.visibilityPolicy
+
+        if (row.rootOnly || policy == CameraCapabilityCatalog.VisibilityPolicy.RootOnly) {
+            return if (ctx.rootGranted && deviceSupported) Tier.Visible else Tier.RootOnly
+        }
+
+        return when (policy) {
+            CameraCapabilityCatalog.VisibilityPolicy.AlwaysShow -> Tier.Visible
+            CameraCapabilityCatalog.VisibilityPolicy.ShowDisabledEngineering -> Tier.Visible
+            CameraCapabilityCatalog.VisibilityPolicy.HideWhenUnavailable ->
+                if (deviceSupported) Tier.Visible else Tier.Hidden
+            CameraCapabilityCatalog.VisibilityPolicy.RootOnly ->
+                if (ctx.rootGranted && deviceSupported) Tier.Visible else Tier.RootOnly
+        }
+    }
+
+    private fun deviceSupported(
+        featureId: String,
+        ctx: VisibilityContext,
+        advertisedFallback: Boolean?,
+    ): Boolean {
+        if (advertisedFallback == true) return true
         when (featureId) {
             "product.hardware_camera_key" ->
                 return ProductHardwareLaunchScan.hasDedicatedCameraKeyEvidence(ctx.matrix)
         }
         perCameraMatrixSupported(featureId, ctx.matrix, ctx.activeCameraId)?.let { return it }
         catalogDeviceSupported(featureId, ctx)?.let { return it }
+        advertisedFallback?.let { return it }
         return liveCapsSupported(featureId, ctx.caps)
     }
 

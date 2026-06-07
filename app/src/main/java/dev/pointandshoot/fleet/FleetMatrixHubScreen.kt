@@ -106,6 +106,9 @@ fun FleetMatrixHubScreen(
     var lastParityJson by remember { mutableStateOf<JSONObject?>(null) }
     var lastParityModeWire by remember { mutableStateOf<String?>(null) }
     var romReported by remember { mutableStateOf(LeaderboardRomReport.Reported.UNSPECIFIED) }
+    var antutuTotalText by remember {
+        mutableStateOf(LeaderboardAntutuPrefs.read(appCtx)?.total?.toString().orEmpty())
+    }
 
     fun runParity(mode: FleetParitySweepRunner.Mode, includeRecord: Boolean) {
         if (isRunning) return
@@ -353,6 +356,26 @@ fun FleetMatrixHubScreen(
                     FleetLeaderboardSubmit.ingestUrl() != null,
                     BuildConfig.LEADERBOARD_PUBLIC_BASE_URL,
                 )
+            OutlinedTextField(
+                value = antutuTotalText,
+                onValueChange = { raw ->
+                    antutuTotalText = raw.filter { it.isDigit() }.take(7)
+                    val total = antutuTotalText.toIntOrNull()
+                    LeaderboardAntutuPrefs.save(
+                        appCtx,
+                        total?.let { LeaderboardAntutuPrefs.Score(total = it) },
+                    )
+                },
+                label = { Text("AnTuTu total (optional)") },
+                placeholder = { Text("e.g. 2080000") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Optional on-device AnTuTu score averaged with other submissions on the public leaderboard.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.65f),
+            )
             OutlinedButton(
                 onClick = {
                     val parity = lastParityJson ?: return@OutlinedButton

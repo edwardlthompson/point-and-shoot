@@ -55,7 +55,7 @@ class FleetParityGoldenSweepTest {
     }
 
     @Test
-    fun `quick tier matrix nulls sessionOk for fourKRegular gate`() {
+    fun `quick tier matrix keeps sessionOk when gate provides it`() {
         val matrix =
             JSONObject().apply {
                 put(FleetDeviceMatrix.KEY_SCHEMA_VERSION, FleetDeviceMatrix.SCHEMA_VERSION)
@@ -87,7 +87,7 @@ class FleetParityGoldenSweepTest {
             }
         val row = CameraCapabilityCatalogBuilder.evaluatedRows(matrix).first { it.row.id == "video.4k_regular" }
         assertTrue(row.deviceSupported)
-        assertEquals(null, row.sessionOk)
+        assertEquals(true, row.sessionOk)
     }
 
     @Test

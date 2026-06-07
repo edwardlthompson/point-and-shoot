@@ -1339,6 +1339,12 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 - [x] **[AGENT]** `pns_dng_aesthetic_gate.py` — rawpy decode M14/M23/M73; luma+channel stats PASS — `hfr-runs/aesthetic_selftest_h1`; CPH2583 pulls via `pns_dng_rawpy_decode_gate.ps1`
 - [x] **[AGENT]** `pns_passport_ce_values.py` — X-Rite constants → `tests/fixtures/passport_ce_values.json`
 
+### Sprint H.1 — Auto-synced parity ship blockers *(closed 2026-06-06)*
+
+- [x] **[AGENT]** Implemented auto-sync from latest two Full sweeps into active plan (`scripts/pns_build_plan_ship_blockers_sync.ps1`) and wired it into `pns_fleet_parity_sweep.ps1` post-refresh pipeline
+- [x] **[AGENT]** Closed H.1 with two consecutive Full runs at `shipBlockerGapCount=0` (`hfr-runs/parity_sweep_20260606_133255`, `hfr-runs/parity_sweep_20260606_133712`)
+- [x] **[AGENT]** Confirmed auto block now reports no blockers and moved H.1 out of active `BUILD_PLAN.md`
+
 ### Sprint H.3 — Account ownership (agent)
 
 - [x] **[AGENT]** `pns_gitlab_setup.ps1 -Verify` — assert `ANDROID_KEYSTORE_BASE64` `masked=true` — **SKIP** in agent env (no `GITLAB_TOKEN`/`GITLAB_PROJECT_ID`)

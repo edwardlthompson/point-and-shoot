@@ -72,18 +72,15 @@ Add new requests here only when explicitly scheduled.
 
 **Objective:** Irreducible human judgment: creative, security, perceptual.
 
-### Sprint H.1 — Auto-synced parity ship blockers (latest 2 Full runs)
+### Sprint H.1a — Auto-synced HAL honesty gap fixes (latest Full run)
 
-<!-- AUTO_SHIP_BLOCKERS_START -->
-- Generated: 2026-06-06T12:30:08.6572577Z
-- Source runs considered: 2
-- Runs:
-- run1: C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_120321 (shipBlockerGapCount=1)
-- run2: C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_044750 (shipBlockerGapCount=3)
-- [ ] **[AGENT]** Ship blocker: video.4k_regular (session_failed, seen 2/2 recent runs) - latest: C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_120321
-- [ ] **[AGENT]** Ship blocker: video.hfr (session_failed, seen 1/2 recent runs) - latest: C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_044750
-- [ ] **[AGENT]** Ship blocker: video.uhd60 (session_failed, seen 1/2 recent runs) - latest: C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_044750
-<!-- AUTO_SHIP_BLOCKERS_END -->
+<!-- AUTO_HAL_HONESTY_GAPS_START -->
+- Generated: 2026-06-06T17:14:08.9946446Z
+- Source run: C:\Users\edwar\AndroidStudioProjects\point-and-shoot\hfr-runs\parity_sweep_20260606_165857
+- Open honesty gaps: 1
+- Priority order: session_failed -> not_proven -> advertised_not_surfaced -> matrix_tier_quick
+- [ ] **[AGENT]** Honesty fix: video.delivery_honesty (reason=unautomated, impact=ENGINEERING_ONLY)
+<!-- AUTO_HAL_HONESTY_GAPS_END -->
 
 **Still blocked without human:** ColorChecker (H.2), keystore custody (H.4), store copy (H.5), face-in-frame eye-AF (H.6/H.8.1), subjective HUD/codec (H.8).
 

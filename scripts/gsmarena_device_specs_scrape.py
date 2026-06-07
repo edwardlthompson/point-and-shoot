@@ -24,6 +24,7 @@ from gsmarena_sensor_scrape import (  # noqa: E402
     load_marketing_devices,
     page_title,
     parse_camera_modules,
+    parse_selfie_modules,
     scrape_device as scrape_sensor_device,
     title_matches,
 )
@@ -70,7 +71,7 @@ def scrape_full(model: str, marketing_name: str, gsmarena_url: str) -> dict:
             time.sleep(8.0 * (attempt + 1))
     if not title_matches(page, marketing_name):
         raise ValueError(f"title mismatch for {marketing_name}: {page!r}")
-    lenses = parse_camera_modules(html)
+    lenses = parse_camera_modules(html) + parse_selfie_modules(html)
     video = parse_video_specs(html)
     rear = [l for l in lenses if l.get("role") != "selfie"]
     with_area = [l for l in rear if l.get("areaMm2")]

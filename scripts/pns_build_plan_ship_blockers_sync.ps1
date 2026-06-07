@@ -108,13 +108,17 @@ foreach ($run in $fullRows) {
     $outDir = [string]$run.outDir
     $runRefs += ("- run{0}: {1} (shipBlockerGapCount={2})" -f $runIdx, $outDir, [string]$run.shipBlockerGapCount)
     $mdPath = Join-Path $outDir "parity_ship_blockers.md"
-    $blockers = Parse-ShipBlockersMarkdown $mdPath
-    if ($blockers.Count -eq 0) {
+    $usedMarkdown = $false
+    $blockers = @()
+    if (Test-Path -LiteralPath $mdPath) {
+        $usedMarkdown = $true
+        $blockers = Parse-ShipBlockersMarkdown $mdPath
+    } else {
         $inAppPath = Join-Path $outDir "in_app_parity_report.json"
         $blockers = Parse-ShipBlockersInApp $inAppPath
-        if ($blockers.Count -eq 0) {
-            $warnings += "No ship blocker rows found for run: $outDir"
-        }
+    }
+    if ($blockers.Count -eq 0 -and -not $usedMarkdown) {
+        $warnings += "No ship blocker rows found for run: $outDir"
     }
     foreach ($b in $blockers) {
         $id = [string]$b.catalogId
@@ -165,7 +169,8 @@ $escapedStart = [regex]::Escape($startMarker)
 $escapedEnd = [regex]::Escape($endMarker)
 $pattern = "(?s)$escapedStart.*?$escapedEnd"
 if ($planText -notmatch $pattern) {
-    throw "Auto-sync markers not found in BUILD_PLAN.md"
+    Write-Warning "[ship_blocker_sync] markers not found in BUILD_PLAN.md; skipping (H.1 may be archived)."
+    exit 0
 }
 
 $replacement = ($generated -join "`r`n")

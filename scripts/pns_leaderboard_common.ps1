@@ -322,15 +322,15 @@ function Get-SensorSum($MatrixObj) {
     }
     foreach ($cam in @($MatrixObj.cameras)) {
         $role = if ($cam.fleetPolicy -and $cam.fleetPolicy.role) { [string]$cam.fleetPolicy.role } else { "UNKNOWN" }
-        if ($role -in @("LOGICAL", "FRONT", "UNKNOWN")) { continue }
+        if ($role -in @("LOGICAL", "UNKNOWN")) { continue }
         $w = $null; $h = $null
         if ($cam.lensInfo -and $cam.lensInfo.sensorPhysicalSizeMm) {
             $w = [double]$cam.lensInfo.sensorPhysicalSizeMm.widthMm
             $h = [double]$cam.lensInfo.sensorPhysicalSizeMm.heightMm
         }
         $area = if ($w -and $h) { $w * $h } else { 0 }
-        if ($area -le 0) { $method = "partial_missing_lensInfo" }
-        else { $sum += $area }
+        if ($area -le 0 -and $role -ne "FRONT") { $method = "partial_missing_lensInfo" }
+        elseif ($area -gt 0 -and $role -ne "FRONT") { $sum += $area }
         $sensors += [ordered]@{
             cameraId = [string]$cam.cameraId
             role = $role
@@ -373,6 +373,12 @@ function Get-MergedSensorSpecs($MatrixObj, $GsmarenaByModel, $MarketingEntry) {
     $override = if ($MarketingEntry) { $MarketingEntry.sensorSpecOverride } else { $null }
 
     $scanTier = if ($MatrixObj.scanMeta) { [string]$MatrixObj.scanMeta.scanTier } else { "" }
+    $gsmRear = @()
+    $gsmFront = @()
+    if ($gsm -and $gsm.lenses) {
+        $gsmRear = @($gsm.lenses | Where-Object { $_.role -ne "selfie" })
+        $gsmFront = @($gsm.lenses | Where-Object { $_.role -eq "selfie" })
+    }
     if ($hal.sensorSumMm2 -gt 0 -and (
             $hal.sensorSumMethod -eq "physical_mm2" -or
             ($scanTier -eq "full" -and $hal.sensorSumMethod -eq "partial_missing_lensInfo")
@@ -381,10 +387,12 @@ function Get-MergedSensorSpecs($MatrixObj, $GsmarenaByModel, $MarketingEntry) {
             sensorSumMm2 = $hal.sensorSumMm2
             sensorSumMethod = $hal.sensorSumMethod
             sensors = @($hal.sensors)
-            rearLenses = @()
+            rearLenses = @($gsmRear)
+            frontLenses = @($gsmFront)
+            advertisedSensorSumMm2 = if ($gsm -and $gsm.sensorSumMm2) { [double]$gsm.sensorSumMm2 } else { $null }
             source = "camera2_hal"
-            sourceLabel = "Camera2 HAL (device scan)"
-            sourceUrl = $null
+            sourceLabel = if ($gsmRear.Count -gt 0 -or $gsmFront.Count -gt 0) { "Camera2 HAL (device scan) · GSMArena advertised lenses" } else { "Camera2 HAL (device scan)" }
+            sourceUrl = if ($gsm -and $gsm.gsmarenaUrl) { [string]$gsm.gsmarenaUrl } else { $null }
         }
     }
 
@@ -394,6 +402,7 @@ function Get-MergedSensorSpecs($MatrixObj, $GsmarenaByModel, $MarketingEntry) {
             sensorSumMethod = if ($override.method) { [string]$override.method } else { "manual_override" }
             sensors = @()
             rearLenses = @($override.lenses)
+            frontLenses = @()
             source = "manual_override"
             sourceLabel = "Curated spec sheet"
             sourceUrl = if ($override.sourceUrl) { [string]$override.sourceUrl } else { $null }
@@ -402,11 +411,13 @@ function Get-MergedSensorSpecs($MatrixObj, $GsmarenaByModel, $MarketingEntry) {
 
     if ($gsm -and $gsm.sensorSumMm2) {
         $rear = @($gsm.lenses | Where-Object { $_.role -ne "selfie" })
+        $front = @($gsm.lenses | Where-Object { $_.role -eq "selfie" })
         return [ordered]@{
             sensorSumMm2 = [double]$gsm.sensorSumMm2
             sensorSumMethod = [string]$gsm.sensorSumMethod
             sensors = @()
             rearLenses = @($rear)
+            frontLenses = @($front)
             source = "gsmarena"
             sourceLabel = "GSMArena sensor type"
             sourceUrl = [string]$gsm.gsmarenaUrl
@@ -418,6 +429,7 @@ function Get-MergedSensorSpecs($MatrixObj, $GsmarenaByModel, $MarketingEntry) {
         sensorSumMethod = if ($hal.sensorSumMethod) { $hal.sensorSumMethod } else { "none" }
         sensors = @($hal.sensors)
         rearLenses = @()
+        frontLenses = @()
         source = "unavailable"
         sourceLabel = $null
         sourceUrl = $null
@@ -580,9 +592,39 @@ function Get-SpecMpByCamera($Lineup) {
     return $byCam
 }
 
-function Enrich-StillResolutionHonesty($Entries, $Lineup) {
+function Get-GsmarenaAdvertisedMpByCamera($GsmDevice, $Entries, $MatrixObj) {
+    $map = @{}
+    if (-not $GsmDevice -or -not $GsmDevice.lenses) { return $map }
+    $gsmRear = @($GsmDevice.lenses | Where-Object { $_.role -ne "selfie" -and $_.megapixels -gt 0 })
+    if ($gsmRear.Count -eq 0) { return $map }
+
+    $rearIds = @()
+    if ($MatrixObj -and $MatrixObj.cameras) {
+        foreach ($cam in @($MatrixObj.cameras)) {
+            $role = if ($cam.fleetPolicy -and $cam.fleetPolicy.role) { [string]$cam.fleetPolicy.role } else { "" }
+            if ($role -notin @("LOGICAL", "FRONT", "UNKNOWN", "")) {
+                $rearIds += [string]$cam.cameraId
+            }
+        }
+    }
+    if ($rearIds.Count -eq 0 -and $Entries) {
+        foreach ($e in @($Entries)) {
+            $cid = [string]$e.cameraId
+            if ($cid -and $rearIds -notcontains $cid) { $rearIds += $cid }
+        }
+    }
+    $rearIds = @($rearIds | Sort-Object -Unique)
+    for ($i = 0; $i -lt $rearIds.Count; $i++) {
+        $lensIdx = [Math]::Min($i, $gsmRear.Count - 1)
+        $map[$rearIds[$i]] = [double]$gsmRear[$lensIdx].megapixels
+    }
+    return $map
+}
+
+function Enrich-StillResolutionHonesty($Entries, $Lineup, $GsmDevice = $null, $MatrixObj = $null) {
     if (-not $Entries -or $Entries.Count -eq 0) { return @() }
     $byCam = Get-SpecMpByCamera $Lineup
+    $gsmByCam = Get-GsmarenaAdvertisedMpByCamera $GsmDevice $Entries $MatrixObj
     $out = @()
     foreach ($e in @($Entries)) {
         $row = [ordered]@{}
@@ -590,8 +632,13 @@ function Enrich-StillResolutionHonesty($Entries, $Lineup) {
             $row[$prop.Name] = $prop.Value
         }
         $cid = [string]$e.cameraId
-        if ($byCam.ContainsKey($cid)) {
+        if ($gsmByCam.ContainsKey($cid)) {
+            $row["advertisedMegapixels"] = $gsmByCam[$cid]
+            $row["advertisedSource"] = "gsmarena"
+        }
+        elseif ($byCam.ContainsKey($cid)) {
             $row["advertisedMegapixels"] = $byCam[$cid]
+            $row["advertisedSource"] = "focal_row"
         }
         $out += $row
     }
@@ -776,7 +823,9 @@ function Map-GsmarenaAdvertisedClaims($SpecDevice) {
 function Build-ProductGroups($Profiles, $MarketingMap, $GsmarenaSpecsMap) {
     $byGroup = @{}
     foreach ($p in @($Profiles)) {
-        $gid = Get-ProductGroupId $p.identity.marketingName $p.identity.manufacturer $p.identity.model
+        $mEntry = Get-MarketingEntry $MarketingMap $p.identity.model
+        $groupLabel = if ($mEntry -and $mEntry.marketingName) { [string]$mEntry.marketingName } else { [string]$p.identity.marketingName }
+        $gid = Get-ProductGroupId $groupLabel $p.identity.manufacturer $p.identity.model
         if (-not $byGroup.ContainsKey($gid)) {
             $byGroup[$gid] = [ordered]@{
                 groupId = $gid
@@ -930,6 +979,146 @@ function Enrich-DeviceProfile($Profile, $CatalogMap) {
             $parityPerUsd = [math]::Round([double]$Profile.scores.total.score / [double]$msrp, 2)
         }
         $Profile | Add-Member -NotePropertyName value -NotePropertyValue ([ordered]@{ msrpUsd = $msrp; parityPerUsd = $parityPerUsd }) -Force
+    }
+    return $Profile
+}
+
+function Refresh-ProfileSensorSpecs($Profile, $MarketingMapObj, $GsmarenaObj) {
+    if (-not $Profile -or -not $Profile.sensors) { return $Profile }
+    $model = if ($Profile.identity) { [string]$Profile.identity.model } else { "" }
+    if (-not $model) { return $Profile }
+
+    $marketing = $null
+    if ($MarketingMapObj -and $MarketingMapObj.devices) {
+        foreach ($d in @($MarketingMapObj.devices)) {
+            if ([string]$d.model -eq $model) { $marketing = $d; break }
+        }
+    }
+    $byModel = Get-GsmarenaSensorByModel $GsmarenaObj
+    $gsm = if ($byModel.ContainsKey($model)) { $byModel[$model] } else { $null }
+    if ($gsm -and $gsm.lenses) {
+        $gsmFront = @($gsm.lenses | Where-Object { $_.role -eq "selfie" })
+        $gsmRear = @($gsm.lenses | Where-Object { $_.role -ne "selfie" })
+        if ($gsmFront.Count -gt 0) {
+            $Profile.sensors | Add-Member -NotePropertyName frontLenses -NotePropertyValue @($gsmFront) -Force
+        }
+        if (@($Profile.sensors.rearLenses).Count -eq 0 -and $gsmRear.Count -gt 0) {
+            $Profile.sensors | Add-Member -NotePropertyName rearLenses -NotePropertyValue @($gsmRear) -Force
+        }
+        if (-not $Profile.sensors.sourceUrl -and $gsm.gsmarenaUrl) {
+            $Profile.sensors | Add-Member -NotePropertyName sourceUrl -NotePropertyValue ([string]$gsm.gsmarenaUrl) -Force
+        }
+        if ($Profile.sensors.source -eq "camera2_hal" -and ($gsmFront.Count -gt 0 -or $gsmRear.Count -gt 0)) {
+            $Profile.sensors | Add-Member -NotePropertyName sourceLabel -NotePropertyValue "Camera2 HAL (device scan) · GSMArena advertised lenses" -Force
+        }
+    }
+
+    $lineupIds = @()
+    if ($Profile.lensLineup) {
+        foreach ($l in @($Profile.lensLineup)) { $lineupIds += [string]$l.cameraId }
+    }
+    $sensors = @($Profile.sensors.sensors)
+    $presentIds = @($sensors | ForEach-Object { [string]$_.cameraId })
+    $gateIds = @()
+    if ($Profile.gatesByCamera) {
+        foreach ($g in @($Profile.gatesByCamera)) { $gateIds += [string]$g.cameraId }
+    }
+    $honestyRows = @()
+    if ($Profile.stillResolutionHonesty) { $honestyRows = @($Profile.stillResolutionHonesty) }
+    elseif ($Profile.resolutionBetrayal -and $Profile.resolutionBetrayal.entries) {
+        $honestyRows = @($Profile.resolutionBetrayal.entries)
+    }
+    foreach ($cid in $gateIds) {
+        if ($presentIds -contains $cid) { continue }
+        if ($lineupIds -contains $cid) { continue }
+        $mp = $null
+        foreach ($row in $honestyRows) {
+            if ([string]$row.cameraId -ne $cid) { continue }
+            if ($row.defaultRawSensor -and $row.defaultRawSensor.mp) { $mp = [double]$row.defaultRawSensor.mp }
+            elseif ($row.defaultJpeg -and $row.defaultJpeg.mp) { $mp = [double]$row.defaultJpeg.mp }
+            break
+        }
+        $sensors += [ordered]@{
+            cameraId = $cid
+            role = "FRONT"
+            widthMm = $null
+            heightMm = $null
+            areaMm2 = $null
+            megapixels = $mp
+        }
+    }
+    if ($sensors.Count -ne @($Profile.sensors.sensors).Count) {
+        $Profile.sensors | Add-Member -NotePropertyName sensors -NotePropertyValue @($sensors) -Force
+    }
+    return $Profile
+}
+
+function Refresh-ProfileSensorSpecs($Profile, $MarketingMapObj, $GsmarenaObj) {
+    if (-not $Profile -or -not $Profile.sensors) { return $Profile }
+    $model = if ($Profile.identity) { [string]$Profile.identity.model } else { "" }
+    if (-not $model) { return $Profile }
+
+    $marketing = $null
+    if ($MarketingMapObj -and $MarketingMapObj.devices) {
+        foreach ($d in @($MarketingMapObj.devices)) {
+            if ([string]$d.model -eq $model) { $marketing = $d; break }
+        }
+    }
+    $byModel = Get-GsmarenaSensorByModel $GsmarenaObj
+    $gsm = if ($byModel.ContainsKey($model)) { $byModel[$model] } else { $null }
+    if ($gsm -and $gsm.lenses) {
+        $gsmFront = @($gsm.lenses | Where-Object { $_.role -eq "selfie" })
+        $gsmRear = @($gsm.lenses | Where-Object { $_.role -ne "selfie" })
+        if ($gsmFront.Count -gt 0) {
+            $Profile.sensors | Add-Member -NotePropertyName frontLenses -NotePropertyValue @($gsmFront) -Force
+        }
+        if (@($Profile.sensors.rearLenses).Count -eq 0 -and $gsmRear.Count -gt 0) {
+            $Profile.sensors | Add-Member -NotePropertyName rearLenses -NotePropertyValue @($gsmRear) -Force
+        }
+        if (-not $Profile.sensors.sourceUrl -and $gsm.gsmarenaUrl) {
+            $Profile.sensors | Add-Member -NotePropertyName sourceUrl -NotePropertyValue ([string]$gsm.gsmarenaUrl) -Force
+        }
+        if ($Profile.sensors.source -eq "camera2_hal" -and ($gsmFront.Count -gt 0 -or $gsmRear.Count -gt 0)) {
+            $Profile.sensors | Add-Member -NotePropertyName sourceLabel -NotePropertyValue "Camera2 HAL (device scan) · GSMArena advertised lenses" -Force
+        }
+    }
+
+    $lineupIds = @()
+    if ($Profile.lensLineup) {
+        foreach ($l in @($Profile.lensLineup)) { $lineupIds += [string]$l.cameraId }
+    }
+    $sensors = @($Profile.sensors.sensors)
+    $presentIds = @($sensors | ForEach-Object { [string]$_.cameraId })
+    $gateIds = @()
+    if ($Profile.gatesByCamera) {
+        foreach ($g in @($Profile.gatesByCamera)) { $gateIds += [string]$g.cameraId }
+    }
+    $honestyRows = @()
+    if ($Profile.stillResolutionHonesty) { $honestyRows = @($Profile.stillResolutionHonesty) }
+    elseif ($Profile.resolutionBetrayal -and $Profile.resolutionBetrayal.entries) {
+        $honestyRows = @($Profile.resolutionBetrayal.entries)
+    }
+    foreach ($cid in $gateIds) {
+        if ($presentIds -contains $cid) { continue }
+        if ($lineupIds -contains $cid) { continue }
+        $mp = $null
+        foreach ($row in $honestyRows) {
+            if ([string]$row.cameraId -ne $cid) { continue }
+            if ($row.defaultRawSensor -and $row.defaultRawSensor.mp) { $mp = [double]$row.defaultRawSensor.mp }
+            elseif ($row.defaultJpeg -and $row.defaultJpeg.mp) { $mp = [double]$row.defaultJpeg.mp }
+            break
+        }
+        $sensors += [ordered]@{
+            cameraId = $cid
+            role = "FRONT"
+            widthMm = $null
+            heightMm = $null
+            areaMm2 = $null
+            megapixels = $mp
+        }
+    }
+    if ($sensors.Count -ne @($Profile.sensors.sensors).Count) {
+        $Profile.sensors | Add-Member -NotePropertyName sensors -NotePropertyValue @($sensors) -Force
     }
     return $Profile
 }

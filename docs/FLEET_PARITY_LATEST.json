@@ -1,15 +1,15 @@
 ﻿{
     "schema":  "pns.fleet_parity_sweep.v2",
-    "pass":  false,
+    "pass":  true,
     "mode":  "Full",
-    "includeRecord":  false,
-    "serial":  "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-    "timestampUtc":  "2026-06-06T12:46:38.8513772Z",
-    "outDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232",
-    "cellCount":  182,
-    "shipBlockerGapCount":  1,
+    "includeRecord":  true,
+    "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
+    "timestampUtc":  "2026-06-06T17:28:31.4606865Z",
+    "outDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_172428",
+    "cellCount":  176,
+    "shipBlockerGapCount":  0,
     "gapBreakdown":  {
-                         "GAP_ADVERTISED_NOT_PROVEN":  14
+                         "GAP_ADVERTISED_NOT_PROVEN":  5
                      },
     "inAppSchema":  "pns.fleet_parity_sweep.v2",
     "experimentalUnlockState":  {
@@ -31,7 +31,7 @@
                                                                            "observedValue":  null,
                                                                            "reason":  "master_toggle_off",
                                                                            "cameraId":  "2",
-                                                                           "timestampUtc":  "2026-06-05T02:51:56.932919Z"
+                                                                           "timestampUtc":  "2026-06-06T17:12:57.371425Z"
                                                                        }
                                                    }
                                 },
@@ -39,8 +39,8 @@
     "installedVersionCode":  null,
     "builtVersionCode":  null,
     "baselineTag":  null,
-    "logPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232\\logcat_parity.txt",
-    "inAppJsonPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_124232\\in_app_parity_report.json",
+    "logPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_172428\\logcat_parity.txt",
+    "inAppJsonPath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260606_172428\\in_app_parity_report.json",
     "sweepEvidenceOk":  true,
     "sweepEvidenceFallback":  null,
     "promoteOptionalBlocking":  false,

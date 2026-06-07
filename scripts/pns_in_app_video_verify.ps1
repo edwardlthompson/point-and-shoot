@@ -31,6 +31,7 @@
 #>
 param(
     [string]$Serial = "",
+    [string]$CameraId = "",
     [int]$MaxAttempts = 12,
     [int]$WaitSec = 60,
     [int]$RecordSec = 5,
@@ -244,9 +245,11 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         "--es", "pns_screen", "preview",
         "--ez", "pns_preview_primary_photo", "false",
         "--ei", "pns_preview_automation_in_app_video_sec", "$rec",
-        "--es", "pns_preview_imaging_profile", "standard_pro",
-        "--es", "pns_preview_camera_id", "0"
+        "--es", "pns_preview_imaging_profile", "standard_pro"
     )
+    if (-not [string]::IsNullOrWhiteSpace($CameraId)) {
+        $amArgs += @("--es", "pns_preview_camera_id", "$CameraId")
+    }
     try {
         Invoke-AdbTimed $amArgs 120000 | Out-Null
     }

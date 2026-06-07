@@ -1,5 +1,9 @@
 # Point & Shoot
 
+> **Project status (June 2026):** Development is paused until further notice.
+>  
+> This repository remains available, but active feature work and device bring-up are on hold for an extended period.
+
 ---
 
 ## STOP — capture / ADB automation (read before changing preview or RAW stills)

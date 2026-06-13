@@ -1,6 +1,6 @@
 {
     "schema":  "pns.fleet_leaderboard_site.v1",
-    "updatedUtc":  "2026-06-07T01:45:17.4239994Z",
+    "updatedUtc":  "2026-06-13T01:09:38.8781475Z",
     "catalogVersion":  3,
     "deviceCount":  5,
     "breakthroughCount":  2,
@@ -21,17 +21,17 @@
     "oemRankings":  [
                         {
                             "manufacturer":  "OnePlus",
-                            "opennessPercent":  95.3,
-                            "gateHonestyPercent":  63.9,
-                            "compositePercent":  82.7,
-                            "restrictionIndex":  17.3,
+                            "opennessPercent":  99.1,
+                            "gateHonestyPercent":  37.5,
+                            "compositePercent":  74.5,
+                            "restrictionIndex":  25.5,
                             "avgResolutionBetrayal":  0,
                             "breakthroughCount":  1,
-                            "withheldFeatureCount":  11,
+                            "withheldFeatureCount":  2,
                             "deviceCount":  2,
                             "deviceSlugs":  [
-                                                "3e2a7b88f6db66c0",
-                                                "718a8115ff142454"
+                                                "718a8115ff142454",
+                                                "3e2a7b88f6db66c0"
                                             ]
                         },
                         {
@@ -82,16 +82,16 @@
     "gsmarenaSpecsStale":  true,
     "gsmarenaSpecsFromCache":  false,
     "deviceSlugs":  [
-                        "3e2a7b88f6db66c0",
                         "718a8115ff142454",
                         "acf7a326d2a12131",
+                        "3e2a7b88f6db66c0",
                         "088f8b18916ff4ea",
                         "dff79fd1b3808b1d"
                     ],
     "devices":  [
-                    "OnePlus|CPH2655|4917ad5d3e111fca",
                     "OnePlus|CPH2583|961221c0f0bc2eee",
                     "Sony|XQ-BE62|aa6273fd9666679d",
+                    "OnePlus|CPH2655|4917ad5d3e111fca",
                     "HTC|EXODUS 1|165bbc786fa1f391",
                     "Essential Products|PH-1|3ed247c9b6af0f1b"
                 ]

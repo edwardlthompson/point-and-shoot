@@ -1,6 +1,6 @@
 {
     "schema":  "pns.leaderboard_oem_accountability.v1",
-    "updatedUtc":  "2026-06-07T01:45:17.3801248Z",
+    "updatedUtc":  "2026-06-13T01:09:38.8581328Z",
     "subtitle":  "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
     "oems":  [
                  {
@@ -56,38 +56,26 @@
                  },
                  {
                      "manufacturer":  "OnePlus",
-                     "restrictionIndex":  17.3,
-                     "opennessPercent":  95.3,
-                     "gateHonestyPercent":  63.9,
+                     "restrictionIndex":  25.5,
+                     "opennessPercent":  99.1,
+                     "gateHonestyPercent":  37.5,
                      "avgResolutionBetrayal":  0,
-                     "totalShipBlockers":  0,
-                     "withheldFeatureCount":  11,
+                     "totalShipBlockers":  1,
+                     "withheldFeatureCount":  2,
                      "deviceCount":  2,
                      "worstOffenders":  [
                                             {
-                                                "catalogId":  "still.independent_tonal",
+                                                "catalogId":  "video.raw_picker",
                                                 "deviceCount":  1
                                             },
                                             {
-                                                "catalogId":  "video.av1",
-                                                "deviceCount":  1
-                                            },
-                                            {
-                                                "catalogId":  "perf.capture_latency",
-                                                "deviceCount":  1
-                                            },
-                                            {
-                                                "catalogId":  "video.av1.4k",
-                                                "deviceCount":  1
-                                            },
-                                            {
-                                                "catalogId":  "perf.first_frame_ms",
+                                                "catalogId":  "video.raw",
                                                 "deviceCount":  1
                                             }
                                         ],
                      "deviceSlugs":  [
-                                         "3e2a7b88f6db66c0",
-                                         "718a8115ff142454"
+                                         "718a8115ff142454",
+                                         "3e2a7b88f6db66c0"
                                      ]
                  },
                  {

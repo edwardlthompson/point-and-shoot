@@ -1,24 +1,7 @@
 {
     "schema":  "pns.leaderboard_product_groups.v1",
-    "updatedUtc":  "2026-06-07T01:45:17.3756834Z",
+    "updatedUtc":  "2026-06-13T01:09:38.8560808Z",
     "groups":  [
-                   {
-                       "groupId":  "oneplus-13",
-                       "marketingName":  "OnePlus 13",
-                       "testedVariants":  [
-                                              {
-                                                  "lineItemKind":  "camera2_tested",
-                                                  "romFlavor":  "engineering",
-                                                  "slug":  "3e2a7b88f6db66c0",
-                                                  "testedApiLevel":  "Android 16 (API 36)",
-                                                  "parityScore":  1693,
-                                                  "honestyPercent":  91.3,
-                                                  "trustTier":  "maintainer",
-                                                  "resolutionBetrayalIndex":  0
-                                              }
-                                          ],
-                       "advertisedSpec":  null
-                   },
                    {
                        "groupId":  "oneplus-12",
                        "marketingName":  "OnePlus 12",
@@ -42,15 +25,15 @@
                                               "gsmarenaUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
                                               "advertisedClaims":  [
                                                                        {
-                                                                           "catalogId":  "still.resolution_wide",
-                                                                           "advertisedValue":  "50 MP",
+                                                                           "catalogId":  "product.msrp",
+                                                                           "advertisedValue":  "\u0026#36;\u0026thinsp;649.95 / \u0026#8364;\u0026thinsp;516.08 / \u0026#163;\u0026thinsp;699.99",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
                                                                            "verified":  false
                                                                        },
                                                                        {
-                                                                           "catalogId":  "product.msrp",
-                                                                           "advertisedValue":  "\u0026#8364;\u0026thinsp;553.17 / \u0026#163;\u0026thinsp;699.99",
+                                                                           "catalogId":  "still.resolution_wide",
+                                                                           "advertisedValue":  "50 MP",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
                                                                            "verified":  false
@@ -70,15 +53,15 @@
                                                                            "verified":  false
                                                                        },
                                                                        {
-                                                                           "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2023, December 11\n\r\n      220g, 9.2mm thickness\n\r\n      Android 14, up to 4 major upgrades\n\r\n      256GB/512GB/1TB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       7.3%\r\n      5,798,391 hits\r\n    \r\n      \r\n        798\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.82\"1440x3168 pixels\r\n    \r\n    \r\n      \r\n      50MP\r\n       4320p\r\n    \r\n      \r\n      12-24GB RAM \r\n      Snapdragon 8 Gen 3\r\n\r\n\r\n    \r\n    \r\n    \r\n    5400mAh100W50W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+                                                                           "catalogId":  "still.resolution_max",
+                                                                           "advertisedValue":  "64 MP",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
                                                                            "verified":  false
                                                                        },
                                                                        {
-                                                                           "catalogId":  "still.resolution_max",
-                                                                           "advertisedValue":  "64 MP",
+                                                                           "catalogId":  "product.launch_date",
+                                                                           "advertisedValue":  "Released 2023, December 11\n\r\n      220g, 9.2mm thickness\n\r\n      Android 14, up to 4 major upgrades\n\r\n      256GB/512GB/1TB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       5.7%\r\n      5,813,588 hits\r\n    \r\n      \r\n        799\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.82\"1440x3168 pixels\r\n    \r\n    \r\n      \r\n      50MP\r\n       4320p\r\n    \r\n      \r\n      12-24GB RAM \r\n      Snapdragon 8 Gen 3\r\n\r\n\r\n    \r\n    \r\n    \r\n    5400mAh100W50W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPrices\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/oneplus_12-12725.php",
                                                                            "verified":  false
@@ -151,8 +134,8 @@
                                               "gsmarenaUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
                                               "advertisedClaims":  [
                                                                        {
-                                                                           "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2021, December 14",
+                                                                           "catalogId":  "still.resolution_unknown",
+                                                                           "advertisedValue":  "0.3 MP",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
                                                                            "verified":  false
@@ -174,6 +157,13 @@
                                                                        {
                                                                            "catalogId":  "still.resolution_tele",
                                                                            "advertisedValue":  "12 MP",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
+                                                                           "catalogId":  "product.msrp",
+                                                                           "advertisedValue":  "About 930 EUR",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
                                                                            "verified":  false
@@ -207,6 +197,13 @@
                                                                            "verified":  false
                                                                        },
                                                                        {
+                                                                           "catalogId":  "product.launch_date",
+                                                                           "advertisedValue":  "Released 2021, December 02\n\r\n      211g, 8.9mm thickness\n\r\n      Android 11, up to Android 13\n\r\n      512GB storage, microSDXC  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       1.2%\r\n      3,268,580 hits\r\n    \r\n      \r\n        614\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.5\"1644x3840 pixels\r\n    \r\n    \r\n      \r\n      12MP\r\n       2160p\r\n    \r\n      \r\n      12GB RAM \r\n      Snapdragon 888 5G\r\n\r\n\r\n    \r\n    \r\n    \r\n    4500mAh30W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nReviewPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+                                                                           "source":  "gsmarena",
+                                                                           "sourceUrl":  "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
+                                                                           "verified":  false
+                                                                       },
+                                                                       {
                                                                            "catalogId":  "lens.ois",
                                                                            "advertisedValue":  "yes (tele)",
                                                                            "source":  "gsmarena",
@@ -222,6 +219,23 @@
                                                                        }
                                                                    ]
                                           }
+                   },
+                   {
+                       "groupId":  "oneplus-13",
+                       "marketingName":  "OnePlus 13",
+                       "testedVariants":  [
+                                              {
+                                                  "lineItemKind":  "camera2_tested",
+                                                  "romFlavor":  "engineering",
+                                                  "slug":  "3e2a7b88f6db66c0",
+                                                  "testedApiLevel":  "Android 16 (API 36)",
+                                                  "parityScore":  1438,
+                                                  "honestyPercent":  98.1,
+                                                  "trustTier":  "maintainer",
+                                                  "resolutionBetrayalIndex":  0
+                                              }
+                                          ],
+                       "advertisedSpec":  null
                    },
                    {
                        "groupId":  "htc-exodus-1",
@@ -247,7 +261,7 @@
                                               "advertisedClaims":  [
                                                                        {
                                                                            "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2018, December 06\n\r\n      188g, 8.7mm thickness\n\r\n      Android 8.1\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.1%\r\n      1,014,784 hits\r\n    \r\n      \r\n        146\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.0\"1440x2880 pixels\r\n    \r\n    \r\n      \r\n      16MP\r\n       2160p\r\n    \r\n      \r\n      6GB RAM \r\n      Snapdragon 845\r\n\r\n\r\n    \r\n    \r\n    \r\n    3500mAh18W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+                                                                           "advertisedValue":  "Released 2018, December 06\n\r\n      188g, 8.7mm thickness\n\r\n      Android 8.1\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.1%\r\n      1,015,183 hits\r\n    \r\n      \r\n        146\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      6.0\"1440x2880 pixels\r\n    \r\n    \r\n      \r\n      16MP\r\n       2160p\r\n    \r\n      \r\n      6GB RAM \r\n      Snapdragon 845\r\n\r\n\r\n    \r\n    \r\n    \r\n    3500mAh18W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/htc_exodus_1-9385.php",
                                                                            "verified":  false
@@ -363,7 +377,7 @@
                                                                        },
                                                                        {
                                                                            "catalogId":  "product.launch_date",
-                                                                           "advertisedValue":  "Released 2017, August\n\r\n      185g, 7.8mm thickness\n\r\n      Android 7.1, up to Android 10\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.2%\r\n      2,044,074 hits\r\n    \r\n      \r\n        417\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      5.71\"1312x2560 pixels\r\n    \r\n    \r\n      \r\n      13MP\r\n       2160p\r\n    \r\n      \r\n      4GB RAM \r\n      Snapdragon 835\r\n\r\n\r\n    \r\n    \r\n    \r\n    3040mAh27W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nHands-onPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\nVersions: Unlocked; Sprint\r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
+                                                                           "advertisedValue":  "Released 2017, August\n\r\n      185g, 7.8mm thickness\n\r\n      Android 7.1, up to Android 10\n\r\n      128GB storage, no card slot  \r\n      \r\n      \r\n    \r\n    \r\n    \r\n     \r\n       0.2%\r\n      2,044,776 hits\r\n    \r\n      \r\n        418\r\n        Become a fan\r\n      \r\n    \r\n    \r\n      \r\n      5.71\"1312x2560 pixels\r\n    \r\n    \r\n      \r\n      13MP\r\n       2160p\r\n    \r\n      \r\n      4GB RAM \r\n      Snapdragon 835\r\n\r\n\r\n    \r\n    \r\n    \r\n    3040mAh27W\r\n    \r\n  \r\n\r\n\r\n\r\n\r\n\r\n\r\nHands-onPictures\r\nCompare\r\nOpinions\r\n\r\n\r\n\r\n\r\n\r\n\r\n \t\t\t\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\t\t\t\t\t\r\n .tr-toggle {  display:none; }  \r\nVersions: Unlocked; Sprint\r\n\r\n\r\n\r\n\r\nNetwork\r\nTechnology",
                                                                            "source":  "gsmarena",
                                                                            "sourceUrl":  "https://www.gsmarena.com/_essential_ph_1-8710.php",
                                                                            "verified":  false

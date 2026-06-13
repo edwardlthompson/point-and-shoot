@@ -52,3 +52,18 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  lighthouse-info:
+    needs: deploy
+    if: success()
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Lighthouse smoke (informational, non-blocking)
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            https://edwardlthompson.github.io/point-and-shoot/leaderboard/
+          runs: 1
+          uploadArtifacts: false
+          temporaryPublicStorage: false

@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_sensor_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm\u00b2 via 25.4/denom diagonal (4:3).",
-  "scrapedUtc": "2026-06-07T01:35:58.248281+00:00",
+  "scrapedUtc": "2026-06-13T01:07:11.274788+00:00",
   "stale": true,
   "devices": [
     {
@@ -61,17 +61,17 @@
       "model": "XQ-BE62",
       "marketingName": "Sony Xperia PRO-I",
       "gsmarenaUrl": "https://www.gsmarena.com/sony_xperia_pro_i-11174.php",
-      "pageTitle": "Sony Xperia PRO-I - Full phone specifications",
+      "pageTitle": "Sony Xperia Pro-I - Full phone specifications",
       "lenses": [
         {
-          "rawLine": "12 MP, f/2.0-4.0, 24mm (wide), 1.0\"-type, 2.4\u00b5m, dual pixel PDAF, OIS",
+          "rawLine": "12 MP, f/2.0-4.0, 24mm (wide), 1.0\"-type, 2.4\u00b5m, dual pixel PDAF, OIS (315 PDAF points, 90% frame coverage)",
           "megapixels": 12.0,
           "focalLengthMm": 24.0,
           "role": "wide",
-          "sensorTypeFraction": "1/1.0",
-          "widthMm": 20.32,
-          "heightMm": 15.24,
-          "areaMm2": 309.68
+          "sensorTypeFraction": null,
+          "widthMm": null,
+          "heightMm": null,
+          "areaMm2": null
         },
         {
           "rawLine": "12 MP, f/2.4, 50mm (telephoto), 1/2.9\", PDAF, 2x optical zoom, OIS",
@@ -81,7 +81,7 @@
           "sensorTypeFraction": "1/2.9",
           "widthMm": 7.01,
           "heightMm": 5.26,
-          "areaMm2": 36.87
+          "areaMm2": 36.82
         },
         {
           "rawLine": "12 MP, f/2.2, 124\u02da, 16mm (ultrawide), 1/2.55\", dual pixel PDAF",
@@ -94,6 +94,16 @@
           "areaMm2": 47.62
         },
         {
+          "rawLine": "0.3 MP, TOF 3D, (depth)",
+          "megapixels": 0.3,
+          "focalLengthMm": null,
+          "role": "unknown",
+          "sensorTypeFraction": null,
+          "widthMm": null,
+          "heightMm": null,
+          "areaMm2": null
+        },
+        {
           "rawLine": "8 MP, f/2.0, 24mm (wide), 1/4.0\", 1.12\u00b5m",
           "megapixels": 8.0,
           "focalLengthMm": 24.0,
@@ -104,8 +114,8 @@
           "areaMm2": 19.35
         }
       ],
-      "rearLensCount": 3,
-      "sensorSumMm2": 394.17,
+      "rearLensCount": 4,
+      "sensorSumMm2": 84.44,
       "sensorSumMethod": "gsmarena_type_fraction",
       "scrapedOk": true
     },
@@ -206,28 +216,12 @@
   ],
   "errors": [
     {
-      "model": "CPH2583",
-      "error": "HTTP Error 429: Too Many Requests"
-    },
-    {
-      "model": "XQ-BE62",
-      "error": "HTTP Error 429: Too Many Requests"
-    },
-    {
       "model": "CPH2655",
-      "error": "HTTP Error 429: Too Many Requests"
+      "error": "GSMArena page title mismatch for OnePlus 13: got 'Honor Play 60 Plus - Full phone specifications' from https://www.gsmarena.com/oneplus_13-13161.php"
     },
     {
       "model": "CPH2649",
-      "error": "HTTP Error 429: Too Many Requests"
-    },
-    {
-      "model": "EXODUS 1",
-      "error": "HTTP Error 429: Too Many Requests"
-    },
-    {
-      "model": "PH-1",
-      "error": "HTTP Error 429: Too Many Requests"
+      "error": "GSMArena page title mismatch for OnePlus 13: got 'Honor Play 60 Plus - Full phone specifications' from https://www.gsmarena.com/oneplus_13-13161.php"
     }
   ]
 }

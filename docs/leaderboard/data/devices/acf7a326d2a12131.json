@@ -40,7 +40,7 @@
                                "oemCameraAppTested":  false
                            },
     "sensors":  {
-                    "sensorSumMm2":  394.17,
+                    "sensorSumMm2":  84.44,
                     "sensorSumMethod":  "gsmarena_type_fraction",
                     "source":  "gsmarena",
                     "sourceLabel":  "GSMArena sensor type",
@@ -50,14 +50,14 @@
                                 ],
                     "rearLenses":  [
                                        {
-                                           "rawLine":  "12 MP, f/2.0-4.0, 24mm (wide), 1.0\"-type, 2.4µm, dual pixel PDAF, OIS",
+                                           "rawLine":  "12 MP, f/2.0-4.0, 24mm (wide), 1.0\"-type, 2.4µm, dual pixel PDAF, OIS (315 PDAF points, 90% frame coverage)",
                                            "megapixels":  12.0,
                                            "focalLengthMm":  24.0,
                                            "role":  "wide",
-                                           "sensorTypeFraction":  "1/1.0",
-                                           "widthMm":  20.32,
-                                           "heightMm":  15.24,
-                                           "areaMm2":  309.68
+                                           "sensorTypeFraction":  null,
+                                           "widthMm":  null,
+                                           "heightMm":  null,
+                                           "areaMm2":  null
                                        },
                                        {
                                            "rawLine":  "12 MP, f/2.4, 50mm (telephoto), 1/2.9\", PDAF, 2x optical zoom, OIS",
@@ -67,7 +67,7 @@
                                            "sensorTypeFraction":  "1/2.9",
                                            "widthMm":  7.01,
                                            "heightMm":  5.26,
-                                           "areaMm2":  36.87
+                                           "areaMm2":  36.82
                                        },
                                        {
                                            "rawLine":  "12 MP, f/2.2, 124˚, 16mm (ultrawide), 1/2.55\", dual pixel PDAF",
@@ -78,6 +78,16 @@
                                            "widthMm":  7.97,
                                            "heightMm":  5.98,
                                            "areaMm2":  47.62
+                                       },
+                                       {
+                                           "rawLine":  "0.3 MP, TOF 3D, (depth)",
+                                           "megapixels":  0.3,
+                                           "focalLengthMm":  null,
+                                           "role":  "unknown",
+                                           "sensorTypeFraction":  null,
+                                           "widthMm":  null,
+                                           "heightMm":  null,
+                                           "areaMm2":  null
                                        }
                                    ],
                     "frontLenses":  [
@@ -143,7 +153,7 @@
                                  "maxScore":  2156,
                                  "percent":  69.8
                              },
-                   "rank":  3
+                   "rank":  2
                },
     "disparity":  {
                       "advertisedCellCount":  108,
@@ -2487,7 +2497,7 @@
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
-                                                   "advertisedMegapixels":  12,
+                                                   "advertisedMegapixels":  0.3,
                                                    "advertisedSource":  "gsmarena"
                                                },
                                                {
@@ -2508,7 +2518,7 @@
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
-                                                   "advertisedMegapixels":  12,
+                                                   "advertisedMegapixels":  0.3,
                                                    "advertisedSource":  "gsmarena"
                                                },
                                                {
@@ -2521,7 +2531,7 @@
                                                    "highResRawSensor":  null,
                                                    "maxResMapRawSensor":  null,
                                                    "hasLargerThanDefault":  false,
-                                                   "advertisedMegapixels":  12,
+                                                   "advertisedMegapixels":  0.3,
                                                    "advertisedSource":  "gsmarena"
                                                }
                                            ]
@@ -2683,7 +2693,7 @@
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
-                                       "advertisedMegapixels":  12,
+                                       "advertisedMegapixels":  0.3,
                                        "advertisedSource":  "gsmarena"
                                    },
                                    {
@@ -2704,7 +2714,7 @@
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
-                                       "advertisedMegapixels":  12,
+                                       "advertisedMegapixels":  0.3,
                                        "advertisedSource":  "gsmarena"
                                    },
                                    {
@@ -2717,7 +2727,7 @@
                                        "highResRawSensor":  null,
                                        "maxResMapRawSensor":  null,
                                        "hasLargerThanDefault":  false,
-                                       "advertisedMegapixels":  12,
+                                       "advertisedMegapixels":  0.3,
                                        "advertisedSource":  "gsmarena"
                                    }
                                ],

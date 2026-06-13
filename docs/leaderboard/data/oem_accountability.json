@@ -1,6 +1,6 @@
 {
     "schema":  "pns.leaderboard_oem_accountability.v1",
-    "updatedUtc":  "2026-06-13T01:09:38.8581328Z",
+    "updatedUtc":  "2026-06-13T01:16:58.0859078Z",
     "subtitle":  "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
     "oems":  [
                  {
@@ -56,9 +56,9 @@
                  },
                  {
                      "manufacturer":  "OnePlus",
-                     "restrictionIndex":  25.5,
+                     "restrictionIndex":  13.1,
                      "opennessPercent":  99.1,
-                     "gateHonestyPercent":  37.5,
+                     "gateHonestyPercent":  68.7,
                      "avgResolutionBetrayal":  0,
                      "totalShipBlockers":  1,
                      "withheldFeatureCount":  2,

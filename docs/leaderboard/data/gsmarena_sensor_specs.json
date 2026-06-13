@@ -2,7 +2,7 @@
   "schema": "pns.gsmarena_sensor_specs.v1",
   "source": "GSMArena",
   "sourceNote": "Sensor type fractions from GSMArena main-camera specs; converted to mm\u00b2 via 25.4/denom diagonal (4:3).",
-  "scrapedUtc": "2026-06-13T01:07:11.274788+00:00",
+  "scrapedUtc": "2026-06-13T01:14:31.066535+00:00",
   "stale": true,
   "devices": [
     {

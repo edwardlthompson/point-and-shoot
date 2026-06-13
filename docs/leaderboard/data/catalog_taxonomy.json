@@ -1,7 +1,7 @@
 ﻿{
     "schema":  "pns.catalog_taxonomy.v1",
     "catalogVersion":  3,
-    "updatedUtc":  "2026-06-13T01:09:42.0277155Z",
+    "updatedUtc":  "2026-06-13T01:17:01.3893688Z",
     "rows":  [
                  {
                      "id":  "fleet.parity_sweep",

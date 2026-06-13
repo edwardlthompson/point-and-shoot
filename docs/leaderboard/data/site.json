@@ -1,6 +1,6 @@
 {
     "schema":  "pns.fleet_leaderboard_site.v1",
-    "updatedUtc":  "2026-06-13T01:09:38.8781475Z",
+    "updatedUtc":  "2026-06-13T01:16:58.0922799Z",
     "catalogVersion":  3,
     "deviceCount":  5,
     "breakthroughCount":  2,
@@ -22,9 +22,9 @@
                         {
                             "manufacturer":  "OnePlus",
                             "opennessPercent":  99.1,
-                            "gateHonestyPercent":  37.5,
-                            "compositePercent":  74.5,
-                            "restrictionIndex":  25.5,
+                            "gateHonestyPercent":  68.7,
+                            "compositePercent":  86.9,
+                            "restrictionIndex":  13.1,
                             "avgResolutionBetrayal":  0,
                             "breakthroughCount":  1,
                             "withheldFeatureCount":  2,

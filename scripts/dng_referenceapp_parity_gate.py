@@ -24,7 +24,17 @@ except ImportError:
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
-DEFAULT_REF = REPO_ROOT / "tests" / "fixtures" / "referenceapp_legacy_sku"
+
+
+def resolve_referenceapp_fixture_dir(repo_root: Path) -> Path:
+    for name in ("referenceapp_legacy_sku", "referenceapp_cph2655"):
+        d = repo_root / "tests" / "fixtures" / name
+        if (d / "referenceapp_uw_cam3.dng").is_file():
+            return d
+    return repo_root / "tests" / "fixtures" / "referenceapp_legacy_sku"
+
+
+DEFAULT_REF = resolve_referenceapp_fixture_dir(REPO_ROOT)
 
 SLOTS = (
     ("uw", "referenceapp_uw_cam3.dng", "M14_uw.dng", "3"),
@@ -130,7 +140,7 @@ def main() -> int:
     args = ap.parse_args()
 
     pns_dir = args.pns_dir
-    ref_dir = args.referenceapp_dir
+    ref_dir = args.referencecam_dir
     if not ref_dir.is_dir():
         print(f"FAIL: ReferenceCam reference dir missing: {ref_dir}", file=sys.stderr)
         return 1

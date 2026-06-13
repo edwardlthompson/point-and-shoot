@@ -18,11 +18,19 @@ if (-not $KeystorePath) {
     $KeystorePath = Join-Path $root "release.keystore"
 }
 if (-not (Test-Path $ExpectedJson)) {
-    Write-Host "KEYSTORE VERIFY: SKIP (no $ExpectedJson — create from keytool -list -v)"
+    Write-Host "KEYSTORE VERIFY: SKIP (no $ExpectedJson - create from keytool -list -v)"
     exit 0
 }
 if (-not (Test-Path $KeystorePath)) {
     Write-Host "KEYSTORE VERIFY: SKIP (no keystore at $KeystorePath)"
+    exit 0
+}
+
+if (-not $StorePass) {
+    $StorePass = $env:PNS_KEYSTORE_STOREPASS
+}
+if (-not $StorePass) {
+    Write-Host "KEYSTORE VERIFY: SKIP (PNS_KEYSTORE_STOREPASS not set)"
     exit 0
 }
 
@@ -33,8 +41,7 @@ if (-not $alias) { throw "pns_keystore_expected.json missing alias" }
 $keytool = Get-Command keytool -ErrorAction SilentlyContinue
 if (-not $keytool) { throw "keytool not on PATH" }
 
-$passArg = if ($StorePass) { $StorePass } else { "android" }
-& keytool -list -v -keystore $KeystorePath -alias $alias -storepass $passArg 2>&1 | Out-String | Set-Variable -Name listing
+& keytool -list -v -keystore $KeystorePath -alias $alias -storepass $StorePass 2>&1 | Out-String | Set-Variable -Name listing
 
 $sha = $null
 if ($listing -match 'SHA256:\s*([0-9A-F:]+)') { $sha = $Matches[1] }

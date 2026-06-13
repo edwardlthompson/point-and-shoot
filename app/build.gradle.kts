@@ -10,6 +10,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.detekt)
     alias(libs.plugins.androidx.baselineprofile)
+    alias(libs.plugins.kover)
+    alias(libs.plugins.paparazzi)
 }
 
 // Resolve a real release-signing key from (in order):
@@ -71,8 +73,8 @@ android {
         // versionName: semver (user-visible; Keep a Changelog / GitHub tag v-prefix).
         // versionCode: monotonic integer for Play/Obtainium upgrades; release script uses
         // semverOrIncrement policy (scripts/pns_release_naming.ps1) — never decrease.
-        versionCode = 22004
-        versionName = "0.14.0-beta.10"
+        versionCode = 22005
+        versionName = "0.14.0-beta.11"
         // Legacy target: app hit ClassNotFound on large Compose entrypoints when they landed in
         // secondary dex. Keep multidex explicitly enabled to ensure all classesN.dex are loaded.
         multiDexEnabled = true
@@ -187,6 +189,49 @@ detekt {
     baseline = file("$rootDir/config/detekt/baseline.xml")
 }
 
+// Milestone T Sprint T.7 — package-scoped coverage floor (not global 100%).
+// Scope: fleet policy/helpers, DNG/TIFF save helpers, bracket schedulers.
+// Excludes Compose UI (*ScreenKt) and USB-only matrix/DNG byte pipelines — see ADR-0007.
+kover {
+    reports {
+        filters {
+            includes {
+                packages("dev.pointandshoot.fleet")
+                classes(
+                    "dev.pointandshoot.Dng*",
+                    "dev.pointandshoot.Bracket*",
+                    "dev.pointandshoot.TiffDng*",
+                    "dev.pointandshoot.TiffExif*",
+                    "dev.pointandshoot.TiffIfd*",
+                )
+            }
+            excludes {
+                classes(
+                    "dev.pointandshoot.fleet.*Screen*",
+                    "dev.pointandshoot.fleet.FleetDeviceMatrixBuilder*",
+                    "dev.pointandshoot.fleet.DeepCapsProbeCore*",
+                    "dev.pointandshoot.fleet.FleetProbeMatrixMarkdown*",
+                    "dev.pointandshoot.fleet.FleetCameraProfileStore*",
+                    "dev.pointandshoot.fleet.FleetLeaderboardSubmit*",
+                    "dev.pointandshoot.fleet.FleetFocalRowProductBuilder*",
+                    "dev.pointandshoot.fleet.FleetParitySweepRunner*",
+                    "dev.pointandshoot.fleet.SessionMatrixProbeCore*",
+                    "dev.pointandshoot.Dng12Saver*",
+                    "dev.pointandshoot.DngTiffReader*",
+                    "dev.pointandshoot.TiffExifSubIfdCapturePatch*",
+                    "dev.pointandshoot.TiffDngColorMatrixPatch*",
+                    "dev.pointandshoot.TiffIfd0Software305*",
+                )
+            }
+        }
+        verify {
+            rule("fleet-dng-bracket-floor") {
+                minBound(40)
+            }
+        }
+    }
+}
+
 dependencies {
     baselineProfile(project(":baselineprofile"))
 
@@ -227,6 +272,13 @@ dependencies {
     // can be tested against in-memory JSONObject fixtures (the Android stub jar
     // throws "Stub!" for org.json calls otherwise). MIT-licensed; covered in LICENSES.md.
     testImplementation(libs.org.json)
+}
+
+// Milestone T.11 — Gradle dependency locking for libs.versions.toml catalog.
+configurations.configureEach {
+    if (isCanBeResolved) {
+        resolutionStrategy.activateDependencyLocking()
+    }
 }
 
 // ----------------------------------------------------------------------------

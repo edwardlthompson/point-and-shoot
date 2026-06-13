@@ -55,7 +55,7 @@ $log = & adb @adbArgs logcat -d -s "PNS.PipPreview:I" "PNS.AdbValidation:I" 2>&1
 if ($log -match "pipPreview=active=true") {
     Write-Host "[pns_pip_preview] USB_PASS active"
 } elseif ($log -match "pipPreview=active=false.*no_concurrent_rear_pair") {
-    Write-Host "[pns_pip_preview] USB_PASS (HAL has no concurrent rear pair — expected on some SKUs)"
+    Write-Host "[pns_pip_preview] USB_PASS (HAL has no concurrent rear pair - expected on some SKUs)"
 } else {
     $log | Out-File -FilePath (Join-Path $repoRoot "hfr-runs\pip_preview_verify_log.txt") -Encoding utf8
     throw "[pns_pip_preview] FAIL: pipPreview log missing"

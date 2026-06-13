@@ -10,6 +10,8 @@ import dev.pointandshoot.RawStillProcessingHints
 /**
  * Canonical Legacy device (LegacySku-class) RAW / focal policy (Milestone **13.2**).
  * See `docs/FLEET_ONEPLUS13_RAW_POLICY.md` in the repo.
+ *
+ * Historical filenames: `OnePlus13FleetPolicy.kt`, docs referring to `LegacyDeviceFleetPolicy`.
  */
 object LegacyFleetPolicy {
     const val POLICY_ID: String = "oneplus_13_legacy_sku"
@@ -31,8 +33,14 @@ object LegacyFleetPolicy {
         )
 
     fun appliesToDevice(): Boolean {
-        val model = Build.MODEL?.uppercase() ?: return false
-        return model.contains("LegacySku") || model.contains("CPH2653")
+        val model = Build.MODEL ?: return false
+        return appliesToDeviceModel(model)
+    }
+
+    /** JVM / audit helper — primary fleet **CPH2583** must not match. */
+    internal fun appliesToDeviceModel(model: String): Boolean {
+        val upper = model.uppercase()
+        return upper.contains("LEGACYSKU") || upper.contains("CPH2653")
     }
 
     fun canonicalRoles(ids: List<String>): BackCameraRoleResolver.Roles? =
@@ -219,3 +227,6 @@ object LegacyFleetPolicy {
         )
     }
 }
+
+/** Documentation alias for historical `LegacyDeviceFleetPolicy` / `OnePlus13FleetPolicy` naming. */
+typealias LegacyDeviceFleetPolicy = LegacyFleetPolicy

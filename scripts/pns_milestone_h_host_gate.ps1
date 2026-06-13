@@ -22,13 +22,15 @@ try {
     python "$PSScriptRoot\pns_colorchecker_de2000_gate.py"
     if ($LASTEXITCODE -ne 0) { throw "colorchecker gate failed" }
     $self = Join-Path $root "hfr-runs\aesthetic_selftest_h1"
+    . "$PSScriptRoot\pns_resolve_referenceapp_fixture_dir.ps1"
+    $refSrc = Resolve-PnsReferenceAppFixtureDir -ProjectRoot $root -RequireExists
     if (-not (Test-Path (Join-Path $self "M14_uw.dng"))) {
         New-Item -ItemType Directory -Force -Path $self | Out-Null
-        Copy-Item "tests\fixtures\referenceapp_legacy_sku\referenceapp_uw_cam3.dng" (Join-Path $self "M14_uw.dng")
-        Copy-Item "tests\fixtures\referenceapp_legacy_sku\referenceapp_wide_cam2.dng" (Join-Path $self "M23_wide.dng")
-        Copy-Item "tests\fixtures\referenceapp_legacy_sku\referenceapp_tele_cam4.dng" (Join-Path $self "M73_tele.dng")
+        Copy-Item (Join-Path $refSrc "referenceapp_uw_cam3.dng") (Join-Path $self "M14_uw.dng")
+        Copy-Item (Join-Path $refSrc "referenceapp_wide_cam2.dng") (Join-Path $self "M23_wide.dng")
+        Copy-Item (Join-Path $refSrc "referenceapp_tele_cam4.dng") (Join-Path $self "M73_tele.dng")
     }
-    python "$PSScriptRoot\pns_dng_aesthetic_gate.py" --ps-dir $self
+    python "$PSScriptRoot\pns_dng_aesthetic_gate.py" --ps-dir $self --ref-dir $refSrc
     if ($LASTEXITCODE -ne 0) { throw "dng_aesthetic_gate failed" }
     & "$PSScriptRoot\pns_fixture_dng_gates.ps1"
     if ($LASTEXITCODE -ne 0) { throw "fixture_dng_gates failed" }

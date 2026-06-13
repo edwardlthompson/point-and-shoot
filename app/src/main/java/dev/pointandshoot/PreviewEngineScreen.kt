@@ -60,6 +60,9 @@ import android.widget.Toast
 import dev.pointandshoot.preview.capture.awaitNextImage
 import dev.pointandshoot.preview.session.AndroidPreviewCameraOpenGateway
 import dev.pointandshoot.preview.session.AndroidPreviewSessionCreateGateway
+import dev.pointandshoot.preview.session.PreviewSessionSurfacePolicy
+import dev.pointandshoot.preview.session.RawStillSurfacesInput
+import dev.pointandshoot.preview.session.RawVideoLaneInput
 import dev.pointandshoot.fleet.FleetCameraProfiles
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -1168,7 +1171,7 @@ fun PreviewEngineScreen(
         }
     }
     controller.automationSuppressFacePipeline =
-        adbBracketPattern != null
+        CaptureSessionRegressionLocks.automationSuppressFacePipeline(adbBracketPattern)
 
     var lastStillModeSeed by remember { mutableStateOf<StillCaptureMode?>(null) }
 
@@ -13480,17 +13483,20 @@ private class PreviewController(
     }
 
     /** True when [createSession] would attach RAW (+ JPEG companion) still surfaces. */
-    private fun wantsRawStillSurfacesInSession(): Boolean {
-        if (dualVideoActive) return false
-        if (videoController.isRecorderPresent()) return false
-        if (imagingProfileForStreams is ImagingProfile.JpegOnly) return false
-        if (desiredFps >= VideoRecordingController.HFR_THRESHOLD_FPS) return false
-        val rawAutomationPending =
-            adbPendingRawStillAutomationCount > 0 || adbScriptedStillAutomationActive.get()
-        if (rawAutomationPending) return true
-        if (videoPrimarySession && !inAppVideoRecordingArmed) return false
-        return true
-    }
+    private fun wantsRawStillSurfacesInSession(): Boolean =
+        PreviewSessionSurfacePolicy.wantsRawStillSurfacesInSession(
+            RawStillSurfacesInput(
+                dualVideoActive = dualVideoActive,
+                wantsRawVideoLane = wantsRawVideoLane(),
+                videoRecorderPresent = videoController.isRecorderPresent(),
+                imagingProfile = imagingProfileForStreams,
+                desiredFps = desiredFps,
+                adbPendingRawStillAutomationCount = adbPendingRawStillAutomationCount,
+                adbScriptedStillAutomationActive = adbScriptedStillAutomationActive.get(),
+                videoPrimarySession = videoPrimarySession,
+                inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+            ),
+        )
 
     /** RAW DNG path requires non-HFR session with [ImageReader] attached (BUILD_PLAN §4). */
     fun canCaptureRawStill(): Boolean {
@@ -14946,7 +14952,7 @@ private class PreviewController(
                             chars,
                             result,
                             previewSurfacePhysicalCameraId,
-                            allowPhysicalTotalResultPairing = false,
+                            allowPhysicalTotalResultPairing = DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING,
                         )
                     val (dngChars, dngResult) =
                         ReferenceAppDngCreatorPair.forSave(
@@ -14955,7 +14961,7 @@ private class PreviewController(
                             chars,
                             result,
                             previewSurfacePhysicalCameraId,
-                            allowPhysicalTotalResultPairing = false,
+                            allowPhysicalTotalResultPairing = DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING,
                         )
                     Log.i(
                         CaptureStillLog.TAG,
@@ -17020,7 +17026,8 @@ private class PreviewController(
                                                     chars,
                                                     result,
                                                     previewSurfacePhysicalCameraId,
-                                                    allowPhysicalTotalResultPairing = false,
+                                                    allowPhysicalTotalResultPairing =
+                                                        DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING,
                                                 )
                                             val paired =
                                                 ReferenceAppDngCreatorPair.forSave(
@@ -17029,7 +17036,8 @@ private class PreviewController(
                                                     chars,
                                                     result,
                                                     previewSurfacePhysicalCameraId,
-                                                    allowPhysicalTotalResultPairing = false,
+                                                    allowPhysicalTotalResultPairing =
+                                                        DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING,
                                                 )
                                             metaChars = paired.first
                                             metaResult = paired.second
@@ -17243,7 +17251,7 @@ private class PreviewController(
                                     chars,
                                     result,
                                     previewSurfacePhysicalCameraId,
-                                    allowPhysicalTotalResultPairing = false,
+                                    allowPhysicalTotalResultPairing = DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING,
                                 )
                             val paired =
                                 ReferenceAppDngCreatorPair.forSave(
@@ -17252,7 +17260,7 @@ private class PreviewController(
                                     chars,
                                     result,
                                     previewSurfacePhysicalCameraId,
-                                    allowPhysicalTotalResultPairing = false,
+                                    allowPhysicalTotalResultPairing = DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING,
                                 )
                             metaChars = paired.first
                             metaResult = paired.second
@@ -17529,12 +17537,14 @@ private class PreviewController(
 
     fun peekRawVideoFleetSupported(): Boolean = rawVideoController.fleetSupportsRawVideo(selectedCameraId)
 
-    fun wantsRawVideoLane(): Boolean {
-        if (adbForceRawVideoLane) return true
-        val prefs = readHudCapturePrefs()
-        if (prefs.videoEncodeLane != VideoEncodeLane.Raw) return false
-        return rawVideoController.fleetSupportsRawVideo(selectedCameraId)
-    }
+    fun wantsRawVideoLane(): Boolean =
+        PreviewSessionSurfacePolicy.wantsRawVideoLane(
+            RawVideoLaneInput(
+                adbForceRawVideoLane = adbForceRawVideoLane,
+                videoEncodeLane = readHudCapturePrefs().videoEncodeLane,
+                fleetSupportsRawVideo = rawVideoController.fleetSupportsRawVideo(selectedCameraId),
+            ),
+        )
 
     fun applyRawVideoRecordingShell(
         wantRecord: Boolean,
@@ -19023,6 +19033,7 @@ private class PreviewController(
             val leanVideoWarmup =
                 videoPrimarySession &&
                     !inAppVideoRecordingArmed &&
+                    !wantsRawVideoLane() &&
                     adbPendingRawStillAutomationCount <= 0 &&
                     !adbScriptedStillAutomationActive.get()
             if (!videoController.isRecorderPresent() && !leanVideoWarmup) {
@@ -19374,7 +19385,7 @@ private class PreviewController(
                 }
             // Bisect #4a: omit API 33+ OutputConfiguration.setStreamUseCase tags on REGULAR session
             // (restore: docs/REVERTED_FEATURES_RESTORE_LIST.md §4).
-            val streamHints = false
+            val streamHints = CaptureSessionRegressionLocks.REGULAR_SESSION_STREAM_HINTS_ENABLED
             captureSessionAsyncConfigurePending = true
             val researchAfSession = buildVendorSessionParametersTemplate(camera, camId)
             val sessionCharsForPhysicalPin =

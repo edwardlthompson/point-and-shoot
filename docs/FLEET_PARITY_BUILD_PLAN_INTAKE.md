@@ -1,8 +1,8 @@
 ﻿# Fleet parity build-plan intake
 
-- Generated: 2026-06-06T17:14:08.7805970Z
+- Generated: 2026-06-13T01:17:06.6085017Z
 - Open rows: 1 / 99
-- Latest parity: serial=adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp mode=Full
+- Latest parity: serial=b5214fc6 mode=Full
 
 Promote rows to [BUILD_PLAN.md](../BUILD_PLAN.md) Milestone 27 when scoped.
 

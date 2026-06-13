@@ -16,6 +16,8 @@ benchmarkMacro = "1.4.0"
 profileInstaller = "1.4.1"
 baselineProfilePlugin = "1.4.0"
 detekt = "1.23.7"
+kover = "0.9.1"
+paparazzi = "1.3.5"
 orgJson = "20240303"
 exifInterface = "1.4.0"
 documentfile = "1.1.0"
@@ -63,3 +65,5 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineProfilePlugin" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+paparazzi = { id = "app.cash.paparazzi", version.ref = "paparazzi" }

@@ -1,0 +1,26 @@
+---
+description: Read/write .cursor-session-state at milestone boundaries (optional; not alwaysApply)
+globs:
+alwaysApply: false
+---
+
+# Session checkpoint (Milestone T)
+
+Use when starting or finishing a **milestone** or handing off to a **fresh chat**.
+
+## At milestone start
+
+1. If [`.cursor-session-state`](../.cursor-session-state) exists (gitignored), read it via `@` indexing before planning.
+2. Cross-check [`AGENT_MEMORY.md`](../AGENT_MEMORY.md) and active [`BUILD_PLAN.md`](../BUILD_PLAN.md) sprint.
+
+## At milestone end / handoff
+
+1. Write `.cursor-session-state` using schema in [`.cursor-session-state.example`](../.cursor-session-state.example).
+2. Refresh [`AGENT_MEMORY.md`](../AGENT_MEMORY.md) (ephemeral focus — not bisect history).
+3. Tell the user to open a fresh chat and `@` index `.cursor-session-state`.
+4. After restore, **delete** `.cursor-session-state`.
+
+## Do not
+
+- Store bisect history here — use [`docs/AGENT_REGRESSION_MEMORY.md`](../docs/AGENT_REGRESSION_MEMORY.md).
+- Commit `.cursor-session-state` (contains local serial paths).

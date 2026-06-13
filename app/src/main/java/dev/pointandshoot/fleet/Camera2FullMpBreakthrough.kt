@@ -13,6 +13,8 @@ import kotlin.math.roundToInt
  */
 object Camera2FullMpBreakthrough {
     const val MP_THRESHOLD = 13.0
+    internal const val MP_ROUND_FACTOR = 10.0
+    private const val PIXELS_PER_MP = 1_000_000.0
 
     enum class EvidenceTier(val wire: String) {
         DEFAULT("default"),
@@ -29,22 +31,28 @@ object Camera2FullMpBreakthrough {
     fun evaluateFromStillEntries(
         entries: List<FleetCameraStartupScan.StillResolutionAdvertisedEntry>,
         cm: CameraManager,
-    ): List<CameraEvidence> {
-        return entries.mapNotNull { entry ->
-            if (!isRearCamera(cm, entry.cameraId)) return@mapNotNull null
-            val defaultMp =
-                mp(entry.defaultJpeg).coerceAtLeast(mp(entry.defaultRawSensor))
-            if (defaultMp >= MP_THRESHOLD) {
-                return@mapNotNull CameraEvidence(entry.cameraId, defaultMp, EvidenceTier.DEFAULT)
-            }
-            val maxResMp =
-                listOf(
-                    mp(entry.maxResMapJpeg),
-                    mp(entry.maxResMapRawSensor),
-                ).maxOrNull() ?: 0.0
-            if (entry.hasLargerThanDefault && maxResMp >= MP_THRESHOLD) {
-                return@mapNotNull CameraEvidence(entry.cameraId, maxResMp, EvidenceTier.MAXRES_MAP)
-            }
+    ): List<CameraEvidence> =
+        entries.mapNotNull { entry ->
+            evidenceFromStillEntry(entry, cm)
+        }
+
+    private fun evidenceFromStillEntry(
+        entry: FleetCameraStartupScan.StillResolutionAdvertisedEntry,
+        cm: CameraManager,
+    ): CameraEvidence? {
+        if (!isRearCamera(cm, entry.cameraId)) return null
+        val defaultMp = mp(entry.defaultJpeg).coerceAtLeast(mp(entry.defaultRawSensor))
+        if (defaultMp >= MP_THRESHOLD) {
+            return CameraEvidence(entry.cameraId, defaultMp, EvidenceTier.DEFAULT)
+        }
+        val maxResMp =
+            listOf(
+                mp(entry.maxResMapJpeg),
+                mp(entry.maxResMapRawSensor),
+            ).maxOrNull() ?: 0.0
+        return if (entry.hasLargerThanDefault && maxResMp >= MP_THRESHOLD) {
+            CameraEvidence(entry.cameraId, maxResMp, EvidenceTier.MAXRES_MAP)
+        } else {
             null
         }
     }
@@ -54,25 +62,31 @@ object Camera2FullMpBreakthrough {
         val arr = product.optJSONArray("stillResolutionAdvertised") ?: return emptyList()
         val out = mutableListOf<CameraEvidence>()
         for (i in 0 until arr.length()) {
-            val o = arr.optJSONObject(i) ?: continue
-            val cameraId = o.optString("cameraId", "")
-            if (cameraId.isBlank()) continue
-            val defaultMp = defaultMpFromJson(o)
-            if (defaultMp >= MP_THRESHOLD) {
-                out.add(CameraEvidence(cameraId, defaultMp, EvidenceTier.DEFAULT))
-                continue
-            }
-            val hasLarger = o.optBoolean("hasLargerThanDefault", false)
-            val maxResMp =
-                listOf(
-                    mpFromSizeJson(o.optJSONObject("maxResMapJpeg")),
-                    mpFromSizeJson(o.optJSONObject("maxResMapRawSensor")),
-                ).maxOrNull() ?: 0.0
-            if (hasLarger && maxResMp >= MP_THRESHOLD) {
-                out.add(CameraEvidence(cameraId, maxResMp, EvidenceTier.MAXRES_MAP))
+            val o = arr.optJSONObject(i)
+            val cameraId = o?.optString("cameraId", "").orEmpty()
+            if (o != null && cameraId.isNotBlank()) {
+                evidenceFromStillJson(o, cameraId)?.let { out.add(it) }
             }
         }
         return out
+    }
+
+    private fun evidenceFromStillJson(o: JSONObject, cameraId: String): CameraEvidence? {
+        val defaultMp = defaultMpFromJson(o)
+        if (defaultMp >= MP_THRESHOLD) {
+            return CameraEvidence(cameraId, defaultMp, EvidenceTier.DEFAULT)
+        }
+        val hasLarger = o.optBoolean("hasLargerThanDefault", false)
+        val maxResMp =
+            listOf(
+                mpFromSizeJson(o.optJSONObject("maxResMapJpeg")),
+                mpFromSizeJson(o.optJSONObject("maxResMapRawSensor")),
+            ).maxOrNull() ?: 0.0
+        return if (hasLarger && maxResMp >= MP_THRESHOLD) {
+            CameraEvidence(cameraId, maxResMp, EvidenceTier.MAXRES_MAP)
+        } else {
+            null
+        }
     }
 
     fun toSummaryJson(
@@ -87,7 +101,7 @@ object Camera2FullMpBreakthrough {
         return JSONObject().apply {
             put("proven", proven)
             put("cameraCount", merged.size)
-            put("maxMpPerSensor", if (maxMp > 0.0) (maxMp * 10.0).roundToInt() / 10.0 else JSONObject.NULL)
+            put("maxMpPerSensor", if (maxMp > 0.0) (maxMp * MP_ROUND_FACTOR).roundToInt() / MP_ROUND_FACTOR else JSONObject.NULL)
             put("evidenceTier", tier ?: JSONObject.NULL)
             put(
                 "cameras",
@@ -96,7 +110,7 @@ object Camera2FullMpBreakthrough {
                         put(
                             JSONObject().apply {
                                 put("cameraId", e.cameraId)
-                                put("provenMp", (e.provenMp * 10.0).roundToInt() / 10.0)
+                                put("provenMp", (e.provenMp * MP_ROUND_FACTOR).roundToInt() / MP_ROUND_FACTOR)
                                 put("evidenceTier", e.tier.wire)
                             },
                         )
@@ -121,12 +135,7 @@ object Camera2FullMpBreakthrough {
         return byId.values.sortedBy { it.cameraId }
     }
 
-    private fun tierRank(tier: EvidenceTier): Int =
-        when (tier) {
-            EvidenceTier.DEFAULT -> 1
-            EvidenceTier.MAXRES_MAP -> 2
-            EvidenceTier.CAPTURE -> 3
-        }
+    private fun tierRank(tier: EvidenceTier): Int = tier.ordinal + 1
 
     private fun isRearCamera(cm: CameraManager, cameraId: String): Boolean {
         val facing =
@@ -149,11 +158,11 @@ object Camera2FullMpBreakthrough {
         val w = size.optInt("width", 0)
         val h = size.optInt("height", 0)
         if (w <= 0 || h <= 0) return 0.0
-        return (w.toLong() * h.toLong()) / 1_000_000.0
+        return (w.toLong() * h.toLong()) / PIXELS_PER_MP
     }
 
     private fun mp(size: android.util.Size?): Double {
         if (size == null || size.width <= 0 || size.height <= 0) return 0.0
-        return (size.width.toLong() * size.height.toLong()) / 1_000_000.0
+        return (size.width.toLong() * size.height.toLong()) / PIXELS_PER_MP
     }
 }

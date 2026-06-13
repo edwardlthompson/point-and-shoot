@@ -1,26 +1,26 @@
-{
-  "fixtureDir": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\tests\\fixtures\\referenceapp_legacy_sku",
-  "source": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260528_034720",
-  "slots": [
-    {
-      "slot": "uw",
-      "sourcePath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260528_034720\\referenceapp_uw_3.dng",
-      "cameraId": "3",
-      "file": "referenceapp_uw_cam3.dng"
-    },
-    {
-      "slot": "wide",
-      "sourcePath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260528_034720\\referenceapp_wide_2.dng",
-      "cameraId": "2",
-      "file": "referenceapp_wide_cam2.dng"
-    },
-    {
-      "slot": "tele",
-      "sourcePath": "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260528_034720\\referenceapp_tele_4.dng",
-      "cameraId": "4",
-      "file": "referenceapp_tele_cam4.dng"
-    }
-  ],
-  "timestampUtc": "2026-05-28T03:47:56.8152188Z",
-  "schema": "referenceapp_fixture_sync.v1"
+﻿{
+    "source":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260613_013404",
+    "fixtureDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\tests\\fixtures\\referenceapp_cph2655",
+    "timestampUtc":  "2026-06-13T01:44:16.1596883Z",
+    "schema":  "referenceapp_fixture_sync.v1",
+    "slots":  [
+                  {
+                      "cameraId":  "3",
+                      "file":  "referenceapp_uw_cam3.dng",
+                      "sourcePath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260613_013404\\referenceapp_uw_3.dng",
+                      "slot":  "uw"
+                  },
+                  {
+                      "cameraId":  "2",
+                      "file":  "referenceapp_wide_cam2.dng",
+                      "sourcePath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260613_013404\\referenceapp_wide_2.dng",
+                      "slot":  "wide"
+                  },
+                  {
+                      "cameraId":  "4",
+                      "file":  "referenceapp_tele_cam4.dng",
+                      "sourcePath":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260613_013404\\referenceapp_tele_4.dng",
+                      "slot":  "tele"
+                  }
+              ]
 }

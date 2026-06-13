@@ -117,6 +117,27 @@ Local **real** signed release:
 CI signed builds: `.github/workflows/build-signed.yml` (manual `workflow_dispatch` or
 push to a `v*` tag). Requires the four secrets documented in that workflow file
 (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
-`ANDROID_KEY_PASSWORD`). It runs the toolchain gate, builds, verifies the signature
-with `apksigner verify --verbose`, and uploads the APK as a workflow artifact.
+`ANDROID_KEY_PASSWORD`). It sets **`SOURCE_DATE_EPOCH`** from the Git commit,
+runs the toolchain gate, builds, verifies the signature with `apksigner verify --verbose`,
+and uploads the APK as a workflow artifact.
+
+Reproducible-build notes: [`docs/REPRODUCIBLE_BUILDS.md`](docs/REPRODUCIBLE_BUILDS.md).
+Host smoke: `.\scripts\pns_repro_build_verify.ps1`.
+
+### 6) F-Droid build recipe (maintainers / fdroiddata MR)
+
+Metadata lives under [`metadata/`](metadata/README.md). Gate: `.\scripts\pns_fdroid_metadata_validate.ps1`.
+
+Typical F-Droid builder steps (see also `metadata/metadata.yml` `Builds:`):
+
+1. Checkout a **tagged** release (same `versionCode` / `versionName` as `app/build.gradle.kts`).
+2. Install SDK platform **36**, build-tools **36.0.0**, and NDK **26.3.11579264** (matches `app/build.gradle.kts`).
+3. Export `SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)` before Gradle.
+4. Run `./gradlew :app:assembleRelease` (runs `:downloadBundledLuts` via `preBuild` when LUT specs are configured).
+5. Sign with F-Droid's release keystore policy (project ships maintainer-signed GitHub APKs separately).
+
+Dependency versions are pinned via `gradle/libs.versions.toml` + `app/gradle.lockfile`.
+Refresh locks after catalog bumps: `.\scripts\pns_gradlew.ps1 :app:dependencies --write-locks`.
+
+Privacy / redistribution: [`PRIVACY.md`](PRIVACY.md), [`NOTICE`](NOTICE).
 

@@ -1,0 +1,21 @@
+# Pre-commit hooks — Milestone T Sprint T.6
+# Install: pip install pre-commit && pre-commit install
+# Run all: pre-commit run --all-files
+
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.22.1
+    hooks:
+      - id: gitleaks
+        args: ["--config", ".gitleaks.toml", "--verbose"]
+
+  - repo: local
+    hooks:
+      - id: pns-host-gate-skipgradle
+        name: PNS host gate (UTF-8, PS parse, FOSS audit)
+        entry: pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/pns_verify_toolchain.ps1 -SkipGradle
+        language: system
+        pass_filenames: false
+        always_run: true

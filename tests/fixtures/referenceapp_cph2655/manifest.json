@@ -1,27 +1,32 @@
-{
-  "device": "LegacySku",
-  "serial": "legacySerial",
-  "capturedUtcApprox": "2026-05-19T08:39Z",
-  "shotOrder": ["ultrawide", "wide", "tele"],
-  "files": {
-    "uw": {
-      "path": "referenceapp_uw_cam3.dng",
-      "halCameraId": "3",
-      "focalSlotMm": 14,
-      "remote": "/sdcard/DCIM/20260519_083924.dng"
-    },
-    "wide": {
-      "path": "referenceapp_wide_cam2.dng",
-      "halCameraId": "2",
-      "focalSlotMm": 23,
-      "remote": "/sdcard/DCIM/20260519_083929.dng"
-    },
-    "tele": {
-      "path": "referenceapp_tele_cam4.dng",
-      "halCameraId": "4",
-      "focalSlotMm": 73,
-      "remote": "/sdcard/DCIM/20260519_083933.dng"
-    }
-  },
-  "usage": "Gate all P&S aux DNG captures with scripts/dng_referenceapp_parity_gate.py or scripts/pns_referenceapp_parity_gate.ps1"
+﻿{
+    "device":  "CPH2655",
+    "serial":  "8bf09993",
+    "capturedUtcApprox":  "2026-06-13T01:44Z",
+    "shotOrder":  [
+                      "ultrawide",
+                      "wide",
+                      "tele"
+                  ],
+    "files":  {
+                  "uw":  {
+                             "path":  "referenceapp_uw_cam3.dng",
+                             "halCameraId":  "3",
+                             "focalSlotMm":  14,
+                             "remote":  "/sdcard/DCIM/20260612_213418.dng"
+                         },
+                  "wide":  {
+                               "path":  "referenceapp_wide_cam2.dng",
+                               "halCameraId":  "2",
+                               "focalSlotMm":  23,
+                               "remote":  "/sdcard/DCIM/20260612_213414.dng"
+                           },
+                  "tele":  {
+                               "path":  "referenceapp_tele_cam4.dng",
+                               "halCameraId":  "4",
+                               "focalSlotMm":  73,
+                               "remote":  "/sdcard/DCIM/20260612_213411.dng"
+                           }
+              },
+    "usage":  "Gate P\u0026S aux DNG captures with scripts/dng_referenceapp_parity_gate.py or scripts/pns_referenceapp_parity_gate.ps1",
+    "syncSource":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\referenceapp_live_forensics_20260613_013404"
 }

@@ -238,6 +238,13 @@ fun buildChromeSettingsSearchIndex(): List<ChromeSettingSearchHit> =
             "quick",
             settingKey = "quick.all",
         ),
+        ChromeSettingSearchHit(
+            "About & heritage",
+            "Support & updates",
+            "about heritage credits venmo changelog github release notes support",
+            "about",
+            settingKey = "about.heritage",
+        ),
     )
 
 @Composable
@@ -250,11 +257,18 @@ fun ChromeSettingsSearchField(
         value = query,
         onValueChange = onQueryChange,
         modifier = modifier.fillMaxWidth(),
+        label = {
+            Text(ChromeSettingsA11y.SEARCH_FIELD, color = Color.White.copy(alpha = 0.55f))
+        },
         placeholder = {
             Text("Search settings…", color = Color.White.copy(alpha = 0.45f))
         },
         leadingIcon = {
-            Icon(Icons.Outlined.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.7f))
+            Icon(
+                Icons.Outlined.Search,
+                contentDescription = ChromeSettingsA11y.SEARCH_ICON,
+                tint = Color.White.copy(alpha = 0.7f),
+            )
         },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),

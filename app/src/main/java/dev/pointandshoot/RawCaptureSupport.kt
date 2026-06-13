@@ -45,6 +45,17 @@ enum class RawStreamPreference {
 object RawCaptureSupport {
     private const val TAG = "PNS.Cam"
     private const val ENABLE_EXPERIMENTAL_MULTIRES_DIRECT_SIZE = true
+
+    /**
+     * Locked [RawStreamPreference.Default] tier order (REG-20260513-002): **RAW12 → RAW_SENSOR → RAW10**.
+     * Do not reorder without USB [pns_photo_capture_verify.ps1] / [pns_capture_pipeline_verify.ps1] proof.
+     */
+    internal val DEFAULT_RAW_STREAM_TIER_ORDER: IntArray =
+        intArrayOf(
+            ImageFormat.RAW12,
+            ImageFormat.RAW_SENSOR,
+            ImageFormat.RAW10,
+        )
     private fun area(size: Size?): Long =
         if (size == null) -1L else size.width.toLong() * size.height.toLong()
 
@@ -464,9 +475,7 @@ object RawCaptureSupport {
             sizes?.takeIf { it.isNotEmpty() }?.maxByOrNull { it.width.toLong() * it.height }
         return when (preference) {
             RawStreamPreference.Default ->
-                largest(raw12)?.let { ImageFormat.RAW12 to it }
-                    ?: largest(rawSensor)?.let { ImageFormat.RAW_SENSOR to it }
-                    ?: largest(raw10)?.let { ImageFormat.RAW10 to it }
+                pickDefaultTierFromMaps(raw12, raw10, rawSensor)
             RawStreamPreference.RawSensorFirst ->
                 largest(rawSensor)?.let { ImageFormat.RAW_SENSOR to it }
                     ?: largest(raw12)?.let { ImageFormat.RAW12 to it }
@@ -475,6 +484,26 @@ object RawCaptureSupport {
             RawStreamPreference.RawSensorOnly -> largest(rawSensor)?.let { ImageFormat.RAW_SENSOR to it }
             RawStreamPreference.Raw10Only -> largest(raw10)?.let { ImageFormat.RAW10 to it }
         }
+    }
+
+    private fun pickDefaultTierFromMaps(
+        raw12: List<Size>?,
+        raw10: List<Size>?,
+        rawSensor: List<Size>?,
+    ): Pair<Int, Size>? {
+        fun largest(sizes: List<Size>?): Size? =
+            sizes?.takeIf { it.isNotEmpty() }?.maxByOrNull { it.width.toLong() * it.height }
+        for (format in DEFAULT_RAW_STREAM_TIER_ORDER) {
+            val size =
+                when (format) {
+                    ImageFormat.RAW12 -> largest(raw12)
+                    ImageFormat.RAW_SENSOR -> largest(rawSensor)
+                    ImageFormat.RAW10 -> largest(raw10)
+                    else -> null
+                }
+            if (size != null) return format to size
+        }
+        return null
     }
 
     /** Label for probe `rawPickEffective=` lines (Milestone **10.1**). */

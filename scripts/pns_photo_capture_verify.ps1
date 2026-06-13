@@ -56,23 +56,7 @@ $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) {
     . $resolve -PrependToPath -Quiet
 }
-
-function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
-    $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
-    if (-not (Test-Path -LiteralPath $envFile)) {
-        return $null
-    }
-    foreach ($line in Get-Content -LiteralPath $envFile) {
-        $t = $line.Trim()
-        if ($t.StartsWith("#") -or $t.Length -eq 0) { continue }
-        $eq = $t.IndexOf("=")
-        if ($eq -lt 1) { continue }
-        $k = $t.Substring(0, $eq).Trim()
-        $v = $t.Substring($eq + 1).Trim()
-        if ($k -eq "PNS_ADB_SERIAL") { return $v }
-    }
-    return $null
-}
+. (Join-Path $PSScriptRoot "pns_adb_serial.ps1")
 
 function Get-AdbPath {
     (Get-Command adb -ErrorAction Stop).Source
@@ -295,13 +279,7 @@ $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
 $pkg = "dev.pointandshoot"
 
-if ([string]::IsNullOrWhiteSpace($Serial)) {
-    $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
-    if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
-        $Serial = $fromEnv
-        Write-Host "[photo_capture_verify] PNS_ADB_SERIAL from pns_adb_device.env -> $Serial"
-    }
-}
+$Serial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot $PSScriptRoot -LogPrefix "photo_capture_verify"
 
 if (-not $SkipAssemble) {
     $gw = Join-Path $PSScriptRoot "pns_gradlew.ps1"

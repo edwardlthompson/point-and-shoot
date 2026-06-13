@@ -5,6 +5,7 @@ import android.content.Context
 /** Optional AnTuTu score included with leaderboard parity submissions. */
 object LeaderboardAntutuPrefs {
     private const val PREFS = "pns_leaderboard_antutu"
+    private const val MIN_TOTAL_SCORE = 500_000
     private const val KEY_TOTAL = "total"
     private const val KEY_CPU = "cpu"
     private const val KEY_GPU = "gpu"
@@ -25,7 +26,7 @@ object LeaderboardAntutuPrefs {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!p.contains(KEY_TOTAL)) return null
         val total = p.getInt(KEY_TOTAL, 0)
-        if (total < 500_000) return null
+        if (total < MIN_TOTAL_SCORE) return null
         return Score(
             total = total,
             cpu = p.getInt(KEY_CPU, 0).takeIf { it > 0 },
@@ -38,7 +39,7 @@ object LeaderboardAntutuPrefs {
 
     fun save(context: Context, score: Score?) {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-        if (score == null || score.total < 500_000) {
+        if (score == null || score.total < MIN_TOTAL_SCORE) {
             p.clear()
         } else {
             p.putInt(KEY_TOTAL, score.total)

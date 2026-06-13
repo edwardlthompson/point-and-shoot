@@ -586,6 +586,17 @@
 - **Also test:** `scripts/pns_fleet_parity_sweep.ps1 -Mode Full` after proof-script or manifest edits; `scripts/pns_photo_capture_verify.ps1 -PreviewStillFormat <fmt>`; keep capture/chrome gates sequential on one device.
 - **Touches:** `scripts/pns_photo_capture_verify.ps1`, `scripts/pns_video_color_profile_verify.ps1`, `scripts/pns_video_hdr10_metadata_verify.ps1`, `scripts/parity_proof_manifest.json`, `PreviewEngineScreen.kt`
 
+### REG-20260613-001 — RAW video lane skipped lean-video warmup (no ImageReader)
+- **Status:** active
+- **Area:** video | capture
+- **Symptom:** `pns_raw_video_verify` FAIL (`rawVideoShellStartFailed`); parity `video.raw*` `session_failed`; H.1a SHIP_BLOCKER on OP13/CPH2583.
+- **Cause:** `wantsRawStillSurfacesInSession()` returned false for video-primary sessions (`leanVideoWarmup`); `fleetSupportsRawVideo` required matrix `sessionOk` while quick-tier matrix had false.
+- **Fix shipped:** `PreviewSessionSurfacePolicy` / `wantsRawVideoLane()` forces RAW surface attach; `RawVideoRecordingController` uses matrix `appEnabled` for runtime gate.
+- **Do not:** Re-enable lean-video warmup for RAW video lane; do not require `sessionOk` for runtime start without full-tier matrix refresh.
+- **Proves OK:** `hfr-runs/raw_video_verify_20260612_210437` · `hfr-runs/parity_sweep_20260613_011027` (Full PASS, shipBlockers=0) on CPH2583 `b5214fc6`
+- **Also test:** `pns_fleet_parity_sweep.ps1 -Mode Delta` after session changes; never parallel with chrome gate on one serial
+- **Touches:** `PreviewEngineScreen.kt`, `preview/session/PreviewSessionSurfacePolicy.kt`, `RawVideoRecordingController.kt`
+
 ---
 
 ## Superseded / historical

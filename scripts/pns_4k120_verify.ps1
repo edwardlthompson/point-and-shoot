@@ -12,22 +12,80 @@
 
 .PARAMETER SkipAssemble
 .PARAMETER SkipInstall
+.PARAMETER SkipFourK120GateCheck
+  Run strict 4K120 attempt even when capability probe class is S0 (expect fail).
 #>
 param(
     [string]$Serial = "",
     [string]$OutDir = "",
     [int]$MaxAttempts = 3,
     [switch]$SkipAssemble,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    [switch]$SkipFourK120GateCheck
 )
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
+$resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
+if (Test-Path -LiteralPath $resolve) { . $resolve -PrependToPath -Quiet }
+. (Join-Path $PSScriptRoot "pns_adb_serial.ps1")
+$Serial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot $PSScriptRoot -LogPrefix "4k120_verify"
+$pkg = "dev.pointandshoot"
+
+function Invoke-AdbIgnore([string[]]$CmdArgs) {
+    try {
+        if ($Serial) { & adb -s $Serial @CmdArgs } else { & adb @CmdArgs }
+    } catch { }
+}
+
 Push-Location $repoRoot
 try {
     $ts = Get-Date -Format "yyyyMMdd_HHmmss"
     if ($OutDir -eq "") { $OutDir = "hfr-runs\verify_4k120_$ts" }
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+
+    $gateOk = $true
+    $gateNote = "skip_gate_check"
+    if (-not $SkipFourK120GateCheck) {
+        $probeDir = Join-Path $OutDir "capability_probe"
+        $probeArgs = @{ OutDir = $probeDir }
+        if ($Serial) { $probeArgs.Serial = $Serial }
+        if ($SkipAssemble) { $probeArgs.SkipAssemble = $true }
+        if ($SkipInstall) { $probeArgs.SkipInstall = $true }
+        & (Join-Path $PSScriptRoot "pns_video_capability_probe.ps1") @probeArgs
+        $capabilityClass = "unknown"
+        $probePath = Join-Path $probeDir "probe.json"
+        if (Test-Path -LiteralPath $probePath) {
+            try {
+                $probeObj = Get-Content -LiteralPath $probePath -Raw | ConvertFrom-Json
+                if ($probeObj.capabilityClass) { $capabilityClass = [string]$probeObj.capabilityClass }
+            } catch {
+                $gateOk = $false
+                $gateNote = "probe parse failed: $($_.Exception.Message)"
+            }
+        } else {
+            $gateOk = $false
+            $gateNote = "probe.json missing (exit=$LASTEXITCODE)"
+        }
+        if ($gateOk) {
+            $gateOk = ($capabilityClass -ne "S0")
+            $gateNote = "capabilityClass=$capabilityClass hasEncoder4k120Any=$($probeObj.hasEncoder4k120Any)"
+        }
+        Write-Host "[4k120_verify] capability gate: $gateNote"
+        if (-not $gateOk) {
+            @{
+                schema = "pns.4k120_verify.v2"
+                pass = $false
+                skipped = $true
+                reason = "capabilityClass=S0"
+                gateNote = $gateNote
+                outDir = $OutDir
+            } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $OutDir "gate.json") -Encoding utf8
+            Write-Host "[4k120_verify] SKIPPED — no 4K120 encoder path on device (expected on S0-class stacks)."
+            Invoke-AdbIgnore @("shell", "am", "force-stop", $pkg)
+            exit 0
+        }
+    }
 
     $gateArgs = @{
         OnlyTest = "4K_120fps_MediaCodec"

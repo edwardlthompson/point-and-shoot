@@ -6,11 +6,78 @@ This document is for **AI coding agents** (Cursor and similar) working in this r
 
 **Changelog contract (mandatory):** User-visible milestones and release cuts must update **`CHANGELOG.md`** and **`scripts/changelog_coverage.v1.json`** in the **same commit**. Host gate: **`scripts/pns_changelog_gate.ps1`** (also runs inside **`pns_verify_toolchain.ps1`**). When bumping **`versionCode`**, add a dated release section and bump **`latestRelease`** in the coverage manifest.
 
+**Knowledge base (index):** [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) — canonical doc → code → gate map for capture, fleet, chrome, video, release, and agent ops. **Before broad refactors:** grep the index, then read **`docs/AGENT_REGRESSION_MEMORY.md`** for regression locks. Do not duplicate linked doc prose in new files.
+
 **Operational rule:** If a task can be done via `adb`, Gradle, or a repo script from a terminal in this workspace, **run it**. Only ask the human when something is **missing from the machine** (no device, no JDK, MCP server down, auth not completed) or **unsafe** (destructive prod action).
 
 **Device truth rule:** Do **not** tell the user a **fix or feature is delivered / done** until it is **verified on a real device over USB ADB** (install the build under test, exercise the path, and report script artifacts or log needles). If no device is online, say explicitly that **device verification was not run** and treat the change as **unverified**. Use repo scripts (`pns_photo_capture_verify`, `pns_in_app_video_verify`, `pns_chrome_ux_gate`, `pns_adb_preview_validate`, etc.) when they match the change; otherwise document the exact `adb` / `am start` steps you ran and what you observed.
 
 **Battery and heat rule (MANDATORY):** After **every** ADB testing session — success or failure — you **must close the app** to prevent battery drain and device overheating. The user may not be present to supervise. Use `adb shell am force-stop dev.pointandshoot` or equivalent cleanup in all scripts. **Never leave the camera app running after testing completes.** This applies to all automated scripts, verification runs, and manual ADB exercises.
+
+---
+
+## Template file map (Milestone T)
+
+Maps the Cursor **Project Initialization Prompt** template to this repo. **Do not** maintain parallel copies of the same rules — link to the canonical path and update in place.
+
+### Aliases (template name → repo)
+
+| Template name | Repo path | Role |
+|---------------|-----------|------|
+| `.cursorrules` | [`.cursor/rules/*.mdc`](.cursor/rules/) | Fragmented subsystem locks (`alwaysApply` on critical paths). No root `.cursorrules` file. |
+| `COMPLETED_TASKS.md` | [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) | Shipped work archive by feature + milestone (§29 = Milestone T) |
+| `DECISION_LOG.md` | [`docs/adr/`](docs/adr/) + [`DECISION_LOG.md`](DECISION_LOG.md) | Append-only architecture decisions |
+| MIT license | [`LICENSE`](LICENSE) | **Apache-2.0** intentionally (see Milestone T ADR-0005 when landed) |
+
+### File map and update policy
+
+| Template file | Repo path | When to update |
+|---------------|-----------|----------------|
+| `AGENTS.md` | [`AGENTS.md`](AGENTS.md) | New/changed automation scripts, CRITICAL locks, template map |
+| `AGENT_MEMORY.md` | [`AGENT_MEMORY.md`](AGENT_MEMORY.md) | Session startup, milestone boundary, handoff to fresh chat only |
+| `KNOWLEDGE_BASE.md` | [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) | New SoT doc, code entry point, or gate script; milestone boundary |
+| `PROMPT_LIBRARY.md` | [`PROMPT_LIBRARY.md`](PROMPT_LIBRARY.md) | New high-value agent workflow prompt |
+| `docs/adr/` | [`docs/adr/`](docs/adr/) | Major architectural trade-off — **append** ADR; never rewrite history |
+| `DECISION_LOG.md` | [`DECISION_LOG.md`](DECISION_LOG.md) | Index when adding ADR-0008+ |
+| `BUILD_PLAN.md` | [`BUILD_PLAN.md`](BUILD_PLAN.md) | Active sprint tasks, gates, promotion from parity intake |
+| `PROBE_BUILD_PLAN.md` | [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md) | Probe/automation lifecycle; §5 blockers |
+| Regression ledger | [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) | After USB-proven fix or reverted experiment (`REG-*` row, same commit) |
+| `.cursor-session-state` | [`.cursor-session-state.example`](.cursor-session-state.example); gitignored live file | Milestone end / architectural pivot; delete after handoff |
+| Technical settings | [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) | Any settings/constants/mode behavior change (same commit) |
+| Changelog | [`CHANGELOG.md`](CHANGELOG.md) + [`scripts/changelog_coverage.v1.json`](scripts/changelog_coverage.v1.json) | User-visible ship / `versionCode` bump (same commit) |
+| `CONTRIBUTING.md` | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Trunk flow, pre-commit install, CI checklist |
+| Pre-commit | [`.pre-commit-config.yaml`](.pre-commit-config.yaml) | New local hook or CI mirror change |
+| Dev container | [`.devcontainer/`](.devcontainer/) | JDK/Python/SDK baseline change |
+| `CODEOWNERS` | [`.github/CODEOWNERS`](.github/CODEOWNERS) | Ownership path changes |
+
+### Update cadence (template §3)
+
+Modify memory/plan files **only** at:
+
+1. **Session startup** — refresh [`AGENT_MEMORY.md`](AGENT_MEMORY.md): active milestone, device, last gates, blockers.
+2. **Milestone boundary** — tick [`BUILD_PLAN.md`](BUILD_PLAN.md); archive to [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md); refresh [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) index if SoT paths changed.
+3. **Architectural pivot** — new [`docs/adr/`](docs/adr/) entry; cross-link from [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md).
+
+**Do not** update these on every commit — avoids documentation tax and drift. **Exception:** [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) append on proven fixes; [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) and changelog on every settings/ship change (hard rules).
+
+### `.cursor/rules/` inventory (replaces `.cursorrules`)
+
+| Rule file | Locks |
+|-----------|--------|
+| `agent-automation-hub.mdc` | Points to this file + `scripts/` |
+| `agent-regression-memory.mdc` | REG ledger read/append |
+| `adb-device-env.mdc` | `pns_adb_device.env` |
+| `changelog-coverage.mdc` | CHANGELOG + coverage manifest |
+| `dng-save-pipeline-lock.mdc` | DNG loadability |
+| `dng-logical-multicam-metadata-lock.mdc` | DngMetadataResolver pairing |
+| `dodge-tele-focal-routing.mdc` | Tele 73/85/150 mm |
+| `fleet-generic-policy.mdc` | Fleet matrix SoT |
+| `fleet-ui-visibility.mdc` | Consumer chrome gates |
+| `github-release.mdc` | Release workflow |
+| `pns-technical-settings.mdc` | PNS_TECHNICAL_SETTINGS sync |
+| `preview-chrome-ui-lock.mdc` | Preview chrome layout |
+| `preview-readout-video-mode-lock.mdc` | Photo vs video readout |
+| `session-checkpoint.mdc` | Session handoff / `.cursor-session-state` |
 
 ---
 
@@ -90,7 +157,13 @@ Requires AnTuTu Benchmark installed on device (Play Store). Always **`force-stop
 
 ## CRITICAL — Agent regression memory (whack-a-mole prevention)
 
-**Before** capture / DNG / GLES preview / fleet / session changes: read **`docs/AGENT_REGRESSION_MEMORY.md`** (grep your target files). **After** any USB-proven fix or reverted experiment: **append a `REG-*` row** in the same commit (`Do not`, `Proves OK`, `Also test`).
+### Before editing (read order)
+
+1. **[`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md)** — grep for canonical doc, code entry, and gate script for your area.
+2. **[`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md)** — grep target files / subsystem; obey `Do not` rows.
+3. **Relevant `.cursor/rules/*-lock.mdc`** — see [Template file map](#template-file-map-milestone-t) inventory.
+
+**Before** capture / DNG / GLES preview / fleet / session changes: complete steps 1–3. **After** any USB-proven fix or reverted experiment: **append a `REG-*` row** in the same commit (`Do not`, `Proves OK`, `Also test`).
 
 **Rule:** `.cursor/rules/agent-regression-memory.mdc` · Deep bisect tables: **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 · DNG loadability: **`docs/DNG_OPENABILITY_REGRESSIONS.md`**
 
@@ -119,7 +192,7 @@ Full avoidance table + artifact paths: **`docs/REVERTED_FEATURES_RESTORE_LIST.md
 
 **legacy SKU topology (confirmed May 2026):** Cameras 2 (UW), 3 (wide), 4 (tele) are **independent logical camera IDs** — not children of a logical multi-camera. `logicalCharacteristics.physicalCameraIds` returns **empty** for all of them. `DngMetadataResolver` therefore always produces `picked=null, pairedPhysical=false, children=` — the physical-pairing path is never exercised on this device. The dark/green DNG cast on UW/tele is a **color calibration issue** in the `CameraCharacteristics` of those camera IDs, not a metadata-pairing bug.
 
-**`allowPhysicalTotalResultPairing` — unlocked (user-authorized May 2026):** All three `resolveForDngSave` call sites in `PreviewEngineScreen.kt` now pass `allowPhysicalTotalResultPairing = true`. The resolver is safe: it only uses physical chars+result when `physicalCameraTotalResults` actually contains the picked id; otherwise falls back to logical+logical.
+**`allowPhysicalTotalResultPairing` — locked `false` (shipped):** All six `resolveForDngSave` / `ReferenceAppDngCreatorPair.forSave` call sites in `PreviewEngineScreen.kt` pass **`DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING`** (`false`). The resolver only uses physical chars+result when **`allowPhysicalTotalResultPairing`** is **true** and `physicalCameraTotalResults` contains the picked id; otherwise logical+logical. Do **not** flip to **true** without maintainer USB proof and physically pinned RAW outputs (see `.cursor/rules/dng-logical-multicam-metadata-lock.mdc`).
 
 **Active investigation:** `Dng12Saver` now logs `dng color diag` (tag `PNS.Dng`) with `cm1/cm2/fm1/fm2` matrices and black/white levels for each capture. Grep this to compare wide vs UW/tele color transforms and identify the miscalibration.
 
@@ -242,12 +315,16 @@ This is **preview/correctness**, not Gradle compile failures. **May 2026 regress
 | `.\gradlew.bat :app:detektBaseline` | Regenerate Detekt baseline after bulk suppressions (commit the updated XML intentionally). |
 | `.\gradlew.bat :app:lintDebug` | Android Lint (baseline `app/lint-baseline.xml`). |
 | `.\gradlew.bat :app:updateLintBaseline` | Refresh lint baseline when triaging existing findings. |
+| `.\gradlew.bat :app:testDebugUnitTest` | JVM unit tests (`app/src/test`). |
+| `.\gradlew.bat :app:koverVerifyDebug` | **40% line floor** on scoped fleet/DNG/bracket helpers — see [`docs/adr/0007-code-style-gate.md`](docs/adr/0007-code-style-gate.md). |
 | `.\gradlew.bat :app:assembleRelease` | Release APK with **R8** shrink + obfuscation; `app/proguard-rules.pro` must stay **UTF-8** (no BOM). |
 | `.\gradlew.bat :app:generateBaselineProfile` | Macrobenchmark baseline + startup profiles (USB device); outputs under `app\src\release\generated\baselineProfiles\`. Prefer **`scripts\pns_baseline_profile_generate.ps1`**. |
 
 Some Gradle tasks in the baseline-profile graph (e.g. **`mergeReleaseBaselineProfile`**) can still invoke **connected** instrumentation; flaky USB or **adb** client/server version mismatches may surface as **`Connection reset`** / **`Connection refused`** from ddmlib — retry with a stable cable or aligned **adb** builds.
 
-`pns_verify_toolchain.ps1 -RunTests` runs **Detekt**, **lintDebug**, and **unit tests** after `assembleDebug`. **SBOM:** `.github/workflows/sbom-monthly.yml` runs `pns_sbom.ps1 -Verify` on a schedule; pushes still verify SBOM via the toolchain script.
+`pns_verify_toolchain.ps1 -RunTests` runs **Detekt**, **lintDebug**, **unit tests**, and **Kover verify** after `assembleDebug`. **SBOM:** `.github/workflows/sbom-monthly.yml` runs `pns_sbom.ps1 -Verify` on a schedule; pushes still verify SBOM via the toolchain script.
+
+**No checked-in `androidTest/`:** there is no instrumented UI test tree in-repo. Capture, DNG, preview chrome, and fleet matrix integration proof use **USB ADB scripts** (`pns_photo_capture_verify.ps1`, `pns_chrome_ux_gate.ps1`, `pns_fleet_matrix_scan.ps1`, …) — see [`CONTRIBUTING.md`](CONTRIBUTING.md) and the automation table below.
 
 ---
 
@@ -262,6 +339,7 @@ Some Gradle tasks in the baseline-profile graph (e.g. **`mergeReleaseBaselinePro
 
 - If `-Serial` is omitted, scripts read `PNS_ADB_SERIAL` from `scripts\pns_adb_device.env`.
 - If more than one device is online, set `PNS_ADB_SERIAL` or pass `-Serial` where the script supports it.
+- **`scripts\pns_adb_serial.ps1`** — dot-source module with **`Read-PnsAdbSerialFromEnvFile`** and **`Resolve-PnsAdbSerial`**; high-traffic gates should use this instead of copy-paste env parsing.
 
 **Always-applied workspace rule:** `.cursor/rules/adb-device-env.mdc` — keep automation aligned with it (env file name, `PNS_ADB_SERIAL`, sideload/validate/milestone scripts).
 
@@ -305,6 +383,8 @@ Example over USB:
 
 Use these from repo root unless a script documents otherwise.
 
+**USB gate SKIP contract:** Capability or host-tool pre-checks that prove a gate does not apply on the connected stack write **`gate.json`** with **`skipped=true`** and exit **0** (orchestrators treat as pass-with-skip, not fail). Examples: **`pns_4k_regular_verify.ps1`** (matrix **`fourKRegular.sessionOk=false`**), **`pns_4k120_verify.ps1`** (capability class **S0**), **`pns_jpeg_icc_verify.ps1`** (host **exiftool** missing). Use **`-Skip*GateCheck`** switches to force the attempt anyway. Real capture/encode failures still exit **1**.
+
 | Script | Use when |
 |--------|----------|
 | `pns_sideload_and_launch.ps1` | Build (optional), `adb install -r`, grant camera, launch app (`-LaunchScreen preview` default). Prepends SDK **platform-tools** to PATH when **`pns_resolve_adb.ps1`** is present. |
@@ -340,7 +420,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_changelog_gate.ps1` | Host **CHANGELOG coverage** — latest release header, required milestone mentions, `versionCode` sync vs `scripts/changelog_coverage.v1.json` (wired in `pns_verify_toolchain.ps1`). |
 | `pns_fleet_matrix_diff.ps1` | Milestone **16.3** — Markdown diff of two **`fleet_device_matrix.json`** files (HFR, RAW, roles, **`featureGates`**, encoder stub). |
 | `fleet_matrix_schema_validate.py` | Milestone **16.12** — structural validation of pulled matrix JSON (schema v1, sorted **`cameraId`** on full tier). |
-| `pns_legacy_regression_pack.ps1` | Milestone **16.7** — optional legacy device lane: **`pns_fleet_matrix_scan -LegacyOp13FleetPolicy`** + **`pns_aux_dng_capture_analyze`** + parity (not default on CPH2583). |
+| `pns_legacy_regression_pack.ps1` | Milestone **16.7** — canonical wrapper → **`pns_op13_regression_pack.ps1`** (optional legacy device lane: matrix + aux DNG + parity; not default on CPH2583). |
 | `pns_gen_camera2_keys_reference.ps1` | Regenerate **`docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md`** from **`local.properties` → sdk.dir** `platforms/android-<N>/android.jar`; **`<N>` = `compileSdk`** parsed from **`app/build.gradle.kts`** (override **`-ApiLevel`**). |
 | `pns_ae_highlight_probe_adb.ps1` | Cold-start **`pns_screen=probehub`** + **`pns_auto_export_probe`**, pull **`PROBE_EXPORT_LATEST.md`**, write **`ae_highlight_probe_summary.txt`** + **`ae_highlight_probe.json`** (`summary` path); optional **`-AlsoRootCapabilityAdb`**. **Debuggable APK** required for `run-as`. |
 | `pns_face_meter_probe.ps1` | Cold-start **`pns_screen=facemeter`** + **`pns_autofacemeter`**, wait for **`FACE_METER_PROBE_DONE`** in **`PNS.SWEEP_SIGNAL`**, pull **`face_meter_probe_*.{md,json}`** (face / eye / metering inventory). Artifacts under **`hfr-runs\face_meter_probe_*`**. |
@@ -372,7 +452,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_video_stabilization_test.ps1` | **VF.2** — video-primary preview + **`pns_preview_video_stabilization`**; greps **`PNS.VideoEffects videoStabilization`**. Artifacts **`hfr-runs/video_stabilization_test_*`**. |
 | `pns_video_quality_gate.ps1` | **VF** gate: JVM + **`pns_mediacodec_hfr_verify.ps1 -GateProfile vf`** (H.264/H.265 @ 60, HEVC **120/240/480** @ 1080p, **ffprobe** audio+video on pulled MP4) + AV1 probe + stabilization. Requires **ffprobe** on PATH. Artifacts **`hfr-runs/video_quality_gate_*`**. |
 | `pns_mediacodec_hfr_verify.ps1` | HFR/codec matrix; **`-GateProfile vf`** = VF subset; **`-RequireFfprobeAv`** = fail without audio+video streams in MP4; emits 4K120 truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`) in `summary.json` for `4K_120fps_MediaCodec`. |
-| `pns_4k120_verify.ps1` | USB one-shot **4K @ 120** H.264 MediaCodec on Sony-class devices — wraps **`-OnlyTest 4K_120fps_MediaCodec`** + **ffprobe**. |
+| `pns_4k120_verify.ps1` | USB one-shot **4K @ 120** H.264 MediaCodec on Sony-class devices — wraps **`-OnlyTest 4K_120fps_MediaCodec`** + **ffprobe**. **Exit 0 SKIP** when capability class **S0** (no 4K120 encoder path). |
 | `pns_4k120_endurance.ps1` | M24 endurance sweep for strict 4K120 (`bestPassSec`, terminal reason) via stepped `pns_mediacodec_hfr_verify` runs; artifacts `hfr-runs/4k120_endurance_*/endurance_report.{json,md}`. |
 | `pns_m24_gate.ps1` | Milestone 24 orchestrator: capability probe → strict 4K120 → endurance → parity Full → toolchain verify (`-HostOnly` for CI host lane). |
 | `pns_aux_dng_capture_analyze.ps1` | M14/M23/M73 scripted RAW stills, pull DNGs, **`dng_desktop_open_gate.py`** (13.3g **hard fail**), **`dng_tiff_integrity_check.py`**, **`dng_referenceapp_parity_gate.py`** (informational unless **`-RequireProshotParity`**), informational **`structural_verify.py`**. **`pns_preview_jpeg_companion=false`**. |
@@ -396,6 +476,14 @@ Use these from repo root unless a script documents otherwise.
 | `pns_failure_matrix_smoke.ps1` | Failure-matrix smoke. |
 | `pns_hfr_autorun.ps1` | HFR autorun (`-PerfReport`, **`-PerfReportApkVariant Release`**, etc.). |
 | `pns_cold_start_capture.ps1` | **`pns_hfr_autorun.ps1 -PerfReport`** → **`perf-runs/perf_*.md`** (or **`-Release`** → **`perf_release_*.md`** + assemble/install Release); optional **`-Serial`**, **`-SkipGradleBuild`**. |
+| `pns_perf_budget_host_gate.ps1` | Milestone **T.8** — `PERFORMANCE_BUDGETS.md` ↔ `PerfBudget.kt` / `PerfBudgetTest` drift (wired in **`pns_verify_toolchain.ps1`**). |
+| `pns_fdroid_metadata_validate.ps1` | Milestone **T.10** — `metadata/metadata.yml` + en-US store assets vs `app/build.gradle.kts`; wired in **`pns_prerelease_gate.ps1`**. |
+| `pns_repro_build_verify.ps1` | Milestone **T.11** — version sync, lockfile, PRIVACY/NOTICE README links, SBOM purl fingerprint; optional **`-ApkPath`** cert class. |
+| `pns_local_dev_parallel.ps1` | Milestone **T.15** — Tier 0 host gates (no Gradle); **PS7+** runs jobs in parallel, **PS5.1** falls back to sequential — see **`docs/LOCAL_FIRST_DEV_LOOP.md`**. |
+| `pns_agent_worktree_bootstrap.ps1` | Milestone **T.15** — `-Create` / `-Remove` / `-List` for `feature/agent-*` worktrees. |
+| `pns_milestone_t_gate.ps1` | Milestone **T** closure — `pns_local_dev_parallel.ps1` + `pns_prerelease_gate.ps1 -SkipGradle`; writes `hfr-runs/milestone_t_gate_*/`. |
+| `pns_prerelease_gate.ps1` | Milestone **T.12** — full pre-release orchestrator; **`-SkipGradle`** host subset; **`-IncludeUsb`** USB subset. |
+| `pns_a11y_dump_gate.ps1` | USB preview a11y — `uiautomator dump`; focusable buttons must have `content-desc` (chrome locked; not CI). |
 | `pns_compose_layout_trace_capture.ps1` | Warm **preview** launch then **`pns_capture_perfetto_light.ps1`** with **`gfx view sched wm input`** (Compose / layout-oriented Perfetto slice). |
 | `pns_capture_perfetto_light.ps1` | Light Perfetto capture. |
 | `pns_pull_dcim_captures.ps1` | Pull captures from DCIM. |
@@ -450,6 +538,34 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 
 ---
 
+## Local-first dev loop (Tier 0–4)
+
+**Do not wait on CI** for doc/fixture/metadata drift. This repo is **Kotlin/Gradle + PowerShell** — not a Python monorepo (`ruff`/`mypy`/`pyright` do not apply globally; Python runs only inside specific scripts).
+
+| Tier | Script | When |
+|------|--------|------|
+| **0** | `pns_local_dev_parallel.ps1` | While editing — 7 host gates in parallel (~5–15s) |
+| **1** | `pns_prerelease_gate.ps1 -SkipGradle` | Before commit — full prerelease host lane |
+| **2** | `pns_verify_toolchain.ps1 -RunTests` | Before push — Gradle + Detekt + lint + unit tests + Kover |
+| **3** | USB gates (sequential, one serial) | Capture **or** chrome — never parallel on same device |
+| **4** | `pns_prerelease_gate.ps1` (+ `-IncludeUsb` when device online) | Pre-release / ship |
+
+Full matrix: **`docs/LOCAL_FIRST_DEV_LOOP.md`**. VS Code tasks: **Run Task → P&S: …**
+
+---
+
+## Multi-agent parallel orchestration (up to 8 agents)
+
+Before splitting a milestone across parallel Cursor agents or Cloud VMs:
+
+1. **Worktree + branch** — `feature/agent-<slug>` via `pns_agent_worktree_bootstrap.ps1 -Create`
+2. **Asymmetric scoping** — no overlapping file paths between concurrent agents
+3. **Shared schema lock** — one sequential agent merges `libs.versions.toml`, fleet matrix/catalog schema, DNG/session locks, version/changelog ship files **before** parallel workers start
+
+Full guardrails: **`docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md`** · rule **`.cursor/rules/multi-agent-parallel.mdc`** · prompts **`PROMPT_LIBRARY.md`** §12–§13
+
+---
+
 ## Cursor workspace rules (do not ignore)
 
 | Rule | Summary |
@@ -464,6 +580,8 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 | `.cursor/rules/changelog-coverage.mdc` | **`CHANGELOG.md`** + **`scripts/changelog_coverage.v1.json`** must stay in sync on milestone ship / `versionCode` bump; gate: **`pns_changelog_gate.ps1`**. |
 | `.cursor/rules/fleet-generic-policy.mdc` | **Fleet matrix SoT**; CPH2583 primary; legacy device optional regression; no new legacy device-only gates without plugin. |
 | `.cursor/rules/agent-regression-memory.mdc` | Read/update **`docs/AGENT_REGRESSION_MEMORY.md`** before risky edits; append row after proven fixes. |
+| `.cursor/rules/multi-agent-parallel.mdc` | Parallel agents: worktrees, asymmetric file scoping, shared schema lock — **`docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md`**. |
+| `.cursor/rules/session-checkpoint.mdc` | Optional milestone handoff via `.cursor-session-state` + **`AGENT_MEMORY.md`**. |
 | `docs/preview-chrome-layout-style-guide.md` | **Canonical** portrait stack: inset band, 3:4 finder flex, dividers, readout, **7×3** quick grid + focal row (matches the lock rule). |
 
 ---

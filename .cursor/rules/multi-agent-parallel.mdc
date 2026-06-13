@@ -1,0 +1,26 @@
+---
+description: Multi-agent parallel work — worktrees, asymmetric file scoping, shared schema lock
+globs:
+alwaysApply: true
+---
+
+# Multi-agent parallel orchestration
+
+Before launching **2+ parallel Cursor agents** on this repo, read **`docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md`**.
+
+## Mandatory
+
+1. **Worktree + branch** — `feature/agent-<task-slug>` via `scripts/pns_agent_worktree_bootstrap.ps1 -Create`; never parallel-write the same clone on `main`.
+2. **Asymmetric scoping** — no overlapping file paths between concurrent agents; serialize if two tasks need the same file.
+3. **Shared schema lock** — one sequential agent merges contract changes (`gradle/libs.versions.toml`, fleet matrix/catalog schema, DNG/session locks, version/changelog ship files, ADRs) **before** parallel feature agents start.
+
+## USB
+
+Never run `pns_capture_pipeline_verify` and `pns_chrome_ux_gate` **in parallel** on one ADB serial.
+
+## Local gates per worktree
+
+- **Tier 0:** `pns_local_dev_parallel.ps1`
+- **Before merge:** `pns_verify_toolchain.ps1 -RunTests` on integration branch
+
+See **`docs/LOCAL_FIRST_DEV_LOOP.md`**.

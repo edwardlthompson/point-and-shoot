@@ -15,6 +15,18 @@ class RawCaptureSupportTest {
      */
 
     @Test
+    fun defaultRawTierOrder_matchesLockedRegressionOrder() {
+        assertEquals(
+            listOf(
+                ImageFormat.RAW12,
+                ImageFormat.RAW_SENSOR,
+                ImageFormat.RAW10,
+            ),
+            RawCaptureSupport.DEFAULT_RAW_STREAM_TIER_ORDER.toList(),
+        )
+    }
+
+    @Test
     fun pickRawOutputFromMaps_returnsNullWhenEmpty() {
         assertNull(
             RawCaptureSupport.pickRawOutputFromMaps(

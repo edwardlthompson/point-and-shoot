@@ -383,108 +383,23 @@ object InAppVideoFormatSelection {
             }
 
         if (catalog.isEmpty()) {
-            val fps =
-                targetFps.coerceIn(15, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
-            return VideoFormat(
-                codec = VideoCodec.H264,
-                resolution = recordSize,
-                frameRate = fps,
-                bitrate = VideoFormatPresets.calculateBitrate(recordSize.width, recordSize.height, fps, VideoCodec.H264),
-            )
+            return fallbackH264Format(recordSize, targetFps)
         }
 
         val forcedCodec =
-            when {
-                adbForceAv1 && supportsAv1 -> VideoCodec.AV1
-                chrome.inAppVideoCodecOrdinal >= 0 ->
-                    VideoCodec.entries.getOrNull(chrome.inAppVideoCodecOrdinal)
-                else -> null
-            }?.takeUnless { !hfrSessionOk && it != VideoCodec.H264 }
+            resolveForcedCodec(chrome, adbForceAv1, supportsAv1, hfrSessionOk)
+        pickForcedCodecMatch(catalog, forcedCodec, recordSize, targetFps)?.let { return it }
 
-        if (forcedCodec != null) {
-            catalog.firstOrNull {
-                it.codec == forcedCodec &&
-                    it.frameRate == targetFps &&
-                    it.resolution.width == recordSize.width &&
-                    it.resolution.height == recordSize.height
-            }?.let { forced ->
-                Log.i(
-                    TAG,
-                    "inAppVideoFormat=forcedCodec=${forced.codec} label=${forced.getLabel()} " +
-                        "${forced.resolution.width}x${forced.resolution.height}@${forced.frameRate}",
-                )
-                return forced
-            }
-        }
+        pickUserPinnedFormat(catalog, chrome, recordSize, targetFps, wantDcg, adbAutomationVideoTenBit)
+            ?.let { return it }
 
-        val pinned =
-            DeviceAdaptedCatalog.resolveInAdaptedCatalog(
-                catalog = catalog,
-                chrome = chrome,
-                fallbackWidth = recordSize.width,
-                fallbackHeight = recordSize.height,
-                fallbackFps = targetFps,
-            )
-        if (
-            pinned != null &&
-            pinned.resolution.width == recordSize.width &&
-            pinned.resolution.height == recordSize.height &&
-            pinned.frameRate == targetFps
-        ) {
-            if (!wantDcg || pinned.isDcg) {
-                if (!adbAutomationVideoTenBit || pinned.isTenBit || !pinned.isDcg) {
-                    Log.i(
-                        TAG,
-                        "inAppVideoFormat=userPick label=${pinned.getLabel()} " +
-                            "${pinned.resolution.width}x${pinned.resolution.height}@${pinned.frameRate}",
-                    )
-                    return pinned
-                }
-            }
-        }
-
-        if (wantDcg || adbAutomationVideoTenBit) {
-            val requestedFormat =
-                catalog.firstOrNull { fmt ->
-                    fmt.resolution.width == recordSize.width &&
-                        fmt.resolution.height == recordSize.height &&
-                        fmt.frameRate == targetFps &&
-                        (!wantDcg || fmt.isDcg) &&
-                        (!adbAutomationVideoTenBit || fmt.isTenBit || fmt.isDcg)
-                }
-                    ?: catalog.firstOrNull { fmt ->
-                        fmt.frameRate == targetFps &&
-                            (!wantDcg || fmt.isDcg) &&
-                            (!adbAutomationVideoTenBit || fmt.isTenBit || fmt.isDcg)
-                    }
-            if (requestedFormat != null) {
-                Log.i(
-                    TAG,
-                    "inAppVideoFormat=requestedPreference label=${requestedFormat.getLabel()} dcg=${requestedFormat.isDcg} " +
-                        "tenBit=${requestedFormat.isTenBit} fps=${requestedFormat.frameRate} wantDcg=$wantDcg " +
-                        "adbTenBit=$adbAutomationVideoTenBit",
-                )
-                return requestedFormat
-            }
-        }
+        pickDcgAutomationFormat(catalog, recordSize, targetFps, wantDcg, adbAutomationVideoTenBit)
+            ?.let { return it }
 
         val default =
             DeviceAdaptedCatalog.defaultVideoFormat(catalog, targetFps, hfrSessionOk)
                 ?: if (!hfrSessionOk) {
-                    val fps =
-                        targetFps.coerceIn(15, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
-                    VideoFormat(
-                        codec = VideoCodec.H264,
-                        resolution = recordSize,
-                        frameRate = fps,
-                        bitrate =
-                            VideoFormatPresets.calculateBitrate(
-                                recordSize.width,
-                                recordSize.height,
-                                fps,
-                                VideoCodec.H264,
-                            ),
-                    )
+                    fallbackH264Format(recordSize, targetFps)
                 } else {
                     catalog.first()
                 }
@@ -494,6 +409,115 @@ object InAppVideoFormatSelection {
                 "tenBit=${default.isTenBit} fps=${default.frameRate}",
         )
         return default
+    }
+
+    private fun resolveForcedCodec(
+        chrome: PreviewChromePreferences,
+        adbForceAv1: Boolean,
+        supportsAv1: Boolean,
+        hfrSessionOk: Boolean,
+    ): VideoCodec? =
+        when {
+            adbForceAv1 && supportsAv1 -> VideoCodec.AV1
+            chrome.inAppVideoCodecOrdinal >= 0 ->
+                VideoCodec.entries.getOrNull(chrome.inAppVideoCodecOrdinal)
+            else -> null
+        }?.takeUnless { !hfrSessionOk && it != VideoCodec.H264 }
+
+    private fun pickForcedCodecMatch(
+        catalog: List<VideoFormat>,
+        forcedCodec: VideoCodec?,
+        recordSize: Size,
+        targetFps: Int,
+    ): VideoFormat? {
+        if (forcedCodec == null) return null
+        return catalog.firstOrNull {
+            it.codec == forcedCodec &&
+                it.frameRate == targetFps &&
+                it.resolution.width == recordSize.width &&
+                it.resolution.height == recordSize.height
+        }?.also { forced ->
+            Log.i(
+                TAG,
+                "inAppVideoFormat=forcedCodec=${forced.codec} label=${forced.getLabel()} " +
+                    "${forced.resolution.width}x${forced.resolution.height}@${forced.frameRate}",
+            )
+        }
+    }
+
+    private fun pickUserPinnedFormat(
+        catalog: List<VideoFormat>,
+        chrome: PreviewChromePreferences,
+        recordSize: Size,
+        targetFps: Int,
+        wantDcg: Boolean,
+        adbAutomationVideoTenBit: Boolean,
+    ): VideoFormat? {
+        val pinned =
+            DeviceAdaptedCatalog.resolveInAdaptedCatalog(
+                catalog = catalog,
+                chrome = chrome,
+                fallbackWidth = recordSize.width,
+                fallbackHeight = recordSize.height,
+                fallbackFps = targetFps,
+            )
+        if (pinned == null || !matchesRecordTarget(pinned, recordSize, targetFps)) {
+            return null
+        }
+        if (wantDcg && !pinned.isDcg) return null
+        if (adbAutomationVideoTenBit && !pinned.isTenBit && pinned.isDcg) return null
+        Log.i(
+            TAG,
+            "inAppVideoFormat=userPick label=${pinned.getLabel()} " +
+                "${pinned.resolution.width}x${pinned.resolution.height}@${pinned.frameRate}",
+        )
+        return pinned
+    }
+
+    private fun pickDcgAutomationFormat(
+        catalog: List<VideoFormat>,
+        recordSize: Size,
+        targetFps: Int,
+        wantDcg: Boolean,
+        adbAutomationVideoTenBit: Boolean,
+    ): VideoFormat? {
+        if (!wantDcg && !adbAutomationVideoTenBit) return null
+        val requestedFormat =
+            catalog.firstOrNull { fmt ->
+                fmt.resolution.width == recordSize.width &&
+                    fmt.resolution.height == recordSize.height &&
+                    fmt.frameRate == targetFps &&
+                    (!wantDcg || fmt.isDcg) &&
+                    (!adbAutomationVideoTenBit || fmt.isTenBit || fmt.isDcg)
+            }
+                ?: catalog.firstOrNull { fmt ->
+                    fmt.frameRate == targetFps &&
+                        (!wantDcg || fmt.isDcg) &&
+                        (!adbAutomationVideoTenBit || fmt.isTenBit || fmt.isDcg)
+                }
+        return requestedFormat?.also {
+            Log.i(
+                TAG,
+                "inAppVideoFormat=requestedPreference label=${it.getLabel()} dcg=${it.isDcg} " +
+                    "tenBit=${it.isTenBit} fps=${it.frameRate} wantDcg=$wantDcg " +
+                    "adbTenBit=$adbAutomationVideoTenBit",
+            )
+        }
+    }
+
+    private fun matchesRecordTarget(format: VideoFormat, recordSize: Size, targetFps: Int): Boolean =
+        format.resolution.width == recordSize.width &&
+            format.resolution.height == recordSize.height &&
+            format.frameRate == targetFps
+
+    private fun fallbackH264Format(recordSize: Size, targetFps: Int): VideoFormat {
+        val fps = targetFps.coerceIn(15, VideoRecordingController.IN_APP_VIDEO_PREVIEW_CAP_FPS)
+        return VideoFormat(
+            codec = VideoCodec.H264,
+            resolution = recordSize,
+            frameRate = fps,
+            bitrate = VideoFormatPresets.calculateBitrate(recordSize.width, recordSize.height, fps, VideoCodec.H264),
+        )
     }
 
 }

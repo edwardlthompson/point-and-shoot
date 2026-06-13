@@ -45,6 +45,7 @@
 12. [GLES preview geometry](#12-gles-preview-geometry)
 13. [Diagnostics log tags](#13-diagnostics-log-tags)
 14. [Fleet UI visibility (M17)](#14-fleet-ui-visibility-m17)
+15. [Accessibility (a11y)](#15-accessibility-a11y)
 
 ---
 
@@ -247,7 +248,7 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 | Setting | In-tree value | Call sites |
 |---------|---------------|------------|
-| `allowPhysicalTotalResultPairing` | **`false`** | All `resolveForDngSave` in `PreviewEngineScreen.kt` |
+| `allowPhysicalTotalResultPairing` | **`false`** (`DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING`) | All `resolveForDngSave` / `ReferenceAppDngCreatorPair.forSave` in `PreviewEngineScreen.kt` |
 | `usePhysicalChildRawStreamMapForLogicalSession` | **`false`** | `pickRawOutputForPreviewSession` |
 | Pairing rule | **logical `CameraCharacteristics` + logical `TotalCaptureResult`** unless RAW outputs are **physically pinned** and USB proof opts in | `DngMetadataResolver` |
 
@@ -737,6 +738,21 @@ Details: **`AGENTS.md`** — CRITICAL GLES preview aspect.
 **Hub search:** `ProbeHubSearch.kt` indexes hub menu + catalog + chrome settings; pick navigates to matrix Features tab, HUD/settings, or preview settings rail with **`rememberSettingHighlightFlash`** (3× pulse).
 
 **Do not:** Remove locked 7×3 slot definitions when hiding features; use empty `Box`. Do not add legacy SKU-only visibility branches without `FleetDevicePolicy` plugin.
+
+---
+
+## 15. Accessibility (a11y)
+
+**Code:** `AboutScreenA11y.kt`, `ChromeSettingsA11y.kt` — stable `contentDescription` strings pinned by JVM tests.
+
+| Surface | Object | Strings | Consumers |
+|---------|--------|---------|-----------|
+| About / heritage | `AboutScreenA11y` | `BACK`, `RELEASE_NOTES`, `CHANGELOG`, `PRIVACY`, `VENMO` | `AboutScreen.kt` external link chips |
+| Settings search | `ChromeSettingsA11y` | `SEARCH_FIELD`, `SEARCH_ICON` | `ChromeSettingsSearch.kt` |
+
+**Tests:** `AboutScreenA11yTest.kt`, `ChromeSettingsSearchA11yTest.kt` — assert non-blank descriptions; `EXTERNAL_LINK_DESCRIPTIONS` list completeness.
+
+**Policy:** New preview/settings chrome that exposes tappable icons or external links must add constants here (not inline literals) and extend the matching JVM test in the same commit.
 
 ---
 

@@ -1,8 +1,8 @@
 ﻿{
     "schema":  "pns.fleet_parity_debt_ledger.v2",
-    "generatedUtc":  "2026-06-06T17:14:08.6115803Z",
+    "generatedUtc":  "2026-06-13T01:17:06.4422448Z",
     "runsRoot":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs",
-    "reportCount":  129,
+    "reportCount":  133,
     "rowCount":  115,
     "actionableRowCount":  115,
     "summary":  {
@@ -116,11 +116,11 @@
                      "closurePriority":  2,
                      "workType":  "AppFeature",
                      "actionable":  true,
-                     "recurrence":  71,
+                     "recurrence":  72,
                      "firstSeenUtc":  "2026-06-01T08:27:56.1370648-04:00",
-                     "lastSeenUtc":  "2026-06-06T12:41:31.7880705-04:00",
+                     "lastSeenUtc":  "2026-06-06T13:28:31.4606865-04:00",
                      "modes":  {
-                                   "Full":  69,
+                                   "Full":  70,
                                    "Unknown":  2
                                },
                      "devices":  {
@@ -162,7 +162,7 @@
                                                          },
                                      "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp":  {
                                                                                          "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
-                                                                                         "count":  2
+                                                                                         "count":  3
                                                                                      }
                                  },
                      "sampleArtifacts":  [
@@ -214,11 +214,11 @@
                      "closurePriority":  2,
                      "workType":  "AppFeature",
                      "actionable":  true,
-                     "recurrence":  70,
+                     "recurrence":  71,
                      "firstSeenUtc":  "2026-06-01T08:27:56.1370648-04:00",
-                     "lastSeenUtc":  "2026-06-06T12:41:31.7880705-04:00",
+                     "lastSeenUtc":  "2026-06-06T13:28:31.4606865-04:00",
                      "modes":  {
-                                   "Full":  68,
+                                   "Full":  69,
                                    "Unknown":  2
                                },
                      "devices":  {
@@ -260,7 +260,7 @@
                                                          },
                                      "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp":  {
                                                                                          "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
-                                                                                         "count":  2
+                                                                                         "count":  3
                                                                                      }
                                  },
                      "sampleArtifacts":  [
@@ -312,11 +312,11 @@
                      "closurePriority":  2,
                      "workType":  "AppFeature",
                      "actionable":  true,
-                     "recurrence":  70,
+                     "recurrence":  71,
                      "firstSeenUtc":  "2026-06-01T08:27:56.1370648-04:00",
-                     "lastSeenUtc":  "2026-06-06T12:41:31.7880705-04:00",
+                     "lastSeenUtc":  "2026-06-06T13:28:31.4606865-04:00",
                      "modes":  {
-                                   "Full":  68,
+                                   "Full":  69,
                                    "Unknown":  2
                                },
                      "devices":  {
@@ -358,7 +358,7 @@
                                                          },
                                      "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp":  {
                                                                                          "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
-                                                                                         "count":  2
+                                                                                         "count":  3
                                                                                      }
                                  },
                      "sampleArtifacts":  [
@@ -1017,11 +1017,11 @@
                      "closurePriority":  2,
                      "workType":  "AppFeature",
                      "actionable":  true,
-                     "recurrence":  45,
+                     "recurrence":  46,
                      "firstSeenUtc":  "2026-06-01T07:32:20.5962048-04:00",
-                     "lastSeenUtc":  "2026-06-06T12:41:31.7880705-04:00",
+                     "lastSeenUtc":  "2026-06-06T13:28:31.4606865-04:00",
                      "modes":  {
-                                   "Full":  43,
+                                   "Full":  44,
                                    "Unknown":  2
                                },
                      "devices":  {
@@ -1055,7 +1055,7 @@
                                                          },
                                      "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp":  {
                                                                                          "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
-                                                                                         "count":  2
+                                                                                         "count":  3
                                                                                      }
                                  },
                      "sampleArtifacts":  [
@@ -1511,6 +1511,96 @@
                      "provenOk":  false
                  },
                  {
+                     "catalogId":  "video.delivery_honesty",
+                     "displayName":  "video.delivery_honesty",
+                     "failReason":  "not_proven",
+                     "gapClass":  "GAP_ADVERTISED_NOT_PROVEN",
+                     "closurePriority":  2,
+                     "workType":  "AppFeature",
+                     "actionable":  true,
+                     "recurrence":  35,
+                     "firstSeenUtc":  "2026-06-01T20:55:09.9291543-04:00",
+                     "lastSeenUtc":  "2026-06-06T13:28:31.4606865-04:00",
+                     "modes":  {
+                                   "Full":  33,
+                                   "Unknown":  2
+                               },
+                     "devices":  {
+                                     "DA7803TC1R":  {
+                                                        "serial":  "DA7803TC1R",
+                                                        "count":  7
+                                                    },
+                                     "b5214fc6":  {
+                                                      "serial":  "b5214fc6",
+                                                      "count":  1
+                                                  },
+                                     "FA8BW1F00538":  {
+                                                          "serial":  "FA8BW1F00538",
+                                                          "count":  2
+                                                      },
+                                     "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp":  {
+                                                                                               "serial":  "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
+                                                                                               "count":  5
+                                                                                           },
+                                     "unknown-device":  {
+                                                            "serial":  "",
+                                                            "count":  2
+                                                        },
+                                     "10.0.0.9:42219":  {
+                                                            "serial":  "10.0.0.9:42219",
+                                                            "count":  8
+                                                        },
+                                     "10.0.0.23:44219":  {
+                                                             "serial":  "10.0.0.23:44219",
+                                                             "count":  6
+                                                         },
+                                     "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp":  {
+                                                                                         "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
+                                                                                         "count":  4
+                                                                                     }
+                                 },
+                     "sampleArtifacts":  [
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_005019\\parity_full",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-01T20:55:09.9291543-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260604_114948\\parity_full",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-04T08:03:17.7560940-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_023318\\parity_full",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-04T22:46:53.0776983-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_025917\\parity_full",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-04T23:13:01.6166767-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260603_224526",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-03T18:49:51.8177838-04:00"
+                                             }
+                                         ],
+                     "ownerClass":  "ShipNow",
+                     "providerDomain":  "Vendor/HAL-dependent video",
+                     "closureLane":  "22.2 + 22.5",
+                     "proofScript":  "",
+                     "matrixGate":  "",
+                     "buildPlanSprint":  null,
+                     "closureEffort":  null,
+                     "parityProofScript":  null,
+                     "appStatus":  "Shipped",
+                     "humanOnly":  false,
+                     "sessionOk":  null,
+                     "advertisedOk":  true,
+                     "provenOk":  false
+                 },
+                 {
                      "catalogId":  "perf.capture_latency",
                      "displayName":  "perf.capture_latency",
                      "failReason":  "not_proven",
@@ -1586,96 +1676,6 @@
                      "providerDomain":  "Performance probes (matrix full tier)",
                      "closureLane":  "21 + PO.1",
                      "proofScript":  "pns_memory_profiler.ps1",
-                     "matrixGate":  "",
-                     "buildPlanSprint":  null,
-                     "closureEffort":  null,
-                     "parityProofScript":  null,
-                     "appStatus":  "Shipped",
-                     "humanOnly":  false,
-                     "sessionOk":  null,
-                     "advertisedOk":  true,
-                     "provenOk":  false
-                 },
-                 {
-                     "catalogId":  "video.delivery_honesty",
-                     "displayName":  "video.delivery_honesty",
-                     "failReason":  "not_proven",
-                     "gapClass":  "GAP_ADVERTISED_NOT_PROVEN",
-                     "closurePriority":  2,
-                     "workType":  "AppFeature",
-                     "actionable":  true,
-                     "recurrence":  34,
-                     "firstSeenUtc":  "2026-06-01T20:55:09.9291543-04:00",
-                     "lastSeenUtc":  "2026-06-06T12:41:31.7880705-04:00",
-                     "modes":  {
-                                   "Full":  32,
-                                   "Unknown":  2
-                               },
-                     "devices":  {
-                                     "DA7803TC1R":  {
-                                                        "serial":  "DA7803TC1R",
-                                                        "count":  7
-                                                    },
-                                     "b5214fc6":  {
-                                                      "serial":  "b5214fc6",
-                                                      "count":  1
-                                                  },
-                                     "FA8BW1F00538":  {
-                                                          "serial":  "FA8BW1F00538",
-                                                          "count":  2
-                                                      },
-                                     "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp":  {
-                                                                                               "serial":  "adb-PM1LHMA782802416-gr6wRp._adb-tls-connect._tcp",
-                                                                                               "count":  5
-                                                                                           },
-                                     "unknown-device":  {
-                                                            "serial":  "",
-                                                            "count":  2
-                                                        },
-                                     "10.0.0.9:42219":  {
-                                                            "serial":  "10.0.0.9:42219",
-                                                            "count":  8
-                                                        },
-                                     "10.0.0.23:44219":  {
-                                                             "serial":  "10.0.0.23:44219",
-                                                             "count":  6
-                                                         },
-                                     "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp":  {
-                                                                                         "serial":  "adb-DA7803TC1R-MOe1CD._adb-tls-connect._tcp",
-                                                                                         "count":  3
-                                                                                     }
-                                 },
-                     "sampleArtifacts":  [
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m22_gate_20260602_005019\\parity_full",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-06-01T20:55:09.9291543-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260604_114948\\parity_full",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-06-04T08:03:17.7560940-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_023318\\parity_full",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-06-04T22:46:53.0776983-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m24_gate_20260605_025917\\parity_full",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-06-04T23:13:01.6166767-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260603_224526",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-06-03T18:49:51.8177838-04:00"
-                                             }
-                                         ],
-                     "ownerClass":  "ShipNow",
-                     "providerDomain":  "Vendor/HAL-dependent video",
-                     "closureLane":  "22.2 + 22.5",
-                     "proofScript":  "",
                      "matrixGate":  "",
                      "buildPlanSprint":  null,
                      "closureEffort":  null,
@@ -3576,6 +3576,128 @@
                      "provenOk":  false
                  },
                  {
+                     "catalogId":  "video.raw",
+                     "displayName":  "RAW video",
+                     "failReason":  "session_failed",
+                     "gapClass":  "GAP_ADVERTISED_NOT_PROVEN",
+                     "closurePriority":  2,
+                     "workType":  "AppFeature",
+                     "actionable":  true,
+                     "recurrence":  4,
+                     "firstSeenUtc":  "2026-05-30T08:51:55.9685964-04:00",
+                     "lastSeenUtc":  "2026-06-12T20:18:29.5701901-04:00",
+                     "modes":  {
+                                   "Quick":  2,
+                                   "Full":  2
+                               },
+                     "devices":  {
+                                     "8bf09993":  {
+                                                      "serial":  "8bf09993",
+                                                      "count":  1
+                                                  },
+                                     "b5214fc6":  {
+                                                      "serial":  "b5214fc6",
+                                                      "count":  3
+                                                  }
+                                 },
+                     "sampleArtifacts":  [
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-05-30T08:51:55.9685964-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125205",
+                                                 "mode":  "Quick",
+                                                 "timestampUtc":  "2026-05-30T08:54:50.1986252-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125641",
+                                                 "mode":  "Quick",
+                                                 "timestampUtc":  "2026-05-30T08:59:03.7064980-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260613_001426",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-12T20:18:29.5701901-04:00"
+                                             }
+                                         ],
+                     "ownerClass":  "MatrixGate",
+                     "providerDomain":  "Vendor/HAL-dependent video",
+                     "closureLane":  "22.2",
+                     "proofScript":  "pns_raw_video_verify.ps1",
+                     "matrixGate":  "cameraAny.featureGates.rawVideo.sessionOk",
+                     "buildPlanSprint":  "22.2",
+                     "closureEffort":  null,
+                     "parityProofScript":  "pns_raw_video_verify.ps1",
+                     "appStatus":  "Partial",
+                     "humanOnly":  false,
+                     "sessionOk":  null,
+                     "advertisedOk":  true,
+                     "provenOk":  false
+                 },
+                 {
+                     "catalogId":  "video.raw_picker",
+                     "displayName":  "RAW video in format picker",
+                     "failReason":  "session_failed",
+                     "gapClass":  "GAP_ADVERTISED_NOT_PROVEN",
+                     "closurePriority":  2,
+                     "workType":  "AppFeature",
+                     "actionable":  true,
+                     "recurrence":  4,
+                     "firstSeenUtc":  "2026-05-30T08:51:55.9685964-04:00",
+                     "lastSeenUtc":  "2026-06-12T20:18:29.5701901-04:00",
+                     "modes":  {
+                                   "Quick":  2,
+                                   "Full":  2
+                               },
+                     "devices":  {
+                                     "8bf09993":  {
+                                                      "serial":  "8bf09993",
+                                                      "count":  1
+                                                  },
+                                     "b5214fc6":  {
+                                                      "serial":  "b5214fc6",
+                                                      "count":  3
+                                                  }
+                                 },
+                     "sampleArtifacts":  [
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-05-30T08:51:55.9685964-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125205",
+                                                 "mode":  "Quick",
+                                                 "timestampUtc":  "2026-05-30T08:54:50.1986252-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125641",
+                                                 "mode":  "Quick",
+                                                 "timestampUtc":  "2026-05-30T08:59:03.7064980-04:00"
+                                             },
+                                             {
+                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260613_001426",
+                                                 "mode":  "Full",
+                                                 "timestampUtc":  "2026-06-12T20:18:29.5701901-04:00"
+                                             }
+                                         ],
+                     "ownerClass":  "MatrixGate",
+                     "providerDomain":  "Vendor/HAL-dependent video",
+                     "closureLane":  "22.2",
+                     "proofScript":  "pns_raw_video_verify.ps1",
+                     "matrixGate":  "cameraAny.featureGates.rawVideo.sessionOk",
+                     "buildPlanSprint":  null,
+                     "closureEffort":  null,
+                     "parityProofScript":  null,
+                     "appStatus":  "Partial",
+                     "humanOnly":  false,
+                     "sessionOk":  null,
+                     "advertisedOk":  true,
+                     "provenOk":  false
+                 },
+                 {
                      "catalogId":  "video.hfr.24",
                      "displayName":  "video.hfr.24",
                      "failReason":  "session_failed",
@@ -3790,110 +3912,6 @@
                      "closureEffort":  null,
                      "parityProofScript":  null,
                      "appStatus":  "Shipped",
-                     "humanOnly":  false,
-                     "sessionOk":  null,
-                     "advertisedOk":  true,
-                     "provenOk":  false
-                 },
-                 {
-                     "catalogId":  "video.raw",
-                     "displayName":  "RAW video",
-                     "failReason":  "session_failed",
-                     "gapClass":  "GAP_ADVERTISED_NOT_PROVEN",
-                     "closurePriority":  2,
-                     "workType":  "AppFeature",
-                     "actionable":  true,
-                     "recurrence":  3,
-                     "firstSeenUtc":  "2026-05-30T08:51:55.9685964-04:00",
-                     "lastSeenUtc":  "2026-05-30T08:59:03.7064980-04:00",
-                     "modes":  {
-                                   "Quick":  2,
-                                   "Full":  1
-                               },
-                     "devices":  {
-                                     "b5214fc6":  {
-                                                      "serial":  "b5214fc6",
-                                                      "count":  3
-                                                  }
-                                 },
-                     "sampleArtifacts":  [
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-05-30T08:51:55.9685964-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125205",
-                                                 "mode":  "Quick",
-                                                 "timestampUtc":  "2026-05-30T08:54:50.1986252-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125641",
-                                                 "mode":  "Quick",
-                                                 "timestampUtc":  "2026-05-30T08:59:03.7064980-04:00"
-                                             }
-                                         ],
-                     "ownerClass":  "MatrixGate",
-                     "providerDomain":  "Vendor/HAL-dependent video",
-                     "closureLane":  "22.2",
-                     "proofScript":  "pns_raw_video_verify.ps1",
-                     "matrixGate":  "cameraAny.featureGates.rawVideo.sessionOk",
-                     "buildPlanSprint":  "22.2",
-                     "closureEffort":  null,
-                     "parityProofScript":  "pns_raw_video_verify.ps1",
-                     "appStatus":  "Partial",
-                     "humanOnly":  false,
-                     "sessionOk":  null,
-                     "advertisedOk":  true,
-                     "provenOk":  false
-                 },
-                 {
-                     "catalogId":  "video.raw_picker",
-                     "displayName":  "RAW video in format picker",
-                     "failReason":  "session_failed",
-                     "gapClass":  "GAP_ADVERTISED_NOT_PROVEN",
-                     "closurePriority":  2,
-                     "workType":  "AppFeature",
-                     "actionable":  true,
-                     "recurrence":  3,
-                     "firstSeenUtc":  "2026-05-30T08:51:55.9685964-04:00",
-                     "lastSeenUtc":  "2026-05-30T08:59:03.7064980-04:00",
-                     "modes":  {
-                                   "Quick":  2,
-                                   "Full":  1
-                               },
-                     "devices":  {
-                                     "b5214fc6":  {
-                                                      "serial":  "b5214fc6",
-                                                      "count":  3
-                                                  }
-                                 },
-                     "sampleArtifacts":  [
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\m21_gate_20260530_124508\\parity_full",
-                                                 "mode":  "Full",
-                                                 "timestampUtc":  "2026-05-30T08:51:55.9685964-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125205",
-                                                 "mode":  "Quick",
-                                                 "timestampUtc":  "2026-05-30T08:54:50.1986252-04:00"
-                                             },
-                                             {
-                                                 "sweepDir":  "C:\\Users\\edwar\\AndroidStudioProjects\\point-and-shoot\\hfr-runs\\parity_sweep_20260530_125641",
-                                                 "mode":  "Quick",
-                                                 "timestampUtc":  "2026-05-30T08:59:03.7064980-04:00"
-                                             }
-                                         ],
-                     "ownerClass":  "MatrixGate",
-                     "providerDomain":  "Vendor/HAL-dependent video",
-                     "closureLane":  "22.2",
-                     "proofScript":  "pns_raw_video_verify.ps1",
-                     "matrixGate":  "cameraAny.featureGates.rawVideo.sessionOk",
-                     "buildPlanSprint":  null,
-                     "closureEffort":  null,
-                     "parityProofScript":  null,
-                     "appStatus":  "Partial",
                      "humanOnly":  false,
                      "sessionOk":  null,
                      "advertisedOk":  true,

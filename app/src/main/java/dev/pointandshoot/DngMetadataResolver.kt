@@ -137,9 +137,35 @@ object DngMetadataResolver {
         val physicalChildren =
             runCatching { logicalCharacteristics.physicalCameraIds?.toSet().orEmpty() }
                 .getOrDefault(emptySet())
-
         val activeFromResult = totalResult.getLogicalMultiCameraActivePhysicalIdOrNull()
         val physicalTotals = totalResult.getPhysicalCameraTotalResultsOrNull()
+        return resolveForDngSaveFromInputs(
+            cm = cm,
+            sessionCameraId = sessionCameraId,
+            logicalCharacteristics = logicalCharacteristics,
+            totalResult = totalResult,
+            previewPhysicalCameraId = previewPhysicalCameraId,
+            allowPhysicalTotalResultPairing = allowPhysicalTotalResultPairing,
+            physicalChildren = physicalChildren,
+            activeFromResult = activeFromResult,
+            physicalTotals = physicalTotals,
+        )
+    }
+
+    /**
+     * Pairing decision with pre-extracted logical/physical maps — used by [resolveForDngSave] and JVM tests.
+     */
+    internal fun resolveForDngSaveFromInputs(
+        cm: CameraManager,
+        sessionCameraId: String,
+        logicalCharacteristics: CameraCharacteristics,
+        totalResult: TotalCaptureResult,
+        previewPhysicalCameraId: String?,
+        allowPhysicalTotalResultPairing: Boolean,
+        physicalChildren: Set<String>,
+        activeFromResult: String?,
+        physicalTotals: Map<String, TotalCaptureResult>?,
+    ): DngMetadataResolution {
         val physicalTotalResultKeys = physicalTotals?.keys?.toSet()
 
         fun resolution(
@@ -221,5 +247,32 @@ object DngMetadataResolver {
                 resolution(logicalCharacteristics, totalResult, picked = picked, paired = false)
             }
         }
+    }
+
+    /** Pure pairing branch selector for JVM tests (mirrors [resolveForDngSaveFromInputs]). */
+    internal enum class DngMetadataPairingMode {
+        LEAF,
+        LOGICAL_NO_PICK,
+        LOGICAL_CHARS_LOOKUP_FAILED,
+        LOGICAL_IGNORE_PHYSICAL_MAP,
+        LOGICAL_MISSING_PHYSICAL_TOTAL,
+        PHYSICAL_PAIRED,
+    }
+
+    internal fun pairingModeForDngSave(
+        physicalChildren: Set<String>,
+        pickedPhysicalId: String?,
+        physicalTotalPresent: Boolean,
+        allowPhysicalTotalResultPairing: Boolean,
+        physicalCharacteristicsAvailable: Boolean,
+    ): DngMetadataPairingMode {
+        if (physicalChildren.isEmpty()) return DngMetadataPairingMode.LEAF
+        if (pickedPhysicalId == null) return DngMetadataPairingMode.LOGICAL_NO_PICK
+        if (!physicalCharacteristicsAvailable) return DngMetadataPairingMode.LOGICAL_CHARS_LOOKUP_FAILED
+        if (allowPhysicalTotalResultPairing && physicalTotalPresent) {
+            return DngMetadataPairingMode.PHYSICAL_PAIRED
+        }
+        if (physicalTotalPresent) return DngMetadataPairingMode.LOGICAL_IGNORE_PHYSICAL_MAP
+        return DngMetadataPairingMode.LOGICAL_MISSING_PHYSICAL_TOTAL
     }
 }

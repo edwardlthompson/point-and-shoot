@@ -50,21 +50,41 @@ if ($HostOnly.IsPresent) {
 
 $resolveAdb = Join-Path $scriptDir "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolveAdb) { . $resolveAdb -PrependToPath -Quiet }
+. (Join-Path $scriptDir "pns_adb_serial.ps1")
 
-$legacySerial = $Serial
-if ([string]::IsNullOrWhiteSpace($legacySerial)) {
-    $envFile = Join-Path $scriptDir "pns_adb_device.env"
-    if (Test-Path -LiteralPath $envFile) {
-        foreach ($line in Get-Content -LiteralPath $envFile) {
-            if ($line -match '^PNS_ADB_SERIAL=(.+)$') { $legacySerial = $Matches[1].Trim() }
-        }
+function Test-PnsLegacyOp13Device {
+    param(
+        [string]$Model = "",
+        [string]$AdbDevicesLine = ""
+    )
+    if ($Model -match '(?i)LegacySku|Legacy\s*device|CPH265[35]|OP5D55L1') { return $true }
+    if ($AdbDevicesLine -match '(?i)model:CPH265[35]|model:OP5D55L1|device:OP5D55L1|product:OP5D55L1') {
+        return $true
     }
+    return $false
 }
-$deviceModel = $null
+
+function Resolve-PnsLegacyDeviceModel {
+    param([string]$DeviceSerial)
+    if ([string]::IsNullOrWhiteSpace($DeviceSerial)) { return $null }
+    $model = (& adb -s $DeviceSerial shell getprop ro.product.model 2>$null).Trim()
+    if (Test-PnsLegacyOp13Device -Model $model) { return $model }
+    $devicesLine = (& adb devices -l 2>$null) |
+        Where-Object { $_ -match "^$([regex]::Escape($DeviceSerial))\s" } |
+        Select-Object -First 1
+    if ($devicesLine -and (Test-PnsLegacyOp13Device -AdbDevicesLine $devicesLine)) {
+        if ($devicesLine -match 'model:(\S+)') { return $Matches[1] }
+        if ($devicesLine -match 'device:(\S+)') { return $Matches[1] }
+    }
+    return $model
+}
+
+$legacySerial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot $scriptDir -LogPrefix "legacy_pack"
+$deviceModel = Resolve-PnsLegacyDeviceModel -DeviceSerial $legacySerial
+$isOp13Device = Test-PnsLegacyOp13Device -Model $deviceModel
 if ($legacySerial) {
-    $deviceModel = (& adb -s $legacySerial shell getprop ro.product.model 2>$null).Trim()
+    Write-Host "[legacy_pack] device serial=$legacySerial model=$deviceModel legacyLane=$isOp13Device"
 }
-$isOp13Device = ($deviceModel -match 'LegacySku|Legacy device')
 
 $matrixOut = Join-Path $OutDir "fleet_matrix"
 Write-Host "[legacy_pack] fleet matrix (legacy legacy device policy)..."
@@ -84,22 +104,22 @@ $dngOk = $true
 $parityOk = $true
 $parityRequired = $RequireProshotParity.IsPresent
 if ($isOp13Device) {
-    $dngArgs = @()
-    if ($Serial) { $dngArgs += @("-Serial", $Serial) }
-    if ($SkipInstall.IsPresent) { $dngArgs += "-SkipInstall" }
-    if ($AssembleDebug.IsPresent) { $dngArgs += "-SkipBuild" }
+    $dngParams = @{}
+    if ($Serial) { $dngParams.Serial = $Serial }
+    if ($SkipInstall.IsPresent) { $dngParams.SkipInstall = $true }
+    if ($AssembleDebug.IsPresent) { $dngParams.SkipBuild = $true }
 
     Write-Host "[legacy_pack] aux DNG capture analyze..."
-    & (Join-Path $scriptDir "pns_aux_dng_capture_analyze.ps1") @dngArgs
+    & (Join-Path $scriptDir "pns_aux_dng_capture_analyze.ps1") @dngParams
     $dngOk = ($LASTEXITCODE -eq 0)
     Add-Step "aux_dng_capture_analyze" $dngOk "exit=$LASTEXITCODE"
 
-    $parityArgs = @()
-    if ($Serial) { $parityArgs += @("-Serial", $Serial) }
-    if ($RequireProshotParity.IsPresent) { $parityArgs += "-RequireProshotParity" }
+    $parityParams = @{}
+    if ($Serial) { $parityParams.Serial = $Serial }
+    if ($RequireProshotParity.IsPresent) { $parityParams.RequireProshotParity = $true }
 
     Write-Host "[legacy_pack] referencecam parity gate (informational)..."
-    & (Join-Path $scriptDir "pns_referenceapp_parity_gate.ps1") @parityArgs
+    & (Join-Path $scriptDir "pns_referenceapp_parity_gate.ps1") @parityParams
     $parityOk = ($LASTEXITCODE -eq 0)
     Add-Step "referenceapp_parity_gate" $(if ($parityRequired) { $parityOk } else { $true }) "exit=$LASTEXITCODE required=$parityRequired"
 } else {

@@ -1,6 +1,6 @@
 ﻿# Point & Shoot — completed work (by feature)
 
-Shipped tasks grouped by **app area** for manual review. Open human gates: **[BUILD_PLAN.md](BUILD_PLAN.md)** (*Milestone H*). USB artifacts: `hfr-runs/`. Technical settings: [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md).
+Shipped tasks grouped by **app area** for manual review. Open agent rows: **[BUILD_PLAN.md](BUILD_PLAN.md)** (*Milestone T*, then *Milestone H*). USB artifacts: `hfr-runs/`. Technical settings: [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md).
 
 ## Contents
 
@@ -32,6 +32,7 @@ Shipped tasks grouped by **app area** for manual review. Open human gates: **[BU
 26. [Milestone 26 — completed sprints](#milestone-26--completed-sprints)
 27. [Milestone 27 — completed sprints](#milestone-27--completed-sprints)
 28. [Milestone H — completed sprints](#milestone-h--completed-sprints)
+29. [Milestone T — Template alignment](#milestone-t--template-alignment)
 
 ---
 
@@ -1332,7 +1333,7 @@ Moved from **`BUILD_PLAN.md`** (2026-06-05) after M27 gate closeout on **CPH2583
 
 ## Milestone H — completed sprints
 
-Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
+Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan. Latest archive pass: **2026-06-13** (OP13 regression lane + host validators).
 
 ### Sprint H.1 — Desktop visual verification
 
@@ -1392,6 +1393,183 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 - [x] **[AGENT]** Closed color-profile residuals on CPH2583: `video.color.hdr10` + `video.color.pq` pass delegated HDR gate (`hdr10_meta_verify_20260605_220910`, `...220955`) and `video.color.hlg10` passes inline gate (`video_color_profile_verify_20260605_220627_hlg10`)
 - [x] **[AGENT]** Finished delivery-honesty carryover handling: strict rerun confirms `video.hfr.120` still `truth=blocked_unstable` with sub-4K delivery (`verify_4k120_20260605_225709/attempt_3`, `wxh=1920x1080`), leaving the single open intake row under Milestone 24 ownership only
 - [x] **[AGENT]** Final closure refresh: Full parity pass on CPH2583 (`parity_sweep_20260606_022410`) plus intake rebuild now shows `openCount=1` and only `PBI-video.hfr.120-DeliveryHonesty` open
+
+### Sprint H — Host validators & publication prep (agent closed 2026-06-13)
+
+**Host gates:** Tier 0 `pns_local_dev_parallel.ps1` PASS · Tier 1 `pns_prerelease_gate.ps1 -SkipGradle` PASS
+
+- [x] **[AGENT]** `pns_colorchecker_de2000_gate.py` — host self-test PASS (`worst_dE=0.00`); USB row remains blocked on HUMAN ColorChecker setup
+- [x] **[AGENT]** `pns_gitlab_setup.ps1 -Verify` — **SKIP** (no `GITLAB_TOKEN`; wiring OK)
+- [x] **[AGENT]** `pns_keystore_verify.ps1` — **SKIP** (no `release.keystore` in clone; expected)
+- [x] **[AGENT]** `pns_fdroid_metadata_validate.ps1` + `pns_prerelease_gate.ps1 -SkipGradle` — PASS (metadata unchanged; validators green)
+- [x] **[AGENT]** Host pre-handoff: `pns_repro_build_verify.ps1` · `pns_fdroid_metadata_validate.ps1` · `pns_changelog_gate.ps1` — PASS
+
+### Sprint H.7-OP13 — Optional OP13 regression lane (agent closed 2026-06-13)
+
+**Device:** OnePlus 13 **CPH2655** serial **`8bf09993`** (stock ROM) · legacy policy via `-LegacyOp13FleetPolicy` on matrix scan
+
+**Artifacts:** `hfr-runs/aux_dng_capture_analyze_20260613_000901/` · `hfr-runs/fleet_matrix_20260613_001343/` · `hfr-runs/parity_sweep_20260613_001426/`
+
+- [x] **[AGENT]** `pns_aux_dng_capture_analyze.ps1` — **PASS** capture+openability (3/3 DNG; integrity + desktop open PASS)
+- [x] **[AGENT]** `pns_m13_3g2_gate.ps1 -Dir <aux_dng_dir> -RecordAcrPass -AcrNote "auto"` — **PASS** (`acr_signoff.json`; automated openability)
+- [x] **[AGENT]** `pns_fleet_matrix_scan.ps1 -LegacyOp13FleetPolicy -ScanTier full` — **PASS**
+- [x] **[ADB]** OP13 stock ROM Full sweep — `pns_fleet_parity_sweep.ps1 -Mode Full -Serial 8bf09993` — **PASS** (182 cells, `shipBlockers=0`)
+- [x] **[AGENT]** `pns_dng_rawpy_decode_gate.ps1` on pulled OP13 DNGs — PASS (6 files)
+
+**Not closed (remain in active BUILD_PLAN.md):** ReferenceApp color parity (scene mismatch vs `referenceapp_cph2655` fixtures); Lineage/custom second-variant sweep; optional human ACR; eye-AF pixel gate (no face in frame).
+
+**Code fixes (same session):** `scripts/dng_referenceapp_parity_gate.py` (`referencecam_dir` argparse); `scripts/pns_milestone_h_host_gate.ps1` (`referenceapp_cph2655` fixture fallback + `--ref-dir`).
+
+### Sprint H.CRI-0 — Host unblockers (agent closed 2026-06-13)
+
+**Gate:** `pns_milestone_h_host_gate.ps1 -SkipGradle` PASS · `pns_template_doc_link_check.ps1` PASS
+
+- [x] **[AGENT] CRI-001** — `DngSavePairingPolicy.ALLOW_PHYSICAL_TOTAL_RESULT_PAIRING=false`; AGENTS.md reconciled
+- [x] **[AGENT] CRI-010** — `pns_release_asset_check.ps1` SKIP when no APK; `-RequireRelease` for release cut
+- [x] **[AGENT] CRI-008** — `pns_resolve_referenceapp_fixture_dir.ps1` wired across DNG/parity gates
+- [x] **[AGENT] CRI-028** — `docs/PNS_TECHNICAL_SETTINGS.md` §15 a11y
+- [x] **[AGENT] CRI-029** — KNOWLEDGE_BASE / DECISION_LOG Milestone H-primary
+
+### Sprint H.CRI-1 — RAW video honesty (CPH2583 agent closed 2026-06-13)
+
+**Artifacts:** `hfr-runs/raw_video_verify_20260612_210437` · `hfr-runs/parity_sweep_20260613_011027` (Full PASS, shipBlockers=0)
+
+- [x] **[AGENT] CRI-006/007** — RAW video session attaches ImageReader in video-primary lane; `pns_raw_video_verify.ps1` PASS on **CPH2583**
+- [ ] **[AGENT] CRI-009/035** — OP13 fixture refresh + same-scene parity (requires OP13 USB)
+
+### Sprint H.CRI-2 — DNG pipeline hardening (agent closed 2026-06-13)
+
+**Gate:** `pns_fixture_dng_gates.ps1` PASS · JVM tests (StillCaptureMetadata, DngMetadataResolver, Dng12Saver, CaptureSessionRegressionLocks)
+
+- [x] **[AGENT] CRI-002/003/004/005/019** — JVM guards, LeafDngHalReconcile audit, named regression-lock constants, Dng12Saver tests
+
+### Sprint H.CRI-3 — Automation hygiene (agent closed 2026-06-13)
+
+**Gate:** Tier 0 `pns_local_dev_parallel.ps1` PASS (PS5.1 sequential fallback)
+
+- [x] **[AGENT] CRI-011/012/013/014/031** — legacy regression wrapper, OP13 device detect, SKIP contract, PS5.1 fallback, `pns_adb_serial.ps1`
+- [x] **OP13 USB re-verify** 2026-06-13 (`8bf09993`): matrix quick + aux DNG desktop open 3/3 + PiP + multicam melt PASS; `pns_op13_regression_pack.ps1` splat fix
+
+### Sprint H.CRI-4 — Fleet quality + detekt (agent closed 2026-06-13)
+
+**Gate:** `:app:detekt` PASS · `pns_m27_gate.ps1 -HostOnly` PASS
+
+- [x] **[AGENT] CRI-017/018/021/022/023/024** — detekt burn-down, fleet golden/evaluator tests, legacy policy alias, M27 gate
+
+### Sprint H.CRI-5 — T.13 slice 1 (agent closed 2026-06-13)
+
+- [x] **[AGENT] CRI-015 slice** — `PreviewSessionSurfacePolicy.kt` (RAW/video surface gating)
+- [x] **[AGENT] CRI-016 slice** — `PreviewAutomationExtrasRegistry.kt`
+- [x] **[AGENT] CRI-030** — ADR-0008 mock/cold-restart policy
+- [ ] **[AGENT] T.13 carryover / T.14** — prefs migration, full extraction, unified mock mode (deferred)
+
+### Sprint H.CRI-6 — CI & security (agent closed 2026-06-13)
+
+- [x] **[AGENT] CRI-025/026/027/020** — toolchain path filters, keystore SKIP without env, leaderboard workflow_dispatch, Paparazzi policy unchanged
+
+---
+
+## Milestone T — Template alignment ✅
+
+**Closed (agent lane):** 2026-06-12 · **Gate:** [`scripts/pns_milestone_t_gate.ps1`](../scripts/pns_milestone_t_gate.ps1) PASS (Tier 0 + prerelease host) · artifact `hfr-runs/milestone_t_gate_*/milestone_t_gate.json`
+
+**Sprints shipped:** T.1–T.12, T.15 (agent). **Deferred:** T.13–T.14 (Future features in BUILD_PLAN.md).
+
+**Human carryover → Milestone H:** T.10 F-Droid store copy creative review (**H.5**); owner PRIVACY + metadata sign-off (**H.9**).
+
+*Active sprint checklist removed from BUILD_PLAN.md — archived below.*
+
+### Sprint T.1 — KNOWLEDGE_BASE index
+
+- [x] **[AGENT]** Created [`KNOWLEDGE_BASE.md`](../KNOWLEDGE_BASE.md) — §0–§8 index (platform, capture/DNG, fleet, chrome, settings, video, release, agent ops, full `docs/` table)
+- [x] **[AGENT]** Added [`scripts/pns_template_doc_link_check.ps1`](../scripts/pns_template_doc_link_check.ps1) — relative link gate; wired in `pns_verify_toolchain.ps1`
+- [x] **[AGENT]** Updated [`AGENTS.md`](../AGENTS.md) — knowledge base pointer + Template file map stub (T.2 expands)
+
+### Sprint T.2 — AGENTS.md template cross-reference
+
+- [x] **[AGENT]** Expanded **Template file map** — aliases, update policy table, cadence (template §3), full `.cursor/rules/` inventory
+- [x] **[AGENT]** **Before editing** read order — `KNOWLEDGE_BASE.md` → `AGENT_REGRESSION_MEMORY.md` → lock rules
+- [x] **[AGENT]** Linked template map from [`KNOWLEDGE_BASE.md`](../KNOWLEDGE_BASE.md) §7
+
+### Sprint T.3 — Architecture Decision Records
+
+- [x] **[AGENT]** [`docs/adr/README.md`](../docs/adr/README.md) + **ADR-0001…0006** (architecture, DNG save, tele routing, fleet matrix, Apache-2.0, ML Kit exception)
+- [x] **[AGENT]** [`DECISION_LOG.md`](../DECISION_LOG.md) — index with dates; linked from KNOWLEDGE_BASE §7/§8
+- [x] **[AGENT]** `plan-doc-verify.yml` paths for `docs/adr/**`, `DECISION_LOG.md` (prior Milestone T CI update)
+
+### Sprint T.4 — AGENT_MEMORY, PROMPT_LIBRARY, session checkpoint
+
+- [x] **[AGENT]** [`AGENT_MEMORY.md`](../AGENT_MEMORY.md) — seeded focus, blockers, next steps (T.5 / Milestone H)
+- [x] **[AGENT]** [`PROMPT_LIBRARY.md`](../PROMPT_LIBRARY.md) — 11 workflow prompts (When / Read / Run / Pass / Also test / Critique)
+- [x] **[AGENT]** [`.cursor-session-state.example`](../.cursor-session-state.example) + `.gitignore` + [`.cursor/rules/session-checkpoint.mdc`](../.cursor/rules/session-checkpoint.mdc)
+- [x] **[AGENT]** Retired stale [`BUILD_PLAN_STATUS.md`](../BUILD_PLAN_STATUS.md) → pointer to `AGENT_MEMORY.md`
+
+**Milestone T phase-1 (T.1–T.4):** Agent workspace memory layer complete — KNOWLEDGE_BASE, ADRs, AGENT_MEMORY, PROMPT_LIBRARY, session checkpoint.
+
+### Sprint T.5 — Security scanning (CI)
+
+- [x] **[AGENT]** [`.github/workflows/codeql-analysis.yml`](../.github/workflows/codeql-analysis.yml) — Java/Kotlin CodeQL + weekly schedule
+- [x] **[AGENT]** [`.github/workflows/security-scan.yml`](../.github/workflows/security-scan.yml) — gitleaks + Trivy fs
+- [x] **[AGENT]** [`.gitleaks.toml`](../.gitleaks.toml), [`.trivyignore`](../.trivyignore), [`SECURITY.md`](../SECURITY.md) — policy + README link
+- [x] **[AGENT]** Dependabot config unchanged; compatible with new workflows
+
+### Sprint T.6 — Pre-commit, CONTRIBUTING, devcontainer, trunk flow
+
+- [x] **[AGENT]** [`.pre-commit-config.yaml`](../.pre-commit-config.yaml) — gitleaks + `pns_verify_toolchain.ps1 -SkipGradle`
+- [x] **[AGENT]** [`CONTRIBUTING.md`](../CONTRIBUTING.md) — trunk flow, CI matrix, agent vs human; README link
+- [x] **[AGENT]** [`.devcontainer/`](../.devcontainer/) — JDK 21 + Python; USB gates documented as host-only
+- [x] **[AGENT]** [`.github/CODEOWNERS`](../.github/CODEOWNERS), [`conventional-pr-title.yml`](../.github/workflows/conventional-pr-title.yml), issue templates, PR template refresh
+
+### Sprint T.7 — Quality gates (adapted)
+
+- [x] **[AGENT]** Kover **0.9.1** in `app/build.gradle.kts` — 40% scoped floor (`fleet-dng-bracket-floor`); excludes Compose UI + USB DNG byte pipelines
+- [x] **[AGENT]** `pns_verify_toolchain.ps1 -RunTests` → `:app:koverVerifyDebug`
+- [x] **[AGENT]** [`docs/adr/0007-code-style-gate.md`](../docs/adr/0007-code-style-gate.md) — Detekt-only; Kover scope; no androidTest
+- [x] **[AGENT]** [`CONTRIBUTING.md`](../CONTRIBUTING.md) — file-size policy, coverage table, androidTest → USB scripts
+- [x] **[AGENT]** [`.gitlab-ci.yml`](../.gitlab-ci.yml) — detekt + lint + kover aligned with GitHub subset
+
+### Sprint T.8 — Performance & accessibility automation
+
+- [x] **[AGENT]** [`scripts/pns_perf_budget_host_gate.ps1`](../scripts/pns_perf_budget_host_gate.ps1) + toolchain wiring
+- [x] **[AGENT]** `AboutScreenA11yTest`, `ChromeSettingsSearchA11yTest` — host semantics contracts
+- [x] **[AGENT]** CONTRIBUTING — USB `pns_a11y_dump_gate.ps1` for locked preview chrome
+- [x] **[AGENT]** Leaderboard Pages workflow — optional Lighthouse job (informational)
+
+### Sprint T.9 — Visual regression policy
+
+- [x] **[AGENT]** [`docs/VISUAL_REGRESSION_POLICY.md`](../docs/VISUAL_REGRESSION_POLICY.md) + KNOWLEDGE_BASE §3 link
+- [x] **[AGENT]** Paparazzi **1.3.5** scaffold — `@Ignore` `AboutScreenPaparazziTest`, `ChromeSettingsSearchPaparazziTest`
+- [x] **[AGENT]** [`scripts/pns_prerelease_gate.ps1`](../scripts/pns_prerelease_gate.ps1) — `-IncludeUsb` → `pns_eye_af_pixel_gate.ps1`
+- [x] **[AGENT]** [`CONTRIBUTING.md`](../CONTRIBUTING.md) visual proof table
+
+### Sprint T.10 — F-Droid metadata & store assets
+
+- [x] **[AGENT]** [`metadata/metadata.yml`](../metadata/metadata.yml) — GitHub URLs, fleet-first copy, **`Builds:`** block synced to `app/build.gradle.kts` (`22004` / `0.14.0-beta.10`)
+- [x] **[AGENT]** [`metadata/en-US/`](../metadata/en-US/) — `title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/22004.txt`
+- [x] **[AGENT]** Screenshot PNGs — interim seed from `docs/screenshots/`; refresh via [`pns_device_screencap.ps1`](../scripts/pns_device_screencap.ps1) (see [`metadata/en-US/images/README.md`](../metadata/en-US/images/README.md))
+- [ ] **[HUMAN]** Store copy creative review before fdroiddata MR
+- [x] **[AGENT]** [`scripts/pns_fdroid_metadata_validate.ps1`](../scripts/pns_fdroid_metadata_validate.ps1) — wired in [`pns_prerelease_gate.ps1`](../scripts/pns_prerelease_gate.ps1)
+
+### Sprint T.11 — Privacy, NOTICE, reproducible builds
+
+- [x] **[AGENT]** [`PRIVACY.md`](../PRIVACY.md) + [`NOTICE`](../NOTICE); README links; About → Privacy policy chip
+- [x] **[AGENT]** [`docs/REPRODUCIBLE_BUILDS.md`](../docs/REPRODUCIBLE_BUILDS.md); `SOURCE_DATE_EPOCH` in [`build-signed.yml`](../.github/workflows/build-signed.yml)
+- [x] **[AGENT]** Gradle dependency locking + `app/gradle.lockfile`
+- [x] **[AGENT]** [`scripts/pns_repro_build_verify.ps1`](../scripts/pns_repro_build_verify.ps1); F-Droid recipe in [`CLI_BUILD_AND_SIDELOAD.md`](../CLI_BUILD_AND_SIDELOAD.md)
+
+### Sprint T.12 — Pre-release quality gate orchestrator
+
+- [x] **[AGENT]** Full [`scripts/pns_prerelease_gate.ps1`](../scripts/pns_prerelease_gate.ps1) — toolchain `-RunTests`, fixture DNG, F-Droid, repro, security CI; **`-IncludeUsb`** capture → chrome → eye-AF (sequential)
+- [x] **[AGENT]** [`.cursor/skills/github-release/SKILL.md`](../.cursor/skills/github-release/SKILL.md) prerelease gate step
+- [x] **[AGENT]** `CHANGELOG.md` Unreleased + `changelog_coverage.v1.json` **Milestone T** mention
+
+### Sprint T.15 — Local-first dev loop + multi-agent orchestration
+
+- [x] **[AGENT]** [`docs/LOCAL_FIRST_DEV_LOOP.md`](../docs/LOCAL_FIRST_DEV_LOOP.md) · [`docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md`](../docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md)
+- [x] **[AGENT]** [`scripts/pns_local_dev_parallel.ps1`](../scripts/pns_local_dev_parallel.ps1) · [`scripts/pns_agent_worktree_bootstrap.ps1`](../scripts/pns_agent_worktree_bootstrap.ps1)
+- [x] **[AGENT]** VS Code tasks · `.cursor/rules/multi-agent-parallel.mdc` · PROMPT_LIBRARY §12–§13
+
+**Milestone T closure (2026-06-12):** `pns_milestone_t_gate.ps1` PASS; BUILD_PLAN.md archived to this section; active plan → **Milestone H**.
 
 ---
 

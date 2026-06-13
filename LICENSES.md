@@ -80,6 +80,8 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 | org.jetbrains.kotlin.plugin.compose | 2.1.21 | Apache-2.0 | Kotlin |
 | androidx.baselineprofile | 1.3.3 | Apache-2.0 | AndroidX |
 | io.gitlab.arturbosch.detekt | 1.23.7 | Apache-2.0 | Detekt |
+| org.jetbrains.kotlinx.kover | 0.9.1 | Apache-2.0 | JetBrains Kover (coverage gate) |
+| app.cash.paparazzi | 1.3.5 | Apache-2.0 | Cash App Paparazzi (visual regression scaffold) |
 
 ## Bundled font assets (shipped in the APK)
 

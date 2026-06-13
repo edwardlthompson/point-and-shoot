@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-06-12T00:00:00Z",
+  "milestone": "T",
+  "sprint": "T.4",
+  "activePlan": "BUILD_PLAN.md",
+  "deviceSerial": "CPH2583",
+  "deviceEnvFile": "scripts/pns_adb_device.env",
+  "lastGates": {
+    "toolchain": "SKIPGradle_partial",
+    "templateDocLinks": "PASS",
+    "capturePipeline": null,
+    "chromeUx": null
+  },
+  "lastArtifacts": [
+    "hfr-runs/parity_sweep_20260606_165857"
+  ],
+  "openBlockers": [
+    "video.delivery_honesty",
+    "H.8.3_h265_dcg_4k_color",
+    "eye_af_pixel_gate_unattended"
+  ],
+  "nextSteps": [
+    "Sprint T.5 security CI",
+    "Or Milestone H agent rows when USB available"
+  ],
+  "notes": "Copy to .cursor-session-state (gitignored) at handoff. Delete after fresh chat reads it."
+}

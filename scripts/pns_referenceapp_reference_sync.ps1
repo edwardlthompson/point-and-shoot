@@ -11,17 +11,60 @@
 .EXAMPLE
   .\scripts\pns_referenceapp_reference_sync.ps1 -FromForensicsDir hfr-runs\referenceapp_live_forensics_20260520_120000
   .\scripts\pns_referenceapp_reference_sync.ps1 -Serial <serial>
+  .\scripts\pns_referenceapp_reference_sync.ps1 -FromForensicsDir hfr-runs\referenceapp_live_forensics_* -FixtureProfile Cph2655 -Serial 8bf09993
 #>
 param(
     [string]$Serial = "",
-    [string]$FromForensicsDir = ""
+    [string]$FromForensicsDir = "",
+    [ValidateSet("LegacySku", "Cph2655")]
+    [string]$FixtureProfile = "LegacySku"
 )
 
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
-$fixtureDir = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku"
+$fixtureDir = if ($FixtureProfile -eq "Cph2655") {
+    Join-Path $projRoot "tests\fixtures\referenceapp_cph2655"
+} else {
+    Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku"
+}
 New-Item -ItemType Directory -Force -Path $fixtureDir | Out-Null
+
+function Write-Cph2655Manifest {
+    param(
+        [string]$FixtureRoot,
+        [string]$ForensicsDir,
+        [string]$DeviceSerial
+    )
+    $model = "CPH2655"
+    if ($DeviceSerial) {
+        $m = (& adb -s $DeviceSerial shell getprop ro.product.model 2>$null).Trim()
+        if ($m) { $model = $m }
+    }
+    $timeline = Join-Path $ForensicsDir "session_timeline.txt"
+    $remotes = @{ uw = ""; wide = ""; tele = "" }
+    if (Test-Path -LiteralPath $timeline) {
+        foreach ($line in Get-Content -LiteralPath $timeline) {
+            if ($line -match '^dng=(/sdcard/[^\s]+)\s+local=.*referenceapp_uw_') { $remotes.uw = $Matches[1] }
+            if ($line -match '^dng=(/sdcard/[^\s]+)\s+local=.*referenceapp_wide_') { $remotes.wide = $Matches[1] }
+            if ($line -match '^dng=(/sdcard/[^\s]+)\s+local=.*referenceapp_tele_') { $remotes.tele = $Matches[1] }
+        }
+    }
+    $manifest = [ordered]@{
+        device            = $model
+        serial            = $DeviceSerial
+        capturedUtcApprox = [DateTime]::UtcNow.ToString("yyyy-MM-dd'T'HH:mm'Z'")
+        shotOrder         = @("ultrawide", "wide", "tele")
+        files             = [ordered]@{
+            uw   = [ordered]@{ path = "referenceapp_uw_cam3.dng"; halCameraId = "3"; focalSlotMm = 14; remote = $remotes.uw }
+            wide = [ordered]@{ path = "referenceapp_wide_cam2.dng"; halCameraId = "2"; focalSlotMm = 23; remote = $remotes.wide }
+            tele = [ordered]@{ path = "referenceapp_tele_cam4.dng"; halCameraId = "4"; focalSlotMm = 73; remote = $remotes.tele }
+        }
+        usage             = "Gate P&S aux DNG captures with scripts/dng_referenceapp_parity_gate.py or scripts/pns_referenceapp_parity_gate.ps1"
+        syncSource        = $ForensicsDir
+    }
+    $manifest | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $FixtureRoot "manifest.json") -Encoding UTF8
+}
 
 $manifest = @{
     schema = "referenceapp_fixture_sync.v1"
@@ -49,6 +92,9 @@ if (-not [string]::IsNullOrWhiteSpace($FromForensicsDir)) {
     }
     $manifest.source = $src
     $manifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $fixtureDir "fixture_sync_manifest.json") -Encoding UTF8
+    if ($FixtureProfile -eq "Cph2655") {
+        Write-Cph2655Manifest -FixtureRoot $fixtureDir -ForensicsDir $src -DeviceSerial $Serial
+    }
     Write-Host "[referenceapp_sync] updated $fixtureDir from forensics $src" -ForegroundColor Green
     exit 0
 }

@@ -30,7 +30,8 @@ class RawVideoRecordingController(
         val id = cameraId?.trim().orEmpty()
         if (id.isEmpty()) return false
         FleetCapabilityGate.featureGate(appContext, id, "rawVideo")?.let { gate ->
-            return gate.appEnabled && gate.sessionOk
+            // appEnabled mirrors HAL RAW capability on matrix; sessionOk is refreshed by full-tier scan / USB gates.
+            return gate.appEnabled
         }
         if (!LegacyFleetPolicy.appliesToDevice()) return false
         return id == LegacyFleetPolicy.CANONICAL_WIDE ||

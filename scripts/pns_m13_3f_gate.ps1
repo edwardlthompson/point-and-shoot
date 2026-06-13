@@ -37,6 +37,7 @@ $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) { . $resolve -PrependToPath -Quiet }
 
 $projRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "pns_resolve_referenceapp_fixture_dir.ps1")
 $ts = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 $gateDir = Join-Path $projRoot "hfr-runs\m13_3f_gate_$ts"
 New-Item -ItemType Directory -Force -Path $gateDir | Out-Null
@@ -52,7 +53,7 @@ $result = [ordered]@{
     parityPass = $null
     referenceappSessionDir = $null
     captureDir = $CaptureDir
-    fixtureDir = (Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku")
+    fixtureDir = (Resolve-PnsReferenceAppFixtureDir -ProjectRoot $projRoot -RequireExists)
 }
 
 Write-Host "=== M13.3f daylight gate ($ts) ===" -ForegroundColor Cyan

@@ -32,26 +32,9 @@ $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) {
     . $resolve -PrependToPath -Quiet
 }
+. (Join-Path $PSScriptRoot "pns_adb_serial.ps1")
 
-function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
-    $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
-    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
-    foreach ($line in Get-Content -LiteralPath $envFile) {
-        $t = $line.Trim()
-        if ($t.StartsWith("#") -or $t.Length -eq 0) { continue }
-        $eq = $t.IndexOf("=")
-        if ($eq -lt 1) { continue }
-        if ($t.Substring(0, $eq).Trim() -eq "PNS_ADB_SERIAL") {
-            return $t.Substring($eq + 1).Trim()
-        }
-    }
-    return $null
-}
-
-if ([string]::IsNullOrWhiteSpace($Serial)) {
-    $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
-    if ($fromEnv) { $Serial = $fromEnv }
-}
+$Serial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot $PSScriptRoot -LogPrefix "4k_regular_verify"
 
 $projRoot = Split-Path -Parent $PSScriptRoot
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"

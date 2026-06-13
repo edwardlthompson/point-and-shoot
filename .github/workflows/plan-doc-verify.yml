@@ -6,18 +6,38 @@ on:
     paths:
       - 'PROBE_BUILD_PLAN.md'
       - 'BUILD_PLAN.md'
+      - 'KNOWLEDGE_BASE.md'
+      - 'AGENT_MEMORY.md'
+      - 'PROMPT_LIBRARY.md'
+      - 'CONTRIBUTING.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
+      - 'DECISION_LOG.md'
+      - 'docs/adr/**'
+      - 'docs/VISUAL_REGRESSION_POLICY.md'
       - 'docs/PNS_TECHNICAL_SETTINGS.md'
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
+      - 'metadata/**'
   pull_request:
     paths:
       - 'PROBE_BUILD_PLAN.md'
       - 'BUILD_PLAN.md'
+      - 'KNOWLEDGE_BASE.md'
+      - 'AGENT_MEMORY.md'
+      - 'PROMPT_LIBRARY.md'
+      - 'CONTRIBUTING.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
+      - 'DECISION_LOG.md'
+      - 'docs/adr/**'
+      - 'docs/VISUAL_REGRESSION_POLICY.md'
       - 'docs/PNS_TECHNICAL_SETTINGS.md'
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
+      - 'metadata/**'
 
 concurrency:
   group: plan-doc-${{ github.workflow }}-${{ github.ref }}

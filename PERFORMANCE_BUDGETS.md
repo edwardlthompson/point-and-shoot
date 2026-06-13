@@ -89,6 +89,7 @@ If **`generateBaselineProfile`** fails with **Unable to confirm activity launch 
 
 ## Validation gates (BUILD_PLAN §9)
 
+* [x] [HOST] **`scripts/pns_perf_budget_host_gate.ps1`** — drift gate for pinned `PerfBudget.Defaults` vs this file + `PerfBudgetTest.kt` (Milestone **T.8**; wired in **`pns_verify_toolchain.ps1`**).
 * [x] [HOST] `pns_hfr_autorun.ps1` **`-PerfReport`** (or **`scripts/pns_cold_start_capture.ps1`**) pulls `am start -W` + `dumpsys meminfo dev.pointandshoot` + log tail greps for `PNS.Reader` `drop oldest` and **`pns.firstFrameReady`** / **`PNS.PerfStartup`**, and emits `perf-runs/perf_<utc>.md` with budget rows (cold start / PSS / ready-to-shoot vs `PerfBudget.Defaults`). Optional **`-Serial`** / `pns_adb_device.env`. Pair **`perf-runs/perf_*.md`** with **`perf-runs/perfetto_*.perfetto-trace`** when Sprint **7.1** traces are captured (**`scripts/pns_capture_perfetto_light.ps1`** or Android Studio / desktop **perfetto** CLI per **`PERFORMANCE_BUDGETS.md`**; see **§5**).
 * [x] [HOST] **`scripts/pns_analyze_reader_backpressure.ps1`** on **`pns_adb_preview_validate`** **`logcat_raw_still_x10.txt`** + **`logcat_bracket_bkt3.txt`** vs **`CAPTURE_ARCHITECTURE.md`** Sprint **7.3 acceptance gates** (paired with **`PERFORMANCE_BUDGETS.md`** bracket / overflow rows); **§5** + **`perf-runs/reader_backpressure_validate_raw_and_bkt3.md`**.
 * [ ] [ADB] Each capture mode is exercised once per release-prep run; failures are surfaced in the Verification block of `RELEASE_NOTES_TEMPLATE.md`.

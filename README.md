@@ -1,8 +1,6 @@
 # Point & Shoot
 
-> **Project status (June 2026):** Development is paused until further notice.
->  
-> This repository remains available, but active feature work and device bring-up are on hold for an extended period.
+> **Project status (June 2026):** Maintenance releases continue (CRI program + Milestone **T** template alignment). Primary USB validation: **OnePlus 12 CPH2583**; optional **OP13 / CPH2655** legacy regression lane. See [`BUILD_PLAN.md`](BUILD_PLAN.md) and [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -28,6 +26,14 @@
 [![Plan doc verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
+**Security:** see [`SECURITY.md`](SECURITY.md) for supported versions and vulnerability reporting.
+
+**Contributing:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, CI checks, and pre-commit hooks.
+
+**Privacy:** see [`PRIVACY.md`](PRIVACY.md) — no analytics; on-device ML Kit; opt-in network features.
+
+**Third-party notices:** see [`NOTICE`](NOTICE) and [`LICENSES.md`](LICENSES.md).
+
 A FOSS pro camera app for **fleet-oriented Camera2 devices** (primary validation lane: **OnePlus 12 CPH2583**), with strict truth-first capture and video gates.
 
 > Predictable controls. RAW-first workflows. A HUD designed for shooting. **No proprietary blobs. No Google Play Services.**
@@ -43,6 +49,8 @@ A FOSS pro camera app for **fleet-oriented Camera2 devices** (primary validation
 - **Speed and determinism** — camera behavior you can learn and trust.
 - **Modern formats** — RAW (DNG) plus AVIF/JXL targets for high-quality stills.
 - **Fleet-first correctness** — capability-catalog + parity-driven behavior that scales across onboarded SKUs while preserving product-specific profiles where needed.
+- **CRI fix program (Milestone H)** — code-review intake closed across host gates (DNG loadability locks, RAW video lane, detekt/Kover, CI security scans, OP13 fixture refresh); human ACR/store-copy rows remain in [`BUILD_PLAN.md`](BUILD_PLAN.md).
+- **Milestone T (template alignment)** — KNOWLEDGE_BASE, ADRs, CONTRIBUTING, pre-commit, F-Droid metadata scaffold, reproducible-build verify, **`pns_prerelease_gate.ps1`** orchestrator.
 
 ## Highlights
 
@@ -88,8 +96,10 @@ Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BU
 | **PO** (performance) | ✅ Gate passed | Memory profiler, adaptive FPS, lifecycle pause |
 | **M21–M23** (fleet parity + hardening) | ✅ Archived | Parity honesty/proof-pack closure + fleet resilience closeout |
 | **M24** (4K120 stability + truth) | 🚧 Active | Strict route/warmup/retry lane + endurance + parity truth source binding |
+| **Milestone T** (template alignment) | ✅ Agent closed | KNOWLEDGE_BASE, security CI, Kover, F-Droid metadata, pre-release gate — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) §29 |
+| **Milestone H** (CRI + publication) | 🚧 Active | CRI-0…6 agent closed; human store/ACR/eye-AF rows open — [`BUILD_PLAN.md`](BUILD_PLAN.md) |
 
-**Latest pre-release:** [`v0.14.0-beta.7`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.7) — APK `Point-and-Shoot_0.14.0-beta.7.apk` · notes [`RELEASE_NOTES_v0.14.0-beta.7.md`](RELEASE_NOTES_v0.14.0-beta.7.md)
+**Latest pre-release:** [`v0.14.0-beta.11`](https://github.com/edwardlthompson/point-and-shoot/releases/latest) — Obtainium: `https://github.com/edwardlthompson/point-and-shoot` (enable **Include prereleases**)
 
 **Active roadmap:** [`BUILD_PLAN.md`](BUILD_PLAN.md) · **Archive:** [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
 
@@ -149,6 +159,9 @@ Docs: [`docs/M13V_12_POWER_THERMAL.md`](docs/M13V_12_POWER_THERMAL.md) (PO.2 ada
 .\scripts\pns_capture_pipeline_verify.ps1    # RAW still 1/1 — after session/DNG changes
 .\scripts\pns_photo_capture_verify.ps1 -Fast # lighter still smoke
 .\scripts\pns_chrome_ux_gate.ps1 -FocalMmSlot 150   # dodge tele — do not run parallel with capture verify
+.\scripts\pns_op13_regression_pack.ps1 -Serial <adb>  # optional CPH2655 legacy lane (matrix + aux DNG + PiP)
+.\scripts\pns_prerelease_gate.ps1 -SkipGradle       # host pre-release checklist before GitHub cut
+.\scripts\pns_github_release.ps1 -PrepareOnly       # bump version + CHANGELOG (maintainers)
 ```
 
 See `PROBE_BUILD_PLAN.md` for detailed device limitation documentation.
@@ -191,6 +204,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 ## Documentation
 
 ### Product
+- **Knowledge base (index)** — [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) — canonical docs → code → gates
 - **Technical settings (source of truth)** — [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) — command dial modes, H metering, readout/YUV chase, RAW/DNG locks, HUD defaults; **update whenever those settings change**
 - **Product roadmap & V&V gates** — [`BUILD_PLAN.md`](BUILD_PLAN.md) · completed milestones — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)
 - **Probe automation plan** — [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md)
@@ -211,11 +225,11 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 - **CLI build / sideload** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
 
 ### Releases
-- **Latest beta** — [`v0.14.0-beta.7`](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.7) · [`RELEASE_NOTES_v0.14.0-beta.7.md`](RELEASE_NOTES_v0.14.0-beta.7.md)
-- **Changelog** — [`CHANGELOG.md`](CHANGELOG.md)
+- **Latest beta** — [GitHub Releases](https://github.com/edwardlthompson/point-and-shoot/releases/latest) · [`CHANGELOG.md`](CHANGELOG.md)
+- **Release automation** — [`scripts/pns_github_release.ps1`](scripts/pns_github_release.ps1) (`-PrepareOnly` then `-Publish -SkipPrepare -Prerelease`)
 - **Release-notes template** — [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)
 - **Local release-signing config** — [`keystore.properties.example`](keystore.properties.example) (copy to gitignored `keystore.properties` at repo root, or set `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` in CI).
-- **Host release APK packaging** — [`scripts/pns_release_packaging.ps1`](scripts/pns_release_packaging.ps1) (`assembleRelease` → `dist/Point-and-Shoot_<versionName>.apk` + `zipalign -c -v 4`). GitHub upload remains [`scripts/pns_release_automation.ps1`](scripts/pns_release_automation.ps1) (`gh` CLI).
+- **Host release APK packaging** — [`scripts/pns_release_packaging.ps1`](scripts/pns_release_packaging.ps1) (`assembleRelease` → `dist/Point-and-Shoot-{versionName}.apk` + `zipalign -c -v 4`). Prefer [`scripts/pns_github_release.ps1`](scripts/pns_github_release.ps1) for prepare + publish.
 - **CLI signed builds** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
 
 #### Updates without Google Play (users)
@@ -247,7 +261,7 @@ Toolchain gate (run after Kotlin / PowerShell changes):
 - `metadata/` — F-Droid compliance placeholders
 - `scripts/` — PowerShell automation: **`pns_verify_toolchain.ps1`**, **`pns_hfr_autorun.ps1`**, capture gates (**`pns_capture_pipeline_verify.ps1`**, **`pns_photo_capture_verify.ps1`**, **`pns_aux_dng_capture_analyze.ps1`**), video gates (**`pns_mediacodec_hfr_verify.ps1`**, **`pns_in_app_video_verify.ps1`**, …), performance gates (**`pns_memory_profiler.ps1`**, **`pns_battery_life_test.ps1`**, **`pns_po_optimization_gate.ps1`**), **`pns_sideload_and_launch.ps1`**, **`pns_chrome_ux_gate.ps1`**, **`pns_qr_scan_verify.ps1`**. Full index: [`AGENTS.md`](AGENTS.md).
 - `hfr-runs/` — pulled probe artifacts (gitignored)
-- `.github/workflows/` — CI: toolchain verify + unit tests + debug-APK artifact (Ubuntu), plan-doc verify, signed-build (manual / `v*` tag)
+- `.github/workflows/` — CI: toolchain verify + unit tests + Kover, plan-doc verify, CodeQL/gitleaks/Trivy security scans, signed-build (manual / `v*` tag)
 
 ## Contributing
 

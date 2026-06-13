@@ -1,6 +1,6 @@
-# ReferenceApp reference DNGs (LegacySku)
+# ReferenceApp reference DNGs (CPH2655 / OP13)
 
-Lens-matched captures for Sprint **13.3g-4** parity gates (`dng_referenceapp_parity_gate.py`).
+Lens-matched ProShot captures for Sprint **13.3g-4** parity gates (`dng_referenceapp_parity_gate.py`).
 
 | File | ReferenceApp slot | Camera id |
 |------|----------------|-----------|
@@ -11,7 +11,7 @@ Lens-matched captures for Sprint **13.3g-4** parity gates (`dng_referenceapp_par
 Refresh on USB:
 
 ```powershell
-.\scripts\pns_m13_3g4_fixture_refresh.ps1 -Serial <adb_serial>
+.\scripts\pns_referenceapp_reference_sync.ps1 -FromForensicsDir hfr-runs\referenceapp_live_forensics_* -FixtureProfile Cph2655 -Serial 8bf09993
 ```
 
 Source manifest: `fixture_sync_manifest.json` (updated each sync).

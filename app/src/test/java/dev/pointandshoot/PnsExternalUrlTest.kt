@@ -20,13 +20,14 @@ class PnsExternalUrlTest {
         assertTrue(PNS_GITHUB_RELEASES_URL.startsWith("https://github.com/"))
         assertTrue(PNS_GITHUB_RELEASES_LATEST_URL.endsWith("/releases/latest"))
         assertTrue(PNS_GITHUB_CHANGELOG_URL.contains("/blob/main/CHANGELOG.md"))
+        assertTrue(PNS_GITHUB_PRIVACY_URL.contains("/blob/main/PRIVACY.md"))
         assertEquals(
-            "https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.6",
+            "https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.10",
             githubReleaseUrlForTag(PNS_GITHUB_LATEST_RELEASE_TAG),
         )
         assertEquals(
-            "https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.6",
-            githubReleaseUrlForTag("v0.14.0-beta.6"),
+            "https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.10",
+            githubReleaseUrlForTag("v0.14.0-beta.10"),
         )
     }
 }

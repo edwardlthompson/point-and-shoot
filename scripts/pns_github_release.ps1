@@ -189,7 +189,7 @@ function Update-ExternalUrlLatestTag([string]$Path, [string]$SemverTag, [switch]
     }
     $text = [System.IO.File]::ReadAllText($Path)
     if ($text -notmatch 'const val PNS_GITHUB_LATEST_RELEASE_TAG') {
-        throw "PnsExternalUrl.kt missing PNS_GITHUB_LATEST_RELEASE_TAG — add GitHub release constants first."
+        throw "PnsExternalUrl.kt missing PNS_GITHUB_LATEST_RELEASE_TAG - add GitHub release constants first."
     }
     $replacement = "const val PNS_GITHUB_LATEST_RELEASE_TAG: String = `"$SemverTag`""
     $newText = [regex]::Replace(
@@ -223,7 +223,7 @@ Unreleased section in CHANGELOG.md has no user-visible bullets.
 Add notes under ## Unreleased, or pass -AllowEmptyUnreleased to cut an empty release.
 "@
         }
-        $unreleased = "_(No user-visible changes in this drop — version bump / packaging only.)_"
+        $unreleased = "_(No user-visible changes in this drop - version bump / packaging only.)_"
     }
 
     $summaryBlock = ""
@@ -243,7 +243,7 @@ $unreleased
     $placeholder = @"
 ## Unreleased
 
-_(Nothing yet — add user-visible deltas here; run ``pns_changelog_gate.ps1`` before milestone gates.)_
+_(Nothing yet - add user-visible deltas here; run ``pns_changelog_gate.ps1`` before milestone gates.)_
 
 "@
 
@@ -315,7 +315,7 @@ function Invoke-PublishPhase {
     $changelogText = [System.IO.File]::ReadAllText($changelogPath)
     $sectionBody = Get-ChangelogSectionForTag $changelogText $SemverTag
     if ([string]::IsNullOrWhiteSpace($sectionBody)) {
-        throw "CHANGELOG.md missing body for [$SemverTag] — run -PrepareOnly first."
+        throw "CHANGELOG.md missing body for [$SemverTag] - run -PrepareOnly first."
     }
 
     $releaseNotes = @"
@@ -353,7 +353,7 @@ $sectionBody
     if (-not $SkipGitTag -and -not $DryRun) {
         $existing = & git -C $repoRoot tag -l $GitTag 2>$null
         if ($existing) {
-            Write-Step "Git tag $GitTag already exists — skipping tag create"
+            Write-Step "Git tag $GitTag already exists - skipping tag create"
         } else {
             if ($PSCmdlet.ShouldProcess($GitTag, "Create annotated git tag")) {
                 & git -C $repoRoot tag -a $GitTag -m "Release $SemverTag"
@@ -479,7 +479,7 @@ try {
     }
 
     if ($PrepareOnly -and -not $Publish) {
-        Write-Step "PREPARE_DONE — review diff, commit, then run with -Publish -SkipPrepare"
+        Write-Step "PREPARE_DONE - review diff, commit, then run with -Publish -SkipPrepare"
     } elseif ($doPublish) {
         Write-Step "RELEASE_DONE tag=$GitTag"
         if (-not $SkipGitTag) {

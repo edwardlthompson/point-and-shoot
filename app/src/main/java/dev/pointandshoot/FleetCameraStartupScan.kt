@@ -202,11 +202,18 @@ object FleetCameraStartupScan {
                             "photo_resolution_mode_max"
                         else -> "none"
                     }
+                val roundFactor = Camera2FullMpBreakthrough.MP_ROUND_FACTOR
                 put(
                     JSONObject().apply {
                         put("cameraId", entry.cameraId)
-                        put("defaultMp", (defaultMp * 10.0).roundToInt() / 10.0)
-                        put("maxResMapMp", (maxResMp * 10.0).roundToInt() / 10.0)
+                        put(
+                            "defaultMp",
+                            (defaultMp * roundFactor).roundToInt() / roundFactor,
+                        )
+                        put(
+                            "maxResMapMp",
+                            (maxResMp * roundFactor).roundToInt() / roundFactor,
+                        )
                         put("hasLargerThanDefault", entry.hasLargerThanDefault)
                         put("suggestedUnlock", suggestedUnlock)
                     },

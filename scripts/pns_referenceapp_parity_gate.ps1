@@ -18,6 +18,7 @@ param(
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "pns_resolve_referenceapp_fixture_dir.ps1")
 $ts = [DateTime]::UtcNow.ToString("yyyyMMdd_HHmmss")
 $outDir = Join-Path $projRoot "hfr-runs\referenceapp_parity_gate_$ts"
 
@@ -44,7 +45,7 @@ if (-not $SkipCapture) {
 $refDir = if ($ReferenceAppFixtureDir) {
     $ReferenceAppFixtureDir
 } else {
-    Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku"
+    Resolve-PnsReferenceAppFixtureDir -ProjectRoot $projRoot -RequireExists
 }
 
 $py = Join-Path $PSScriptRoot "dng_referenceapp_parity_gate.py"

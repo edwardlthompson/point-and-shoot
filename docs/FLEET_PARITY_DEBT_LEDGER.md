@@ -1,15 +1,15 @@
 ﻿# Fleet parity debt ledger
 
-- Generated: 2026-06-06T17:14:08.6115803Z
+- Generated: 2026-06-13T01:17:06.4422448Z
 - Schema: pns.fleet_parity_debt_ledger.v2
-- In-app reports scanned: 129
+- In-app reports scanned: 133
 - Debt rows: 115 (actionable: 115)
 
 ## AppFeature (89)
 
-- **still.independent_tonal** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=71 owner=ShipNow sprint=- proof=pns_independent_tonal_verify.ps1
-- **video.color.bt709** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=70 owner=ShipNow sprint=- proof=pns_video_color_profile_verify.ps1
-- **video.color.flat** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=70 owner=ShipNow sprint=- proof=pns_video_color_profile_verify.ps1
+- **still.independent_tonal** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=72 owner=ShipNow sprint=- proof=pns_independent_tonal_verify.ps1
+- **video.color.bt709** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=71 owner=ShipNow sprint=- proof=pns_video_color_profile_verify.ps1
+- **video.color.flat** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=71 owner=ShipNow sprint=- proof=pns_video_color_profile_verify.ps1
 - **still.jxl** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=58 owner=ShipNow sprint=22.3 proof=pns_still_export_verify.ps1
 - **still.motion_photo** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=58 owner=ShipNow sprint=22.3 proof=pns_still_export_verify.ps1
 - **still.tiff16** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=58 owner=ShipNow sprint=22.3 proof=pns_still_export_verify.ps1
@@ -17,14 +17,14 @@
 - **video.color.hlg10** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=51 owner=MatrixGate sprint=- proof=pns_video_color_profile_verify.ps1
 - **video.color.hdr10** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=50 owner=MatrixGate sprint=- proof=pns_video_color_profile_verify.ps1
 - **video.color.pq** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=50 owner=MatrixGate sprint=- proof=pns_video_color_profile_verify.ps1
-- **still.heic** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=45 owner=ShipNow sprint=22.3 proof=pns_still_export_verify.ps1
+- **still.heic** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=46 owner=ShipNow sprint=22.3 proof=pns_still_export_verify.ps1
 - **video.av1** gap=GAP_ADVERTISED_NOT_PROVEN fail=session_failed recurrence=37 owner=MatrixGate sprint=22.1 proof=pns_av1_parity_verify.ps1
 - **video.av1.1080p** gap=GAP_ADVERTISED_NOT_PROVEN fail=session_failed recurrence=36 owner=MatrixGate sprint=- proof=pns_av1_parity_verify.ps1
 - **video.av1.4k** gap=GAP_ADVERTISED_NOT_PROVEN fail=session_failed recurrence=36 owner=MatrixGate sprint=- proof=pns_av1_parity_verify.ps1
 - **video.av1.720p** gap=GAP_ADVERTISED_NOT_PROVEN fail=session_failed recurrence=36 owner=MatrixGate sprint=- proof=pns_av1_parity_verify.ps1
 - **video.av1.8k** gap=GAP_ADVERTISED_NOT_PROVEN fail=session_failed recurrence=36 owner=MatrixGate sprint=- proof=pns_av1_parity_verify.ps1
+- **video.delivery_honesty** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=35 owner=ShipNow sprint=- proof=-
 - **perf.capture_latency** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=34 owner=MatrixGate sprint=- proof=pns_memory_profiler.ps1
-- **video.delivery_honesty** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=34 owner=ShipNow sprint=- proof=-
 - **perf.cold_preview_ms** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=32 owner=MatrixGate sprint=- proof=pns_memory_profiler.ps1
 - **perf.first_frame_ms** gap=GAP_ADVERTISED_NOT_PROVEN fail=not_proven recurrence=32 owner=MatrixGate sprint=- proof=pns_memory_profiler.ps1
 

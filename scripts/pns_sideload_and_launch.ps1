@@ -48,25 +48,7 @@ $resolve = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolve) {
     . $resolve -PrependToPath -Quiet
 }
-
-function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
-    $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
-    if (-not (Test-Path -LiteralPath $envFile)) {
-        return $null
-    }
-    foreach ($line in Get-Content -LiteralPath $envFile) {
-        $t = $line.Trim()
-        if ($t.StartsWith("#") -or $t.Length -eq 0) { continue }
-        $eq = $t.IndexOf("=")
-        if ($eq -lt 1) { continue }
-        $k = $t.Substring(0, $eq).Trim()
-        $v = $t.Substring($eq + 1).Trim()
-        if ($k -eq "PNS_ADB_SERIAL") {
-            return $v
-        }
-    }
-    return $null
-}
+. (Join-Path $PSScriptRoot "pns_adb_serial.ps1")
 
 function Invoke-Adb([string[]]$CmdArgs) {
     if ($Serial) {
@@ -120,13 +102,7 @@ function Get-AdbOnlineSerials {
     }
 }
 
-if ([string]::IsNullOrWhiteSpace($Serial)) {
-    $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
-    if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
-        $Serial = $fromEnv
-        Write-Host "`[sideload_launch] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
-    }
-}
+$Serial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot $PSScriptRoot -LogPrefix "sideload_launch"
 
 Write-Host "`[sideload_launch] adb devices:"
 & adb devices -l

@@ -1,0 +1,9 @@
+Parity closure and Milestone H active-plan cleanup.
+
+Release 0.14.0-beta.10 — packaging / version bump drop (see CHANGELOG.md on GitHub for full history).
+
+Recent highlights:
+• Camera2 capability leaderboard (GitHub Pages)
+• Fleet parity debt/intake pipeline
+• 4K120 truth-class hardening on supported devices
+• Fleet-adapted UI and capability gating

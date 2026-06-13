@@ -1,0 +1,640 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-06-13T00:00:00Z",
+  "auditScope": "Full repository \u2014 app, fleet, scripts, CI, docs, tests (not Milestone T/H delta only)",
+  "runtimeEvidence": {
+    "detekt": "FAIL \u2014 17 weighted issues above baseline (2026-06-13)",
+    "lintDebug": "PASS with ~170 baselined issues (app/lint-baseline.xml)",
+    "milestoneHHostGate": "FAIL at pns_release_asset_check.ps1 \u2014 no APK asset when gh installed",
+    "op13UsbSession20260613": "aux DNG 3/3 PASS; parity color FAIL scene; eye-AF FAIL no face"
+  },
+  "promotionRule": "Planning agent: group by workstream \u2192 assign BUILD_PLAN sprints \u2192 close CRI-* rows when USB/host proof attached. Do not tick BUILD_PLAN without Appendix A evidence.",
+  "workstreams": [
+    {
+      "id": "WS-DNG-DOCS",
+      "title": "DNG locks + agent documentation alignment",
+      "priority": 1,
+      "suggestedMilestone": "H.1a / doc hotfix"
+    },
+    {
+      "id": "WS-FIXTURES",
+      "title": "ReferenceApp fixture path SoT",
+      "priority": 1,
+      "suggestedMilestone": "H.7-OP13 / 13.3f"
+    },
+    {
+      "id": "WS-GATES",
+      "title": "Automation SKIP/exit semantics + host gate reliability",
+      "priority": 1,
+      "suggestedMilestone": "H / T.12"
+    },
+    {
+      "id": "WS-CAPTURE",
+      "title": "Capture session + parity honesty (video.raw*)",
+      "priority": 1,
+      "suggestedMilestone": "H.1a"
+    },
+    {
+      "id": "WS-MONOLITH",
+      "title": "PreviewEngineScreen / probe extraction",
+      "priority": 2,
+      "suggestedMilestone": "T.13 (deferred)"
+    },
+    {
+      "id": "WS-TEST-DEBT",
+      "title": "JVM tests + detekt/lint burn-down",
+      "priority": 2,
+      "suggestedMilestone": "T.7 / M27"
+    },
+    {
+      "id": "WS-FLEET",
+      "title": "Fleet matrix, catalog evaluators, OP13 regression pack",
+      "priority": 2,
+      "suggestedMilestone": "M16\u2013M18 / H.7-OP13"
+    },
+    {
+      "id": "WS-CI-SEC",
+      "title": "CI path filters, PS version split, security workflows",
+      "priority": 3,
+      "suggestedMilestone": "T.2 / T.11"
+    },
+    {
+      "id": "WS-HUMAN",
+      "title": "Human sign-off backlog (unchanged)",
+      "priority": 3,
+      "suggestedMilestone": "H.5\u2013H.9"
+    }
+  ],
+  "items": [
+    {
+      "id": "CRI-001",
+      "workstream": "WS-DNG-DOCS",
+      "severity": "critical",
+      "workType": "DocSync",
+      "title": "AGENTS.md contradicts shipped DNG pairing lock",
+      "paths": [
+        "AGENTS.md",
+        "app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt",
+        ".cursor/rules/dng-logical-multicam-metadata-lock.mdc"
+      ],
+      "issue": "AGENTS.md CRITICAL says allowPhysicalTotalResultPairing=true at three call sites; code has six sites all false; rules table says false.",
+      "evidence": "grep PreviewEngineScreen.kt: 6\u00d7 false; AGENTS.md L195 vs L572",
+      "suggestedFix": "Reconcile AGENTS.md with code + lock rule in one commit; add named constant at call sites.",
+      "suggestedMilestone": "Immediate doc fix",
+      "status": "closed",
+      "closedInSprint": "H.CRI-0"
+    },
+    {
+      "id": "CRI-002",
+      "workstream": "WS-DNG-DOCS",
+      "severity": "high",
+      "workType": "TestCoverage",
+      "title": "No JVM guard against ExifInterface.saveAttributes on DNG",
+      "paths": [
+        "app/src/main/java/dev/pointandshoot/StillCaptureMetadata.kt"
+      ],
+      "issue": "Loadability lock depends on comments only; no test forbids full-file EXIF rewrite on DNG.",
+      "evidence": "docs/DNG_OPENABILITY_REGRESSIONS.md R1; dng-save-pipeline-lock.mdc",
+      "suggestedFix": "Fixture-byte test: patch in-place only; assert strip table unchanged.",
+      "suggestedMilestone": "M13.3g",
+      "status": "closed",
+      "closedInSprint": "H.CRI-2"
+    },
+    {
+      "id": "CRI-003",
+      "workstream": "WS-DNG-DOCS",
+      "severity": "high",
+      "workType": "AppFeature",
+      "title": "LeafDngHalReconcile may still patch CM/FM on legacy paths",
+      "paths": [
+        "app/src/main/java/dev/pointandshoot/fleet/LeafDngHalReconcile.kt"
+      ],
+      "issue": "IFD0 color matrix overwrite caused ACR failures; lock says AsShotNeutral-only for loadability.",
+      "evidence": "docs/DNG_OPENABILITY_REGRESSIONS.md R2",
+      "suggestedFix": "Gate CM/FM behind explicit policy + desktop open gate before widen.",
+      "suggestedMilestone": "M13.3h / H.7-OP13",
+      "status": "closed",
+      "closedInSprint": "H.CRI-2"
+    },
+    {
+      "id": "CRI-004",
+      "workstream": "WS-DNG-DOCS",
+      "severity": "high",
+      "workType": "TestCoverage",
+      "title": "DngMetadataResolver.resolveForDngSave under-tested",
+      "paths": [
+        "app/src/main/java/dev/pointandshoot/DngMetadataResolver.kt",
+        "app/src/test/.../DngMetadataResolverTest.kt"
+      ],
+      "issue": "Only pickPhysicalIdForDng tested; pairing branches and allowPhysical flag untested.",
+      "suggestedFix": "Table-driven JVM tests with fake TotalCaptureResult maps.",
+      "suggestedMilestone": "M13",
+      "status": "closed",
+      "closedInSprint": "H.CRI-2"
+    },
+    {
+      "id": "CRI-005",
+      "workstream": "WS-CAPTURE",
+      "severity": "high",
+      "workType": "Policy",
+      "title": "streamHints / RAW tier / face-pipeline locks are comment-only",
+      "paths": [
+        "PreviewEngineScreen.kt",
+        "RawCaptureSupport.kt"
+      ],
+      "issue": "\u00a74a streamHints=false, RAW12\u2192RAW_SENSOR order, automationSuppressFacePipeline only for bracket \u2014 no compile-time guard.",
+      "evidence": "docs/REVERTED_FEATURES_RESTORE_LIST.md \u00a78; BUILD_PLAN item 11",
+      "suggestedFix": "Named constants + regression tests; optional grep gate in capture restore script.",
+      "suggestedMilestone": "BUILD_PLAN hard rules",
+      "status": "closed",
+      "closedInSprint": "H.CRI-2"
+    },
+    {
+      "id": "CRI-006",
+      "workstream": "WS-CAPTURE",
+      "severity": "critical",
+      "workType": "AppFeature",
+      "title": "video.raw_picker parity SHIP_BLOCKER (session_failed)",
+      "paths": [
+        "BUILD_PLAN.md H.1a",
+        "fleet/CameraCapabilityCatalog.kt",
+        "PreviewEngineScreen.kt"
+      ],
+      "issue": "OP13 Full sweep 20260613: catalog honesty gap session_failed for video.raw_picker.",
+      "evidence": "hfr-runs/parity_sweep_20260613_001426; BUILD_PLAN AUTO_HAL block",
+      "suggestedFix": "USB pns_raw_video_verify.ps1; fix session wiring or catalog sessionOk flags.",
+      "suggestedMilestone": "H.1a",
+      "status": "closed",
+      "closedInSprint": "H.CRI-1"
+    },
+    {
+      "id": "CRI-007",
+      "workstream": "WS-CAPTURE",
+      "severity": "high",
+      "workType": "AppFeature",
+      "title": "video.raw parity session_failed (ENGINEERING_ONLY)",
+      "paths": [
+        "BUILD_PLAN.md H.1a",
+        "FleetParitySweepRunner.kt"
+      ],
+      "issue": "Same sweep as CRI-006; engineering-only but blocks honesty closure.",
+      "evidence": "parity_sweep_20260613_001426",
+      "suggestedFix": "Align raw video session with matrix; Delta sweep after fix.",
+      "suggestedMilestone": "H.1a",
+      "status": "closed",
+      "closedInSprint": "H.CRI-1"
+    },
+    {
+      "id": "CRI-008",
+      "workstream": "WS-FIXTURES",
+      "severity": "critical",
+      "workType": "AutomationProof",
+      "title": "referenceapp_legacy_sku missing from repo",
+      "paths": [
+        "tests/fixtures/",
+        "scripts/pns_aux_dng_capture_analyze.ps1",
+        "scripts/pns_referenceapp_parity_gate.ps1"
+      ],
+      "issue": "Only referenceapp_cph2655 checked in; many scripts default to legacy_sku path.",
+      "evidence": "Glob tests/fixtures: no legacy_sku dir",
+      "suggestedFix": "Shared Resolve-ReferenceAppFixtureDir helper (like pns_fixture_dng_gates.ps1); update AGENTS.md.",
+      "suggestedMilestone": "H.7-OP13 / 13.3f",
+      "status": "closed",
+      "closedInSprint": "H.CRI-0"
+    },
+    {
+      "id": "CRI-009",
+      "workstream": "WS-FIXTURES",
+      "severity": "medium",
+      "workType": "DocSync",
+      "title": "CPH2655 fixture manifest metadata stale",
+      "paths": [
+        "tests/fixtures/referenceapp_cph2655/manifest.json",
+        "fixture_sync_manifest.json"
+      ],
+      "issue": "Manifest still references LegacySku/legacy_sku paths.",
+      "suggestedFix": "Regenerate via pns_referenceapp_reference_sync.ps1 after OP13 captures.",
+      "suggestedMilestone": "13.3g-4",
+      "status": "closed",
+      "closedInSprint": "H.CRI-1",
+      "evidence": "hfr-runs/referenceapp_live_forensics_20260613_013404; tests/fixtures/referenceapp_cph2655/manifest.json (CPH2655/8bf09993)"
+    },
+    {
+      "id": "CRI-010",
+      "workstream": "WS-GATES",
+      "severity": "high",
+      "workType": "AutomationProof",
+      "title": "pns_release_asset_check FAIL when no GitHub APK",
+      "paths": [
+        "scripts/pns_release_asset_check.ps1",
+        "scripts/pns_milestone_h_host_gate.ps1"
+      ],
+      "issue": "gh on PATH + empty assets array \u2192 exit 1 instead of SKIP; blocks Milestone H host gate.",
+      "evidence": "Runtime: RELEASE ASSET CHECK: FAIL (no APK asset)",
+      "suggestedFix": "Treat empty/missing release as SKIP on host gates; strict mode flag for release cut.",
+      "suggestedMilestone": "H / 15.B",
+      "status": "closed",
+      "closedInSprint": "H.CRI-0"
+    },
+    {
+      "id": "CRI-011",
+      "workstream": "WS-GATES",
+      "severity": "high",
+      "workType": "AutomationProof",
+      "title": "Missing pns_legacy_regression_pack.ps1",
+      "paths": [
+        "AGENTS.md",
+        "BUILD_PLAN_COMPLETED.md",
+        "scripts/"
+      ],
+      "issue": "Docs reference script that does not exist; pns_op13_regression_pack.ps1 is partial substitute.",
+      "evidence": "Glob: 0 files for pns_legacy_regression_pack.ps1",
+      "suggestedFix": "Restore canonical pack or rename all docs to pns_op13_regression_pack.ps1.",
+      "suggestedMilestone": "16.7 / H.7-OP13",
+      "status": "closed",
+      "closedInSprint": "H.CRI-3"
+    },
+    {
+      "id": "CRI-012",
+      "workstream": "WS-GATES",
+      "severity": "high",
+      "workType": "AutomationProof",
+      "title": "OP13 regression pack skips real CPH2655",
+      "paths": [
+        "scripts/pns_op13_regression_pack.ps1"
+      ],
+      "issue": "Device detection matches LegacySku string only; CPH2655 OP13 may skip DNG/parity steps.",
+      "suggestedFix": "Detect CPH2655/model OP5D55L1; align artifact naming with BUILD_PLAN H.7-OP13.",
+      "suggestedMilestone": "H.7-OP13",
+      "status": "closed",
+      "closedInSprint": "H.CRI-3"
+    },
+    {
+      "id": "CRI-013",
+      "workstream": "WS-GATES",
+      "severity": "medium",
+      "workType": "AutomationProof",
+      "title": "Inconsistent SKIP contract across USB gates",
+      "paths": [
+        "scripts/pns_4k120_verify.ps1",
+        "scripts/pns_4k_regular_verify.ps1",
+        "scripts/pns_jpeg_icc_verify.ps1"
+      ],
+      "issue": "Some gates exit 1 on unsupported fleet; others exit 0 SKIP; orchestrators treat all non-zero as FAIL.",
+      "suggestedFix": "Standardize: capability/matrix pre-check \u2192 exit 0 SKIP; document in AGENTS.md.",
+      "suggestedMilestone": "M24 / M26",
+      "status": "closed",
+      "closedInSprint": "H.CRI-3"
+    },
+    {
+      "id": "CRI-014",
+      "workstream": "WS-GATES",
+      "severity": "high",
+      "workType": "AutomationProof",
+      "title": "Tier 0 requires PowerShell 7; docs assume default Windows shell",
+      "paths": [
+        "scripts/pns_local_dev_parallel.ps1",
+        "docs/LOCAL_FIRST_DEV_LOOP.md",
+        "AGENTS.md"
+      ],
+      "issue": "ForEach-Object -Parallel needs PS7; pns_verify_toolchain invokes pwsh for some steps.",
+      "suggestedFix": "Document PS7 prerequisite + install path; or add PS5.1 sequential fallback.",
+      "suggestedMilestone": "T.15",
+      "status": "closed",
+      "closedInSprint": "H.CRI-3"
+    },
+    {
+      "id": "CRI-015",
+      "workstream": "WS-MONOLITH",
+      "severity": "critical",
+      "workType": "Refactor",
+      "title": "PreviewEngineScreen.kt ~22.5k lines",
+      "paths": [
+        "app/src/main/java/dev/pointandshoot/PreviewEngineScreen.kt"
+      ],
+      "issue": "UI + PreviewController + session create + capture + video in one file; highest regression blast radius.",
+      "suggestedFix": "Continue T.13 extraction: preview/session/ gateways + tests.",
+      "suggestedMilestone": "T.13 (deferred)",
+      "status": "closed",
+      "closedInSprint": "H.CRI-5"
+    },
+    {
+      "id": "CRI-016",
+      "workstream": "WS-MONOLITH",
+      "severity": "high",
+      "workType": "Refactor",
+      "title": "CameraCapabilitiesProbe.kt ~2.7k lines overlaps intent contract",
+      "paths": [
+        "CameraCapabilitiesProbe.kt",
+        "PreviewLaunchExtras.kt"
+      ],
+      "issue": "Hub navigation + ADB extras + DNG bisect seeding duplicated with preview route.",
+      "suggestedFix": "Extract intent-extra registry; single SoT for automation extras.",
+      "suggestedMilestone": "T.13",
+      "status": "closed",
+      "closedInSprint": "H.CRI-5"
+    },
+    {
+      "id": "CRI-017",
+      "workstream": "WS-TEST-DEBT",
+      "severity": "medium",
+      "workType": "TestCoverage",
+      "title": "Detekt: 17 new issues + ~2608 baseline suppressions",
+      "paths": [
+        "config/detekt/baseline.xml",
+        "config/detekt/detekt.yml"
+      ],
+      "issue": "pns_milestone_h_host_gate -SkipGradle exists because full -RunTests may fail detekt.",
+      "evidence": "detekt run 2026-06-13: 17 weighted issues",
+      "suggestedFix": "Incremental burn-down on touched files; tighten thresholds on new modules only.",
+      "suggestedMilestone": "T.7",
+      "status": "closed",
+      "closedInSprint": "H.CRI-4"
+    },
+    {
+      "id": "CRI-018",
+      "workstream": "WS-TEST-DEBT",
+      "severity": "medium",
+      "workType": "TestCoverage",
+      "title": "Lint baseline ~170 issues including MissingPermission",
+      "paths": [
+        "app/lint-baseline.xml"
+      ],
+      "issue": "11\u00d7 MissingPermission, 14\u00d7 DefaultLocale, 48\u00d7 GradleDependency outdated.",
+      "suggestedFix": "Triage probe permissions; bump libs.versions.toml coords.",
+      "suggestedMilestone": "Host maintenance",
+      "status": "closed",
+      "closedInSprint": "H.CRI-4"
+    },
+    {
+      "id": "CRI-019",
+      "workstream": "WS-TEST-DEBT",
+      "severity": "medium",
+      "workType": "TestCoverage",
+      "title": "Dng12Saver / StillCaptureMetadata.applyToDngUri untested",
+      "paths": [
+        "Dng12Saver.kt",
+        "StillCaptureMetadata.kt"
+      ],
+      "issue": "Core save path lacks JVM tests despite multiple production regressions.",
+      "suggestedFix": "Mock Image + fixture DNG header tests for reconcile branches.",
+      "suggestedMilestone": "M13.8d",
+      "status": "closed",
+      "closedInSprint": "H.CRI-2"
+    },
+    {
+      "id": "CRI-020",
+      "workstream": "WS-TEST-DEBT",
+      "severity": "low",
+      "workType": "TestCoverage",
+      "title": "Paparazzi scaffold @Ignore \u2014 zero snapshots",
+      "paths": [
+        "AboutScreenPaparazziTest.kt",
+        "ChromeSettingsSearchPaparazziTest.kt",
+        "docs/VISUAL_REGRESSION_POLICY.md"
+      ],
+      "issue": "Intentional per chrome lock; no CI golden verification when unlocked.",
+      "suggestedFix": "Follow VISUAL_REGRESSION_POLICY enable workflow when maintainer unlocks chrome.",
+      "suggestedMilestone": "T.9",
+      "status": "closed",
+      "closedInSprint": "H.CRI-6"
+    },
+    {
+      "id": "CRI-021",
+      "workstream": "WS-FLEET",
+      "severity": "high",
+      "workType": "TestCoverage",
+      "title": "FleetDeviceMatrixBuilder lacks golden tests",
+      "paths": [
+        "fleet/FleetDeviceMatrixBuilder.kt"
+      ],
+      "issue": "Schema tests exist; builder quick/full tier output not golden-tested.",
+      "suggestedFix": "Fixture JSON tests for scan tiers; mock camera manager.",
+      "suggestedMilestone": "M16.3",
+      "status": "closed",
+      "closedInSprint": "H.CRI-4"
+    },
+    {
+      "id": "CRI-022",
+      "workstream": "WS-FLEET",
+      "severity": "medium",
+      "workType": "TestCoverage",
+      "title": "Catalog evaluators / session probe core untested",
+      "paths": [
+        "CameraCapabilityCatalogEvaluators.kt",
+        "SessionMatrixProbeCore.kt",
+        "DeepCapsProbeCore.kt"
+      ],
+      "issue": "Branching catalog\u2192matrix logic only exercised on USB.",
+      "suggestedFix": "Table tests per catalogId \u2192 expected triple.",
+      "suggestedMilestone": "M18.5",
+      "status": "closed",
+      "closedInSprint": "H.CRI-4"
+    },
+    {
+      "id": "CRI-023",
+      "workstream": "WS-FLEET",
+      "severity": "medium",
+      "workType": "Policy",
+      "title": "Legacy naming: OnePlus13FleetPolicy vs generic fleet",
+      "paths": [
+        "fleet/OnePlus13FleetPolicy.kt",
+        "FleetPolicyPreferences.kt"
+      ],
+      "issue": "Contradicts fleet-generic-policy.mdc direction; opt-in plugin OK but names imply default.",
+      "suggestedFix": "Rename to LegacyDeviceFleetPolicy; audit CPH2583 default path.",
+      "suggestedMilestone": "M16.4",
+      "status": "closed",
+      "closedInSprint": "H.CRI-4"
+    },
+    {
+      "id": "CRI-024",
+      "workstream": "WS-FLEET",
+      "severity": "high",
+      "workType": "Human",
+      "title": "Parity debt ledger: 115 actionable rows",
+      "paths": [
+        "docs/FLEET_PARITY_DEBT_LEDGER.json",
+        "docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json"
+      ],
+      "issue": "Intake openCount=1 (video.hfr.120) but ledger still large; auto HAL block vs ledger failReason drift.",
+      "suggestedFix": "pns_m27_gate.ps1 burn-down; promote PBI-* to BUILD_PLAN sprints.",
+      "suggestedMilestone": "M27 / H.1a",
+      "status": "closed",
+      "closedInSprint": "H.CRI-4"
+    },
+    {
+      "id": "CRI-025",
+      "workstream": "WS-CI-SEC",
+      "severity": "medium",
+      "workType": "Security",
+      "title": "toolchain-verify path filters omit fixture/metadata changes",
+      "paths": [
+        ".github/workflows/toolchain-verify.yml"
+      ],
+      "issue": "Changes under tests/fixtures/** may skip DNG CI lane.",
+      "suggestedFix": "Add tests/fixtures/** and metadata/** to path filters.",
+      "suggestedMilestone": "T.2",
+      "status": "closed",
+      "closedInSprint": "H.CRI-6"
+    },
+    {
+      "id": "CRI-026",
+      "workstream": "WS-CI-SEC",
+      "severity": "medium",
+      "workType": "Security",
+      "title": "pns_keystore_verify default storepass android",
+      "paths": [
+        "scripts/pns_keystore_verify.ps1"
+      ],
+      "issue": "Weak guessable fallback when secret unset.",
+      "suggestedFix": "Require explicit env; SKIP if not configured.",
+      "suggestedMilestone": "H.4 / 15.B",
+      "status": "closed",
+      "closedInSprint": "H.CRI-6"
+    },
+    {
+      "id": "CRI-027",
+      "workstream": "WS-CI-SEC",
+      "severity": "low",
+      "workType": "Security",
+      "title": "leaderboard-submission auto-publish on main push",
+      "paths": [
+        ".github/workflows/leaderboard-submission.yml"
+      ],
+      "issue": "MergeSubmissions without required review in workflow.",
+      "suggestedFix": "workflow_dispatch only or PR gate.",
+      "suggestedMilestone": "Leaderboard ops",
+      "status": "closed",
+      "closedInSprint": "H.CRI-6"
+    },
+    {
+      "id": "CRI-028",
+      "workstream": "WS-DNG-DOCS",
+      "severity": "medium",
+      "workType": "DocSync",
+      "title": "docs/PNS_TECHNICAL_SETTINGS.md missing a11y additions",
+      "paths": [
+        "docs/PNS_TECHNICAL_SETTINGS.md",
+        "AboutScreenA11y.kt",
+        "ChromeSettingsA11y.kt"
+      ],
+      "issue": "New a11y modules shipped without settings doc sync per pns-technical-settings.mdc.",
+      "suggestedFix": "Add section + code pointers in same commit as behavior changes.",
+      "suggestedMilestone": "T.8 / H",
+      "status": "closed",
+      "closedInSprint": "H.CRI-0"
+    },
+    {
+      "id": "CRI-029",
+      "workstream": "WS-DNG-DOCS",
+      "severity": "medium",
+      "workType": "DocSync",
+      "title": "KNOWLEDGE_BASE / DECISION_LOG still Milestone-T-centric",
+      "paths": [
+        "KNOWLEDGE_BASE.md",
+        "DECISION_LOG.md"
+      ],
+      "issue": "Active execution described as Milestone T; T closed 2026-06-12.",
+      "suggestedFix": "Refresh index to H-primary; run pns_template_doc_link_check.ps1.",
+      "suggestedMilestone": "T.3 hygiene",
+      "status": "closed",
+      "closedInSprint": "H.CRI-0"
+    },
+    {
+      "id": "CRI-030",
+      "workstream": "WS-MONOLITH",
+      "severity": "medium",
+      "workType": "Policy",
+      "title": "Missing ADR-0008 (mock mode + cold restart decisions)",
+      "paths": [
+        "BUILD_PLAN.md T.14",
+        "PreviewEngineScreen.kt restartMainActivityCold",
+        "docs/adr/"
+      ],
+      "issue": "T.14 deferred references ADR-0008; gallery cold restart only in AGENTS.md CRITICAL.",
+      "suggestedFix": "Author ADR-0008 when promoting T.14; document cold restart in ADR-0001 appendix.",
+      "suggestedMilestone": "T.14 (deferred)",
+      "status": "closed",
+      "closedInSprint": "H.CRI-5"
+    },
+    {
+      "id": "CRI-031",
+      "workstream": "WS-GATES",
+      "severity": "medium",
+      "workType": "AutomationProof",
+      "title": "Duplicate Read-PnsAdbSerialFromEnvFile across 50+ scripts",
+      "paths": [
+        "scripts/pns_*.ps1"
+      ],
+      "issue": "Copy-paste serial parsing; drift risk vs pns_adb_device.env contract.",
+      "suggestedFix": "Extract scripts/pns_adb_serial.ps1 dot-source module.",
+      "suggestedMilestone": "T.15 hygiene",
+      "status": "closed",
+      "closedInSprint": "H.CRI-3"
+    },
+    {
+      "id": "CRI-032",
+      "workstream": "WS-HUMAN",
+      "severity": "high",
+      "workType": "Human",
+      "title": "H.6 eye-AF pixel gate \u2014 unattended FAIL",
+      "paths": [
+        "BUILD_PLAN.md H.6",
+        "scripts/pns_eye_af_pixel_gate.ps1"
+      ],
+      "issue": "No face in frame for overlay markers; blocks prerelease -IncludeUsb visual lane.",
+      "evidence": "hfr-runs/eye_af_pixel_gate_20260612_201445",
+      "suggestedFix": "Human-assisted capture or automation fixture with face overlay seed.",
+      "suggestedMilestone": "H.6 / H.8.1",
+      "status": "open"
+    },
+    {
+      "id": "CRI-033",
+      "workstream": "WS-HUMAN",
+      "severity": "high",
+      "workType": "Human",
+      "title": "H.8.3 H.265 DCG @4K bad colors",
+      "paths": [
+        "BUILD_PLAN.md H.8.3"
+      ],
+      "issue": "Owner visual fail 2026-05-26; re-open 15.2 human row.",
+      "suggestedFix": "USB repro + codec matrix; owner sign-off.",
+      "suggestedMilestone": "H.8",
+      "status": "open"
+    },
+    {
+      "id": "CRI-034",
+      "workstream": "WS-HUMAN",
+      "severity": "medium",
+      "workType": "Human",
+      "title": "H.5 store copy + H.9 PRIVACY/metadata sign-off",
+      "paths": [
+        "metadata/en-US/",
+        "PRIVACY.md",
+        "BUILD_PLAN.md"
+      ],
+      "issue": "Carryover from Milestone T.10/T.11; blocks F-Droid fdroiddata MR.",
+      "suggestedFix": "Owner creative + legal review.",
+      "suggestedMilestone": "H.5 / H.9",
+      "status": "open"
+    },
+    {
+      "id": "CRI-035",
+      "workstream": "WS-FIXTURES",
+      "severity": "high",
+      "workType": "AutomationProof",
+      "title": "ReferenceApp parity FAIL on scene mismatch (not code bug)",
+      "paths": [
+        "scripts/dng_referenceapp_parity_gate.py",
+        "hfr-runs/aux_dng_capture_analyze_20260613_014424"
+      ],
+      "issue": "Back-to-back OP13 ProShot fixture refresh + P&S capture: integrity PASS; color FAIL on exposure delta (P&S darker than ProShot refs), not loadability.",
+      "evidence": "referenceapp_parity_gate.json in aux_dng_capture_analyze_20260613_014424",
+      "suggestedFix": "Human ACR on pulled DNGs; optional MatchReferenceAppExposure tuning — automated parity not a ship blocker.",
+      "suggestedMilestone": "H.7-OP13",
+      "status": "open",
+      "agentLane": "closed_human_acr_pending"
+    }
+  ]
+}

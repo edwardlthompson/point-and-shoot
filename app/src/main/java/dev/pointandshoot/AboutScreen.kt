@@ -68,6 +68,7 @@ fun AboutScreen(
             requiresRoot = false,
             onClick = onBack,
             modifier = Modifier.fillMaxWidth(),
+            contentDescription = AboutScreenA11y.BACK,
         )
         Column(
             modifier =
@@ -118,7 +119,7 @@ private fun AboutHeritageBody(
             }
         },
         modifier = Modifier.fillMaxWidth(),
-        contentDescription = "Open latest GitHub release notes",
+        contentDescription = AboutScreenA11y.RELEASE_NOTES,
     )
     FpsQuickChip(
         label = "Full changelog (GitHub)",
@@ -133,7 +134,22 @@ private fun AboutHeritageBody(
             }
         },
         modifier = Modifier.fillMaxWidth(),
-        contentDescription = "Open CHANGELOG.md on GitHub",
+        contentDescription = AboutScreenA11y.CHANGELOG,
+    )
+    FpsQuickChip(
+        label = "Privacy policy (GitHub)",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_GITHUB_PRIVACY_URL)
+            if (!ok) {
+                Toast.makeText(context, "No browser found to open privacy policy.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutPrivacy=opened")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = AboutScreenA11y.PRIVACY,
     )
 
     PreviewRailSectionTitle("Heritage")
@@ -156,7 +172,7 @@ private fun AboutHeritageBody(
             }
         },
         modifier = Modifier.fillMaxWidth(),
-        contentDescription = "Open Venmo donation page",
+        contentDescription = AboutScreenA11y.VENMO,
     )
 
     PreviewRailSectionTitle("Command dial — Snap (street)")

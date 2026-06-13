@@ -1,0 +1,55 @@
+Point & Shoot
+Copyright 2024–2026 Edward Thompson and contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+Third-party notices (APK redistribution)
+================================================================================
+
+This application bundles FOSS components. The authoritative inventory with
+version pins and SPDX identifiers is LICENSES.md in the repository root.
+Run scripts/pns_license_inventory.ps1 to verify LICENSES.md matches
+gradle/libs.versions.toml.
+
+Runtime library dependencies (Maven coordinates) — all Apache-2.0 compatible
+unless noted in LICENSES.md:
+
+  - Android Jetpack (AndroidX Core, Lifecycle, Activity, Compose BOM,
+    Material3, CameraX, DocumentFile, ExifInterface, Graphics Core,
+    ProfileInstaller)
+  - com.google.zxing:core (Apache-2.0)
+  - com.google.mlkit:face-detection (Apache-2.0, on-device only)
+
+Bundled font asset:
+
+  - JetBrains Mono Regular v2.304 — SIL Open Font License 1.1
+    (app/src/main/res/font/jetbrainsmono_regular.ttf;
+     license text: app/src/main/assets/fonts/jetbrainsmono/LICENSE.txt)
+
+Bundled LUT assets (build-time SHA-256 verified downloads):
+
+  - aces-rrt-v011-srgb — Apache-2.0 (OpenColorIO-Configs, pinned commit)
+  - alexa-logc-video-nuke1d — Apache-2.0 (same upstream repo)
+
+Code-generated LUTs (public-domain math / in-repo Apache-2.0) are listed in
+LICENSES.md under "Bundled LUTs (Phase 4)".
+
+Native libraries (when present in APK):
+
+  - libpns_native.so — Apache-2.0 (this project)
+  - libc++_shared.so — NDK LLVM runtime (Apache-2.0 with LLVM exception)
+
+Test-only dependencies (JUnit, org.json) are NOT shipped in release APKs.
+
+For CycloneDX SBOM emission see scripts/pns_sbom.ps1 and docs/REPRODUCIBLE_BUILDS.md.

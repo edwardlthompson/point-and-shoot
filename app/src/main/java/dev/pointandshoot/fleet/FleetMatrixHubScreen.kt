@@ -63,6 +63,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 private const val TAG = "PNS.FleetMatrixHub"
+private const val MAX_ANTUTU_INPUT_DIGITS = 7
 
 private enum class MatrixHubTab(val label: String) {
     Summary("Summary"),
@@ -359,7 +360,7 @@ fun FleetMatrixHubScreen(
             OutlinedTextField(
                 value = antutuTotalText,
                 onValueChange = { raw ->
-                    antutuTotalText = raw.filter { it.isDigit() }.take(7)
+                    antutuTotalText = raw.filter { it.isDigit() }.take(MAX_ANTUTU_INPUT_DIGITS)
                     val total = antutuTotalText.toIntOrNull()
                     LeaderboardAntutuPrefs.save(
                         appCtx,

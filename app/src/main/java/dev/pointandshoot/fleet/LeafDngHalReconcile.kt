@@ -24,6 +24,13 @@ import dev.pointandshoot.TiffDngColorMatrixPatch
  * Shipped LegacyDevice path: force IFD0 + raw-IFD **ColorMatrix / ForwardMatrix** from the **opened leaf**
  * [CameraCharacteristics], optional per-id FM override, and **AsShotNeutral** from
  * [CaptureResult.SENSOR_NEUTRAL_COLOR_POINT] on the still result — not inverted gains or Bayer means.
+ *
+ * **DNG loadability lock (REG-20260519-001):** [StillCaptureMetadata.applyToDngUri] must never call
+ * [androidx.exifinterface.media.ExifInterface.saveAttributes] on row-strip DNGs. CM/FM IFD0 patches in
+ * this object run only on **explicit fleet/bisect paths** ([useHalColorCalibrationPath],
+ * [useWideLeafCalibrationPath], [useReferenceAppReferenceCalibrationPath]) — not on the default
+ * ReferenceCam pure-DNG save when those flags are off. Default shipped reconcile when enabled is
+ * **AsShotNeutral-only** ([useAsnOnlyPath], [applyLegacyAsnReconcile]).
  */
 object LeafDngHalReconcile {
     private const val TAG = "PNS.LeafDng"
@@ -124,6 +131,9 @@ object LeafDngHalReconcile {
     fun usesWideLeafCalibrationReconcile(sessionCameraId: String?): Boolean =
         useWideLeafCalibrationPath(sessionCameraId)
 
+    /**
+     * Post-[android.hardware.camera2.DngCreator] TIFF patches. CM/FM routes are policy-gated — see class KDoc.
+     */
     fun applyPostDngCreatorPatches(
         original: ByteArray,
         characteristics: CameraCharacteristics,
@@ -325,6 +335,9 @@ object LeafDngHalReconcile {
     /**
      * Aux sensors keep their RAW pixels; **color profile** (CM/FM) comes from wide cam **2** HAL tables.
      * AsShotNeutral stays on the aux still AWB ([COLOR_CORRECTION_GAINS] / Op13 correction).
+     *
+     * **Loadability:** gated by [LegacyFleetPolicy.useWideLeafCalibrationForAuxDng] + maintainer USB proof
+     * (13.3h bisect); not the default pure-DNG loadability path.
      */
     private fun applyWideLeafCalibrationReconcile(
         original: ByteArray,
@@ -437,6 +450,10 @@ object LeafDngHalReconcile {
         return bytes
     }
 
+    /**
+     * Patches IFD0 CM/FM from opened leaf HAL tables. **Loadability:** only when
+     * [LegacyFleetPolicy.useHalColorCalibrationReconcile] is on (explicit bisect / fleet policy).
+     */
     private fun applyHalColorCalibrationReconcile(
         original: ByteArray,
         characteristics: CameraCharacteristics,

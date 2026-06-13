@@ -32,9 +32,23 @@ Parity closure and Milestone H active-plan cleanup.
 **Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.10.apk`
 
 _(No user-visible changes in this drop — version bump / packaging only.)_
+## [0.14.0-beta.11] - 2026-06-12
+
+CRI program + Milestone T template alignment; OP13 regression lane; RAW video lane fix.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.11.apk`
+
+### Fixed
+
+- **CRI program (H.CRI-0…6)** — AGENTS.md DNG pairing doc aligned with shipped `false` policy; host `pns_release_asset_check` SKIP when no GitHub APK; shared ReferenceApp fixture resolver (`referenceapp_legacy_sku` → `referenceapp_cph2655` fallback); RAW video lane attaches RAW ImageReader in video-primary preview sessions (**CPH2583** `pns_raw_video_verify` PASS); detekt baseline burn-down; CI path filters for fixtures/metadata.
+- **OP13 regression lane (H.CRI-1/3 USB)** — `8bf09993` CPH2655: fleet matrix quick PASS; aux DNG openability 3/3 (`aux_dng_capture_analyze_20260613_014424`); ProShot fixture refresh + `manifest.json`; PiP + multicam melt PASS; `pns_op13_regression_pack.ps1` hashtable splat fix.
+
+### Added (maintainer / engineering)
+
+- **Milestone T — Project template alignment** — KNOWLEDGE_BASE + ADR index + AGENT_MEMORY; pre-commit, CONTRIBUTING, devcontainer; Kover coverage floor; perf/a11y/Paparazzi scaffold; F-Droid metadata + `pns_fdroid_metadata_validate.ps1`; PRIVACY.md, NOTICE, reproducible builds + `pns_repro_build_verify.ps1`; full pre-release orchestrator **`pns_prerelease_gate.ps1`**; local-first Tier 0 **`pns_local_dev_parallel.ps1`** + multi-agent orchestration docs; **Milestone T closed (agent lane 2026-06-12)** via **`pns_milestone_t_gate.ps1`** — human store copy + PRIVACY sign-off deferred to Milestone **H**.
 ## Unreleased
 
-_(Nothing yet — add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
 ## [0.14.0-beta.7] - 2026-06-04
 
 Pre-release for **Milestone 24 reliability hardening**, fleet truth wiring, and ReferenceApp naming/fixture migration cleanup.

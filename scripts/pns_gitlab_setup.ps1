@@ -48,7 +48,7 @@ if ($Verify) {
             Write-Host "GITLAB VERIFY: SKIP (set GITLAB_TOKEN + GITLAB_PROJECT_ID for API check, or ANDROID_KEYSTORE_BASE64 locally)"
             exit 0
         }
-        Write-Host "GITLAB VERIFY: PASS (ANDROID_KEYSTORE_BASE64 set locally; API verify skipped — no GITLAB_TOKEN/PROJECT_ID)"
+        Write-Host "GITLAB VERIFY: PASS (ANDROID_KEYSTORE_BASE64 set locally; API verify skipped - no GITLAB_TOKEN/PROJECT_ID)"
         exit 0
     }
     $headers = @{ "PRIVATE-TOKEN" = $token }

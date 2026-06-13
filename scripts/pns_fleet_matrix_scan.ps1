@@ -37,6 +37,7 @@ $resolveAdbForSession = Join-Path $PSScriptRoot "pns_resolve_adb.ps1"
 if (Test-Path -LiteralPath $resolveAdbForSession) {
     . $resolveAdbForSession -PrependToPath -Quiet
 }
+. (Join-Path $PSScriptRoot "pns_adb_serial.ps1")
 
 $projRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot "pns_leaderboard_common.ps1")
@@ -56,28 +57,7 @@ if ($WaitSec -le 0) {
     $WaitSec = if ($ScanTier -eq "full") { 240 } else { 18 }
 }
 
-function Read-PnsAdbSerialFromEnvFile([string]$ScriptRoot) {
-    $envFile = Join-Path $ScriptRoot "pns_adb_device.env"
-    if (-not (Test-Path -LiteralPath $envFile)) { return $null }
-    foreach ($line in Get-Content -LiteralPath $envFile) {
-        $t = $line.Trim()
-        if ($t.StartsWith("#") -or $t.Length -eq 0) { continue }
-        $eq = $t.IndexOf("=")
-        if ($eq -lt 1) { continue }
-        $k = $t.Substring(0, $eq).Trim()
-        $v = $t.Substring($eq + 1).Trim()
-        if ($k -eq "PNS_ADB_SERIAL") { return $v }
-    }
-    return $null
-}
-
-if ([string]::IsNullOrWhiteSpace($Serial)) {
-    $fromEnv = Read-PnsAdbSerialFromEnvFile $PSScriptRoot
-    if (-not [string]::IsNullOrWhiteSpace($fromEnv)) {
-        $Serial = $fromEnv
-        Write-Host "[fleet_matrix] PNS_ADB_SERIAL from scripts/pns_adb_device.env -> $Serial"
-    }
-}
+$Serial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot $PSScriptRoot -LogPrefix "fleet_matrix"
 
 if ($Serial -match ':\d+$') {
     $wifiConnect = Join-Path $PSScriptRoot "pns_adb_wifi_connect.ps1"

@@ -2,6 +2,7 @@ package dev.pointandshoot.fleet
 
 import dev.pointandshoot.BackCameraRoleResolver
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -40,6 +41,19 @@ class FleetDevicePolicyTest {
             LegacyFleetPolicy.leafRawFormatOrder(),
             LegacyFleetPolicyPlugin.leafRawFormatOrder(),
         )
+    }
+
+    @Test
+    fun cph2583PrimaryDevice_doesNotApplyLegacyPolicy() {
+        val policy: LegacyDeviceFleetPolicy = LegacyFleetPolicy
+        assertNotNull(policy)
+        assertEquals(false, LegacyFleetPolicy.appliesToDeviceModel("CPH2583"))
+        assertEquals(false, LegacyFleetPolicy.appliesToDeviceModel("OnePlus CPH2583"))
+    }
+
+    @Test
+    fun legacySkuModel_appliesLegacyPolicy() {
+        assertEquals(true, LegacyFleetPolicy.appliesToDeviceModel("CPH2653"))
     }
 
     @Test

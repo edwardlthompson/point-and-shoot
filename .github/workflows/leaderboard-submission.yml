@@ -1,9 +1,6 @@
 name: Leaderboard submission validate
 
 on:
-  push:
-    paths:
-      - 'docs/leaderboard/submissions/**'
   pull_request:
     paths:
       - 'docs/leaderboard/submissions/**'
@@ -19,11 +16,3 @@ jobs:
           python-version: '3.12'
       - name: Validate submissions
         run: python scripts/leaderboard_submission_validate.py
-      - name: Merge approved into public bundle
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: |
-          if (Test-Path docs/leaderboard/submissions/approved/*.json) {
-            ./scripts/pns_leaderboard_export_catalog.ps1
-            ./scripts/pns_leaderboard_site_publish.ps1 -MergeSubmissions
-          }

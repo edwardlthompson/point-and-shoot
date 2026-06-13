@@ -17,12 +17,24 @@ on:
       - 'gradlew.bat'
       - 'BUILD_PLAN.md'
       - 'PROBE_BUILD_PLAN.md'
+      - 'KNOWLEDGE_BASE.md'
+      - 'AGENT_MEMORY.md'
+      - 'PROMPT_LIBRARY.md'
+      - 'CONTRIBUTING.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
+      - 'DECISION_LOG.md'
+      - 'docs/adr/**'
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
       - 'LICENSES.md'
+      - 'tests/fixtures/**'
+      - 'metadata/**'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
+      - '.gitleaks.toml'
+      - '.trivyignore'
   pull_request:
     paths:
       - 'app/**'
@@ -38,12 +50,24 @@ on:
       - 'gradlew.bat'
       - 'BUILD_PLAN.md'
       - 'PROBE_BUILD_PLAN.md'
+      - 'KNOWLEDGE_BASE.md'
+      - 'AGENT_MEMORY.md'
+      - 'PROMPT_LIBRARY.md'
+      - 'CONTRIBUTING.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
+      - 'DECISION_LOG.md'
+      - 'docs/adr/**'
       - 'CAPTURE_ARCHITECTURE.md'
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
       - 'LICENSES.md'
+      - 'tests/fixtures/**'
+      - 'metadata/**'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
+      - '.gitleaks.toml'
+      - '.trivyignore'
   workflow_dispatch:
 
 concurrency:
@@ -98,6 +122,12 @@ jobs:
           ./scripts/pns_fleet_parity_sweep.ps1 -HostOnlyFixture
           ./scripts/pns_parity_proof_pack.ps1 -HostOnly
           ./scripts/pns_fleet_parity_sweep.ps1 -HostProofPackMergeFixture
+
+      - name: Performance budget drift gate (T.8)
+        shell: pwsh
+        run: |
+          Set-Location "${{ github.workspace }}"
+          ./scripts/pns_perf_budget_host_gate.ps1
 
       - name: Run pns_verify_toolchain.ps1 (assemble + gates + :app:testDebugUnitTest)
         shell: pwsh

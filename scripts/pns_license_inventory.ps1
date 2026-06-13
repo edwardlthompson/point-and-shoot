@@ -81,6 +81,8 @@ $LicenseMap = @{
   'org.jetbrains.kotlin.plugin.compose'          = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
   'androidx.baselineprofile'                     = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
   'io.gitlab.arturbosch.detekt'                  = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
+  'org.jetbrains.kotlinx.kover'                  = @{ Spdx = 'Apache-2.0'; Scope = 'plugin'; Notes = 'Coverage gate (host/CI only)' }
+  'app.cash.paparazzi'                           = @{ Spdx = 'Apache-2.0'; Scope = 'plugin'; Notes = 'Visual regression scaffold (test/CI only)' }
 }
 
 $catalog = Join-Path $ProjectRoot "gradle/libs.versions.toml"

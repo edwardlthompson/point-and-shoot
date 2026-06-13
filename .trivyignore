@@ -1,0 +1,6 @@
+# Trivy ignore list — Milestone T Sprint T.5
+# Add CVE IDs with justification when Gradle transitive deps cannot be upgraded yet.
+# Prefer fixing upstream; do not blanket-ignore without a BUILD_PLAN / ADR note.
+
+# Example (uncomment when needed):
+# CVE-2024-00000

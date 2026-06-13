@@ -62,8 +62,8 @@ toolchain-verify:
     - chmod +x ./gradlew
   script:
     - export ANDROID_HOME="$ANDROID_SDK_ROOT"
-    # Host parity with GitHub Actions: assemble + unit tests (full `pns_verify_toolchain.ps1` is PowerShell-only).
-    - ./gradlew :app:assembleDebug :app:testDebugUnitTest --no-daemon --stacktrace
+    # Host parity with GitHub Actions (subset): assemble + detekt + lint + unit tests + Kover floor.
+    - ./gradlew :app:assembleDebug :app:detekt :app:lintDebug :app:testDebugUnitTest :app:koverVerifyDebug --no-daemon --stacktrace
   artifacts:
     when: on_failure
     expire_in: 7 days

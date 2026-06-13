@@ -53,7 +53,7 @@ Optional overrides:
 | `app/build.gradle.kts` | `versionCode`, `versionName` (semver, no leading `v`) |
 | `app/.../PnsExternalUrl.kt` | `PNS_GITHUB_LATEST_RELEASE_TAG` |
 
-Then runs **`pns_changelog_gate.ps1`** (must pass).
+Then runs **`pns_changelog_gate.ps1`** (must pass). Before any release cut, run **`pns_prerelease_gate.ps1`** (see agent checklist).
 
 ## Versioning (Android + semver)
 
@@ -89,11 +89,12 @@ Constants live in `PnsExternalUrl.kt`. Gate: `pns_about_links_verify.ps1`.
 ## Agent checklist
 
 1. Read `## Unreleased` — if empty, ask user to add bullets or confirm `-AllowEmptyUnreleased`.
-2. Run `-PrepareOnly`; show summary of new tag, versionCode, and changelog header.
-3. **Do not commit** unless the user asked to commit.
-4. For publish: confirm `gh auth`, signing, and that prepare changes are committed.
-5. Run `-Publish -SkipPrepare`; report release URL and remind to `git push` tag.
-6. Update `requiredMentions` in `changelog_coverage.v1.json` when a new milestone must stay in CHANGELOG forever.
+2. Run **`.\scripts\pns_prerelease_gate.ps1`** (host lane) before `-PrepareOnly` / `-Publish`. Use **`-SkipGradle`** for a fast docs/fixture pass; full ship requires default (runs **`pns_verify_toolchain.ps1 -RunTests`**). USB: **`-IncludeUsb -Serial <adb>`** runs capture then chrome sequentially on one device.
+3. Run `-PrepareOnly`; show summary of new tag, versionCode, and changelog header.
+4. **Do not commit** unless the user asked to commit.
+5. For publish: confirm `gh auth`, signing, and that prepare changes are committed.
+6. Run `-Publish -SkipPrepare`; report release URL and remind to `git push` tag.
+7. Update `requiredMentions` in `changelog_coverage.v1.json` when a new milestone must stay in CHANGELOG forever.
 
 ## Do not
 

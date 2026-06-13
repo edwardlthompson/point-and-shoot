@@ -1,7 +1,7 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
 # Proves: Gradle assembleDebug, UTF-8 for every scripts/*.ps1 + Kotlin sources (main + unit-test),
 #         PowerShell parse OK, FOSS dep-audit (Play / Firebase / broad ML Kit guarded; face-detection allowed),
-#         and (with -RunTests) :app:detekt, :app:lintDebug, and :app:testDebugUnitTest.
+#         and (with -RunTests) :app:detekt, :app:lintDebug, :app:testDebugUnitTest, :app:koverVerifyDebug.
 # CI (`.github/workflows/toolchain-verify.yml`) invokes `-RunTests` so Gradle runs once for assemble + tests.
 # Usage:
 #   .\scripts\pns_verify_toolchain.ps1                              # full
@@ -194,6 +194,39 @@ if (Test-Path -LiteralPath $changelogGate) {
   [void]$report.Add("SKIP: CHANGELOG coverage (pns_changelog_gate.ps1 missing)")
 }
 
+# Milestone T: KNOWLEDGE_BASE / DECISION_LOG relative link integrity.
+$templateLinkGate = Join-Path $PSScriptRoot "pns_template_doc_link_check.ps1"
+$knowledgeBase = Join-Path $ProjectRoot "KNOWLEDGE_BASE.md"
+if ((Test-Path -LiteralPath $templateLinkGate) -and (Test-Path -LiteralPath $knowledgeBase)) {
+  Write-Verify "Template doc link check (KNOWLEDGE_BASE.md)"
+  & $templateLinkGate -ProjectRoot $ProjectRoot
+  if ($LASTEXITCODE -ne 0) {
+    [void]$report.Add("FAIL: template doc links (run pns_template_doc_link_check.ps1 for details)")
+    $failed = $true
+  } else {
+    [void]$report.Add("OK: template doc links (KNOWLEDGE_BASE.md)")
+  }
+} elseif (-not (Test-Path -LiteralPath $knowledgeBase)) {
+  [void]$report.Add("SKIP: template doc links (KNOWLEDGE_BASE.md missing)")
+} else {
+  [void]$report.Add("SKIP: template doc links (pns_template_doc_link_check.ps1 missing)")
+}
+
+# Milestone T Sprint T.8: PERFORMANCE_BUDGETS.md ↔ PerfBudget.kt drift.
+$perfBudgetGate = Join-Path $PSScriptRoot "pns_perf_budget_host_gate.ps1"
+if (Test-Path -LiteralPath $perfBudgetGate) {
+  Write-Verify "Performance budget drift gate (PERFORMANCE_BUDGETS.md)"
+  & $perfBudgetGate -ProjectRoot $ProjectRoot
+  if ($LASTEXITCODE -ne 0) {
+    [void]$report.Add("FAIL: performance budget drift (run pns_perf_budget_host_gate.ps1 for details)")
+    $failed = $true
+  } else {
+    [void]$report.Add("OK: performance budget drift (PerfBudget.kt ↔ PERFORMANCE_BUDGETS.md)")
+  }
+} else {
+  [void]$report.Add("SKIP: performance budget drift (pns_perf_budget_host_gate.ps1 missing)")
+}
+
 # FOSS dependency audit: reject proprietary / Play Services groups in any Gradle build script
 # or version catalog. Scope: any .gradle, .gradle.kts, libs.versions.toml under the project root,
 # excluding build/ and .gradle/ caches.
@@ -374,6 +407,16 @@ if ($RunTests.IsPresent) {
         $failed = $true
       } else {
         [void]$report.Add("OK: :app:testDebugUnitTest BUILD SUCCESSFUL")
+      }
+      if (-not $failed) {
+        Write-Verify "Gradle :app:koverVerifyDebug (fleet/DNG/bracket floor) in $ProjectRoot"
+        & $gradlew :app:koverVerifyDebug --no-daemon
+        if ($LASTEXITCODE -ne 0) {
+          [void]$report.Add("FAIL: :app:koverVerifyDebug exit code $LASTEXITCODE (40% floor on scoped packages)")
+          $failed = $true
+        } else {
+          [void]$report.Add("OK: :app:koverVerifyDebug BUILD SUCCESSFUL (fleet-dng-bracket-floor >= 40%)")
+        }
       }
     } finally {
       Pop-Location

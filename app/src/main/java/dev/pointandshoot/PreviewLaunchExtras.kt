@@ -2,6 +2,17 @@ package dev.pointandshoot
 
 import android.content.Context
 import android.content.Intent
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_DIAL
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_PRIMARY_PHOTO
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_RAW_COUNT
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_RAW_STILL_FAST
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_FPS
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_TENBIT
 
 /**
  * One-shot preview automation values read in [MainActivity.onCreate] so cold `am start` extras

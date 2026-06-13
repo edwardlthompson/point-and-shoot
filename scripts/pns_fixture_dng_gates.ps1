@@ -8,15 +8,12 @@
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "pns_resolve_referenceapp_fixture_dir.ps1")
 $fixtureCandidates = @(
     (Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku"),
     (Join-Path $projRoot "tests\fixtures\referenceapp_cph2655")
 )
-$fixtureDir = $fixtureCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-if (-not $fixtureDir) {
-    Write-Host "FAIL: no ReferenceApp fixture directory found. Tried:`n  $($fixtureCandidates -join "`n  ")" -ForegroundColor Red
-    exit 1
-}
+$fixtureDir = Resolve-PnsReferenceAppFixtureDir -ProjectRoot $projRoot -RequireExists
 $uw = Join-Path $fixtureDir "referenceapp_uw_cam3.dng"
 $wide = Join-Path $fixtureDir "referenceapp_wide_cam2.dng"
 $tele = Join-Path $fixtureDir "referenceapp_tele_cam4.dng"

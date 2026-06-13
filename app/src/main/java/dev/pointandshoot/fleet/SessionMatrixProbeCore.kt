@@ -1,5 +1,6 @@
 package dev.pointandshoot.fleet
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
@@ -119,6 +120,7 @@ object SessionMatrixProbeCore {
         try {
             val openLatch = CountDownLatch(1)
             val openStart = System.nanoTime()
+            @SuppressLint("MissingPermission")
             cm.openCamera(
                 cameraId,
                 object : CameraDevice.StateCallback() {

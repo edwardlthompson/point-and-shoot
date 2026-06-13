@@ -1,17 +1,54 @@
+# In-repo F-Droid / fastlane metadata (Milestone T.10).
+# Submission target: https://gitlab.com/fdroid/fdroiddata merge request.
+# Sync versionCode/versionName with app/build.gradle.kts on every release.
+
 Categories:
   - Multimedia
 License: Apache-2.0
 AuthorName: Point & Shoot Contributors
-SourceCode: https://github.com/<your-username>/point-and-shoot
-IssueTracker: https://github.com/<your-username>/point-and-shoot/issues
+WebSite: https://github.com/edwardlthompson/point-and-shoot
+SourceCode: https://github.com/edwardlthompson/point-and-shoot
+IssueTracker: https://github.com/edwardlthompson/point-and-shoot/issues
+Translation: https://github.com/edwardlthompson/point-and-shoot
 
 AutoName: Point & Shoot
-Summary: FOSS pro camera app (Camera2) for Legacy device on LineageOS.
+Summary: FOSS pro camera — fleet-first Camera2, RAW DNG, locked preview chrome.
 Description: |-
-  Point & Shoot is a fully open-source pro camera app focused on low-latency capture,
-  RAW workflows (DNG), and modern still formats (AVIF, JPEG XL) with a professional HUD.
+  Point & Shoot is a fully open-source pro camera app for Android 9+ (API 28+).
 
-  Phase 0 ships a hardware capability probe to enumerate camera characteristics and vendor tags.
+  Fleet-first validation on real hardware (primary lane: OnePlus 12 CPH2583) with a
+  capability matrix, parity sweep, and truth-first gates — no greyed-out fake controls.
+
+  • Portrait preview engine with locked chrome (7×3 quick grid, 3:4 finder, dodge tele row)
+  • RAW stills (DNG) with loadability gates; hardware JPEG companion
+  • In-app H.264/HEVC video, HFR via MediaCodec where the device matrix allows
+  • Built-in + imported LUT preview; calibration tools; engineering diagnostics hub
+  • Apache-2.0 only — no proprietary blobs, no Google Play Services
+
+  Distribution today: GitHub Releases and Obtainium. F-Droid listing is planned;
+  this folder holds store metadata and build hints for maintainers.
 
 RepoType: git
 
+# F-Droid builder recipe (Gradle + NDK). Tag must exist on GitHub for reproducible builds.
+Builds:
+  - versionName: '0.14.0-beta.10'
+    versionCode: 22004
+    commit: v0.14.0-beta.10
+    subdir: ''
+    sudo:
+      - openjdk-17-jdk-headless
+    init:
+      - curl -Lo sdk-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+      - unzip -q sdk-tools.zip -d $HOME/android-sdk/cmdline-tools
+      - mv $HOME/android-sdk/cmdline-tools/cmdline-tools $HOME/android-sdk/cmdline-tools/latest
+    prebuild:
+      - yes | sdkmanager --licenses || true
+      - sdkmanager "platforms;android-36" "ndk;26.3.11579264" "cmake;3.22.1" "build-tools;35.0.0"
+    gradle:
+      - yes
+    scandelete:
+      - .gradle
+      - app/build
+    build:
+      - ./gradlew :app:assembleRelease

@@ -54,6 +54,7 @@ import dev.pointandshoot.fleet.FleetDeviceMatrixStore
 import dev.pointandshoot.fleet.FleetProbeMatrixMarkdown
 import dev.pointandshoot.fleet.FleetMatrixHubScreen
 import dev.pointandshoot.fleet.FleetPolicyPreferences
+import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry
 
 private const val TAG = "PNS.Probe"
 /** Single-line shallow metadata summary for ADB gates (`scripts/pns_shallow_scan_hub_validate.ps1`). */
@@ -80,10 +81,10 @@ const val EXTRA_PNS_AUTOFACEMETER = "pns_autofacemeter"
  * Optional extras when `--es pns_screen preview` — drive dial / burst validation from ADB
  * (see `scripts/pns_adb_preview_validate.ps1`).
  */
-const val EXTRA_PNS_PREVIEW_DIAL = "pns_preview_dial"
-const val EXTRA_PNS_PREVIEW_RAW_COUNT = "pns_preview_raw_count"
+const val EXTRA_PNS_PREVIEW_DIAL = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_DIAL
+const val EXTRA_PNS_PREVIEW_RAW_COUNT = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_RAW_COUNT
 /** When true with [EXTRA_PNS_PREVIEW_RAW_COUNT] > 0: shorter ADB settle/poll (dev smoke only). */
-const val EXTRA_PNS_PREVIEW_RAW_STILL_FAST = "pns_preview_raw_still_fast"
+const val EXTRA_PNS_PREVIEW_RAW_STILL_FAST = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_RAW_STILL_FAST
 const val EXTRA_PNS_PREVIEW_BRACKET = "pns_preview_bracket"
 /** `standard_pro` or `ultra_max` — seeds [ImagingProfile] for scripted preview capture (Sprint 4.3 RAW12). */
 const val EXTRA_PNS_PREVIEW_IMAGING_PROFILE = "pns_preview_imaging_profile"
@@ -265,7 +266,7 @@ const val EXTRA_PNS_PREVIEW_AUTOMATION_HARDWARE_KEY = "pns_preview_automation_ha
  * Optional **`--ez pns_preview_primary_photo false`** with [PNS_SCREEN_PREVIEW]: cold-start **video-primary**
  * tray (vs photo-primary default).
  */
-const val EXTRA_PNS_PREVIEW_PRIMARY_PHOTO = "pns_preview_primary_photo"
+const val EXTRA_PNS_PREVIEW_PRIMARY_PHOTO = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_PRIMARY_PHOTO
 
 /** Sprint **AS.1** — hi-fi video audio (96 kHz AAC when supported). */
 const val EXTRA_PNS_PREVIEW_AUDIO_HIFI = "pns_preview_audio_hifi"
@@ -317,7 +318,8 @@ const val EXTRA_PNS_PREVIEW_SHUTTER_SOUND_PACK = "pns_preview_shutter_sound_pack
  * Debug APK + [PNS_SCREEN_PREVIEW]: after preview settles, record **N** seconds via in-app
  * [android.media.MediaRecorder] automation (**`scripts/pns_in_app_video_verify.ps1`**). Values clamp to **[0, 120]**.
  */
-const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC = "pns_preview_automation_in_app_video_sec"
+const val EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC =
+    PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC
 
 /** Sprint **14.11** gate: open in-preview [AboutScreen] overlay on cold preview (`pns_about_links_verify.ps1`). */
 const val EXTRA_PNS_PREVIEW_SHOW_ABOUT = "pns_preview_show_about"
@@ -332,19 +334,19 @@ const val EXTRA_PNS_PREVIEW_OPEN_SETTINGS = "pns_preview_open_settings"
  *
  * Typical ADB: `--ei pns_preview_video_fps 120`
  */
-const val EXTRA_PNS_PREVIEW_VIDEO_FPS = "pns_preview_video_fps"
+const val EXTRA_PNS_PREVIEW_VIDEO_FPS = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_FPS
 
 /**
  * Debug APK + [PNS_SCREEN_PREVIEW]: chrome in-app video encode width for automation (**13V.16**).
  * Typical ADB: `--ei pns_preview_video_encode_w 3840`
  */
-const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W = "pns_preview_video_encode_w"
+const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_ENCODE_W
 
 /**
  * Debug APK + [PNS_SCREEN_PREVIEW]: chrome in-app video encode height for automation (**13V.16**).
  * Typical ADB: `--ei pns_preview_video_encode_h 2160`
  */
-const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H = "pns_preview_video_encode_h"
+const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H
 
 /**
  * Debug APK + [PNS_SCREEN_PREVIEW]: when `true`, in-app video automation uses HEVC Main10
@@ -352,7 +354,7 @@ const val EXTRA_PNS_PREVIEW_VIDEO_ENCODE_H = "pns_preview_video_encode_h"
  *
  * Typical ADB: `--ez pns_preview_video_10bit true`
  */
-const val EXTRA_PNS_PREVIEW_VIDEO_TENBIT = "pns_preview_video_10bit"
+const val EXTRA_PNS_PREVIEW_VIDEO_TENBIT = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_TENBIT
 
 /**
  * Sprint 13.5: Debug APK + [PNS_SCREEN_PREVIEW]: when `true`, in-app video automation records
@@ -372,7 +374,8 @@ const val EXTRA_PNS_PREVIEW_VIDEO_AV1 = "pns_preview_video_av1"
 /**
  * Sprint **VF.1**: override [PreviewChromePreferences.inAppVideoCodecOrdinal] (e.g. AV1 = 4).
  */
-const val EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL = "pns_preview_video_codec_ordinal"
+const val EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL =
+    PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_CODEC_ORDINAL
 
 /**
  * Sprint **VF.2**: enable preview OIS + EIS for automation (`pns_video_stabilization_test.ps1`).
@@ -383,7 +386,7 @@ const val EXTRA_PNS_PREVIEW_VIDEO_STABILIZATION = "pns_preview_video_stabilizati
  * Sprint **13.6**: scripted RAW video record (**`scripts/pns_raw_video_verify.ps1`**).
  * Clamped to **[0, 120]** seconds; uses [RawVideoRecordingController] (no MediaRecorder).
  */
-const val EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC = "pns_preview_video_raw_sec"
+const val EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC = PreviewAutomationExtrasRegistry.EXTRA_PNS_PREVIEW_VIDEO_RAW_SEC
 
 /**
  * Removes one-shot in-app / RAW video automation extras from a sticky [android.content.Intent].
@@ -472,6 +475,8 @@ const val EXTRA_PNS_FLEET_MATRIX_SCAN = "pns_fleet_matrix_scan"
 
 /** After focal MP override push: `--ez pns_fleet_matrix_rescan true` rebuilds matrix with override-aware focalSlots. */
 const val EXTRA_PNS_FLEET_MATRIX_RESCAN = "pns_fleet_matrix_rescan"
+
+private const val FLEET_MATRIX_RESCAN_SETTLE_MS = 800L
 
 /** Fleet Parity Sweep (M18.6): `--ez pns_auto_parity_sweep true --es pns_parity_sweep_mode quick|full|delta` */
 const val EXTRA_PNS_AUTO_PARITY_SWEEP = "pns_auto_parity_sweep"
@@ -984,7 +989,7 @@ fun CameraCapabilitiesProbe(
                 waited++
             }
         }
-        delay(800)
+        delay(FLEET_MATRIX_RESCAN_SETTLE_MS)
         withContext(Dispatchers.IO) {
             runCatching { FleetDeviceMatrixBuilder.buildQuickAndSave(appCtx, forceRescan = true) }
                 .onFailure { e -> Log.e(FleetDeviceMatrixBuilder.TAG, "focal MP rescan failed", e) }

@@ -37,6 +37,8 @@ param(
 $ErrorActionPreference = "Stop"
 $PSScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot "pns_resolve_referenceapp_fixture_dir.ps1")
+$refFixtureDir = Resolve-PnsReferenceAppFixtureDir -ProjectRoot $projRoot -RequireExists
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"
 $pkg = "dev.pointandshoot"
 
@@ -130,9 +132,9 @@ $report.Add("=" * 72)
 
 $referenceappExposure = $null
 if ($MatchReferenceAppExposure) {
-    $uwRef = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku\referenceapp_uw_cam3.dng"
-    $wideRef = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku\referenceapp_wide_cam2.dng"
-    $teleRef = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku\referenceapp_tele_cam4.dng"
+    $uwRef = Join-Path $refFixtureDir "referenceapp_uw_cam3.dng"
+    $wideRef = Join-Path $refFixtureDir "referenceapp_wide_cam2.dng"
+    $teleRef = Join-Path $refFixtureDir "referenceapp_tele_cam4.dng"
     $py = Join-Path $PSScriptRoot "referenceapp_ref_extract_exposure.py"
     if ((Test-Path -LiteralPath $uwRef) -and (Test-Path -LiteralPath $wideRef) -and (Test-Path -LiteralPath $teleRef) -and (Test-Path -LiteralPath $py)) {
         try {
@@ -414,7 +416,7 @@ Write-Host ""
 Write-Host "[capture_analyze] dng_referenceapp_parity_gate.py (Sprint 13.3f; informational unless -RequireProshotParity)..." -ForegroundColor Cyan
 $parityPy = Join-Path $PSScriptRoot "dng_referenceapp_parity_gate.py"
 $parityJson = Join-Path $outDir "referenceapp_parity_gate.json"
-$refFixture = Join-Path $projRoot "tests\fixtures\referenceapp_legacy_sku"
+$refFixture = $refFixtureDir
 $parityPass = $true
 if (Test-Path $parityPy) {
     & python $parityPy $outDir --referencecam-dir $refFixture --json-out $parityJson 2>&1 | Out-Host
@@ -435,7 +437,7 @@ $aestheticPy = Join-Path $PSScriptRoot "pns_dng_aesthetic_gate.py"
 $aestheticJson = Join-Path $outDir "dng_aesthetic_gate.json"
 $aestheticPass = $true
 if (Test-Path -LiteralPath $aestheticPy) {
-    & python $aestheticPy --ps-dir $outDir --json-out $aestheticJson 2>&1 | Out-Host
+    & python $aestheticPy --ps-dir $outDir --ref-dir $refFixtureDir --json-out $aestheticJson 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         $aestheticPass = $false
         if ($RequireAestheticGate) {

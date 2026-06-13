@@ -3,6 +3,9 @@
 .SYNOPSIS
   Sprint **15.17** — composed JPEG with embedded Display P3 ICC (exiftool gate).
 
+.PARAMETER SkipGateCheck
+  Run capture attempt even when host exiftool is missing (expect fail).
+
 .EXAMPLE
   .\scripts\pns_jpeg_icc_verify.ps1 -Serial b5214fc6 -SkipAssemble
 #>
@@ -10,35 +13,39 @@ param(
     [string]$Serial = "",
     [switch]$SkipAssemble,
     [switch]$SkipInstall,
-    [int]$CaptureWaitSec = 75
+    [int]$CaptureWaitSec = 75,
+    [switch]$SkipGateCheck
 )
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 . (Join-Path $repo "scripts\pns_resolve_adb.ps1") -PrependToPath -Quiet
+. (Join-Path $repo "scripts\pns_adb_serial.ps1")
 
-function Read-Serial {
-    param([string]$S)
-    if ($S) { return $S }
-    $envFile = Join-Path $repo "scripts\pns_adb_device.env"
-    if (Test-Path $envFile) {
-        Get-Content $envFile | ForEach-Object {
-            if ($_ -match '^\s*PNS_ADB_SERIAL\s*=\s*(.+)\s*$') { return $Matches[1].Trim() }
-        }
-    }
-    throw "Set PNS_ADB_SERIAL or -Serial"
-}
+$Serial = Resolve-PnsAdbSerial -Serial $Serial -ScriptRoot (Join-Path $repo "scripts") -LogPrefix "jpeg_icc"
+if (-not $Serial) { throw "Set PNS_ADB_SERIAL or -Serial" }
 
-$Serial = Read-Serial $Serial
 $pkg = "dev.pointandshoot"
 $gateStartUtc = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $outDir = Join-Path $repo "hfr-runs\jpeg_icc_verify_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 $exiftool = Get-Command exiftool -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+if (-not $exiftool -and -not $SkipGateCheck) {
+    @{
+        schema = "pns.jpeg_icc_verify.v1"
+        pass = $false
+        skipped = $true
+        reason = "exiftool_missing"
+        gateNote = "exiftool not on PATH"
+        outDir = $outDir
+    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outDir "gate.json") -Encoding utf8
+    Write-Host "[jpeg_icc_verify] SKIPPED — exiftool not on PATH (install ExifTool for 15.17 gate)."
+    exit 0
+}
 if (-not $exiftool) {
-    Write-Host "SKIP: exiftool not on PATH (install ExifTool for 15.17 gate)" -ForegroundColor Yellow
-    exit 2
+    Write-Host "FAIL: exiftool not on PATH and -SkipGateCheck set" -ForegroundColor Red
+    exit 1
 }
 
 if (-not $SkipAssemble) {
@@ -116,7 +123,9 @@ $applyOk = $logRaw -match "apply JPEG metadata ok.*icc=true"
 $pass = $p3Ok -and ($iccPresent -or $applyOk)
 
 $report = [ordered]@{
+    schema = "pns.jpeg_icc_verify.v1"
     pass = $pass
+    skipped = $false
     jpeg = $jpeg.FullName
     displayP3 = [bool]$p3Ok
     iccPresent = [bool]$iccPresent

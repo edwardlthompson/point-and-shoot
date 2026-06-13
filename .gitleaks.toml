@@ -1,0 +1,34 @@
+# Gitleaks configuration — Milestone T Sprint T.5
+# Docs: https://github.com/gitleaks/gitleaks
+
+title = "Point & Shoot gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secret paths and documentation examples"
+
+paths = [
+  '''(?i)scripts/pns_adb_device\.env\.example''',
+  '''(?i)tests/fixtures/''',
+  '''(?i)docs/''',
+  '''(?i)AGENTS\.md''',
+  '''(?i)BUILD_PLAN.*\.md''',
+  '''(?i)BUILD_PLAN_COMPLETED\.md''',
+  '''(?i)PROBE_BUILD_PLAN\.md''',
+  '''(?i)CHANGELOG\.md''',
+  '''(?i)\.cursor/skills/''',
+  '''(?i)scripts/pns_github_secrets_set\.ps1''',
+  '''(?i)scripts/pns_gitlab_setup\.ps1''',
+  '''(?i)scripts/pns_keystore_verify\.ps1''',
+  '''(?i)keystore\.properties\.example''',
+]
+
+regexTarget = "match"
+regexes = [
+  '''(?i)example.*serial''',
+  '''(?i)ANDROID_KEYSTORE_BASE64''',
+  '''(?i)placeholder''',
+  '''(?i)<your-username>''',
+]

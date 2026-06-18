@@ -85,7 +85,7 @@ See [`.github/pull_request_template.md`](.github/pull_request_template.md). Mini
 |-------|------|------|
 | Kotlin static analysis | Detekt | `:app:detekt` |
 | Android / Compose | Lint | `:app:lintDebug` |
-| JVM unit coverage (scoped) | Kover | `:app:koverVerifyDebug` — **40% line floor** on fleet helpers + DNG metadata/bracket schedulers (excludes Compose UI + USB byte pipelines — [`ADR-0007`](docs/adr/0007-code-style-gate.md)) |
+| JVM unit coverage (scoped) | Kover | `:app:koverVerify` — **40% line floor** on fleet helpers + DNG metadata/bracket schedulers (excludes Compose UI + USB byte pipelines — [`ADR-0007`](docs/adr/0007-code-style-gate.md)) |
 | Formatting | **Detekt-only** | Spotless/ktfmt **not** adopted (baseline churn) — see ADR-0007 |
 
 ### New file size (soft policy)

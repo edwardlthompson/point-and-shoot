@@ -51,7 +51,7 @@
 ## Immediate next steps
 
 1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + **H.9** release sign-off
-2. **[AGENT]** Push commit + verify GitHub CI on dependency-bump commit
+2. **[AGENT]** CI workflows install **android-37** (post `compileSdk` bump); poll GitHub until green
 
 ---
 

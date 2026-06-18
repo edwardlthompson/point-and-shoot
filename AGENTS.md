@@ -316,7 +316,7 @@ This is **preview/correctness**, not Gradle compile failures. **May 2026 regress
 | `.\gradlew.bat :app:lintDebug` | Android Lint (baseline `app/lint-baseline.xml`). |
 | `.\gradlew.bat :app:updateLintBaseline` | Refresh lint baseline when triaging existing findings. |
 | `.\gradlew.bat :app:testDebugUnitTest` | JVM unit tests (`app/src/test`). |
-| `.\gradlew.bat :app:koverVerifyDebug` | **40% line floor** on scoped fleet/DNG/bracket helpers — see [`docs/adr/0007-code-style-gate.md`](docs/adr/0007-code-style-gate.md). |
+| `.\gradlew.bat :app:koverVerify` | **40% line floor** on scoped fleet/DNG/bracket helpers — see [`docs/adr/0007-code-style-gate.md`](docs/adr/0007-code-style-gate.md). |
 | `.\gradlew.bat :app:assembleRelease` | Release APK with **R8** shrink + obfuscation; `app/proguard-rules.pro` must stay **UTF-8** (no BOM). |
 | `.\gradlew.bat :app:generateBaselineProfile` | Macrobenchmark baseline + startup profiles (USB device); outputs under `app\src\release\generated\baselineProfiles\`. Prefer **`scripts\pns_baseline_profile_generate.ps1`**. |
 

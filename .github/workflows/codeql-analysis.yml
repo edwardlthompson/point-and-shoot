@@ -66,7 +66,7 @@ jobs:
       - name: Install Android platform and NDK (match toolchain-verify)
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-36" "ndk;26.3.11579264" "cmake;3.22.1"
+          sdkmanager "platforms;android-37" "ndk;26.3.11579264" "cmake;3.22.1"
 
       - name: Gradle wrapper executable
         run: chmod +x ./gradlew

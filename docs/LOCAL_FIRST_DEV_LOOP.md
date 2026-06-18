@@ -40,7 +40,7 @@ These are wired in `pns_local_dev_parallel.ps1` (PowerShell **7+** runs them con
 
 | Constraint | Reason |
 |------------|--------|
-| **One Gradle graph at a time** | `assembleDebug`, `detekt`, `lintDebug`, `testDebugUnitTest`, `koverVerifyDebug` share daemon + file locks |
+| **One Gradle graph at a time** | `assembleDebug`, `detekt`, `lintDebug`, `testDebugUnitTest`, `koverVerify` share daemon + file locks |
 | **USB on one `PNS_ADB_SERIAL`** | Camera mutex; heat; false `ERROR_CAMERA_DEVICE` when gates overlap |
 | **`pns_capture_pipeline_verify` then `pns_chrome_ux_gate`** | Documented fleet rule — same serial, sequential only |
 | **Shared schema files** | See [Multi-agent doc](MULTI_AGENT_PARALLEL_ORCHESTRATION.md) § Shared schema lock |

@@ -51,7 +51,7 @@ Manual formatting follows Android Studio defaults; agents match surrounding file
 - USB matrix builders (`FleetDeviceMatrixBuilder`, `DeepCapsProbeCore`, …)
 - Post-save DNG byte pipelines (`Dng12Saver`, `TiffExifSubIfdCapturePatch`, …) — gated by `dng_tiff_integrity_check.py` / `pns_aux_dng_capture_analyze.ps1`
 
-**Gate:** `:app:koverVerifyDebug` wired in `pns_verify_toolchain.ps1 -RunTests`.
+**Gate:** `:app:koverVerify` wired in `pns_verify_toolchain.ps1 -RunTests`.
 
 **No `androidTest/`:** Instrumented UI tests are intentionally absent; ADB scripts in [`AGENTS.md`](../../AGENTS.md) are the integration substitute.
 

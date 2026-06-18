@@ -100,7 +100,10 @@ jobs:
       - name: Install Android platform (compileSdk 37)
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-37"
+          sdkmanager "platforms;android-37.0"
+          if [ -d "$ANDROID_HOME/platforms/android-37.0" ] && [ ! -e "$ANDROID_HOME/platforms/android-37" ]; then
+            ln -s "$ANDROID_HOME/platforms/android-37.0" "$ANDROID_HOME/platforms/android-37"
+          fi
 
       - name: Install NDK + CMake (JNI libpns_native.so)
         run: |

@@ -35,6 +35,7 @@
 | `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_110452` |
 | Dependabot Gradle PRs | **0** open | #4, #8, #9, #11, #12 closed on `main` |
 | Dependabot security alerts | **0** open | |
+| GitHub CI @ `5243319` | **PASS** | Toolchain + Security + CodeQL |
 
 ## Open blockers
 
@@ -52,7 +53,7 @@
 ## Immediate next steps
 
 1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + **H.9** release sign-off
-2. **[AGENT]** CodeQL job pins Kotlin **2.3.21** at build time until github/codeql#21938 (ship **2.4.0** on `main`)
+2. Remove CodeQL Kotlin **2.3.21** CI pin when github/codeql#21938 ships (restore scan on **2.4.0**)
 
 ---
 

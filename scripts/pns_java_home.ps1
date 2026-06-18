@@ -35,8 +35,11 @@ $ErrorActionPreference = "Stop"
 
 function Test-ValidJdkRoot([string]$root) {
   if ([string]::IsNullOrWhiteSpace($root)) { return $false }
-  $java = Join-Path $root "bin\java.exe"
-  return (Test-Path -LiteralPath $java)
+  foreach ($name in @("java.exe", "java")) {
+    $java = Join-Path $root "bin\$name"
+    if (Test-Path -LiteralPath $java) { return $true }
+  }
+  return $false
 }
 
 function Get-PnsJdkCandidatePaths {
@@ -55,17 +58,19 @@ function Get-PnsJdkCandidatePaths {
     if (-not [string]::IsNullOrWhiteSpace($p)) { [void]$candidates.Add($p) }
   }
 
-  $toolboxBase = Join-Path $env:LocalAppData "JetBrains\Toolbox\apps\AndroidStudio"
-  if (Test-Path -LiteralPath $toolboxBase) {
-    Get-ChildItem -LiteralPath $toolboxBase -Directory -ErrorAction SilentlyContinue |
-      ForEach-Object {
-        Get-ChildItem -LiteralPath $_.FullName -Directory -ErrorAction SilentlyContinue |
-          Where-Object { $_.Name -match '^(ch-)?\d' } |
-          ForEach-Object {
-            $jbr = Join-Path $_.FullName "jbr"
-            if (Test-Path -LiteralPath $jbr) { [void]$candidates.Add($jbr) }
-          }
-      }
+  if (-not [string]::IsNullOrWhiteSpace($env:LocalAppData)) {
+    $toolboxBase = Join-Path $env:LocalAppData "JetBrains\Toolbox\apps\AndroidStudio"
+    if (Test-Path -LiteralPath $toolboxBase) {
+      Get-ChildItem -LiteralPath $toolboxBase -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object {
+          Get-ChildItem -LiteralPath $_.FullName -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^(ch-)?\d' } |
+            ForEach-Object {
+              $jbr = Join-Path $_.FullName "jbr"
+              if (Test-Path -LiteralPath $jbr) { [void]$candidates.Add($jbr) }
+            }
+        }
+    }
   }
 
   foreach ($base in @(
@@ -81,7 +86,8 @@ function Get-PnsJdkCandidatePaths {
   }
 
   try {
-    $javaCmd = Get-Command java.exe -ErrorAction SilentlyContinue
+    $javaCmd = Get-Command java -ErrorAction SilentlyContinue
+    if (-not $javaCmd) { $javaCmd = Get-Command java.exe -ErrorAction SilentlyContinue }
     if ($javaCmd -and $javaCmd.Source) {
       $bin = Split-Path -Parent $javaCmd.Source
       $root = Split-Path -Parent $bin

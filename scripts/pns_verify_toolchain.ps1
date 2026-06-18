@@ -57,13 +57,16 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
 # Match pns_gradlew.ps1: Gradle needs JAVA_HOME; agent shells often omit it.
 $javaScript = Join-Path $PSScriptRoot "pns_java_home.ps1"
 if (Test-Path -LiteralPath $javaScript) {
-  $resolved = & $javaScript -EmitPath
-  if ($resolved -and (Test-Path -LiteralPath (Join-Path $resolved "bin\java.exe"))) {
+  $resolved = & $javaScript -EmitPath 2>$null
+  $javaBin = if ($resolved) { Join-Path $resolved "bin\java" } else { $null }
+  $javaBinExe = if ($resolved) { Join-Path $resolved "bin\java.exe" } else { $null }
+  if ($resolved -and ((Test-Path -LiteralPath $javaBin) -or (Test-Path -LiteralPath $javaBinExe))) {
     $env:JAVA_HOME = $resolved
     $bin = Join-Path $resolved "bin"
-    $paths = @($env:Path -split ';' | Where-Object { $_ })
+    $sep = if ($IsLinux -or $IsMacOS) { ':' } else { ';' }
+    $paths = @($env:Path -split $sep | Where-Object { $_ })
     if ($paths -notcontains $bin) {
-      $env:Path = "$bin;$env:Path"
+      $env:Path = "$bin$sep$env:Path"
     }
   }
 }

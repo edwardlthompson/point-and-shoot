@@ -21,13 +21,9 @@ class PnsExternalUrlTest {
         assertTrue(PNS_GITHUB_RELEASES_LATEST_URL.endsWith("/releases/latest"))
         assertTrue(PNS_GITHUB_CHANGELOG_URL.contains("/blob/main/CHANGELOG.md"))
         assertTrue(PNS_GITHUB_PRIVACY_URL.contains("/blob/main/PRIVACY.md"))
-        assertEquals(
-            "https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.11",
-            githubReleaseUrlForTag(PNS_GITHUB_LATEST_RELEASE_TAG),
-        )
-        assertEquals(
-            "https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.11",
-            githubReleaseUrlForTag("v0.14.0-beta.11"),
-        )
+        val expectedLatest =
+            "https://github.com/$PNS_GITHUB_OWNER/$PNS_GITHUB_REPO/releases/tag/v${PNS_GITHUB_LATEST_RELEASE_TAG}"
+        assertEquals(expectedLatest, githubReleaseUrlForTag(PNS_GITHUB_LATEST_RELEASE_TAG))
+        assertEquals(expectedLatest, githubReleaseUrlForTag("v$PNS_GITHUB_LATEST_RELEASE_TAG"))
     }
 }

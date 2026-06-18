@@ -42,6 +42,12 @@ Full index: **`AGENTS.md`**.
 
 ---
 
+## Sprint AUDIT3-2026-06-18 — CI green + overlay wiring ✅ CLOSED
+
+Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT3](BUILD_PLAN_COMPLETED.md#sprint-audit3-2026-06-18--ci-green--overlay-wiring-agent-closed).
+
+---
+
 ## Sprint AUDIT2-2026-06-18 — Post-ship hygiene ✅ CLOSED
 
 Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT2](BUILD_PLAN_COMPLETED.md#sprint-audit2-2026-06-18--post-ship-hygiene-agent-closed).
@@ -80,7 +86,7 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 | Lane | Open work |
 |------|-----------|
-| **Agent** | **H.6** CRI-032 eye overlay markers (face detected, eyes empty) |
+| **Agent** | **H.6** CRI-032 — ADB overlay seed wired; pixel gate needs **face in frame** (see AUDIT3) |
 | **Human** | **H.2–H.5** calibration / accounts / store copy · **H.6/H.8** subjective UX · **H.7-OP13** ACR · **H.9** PRIVACY / signing |
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
@@ -111,7 +117,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 
 | CRI | Home | Status |
 |-----|------|--------|
-| **032** | H.6, H.8.1 | Agent — `face_box` OK but `eyes`/`markers` empty (`eye_af_pixel_gate_20260618_075936`) |
+| **032** | H.6, H.8.1 | Agent — HUD seed fix shipped (AUDIT3); pixel gate **FAIL** without face in frame (`mlFaceHud boxes=0`) |
 | **033** | H.8.3 | Human — H.265 DCG @4K colors (fail 2026-05-26) |
 | **034** | H.5, H.9 | Human — store copy + PRIVACY/metadata |
 | **035** | H.7-OP13 | Human — ACR on OP13 aux DNGs (integrity PASS; scene parity FAIL) |
@@ -139,7 +145,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 
 ### Sprint H.6 — Subjective UX
 
-- [ ] **[AGENT] CRI-032** `pns_eye_af_pixel_gate.ps1` — **FAIL** face detected but overlay `eyes`/`markers` empty (12 attempts, `hfr-runs/eye_af_pixel_gate_20260618_075936`)
+- [ ] **[AGENT] CRI-032** `pns_eye_af_pixel_gate.ps1` — **FAIL** without face in frame (`eye_af_pixel_gate_20260618_183819`; ADB `eyeAfOverlay` seed fixed in AUDIT3)
 - [ ] **[HUMAN]** HUD / LUT aesthetics · immersive mode feel
 
 ### Sprint H.7-OP13 — Optional OP13 regression lane
@@ -160,7 +166,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 - [ ] **[HUMAN] CRI-034** `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review
 - [ ] **[HUMAN]** `leaderboard-ingest/config/signing_pins.json` release cert SHA-256
 - [x] **[AGENT]** GitHub Pages smoke after deploy — `pns_github_pages_smoke.ps1` + `gh run list` **PASS** (2026-06-18)
-- [x] **[AGENT]** Release cut — `v0.14.0-beta.12` via `pns_github_release.ps1` (2026-06-18; debug-signed APK — `assembleRelease` mergeReleaseNativeLibs blocker)
+- [x] **[AGENT]** Release cut — `v0.14.0-beta.12` minified release APK (~48 MB) on GitHub (2026-06-18; debug-key signed)
 
 **Milestone H gate:** Human checklist **H.2–H.9** + `pns_prerelease_gate.ps1 -IncludeUsb` on CPH2583.
 
@@ -199,7 +205,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction + T.14 
 
 ## Document control
 
-- **Version:** 2026-06-18 — AUDIT2 + Dependabot Gradle stack closed; human Milestone H remains.
+- **Version:** 2026-06-18 — AUDIT3 CI/overlay wiring closed; human Milestone H remains.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

@@ -1901,7 +1901,8 @@ fun PreviewEngineScreen(
     }
     LaunchedEffect(adbEyeAfOverlaySeed) {
         val want = adbEyeAfOverlaySeed ?: return@LaunchedEffect
-        controller.setHudFaceOverlayEnabled(want)
+        // Compose overlay gates on [HudSettings.showEyeAfOverlay]; controller-only seed left overlay hidden.
+        hudState.updateMutate { it.copy(showEyeAfOverlay = want) }
         PnsAdbLog.i(context, "preview seeded eyeAfOverlay=$want (adb)")
     }
     LaunchedEffect(adbAeLockSeed, selectedCameraId) {

@@ -77,13 +77,16 @@ jobs:
         run: chmod +x ./gradlew
 
       - uses: gradle/actions/setup-gradle@v6
+        with:
+          # Kotlin pin below changes compiler ABI; stale cache causes ClasspathEntrySnapshotTransform failures.
+          cache-disabled: true
 
       # CodeQL supports Kotlin < 2.3.30; ship Kotlin 2.4.0 on main (github/codeql#21938).
       - name: Pin Kotlin 2.3.21 for CodeQL build only
         run: sed -i 's/kotlin = "2.4.0"/kotlin = "2.3.21"/g' gradle/libs.versions.toml
 
       - name: Build debug APK for CodeQL extraction
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew clean :app:assembleDebug --no-daemon --no-build-cache
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

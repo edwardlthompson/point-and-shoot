@@ -1497,6 +1497,18 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **USB (CPH2583, 2026-06-18):** `photo_capture_verify_20260618_013837` + `chrome_ux_gate_20260618_013908`; second audit `photo_capture_verify_20260618_025139` + `chrome_ux_gate_20260618_025206` — **PASS**.
 
+### Sprint AUDIT3-2026-06-18 — CI green + overlay wiring (agent closed)
+
+**Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** · GitHub Toolchain @ `1b6f1cb` **PASS** (Security/CodeQL regressed until this sprint lands).
+
+- [x] **[AGENT] AUDIT3.1** — CodeQL: `cache-disabled` + `clean assembleDebug --no-build-cache` after Kotlin 2.3.21 CI pin
+- [x] **[AGENT] AUDIT3.2** — Trivy: force `io.netty` **4.1.133.Final** in root `build.gradle.kts`; refresh `app/gradle.lockfile`
+- [x] **[AGENT] AUDIT3.3** — `pns_release_packaging.ps1` `sdk.dir` parse (`C\:/…` Gradle escape) + `ANDROID_HOME` fallback; zipalign **PASS**
+- [x] **[AGENT] AUDIT3.4** — CRI-032: `pns_preview_eye_af_overlay` seeds `HudSettings.showEyeAfOverlay` (Compose overlay was controller-only)
+- [ ] **[AGENT] AUDIT3.5** — `pns_eye_af_pixel_gate.ps1` — **FAIL** without face in frame (`eye_af_pixel_gate_20260618_183819`; log `mlFaceHud boxes=0`)
+
+**USB (CPH2583 wireless):** overlay seed log `preview seeded eyeAfOverlay=true` confirmed; pixel gate needs maintainer face in frame for green markers.
+
 ### Sprint AUDIT2-2026-06-18 — Post-ship hygiene + Dependabot Gradle (agent closed)
 
 **Gate:** Tier 2 **PASS** (Gradle **9.5.1** / AGP **9.1.1** / Kotlin **2.4.0**) · Dependabot PRs **#4, #8, #9, #11, #12** closed on `main`.

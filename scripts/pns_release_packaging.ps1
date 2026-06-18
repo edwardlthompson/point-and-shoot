@@ -29,14 +29,24 @@ $configPath = Join-Path $PSScriptRoot "release_config.v1.json"
 $config = Get-PnsReleaseConfig $configPath
 
 function Get-AndroidSdkDir([string]$root) {
+    if ($env:ANDROID_HOME -and (Test-Path -LiteralPath $env:ANDROID_HOME)) {
+        return $env:ANDROID_HOME
+    }
+    if ($env:ANDROID_SDK_ROOT -and (Test-Path -LiteralPath $env:ANDROID_SDK_ROOT)) {
+        return $env:ANDROID_SDK_ROOT
+    }
     $localProps = Join-Path $root "local.properties"
     if (-not (Test-Path -LiteralPath $localProps)) {
         throw "Missing local.properties (sdk.dir required for zipalign)"
     }
     foreach ($line in Get-Content -LiteralPath $localProps) {
         if ($line -match '^\s*sdk\.dir\s*=\s*(.+)\s*$') {
-            $raw = $Matches[1].Trim() -replace '\\', '\'
-            return $raw -replace '\\', [IO.Path]::DirectorySeparatorChar
+            $raw = $Matches[1].Trim().Trim('"')
+            # Gradle local.properties: C\:/Users/... or C:\\Users\\...
+            $normalized = $raw -replace '^([A-Za-z])\\:', '$1:'
+            $normalized = $normalized -replace '/', [IO.Path]::DirectorySeparatorChar
+            $normalized = $normalized -replace '\\\\', [IO.Path]::DirectorySeparatorChar
+            return $normalized
         }
     }
     throw "sdk.dir not found in local.properties"

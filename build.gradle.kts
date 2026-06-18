@@ -8,3 +8,15 @@ plugins {
     alias(libs.plugins.kover) apply false
     alias(libs.plugins.paparazzi) apply false
 }
+
+// Gradle lockfile Trivy scan surfaces Netty CVEs on old tool transitive versions (not shipped in APK).
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == "io.netty") {
+                useVersion("4.1.133.Final")
+                because("Align Netty for Gradle tool transitive CVEs (security-scan lockfile gate)")
+            }
+        }
+    }
+}

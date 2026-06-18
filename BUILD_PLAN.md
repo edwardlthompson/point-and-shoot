@@ -53,8 +53,10 @@ Full index: **`AGENTS.md`**.
 | **AUDIT.3** | Tier 2: wire `:pns-*:detekt` in `pns_verify_toolchain.ps1` | [AGENT] | ✅ done |
 | **AUDIT.4** | USB CPH2583: capture → chrome (wireless serial `adb-b5214fc6-…`) | [AGENT] | ✅ `photo_capture_verify_20260618_013837` · `chrome_ux_gate_20260618_013908` |
 | **AUDIT.5** | Refresh `scripts/pns_adb_device.env` → live wireless serial | [AGENT] | ✅ done |
-| **AUDIT.6** | Git: stage + commit TM modularization + CI (no duplicate `??` fleet copies) | [AGENT] | ✅ committed — push pending |
+| **AUDIT.6** | Git: stage + commit TM modularization + CI (no duplicate `??` fleet copies) | [AGENT] | ✅ pushed `main` @ `57171ef` |
 | **AUDIT.7** | Dependabot: merge Actions bumps after CI green | [AGENT] | ✅ closed PRs #1–#3, #7, #13; bumped on main |
+
+**GitHub CI (2026-06-18 @ `57171ef`):** Toolchain verify **PASS** · Security scan **PASS** · CodeQL **PASS** (manual dispatch).
 
 **Host (2026-06-18):** Tier 0 **8/8** · Tier 2 **PASS** · all `:pns-*:detekt` **PASS**.
 

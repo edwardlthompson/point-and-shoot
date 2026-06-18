@@ -23,7 +23,7 @@
 | `:pns-*:detekt` | **PASS** | After baseline patch (LeafDngFleetPolicies) |
 | `pns_capture_pipeline_verify.ps1` | **PASS** | `hfr-runs/photo_capture_verify_20260618_013837` |
 | `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_013908` |
-| GitHub CI (`main`) | **FAIL** | CodeQL/Toolchain/Security — fixes **uncommitted** |
+| GitHub CI (`main`) | **PASS** | Toolchain + Security + CodeQL (manual dispatch) |
 
 ## Open blockers
 

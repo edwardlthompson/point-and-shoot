@@ -1,5 +1,5 @@
 # Mirrors `.github/workflows/toolchain-verify.yml` for GitLab mirrors / optional GitLab CI.
-# Requires Java 17 + Android SDK on the runner (use a GitLab Android image or install sdkmanager).
+# Requires Java 21 + Android SDK on the runner (Paparazzi 2.0.0-alpha05 Gradle plugin).
 
 variables:
   GRADLE_USER_HOME: "$CI_PROJECT_DIR/.gradle"
@@ -15,7 +15,7 @@ stages:
 # Run manually in GitLab when you want an unsigned-release-shaped artifact without secrets.
 assemble-release-debugkey:
   stage: package
-  image: eclipse-temurin:17-jdk-jammy
+  image: eclipse-temurin:21-jdk-jammy
   timeout: 45m
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -32,7 +32,11 @@ assemble-release-debugkey:
         mv /tmp/cl/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
       fi
     - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null 2>&1 || true
-    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36" "ndk;26.3.11579264" "cmake;3.22.1"
+    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-37.0" "ndk;26.3.11579264" "cmake;3.22.1"
+    - |
+      if [ -d "$ANDROID_SDK_ROOT/platforms/android-37.0" ] && [ ! -e "$ANDROID_SDK_ROOT/platforms/android-37" ]; then
+        ln -s "$ANDROID_SDK_ROOT/platforms/android-37.0" "$ANDROID_SDK_ROOT/platforms/android-37"
+      fi
     - chmod +x ./gradlew
   script:
     - export ANDROID_HOME="$ANDROID_SDK_ROOT"
@@ -45,7 +49,7 @@ assemble-release-debugkey:
 
 toolchain-verify:
   stage: verify
-  image: eclipse-temurin:17-jdk-jammy
+  image: eclipse-temurin:21-jdk-jammy
   timeout: 35m
   before_script:
     - apt-get update -qq && apt-get install -y -qq wget unzip >/dev/null
@@ -58,7 +62,11 @@ toolchain-verify:
         mv /tmp/cl/cmdline-tools "$ANDROID_SDK_ROOT/cmdline-tools/latest"
       fi
     - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" --licenses >/dev/null 2>&1 || true
-    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-36" "ndk;26.3.11579264" "cmake;3.22.1"
+    - yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_SDK_ROOT" "platforms;android-37.0" "ndk;26.3.11579264" "cmake;3.22.1"
+    - |
+      if [ -d "$ANDROID_SDK_ROOT/platforms/android-37.0" ] && [ ! -e "$ANDROID_SDK_ROOT/platforms/android-37" ]; then
+        ln -s "$ANDROID_SDK_ROOT/platforms/android-37.0" "$ANDROID_SDK_ROOT/platforms/android-37"
+      fi
     - chmod +x ./gradlew
   script:
     - export ANDROID_HOME="$ANDROID_SDK_ROOT"

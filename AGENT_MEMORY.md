@@ -21,6 +21,7 @@
 | AGP | **9.1.1** (built-in Kotlin — no `kotlin.android` plugin) |
 | Kotlin | **2.4.0** |
 | compileSdk | **37** |
+| Gradle daemon JDK | **21** (Paparazzi 2.0 plugin); app bytecode **JVM 17** |
 | Compose BOM | **2026.05.01** |
 | CameraX | **1.6.1** |
 | androidx.core | **1.19.0** |

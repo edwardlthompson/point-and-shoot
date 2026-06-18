@@ -1166,9 +1166,13 @@ function Invoke-CompareMatrix([string]$CurrentMatrixPath, [string]$ComparePath, 
 }
 
 if ($HostOnlyFixture) {
-    $fixtureLog = Join-Path $projRoot "hfr-runs\parity_sweep_20260530_043424\logcat_parity.txt"
-    if (-not (Test-Path -LiteralPath $fixtureLog)) {
-        Write-Error "Missing fixture log at $fixtureLog"
+    $fixtureCandidates = @(
+        (Join-Path $projRoot "tests\fixtures\parity_sweep_host_fixture\logcat_parity.txt"),
+        (Join-Path $projRoot "hfr-runs\parity_sweep_20260530_043424\logcat_parity.txt")
+    )
+    $fixtureLog = $fixtureCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if (-not $fixtureLog) {
+        Write-Error "Missing parity host fixture (checked: $($fixtureCandidates -join '; '))"
         exit 1
     }
     $cells = Parse-LogcatParityCells $fixtureLog

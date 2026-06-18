@@ -1,0 +1,3 @@
+Engineering: Gradle 9.5 / AGP 9.1 stack; Milestone H automation (GitHub Pages smoke script, wireless USB gate lane on CPH2583); H.CRI-5 session extraction slices; Sprint TM modular libraries.
+
+Maintainer notes: SBOM repro baseline refresh — see CHANGELOG.md on GitHub for full 0.14.0-beta.12 history.

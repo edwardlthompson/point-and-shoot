@@ -10,7 +10,7 @@
 | Code review intake | `docs/CODE_REVIEW_PLANNING_INTAKE.json` · [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) |
 | Parity debt | `docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json` |
 
-**Primary device:** OnePlus 12 **CPH2583** · `scripts/pns_adb_device.env` → `PNS_ADB_SERIAL` (Wi‑Fi: `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp` as of 2026-06-18).
+**Primary device:** OnePlus 12 **CPH2583** · wireless ADB `10.0.0.9:44487` (`scripts/pns_adb_device.env`) · mDNS `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp`.
 
 ---
 
@@ -80,12 +80,12 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 | Lane | Open work |
 |------|-----------|
-| **Agent** | **H.6** eye-AF (face); **H.9** release (owner) |
-| **Human** | **H.2–H.5** calibration / accounts / store · **H.6/H.8** subjective UX · **H.7-OP13** ACR · **H.9** PRIVACY / signing / Pages |
+| **Agent** | **H.6** CRI-032 eye overlay markers (face detected, eyes empty); **H.9** release (owner) |
+| **Human** | **H.2–H.5** calibration / accounts / store copy · **H.6/H.8** subjective UX · **H.7-OP13** ACR · **H.9** PRIVACY / signing |
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
 
-**Last CPH2583 USB (2026-06-18):** AUDIT2.3 — capture `photo_capture_verify_20260618_110420` + chrome `chrome_ux_gate_20260618_110452` **PASS** (wireless ADB, Gradle 9.5 / AGP 9.1 stack).
+**Last CPH2583 wireless ADB (2026-06-18):** capture `photo_capture_verify_20260618_120404` + chrome `chrome_ux_gate_20260618_120428` **PASS** · prerelease `-IncludeUsb` **PASS** · device `10.0.0.9:44487` (CPH2583).
 
 ---
 
@@ -111,7 +111,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 
 | CRI | Home | Status |
 |-----|------|--------|
-| **032** | H.6, H.8.1 | Human — face in frame for eye-AF pixel gate |
+| **032** | H.6, H.8.1 | Agent — `face_box` OK but `eyes`/`markers` empty (`eye_af_pixel_gate_20260618_075936`) |
 | **033** | H.8.3 | Human — H.265 DCG @4K colors (fail 2026-05-26) |
 | **034** | H.5, H.9 | Human — store copy + PRIVACY/metadata |
 | **035** | H.7-OP13 | Human — ACR on OP13 aux DNGs (integrity PASS; scene parity FAIL) |
@@ -139,7 +139,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 
 ### Sprint H.6 — Subjective UX
 
-- [ ] **[AGENT] CRI-032** `pns_eye_af_pixel_gate.ps1` — needs **face in frame** (last fail: no face, 2026-06-13)
+- [ ] **[AGENT] CRI-032** `pns_eye_af_pixel_gate.ps1` — **FAIL** face detected but overlay `eyes`/`markers` empty (12 attempts, `hfr-runs/eye_af_pixel_gate_20260618_075936`)
 - [ ] **[HUMAN]** HUD / LUT aesthetics · immersive mode feel
 
 ### Sprint H.7-OP13 — Optional OP13 regression lane
@@ -159,7 +159,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 
 - [ ] **[HUMAN] CRI-034** `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review
 - [ ] **[HUMAN]** `leaderboard-ingest/config/signing_pins.json` release cert SHA-256
-- [ ] **[HUMAN]** GitHub Pages smoke after deploy
+- [x] **[AGENT]** GitHub Pages smoke after deploy — `pns_github_pages_smoke.ps1` + `gh run list` **PASS** (2026-06-18)
 - [ ] **[AGENT]** Release cut when owner approves — `pns_github_release.ps1` · Tier 4 `pns_prerelease_gate.ps1`
 
 **Milestone H gate:** Human checklist **H.2–H.9** + `pns_prerelease_gate.ps1 -IncludeUsb` on CPH2583.

@@ -15,7 +15,7 @@ const val PNS_GITHUB_OWNER: String = "edwardlthompson"
 const val PNS_GITHUB_REPO: String = "point-and-shoot"
 
 /** Latest shipped semver (no leading `v`) — sync with `scripts/changelog_coverage.v1.json`. */
-const val PNS_GITHUB_LATEST_RELEASE_TAG: String = "0.14.0-beta.11"
+const val PNS_GITHUB_LATEST_RELEASE_TAG: String = "0.14.0-beta.12"
 
 const val PNS_GITHUB_RELEASES_URL: String =
     "https://github.com/$PNS_GITHUB_OWNER/$PNS_GITHUB_REPO/releases"

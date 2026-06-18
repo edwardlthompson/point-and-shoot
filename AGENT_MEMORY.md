@@ -10,7 +10,7 @@
 |-------|--------|
 | **Active milestone** | **H** — human & publication |
 | **Active sprint** | None (AUDIT2 closed) |
-| **Primary USB device** | OnePlus 12 **CPH2583** — Wi‑Fi ADB `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp` (`scripts/pns_adb_device.env`) |
+| **Primary USB device** | OnePlus 12 **CPH2583** — **wireless ADB** `10.0.0.9:44487` (mDNS `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp`; `scripts/pns_adb_device.env`) — **user confirmed connected 2026-06-18** |
 | **Agent lanes closed** | **AUDIT2-2026-06-18** (all items), **AUDIT-2026-06-18**, **H.CRI-5**, **T.14**, **H.HYGIENE** |
 
 ## Toolchain stack (2026-06-18)
@@ -26,22 +26,30 @@
 | CameraX | **1.6.1** |
 | androidx.core | **1.19.0** |
 
-## Last gates (2026-06-18)
+## Last gates (2026-06-18 — wireless ADB session)
 
 | Gate | Result | Artifact / notes |
 |------|--------|------------------|
-| `pns_verify_toolchain.ps1 -RunTests` | **PASS** | `:app:koverVerify` (not `koverVerifyDebug`) |
-| `pns_capture_pipeline_verify.ps1` | **PASS** | `hfr-runs/photo_capture_verify_20260618_110420` |
-| `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_110452` |
-| Dependabot Gradle PRs | **0** open | #4, #8, #9, #11, #12 closed on `main` |
-| Dependabot security alerts | **0** open | |
-| GitHub CI @ `5243319` | **PASS** | Toolchain + Security + CodeQL |
+| `pns_local_dev_parallel.ps1` | **PASS** | 8/8 (SBOM baseline refreshed) |
+| `pns_capture_pipeline_verify.ps1` | **PASS** | `hfr-runs/photo_capture_verify_20260618_120404` |
+| `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_120428` |
+| `pns_prerelease_gate.ps1 -IncludeUsb` | **PASS** | capture + chrome; eye-AF skipped (`-SkipEyeAfPixelGate`) |
+| `pns_milestone_h_host_gate.ps1` | **PASS** | `-SkipGradle` |
+| `pns_about_links_verify.ps1` | **PASS** | Venmo + GitHub releases HTTP + USB settingsAbout |
+| `pns_github_pages_smoke.ps1` | **PASS** | `hfr-runs/github_pages_smoke_20260618_080455` |
+| `pns_eye_af_pixel_gate.ps1` | **FAIL** | face_box OK, `eyes`/`markers` empty — `eye_af_pixel_gate_20260618_075936` |
+| `pns_video_hdr10_metadata_verify.ps1` | **FAIL** | CPH2583 — no DCG session / video saved |
+| `pns_dual_video_verify.ps1` | **FAIL** | dual preview log missing on CPH2583 |
+| `pns_eye_af_alignment_probe.ps1 -HostOnly` | **PASS** | JVM overlay source |
+| GitHub CI @ `d5a4037` | **PASS** | Toolchain + Security + CodeQL |
+| Wireless ADB | **ON** | `10.0.0.9:44487` — disconnect duplicate mDNS serial if `adb devices` shows two |
 
 ## Open blockers
 
 | ID | Area | Status |
 |----|------|--------|
-| **CRI-032…035** | Human | Eye-AF face, DCG colors, store/PRIVACY, OP13 ACR |
+| **CRI-032** | Eye-AF overlay | **FAIL** — markers not drawn (not “no face”) |
+| **CRI-033…035** | Human | DCG colors, store/PRIVACY, OP13 ACR |
 | **H.9** | Release | Owner sign-off → `pns_github_release.ps1` |
 
 ## Backlog (not ship blockers on CPH2583)

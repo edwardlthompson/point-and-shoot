@@ -46,7 +46,11 @@ CRI program + Milestone T template alignment; OP13 regression lane; RAW video la
 ### Added (maintainer / engineering)
 
 - **Milestone T — Project template alignment** — KNOWLEDGE_BASE + ADR index + AGENT_MEMORY; pre-commit, CONTRIBUTING, devcontainer; Kover coverage floor; perf/a11y/Paparazzi scaffold; F-Droid metadata + `pns_fdroid_metadata_validate.ps1`; PRIVACY.md, NOTICE, reproducible builds + `pns_repro_build_verify.ps1`; full pre-release orchestrator **`pns_prerelease_gate.ps1`**; local-first Tier 0 **`pns_local_dev_parallel.ps1`** + multi-agent orchestration docs; **Milestone T closed (agent lane 2026-06-12)** via **`pns_milestone_t_gate.ps1`** — human store copy + PRIVACY sign-off deferred to Milestone **H**.
-## Unreleased
+## [0.14.0-beta.12] - 2026-06-18
+
+Milestone H automation lane, Gradle 9.5 stack, wireless USB gates on CPH2583.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.12.apk`
 
 ### Added (maintainer / engineering)
 
@@ -62,6 +66,10 @@ CRI program + Milestone T template alignment; OP13 regression lane; RAW video la
 - **H.HYGIENE (2026-06-17)** — F-Droid `metadata.yml` + `changelogs/22005.txt` synced to `versionCode=22005`; `PreviewSessionJpegCompanion` API 31 `@RequiresApi` guards (lint **NewApi** fix); JVM unit-test stability (`PnsLog` + fleet/calibration `Log` migration); catalog `firstCameraGate` prefers enabled camera for device-wide rows.
 - **Sprint TM (2026-06-17, engineering)** — Gradle libraries `:pns-core`, `:pns-fleet`, `:pns-capture`, `:pns-preview` under `modules/`; bootstrap gates `pns_validate_bootstrap.ps1` / `pns_watch_agent_gates.ps1`; Golden Path docs in `examples/golden-path/`; ADR-0009 module boundaries. **Post-TM deferred extraction:** capture RAW/DNG pipeline + leaf reconcile in `:pns-capture`; preview session orchestrators in `:pns-preview`; `LeafDngFleetPolicy` / focal routing types in `:pns-core`. **Bootstrap v0.10 batch commands:** 25 `.cursor/commands/*.md` slash workflows + `pns_check_batch_commands.ps1` + `docs/help/BATCH_COMMANDS.md`.
 - **AUDIT2.3 dependency bump (2026-06-18)** — Gradle **9.5.1**, AGP **9.1.1**, Kotlin **2.4.0**, Compose BOM **2026.05.01**, CameraX **1.6.1**, androidx.core **1.19.0** / lifecycle **2.10.0** / activity **1.13.0**; `compileSdk` **37**; AGP 9 built-in Kotlin (`kotlin.android` plugin removed); Paparazzi **2.0.0-alpha05**; baseline profile plugin **1.5.0-alpha06**; `:pns-core` namespace `dev.pointandshoot.core`; Kover gate task `koverVerify`.
+- **Milestone H automation (2026-06-18)** — `pns_github_pages_smoke.ps1`; wireless ADB gate lane on CPH2583; SBOM repro baseline refresh; prerelease USB subset PASS.
+## Unreleased
+
+_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
 ## [0.14.0-beta.7] - 2026-06-04
 
 Pre-release for **Milestone 24 reliability hardening**, fleet truth wiring, and ReferenceApp naming/fixture migration cleanup.

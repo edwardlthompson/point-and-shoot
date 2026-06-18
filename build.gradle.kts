@@ -17,6 +17,10 @@ subprojects {
                 useVersion("4.1.135.Final")
                 because("Align Netty for Gradle tool transitive CVEs (security-scan lockfile gate)")
             }
+            if (requested.group == "org.bouncycastle") {
+                useVersion("1.84")
+                because("Align BouncyCastle for Gradle tool transitive CVEs (security-scan lockfile gate)")
+            }
         }
     }
 }

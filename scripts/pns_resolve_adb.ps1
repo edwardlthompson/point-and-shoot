@@ -29,21 +29,31 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-PnsPlatformToolsAdbPath {
+    param([Parameter(Mandatory = $true)][string]$SdkRoot)
+    $pt = Join-Path $SdkRoot "platform-tools"
+    foreach ($name in @("adb", "adb.exe")) {
+        $candidate = Join-Path $pt $name
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+    return $null
+}
+
 function Get-PnsAndroidSdkRoot {
   foreach ($c in @($env:ANDROID_SDK_ROOT, $env:ANDROID_HOME)) {
     if ([string]::IsNullOrWhiteSpace($c)) { continue }
     $root = $c.Trim().TrimEnd('\', '/')
-    $adb = Join-Path $root "platform-tools\adb.exe"
-    if (Test-Path -LiteralPath $adb) { return $root }
+    if (Get-PnsPlatformToolsAdbPath -SdkRoot $root) { return $root }
   }
-  $local = Join-Path $env:LOCALAPPDATA "Android\Sdk"
-  $adb2 = Join-Path $local "platform-tools\adb.exe"
-  if (Test-Path -LiteralPath $adb2) { return $local }
+  if (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    $local = Join-Path $env:LOCALAPPDATA "Android\Sdk"
+    if (Get-PnsPlatformToolsAdbPath -SdkRoot $local) { return $local }
+  }
   return $null
 }
 
 $sdk = Get-PnsAndroidSdkRoot
-$canonical = if ($sdk) { Join-Path $sdk "platform-tools\adb.exe" } else { $null }
+$canonical = if ($sdk) { Get-PnsPlatformToolsAdbPath -SdkRoot $sdk } else { $null }
 $pathAdbObj = Get-Command adb -ErrorAction SilentlyContinue | Select-Object -First 1
 $pathAdb = if ($pathAdbObj) { $pathAdbObj.Source } else { $null }
 
@@ -70,9 +80,13 @@ if ($CheckOnly.IsPresent -and $mismatch) {
   exit 2
 }
 
-if ($canonical -and (Test-Path -LiteralPath $canonical) -and $PrependToPath.IsPresent) {
+if ($canonical -and $PrependToPath.IsPresent) {
   $pt = Split-Path -Parent $canonical
-  $env:PATH = "$pt;$env:PATH"
+  if ($IsLinux -or $IsMacOS) {
+    $env:PATH = "$pt:$env:PATH"
+  } else {
+    $env:PATH = "$pt;$env:PATH"
+  }
   if (-not $Quiet) {
     Write-Host "[pns_adb] Prepended platform-tools to PATH: $pt"
   }

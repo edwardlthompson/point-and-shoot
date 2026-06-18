@@ -30,6 +30,8 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "pns_resolve_fleet_paths.ps1")
 
+$projRoot = Split-Path -Parent $PSScriptRoot
+
 if ($Help) {
     Write-Host @"
 pns_fleet_parity_sweep.ps1 — Fleet Parity Sweep (M21)
@@ -52,7 +54,6 @@ if (Test-Path -LiteralPath $resolveAdbForSession) {
     . $resolveAdbForSession -PrependToPath -Quiet
 }
 
-$projRoot = Split-Path -Parent $PSScriptRoot
 $pkg = "dev.pointandshoot"
 $activity = "$pkg/.MainActivity"
 $apk = Join-Path $projRoot "app\build\outputs\apk\debug\app-debug.apk"

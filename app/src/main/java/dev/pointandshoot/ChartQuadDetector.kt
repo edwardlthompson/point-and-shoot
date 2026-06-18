@@ -1,7 +1,6 @@
 package dev.pointandshoot
 
 import android.graphics.Bitmap
-import android.util.Log
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -344,10 +343,6 @@ object ChartQuadDetector {
     }
 
     private fun chartDetectLog(msg: String) {
-        try {
-            Log.i(TAG, msg)
-        } catch (_: RuntimeException) {
-            // JVM unit tests without android.util.Log shadowing
-        }
+        PnsLog.i(TAG, msg)
     }
 }

@@ -6,7 +6,7 @@ import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
 import android.util.Log
 import dev.pointandshoot.fleet.LegacyFleetPolicy
-import dev.pointandshoot.fleet.StillDngBackend
+import dev.pointandshoot.StillDngBackend
 import dev.pointandshoot.fleet.StillDngBackendPolicy
 
 /**

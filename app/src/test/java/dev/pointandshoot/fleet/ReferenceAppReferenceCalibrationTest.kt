@@ -1,5 +1,9 @@
 package dev.pointandshoot.fleet
 
+import dev.pointandshoot.fleet.LegacyFleetPolicy
+
+import dev.pointandshoot.StillDngBackend
+
 import dev.pointandshoot.DngBayerAsShotNeutral
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -8,6 +12,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReferenceAppReferenceCalibrationTest {
+    @org.junit.Before
+    fun bindLegacyLeafPolicy() {
+        dev.pointandshoot.LeafDngFleetPolicies.active = LegacyFleetPolicy
+        dev.pointandshoot.FleetRoleMergeHook.mergeRoles = LegacyFleetPolicy::mergeRoles
+    }
+
+    @org.junit.After
+    fun resetLeafPolicy() {
+        dev.pointandshoot.LeafDngFleetPolicies.active = dev.pointandshoot.GenericLeafDngFleetPolicy
+        dev.pointandshoot.FleetRoleMergeHook.mergeRoles = { enumerated, _ -> enumerated }
+    }
+
 
     @Test
     fun parseSlot_hasNineMatricesAndAsn() {

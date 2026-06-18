@@ -2,7 +2,7 @@ package dev.pointandshoot
 
 import dev.pointandshoot.fleet.FleetCameraProfile
 import dev.pointandshoot.fleet.FleetCameraRole
-import dev.pointandshoot.fleet.StillDngBackend
+import dev.pointandshoot.StillDngBackend
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

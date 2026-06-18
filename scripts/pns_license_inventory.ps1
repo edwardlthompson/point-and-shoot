@@ -76,6 +76,7 @@ $LicenseMap = @{
 
   # Build-time plugins (host toolchain only)
   'com.android.application'                      = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
+  'com.android.library'                          = @{ Spdx = 'Apache-2.0'; Scope = 'plugin'; Notes = 'Android library module plugin (Sprint TM)' }
   'com.android.test'                             = @{ Spdx = 'Apache-2.0'; Scope = 'plugin'; Notes = 'Instrumented test module plugin' }
   'org.jetbrains.kotlin.android'                 = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }
   'org.jetbrains.kotlin.plugin.compose'          = @{ Spdx = 'Apache-2.0'; Scope = 'plugin' }

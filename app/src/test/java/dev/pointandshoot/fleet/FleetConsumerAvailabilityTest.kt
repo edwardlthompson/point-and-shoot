@@ -10,7 +10,7 @@ class FleetConsumerAvailabilityTest {
 
     private val fixtureMatrix: JSONObject by lazy {
         val json = javaClass.getResource("/fleet_matrix_gate_minimal.json")!!.readText()
-        CameraCapabilityCatalogBuilder.attachTo(JSONObject(json))
+        JSONObject(json)
     }
 
     private fun caps(): HardwareCaps =

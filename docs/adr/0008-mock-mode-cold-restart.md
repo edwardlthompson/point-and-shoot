@@ -19,7 +19,7 @@ Milestone **T.14** planned a **unified mock/demo mode** for deterministic previe
 
 2. **All other resumes:** Keep **`kickPreviewPipelineRestart()`** plus optional **`GLSurfaceView.post { requestLayout(); invalidate() }`**. Do **not** add a second `setGeometry` writer — geometry stays driven only from **`PreviewMainViewport`** (`AndroidView` `update` + `OnLayoutChangeListener`).
 
-3. **Unified mock/demo mode (T.14):** **Deferred** until this ADR and **H.CRI-5 slice 1** (session surface policy + automation extras registry) land. Mock mode must not fork resume policy; it should reuse the same cold-restart vs kick split documented here.
+3. **Unified mock/demo mode (T.14 — shipped 2026-06-17):** [UnifiedMockPreviewScreen](../../app/src/main/java/dev/pointandshoot/preview/mock/UnifiedMockPreviewScreen.kt) combines GLES [TestPattern] + Pro HUD chrome without Camera2. Canonical route `pns_screen mock`; legacy `prohud` / `glpreview` aliases preserved for Milestone 6 automation. Mock mode does not fork resume policy.
 
 ## Consequences
 

@@ -51,6 +51,33 @@ A FOSS pro camera app for **fleet-oriented Camera2 devices** (primary validation
 - **Fleet-first correctness** — capability-catalog + parity-driven behavior that scales across onboarded SKUs while preserving product-specific profiles where needed.
 - **CRI fix program (Milestone H)** — code-review intake closed across host gates (DNG loadability locks, RAW video lane, detekt/Kover, CI security scans, OP13 fixture refresh); human ACR/store-copy rows remain in [`BUILD_PLAN.md`](BUILD_PLAN.md).
 - **Milestone T (template alignment)** — KNOWLEDGE_BASE, ADRs, CONTRIBUTING, pre-commit, F-Droid metadata scaffold, reproducible-build verify, **`pns_prerelease_gate.ps1`** orchestrator.
+- **Sprint TM (Gradle modules)** — `:pns-core`, `:pns-fleet`, `:pns-capture`, `:pns-preview` under [`modules/`](modules/); bootstrap gates **`pns_validate_bootstrap.ps1`** / **`pns_watch_agent_gates.ps1`**; closure **`pns_milestone_tm_gate.ps1`**; [ADR-0009](docs/adr/0009-modular-boundaries.md).
+
+## Gradle modules
+
+```
+:app (android.application)
+ ├── :pns-preview
+ │    ├── :pns-capture
+ │    │    ├── :pns-fleet
+ │    │    │    └── :pns-core
+ │    │    └── :pns-core
+ │    ├── :pns-fleet
+ │    └── :pns-core
+ ├── :pns-capture
+ ├── :pns-fleet
+ └── :pns-core
+```
+
+| Command | Role |
+|---------|------|
+| `.\scripts\pns_validate_bootstrap.ps1` | Template file / `MODULE.md` / label checks |
+| `.\scripts\pns_watch_agent_gates.ps1 -Step tier0` | Tier 0 parallel host gates (includes bootstrap) |
+| `.\scripts\pns_milestone_tm_gate.ps1` | Sprint TM closure (bootstrap + Tier 0 + Tier 2) |
+
+Golden Path (no duplicate app tree): [`examples/golden-path/README.md`](examples/golden-path/README.md) — probe hub + `pns_screen mock`.
+
+Per-module contracts: [`modules/pns-core/MODULE.md`](modules/pns-core/MODULE.md) and siblings.
 
 ## Highlights
 

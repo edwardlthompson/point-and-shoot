@@ -8,7 +8,8 @@
 #   .\scripts\pns_local_dev_parallel.ps1 -ProjectRoot C:\path\to\repo
 
 param(
-  [string]$ProjectRoot = ""
+  [string]$ProjectRoot = "",
+  [switch]$SkipBootstrap
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +36,10 @@ $steps = @(
   @{ Name = "repro_build_verify";  Script = "pns_repro_build_verify.ps1" }
   @{ Name = "fixture_dng_gates";  Script = "pns_fixture_dng_gates.ps1" }
 )
+
+if (-not $SkipBootstrap) {
+  $steps += @{ Name = "bootstrap_validate"; Script = "pns_validate_bootstrap.ps1" }
+}
 
 foreach ($step in $steps) {
   $scriptPath = Join-Path $PSScriptRoot $step.Script

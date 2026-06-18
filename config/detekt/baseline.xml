@@ -17,10 +17,10 @@
     <ID>ComplexCondition:HighlightClipZebraOverlay.kt$yuvW &lt;= 0 || yuvH &lt;= 0 || bufferWidthPx &lt;= 0 || bufferHeightPx &lt;= 0</ID>
     <ID>ComplexCondition:InAppVideoFormatSelection.kt$InAppVideoFormatSelection$UltraHd60RecordSupport.isUltraHdSize(w, h) &amp;&amp; fps &lt; UltraHd60RecordSupport.TARGET_FPS &amp;&amp; android.os.Build.VERSION.SDK_INT &lt;= android.os.Build.VERSION_CODES.P &amp;&amp; format.codec != VideoCodec.H264</ID>
     <ID>ComplexCondition:InAppVideoFormatSelection.kt$InAppVideoFormatSelection$pinned != null &amp;&amp; pinned.resolution.width == recordSize.width &amp;&amp; pinned.resolution.height == recordSize.height &amp;&amp; pinned.frameRate == targetFps</ID>
-    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$LegacyFleetPolicy.useReferenceAppPureDngSave() &amp;&amp; LegacyFleetPolicy.useLegacyLeafAuxColorReconcile() &amp;&amp; (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW || sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)</ID>
-    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$deviceApplies &amp;&amp; proShotPureDngSave &amp;&amp; uwReferenceAppAsnReconcile &amp;&amp; (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW || sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)</ID>
-    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$deviceApplies &amp;&amp; proShotReferenceCalibration &amp;&amp; proShotPureDngSave &amp;&amp; (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW || sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)</ID>
-    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$deviceApplies &amp;&amp; wideLeafCalibrationForAuxDng &amp;&amp; (sessionCameraId == LegacyFleetPolicy.CANONICAL_UW || sessionCameraId == LegacyFleetPolicy.CANONICAL_TELE)</ID>
+    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$LeafDngFleetPolicies.active.useReferenceAppPureDngSave() &amp;&amp; LeafDngFleetPolicies.active.useLegacyLeafAuxColorReconcile() &amp;&amp; (sessionCameraId == LeafDngFleetPolicies.active.canonicalUw || sessionCameraId == LeafDngFleetPolicies.active.canonicalTele)</ID>
+    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$deviceApplies &amp;&amp; proShotPureDngSave &amp;&amp; uwReferenceAppAsnReconcile &amp;&amp; (sessionCameraId == LeafDngFleetPolicies.active.canonicalUw || sessionCameraId == LeafDngFleetPolicies.active.canonicalTele)</ID>
+    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$deviceApplies &amp;&amp; proShotReferenceCalibration &amp;&amp; proShotPureDngSave &amp;&amp; (sessionCameraId == LeafDngFleetPolicies.active.canonicalUw || sessionCameraId == LeafDngFleetPolicies.active.canonicalTele)</ID>
+    <ID>ComplexCondition:LeafDngHalReconcile.kt$LeafDngHalReconcile$deviceApplies &amp;&amp; wideLeafCalibrationForAuxDng &amp;&amp; (sessionCameraId == LeafDngFleetPolicies.active.canonicalUw || sessionCameraId == LeafDngFleetPolicies.active.canonicalTele)</ID>
     <ID>ComplexCondition:LutCameraPreviewRenderer.kt$LutCameraPreviewRenderer$prev.bufferW != g.bufferW || prev.bufferH != g.bufferH || prev.viewW != g.viewW || prev.viewH != g.viewH || prev.coverCrop != g.coverCrop</ID>
     <ID>ComplexCondition:LutImportValidator.kt$LutImportValidator$upper.startsWith("LUT_3D_SIZE") || upper.startsWith("TITLE") || upper.startsWith("DOMAIN_") || upper.startsWith("LUT_1D_SIZE")</ID>
     <ID>ComplexCondition:MaxPhotoTileStitch.kt$MaxPhotoTileStitch$srcW &lt;= 0 || srcH &lt;= 0 || dstW &lt;= 0 || dstH &lt;= 0</ID>
@@ -310,15 +310,15 @@
     <ID>FunctionNaming:VideoTallyOverlay.kt$@Composable fun VideoTallyOverlay( modifier: Modifier = Modifier, visible: Boolean = true, strokeWidth: Dp = 4.dp, pulse: Boolean = false, )</ID>
     <ID>FunctionNaming:WelcomePermissionsScreen.kt$@Composable fun WelcomePermissionsScreen( runtimeSteps: List&lt;WelcomeRuntimePermissionStep&gt; = WelcomeFlowConfig.runtimePermissionSteps, hasRuntimePermission: (String) -&gt; Boolean, onRequestRuntimePermission: (String) -&gt; Unit, onOpenNotificationPolicySettings: () -&gt; Unit, onFinished: () -&gt; Unit, )</ID>
     <ID>FunctionNaming:WifiDirectTetherBanner.kt$@Composable fun WifiDirectTetherBanner( port: Int, modifier: Modifier = Modifier, )</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun hdrStillEvStep(): Double</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun proShotLeafStillSkipsStopRepeating(sessionCameraId: String): Boolean</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun proShotStillAeExposureCompensationSteps(sessionCameraId: String): Int</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun useHalColorCalibrationReconcile(): Boolean</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun useLegacyAsnReconcileOnly(): Boolean</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun useLegacyLeafAuxColorReconcile(): Boolean</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun useReferenceAppReferenceCalibration(): Boolean</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun useReferenceAppStillPrecapture(): Boolean</ID>
-    <ID>FunctionOnlyReturningConstant:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$fun useWideLeafCalibrationForAuxDng(): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun hdrStillEvStep(): Double</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun proShotLeafStillSkipsStopRepeating(sessionCameraId: String): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun proShotStillAeExposureCompensationSteps(sessionCameraId: String): Int</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun useHalColorCalibrationReconcile(): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun useLegacyAsnReconcileOnly(): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun useLegacyLeafAuxColorReconcile(): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun useReferenceAppReferenceCalibration(): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun useReferenceAppStillPrecapture(): Boolean</ID>
+    <ID>FunctionOnlyReturningConstant:LegacyFleetPolicy.kt$LegacyFleetPolicy$fun useWideLeafCalibrationForAuxDng(): Boolean</ID>
     <ID>FunctionOnlyReturningConstant:PreviewReadoutChipMode.kt$PreviewReadoutChipMode$fun showImgChip(primaryPhoto: Boolean): Boolean</ID>
     <ID>FunctionOnlyReturningConstant:PreviewReadoutStillPipeline.kt$PreviewReadoutStillPipeline$fun chipContentDescription( imagingProfile: ImagingProfile, stillCaptureJpegCompanion: Boolean, sessionJpegCompanionReady: Boolean, ): String</ID>
     <ID>FunctionOnlyReturningConstant:StillCaptureMode.kt$StillCaptureModePolicy$fun isHdrStillImplemented(): Boolean</ID>
@@ -514,9 +514,9 @@
     <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$255f</ID>
     <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$3</ID>
     <ID>MagicNumber:BitmapRgbPlane.kt$BitmapRgbPlane$8</ID>
-    <ID>MagicNumber:BracketPlan.kt$BracketPattern.Five$5</ID>
-    <ID>MagicNumber:BracketPlan.kt$BracketPattern.Seven$7</ID>
-    <ID>MagicNumber:BracketPlan.kt$BracketPattern.Three$3</ID>
+    <ID>MagicNumber:BracketPattern.kt$BracketPattern.Five$5</ID>
+    <ID>MagicNumber:BracketPattern.kt$BracketPattern.Seven$7</ID>
+    <ID>MagicNumber:BracketPattern.kt$BracketPattern.Three$3</ID>
     <ID>MagicNumber:BracketPlan.kt$BracketPlan.Companion$12</ID>
     <ID>MagicNumber:BuiltInLuts.kt$BuiltInLuts$0.5f</ID>
     <ID>MagicNumber:BuiltInLuts.kt$BuiltInLuts$3</ID>
@@ -1591,9 +1591,9 @@
     <ID>MagicNumber:NightScapeCapture.kt$NightScapeCapture$30</ID>
     <ID>MagicNumber:NightScapeCapture.kt$NightScapeCapture$59</ID>
     <ID>MagicNumber:NightScapeCapture.kt$NightScapeCapture$8</ID>
-    <ID>MagicNumber:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$2.5f</ID>
-    <ID>MagicNumber:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$4</ID>
-    <ID>MagicNumber:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$6</ID>
+    <ID>MagicNumber:LegacyFleetPolicy.kt$LegacyFleetPolicy$2.5f</ID>
+    <ID>MagicNumber:LegacyFleetPolicy.kt$LegacyFleetPolicy$4</ID>
+    <ID>MagicNumber:LegacyFleetPolicy.kt$LegacyFleetPolicy$6</ID>
     <ID>MagicNumber:OrientationProbeOverlay.kt$0.30f</ID>
     <ID>MagicNumber:OrientationProbeOverlay.kt$0.45f</ID>
     <ID>MagicNumber:OrientationProbeOverlay.kt$0xFFFF7A00</ID>
@@ -2310,10 +2310,10 @@
     <ID>MatchingDeclarationName:ConnectivityManager.kt$PnsConnectivity</ID>
     <ID>MatchingDeclarationName:EncoderProbeCore.kt$EncoderProbeResult</ID>
     <ID>MatchingDeclarationName:FocusBreathingCompensation.kt$FocusBreathingCompensator</ID>
-    <ID>MatchingDeclarationName:OnePlus13FleetPolicy.kt$LegacyFleetPolicy</ID>
-    <ID>MatchingDeclarationName:OnePlus13FleetPolicyTest.kt$LegacyFleetPolicyTest</ID>
-    <ID>MatchingDeclarationName:Op13LeafStillColorCorrection.kt$LegacyLeafStillColorCorrection</ID>
-    <ID>MatchingDeclarationName:Op13LeafStillColorCorrectionTest.kt$LegacyLeafStillColorCorrectionTest</ID>
+    <ID>MatchingDeclarationName:LegacyFleetPolicy.kt$LegacyFleetPolicy</ID>
+    <ID>MatchingDeclarationName:LegacyFleetPolicyTest.kt$LegacyFleetPolicyTest</ID>
+    <ID>MatchingDeclarationName:LegacyLeafStillColorCorrection.kt$LegacyLeafStillColorCorrection</ID>
+    <ID>MatchingDeclarationName:LegacyLeafStillColorCorrectionTest.kt$LegacyLeafStillColorCorrectionTest</ID>
     <ID>MatchingDeclarationName:PpmAudioMeter.kt$PpmMeterLayout</ID>
     <ID>MatchingDeclarationName:PreviewChromeMenuUi.kt$PreviewChromeMenuColors</ID>
     <ID>MatchingDeclarationName:PreviewMacroFocusDialCoupling.kt$MacroFocusDialCouplingState</ID>
@@ -2537,7 +2537,7 @@
     <ID>UnusedParameter:LeafDngHalReconcile.kt$LeafDngHalReconcile$characteristics: CameraCharacteristics</ID>
     <ID>UnusedParameter:MediaCodecCapabilityProbe.kt$MediaCodecCapabilityProbe$height: Int</ID>
     <ID>UnusedParameter:MemoryProfiler.kt$MemoryProfiler$snapshot: MemorySnapshot</ID>
-    <ID>UnusedParameter:OnePlus13FleetPolicy.kt$LegacyFleetPolicy$sessionCameraId: String</ID>
+    <ID>UnusedParameter:LegacyFleetPolicy.kt$LegacyFleetPolicy$sessionCameraId: String</ID>
     <ID>UnusedParameter:PnsAacEncoderSupport.kt$PnsAacEncoderSupport$context: Context</ID>
     <ID>UnusedParameter:PreviewEngineScreen.kt$/** Clamps preview FPS when starting video at HFR (MediaRecorder path requires &amp;lt;120). */ onSetFps: (Int) -&gt; Unit</ID>
     <ID>UnusedParameter:PreviewEngineScreen.kt$PreviewController$dngSoftwareDescription: String? = null</ID>

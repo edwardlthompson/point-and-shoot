@@ -416,11 +416,15 @@ internal object CameraCapabilityCatalogEvaluators {
             return it
         }
         val cams = root.optJSONArray(FleetDeviceMatrix.KEY_CAMERAS) ?: return null
+        var fallback: JSONObject? = null
         for (i in 0 until cams.length()) {
-            val g = cams.optJSONObject(i)?.optJSONObject("featureGates")?.optJSONObject(key)
-            if (g != null) return g
+            val g = cams.optJSONObject(i)?.optJSONObject("featureGates")?.optJSONObject(key) ?: continue
+            if (fallback == null) fallback = g
+            val adv = g.optBoolean("advertised", false)
+            val app = g.optBoolean("appEnabled", false)
+            if (adv && app) return g
         }
-        return null
+        return fallback
     }
 
     private fun defaultProductSupported(row: CameraCapabilityCatalog.CatalogRow): Boolean =

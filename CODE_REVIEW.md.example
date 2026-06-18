@@ -1,0 +1,38 @@
+# Code Review — YYYY-MM-DD
+
+> Ephemeral audit output. Copy from this example; do not commit `CODE_REVIEW.md` (gitignored).
+
+## Summary
+
+One paragraph: overall health, top risks, recommended sprint focus.
+
+## Findings
+
+| ID | Severity | Area | Finding | Recommendation |
+|----|----------|------|---------|----------------|
+| F-001 | Critical | | | |
+| F-002 | High | | | |
+| F-003 | Medium | | | |
+| F-004 | Low | | | |
+| F-005 | Deferred | | | |
+
+**Severity:** Critical · High · Medium · Low · Deferred
+
+## Gate results
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| pns_validate_bootstrap.ps1 | | |
+| pns_local_dev_parallel.ps1 (Tier 0) | | |
+| pns_verify_toolchain.ps1 -RunTests (Tier 2) | | |
+| pns_capture_pipeline_verify.ps1 (USB) | | |
+| pns_chrome_ux_gate.ps1 (USB) | | |
+| Dependabot / CodeQL (if gh auth) | | |
+
+## BUILD_PLAN links
+
+Map finding IDs to sprint rows in `BUILD_PLAN.md` (e.g. ⬜ [AGENT] Fix F-002 …).
+
+## Out of scope
+
+Items intentionally deferred with rationale.

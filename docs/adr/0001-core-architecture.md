@@ -12,7 +12,7 @@ Point & Shoot is a Camera2 pro camera with a large preview/capture surface (`Pre
 1. **UI:** Jetpack Compose screens with in-composable state; no app-wide ViewModel/Hilt layer.
 2. **Concurrency:** Dedicated executors per lane (camera control, reader/encode, meter, JPEG companion) as documented in [`CAPTURE_ARCHITECTURE.md`](../../CAPTURE_ARCHITECTURE.md).
 3. **Testability:** Extract **pure JVM** helpers (fleet gates, bracket schedulers, DNG/TIFF patches, crop math) with `app/src/test` coverage.
-4. **Golden Path reference:** Engineering **probe hub** + **`ProHudScreen`** / **`GLPreviewScreen`** mock routes for offline layout and GLES checks without a live sensor.
+4. **Golden Path reference:** Engineering **probe hub** (`pns_screen=probehub`) + **`UnifiedMockPreviewScreen`** (`pns_screen mock`; legacy `prohud` / `glpreview` aliases) for offline layout and GLES checks without a live sensor. See [`examples/golden-path/README.md`](../../examples/golden-path/README.md) and [ADR-0009](0009-modular-boundaries.md).
 
 ## Consequences
 

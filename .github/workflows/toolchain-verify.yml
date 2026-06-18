@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - 'app/**'
+      - 'modules/**'
       - 'baselineprofile/**'
       - 'config/**'
       - 'scripts/**'
@@ -38,6 +39,7 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'modules/**'
       - 'baselineprofile/**'
       - 'config/**'
       - 'scripts/**'
@@ -91,6 +93,9 @@ jobs:
           java-version: '17'
 
       - uses: android-actions/setup-android@v4
+
+      - name: Write local.properties for Gradle (sdk.dir)
+        run: echo "sdk.dir=$ANDROID_HOME" >> local.properties
 
       - name: Install Android platform (compileSdk 36)
         run: |

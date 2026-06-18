@@ -35,7 +35,7 @@ class CameraCapabilityCatalogEvaluatorsTest {
                 listOf(
                     arrayOf("raw.dng", true, true, "advertised=true"),
                     arrayOf("video.hfr", true, true, "sessionOk=true"),
-                    arrayOf("face.detect", false, null, "no gate"),
+                    arrayOf("face.detect", true, true, "advertised=true"),
                     arrayOf("still.referenceapp_leaf", false, null, "legacy_regression_lane"),
                     arrayOf("fleet.matrix", true, null, "matrix present"),
                     arrayOf("fleet.parity_sweep", true, null, "parity runner shipped"),

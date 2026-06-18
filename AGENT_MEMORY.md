@@ -4,49 +4,49 @@
 
 ---
 
-## Current focus (updated 2026-06-13 — Milestone H automation pass)
+## Current focus (updated 2026-06-18 — `/audit` + Sprint AUDIT)
 
 | Field | Value |
 |-------|--------|
 | **Active milestone** | **H** — human & publication |
-| **USB device (this session)** | OP13 **CPH2655** serial **`8bf09993`** (optional regression lane) |
-| **Primary fleet device** | OnePlus 12 **CPH2583** — not used this session |
+| **Active sprint** | **AUDIT-2026-06-18** — CI fixes + TM commit hygiene |
+| **Primary USB device** | OnePlus 12 **CPH2583** — Wi‑Fi ADB `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp` (update `scripts/pns_adb_device.env`) |
+| **Agent lanes closed** | **H.CRI-5**, **T.14**, **H.HYGIENE**, **AUDIT.1–4** (local) |
 
-## Last gates (2026-06-13)
+## Last gates (2026-06-18)
 
-| Gate | Result | Artifact |
-|------|--------|----------|
-| `pns_local_dev_parallel.ps1` | PASS | Tier 0 — 7/7 |
-| `pns_prerelease_gate.ps1 -SkipGradle` | PASS | Tier 1 host |
-| `pns_aux_dng_capture_analyze.ps1` | PASS | `hfr-runs/aux_dng_capture_analyze_20260613_000901` |
-| `pns_m13_3g2_gate.ps1` | PASS | same dir + `acr_signoff.json` |
-| `dng_referenceapp_parity_gate.py` | FAIL | scene vs `referenceapp_cph2655` fixtures |
-| `pns_fleet_matrix_scan.ps1 -LegacyOp13FleetPolicy` | PASS | `hfr-runs/fleet_matrix_20260613_001343/` |
-| `pns_fleet_parity_sweep.ps1 -Mode Full` | PASS | `hfr-runs/parity_sweep_20260613_001426/` |
-| `pns_eye_af_pixel_gate.ps1` | FAIL | no face in frame (unattended) |
-| `pns_milestone_h_host_gate.ps1 -SkipGradle` | FAIL | aesthetic gate — missing `referenceapp_legacy_sku` fixtures |
+| Gate | Result | Artifact / notes |
+|------|--------|------------------|
+| `pns_validate_bootstrap.ps1` | **PASS** | Template 0.10.0, batch commands |
+| `pns_local_dev_parallel.ps1` | **PASS** | Tier 0 — 8/8 |
+| `pns_verify_toolchain.ps1 -RunTests` | **PASS** | detekt, lint, JVM tests, Kover |
+| `:pns-*:detekt` | **PASS** | After baseline patch (LeafDngFleetPolicies) |
+| `pns_capture_pipeline_verify.ps1` | **PASS** | `hfr-runs/photo_capture_verify_20260618_013837` |
+| `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_013908` |
+| GitHub CI (`main`) | **FAIL** | CodeQL/Toolchain/Security — fixes **uncommitted** |
 
 ## Open blockers
 
 | ID | Area | Status |
 |----|------|--------|
-| H.1a | `video.raw` / `video.raw_picker` honesty | Open in BUILD_PLAN.md (OP13 Full sweep) |
-| H.6 / H.8.1 | Eye-AF pixel gate | FAIL unattended — needs face in frame |
-| H.7 | ReferenceApp color parity | FAIL scene vs fixture refs |
-| H.5 | Store copy | Human |
-| H.9 | PRIVACY / metadata sign-off | Human |
-| H.8.3 | H.265 DCG @4K colors | Human visual fail |
+| **AUDIT.6** | Git | Large uncommitted TM + CI worktree — needs integration commit + push |
+| **AUDIT.5** | ADB env | `pns_adb_device.env` still has stale `192.168.1.2:44891` |
+| **CRI-032…035** | Human | Eye-AF face, DCG colors, store/PRIVACY, OP13 ACR |
+| **H.9** | Release | Owner sign-off → `pns_github_release.ps1` |
 
-## Archived this session
+## Backlog (not ship blockers on CPH2583)
 
-Completed agent rows → [BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md#sprint-h7-op13--optional-op13-regression-lane-agent-closed-2026-06-13) · [host validators](BUILD_PLAN_COMPLETED.md#sprint-h--host-validators--publication-prep-agent-closed-2026-06-13)
+- `dng_aesthetic_gate` host self-test
+- Lint baseline ~170 warnings
+- Dependabot **13** open PRs (merge Actions after CI green)
+- Gradle 9.5 / major AGP — separate sprint
 
 ## Immediate next steps
 
-1. **[HUMAN]** H.5 store copy · H.9 PRIVACY sign-off · H.8 perceptual rows
-2. **[AGENT]** H.1a honesty fixes (Kotlin/catalog) if pursuing ship blockers on OP13
-3. **[AGENT]** Re-run eye-AF gate with face in frame, or accept H.8.1 human rubber-stamp
+1. **[AGENT]** Commit + push CI workflow fixes + TM modularization (AUDIT.6)
+2. **[AGENT]** Update `pns_adb_device.env` wireless serial (AUDIT.5)
+3. **[HUMAN]** Milestone H checklist + Dependabot triage after CI green
 
 ---
 
-*Refresh this file when switching milestones or starting a new agent session.*
+**Document control:** 2026-06-18 — `/audit` session; refresh at Milestone H closure or next audit.

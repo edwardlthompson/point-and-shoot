@@ -7,6 +7,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FleetCameraStartupScanTest {
+    @org.junit.Before
+    fun bindLegacyLeafPolicy() {
+        dev.pointandshoot.LeafDngFleetPolicies.active = LegacyFleetPolicy
+        dev.pointandshoot.FleetRoleMergeHook.mergeRoles = LegacyFleetPolicy::mergeRoles
+    }
+
+    @org.junit.After
+    fun resetLeafPolicy() {
+        dev.pointandshoot.LeafDngFleetPolicies.active = dev.pointandshoot.GenericLeafDngFleetPolicy
+        dev.pointandshoot.FleetRoleMergeHook.mergeRoles = { enumerated, _ -> enumerated }
+    }
+
     @Test
     fun dngDeviceProfile_uwTele_onOnePlusModel() {
         assertNotNull(DngDeviceColorProfile.fmScaleForOp13Leaf(LegacyFleetPolicy.CANONICAL_UW))

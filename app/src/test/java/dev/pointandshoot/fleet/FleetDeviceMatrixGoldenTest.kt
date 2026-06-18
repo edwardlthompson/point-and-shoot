@@ -48,6 +48,7 @@ class FleetDeviceMatrixGoldenTest {
     }
 
     private fun assertGoldenInvariants(root: JSONObject) {
+        assertTrue(FleetDeviceMatrixSchemaValidator.validate(root) is FleetDeviceMatrixSchemaValidator.Result.Ok)
         assertTrue(FleetDeviceMatrix.isValidRoot(root))
         assertEquals(FleetDeviceMatrix.ScanTier.FULL, FleetDeviceMatrix.parseScanTier(root))
         assertEquals("CPH2583", root.optJSONObject(FleetDeviceMatrix.KEY_DEVICE)?.optString("model"))

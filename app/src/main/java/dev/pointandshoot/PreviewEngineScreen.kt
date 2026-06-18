@@ -1,4 +1,8 @@
-﻿package dev.pointandshoot
+package dev.pointandshoot
+
+import dev.pointandshoot.preview.createCaptureSessionHighSpeedOutputs
+import dev.pointandshoot.preview.createCaptureSessionRegularOutputs
+import dev.pointandshoot.preview.outputConfigurationsWithOptionalStreamUseCases
 
 import android.app.Activity
 import android.Manifest
@@ -60,6 +64,15 @@ import android.widget.Toast
 import dev.pointandshoot.preview.capture.awaitNextImage
 import dev.pointandshoot.preview.session.AndroidPreviewCameraOpenGateway
 import dev.pointandshoot.preview.session.AndroidPreviewSessionCreateGateway
+import dev.pointandshoot.preview.session.PreviewRegularSessionCreateRetries
+import dev.pointandshoot.preview.session.PreviewSessionContextDiag
+import dev.pointandshoot.preview.session.PreviewVendorSessionParameters
+import dev.pointandshoot.preview.session.PreviewSessionCreateEntry
+import dev.pointandshoot.preview.session.PreviewSessionHighSpeedCreate
+import dev.pointandshoot.preview.session.PreviewSessionHighSpeedOutputs
+import dev.pointandshoot.preview.session.PreviewSessionJpegCompanion
+import dev.pointandshoot.preview.session.PreviewSessionMacroParameters
+import dev.pointandshoot.preview.session.PreviewSessionRegularOutputsPolicy
 import dev.pointandshoot.preview.session.PreviewSessionSurfacePolicy
 import dev.pointandshoot.preview.session.RawStillSurfacesInput
 import dev.pointandshoot.preview.session.RawVideoLaneInput
@@ -10911,9 +10924,6 @@ private class PreviewController(
     }
 
     companion object {
-        /** [Handler.postDelayed] before [maybeRestartBody] after macro OutputConfiguration abandon recovery. */
-        private const val MACRO_OUTPUT_CONFIG_RETRY_DELAY_MS = 48L
-
         /**
          * Some HALs need a beat after [CameraCaptureSession.stopRepeating] before [CameraCaptureSession.capture]
          * for a RAW surface; otherwise [onCaptureCompleted] fires with no RAW [ImageReader] frame (legacy OEM behavior).
@@ -10976,9 +10986,6 @@ private class PreviewController(
 
         /** When [SurfaceTexture.setDefaultBufferSize] races teardown, retry after layout catches up. */
         private const val SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS = 120L
-        private const val HFR_SURFACE_ABANDON_RETRY_DELAY_MS = 350L
-        private const val HFR_SURFACE_ABANDON_RETRY_CAP = 8
-
         /** EMA alpha when [highlightDarkenEngageEma] falls (slower release — less brighten pump). */
         private const val HIGHLIGHT_ENGAGE_EMA_FALL_ALPHA = 0.22
 
@@ -18080,15 +18087,17 @@ private class PreviewController(
         val hs =
             pickHighSpeedTarget(map, desiredFps)?.first
                 ?: desiredHighSpeedSize
-        return HfrInterleavedPreviewSupport.prefersInterleavedOverEncoderOnlyFor4KEncode(
-            desiredFps = desiredFps,
-            wantsMediaCodecPath = videoController.wantsMediaCodecPath,
-            encodePrefWidth = pref?.width ?: 0,
-            encodePrefHeight = pref?.height ?: 0,
-            hsCaptureWidth = hs?.width ?: 0,
-            hsCaptureHeight = hs?.height ?: 0,
-            preferSub4kCapture = hfrSub4kCaptureFallback,
-            forceInterleavedAfterConfigureFail = hfrForceInterleavedMcCapture,
+        return PreviewSessionHighSpeedOutputs.prefersInterleavedOverEncoderOnly(
+            PreviewSessionHighSpeedOutputs.InterleavedPreferenceInput(
+                desiredFps = desiredFps,
+                wantsMediaCodecPath = videoController.wantsMediaCodecPath,
+                encodePrefWidth = pref?.width ?: 0,
+                encodePrefHeight = pref?.height ?: 0,
+                hsCaptureWidth = hs?.width ?: 0,
+                hsCaptureHeight = hs?.height ?: 0,
+                preferSub4kCapture = hfrSub4kCaptureFallback,
+                forceInterleavedAfterConfigureFail = hfrForceInterleavedMcCapture,
+            ),
         )
     }
 
@@ -18624,13 +18633,17 @@ private class PreviewController(
      * probe targets ultra-wide; [VendorKeyGuard] decides whether a setter sticks.
      */
     private fun shouldUseMacroSessionParameters(camId: String): Boolean {
-        if (!wantsMacroProgram() && !superMacroAdbProbe) return false
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
         val uw =
             runCatching {
                 BackCameraRoleResolver.resolve(cm, cameraIds()).ultraWide
-            }.getOrNull() ?: return false
-        return uw == camId
+            }.getOrNull()
+        return PreviewSessionMacroParameters.shouldAttemptMacroSessionParameters(
+            wantsMacroProgram = wantsMacroProgram(),
+            superMacroAdbProbe = superMacroAdbProbe,
+            sdkInt = Build.VERSION.SDK_INT,
+            camId = camId,
+            ultraWideCameraId = uw,
+        )
     }
 
     private fun configureJpegCompanionReader(
@@ -18642,94 +18655,54 @@ private class PreviewController(
         runCatching { jpegMultiResolutionReader?.setOnImageAvailableListener(null, Executor { it.run() }) }
         runCatching { jpegMultiResolutionReader?.close() }
         jpegMultiResolutionReader = null
-        val jpegSize =
-            chars?.let {
-                RawCaptureSupport.pickJpegOutputSizeForStill(it, stillPhotoResolutionMode)
-            } ?: mapForStreams?.let { RawCaptureSupport.pickLargestJpegSize(it) }
-        val jpegOnlySession = imagingProfileForStreams is ImagingProfile.JpegOnly
-        val attachJpegSurface =
-            jpegOnlySession ||
-                (wantsIndependentTonalStill && jpegSize != null) ||
-                (wantsJpegSidecarOnRaw && jpegSize != null)
-        if (!attachJpegSurface) {
-            jpegImageReader = null
-            runCatching { jpegMultiResolutionReader?.close() }
-            jpegMultiResolutionReader = null
-            when {
-                imagingProfileForStreams is ImagingProfile.JpegOnly ->
-                    Log.w(tag, "JPEG-only session: no JPEG output sizes from map")
-                !wantsIndependentTonalStill && !wantsJpegSidecarOnRaw ->
-                    Log.d(tag, "Tonal JPEG surface off — RAW-only or no -JPEG- tier")
-                else -> Log.w(tag, "No JPEG output sizes — tonal still unavailable")
-            }
-            return
-        }
-        val experimentalMultiRes =
-            jpegOnlySession &&
-                stillPhotoResolutionMode == PhotoResolutionMode.MaxResolution &&
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                chars != null
-        if (experimentalMultiRes) {
-            val mrReader =
-                runCatching {
-                    @Suppress("UNCHECKED_CAST")
-                    val key =
-                        chars.keys.firstOrNull { it.name == "android.scaler.multiResolutionStreamConfigurationMap" }
-                            as? CameraCharacteristics.Key<Any>
-                    val mrMap = key?.let { chars.get(it) } ?: return@runCatching null
-                    val infos =
-                        runCatching {
-                            val m = mrMap.javaClass.getMethod("getOutputInfo", Int::class.javaPrimitiveType)
-                            m.invoke(mrMap, ImageFormat.JPEG) as? Collection<*>
-                        }.getOrNull()
-                    val typedInfos =
-                        infos
-                            ?.filterNotNull()
-                            ?.takeIf { it.size > 1 }
-                            ?.let { it as Collection<android.hardware.camera2.params.MultiResolutionStreamInfo> }
-                            ?: return@runCatching null
-                    MultiResolutionImageReader(
-                        typedInfos,
-                        ImageFormat.JPEG,
-                        PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES,
-                    )
-                }.getOrNull()
-            if (mrReader != null) {
-                val oc =
-                    runCatching {
-                        @Suppress("UNCHECKED_CAST")
-                        OutputConfiguration.createInstancesForMultiResolutionOutput(mrReader)
-                            as Collection<OutputConfiguration>
-                    }.getOrNull()
-                if (!oc.isNullOrEmpty()) {
-                    jpegMultiResolutionReader = mrReader
-                    jpegImageReader = null
-                    extraOutputConfigs.addAll(oc)
-                    Log.d(tag, "JPEG MultiResolutionImageReader outputs=${oc.size}")
-                    return
+        when (
+            val outcome =
+                PreviewSessionJpegCompanion.configure(
+                    input =
+                        PreviewSessionJpegCompanion.Input(
+                            characteristics = chars,
+                            streamConfigurationMap = mapForStreams,
+                            imagingProfileForStreams = imagingProfileForStreams,
+                            stillPhotoResolutionMode = stillPhotoResolutionMode,
+                            wantsIndependentTonalStill = wantsIndependentTonalStill,
+                            wantsJpegSidecarOnRaw = wantsJpegSidecarOnRaw,
+                        ),
+                    surfaces = surfaces,
+                    extraOutputConfigs = extraOutputConfigs,
+                    onDebugLog = { msg -> Log.d(tag, msg) },
+                    onPipelineEvent = { w, h, storageId ->
+                        recordCapturePipelineEvent(
+                            "MAX_RES_JPEG_READER",
+                            "jpeg reader configured",
+                            mapOf(
+                                "jpegReaderWxH" to "${w}x$h",
+                                "requestedStillResMode" to storageId,
+                            ),
+                        )
+                    },
+                )
+        ) {
+            is PreviewSessionJpegCompanion.Outcome.Skipped -> {
+                jpegImageReader = null
+                runCatching { jpegMultiResolutionReader?.close() }
+                jpegMultiResolutionReader = null
+                when (outcome.reason) {
+                    PreviewSessionJpegCompanion.SkipReason.JpegOnlyNoSizes ->
+                        Log.w(tag, "JPEG-only session: no JPEG output sizes from map")
+                    PreviewSessionJpegCompanion.SkipReason.TonalOff ->
+                        Log.d(tag, "Tonal JPEG surface off — RAW-only or no -JPEG- tier")
+                    PreviewSessionJpegCompanion.SkipReason.NoJpegSizes ->
+                        Log.w(tag, "No JPEG output sizes — tonal still unavailable")
                 }
-                runCatching { mrReader.close() }
+            }
+            is PreviewSessionJpegCompanion.Outcome.MultiResolution -> {
+                jpegMultiResolutionReader = outcome.reader
+                jpegImageReader = null
+            }
+            is PreviewSessionJpegCompanion.Outcome.SingleReader -> {
+                jpegImageReader = outcome.reader
             }
         }
-        val sz = jpegSize!!
-        val reader =
-            ImageReader.newInstance(
-                sz.width,
-                sz.height,
-                ImageFormat.JPEG,
-                PerfBudget.Defaults.STILL_IMAGE_READER_MAX_IMAGES,
-            )
-        jpegImageReader = reader
-        surfaces.add(reader.surface)
-        Log.d(tag, "JPEG ImageReader ${sz.width}x${sz.height}")
-        recordCapturePipelineEvent(
-            "MAX_RES_JPEG_READER",
-            "jpeg reader configured",
-            mapOf(
-                "jpegReaderWxH" to "${sz.width}x${sz.height}",
-                "requestedStillResMode" to stillPhotoResolutionMode.storageId,
-            ),
-        )
     }
 
     private fun jpegCaptureSurface(): Surface? =
@@ -18766,79 +18739,34 @@ private class PreviewController(
      * REGULAR-session vendor template: **EnableHDRDCGMode** (13.4) and/or **EnableAFBracketing** (10.6).
      */
     private fun buildVendorSessionParametersTemplate(camera: CameraDevice, camId: String): CaptureRequest? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
         val ch = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return null
         val prefs = readHudCapturePrefs()
-        val map = ch.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-        val recordSize = resolveInAppVideoRecordSize()
-        if (
-            UltraHd60SessionParameters.shouldAttach(
-                recordSize = recordSize,
-                desiredFps = desiredFps,
-                inAppVideoRecordingArmed = inAppVideoRecordingArmed,
-                recorderPresent = videoController.isRecorderPresent(),
-                map = map,
-            )
-        ) {
-            val fpsRange = UltraHd60RecordSupport.recordFpsRange(desiredFps)
-            val uhd =
-                UltraHd60SessionParameters.buildSessionParametersTemplate(
-                    camera = camera,
-                    characteristics = ch,
-                    camId = camId,
-                    prefs = prefs,
-                    recordFpsRange = fpsRange,
-                )
-            if (uhd != null) {
-                PnsAdbLog.i(
-                    appContext,
-                    "uhd60SessionTemplate aeFps=${fpsRange.lower}-${fpsRange.upper} " +
-                        "record=${recordSize.width}x${recordSize.height} cam=$camId",
-                )
-            }
-            return uhd
-        }
-        val attachDcg =
-            DcgSessionParameters.shouldAttach(
-                enableResearchDcgHdr = prefs.enableResearchDcgHDR,
-                adbPreviewVideoDcg = adbAutomationVideoDcg,
-            ) && !wantsRawVideoLane()
-        val attachExperimentalVendorSession =
+        val experimentalAllowed =
             prefs.enableExperimentalAppBreakingFeatures &&
                 prefs.enableExperimentalVendorSessionKeys &&
                 !ExperimentalSafeModeStore.isSafeModeActive(appContext) &&
                 RootCapabilityStore.loadOrUnknown(appContext).grantsPrivileged &&
                 ExperimentalMaxResolutionUnlock.isCph2583LaneDevice()
-        val sessionSweepKeys =
-            if (attachExperimentalVendorSession && camId == "2") {
-                maxResSweepSessionKeys
-            } else {
-                emptyList()
-            }
-        val template =
-            DcgSessionParameters.buildSessionParametersTemplate(
-                camera = camera,
-                characteristics = ch,
-                camId = camId,
-                prefs = prefs,
-                previewFpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession()),
-                attachDcg = attachDcg,
-                attachAfBracketing = prefs.enableResearchAfBracketing,
-                attachExperimentalVendorSession = attachExperimentalVendorSession,
-                extraExperimentalSessionKeys = sessionSweepKeys,
-            )
-        if (template != null && attachDcg) {
-            PnsAdbLog.i(appContext, "dcgSessionTemplate=EnableHDRDCGMode cam=$camId")
-        }
-        if (template != null && attachExperimentalVendorSession) {
-            PnsAdbLog.i(appContext, "maxResUnlock sessionVendorTemplateApplied cam=$camId")
-        }
-        if (sessionSweepKeys.isNotEmpty()) {
-            for (keyName in sessionSweepKeys) {
-                val present = VendorKeyGuard.captureSessionKey(ch, keyName) != null
-                val b = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                val hit = VendorKeyGuard.trySetVendorSessionEnable(b, ch, keyName)
-                val settable = hit != null
+        return PreviewVendorSessionParameters.build(
+            camera = camera,
+            input =
+                PreviewVendorSessionParameters.Input(
+                    characteristics = ch,
+                    camId = camId,
+                    prefs = prefs,
+                    streamConfigurationMap = ch.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP),
+                    recordSize = resolveInAppVideoRecordSize(),
+                    desiredFps = desiredFps,
+                    inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+                    recorderPresent = videoController.isRecorderPresent(),
+                    adbPreviewVideoDcg = adbAutomationVideoDcg,
+                    wantsRawVideoLane = wantsRawVideoLane(),
+                    previewFpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession()),
+                    experimentalVendorSessionAllowed = experimentalAllowed,
+                    maxResSweepSessionKeys = maxResSweepSessionKeys,
+                ),
+            onInfoLog = { msg -> PnsAdbLog.i(appContext, msg) },
+            onMaxResSweepProbe = { keyName, present, settable, hit ->
                 recordCapturePipelineEvent(
                     "MAX_RES_SWEEP_SESSION",
                     "session sweep candidate",
@@ -18850,13 +18778,8 @@ private class PreviewController(
                         "type" to (hit ?: "none"),
                     ),
                 )
-                PnsAdbLog.i(
-                    appContext,
-                    "maxResSweep scope=session cam=$camId key=$keyName present=$present settable=$settable type=${hit ?: "none"}",
-                )
-            }
-        }
-        return template
+            },
+        )
     }
 
     private fun needsUltraHd60Delivery(map: StreamConfigurationMap?): Boolean =
@@ -18891,99 +18814,48 @@ private class PreviewController(
         previewPhysicalCameraId: String?,
         physicalPinnedSurfaceIndices: Set<Int>? = null,
     ): Throwable? {
-        // Try [OutputConfiguration.setPhysicalCameraId] on the preview stream whenever a tele pin is
-        // requested. Some OEMs reject multi-output + pin (retry without pin below); others need the
-        // pin because [availableCaptureRequestKeys] omits LOGICAL active-physical (legacy-class).
-        var pinPhys = previewPhysicalCameraId?.takeIf { it.isNotBlank() }
-        var pinSurfaceIndices = physicalPinnedSurfaceIndices
-        if (pinPhys != null && surfaces.size > 1) {
-            Log.w(
-                tag,
-                "preview OutputConfiguration physical pin with surfaces=${surfaces.size} " +
-                    "indices=${pinSurfaceIndices ?: setOf(0)} (HAL may require retry without pin)",
+        val physicalPin =
+            PreviewRegularSessionCreateRetries.PhysicalPinState(
+                previewPhysicalCameraId = previewPhysicalCameraId,
+                physicalPinnedSurfaceIndices = physicalPinnedSurfaceIndices,
             )
-        }
-
-        fun tryOnce(hints: Boolean, previewDr: Long?, sessPar: CaptureRequest?): Throwable? =
-            runCatching {
-                sessionCreateGateway.createRegularSession(
-                    camera = camera,
-                    surfaces = surfaces,
-                    additionalOutputConfigurations = additionalOutputConfigurations,
-                    handler = handler,
-                    callback = callback,
-                    streamUseCaseHints = hints,
-                    previewDynamicRangeProfile = previewDr,
-                    sessionParametersTemplate = sessPar,
-                    previewPhysicalCameraId = pinPhys,
-                    physicalPinnedSurfaceIndices = pinSurfaceIndices,
-                )
-                sessionPreviewDynamicRangeShort =
-                    previewDr?.let { dr -> PreviewDynamicRangeLabels.shortLabel(dr) }
-            }.exceptionOrNull()
-        var createErr = tryOnce(streamHints, chosenPreviewDr, sessionParametersTemplate)
-        if (createErr != null && pinPhys != null) {
-            Log.w(
-                tag,
-                "createCaptureSession retry without preview physical pin (was $pinPhys): " +
-                    "${createErr::class.java.simpleName}: ${createErr.message}",
-            )
-            pinPhys = null
-            pinSurfaceIndices = null
-            previewSurfacePhysicalCameraId = null
-            createErr = tryOnce(streamHints, chosenPreviewDr, sessionParametersTemplate)
-        }
-        if (createErr != null && sessionParametersTemplate != null) {
-            Log.w(
-                tag,
-                "createCaptureSession retry without research session parameters " +
-                    "(${createErr::class.java.simpleName}: ${createErr.message})",
-            )
-            createErr = tryOnce(streamHints, chosenPreviewDr, null)
-        }
-        if (createErr != null && chosenPreviewDr != null) {
-            Log.w(
-                tag,
-                "createCaptureSession retry without HDR dynamic range " +
-                    "(${createErr::class.java.simpleName}: ${createErr.message})",
-            )
-            createErr = tryOnce(streamHints, null, null)
-        }
-        if (createErr != null && streamHints) {
-            Log.w(
-                tag,
-                "createCaptureSession (stream hints) threw ${createErr::class.java.simpleName}: " +
-                    "${createErr.message}; retry without hints",
-            )
-            createErr = tryOnce(false, chosenPreviewDr, null)
-            if (createErr != null && chosenPreviewDr != null) {
-                createErr = tryOnce(false, null, null)
-            }
-        }
-        return createErr
+        return PreviewRegularSessionCreateRetries.create(
+            logTag = tag,
+            gateway = sessionCreateGateway,
+            camera = camera,
+            surfaces = surfaces,
+            additionalOutputConfigurations = additionalOutputConfigurations,
+            handler = handler,
+            callback = callback,
+            streamHints = streamHints,
+            chosenPreviewDr = chosenPreviewDr,
+            sessionParametersTemplate = sessionParametersTemplate,
+            physicalPin = physicalPin,
+            onPreviewDynamicRangeShort = { sessionPreviewDynamicRangeShort = it },
+            onPhysicalPinCleared = { previewSurfacePhysicalCameraId = null },
+        )
     }
 
     private fun createSession(camera: CameraDevice, camId: String) {
-        val h = handler ?: return
         val surf =
-            previewSurface ?: run {
-                Log.w(tag, "createSession aborted: previewSurface=null")
-                runCatching { camera.close() }
-                device = null
-                return
+            when (val entry = PreviewSessionCreateEntry.validate(handler, previewSurface)) {
+                PreviewSessionCreateEntry.Result.AbortNoHandler -> return
+                PreviewSessionCreateEntry.Result.AbortNoPreviewSurface -> {
+                    Log.w(tag, "createSession aborted: previewSurface=null")
+                    runCatching { camera.close() }
+                    device = null
+                    return
+                }
+                PreviewSessionCreateEntry.Result.AbortInvalidPreviewSurface -> {
+                    Log.w(tag, "createSession aborted: previewSurface no longer valid (abandoned)")
+                    lastStatus = "Surface abandoned during session create — waiting for new texture"
+                    runCatching { camera.close() }
+                    device = null
+                    return
+                }
+                is PreviewSessionCreateEntry.Result.Ready -> entry.previewSurface
             }
-        // The TextureView's underlying SurfaceTexture can be abandoned between the moment
-        // the camera open completes and the moment we hand its Surface to OutputConfiguration
-        // (rotation / activity teardown is the common trigger). Validate up-front so we don't
-        // hand an abandoned Surface to the framework — that throws IllegalArgumentException
-        // from a background thread and crashes the process.
-        if (!surf.isValid) {
-            Log.w(tag, "createSession aborted: previewSurface no longer valid (abandoned)")
-            lastStatus = "Surface abandoned during session create — waiting for new texture"
-            runCatching { camera.close() }
-            device = null
-            return
-        }
+        val h = handler!!
         val gen = generation
         sessionPreviewDynamicRangeShort = null
         val unlockResult =
@@ -19011,8 +18883,10 @@ private class PreviewController(
         // Constrained HS + aligned record/preview sizes ([resolveInAppVideoRecordSize], [desiredHighSpeedSize])
         // are required for true HFR frame delivery; regular sessions cap AE near 60 fps.
         val useHighSpeed =
-            target != null &&
-                desiredFps >= 120
+            PreviewSessionHighSpeedCreate.shouldUseHighSpeedSession(
+                highSpeedTarget = target,
+                desiredFps = desiredFps,
+            )
         Log.d(tag, "createSession camId=$camId desiredFps=$desiredFps useHighSpeed=$useHighSpeed target=${target?.first?.width}x${target?.first?.height} ${target?.second}")
 
         runCatching { rawImageReader?.close() }
@@ -19031,12 +18905,21 @@ private class PreviewController(
         }
         if (!useHighSpeed && !dualVideoActive) {
             val leanVideoWarmup =
-                videoPrimarySession &&
-                    !inAppVideoRecordingArmed &&
-                    !wantsRawVideoLane() &&
-                    adbPendingRawStillAutomationCount <= 0 &&
-                    !adbScriptedStillAutomationActive.get()
-            if (!videoController.isRecorderPresent() && !leanVideoWarmup) {
+                PreviewSessionRegularOutputsPolicy.isLeanVideoWarmup(
+                    PreviewSessionRegularOutputsPolicy.LeanVideoWarmupInput(
+                        videoPrimarySession = videoPrimarySession,
+                        inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+                        wantsRawVideoLane = wantsRawVideoLane(),
+                        adbPendingRawStillAutomationCount = adbPendingRawStillAutomationCount,
+                        adbScriptedStillAutomationActive = adbScriptedStillAutomationActive.get(),
+                    ),
+                )
+            if (
+                PreviewSessionRegularOutputsPolicy.shouldConfigureStillReaders(
+                    recorderPresent = videoController.isRecorderPresent(),
+                    leanVideoWarmup = leanVideoWarmup,
+                )
+            ) {
             val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
             val mapForStreams =
                 chars?.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
@@ -19097,16 +18980,19 @@ private class PreviewController(
             // YUV analysis must stay attached during in-app video record when readout chase (or H/face/hist)
             // is active — [videoController.isRecorderPresent] only gates RAW/JPEG still surfaces.
             val wantYuv =
-                !lifecycleBackgroundPaused &&
-                    (
-                        (commandDialMode == CommandDialMode.H && desiredFps < 120 && !automationSuppressFacePipeline) ||
-                            (commandDialMode == CommandDialMode.Qr && !automationSuppressFacePipeline) ||
-                            (!automationSuppressFacePipeline && previewHistogramEnabled) ||
-                            (!automationSuppressFacePipeline && highlightClipZebraEnabled) ||
-                            (hudFaceOverlayEnabled && !automationSuppressFacePipeline) ||
-                            (smileStillEnabled && !automationSuppressFacePipeline) ||
-                            (wantsReadoutExposureChase() && desiredFps < 120)
-                    )
+                PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis(
+                    PreviewSessionRegularOutputsPolicy.YuvAnalysisInput(
+                        lifecycleBackgroundPaused = lifecycleBackgroundPaused,
+                        commandDialMode = commandDialMode,
+                        desiredFps = desiredFps,
+                        automationSuppressFacePipeline = automationSuppressFacePipeline,
+                        previewHistogramEnabled = previewHistogramEnabled,
+                        highlightClipZebraEnabled = highlightClipZebraEnabled,
+                        hudFaceOverlayEnabled = hudFaceOverlayEnabled,
+                        smileStillEnabled = smileStillEnabled,
+                        wantsReadoutExposureChase = wantsReadoutExposureChase(),
+                    ),
+                )
             if (wantYuv) {
                 val yuvPick = desiredSurfaceSize ?: currentSurfaceSize
                 val yuvSize = HighlightMeterSupport.pickYuv420AnalysisSize(map, yuvPick)
@@ -19133,22 +19019,19 @@ private class PreviewController(
                 }.getOrNull()
             PnsLog.i(
                 tag,
-                buildString {
-                    append("PNS.PreviewSessionCtx ")
-                    append("defaultDisplayHz=")
-                    append(if (displayHz != null) "%.1f".format(displayHz) else "?")
-                    append(" desiredFps=").append(desiredFps)
-                    append(" dial=").append(commandDialMode.name)
-                    append(" aeCoupling=")
-                    append(ReadoutAeCoupling.fromOverrides(manualIsoOverride, manualExposureNsOverride).name)
-                    append(" wantChase=").append(wantsReadoutExposureChase())
-                    append(" useHighSpeed=").append(false)
-                    append(" wantYuv=").append(wantYuv)
-                    append(" yuvAttached=").append(yuvImageReader != null)
-                    append(" recordSurface=").append(videoController.isRecorderPresent())
-                    append(" suppressFacePipeline=").append(automationSuppressFacePipeline)
-                    append(" sessionGen=").append(gen)
-                },
+                PreviewSessionContextDiag.regularSessionLogLine(
+                    displayHz = displayHz,
+                    desiredFps = desiredFps,
+                    commandDialMode = commandDialMode,
+                    manualIsoOverride = manualIsoOverride,
+                    manualExposureNsOverride = manualExposureNsOverride,
+                    wantChase = wantsReadoutExposureChase(),
+                    wantYuv = wantYuv,
+                    yuvAttached = yuvImageReader != null,
+                    recordSurfacePresent = videoController.isRecorderPresent(),
+                    automationSuppressFacePipeline = automationSuppressFacePipeline,
+                    sessionGen = gen,
+                ),
             )
             recordCapturePipelineEvent(
                 "SESSION_CTX",
@@ -19189,84 +19072,41 @@ private class PreviewController(
             if (shouldUseMacroSessionParameters(camId)) {
                 val sessionChars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
                 if (sessionChars != null) {
-                    val sessionReqBuilder = camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
-                    val macroName = HardwareCapsSnapshot.VENDOR_MACRO_CLOSEUP_REQUEST
-                    val sessionApplied =
-                        VendorKeyGuard.trySetVendorSessionEnable(
-                            sessionReqBuilder,
-                            sessionChars,
-                            macroName,
+                    val macroBuild =
+                        PreviewSessionMacroParameters.buildMacroSessionParameters(
+                            camera = camera,
+                            characteristics = sessionChars,
+                            prefs = readHudCapturePrefs(),
+                            previewFpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession()),
                         )
-                            ?: VendorKeyGuard.trySetVendorRequestEnable(
-                                sessionReqBuilder,
-                                sessionChars,
-                                macroName,
-                            )
-                    if (sessionApplied == null) {
+                    if (macroBuild.appliedKind == null) {
                         PnsAdbLog.i(
                             appContext,
                             "superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=none path=sessionParameters",
                         )
                     }
-                    if (sessionApplied != null) {
+                    val sessionApplied = macroBuild.appliedKind
+                    val sessionParams = macroBuild.sessionParameters
+                    if (sessionApplied != null && sessionParams != null) {
                         val macroKind = sessionApplied
-                        PreviewAeAntibanding.applyToRequest(sessionReqBuilder, sessionChars)
-                        VideoEffectsProcessor.applyToVideoPreviewRequest(
-                            sessionReqBuilder,
-                            sessionChars,
-                            readHudCapturePrefs(),
-                            previewFpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession()),
-                            manualSensor = false,
-                        )
-                        val sessionParams = sessionReqBuilder.build()
-                        // Vendor session-parameter probing runs on [h] while the main thread may still be
-                        // resizing the TextureView; OutputConfiguration queries BufferQueue dimensions and
-                        // can throw IllegalArgumentException: Surface was abandoned. Recover by closing and
-                        // scheduling [maybeRestartBody] after a short delay so layout can settle.
-                        val outputConfigs =
-                            runCatching {
-                                outputConfigurationsWithOptionalStreamUseCases(
-                                    surfaces,
-                                    enableHints = false,
-                                    previewDynamicRangeProfile = chosenPreviewDr,
-                                )
-                            }.getOrElse { e ->
-                                Log.w(
-                                    tag,
-                                    "macro session create: OutputConfiguration failed " +
-                                        "(${e.javaClass.simpleName}: ${e.message}); scheduling restart",
-                                )
-                                superMacroSessionConfigured = false
-                                closeCamera()
-                                h.postDelayed(
-                                    { maybeRestartBody() },
-                                    MACRO_OUTPUT_CONFIG_RETRY_DELAY_MS,
-                                )
-                                return
-                            }
-                        val executor: Executor = Executor { cmd -> h.post(cmd) }
-                        val sessionConfig =
-                            SessionConfiguration(
-                                SessionConfiguration.SESSION_REGULAR,
-                                outputConfigs,
-                                executor,
-                                object : CameraCaptureSession.StateCallback() {
-                                    override fun onConfigured(sess: CameraCaptureSession) {
-                                        try {
-                                            if (gen != generation || device == null) {
-                                                Log.w(tag, "onConfigured ignored (stale gen=$gen current=$generation)")
-                                                recordCapturePipelineEvent(
-                                                    "STALE_ON_CONFIGURED",
-                                                    "macro_sessionParameters",
-                                                    mapOf("gen" to "$gen", "currentGen" to "$generation"),
-                                                )
-                                                runCatching { sess.close() }
-                                                return
-                                            }
+                        val macroAttempt =
+                            PreviewSessionMacroParameters.createMacroCaptureSession(
+                                logTag = tag,
+                                camera = camera,
+                                surfaces = surfaces,
+                                chosenPreviewDr = chosenPreviewDr,
+                                sessionParameters = sessionParams,
+                                handler = h,
+                                lifecycle =
+                                    PreviewSessionMacroParameters.MacroSessionLifecycle(
+                                        sessionGeneration = gen,
+                                        isStale = { gen != generation || device == null },
+                                        onConfigured = { sess ->
                                             superMacroSessionConfigured = true
                                             PnsAdbLog.i(
                                                 appContext,
-                                                "superMacroCloseup probe cameraId=$camId vendorKeyApplied=true type=$macroKind path=sessionParameters",
+                                                "superMacroCloseup probe cameraId=$camId vendorKeyApplied=true " +
+                                                    "type=$macroKind path=sessionParameters",
                                             )
                                             session = sess
                                             sessionCommittedGeneration = generation
@@ -19274,61 +19114,72 @@ private class PreviewController(
                                                 chosenPreviewDr?.let { dr ->
                                                     PreviewDynamicRangeLabels.shortLabel(dr)
                                                 }
-                                            val fpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession())
+                                            val fpsRange =
+                                                pickNormalFpsRange(camId, previewTargetFpsForSession())
                                             startRepeating(sess, camera, surf, fpsRange = fpsRange, camId = camId)
-                                        } finally {
-                                            captureSessionAsyncConfigurePending = false
-                                        }
-                                    }
-
-                                    override fun onConfigureFailed(sess: CameraCaptureSession) {
-                                        try {
-                                            if (gen == generation) {
-                                                PnsAdbLog.i(
-                                                    appContext,
-                                                    "superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=$macroKind path=sessionParametersConfigureFailed",
-                                                )
-                                                superMacroSessionConfigured = false
-                                                recordCapturePipelineEvent(
-                                                    "SESSION_CONFIGURE_FAILED",
-                                                    "macro_sessionParameters",
-                                                    mapOf("camId" to camId),
-                                                    flushToFile = true,
-                                                )
-                                                handleCaptureSessionConfigureFailed(
-                                                    sess,
-                                                    gen,
-                                                    "macro_sessionParameters",
-                                                )
-                                            }
-                                        } finally {
-                                            captureSessionAsyncConfigurePending = false
-                                        }
-                                    }
+                                        },
+                                        onConfigureFailed = { sess ->
+                                            PnsAdbLog.i(
+                                                appContext,
+                                                "superMacroCloseup probe cameraId=$camId vendorKeyApplied=false " +
+                                                    "type=$macroKind path=sessionParametersConfigureFailed",
+                                            )
+                                            superMacroSessionConfigured = false
+                                            recordCapturePipelineEvent(
+                                                "SESSION_CONFIGURE_FAILED",
+                                                "macro_sessionParameters",
+                                                mapOf("camId" to camId),
+                                                flushToFile = true,
+                                            )
+                                            handleCaptureSessionConfigureFailed(
+                                                sess,
+                                                gen,
+                                                "macro_sessionParameters",
+                                            )
+                                        },
+                                        onStaleConfigured = { sess ->
+                                            recordCapturePipelineEvent(
+                                                "STALE_ON_CONFIGURED",
+                                                "macro_sessionParameters",
+                                                mapOf("gen" to "$gen", "currentGen" to "$generation"),
+                                            )
+                                            runCatching { sess.close() }
+                                        },
+                                    ),
+                                buildOutputConfigurations = { outs, dr ->
+                                    outputConfigurationsWithOptionalStreamUseCases(
+                                        outs,
+                                        enableHints = false,
+                                        previewDynamicRangeProfile = dr,
+                                    )
                                 },
+                                onOutputConfigFailed = {
+                                    superMacroSessionConfigured = false
+                                    closeCamera()
+                                    h.postDelayed(
+                                        { maybeRestartBody() },
+                                        PreviewSessionMacroParameters.OUTPUT_CONFIG_RETRY_DELAY_MS,
+                                    )
+                                },
+                                onAsyncConfigurePendingSet = { captureSessionAsyncConfigurePending = true },
+                                onAsyncConfigurePendingCleared = { captureSessionAsyncConfigurePending = false },
                             )
-                        sessionConfig.setSessionParameters(sessionParams)
-                        captureSessionAsyncConfigurePending = true
-                        val macroCreate = runCatching { camera.createCaptureSession(sessionConfig) }
-                        macroCreate.exceptionOrNull()?.let { e ->
-                            captureSessionAsyncConfigurePending = false
-                            Log.w(
-                                tag,
-                                "createCaptureSession(SessionConfiguration macro) threw ${e::class.java.simpleName}: ${e.message}",
-                            )
-                            superMacroSessionConfigured = false
-                            recordCapturePipelineEvent(
-                                "SESSION_CREATE_THROW",
-                                e.message ?: e::class.java.simpleName,
-                                mapOf("path" to "macro_sessionParameters", "camId" to camId),
-                                flushToFile = true,
-                            )
-                            PnsAdbLog.i(
-                                appContext,
-                                "superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=$macroKind path=sessionParametersCreateThrows",
-                            )
-                        } ?: run {
-                            return
+                        when (macroAttempt) {
+                            PreviewSessionMacroParameters.CreateAttempt.OutputConfigFailed -> return
+                            PreviewSessionMacroParameters.CreateAttempt.Submitted -> return
+                            is PreviewSessionMacroParameters.CreateAttempt.Threw -> {
+                                superMacroSessionConfigured = false
+                                recordCapturePipelineEvent(
+                                    "SESSION_CREATE_THROW",
+                                    macroAttempt.error.message ?: macroAttempt.error::class.java.simpleName,
+                                    mapOf("path" to "macro_sessionParameters", "camId" to camId),
+                                    flushToFile = true,
+                                )
+                                PnsAdbLog.i(
+                                    appContext,
+                                    "superMacroCloseup probe cameraId=$camId vendorKeyApplied=false type=$macroKind path=sessionParametersCreateThrows",
+                                )
+                            }
                         }
                     }
                 }
@@ -19457,15 +19308,16 @@ private class PreviewController(
                     mapOf("camId" to camId, "path" to "normal"),
                     flushToFile = true,
                 )
-                val abandoned =
-                    e is IllegalArgumentException &&
-                        e.message?.contains("abandoned", ignoreCase = true) == true
-                if (abandoned && hfrSurfaceAbandonRetries < HFR_SURFACE_ABANDON_RETRY_CAP) {
+                val abandoned = PreviewSessionHighSpeedCreate.isSurfaceAbandonedError(e)
+                if (
+                    abandoned &&
+                    PreviewSessionHighSpeedCreate.shouldScheduleSurfaceAbandonRetry(hfrSurfaceAbandonRetries)
+                ) {
                     hfrSurfaceAbandonRetries++
                     Log.w(
                         tag,
                         "regular session surface abandoned; scheduling rebuild retry " +
-                            "$hfrSurfaceAbandonRetries/$HFR_SURFACE_ABANDON_RETRY_CAP",
+                            "$hfrSurfaceAbandonRetries/${PreviewSessionHighSpeedCreate.SURFACE_ABANDON_RETRY_CAP}",
                     )
                     closeCamera()
                     h.postDelayed(
@@ -19475,7 +19327,7 @@ private class PreviewController(
                                 h.post { maybeRestartBody() }
                             }
                         },
-                        HFR_SURFACE_ABANDON_RETRY_DELAY_MS,
+                        PreviewSessionHighSpeedCreate.SURFACE_ABANDON_RETRY_DELAY_MS,
                     )
                 } else {
                     closeCamera()
@@ -19484,6 +19336,7 @@ private class PreviewController(
             return
         }
 
+        val hsTarget = target!!
         val displayHzHfr =
             runCatching {
                 val dm = appContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -19491,18 +19344,13 @@ private class PreviewController(
             }.getOrNull()
         PnsLog.i(
             tag,
-            buildString {
-                append("PNS.PreviewSessionCtx ")
-                append("defaultDisplayHz=")
-                append(if (displayHzHfr != null) "%.1f".format(displayHzHfr) else "?")
-                append(" desiredFps=").append(desiredFps)
-                append(" dial=").append(commandDialMode.name)
-                append(" useHighSpeed=").append(true)
-                append(" wantYuv=").append(false)
-                append(" yuvAttached=").append(false)
-                append(" suppressFacePipeline=").append(automationSuppressFacePipeline)
-                append(" sessionGen=").append(gen)
-            },
+            PreviewSessionContextDiag.hfrSessionLogLine(
+                displayHz = displayHzHfr,
+                desiredFps = desiredFps,
+                commandDialMode = commandDialMode,
+                automationSuppressFacePipeline = automationSuppressFacePipeline,
+                sessionGen = gen,
+            ),
         )
         recordCapturePipelineEvent(
             "SESSION_CTX",
@@ -19520,50 +19368,43 @@ private class PreviewController(
         val hfrOutputs = encoderOnlyRecordSessionOutputs(surfaces, surf)
         Log.d(
             tag,
-            "Creating HFR session fps=$desiredFps size=${target.first.width}x${target.first.height} " +
-                "range=${target.second} outputs=${hfrOutputs.size} mcHfrDual=" +
+            "Creating HFR session fps=$desiredFps size=${hsTarget.first.width}x${hsTarget.first.height} " +
+                "range=${hsTarget.second} outputs=${hfrOutputs.size} mcHfrDual=" +
                 "${videoController.wantsMediaCodecPath && videoController.isRecorderPresent() && hfrOutputs.size >= 2}",
         )
-        // Constrained high-speed session — same TOCTOU protection as the normal path.
-        captureSessionAsyncConfigurePending = true
-        // Stream-use-case / STANDARD DR on encoder-only HS only (Qualcomm TP10_UBWC). Interleaved
-        // 4K+encoder fails configure on Sony-class HALs when VIDEO_RECORD is tagged on output 1.
         val forceEncoderSdr =
-            inAppVideoRecordingArmed &&
-                videoController.isRecorderPresent() &&
-                videoController.wantsMediaCodecPath &&
-                hfrOutputs.size == 1
-        val hfrResult = runCatching {
-            sessionCreateGateway.createHighSpeedSession(
+            PreviewSessionHighSpeedCreate.shouldForceEncoderOutputSdr(
+                inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+                recorderPresent = videoController.isRecorderPresent(),
+                wantsMediaCodecPath = videoController.wantsMediaCodecPath,
+                hfrOutputCount = hfrOutputs.size,
+            )
+        val hfrCreateErr =
+            PreviewSessionHighSpeedCreate.createHighSpeedCaptureSession(
+                logTag = tag,
+                gateway = sessionCreateGateway,
                 camera = camera,
                 surfaces = hfrOutputs,
                 handler = h,
-                callback = object : CameraCaptureSession.StateCallback() {
-                    override fun onConfigured(sess: CameraCaptureSession) {
-                        try {
-                            if (gen != generation || device == null) {
-                                Log.w(tag, "HFR onConfigured ignored (stale gen=$gen current=$generation)")
-                                recordCapturePipelineEvent(
-                                    "STALE_ON_CONFIGURED",
-                                    "hfr",
-                                    mapOf("gen" to "$gen", "currentGen" to "$generation"),
-                                )
-                                runCatching { sess.close() }
-                                return
-                            }
+                lifecycle =
+                    PreviewSessionHighSpeedCreate.HfrSessionLifecycle(
+                        sessionGeneration = gen,
+                        isStale = { gen != generation || device == null },
+                        onConfigured = { sess ->
                             session = sess
                             sessionCommittedGeneration = generation
                             sessionPreviewDynamicRangeShort = null
                             videoRecordingSessionRebuildPending = false
                             hsRepeatingEverStarted = false
                             hfrSurfaceAbandonRetries = 0
-                            val fpsRange = target!!.second
-                            // Start MediaCodec before HS repeating — otherwise GraphicBufferSource
-                            // queues pre-start buffers that are flushed when the codec starts.
-                            if (inAppVideoRecordingArmed &&
-                                videoController.isRecorderPresent() &&
-                                videoController.wantsMediaCodecPath &&
-                                !videoController.isRecorderStarted()
+                            val fpsRange = hsTarget.second
+                            if (
+                                PreviewSessionHighSpeedCreate.shouldStartMediaCodecBeforeHfrRepeating(
+                                    inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+                                    recorderPresent = videoController.isRecorderPresent(),
+                                    wantsMediaCodecPath = videoController.wantsMediaCodecPath,
+                                    recorderStarted = videoController.isRecorderStarted(),
+                                )
                             ) {
                                 startInAppVideoRecorderNow()
                             }
@@ -19574,39 +19415,36 @@ private class PreviewController(
                                 fpsRange = fpsRange,
                                 camId = camId,
                             )
-                        } finally {
-                            captureSessionAsyncConfigurePending = false
-                        }
-                    }
-
-                    override fun onConfigureFailed(sess: CameraCaptureSession) {
-                        try {
-                            if (gen == generation) {
-                                recordCapturePipelineEvent(
-                                    "SESSION_CONFIGURE_FAILED",
-                                    "hfr",
-                                    mapOf("camId" to camId),
-                                    flushToFile = true,
-                                )
-                                handleCaptureSessionConfigureFailed(sess, gen, "hfr")
-                            }
-                        } finally {
-                            captureSessionAsyncConfigurePending = false
-                        }
-                    }
-                },
+                        },
+                        onConfigureFailed = { sess ->
+                            recordCapturePipelineEvent(
+                                "SESSION_CONFIGURE_FAILED",
+                                "hfr",
+                                mapOf("camId" to camId),
+                                flushToFile = true,
+                            )
+                            handleCaptureSessionConfigureFailed(sess, gen, "hfr")
+                        },
+                        onStaleConfigured = { sess ->
+                            recordCapturePipelineEvent(
+                                "STALE_ON_CONFIGURED",
+                                "hfr",
+                                mapOf("gen" to "$gen", "currentGen" to "$generation"),
+                            )
+                            runCatching { sess.close() }
+                        },
+                    ),
                 forceEncoderOutputSdr = forceEncoderSdr,
+                onAsyncConfigurePendingSet = { captureSessionAsyncConfigurePending = true },
+                onAsyncConfigurePendingCleared = { captureSessionAsyncConfigurePending = false },
             )
-        }
         if (forceEncoderSdr) {
             Log.i(
                 HfrInterleavedPreviewSupport.TAG,
                 "HS session encoder output: STANDARD dynamic range (8-bit MediaCodec)",
             )
         }
-        hfrResult.exceptionOrNull()?.let { e ->
-            captureSessionAsyncConfigurePending = false
-            Log.w(tag, "createCaptureSession (high-speed) threw ${e::class.java.simpleName}: ${e.message}")
+        hfrCreateErr?.let { e ->
             lastStatus = "HFR session create aborted: ${e::class.java.simpleName}"
             recordCapturePipelineEvent(
                 "SESSION_CREATE_THROW",
@@ -19614,15 +19452,16 @@ private class PreviewController(
                 mapOf("camId" to camId, "path" to "hfr"),
                 flushToFile = true,
             )
-            val abandoned =
-                e is IllegalArgumentException &&
-                    e.message?.contains("abandoned", ignoreCase = true) == true
-            if (abandoned && hfrSurfaceAbandonRetries < HFR_SURFACE_ABANDON_RETRY_CAP) {
+            val abandoned = PreviewSessionHighSpeedCreate.isSurfaceAbandonedError(e)
+            if (
+                abandoned &&
+                PreviewSessionHighSpeedCreate.shouldScheduleSurfaceAbandonRetry(hfrSurfaceAbandonRetries)
+            ) {
                 hfrSurfaceAbandonRetries++
                 Log.w(
                     tag,
                     "HFR surface abandoned; scheduling rebuild retry " +
-                        "$hfrSurfaceAbandonRetries/$HFR_SURFACE_ABANDON_RETRY_CAP",
+                        "$hfrSurfaceAbandonRetries/${PreviewSessionHighSpeedCreate.SURFACE_ABANDON_RETRY_CAP}",
                 )
                 closeCamera()
                 h.postDelayed(
@@ -19632,7 +19471,7 @@ private class PreviewController(
                             h.post { maybeRestartBody() }
                         }
                     },
-                    HFR_SURFACE_ABANDON_RETRY_DELAY_MS,
+                    PreviewSessionHighSpeedCreate.SURFACE_ABANDON_RETRY_DELAY_MS,
                 )
             } else {
                 runCatching { camera.close() }
@@ -22197,109 +22036,76 @@ private class PreviewController(
         }
 
     private fun pickHighSpeedTarget(map: StreamConfigurationMap?, desiredFps: Int): Pair<Size, Range<Int>>? =
-        if (useHfrInterleavedMcPreview() && inAppVideoRecordingArmed && videoController.isRecorderPresent()) {
-            InAppVideoRecordingSupport.pickInterleavedHighSpeedVideoTarget(
-                map,
-                desiredFps,
-                inAppVideoEncodeSizePref,
-            ) ?: InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
-                map,
-                desiredFps,
-                inAppVideoEncodeSizePref,
+        PreviewSessionHighSpeedOutputs.pickHighSpeedTarget(
+            PreviewSessionHighSpeedOutputs.PickTargetInput(
+                streamConfigurationMap = map,
+                desiredFps = desiredFps,
+                encodeSizePref = inAppVideoEncodeSizePref,
                 preferSub4kCapture = hfrSub4kCaptureFallback,
-            )
-        } else {
-            InAppVideoRecordingSupport.pickHighSpeedVideoTarget(
-                map,
-                desiredFps,
-                inAppVideoEncodeSizePref,
-                preferSub4kCapture = hfrSub4kCaptureFallback,
-            )
-        }
+                useInterleavedMcPreview = useHfrInterleavedMcPreview(),
+                inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+                recorderPresent = videoController.isRecorderPresent(),
+            ),
+        )
 
     /**
      * HFR and **4K @ 60** encoder-only record outputs + monitor finder ([startHfrRecordMonitor]).
      */
     private fun encoderOnlyRecordSessionOutputs(surfaces: List<Surface>, previewSurf: Surface): List<Surface> {
         val encOnlyHfr =
-            useHfrInterleavedMcPreview() &&
-                inAppVideoRecordingArmed &&
-                videoController.isRecorderPresent()
+            PreviewSessionHighSpeedOutputs.isEncoderOnlyHfrRecording(
+                useInterleavedMcPreview = useHfrInterleavedMcPreview(),
+                inAppVideoRecordingArmed = inAppVideoRecordingArmed,
+                recorderPresent = videoController.isRecorderPresent(),
+            )
         val encOnlyUhd = false
-        if (!encOnlyHfr && !encOnlyUhd) {
-            return surfaces.filter { it.isValid }
-        }
-        val enc = videoController.getRecordingSurface()?.takeIf { it.isValid } ?: return surfaces.filter { it.isValid }
-        if (encOnlyHfr) {
-            val hs = desiredHighSpeedSize
-            val skipEncoderOnlyMonitor = prefersHfrInterleavedOverEncoderOnly()
-            if (!skipEncoderOnlyMonitor && startHfrRecordMonitor()) {
-                setHfrRoute("encoder_only_monitor")
-                Log.i(
-                    HfrInterleavedPreviewSupport.TAG,
-                    "HFR encoder-only HS encodeFps=$desiredFps buffer=${hs?.width ?: 0}x${hs?.height ?: 0}",
-                )
-                Log.i(
-                    "PNS.ChromeUx",
-                    "hfrEncoderOnly active=true encodeFps=$desiredFps monitorFinder=yuv",
-                )
-                return listOf(enc)
-            }
-            if (skipEncoderOnlyMonitor) {
-                setHfrRoute("interleaved_primary")
-                Log.i(
-                    HfrInterleavedPreviewSupport.TAG,
-                    "4K HFR — skip encoder-only monitor; use interleaved preview+encoder " +
-                        "buffer=${hs?.width ?: 0}x${hs?.height ?: 0}",
-                )
-            }
-        } else if (startHfrRecordMonitor()) {
-            videoController.hintEncoderOnlyMcRecord(true)
-            Log.i(
-                UltraHd60RecordSupport.TAG,
-                "uhd60 encoder-only REGULAR encodeFps=$desiredFps monitor=yuv",
-            )
-            Log.i(
-                "PNS.ChromeUx",
-                "uhd60EncoderOnly active=true encodeFps=$desiredFps monitorFinder=yuv",
-            )
-            notifyHfrFinderMonitorGl(true)
-            return listOf(enc)
-        }
-        val prev = previewSurf.takeIf { it.isValid }
-        if (prev != null) {
-            val interleavedTag =
-                if (encOnlyHfr) HfrInterleavedPreviewSupport.TAG else UltraHd60RecordSupport.TAG
-            if (encOnlyHfr && prefersHfrInterleavedOverEncoderOnly()) {
-                setHfrRoute("interleaved_fallback")
-                Log.i(
-                    interleavedTag,
-                    "HFR interleaved preview+encoder encodeFps=$desiredFps " +
-                        "buffer=${desiredHighSpeedSize?.width ?: 0}x${desiredHighSpeedSize?.height ?: 0}",
-                )
+        val skipEncoderOnlyMonitor = prefersHfrInterleavedOverEncoderOnly()
+        val hs = desiredHighSpeedSize
+        val hfrMonitorStartSucceeded =
+            if (encOnlyHfr && !skipEncoderOnlyMonitor) {
+                startHfrRecordMonitor()
             } else {
-                if (encOnlyHfr) setHfrRoute("interleaved_monitor_unavailable")
-                Log.w(
-                    interleavedTag,
-                    "monitor unavailable — interleaved preview+encoder fallback encodeFps=$desiredFps",
-                )
+                false
             }
-            Log.i(
-                "PNS.ChromeUx",
-                if (encOnlyHfr) {
-                    "hfrEncoderOnly active=false encodeFps=$desiredFps monitorFinder=interleaved"
-                } else {
-                    "uhd60EncoderOnly active=false encodeFps=$desiredFps monitorFinder=interleaved"
-                },
+        val uhdMonitorStartSucceeded =
+            if (!encOnlyHfr && encOnlyUhd) {
+                startHfrRecordMonitor()
+            } else {
+                false
+            }
+        val plan =
+            PreviewSessionHighSpeedOutputs.resolveEncoderOutputPlan(
+                PreviewSessionHighSpeedOutputs.EncoderOutputInput(
+                    surfaces = surfaces,
+                    previewSurface = previewSurf,
+                    encoderSurface = videoController.getRecordingSurface(),
+                    encOnlyHfr = encOnlyHfr,
+                    encOnlyUhd = encOnlyUhd,
+                    skipEncoderOnlyMonitor = skipEncoderOnlyMonitor,
+                    hfrMonitorStartSucceeded = hfrMonitorStartSucceeded,
+                    uhdMonitorStartSucceeded = uhdMonitorStartSucceeded,
+                    desiredFps = desiredFps,
+                    bufferWidth = hs?.width ?: 0,
+                    bufferHeight = hs?.height ?: 0,
+                    preferInterleavedFallback = prefersHfrInterleavedOverEncoderOnly(),
+                    hfrInterleavedTag = HfrInterleavedPreviewSupport.TAG,
+                    uhd60Tag = UltraHd60RecordSupport.TAG,
+                ),
             )
-            notifyHfrFinderMonitorGl(false)
-            return listOf(prev, enc)
+        plan.routeId?.let { setHfrRoute(it) }
+        for (line in plan.logs) {
+            when (line.level) {
+                PreviewSessionHighSpeedOutputs.LogLine.Level.INFO -> Log.i(line.tag, line.message)
+                PreviewSessionHighSpeedOutputs.LogLine.Level.WARN -> Log.w(line.tag, line.message)
+                PreviewSessionHighSpeedOutputs.LogLine.Level.ERROR -> Log.e(line.tag, line.message)
+            }
         }
-        Log.e(
-            if (encOnlyHfr) HfrInterleavedPreviewSupport.TAG else UltraHd60RecordSupport.TAG,
-            "record: no monitor and no preview surface",
-        )
-        return listOf(enc)
+        plan.chromeUxLine?.let { Log.i("PNS.ChromeUx", it) }
+        plan.monitorGl?.let { notifyHfrFinderMonitorGl(it) }
+        if (plan.hintEncoderOnlyMcRecord) {
+            videoController.hintEncoderOnlyMcRecord(true)
+        }
+        return plan.outputs
     }
 
     private fun hfrSessionOutputSurfaces(surfaces: List<Surface>, previewSurf: Surface): List<Surface> =

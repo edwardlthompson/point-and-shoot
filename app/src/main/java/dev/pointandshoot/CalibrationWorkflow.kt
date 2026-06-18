@@ -1,7 +1,6 @@
 package dev.pointandshoot
 
 import android.content.Context
-import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import kotlin.math.abs
 import kotlin.math.ln
@@ -188,8 +187,8 @@ object CalibrationWorkflow {
                 "asnDelta=${"%.5f".format(maxDelta)} targetNeutral5=$NEUTRAL5_REC709_LUMA " +
                 "target=${profile.targetId}"
         try {
-            Log.i(TAG, msg)
-        } catch (_: RuntimeException) {
+            PnsLog.i(TAG, msg)
+        } catch (_: Throwable) {
             // JVM unit tests
         }
         context?.let { PnsAdbLog.i(it, msg) }

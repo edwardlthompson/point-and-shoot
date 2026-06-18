@@ -1,0 +1,31 @@
+# Release Notes — vX.Y.Z
+
+> Ephemeral draft for GitHub Release. Do not commit `RELEASE_NOTES.md` (gitignored). Ship via `scripts/pns_github_release.ps1` or copy into `CHANGELOG.md`.
+
+## Highlights
+
+-
+
+## Features
+
+-
+
+## Fixes
+
+-
+
+## Security & dependencies
+
+-
+
+## Migration notes
+
+-
+
+## Contributors
+
+-
+
+---
+
+Synced from `CHANGELOG.md` dated section when cutting a release (`scripts/changelog_coverage.v1.json`).

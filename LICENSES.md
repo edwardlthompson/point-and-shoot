@@ -75,6 +75,7 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 | Plugin id | Version | SPDX | Origin |
 |---|---|---|---|
 | com.android.application | 8.8.2 | Apache-2.0 | Android Gradle Plugin |
+| com.android.library | 8.8.2 | Apache-2.0 | Android Gradle Plugin (Sprint TM library modules) |
 | com.android.test | 8.8.2 | Apache-2.0 | Android Gradle Plugin |
 | org.jetbrains.kotlin.android | 2.1.21 | Apache-2.0 | Kotlin |
 | org.jetbrains.kotlin.plugin.compose | 2.1.21 | Apache-2.0 | Kotlin |

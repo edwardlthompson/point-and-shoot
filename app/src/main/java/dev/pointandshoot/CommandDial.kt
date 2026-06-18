@@ -26,35 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Command-dial modes from BUILD_PLAN §5 (Phase 2): **A**uto / **M**anual /
- * **H**ighlight / **S**nap (Ricoh GR-style fixed focus) / **BKT** (bracket).
+ * Command-dial modes: see [CommandDialMode] in `:pns-core`.
  *
- * Sprint 13.6: Added **Macro** mode for close-up photography (<10cm focus).
- * Sprint 13.18: Added **Night** and **Bokeh** OEM ISP modes (CameraX Extensions).
- *   These are hidden in the dial when [CameraXExtensionProbe] reports them unavailable
- *   for the selected camera (typical on LineageOS / AOSP where OEM HAL extensions are stripped).
- *
- * Each mode is a deterministic capture program; the engine reads the active
- * mode and reconfigures `CaptureRequest.Builder` accordingly. Defaults are
- * documented per spec and intentionally narrow.
- */
-enum class CommandDialMode(val label: String, val description: String) {
-    Auto("A", "Auto: continuous AE/AF — standard point-and-shoot behavior"),
-    M("M", "Manual focus distance on preview (drag); ISO/shutter use readout chips, not dial M"),
-    H("H", "Highlight: underexpose for bright peaks (sky / sun disk) — save-the-highlights"),
-    S("S", "Snap: street preset — AF at infinity (tap preview to refocus)"),
-    Monochrome("MONO", "Dedicated monochrome sensor mode (hardware B&W camera, not LUT)"),
-    BKT("BKT", "Bracket: 3 / 5 / 7 RAW12 sequence with GroupingID"),
-    Macro("MACRO", "Macro: close-up focus for subjects <10cm"),
-    Night("NIGHT", "Night: OEM multi-frame stacking for low light (requires OEM extension support)"),
-    Bokeh("BOKEH", "Bokeh: OEM portrait with hardware background blur (requires OEM extension support)"),
-    /** Sprint **14.4** — live QR / barcode scan on the preview finder (photo programs only). */
-    Qr("QR", "QR: scan codes on the live preview (ZXing)"),
-    /** Sprint **14.12** — dual rear+front side-by-side video (scaffold; see [DualVideoRecordingController]). */
-    Dual("DUAL", "Dual: rear + front side-by-side into one MP4 (video only)"),
-}
-
-/**
  * Segmented rotary command dial. Compose-only and theme-driven so it can sit
  * directly on top of the live preview without further wiring.
  *

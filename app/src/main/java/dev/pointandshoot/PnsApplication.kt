@@ -7,6 +7,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import dev.pointandshoot.LeafDngFleetPolicies
+import dev.pointandshoot.FleetRoleMergeHook
+import dev.pointandshoot.fleet.LegacyFleetPolicy
 import kotlinx.coroutines.launch
 
 /**
@@ -23,6 +26,8 @@ class PnsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        LeafDngFleetPolicies.active = LegacyFleetPolicy
+        FleetRoleMergeHook.mergeRoles = LegacyFleetPolicy::mergeRoles
         ExperimentalSafeModeStore.recordAppLaunchAttempt(this)
         if (ExperimentalSafeModeStore.isSafeModeActive(this)) {
             ExperimentalSafeModeStore.disableExperimentalFlags(this)

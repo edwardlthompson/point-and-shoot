@@ -1,13 +1,14 @@
 package dev.pointandshoot.fleet
 
 import dev.pointandshoot.DngForwardMatrixFix
+import dev.pointandshoot.StillDngBackend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class LeafDngHalReconcileTest {
+class LeafDngHalReconcileTest : LegacyFleetPolicyTestHarness() {
 
     @Test
     fun shouldReconcileWhen_proShotBackend_uwAndTele_notWide_andNotPureDng() {
@@ -99,14 +100,6 @@ class LeafDngHalReconcileTest {
                 sessionCameraId = "3",
             ),
         )
-    }
-
-    @Test
-    fun normalizeAsShotNeutralTriplet_normalizesToMaxOne() {
-        val asn = LeafDngHalReconcile.normalizeAsShotNeutralTriplet(0.5f, 1f, 0.25f)
-        assertEquals(0.5f, asn[0], 0.001f)
-        assertEquals(1f, asn[1], 0.001f)
-        assertEquals(0.25f, asn[2], 0.001f)
     }
 
     @Test

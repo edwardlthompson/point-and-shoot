@@ -55,6 +55,8 @@ import dev.pointandshoot.fleet.FleetProbeMatrixMarkdown
 import dev.pointandshoot.fleet.FleetMatrixHubScreen
 import dev.pointandshoot.fleet.FleetPolicyPreferences
 import dev.pointandshoot.preview.PreviewAutomationExtrasRegistry
+import dev.pointandshoot.preview.mock.MockPreviewScreens
+import dev.pointandshoot.preview.mock.UnifiedMockPreviewScreen
 
 private const val TAG = "PNS.Probe"
 /** Single-line shallow metadata summary for ADB gates (`scripts/pns_shallow_scan_hub_validate.ps1`). */
@@ -509,6 +511,9 @@ const val PNS_SCREEN_CAMERA_EXT_SMOKE = "cameraextsmoke"
  */
 const val EXTRA_PNS_AUTO_ROOT_DIAGNOSTICS = "pns_auto_root_diagnostics"
 
+/** Value for [EXTRA_PNS_SCREEN] — unified mock preview (GLES test pattern + Pro HUD); ADR-0008 / T.14. */
+const val PNS_SCREEN_MOCK = "mock"
+
 /** Value for [EXTRA_PNS_SCREEN] — opens the engineering hub ([DebugMenuScreen]) without a sub-probe route. */
 const val PNS_SCREEN_PROBE_HUB = "probehub"
 
@@ -591,12 +596,12 @@ fun CameraCapabilitiesProbe(
     var aboutOpenedFromPreview by remember { mutableStateOf(false) }
     var aboutLiveSummary by remember { mutableStateOf<EncoderSummary?>(null) }
     var aboutHalHfrMaxByCameraId by remember { mutableStateOf<Map<String, Int?>>(emptyMap()) }
-    var showProHud by remember { mutableStateOf(false) }
+    var showMockPreview by remember { mutableStateOf(false) }
+    var mockPreviewLaunchRoute by remember { mutableStateOf(MockPreviewScreens.ROUTE_MOCK) }
     var showHudSettings by remember { mutableStateOf(false) }
     var hudSettingsFocus by remember { mutableStateOf(HudSettingsFocus.None) }
     var showCalibrate by remember { mutableStateOf(false) }
     var showLutImport by remember { mutableStateOf(false) }
-    var showGlPreview by remember { mutableStateOf(false) }
     var showNativeDiagnostics by remember { mutableStateOf(false) }
     var showRootSettings by remember { mutableStateOf(false) }
     var showFaceMeterProbe by remember { mutableStateOf(false) }
@@ -641,6 +646,11 @@ fun CameraCapabilitiesProbe(
     val effectiveIncludeLogical = exhaustiveIncludeLogical || intentIncludeLogical
     val effectiveExhaustiveHfrOnly = exhaustiveHfrOnly || intentExhaustiveHfrOnly
 
+    fun openMockPreview(route: String = MockPreviewScreens.ROUTE_MOCK) {
+        mockPreviewLaunchRoute = MockPreviewScreens.normalizeRoute(route)
+        showMockPreview = true
+    }
+
     fun navigateProbeFromTitle(title: String, dismissDebugMenu: Boolean) {
         if (dismissDebugMenu) showDebugMenu = false
         when (title) {
@@ -670,8 +680,10 @@ fun CameraCapabilitiesProbe(
             "Burst probe" -> showBurstProbe = true
             "Calibrate" -> showCalibrate = true
             "Import LUT" -> showLutImport = true
-            "Live GL LUT preview" -> showGlPreview = true
-            "Pro HUD (mock)" -> showProHud = true
+            "Mock preview (HUD + GLES)" -> openMockPreview(MockPreviewScreens.ROUTE_MOCK)
+            "Mock preview (HUD + GLES)" -> openMockPreview(MockPreviewScreens.ROUTE_MOCK)
+            "Live GL LUT preview" -> openMockPreview(MockPreviewScreens.ROUTE_GLPREVIEW)
+            "Pro HUD (mock)" -> openMockPreview(MockPreviewScreens.ROUTE_PROHUD)
             "HUD settings" -> {
                 hudSettingsFocus = HudSettingsFocus.None
                 showHudSettings = true
@@ -846,7 +858,7 @@ fun CameraCapabilitiesProbe(
         } else if (launchScreen == SCREEN_ABOUT) {
             showAbout = true
         } else if (launchScreen == SCREEN_PROHUD) {
-            showProHud = true
+            openMockPreview(MockPreviewScreens.ROUTE_PROHUD)
         } else if (launchScreen == SCREEN_HUDSETTINGS) {
             showHudSettings = true
         } else if (launchScreen == SCREEN_CALIBRATE) {
@@ -854,7 +866,9 @@ fun CameraCapabilitiesProbe(
         } else if (launchScreen == SCREEN_LUTIMPORT) {
             showLutImport = true
         } else if (launchScreen == SCREEN_GLPREVIEW) {
-            showGlPreview = true
+            openMockPreview(MockPreviewScreens.ROUTE_GLPREVIEW)
+        } else if (launchScreen == PNS_SCREEN_MOCK) {
+            openMockPreview(MockPreviewScreens.ROUTE_MOCK)
         } else if (launchScreen == SCREEN_NATIVE) {
             showNativeDiagnostics = true
         } else if (launchScreen == SCREEN_ROOT_SETTINGS) {
@@ -1845,8 +1859,11 @@ fun CameraCapabilitiesProbe(
         return
     }
 
-    if (showProHud) {
-        ProHudScreen(onBack = { showProHud = false })
+    if (showMockPreview) {
+        UnifiedMockPreviewScreen(
+            onBack = { showMockPreview = false },
+            launchRoute = mockPreviewLaunchRoute,
+        )
         return
     }
 
@@ -1879,11 +1896,6 @@ fun CameraCapabilitiesProbe(
 
     if (showLutImport) {
         LutImporterScreen(onBack = { showLutImport = false })
-        return
-    }
-
-    if (showGlPreview) {
-        GLPreviewScreen(onBack = { showGlPreview = false })
         return
     }
 
@@ -2028,9 +2040,9 @@ fun CameraCapabilitiesProbe(
                 showDebugMenu = false
                 showAbout = true
             },
-            onShowProHud = {
+            onShowMockPreview = {
                 showDebugMenu = false
-                showProHud = true
+                openMockPreview(MockPreviewScreens.ROUTE_MOCK)
             },
             onShowHudSettings = {
                 showDebugMenu = false
@@ -2050,10 +2062,6 @@ fun CameraCapabilitiesProbe(
             onShowLutImport = {
                 showDebugMenu = false
                 showLutImport = true
-            },
-            onShowGlPreview = {
-                showDebugMenu = false
-                showGlPreview = true
             },
             onShowNativeDiagnostics = {
                 showDebugMenu = false
@@ -2161,7 +2169,7 @@ fun CameraCapabilitiesProbe(
         onShowLogicalPhysical = { showLogicalPhysical = true },
         onShowExhaustive = { showExhaustive = true },
         onShowAbout = { showAbout = true },
-        onShowProHud = { showProHud = true },
+        onShowMockPreview = { openMockPreview(MockPreviewScreens.ROUTE_MOCK) },
         onShowHudSettings = {
             hudSettingsFocus = HudSettingsFocus.None
             showHudSettings = true
@@ -2173,7 +2181,6 @@ fun CameraCapabilitiesProbe(
             showPreviewEngine = true
         },
         onShowLutImport = { showLutImport = true },
-        onShowGlPreview = { showGlPreview = true },
         onShowNativeDiagnostics = { showNativeDiagnostics = true },
         onShowRootSettings = { showRootSettings = true },
         onDumpDiagnostics = {

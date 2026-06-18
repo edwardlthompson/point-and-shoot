@@ -3,6 +3,7 @@ package dev.pointandshoot.fleet
 import android.content.Context
 import android.hardware.camera2.CameraManager
 import android.os.Build
+import android.util.Log
 import dev.pointandshoot.DeviceCameraCapabilityCache
 import java.io.File
 import java.security.MessageDigest
@@ -13,6 +14,7 @@ import org.json.JSONObject
  * Persists [FleetDeviceMatrix] JSON under app-private storage (Milestone **16.0**).
  */
 object FleetDeviceMatrixStore {
+    private const val TAG = "PNS.FleetMatrix"
     const val MATRIX_FILE_NAME = "fleet_device_matrix.json"
     const val SUMMARY_FILE_NAME = "fleet_device_capability_summary.md"
     const val HISTORY_DIR_NAME = "fleet_device_matrix_history"
@@ -56,6 +58,7 @@ object FleetDeviceMatrixStore {
         if (!file.exists()) return null
         val root = runCatching { JSONObject(file.readText()) }.getOrNull() ?: return null
         if (!FleetDeviceMatrix.isValidRoot(root)) return null
+        if (FleetDeviceMatrixSchemaValidator.validate(root) !is FleetDeviceMatrixSchemaValidator.Result.Ok) return null
         val meta = root.optJSONObject(FleetDeviceMatrix.KEY_SCAN_META) ?: return null
         if (meta.optString("fingerprintSha256Prefix") != liveFingerprintPrefix()) return null
         if (meta.optLong("appVersionCode", -1L) != currentVersionCode(context)) return null
@@ -84,6 +87,13 @@ object FleetDeviceMatrixStore {
     }
 
     fun save(context: Context, root: JSONObject, rotatePreviousToHistory: Boolean = false) {
+        when (val validation = FleetDeviceMatrixSchemaValidator.validate(root)) {
+            is FleetDeviceMatrixSchemaValidator.Result.Fail -> {
+                Log.e(TAG, "matrix save rejected: ${validation.message}")
+                return
+            }
+            is FleetDeviceMatrixSchemaValidator.Result.Ok -> Unit
+        }
         val app = context.applicationContext
         val file = matrixFile(app)
         if (rotatePreviousToHistory && file.exists()) {

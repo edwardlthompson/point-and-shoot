@@ -6,6 +6,7 @@ import android.media.AudioManager
 import android.media.SoundPool
 import android.media.ToneGenerator
 import android.util.Log
+import dev.pointandshoot.PnsLog
 import org.json.JSONObject
 import java.io.File
 
@@ -26,21 +27,21 @@ class ShutterSoundManager(
     fun playFocusConfirm(chrome: PreviewChromePreferences) {
         val pack = ShutterSoundPack.fromStorageKey(chrome.shutterSoundPackKey)
         if (pack == ShutterSoundPack.Silent) {
-            Log.d(TAG, "focusConfirm=silent")
+            PnsLog.d(TAG, "focusConfirm=silent")
             return
         }
         val volume = chrome.shutterSoundVolume.coerceIn(0f, 1f)
         if (volume <= 0f) return
-        runCatching {
+        try {
             stopActiveSampleStream()
             val played = playFocusConfirmSample(volume)
             if (!played) {
                 playFocusConfirmToneFallback(volume)
             }
-            Log.i(TAG, "focusConfirm volume=$volume sample=$played")
+            PnsLog.i(TAG, "focusConfirm volume=$volume sample=$played")
             PnsAdbLog.i(appContext, "focusConfirm ok=true volume=$volume sample=$played")
-        }.onFailure { e ->
-            Log.w(TAG, "focusConfirm failed: ${e.message}")
+        } catch (e: Throwable) {
+            PnsLog.w(TAG, "focusConfirm failed: ${e.message}")
             PnsAdbLog.i(appContext, "focusConfirm ok=false err=${e.message}")
         }
     }

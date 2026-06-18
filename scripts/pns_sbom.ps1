@@ -60,6 +60,7 @@ $LicenseMap = @{
   'junit:junit'                                  = 'EPL-1.0'
   'org.json:json'                                = 'JSON'
   'com.android.application'                      = 'Apache-2.0'
+  'com.android.library'                          = 'Apache-2.0'
   'org.jetbrains.kotlin.android'                 = 'Apache-2.0'
   'org.jetbrains.kotlin.plugin.compose'          = 'Apache-2.0'
 }
@@ -70,6 +71,7 @@ $ScopeMap = @{
   'junit:junit'                    = 'optional'   # test-only
   'org.json:json'                  = 'optional'   # test-only
   'com.android.application'        = 'excluded'   # build-time plugin
+  'com.android.library'            = 'excluded'   # build-time plugin
   'org.jetbrains.kotlin.android'   = 'excluded'   # build-time plugin
   'org.jetbrains.kotlin.plugin.compose' = 'excluded'  # build-time plugin
 }

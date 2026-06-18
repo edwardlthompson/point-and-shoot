@@ -105,12 +105,11 @@ fun DebugMenuScreen(
     onShowLogicalPhysical: () -> Unit,
     onShowExhaustive: () -> Unit,
     onShowAbout: () -> Unit,
-    onShowProHud: () -> Unit,
+    onShowMockPreview: () -> Unit,
     onShowHudSettings: () -> Unit,
     onShowCalibrate: () -> Unit,
     onShowEyeOverlayCalibrator: () -> Unit,
     onShowLutImport: () -> Unit,
-    onShowGlPreview: () -> Unit,
     onShowNativeDiagnostics: () -> Unit,
     onShowRootSettings: () -> Unit,
     onDumpDiagnostics: () -> Unit,
@@ -264,12 +263,6 @@ fun DebugMenuScreen(
                             false,
                             onShowLutImport,
                         ),
-                        DebugEntry(
-                            "Live GL LUT preview",
-                            "GPU preview path for LUT grading.",
-                            false,
-                            onShowGlPreview,
-                        ),
                     ),
             ),
             DebugSection(
@@ -278,10 +271,10 @@ fun DebugMenuScreen(
                 entries =
                     listOf(
                         DebugEntry(
-                            "Pro HUD (mock)",
-                            "Static composition: dials, tally, and chips.",
+                            "Mock preview (HUD + GLES)",
+                            "Test pattern + Pro HUD chrome — no Camera2 session (T.14).",
                             false,
-                            onShowProHud,
+                            onShowMockPreview,
                         ),
                         DebugEntry(
                             "HUD settings",

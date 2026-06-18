@@ -189,9 +189,6 @@ detekt {
     baseline = file("$rootDir/config/detekt/baseline.xml")
 }
 
-// Milestone T Sprint T.7 — package-scoped coverage floor (not global 100%).
-// Scope: fleet policy/helpers, DNG/TIFF save helpers, bracket schedulers.
-// Excludes Compose UI (*ScreenKt) and USB-only matrix/DNG byte pipelines — see ADR-0007.
 kover {
     reports {
         filters {
@@ -203,6 +200,8 @@ kover {
                     "dev.pointandshoot.TiffDng*",
                     "dev.pointandshoot.TiffExif*",
                     "dev.pointandshoot.TiffIfd*",
+                    "dev.pointandshoot.CapabilityGate*",
+                    "dev.pointandshoot.PnsLog*",
                 )
             }
             excludes {
@@ -233,7 +232,16 @@ kover {
 }
 
 dependencies {
+    kover(project(":pns-core"))
+    kover(project(":pns-fleet"))
+    kover(project(":pns-capture"))
+
     baselineProfile(project(":baselineprofile"))
+
+    implementation(project(":pns-core"))
+    implementation(project(":pns-fleet"))
+    implementation(project(":pns-capture"))
+    implementation(project(":pns-preview"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

@@ -1,5 +1,9 @@
 package dev.pointandshoot
 
+import dev.pointandshoot.preview.createCaptureSessionHighSpeedOutputs
+import dev.pointandshoot.preview.createCaptureSessionRegularOutputs
+import dev.pointandshoot.preview.outputConfigurationsWithOptionalStreamUseCases
+
 import android.graphics.SurfaceTexture
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics

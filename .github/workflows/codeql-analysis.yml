@@ -5,6 +5,7 @@ on:
     branches: [main, master]
     paths:
       - 'app/**'
+      - 'modules/**'
       - 'native/**'
       - 'gradle/**'
       - 'build.gradle.kts'
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'modules/**'
       - 'native/**'
       - 'gradle/**'
       - 'build.gradle.kts'
@@ -53,6 +55,9 @@ jobs:
           java-version: '17'
 
       - uses: android-actions/setup-android@v4
+
+      - name: Write local.properties for Gradle (sdk.dir)
+        run: echo "sdk.dir=$ANDROID_HOME" >> local.properties
 
       - name: Install Android platform and NDK (match toolchain-verify)
         run: |

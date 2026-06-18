@@ -479,9 +479,14 @@ Use these from repo root unless a script documents otherwise.
 | `pns_perf_budget_host_gate.ps1` | Milestone **T.8** — `PERFORMANCE_BUDGETS.md` ↔ `PerfBudget.kt` / `PerfBudgetTest` drift (wired in **`pns_verify_toolchain.ps1`**). |
 | `pns_fdroid_metadata_validate.ps1` | Milestone **T.10** — `metadata/metadata.yml` + en-US store assets vs `app/build.gradle.kts`; wired in **`pns_prerelease_gate.ps1`**. |
 | `pns_repro_build_verify.ps1` | Milestone **T.11** — version sync, lockfile, PRIVACY/NOTICE README links, SBOM purl fingerprint; optional **`-ApkPath`** cert class. |
-| `pns_local_dev_parallel.ps1` | Milestone **T.15** — Tier 0 host gates (no Gradle); **PS7+** runs jobs in parallel, **PS5.1** falls back to sequential — see **`docs/LOCAL_FIRST_DEV_LOOP.md`**. |
+| `pns_local_dev_parallel.ps1` | Milestone **T.15** — Tier 0 host gates (no Gradle); **8** jobs when bootstrap validate enabled (**`-SkipBootstrap`** for legacy 7-job lane); **PS7+** parallel — see **`docs/LOCAL_FIRST_DEV_LOOP.md`**. |
+| `pns_validate_bootstrap.ps1` | Sprint **TM.0** — bootstrap template file/label/module scaffold gate (wired in Tier 0). |
+| `pns_watch_agent_gates.ps1` | Sprint **TM.0** — routes **`-Step tier0|tier1|tier2|usb-capture|usb-chrome|bootstrap`**; batch supers in `.cursor/commands/` — see `docs/BATCH_COMMANDS.md`. |
+| `pns_check_batch_commands.ps1` | Bootstrap v0.10 — registry sync for **25** `.cursor/commands/*.md` files. |
+| `pns_check_github_ci.ps1` | Poll **Toolchain verify**, **Security scan**, **CodeQL** on a commit (`-WaitSeconds 300`). |
 | `pns_agent_worktree_bootstrap.ps1` | Milestone **T.15** — `-Create` / `-Remove` / `-List` for `feature/agent-*` worktrees. |
 | `pns_milestone_t_gate.ps1` | Milestone **T** closure — `pns_local_dev_parallel.ps1` + `pns_prerelease_gate.ps1 -SkipGradle`; writes `hfr-runs/milestone_t_gate_*/`. |
+| `pns_milestone_tm_gate.ps1` | Sprint **TM** closure — `pns_validate_bootstrap.ps1` + Tier 0 + `pns_verify_toolchain.ps1 -RunTests`; optional USB capture+chrome; writes `hfr-runs/milestone_tm_gate_*/`. |
 | `pns_prerelease_gate.ps1` | Milestone **T.12** — full pre-release orchestrator; **`-SkipGradle`** host subset; **`-IncludeUsb`** USB subset. |
 | `pns_a11y_dump_gate.ps1` | USB preview a11y — `uiautomator dump`; focusable buttons must have `content-desc` (chrome locked; not CI). |
 | `pns_compose_layout_trace_capture.ps1` | Warm **preview** launch then **`pns_capture_perfetto_light.ps1`** with **`gfx view sched wm input`** (Compose / layout-oriented Perfetto slice). |
@@ -544,7 +549,7 @@ Composio-oriented tools (names vary by deployment) often include search, multi-e
 
 | Tier | Script | When |
 |------|--------|------|
-| **0** | `pns_local_dev_parallel.ps1` | While editing — 7 host gates in parallel (~5–15s) |
+| **0** | `pns_local_dev_parallel.ps1` | While editing — **8** host gates in parallel (~5–15s); **`-SkipBootstrap`** omits bootstrap validate |
 | **1** | `pns_prerelease_gate.ps1 -SkipGradle` | Before commit — full prerelease host lane |
 | **2** | `pns_verify_toolchain.ps1 -RunTests` | Before push — Gradle + Detekt + lint + unit tests + Kover |
 | **3** | USB gates (sequential, one serial) | Capture **or** chrome — never parallel on same device |

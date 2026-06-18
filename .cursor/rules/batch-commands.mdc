@@ -1,0 +1,57 @@
+---
+description: Expand bare-word batch commands to .cursor/commands/*.md workflows
+alwaysApply: true
+---
+
+# Batch command bare-word triggers
+
+When the user message is **exactly one word** (case-insensitive, no punctuation, no extra text), treat it as the matching slash command: read `.cursor/commands/{word}.md` and execute it **before anything else**.
+
+Prefer slash commands (`/audit`) when bare words fail — they load the same file deterministically.
+
+Full registry: `docs/BATCH_COMMANDS.md` · Human cheat sheet: `docs/help/BATCH_COMMANDS.md`
+
+## Atomic commands (20)
+
+| Word | File |
+|------|------|
+| audit | `.cursor/commands/audit.md` |
+| debug | `.cursor/commands/debug.md` |
+| gates | `.cursor/commands/gates.md` |
+| triage | `.cursor/commands/triage.md` |
+| dependabot | `.cursor/commands/dependabot.md` |
+| push | `.cursor/commands/push.md` |
+| prerelease | `.cursor/commands/prerelease.md` |
+| regress | `.cursor/commands/regress.md` |
+| feature | `.cursor/commands/feature.md` |
+| fix | `.cursor/commands/fix.md` |
+| init | `.cursor/commands/init.md` |
+| prune | `.cursor/commands/prune.md` |
+| ci | `.cursor/commands/ci.md` |
+| docs | `.cursor/commands/docs.md` |
+| upgrade | `.cursor/commands/upgrade.md` |
+| setup | `.cursor/commands/setup.md` |
+| plan | `.cursor/commands/plan.md` |
+| restore | `.cursor/commands/restore.md` |
+| compact | `.cursor/commands/compact.md` |
+| scope | `.cursor/commands/scope.md` |
+
+## Super commands (5)
+
+Run child atomics **in order**; summarize pass/fail after each step.
+
+| Word | Chain |
+|------|-------|
+| bootstrap | init → prune → setup → gates |
+| verify | docs → gates → ci |
+| build | plan → *(approval pause)* → feature → gates |
+| ship | prerelease → push → regress |
+| maintain | triage → dependabot → audit |
+
+## Rules
+
+- **`debug` ≠ `audit`** — debug is defect investigation; audit is full repo review + BUILD_PLAN sprint.
+- **`push` and `ship` grant explicit `git push` approval** per destructive-ops (user invoked the command).
+- **`plan` ≠ Plan Mode toggle** — user still picks Cursor Plan Mode in the UI.
+- Supers are thin orchestrators; all logic lives in atomic command files.
+- **USB:** never run `pns_capture_pipeline_verify` and `pns_chrome_ux_gate` in parallel on one serial (`AGENTS.md`).

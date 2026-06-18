@@ -108,13 +108,31 @@ Runtime artifact: `files/fleet_device_matrix.json` (app private storage; pulled 
 
 ---
 
+---
+
+## §7a — Gradle modules (Sprint TM)
+
+| Module | Path | Responsibility | Doc |
+|--------|------|----------------|-----|
+| `:app` | [`app/`](app/) | Composition root: `MainActivity`, `PreviewEngineScreen`, chrome, manifest, NDK | — |
+| `:pns-core` | [`modules/pns-core/`](modules/pns-core/) | Pure types: `PnsLog`, `CapabilityGate`, `Feature`, `HardwareCaps`, prefs DTOs | [`MODULE.md`](modules/pns-core/MODULE.md) |
+| `:pns-fleet` | [`modules/pns-fleet/`](modules/pns-fleet/) | Matrix schema, catalog, parity sweep pure types | [`MODULE.md`](modules/pns-fleet/MODULE.md) |
+| `:pns-capture` | [`modules/pns-capture/`](modules/pns-capture/) | Bracket + DNG/TIFF helpers (save pipeline glue in `:app`) | [`MODULE.md`](modules/pns-capture/MODULE.md) |
+| `:pns-preview` | [`modules/pns-preview/`](modules/pns-preview/) | Session create entry slice (orchestrators in `:app`) | [`MODULE.md`](modules/pns-preview/MODULE.md) |
+
+**Golden Path:** [`examples/golden-path/README.md`](examples/golden-path/README.md) · **ADR:** [0009](docs/adr/0009-modular-boundaries.md) · **Bootstrap map:** [BOOTSTRAP_TEMPLATE_MAP.md](docs/BOOTSTRAP_TEMPLATE_MAP.md)
+
+**Gates:** `pns_validate_bootstrap.ps1` (Tier 0) · `pns_milestone_tm_gate.ps1` (closure) · `pns_watch_agent_gates.ps1` · **Batch commands:** [`docs/BATCH_COMMANDS.md`](docs/BATCH_COMMANDS.md) · [`docs/help/BATCH_COMMANDS.md`](docs/help/BATCH_COMMANDS.md)
+
+---
+
 ## §7 — Agent operations
 
 | Topic | Doc | Role |
 |-------|-----|------|
 | Automation index | [AGENTS.md](AGENTS.md) | Scripts, CRITICAL locks, device rules |
 | Regression ledger | [docs/AGENT_REGRESSION_MEMORY.md](docs/AGENT_REGRESSION_MEMORY.md) | Append-only `REG-*` rows |
-| Architecture decisions | [DECISION_LOG.md](DECISION_LOG.md) · [docs/adr/](docs/adr/) | ADR-0001…0007; append-only |
+| Architecture decisions | [DECISION_LOG.md](DECISION_LOG.md) · [docs/adr/](docs/adr/) | ADR-0001…0009; append-only |
 | Agent memory (ephemeral) | [AGENT_MEMORY.md](AGENT_MEMORY.md) | Session/milestone scratch pad — not REG ledger |
 | Prompt library | [PROMPT_LIBRARY.md](PROMPT_LIBRARY.md) | Reusable agent workflows |
 | Probe / automation plan | [PROBE_BUILD_PLAN.md](PROBE_BUILD_PLAN.md) | §5 audit log |
@@ -130,7 +148,7 @@ Read **`AGENT_REGRESSION_MEMORY.md`** before capture/DNG/preview/fleet edits. Se
 
 | Domain | Files |
 |--------|-------|
-| **Architecture decisions (ADR)** | [DECISION_LOG.md](DECISION_LOG.md), [docs/adr/README.md](docs/adr/README.md), [0001](docs/adr/0001-core-architecture.md) … [0007](docs/adr/0007-code-style-gate.md) |
+| **Architecture decisions (ADR)** | [DECISION_LOG.md](DECISION_LOG.md), [docs/adr/README.md](docs/adr/README.md), [0001](docs/adr/0001-core-architecture.md) … [0009](docs/adr/0009-modular-boundaries.md) |
 | **Agent memory** | [AGENT_REGRESSION_MEMORY.md](docs/AGENT_REGRESSION_MEMORY.md) |
 | **Camera2 reference** | [CAMERA2_KEYS_AND_APIS_REFERENCE.md](docs/CAMERA2_KEYS_AND_APIS_REFERENCE.md), [camera2_reference_face_eye_appendix.md](docs/camera2_reference_face_eye_appendix.md), [camera2_reference_qr_barcode_appendix.md](docs/camera2_reference_qr_barcode_appendix.md), [CAMERA2_OEM_DISPARITY.md](docs/CAMERA2_OEM_DISPARITY.md), [QCAMERA3_VENDOR_KEY_CATALOG.md](docs/QCAMERA3_VENDOR_KEY_CATALOG.md) |
 | **Capture / DNG / RAW** | [REVERTED_FEATURES_RESTORE_LIST.md](docs/REVERTED_FEATURES_RESTORE_LIST.md), [DNG_OPENABILITY_REGRESSIONS.md](docs/DNG_OPENABILITY_REGRESSIONS.md), [DNG_PS_ALIGNMENT_SPIKE.md](docs/DNG_PS_ALIGNMENT_SPIKE.md), [DNG_PIPELINE_TRIANGULATION_MATRIX.md](docs/DNG_PIPELINE_TRIANGULATION_MATRIX.md), [DNG_REFERENCE_APPS.md](docs/DNG_REFERENCE_APPS.md), [DNG_REFERENCEAPP_ADB_FINDINGS.md](docs/DNG_REFERENCEAPP_ADB_FINDINGS.md), [DNG_COLOR_REVERT_CHECKPOINT.md](docs/DNG_COLOR_REVERT_CHECKPOINT.md), [RAW_CAPTURE_DEVICE_MATRIX.md](docs/RAW_CAPTURE_DEVICE_MATRIX.md), [RAW_REFERENCE_APP_MATRIX.md](docs/RAW_REFERENCE_APP_MATRIX.md), [M13_7_GATE.md](docs/M13_7_GATE.md), [M13_3E_LOCK_BISECT_RUNBOOK.md](docs/M13_3E_LOCK_BISECT_RUNBOOK.md), [M13_3F_DAYLIGHT_GATE.md](docs/M13_3F_DAYLIGHT_GATE.md), [M13_3H_WIDE_CAL_BISECT.md](docs/M13_3H_WIDE_CAL_BISECT.md) |

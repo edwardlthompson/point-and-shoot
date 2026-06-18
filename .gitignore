@@ -49,6 +49,10 @@ tools/jadx/*
 # Agent session checkpoint (Milestone T; copy from .cursor-session-state.example)
 .cursor-session-state
 
+# Ephemeral batch-command outputs (template)
+CODE_REVIEW.md
+RELEASE_NOTES.md
+
 # CycloneDX SBOM artifacts emitted on demand by scripts/pns_sbom.ps1
 # (gate verifies in-memory; no need to commit the JSON).
 docs/sbom.json

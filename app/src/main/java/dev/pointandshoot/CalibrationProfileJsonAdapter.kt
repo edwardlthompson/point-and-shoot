@@ -71,8 +71,7 @@ object CalibrationProfileJsonAdapter {
         bias.put(profile.bias.b.toDouble())
         root.put("bias", bias)
 
-        if (profile.mtf50Lpph != null) {
-            root.put("mtf50Lpph", profile.mtf50Lpph.toDouble())
+        profile.mtf50Lpph?.let { mtf -> root.put("mtf50Lpph", mtf.toDouble())
         }
 
         return root.toString(2)

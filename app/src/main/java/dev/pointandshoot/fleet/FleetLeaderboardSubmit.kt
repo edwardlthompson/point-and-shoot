@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
-import dev.pointandshoot.BuildConfig
+import dev.pointandshoot.fleet.BuildConfig
 import dev.pointandshoot.PnsAdbLog
 import dev.pointandshoot.PnsConnectivity
 import org.json.JSONObject

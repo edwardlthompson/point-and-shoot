@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.hardware.camera2.CameraManager
 import android.util.Log
 import androidx.compose.runtime.Composable
@@ -109,6 +110,9 @@ data class PreviewChromePreferences(
     companion object {
         const val PREFS_NAME = "pns_preview_chrome"
 
+        /** Bumped when [runSchemaMigrations] rewrites legacy keys (H.CRI-5 / T.13). */
+        const val PREFS_SCHEMA_VERSION: Int = 1
+
         /**
          * In-memory preview session (ADB seeds, self-timer automation) read by [load] before disk.
          * Cleared when the preview route disposes.
@@ -155,6 +159,7 @@ data class PreviewChromePreferences(
         private const val KEY_AUDIO_VOICEOVER_DUCK = "audio_voiceover_ducking"
         private const val KEY_LAST_REAR_CAMERA_ID = "last_rear_camera_id"
         private const val KEY_QS_GRID_SLOT_ORDER = "qs_grid_slot_order_v1"
+        private const val KEY_PREFS_SCHEMA = "prefs_schema_version"
 
         /** Last non-front preview `cameraId` (for Milestone **10.2** / future front→rear UX). */
         fun readLastRearCameraId(context: Context): String? {
@@ -223,6 +228,12 @@ data class PreviewChromePreferences(
         fun load(context: Context): PreviewChromePreferences {
             sessionSnapshot?.let { return it }
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            runSchemaMigrations(prefs)
+            return loadFromStorage(prefs)
+        }
+
+        /** Test hook — round-trip without [Context] (H.CRI-5). */
+        internal fun loadFromStorage(prefs: SharedPreferences): PreviewChromePreferences {
             val defaults = PreviewChromePreferences()
             return PreviewChromePreferences(
                 maxBrightnessInPreview = prefs.getBoolean(KEY_MAX_BRIGHTNESS, defaults.maxBrightnessInPreview),
@@ -276,7 +287,13 @@ data class PreviewChromePreferences(
         }
 
         fun save(context: Context, value: PreviewChromePreferences) {
-            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
+            val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            saveToStorage(prefs, value)
+        }
+
+        /** Test hook — round-trip without [Context] (H.CRI-5). */
+        internal fun saveToStorage(prefs: SharedPreferences, value: PreviewChromePreferences) {
+            prefs.edit()
                 .putBoolean(KEY_MAX_BRIGHTNESS, value.maxBrightnessInPreview)
                 .putBoolean(KEY_DND_PREVIEW, value.dndWhileInPreview)
                 .putBoolean(KEY_DND_RECORDING, value.dndWhileRecording)
@@ -306,7 +323,43 @@ data class PreviewChromePreferences(
                 .putBoolean(KEY_SHUTTER_HAPTIC_SYNC, value.shutterHapticSync)
                 .putBoolean(KEY_AUDIO_LIGHT_COMPRESSION, value.audioLightCompression)
                 .putBoolean(KEY_AUDIO_VOICEOVER_DUCK, value.audioVoiceoverDucking)
+                .putInt(KEY_PREFS_SCHEMA, PREFS_SCHEMA_VERSION)
                 .commit()
+        }
+
+        /**
+         * Rewrites legacy keys on upgrade. v0 → v1 normalizes enumerated / bounded fields in-place.
+         */
+        internal fun runSchemaMigrations(prefs: SharedPreferences) {
+            var version = prefs.getInt(KEY_PREFS_SCHEMA, 0)
+            if (version >= PREFS_SCHEMA_VERSION) return
+            val editor = prefs.edit()
+            if (version < 1) {
+                val defaults = PreviewChromePreferences()
+                editor.putInt(
+                    KEY_STATIC_PREVIEW_ROT,
+                    normalizeStaticRotation(prefs.getInt(KEY_STATIC_PREVIEW_ROT, defaults.staticPreviewRotationDeg)),
+                )
+                editor.putInt(
+                    KEY_SELF_TIMER_DELAY_SEC,
+                    normalizeSelfTimerDelaySec(prefs.getInt(KEY_SELF_TIMER_DELAY_SEC, defaults.selfTimerDelaySec)),
+                )
+                editor.putInt(
+                    KEY_PREVIEW_FLASH_MODE,
+                    (
+                        PreviewFlashMode.entries.getOrNull(
+                            prefs.getInt(KEY_PREVIEW_FLASH_MODE, defaults.previewFlashMode.ordinal),
+                        ) ?: PreviewFlashMode.Auto
+                    ).ordinal,
+                )
+                editor.putFloat(
+                    KEY_SHUTTER_SOUND_VOLUME,
+                    prefs.getFloat(KEY_SHUTTER_SOUND_VOLUME, defaults.shutterSoundVolume).coerceIn(0f, 1f),
+                )
+                version = 1
+            }
+            editor.putInt(KEY_PREFS_SCHEMA, version.coerceAtMost(PREFS_SCHEMA_VERSION))
+            editor.commit()
         }
 
         /** Allowed self-timer values in UI order (cycle wraps). */

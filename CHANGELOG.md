@@ -48,7 +48,19 @@ CRI program + Milestone T template alignment; OP13 regression lane; RAW video la
 - **Milestone T — Project template alignment** — KNOWLEDGE_BASE + ADR index + AGENT_MEMORY; pre-commit, CONTRIBUTING, devcontainer; Kover coverage floor; perf/a11y/Paparazzi scaffold; F-Droid metadata + `pns_fdroid_metadata_validate.ps1`; PRIVACY.md, NOTICE, reproducible builds + `pns_repro_build_verify.ps1`; full pre-release orchestrator **`pns_prerelease_gate.ps1`**; local-first Tier 0 **`pns_local_dev_parallel.ps1`** + multi-agent orchestration docs; **Milestone T closed (agent lane 2026-06-12)** via **`pns_milestone_t_gate.ps1`** — human store copy + PRIVACY sign-off deferred to Milestone **H**.
 ## Unreleased
 
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+### Added (maintainer / engineering)
+
+- **H.CRI-5 slice 2** — `FleetDeviceMatrixSchemaValidator` aligned with `fleet_matrix_schema_validate.py`; chrome prefs schema v1 + legacy migration; `PreviewSessionContextDiag` extracted from `PreviewEngineScreen`; JVM round-trip tests.
+- **H.CRI-5 slice 3** — `PreviewRegularSessionCreateRetries` for REGULAR session create HAL fallback ladder.
+- **H.CRI-5 slice 4** — `PreviewVendorSessionParameters` for DCG / UHD60 / experimental vendor session template build.
+- **H.CRI-5 slice 5** — `PreviewSessionCreateEntry` + `PreviewSessionRegularOutputsPolicy` for createSession entry validation and regular output gates.
+- **H.CRI-5 slice 6** — `PreviewSessionJpegCompanion` for JPEG companion / multi-res reader session setup.
+- **H.CRI-5 slice 7** — `PreviewSessionMacroParameters` for super-macro vendor session-parameters create path.
+- **H.CRI-5 slice 8** — `PreviewSessionHighSpeedCreate` for HFR session create path and surface-abandon recovery.
+- **H.CRI-5 slice 9** — `PreviewSessionHighSpeedOutputs` for HFR target pick and encoder-only output assembly; `createSession` extraction complete.
+- **T.14 unified mock mode** — `UnifiedMockPreviewScreen` (`pns_screen mock`); legacy `prohud`/`glpreview` aliases; H.CRI-5 agent lane closed.
+- **H.HYGIENE (2026-06-17)** — F-Droid `metadata.yml` + `changelogs/22005.txt` synced to `versionCode=22005`; `PreviewSessionJpegCompanion` API 31 `@RequiresApi` guards (lint **NewApi** fix); JVM unit-test stability (`PnsLog` + fleet/calibration `Log` migration); catalog `firstCameraGate` prefers enabled camera for device-wide rows.
+- **Sprint TM (2026-06-17, engineering)** — Gradle libraries `:pns-core`, `:pns-fleet`, `:pns-capture`, `:pns-preview` under `modules/`; bootstrap gates `pns_validate_bootstrap.ps1` / `pns_watch_agent_gates.ps1`; Golden Path docs in `examples/golden-path/`; ADR-0009 module boundaries. **Post-TM deferred extraction:** capture RAW/DNG pipeline + leaf reconcile in `:pns-capture`; preview session orchestrators in `:pns-preview`; `LeafDngFleetPolicy` / focal routing types in `:pns-core`. **Bootstrap v0.10 batch commands:** 25 `.cursor/commands/*.md` slash workflows + `pns_check_batch_commands.ps1` + `docs/help/BATCH_COMMANDS.md`.
 ## [0.14.0-beta.7] - 2026-06-04
 
 Pre-release for **Milestone 24 reliability hardening**, fleet truth wiring, and ReferenceApp naming/fixture migration cleanup.

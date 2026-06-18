@@ -202,7 +202,7 @@ fun FleetMatrixHubScreen(
                     val f = FleetDeviceMatrixStore.matrixFile(appCtx)
                     if (f.exists()) JSONObject(f.readText()) else null
                 }.getOrNull()
-        matrix = raw?.let { FleetDeviceMatrix.withCatalogIfMissing(it) }
+        matrix = raw?.let { attachFleetCapabilityCatalogIfMissing(it) }
         status = FleetDeviceMatrixStore.summaryLine(appCtx)
     }
 
@@ -751,7 +751,7 @@ private fun RawJsonTabContent(root: JSONObject, modifier: Modifier = Modifier) {
 }
 
 private fun catalogRowsFrom(root: JSONObject): List<JSONObject> {
-    val withCatalog = FleetDeviceMatrix.withCatalogIfMissing(root)
+    val withCatalog = attachFleetCapabilityCatalogIfMissing(root)
     val arr = withCatalog.optJSONArray(FleetDeviceMatrix.KEY_CAPABILITY_CATALOG) ?: return emptyList()
     return (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }
 }

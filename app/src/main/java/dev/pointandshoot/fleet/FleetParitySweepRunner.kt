@@ -231,8 +231,9 @@ object FleetParitySweepRunner {
         val row = evaluated.row
         val t0 = System.nanoTime()
         val impact = FleetParityConsumerImpact.resolve(row, matrix)
-        if (row.sweepSkipReason != null) {
-            return skippedCell(row, row.sweepSkipReason, System.nanoTime() - t0, impact)
+        val skipReason = row.sweepSkipReason
+        if (skipReason != null) {
+            return skippedCell(row, skipReason, System.nanoTime() - t0, impact)
         }
         if (row.appStatus == CameraCapabilityCatalog.AppStatus.Planned) {
             return plannedCell(row.id, System.nanoTime() - t0, impact)

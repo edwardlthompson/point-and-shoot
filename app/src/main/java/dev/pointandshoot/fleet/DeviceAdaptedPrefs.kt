@@ -1,10 +1,10 @@
 package dev.pointandshoot.fleet
 
 import android.os.Build
-import android.util.Log
 import android.util.Size
 import dev.pointandshoot.ColorQualityIndex
 import dev.pointandshoot.InAppVideoFormatSelection
+import dev.pointandshoot.PnsLog
 import dev.pointandshoot.PreviewChromePreferences
 import dev.pointandshoot.VideoCodec
 import dev.pointandshoot.VideoFormat
@@ -45,7 +45,7 @@ object DeviceAdaptedPrefs {
             if (pickedSpace != null && spaces.none { it.id == pickedSpace.id }) {
                 next = next.copy(inAppVideoColorSpaceOrdinal = DeviceAdaptedCatalog.rec709ColorSpaceOrdinal())
                 migrated = true
-                Log.i(TAG, "videoColorSpaceMigrate id=${pickedSpace.id} -> rec709")
+                PnsLog.i(TAG, "videoColorSpaceMigrate id=${pickedSpace.id} -> rec709")
             }
         }
         val encodeW = next.inAppVideoEncodeWidth.takeIf { it > 0 } ?: fallbackWidth
@@ -63,7 +63,7 @@ object DeviceAdaptedPrefs {
             if (needsLegacyH264 && catalog.any { it.codec == VideoCodec.H264 }) {
                 next = next.copy(inAppVideoCodecOrdinal = VideoCodec.H264.ordinal)
                 migrated = true
-                Log.i(TAG, "videoCodecMigrate legacySafe ${pickedCodec.name} -> H264")
+                PnsLog.i(TAG, "videoCodecMigrate legacySafe ${pickedCodec.name} -> H264")
             }
         }
         val codecOk =
@@ -107,7 +107,7 @@ object DeviceAdaptedPrefs {
                 catalog.first()
             }
         val patched = InAppVideoFormatSelection.chromeAfterSelect(next, fallback)
-        Log.i(
+        PnsLog.i(
             TAG,
             "videoFormatSanitize stalePref -> ${fallback.getLabel()} " +
                 "${fallback.resolution.width}x${fallback.resolution.height}@${fallback.frameRate}",

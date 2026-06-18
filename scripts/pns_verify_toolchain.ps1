@@ -1,7 +1,7 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
 # Proves: Gradle assembleDebug, UTF-8 for every scripts/*.ps1 + Kotlin sources (main + unit-test),
 #         PowerShell parse OK, FOSS dep-audit (Play / Firebase / broad ML Kit guarded; face-detection allowed),
-#         and (with -RunTests) :app:detekt, :app:lintDebug, :app:testDebugUnitTest, :app:koverVerifyDebug.
+#         and (with -RunTests) :app:detekt, :pns-*:detekt, :app:lintDebug, :app:testDebugUnitTest, :app:koverVerifyDebug.
 # CI (`.github/workflows/toolchain-verify.yml`) invokes `-RunTests` so Gradle runs once for assemble + tests.
 # Usage:
 #   .\scripts\pns_verify_toolchain.ps1                              # full
@@ -368,6 +368,16 @@ if ($RunTests.IsPresent) {
         $failed = $true
       } else {
         [void]$report.Add("OK: :app:detekt BUILD SUCCESSFUL")
+      }
+      if (-not $failed) {
+        Write-Verify "Gradle :pns-*:detekt (no-daemon) in $ProjectRoot"
+        & $gradlew :pns-core:detekt :pns-capture:detekt :pns-fleet:detekt :pns-preview:detekt --no-daemon
+        if ($LASTEXITCODE -ne 0) {
+          [void]$report.Add("FAIL: :pns-*:detekt exit code $LASTEXITCODE")
+          $failed = $true
+        } else {
+          [void]$report.Add("OK: :pns-*:detekt BUILD SUCCESSFUL")
+        }
       }
       if (-not $failed) {
         Write-Verify "Gradle :app:lintDebug (no-daemon) in $ProjectRoot"

@@ -1,11 +1,12 @@
 package dev.pointandshoot.fleet
 
+import dev.pointandshoot.StillDngBackend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ReferenceAppPipelineContractTest {
+class ReferenceAppPipelineContractTest : LegacyFleetPolicyTestHarness() {
 
     @Test
     fun standardReferenceApp_leafPostSaveReconcile_offOnOp13() {

@@ -2,12 +2,12 @@ package dev.pointandshoot.fleet
 
 import android.content.Context
 import android.hardware.camera2.CameraManager
-import android.util.Log
 import android.widget.Toast
 import dev.pointandshoot.CapabilityGate
 import dev.pointandshoot.Feature
 import dev.pointandshoot.HardwareCaps
 import dev.pointandshoot.HardwareCapsSnapshot
+import dev.pointandshoot.PnsLog
 import dev.pointandshoot.RootCapabilityStore
 import org.json.JSONObject
 
@@ -99,11 +99,11 @@ object FleetUiVisibilityGate {
         }
 
     fun logHidden(featureId: String, surface: String) {
-        Log.d(TAG, "hidden feature=$featureId surface=$surface")
+        PnsLog.d(TAG, "hidden feature=$featureId surface=$surface")
     }
 
     fun logRootOnlyTap(featureId: String, rootGranted: Boolean) {
-        Log.i(TAG, "rootOnlyTap feature=$featureId rootGranted=$rootGranted")
+        PnsLog.i(TAG, "rootOnlyTap feature=$featureId rootGranted=$rootGranted")
     }
 
     fun showRootOnlyToast(appContext: android.content.Context, featureId: String, rootGranted: Boolean) {

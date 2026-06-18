@@ -8,6 +8,7 @@ import java.io.File
 
 class StillCaptureMetadataTest {
 
+
     @Test
     fun `exposure fraction for sub-second`() {
         assertEquals("1/125", StillCaptureMetadata.exposureTimeExifString(8_000_000L))
@@ -48,27 +49,24 @@ class StillCaptureMetadataTest {
                 ?: error("fixture strip table parse failed")
         assertTrue(beforeStrips.height > 0)
 
-        val make = "TestMake"
-        val model = "TestModel"
-        val dateStr = "2026:06:12 12:00:00"
         var patchedBytes = TiffIfd0Software305.patchSoftwarePreservingLength(fixtureBytes, "Point & Shoot")
         patchedBytes =
             TiffIfd0Software305.patchPrimaryIfdAsciiTagPreservingLength(
                 patchedBytes,
                 TiffIfd0Software305.TAG_MAKE,
-                make,
+                "TestMake",
             )
         patchedBytes =
             TiffIfd0Software305.patchPrimaryIfdAsciiTagPreservingLength(
                 patchedBytes,
                 TiffIfd0Software305.TAG_MODEL,
-                model,
+                "TestModel",
             )
         patchedBytes =
             TiffIfd0Software305.patchPrimaryIfdAsciiTagPreservingLength(
                 patchedBytes,
                 TiffIfd0Software305.TAG_DATETIME,
-                dateStr,
+                "2026:06:12 12:00:00",
             )
 
         val afterStrips =
@@ -83,7 +81,7 @@ class StillCaptureMetadataTest {
             val candidate =
                 File(
                     dir,
-                    "app/src/main/java/dev/pointandshoot/StillCaptureMetadata.kt",
+                    "modules/pns-capture/src/main/java/dev/pointandshoot/StillCaptureMetadata.kt",
                 )
             if (candidate.isFile) return candidate.readText()
             val parent = dir.parentFile ?: error("StillCaptureMetadata.kt not found")

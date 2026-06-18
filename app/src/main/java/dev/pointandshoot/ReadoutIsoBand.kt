@@ -135,36 +135,3 @@ data class ReadoutIsoBand(
     }
 }
 
-/**
- * Readout AE axis coupling (Sprint **14.7**).
- *
- * Differs from command-dial **M**, which is **manual focus distance** on the preview (drag),
- * not ISO/shutter. Full sensor manual uses **both** readout chips locked (AE off).
- */
-enum class ReadoutAeCoupling {
-    /** Both axes automatic (HAL AE). */
-    AUTO,
-
-    /** Fixed ISO; shutter from YUV chase ([CaptureRequest.CONTROL_AE_MODE_OFF] + [SENSOR_EXPOSURE_TIME]). */
-    LOCKED_ISO_AUTO_SS,
-
-    /** Fixed shutter; ISO from YUV chase ([CONTROL_AE_MODE_OFF] + [SENSOR_SENSITIVITY]). */
-    LOCKED_SS_AUTO_ISO,
-
-    /** Both locked — [CaptureRequest.CONTROL_AE_MODE_OFF]. */
-    MANUAL_BOTH,
-    ;
-
-    companion object {
-        fun fromOverrides(
-            iso: Int?,
-            exposureNs: Long?,
-        ): ReadoutAeCoupling =
-            when {
-                iso != null && exposureNs != null -> MANUAL_BOTH
-                iso != null -> LOCKED_ISO_AUTO_SS
-                exposureNs != null -> LOCKED_SS_AUTO_ISO
-                else -> AUTO
-            }
-    }
-}

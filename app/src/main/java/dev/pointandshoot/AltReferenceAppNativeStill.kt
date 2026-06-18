@@ -1,6 +1,6 @@
 package dev.pointandshoot
 
-import dev.pointandshoot.fleet.StillDngBackend
+import dev.pointandshoot.StillDngBackend
 import dev.pointandshoot.fleet.StillDngBackendPolicy
 
 /**

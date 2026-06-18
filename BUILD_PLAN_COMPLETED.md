@@ -1435,7 +1435,7 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 **Artifacts:** `hfr-runs/raw_video_verify_20260612_210437` · `hfr-runs/parity_sweep_20260613_011027` (Full PASS, shipBlockers=0)
 
 - [x] **[AGENT] CRI-006/007** — RAW video session attaches ImageReader in video-primary lane; `pns_raw_video_verify.ps1` PASS on **CPH2583**
-- [ ] **[AGENT] CRI-009/035** — OP13 fixture refresh + same-scene parity (requires OP13 USB)
+- [x] **[AGENT] CRI-009/035** — OP13 fixture refresh + aux DNG analyze (`hfr-runs/aux_dng_capture_analyze_20260613_014424`); automated color parity FAIL → human ACR
 
 ### Sprint H.CRI-2 — DNG pipeline hardening (agent closed 2026-06-13)
 
@@ -1456,12 +1456,33 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 - [x] **[AGENT] CRI-017/018/021/022/023/024** — detekt burn-down, fleet golden/evaluator tests, legacy policy alias, M27 gate
 
-### Sprint H.CRI-5 — T.13 slice 1 (agent closed 2026-06-13)
+### Sprint H.CRI-5 — T.13 monolith extraction
 
-- [x] **[AGENT] CRI-015 slice** — `PreviewSessionSurfacePolicy.kt` (RAW/video surface gating)
-- [x] **[AGENT] CRI-016 slice** — `PreviewAutomationExtrasRegistry.kt`
-- [x] **[AGENT] CRI-030** — ADR-0008 mock/cold-restart policy
-- [ ] **[AGENT] T.13 carryover / T.14** — prefs migration, full extraction, unified mock mode (deferred)
+**Slice 1 (2026-06-13):** `PreviewSessionSurfacePolicy`, `PreviewAutomationExtrasRegistry`, ADR-0008.
+
+**Slice 2 (2026-06-17):** `FleetDeviceMatrixSchemaValidator`, chrome prefs schema v1 + migration, `PreviewSessionContextDiag`, JVM round-trip tests.
+
+**Slice 3 (2026-06-17):** `PreviewRegularSessionCreateRetries` — REGULAR session create retry ladder (physical pin → session params → HDR DR → stream hints).
+
+**Slice 9 (2026-06-17):** `PreviewSessionHighSpeedOutputs` — `pickHighSpeedTarget` + encoder-only HFR output assembly.
+
+**T.14 (2026-06-17):** `UnifiedMockPreviewScreen` — GLES test pattern + Pro HUD chrome; `pns_screen mock` (+ legacy `prohud` / `glpreview` aliases). ADR-0008 resume policy unchanged.
+
+**USB (CPH2583 `192.168.1.2:44891`, 2026-06-17):** slice 9: `photo_capture_verify_20260617_213814` + `chrome_ux_gate_20260617_213835`; T.14: `photo_capture_verify_20260617_214454` + `chrome_ux_gate_20260617_214522` — all **PASS**.
+
+**H.CRI-5 agent lane closed** (slices 1–9 + T.14). Open agent work → Milestone H (**H.6** eye-AF, **H.9** release).
+
+### Sprint H.HYGIENE — Host gates (agent closed 2026-06-17)
+
+**Gate:** Tier 0 `pns_local_dev_parallel.ps1` **7/7 PASS** · Tier 2 `pns_verify_toolchain.ps1 -RunTests` **PASS** (2044 JVM tests).
+
+- [x] **[AGENT]** F-Droid metadata sync (`metadata.yml` 22005 / `0.14.0-beta.11` + `en-US/changelogs/22005.txt`)
+- [x] **[AGENT]** `PreviewSessionJpegCompanion` lint **NewApi** — `@RequiresApi(S)` multi-res JPEG wrapper
+- [x] **[AGENT]** JVM `UnsatisfiedLinkError` burn-down — `PnsLog.safeAndroidLog` (`Throwable`); `Log` → `PnsLog` in fleet visibility, hardware shutter, calibration, chart detect paths; `PnsExternalUrlTest` beta.11 URLs
+- [x] **[AGENT]** `CameraCapabilityCatalogEvaluators.firstCameraGate` — prefer first `advertised && appEnabled` camera; `face.detect` test expectation aligned
+- [x] **[AGENT]** Full repo review — [`docs/CODE_REVIEW.md`](../docs/CODE_REVIEW.md)
+
+**USB (CPH2583, 2026-06-17):** `photo_capture_verify_20260617_220239` + `chrome_ux_gate_20260617_220306` — **PASS**.
 
 ### Sprint H.CRI-6 — CI & security (agent closed 2026-06-13)
 
@@ -1473,7 +1494,7 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **Closed (agent lane):** 2026-06-12 · **Gate:** [`scripts/pns_milestone_t_gate.ps1`](../scripts/pns_milestone_t_gate.ps1) PASS (Tier 0 + prerelease host) · artifact `hfr-runs/milestone_t_gate_*/milestone_t_gate.json`
 
-**Sprints shipped:** T.1–T.12, T.15 (agent). **Deferred:** T.13–T.14 (Future features in BUILD_PLAN.md).
+**Sprints shipped:** T.1–T.12, T.15 (agent). **T.13–T.14:** active under **H.CRI-5** in `BUILD_PLAN.md`.
 
 **Human carryover → Milestone H:** T.10 F-Droid store copy creative review (**H.5**); owner PRIVACY + metadata sign-off (**H.9**).
 
@@ -1570,6 +1591,43 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 - [x] **[AGENT]** VS Code tasks · `.cursor/rules/multi-agent-parallel.mdc` · PROMPT_LIBRARY §12–§13
 
 **Milestone T closure (2026-06-12):** `pns_milestone_t_gate.ps1` PASS; BUILD_PLAN.md archived to this section; active plan → **Milestone H**.
+
+---
+
+## Sprint TM — Template Migration ✅
+
+**Closed (agent lane):** 2026-06-17 · **Gate:** [`scripts/pns_milestone_tm_gate.ps1`](../scripts/pns_milestone_tm_gate.ps1) · artifact `hfr-runs/milestone_tm_gate_*/milestone_tm_gate.json` · **ADR:** [0009](../docs/adr/0009-modular-boundaries.md)
+
+### TM.0 — Bootstrap gate aliases
+
+- [x] **[AGENT]** [`COMPLETED_TASKS.md`](../COMPLETED_TASKS.md) pointer · [`docs/BOOTSTRAP_TEMPLATE_MAP.md`](../docs/BOOTSTRAP_TEMPLATE_MAP.md)
+- [x] **[AGENT]** [`scripts/pns_validate_bootstrap.ps1`](../scripts/pns_validate_bootstrap.ps1) · [`scripts/pns_watch_agent_gates.ps1`](../scripts/pns_watch_agent_gates.ps1)
+- [x] **[AGENT]** Tier 0 8th job `bootstrap_validate` in [`pns_local_dev_parallel.ps1`](../scripts/pns_local_dev_parallel.ps1) (`-SkipBootstrap` opt-out)
+
+### TM.1 — Module scaffolds + Golden Path
+
+- [x] **[AGENT]** [`modules/pns-core/MODULE.md`](../modules/pns-core/MODULE.md) … `pns-preview/MODULE.md`
+- [x] **[AGENT]** [`examples/golden-path/README.md`](../examples/golden-path/README.md) — probe hub + `UnifiedMockPreviewScreen`
+
+### TM.2 — ADR + Golden Path refresh
+
+- [x] **[AGENT]** [ADR-0009](../docs/adr/0009-modular-boundaries.md) modular boundaries
+- [x] **[AGENT]** [ADR-0001](../docs/adr/0001-core-architecture.md) Golden Path → `UnifiedMockPreviewScreen` · [`DECISION_LOG.md`](../DECISION_LOG.md)
+
+### TM.3–TM.7 — Gradle libraries (phased)
+
+- [x] **[AGENT]** `:pns-core` — `PnsLog`, `CapabilityGate`, `Feature`, `HardwareCaps`, `RootCapability*`, `BracketPattern`, `PnsSweepSignals`
+- [x] **[AGENT]** `:pns-fleet` — matrix schema, catalog registry, parity pure types (hub `*Screen.kt` + builders remain in `:app`)
+- [x] **[AGENT]** `:pns-capture` — bracket + DNG/TIFF helpers; main save pipeline stays in `:app` (DNG locks)
+- [x] **[AGENT]** `:pns-preview` — session create entry + automation registry slice; full orchestrators stay in `:app`
+- [x] **[AGENT]** TM.7 hub Compose boundary — `FleetMatrixHubScreen`, `FleetParityModeSheet`, `FleetDeviceMatrixCatalogAttach` in `:app`
+
+### TM.8–TM.9 — Polish + closure
+
+- [x] **[AGENT]** README module diagram · [`KNOWLEDGE_BASE.md`](../KNOWLEDGE_BASE.md) §7a module index · `AGENTS.md` bootstrap table
+- [x] **[AGENT]** [`scripts/pns_milestone_tm_gate.ps1`](../scripts/pns_milestone_tm_gate.ps1)
+
+**Sprint TM closure (2026-06-17):** Host Tier 0 + Tier 2 green; USB smoke recommended when capture/preview modules change. Further extraction tracked in ADR-0009 deferred work.
 
 ---
 

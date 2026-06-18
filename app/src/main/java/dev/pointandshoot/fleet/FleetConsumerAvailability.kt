@@ -1,9 +1,9 @@
 package dev.pointandshoot.fleet
 
-import android.util.Log
 import dev.pointandshoot.CapabilityGate
 import dev.pointandshoot.Feature
 import dev.pointandshoot.HardwareCaps
+import dev.pointandshoot.PnsLog
 import org.json.JSONObject
 
 /**
@@ -63,7 +63,7 @@ object FleetConsumerAvailability {
         if (family != null) {
             matrixConsumerSelectable(ctx.matrix, ctx.activeCameraId, family)?.let { selectable ->
                 if (!selectable) {
-                    Log.d(TAG, "hidden reason=session_not_ok feature=$featureId family=$family")
+                    PnsLog.d("FleetVisibility", "hidden reason=session_not_ok feature=$featureId family=$family")
                 }
                 return selectable
             }

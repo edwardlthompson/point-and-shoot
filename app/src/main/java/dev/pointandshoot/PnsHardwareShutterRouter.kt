@@ -2,7 +2,6 @@ package dev.pointandshoot
 
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import android.view.KeyEvent
 import dev.pointandshoot.fleet.FleetCapabilityGate
 import dev.pointandshoot.fleet.ProductHardwareLaunchScan
@@ -40,7 +39,7 @@ object PnsHardwareShutterRouter {
         val action = event.action
         return when {
             keyCode == KeyEvent.KEYCODE_FOCUS && action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 -> {
-                Log.i(
+                PnsLog.i(
                     TAG,
                     "halfPressAf keyCode=$keyCode scanCode=${event.scanCode} source=${event.source} model=${Build.MODEL}",
                 )
@@ -52,7 +51,7 @@ object PnsHardwareShutterRouter {
                 true
             }
             keyCode == KeyEvent.KEYCODE_FOCUS && action == KeyEvent.ACTION_UP -> {
-                Log.i(TAG, "halfPressAfRelease keyCode=$keyCode scanCode=${event.scanCode}")
+                PnsLog.i(TAG, "halfPressAfRelease keyCode=$keyCode scanCode=${event.scanCode}")
                 PnsAdbLog.i(context, "hardwareKey halfPressAfRelease keyCode=$keyCode")
                 onFocusHalfPressRelease?.invoke()
                 true
@@ -62,7 +61,7 @@ object PnsHardwareShutterRouter {
                 true
             }
             keyCode == KeyEvent.KEYCODE_CAMERA && action == KeyEvent.ACTION_DOWN -> {
-                Log.d(TAG, "cameraKeyDown scanCode=${event.scanCode} repeat=${event.repeatCount}")
+                PnsLog.d(TAG, "cameraKeyDown scanCode=${event.scanCode} repeat=${event.repeatCount}")
                 true
             }
             keyCode in fleetExtraKeyCodes && action == KeyEvent.ACTION_UP -> {
@@ -74,7 +73,7 @@ object PnsHardwareShutterRouter {
     }
 
     private fun fireShutter(context: Context, event: KeyEvent, source: String) {
-        Log.i(
+        PnsLog.i(
             TAG,
             "shutterFired source=$source keyCode=${event.keyCode} scanCode=${event.scanCode} " +
                 "deviceModel=${Build.MODEL}",

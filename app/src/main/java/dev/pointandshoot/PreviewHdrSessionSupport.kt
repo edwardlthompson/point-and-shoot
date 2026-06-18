@@ -1,5 +1,9 @@
 package dev.pointandshoot
 
+import dev.pointandshoot.preview.createCaptureSessionHighSpeedOutputs
+import dev.pointandshoot.preview.createCaptureSessionRegularOutputs
+import dev.pointandshoot.preview.outputConfigurationsWithOptionalStreamUseCases
+
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.params.DynamicRangeProfiles

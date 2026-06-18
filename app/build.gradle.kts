@@ -1,4 +1,4 @@
-import com.android.build.gradle.BaseExtension
+import com.android.build.api.dsl.ApplicationExtension
 import java.io.File
 import java.util.Properties
 import java.security.MessageDigest
@@ -6,7 +6,6 @@ import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.detekt)
     alias(libs.plugins.androidx.baselineprofile)
@@ -62,7 +61,7 @@ val releaseSigning: ReleaseSigning? = resolveReleaseSigning()
 
 android {
     namespace = "dev.pointandshoot"
-    compileSdk = 36
+    compileSdk = 37
     // Pin NDK for reproducible CMake builds (matches scripts/pns_install_ndk.ps1 default).
     ndkVersion = "26.3.11579264"
 
@@ -144,9 +143,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 
     buildFeatures {
         compose = true
@@ -178,6 +174,12 @@ android {
     baselineProfile {
         // Generated `baseline-prof.txt` lives in src/main/ (see :baselineprofile:generateBaselineProfile).
         saveInSrc = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -454,7 +456,7 @@ fun pnsNdkLlvmTools(project: Project): Pair<String, String> {
         System.getProperty("os.name").contains("Mac", ignoreCase = true) -> "darwin-x86_64"
         else -> "linux-x86_64"
     }
-    val ndkVer = project.extensions.getByType(BaseExtension::class.java).ndkVersion
+    val ndkVer = project.extensions.getByType(ApplicationExtension::class.java).ndkVersion
     val llvmDir = File(sdkRoot, "ndk/$ndkVer/toolchains/llvm/prebuilt/$hostPrebuilt/bin")
     val llvmExe = if (System.getProperty("os.name").contains("Windows", ignoreCase = true)) ".exe" else ""
     val llvmAr = File(llvmDir, "llvm-ar$llvmExe").absolutePath.replace("\\", "/")

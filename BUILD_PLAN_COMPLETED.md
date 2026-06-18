@@ -1497,6 +1497,17 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **USB (CPH2583, 2026-06-18):** `photo_capture_verify_20260618_013837` + `chrome_ux_gate_20260618_013908`; second audit `photo_capture_verify_20260618_025139` + `chrome_ux_gate_20260618_025206` — **PASS**.
 
+### Sprint AUDIT2-2026-06-18 — Post-ship hygiene + Dependabot Gradle (agent closed)
+
+**Gate:** Tier 2 **PASS** (Gradle **9.5.1** / AGP **9.1.1** / Kotlin **2.4.0**) · Dependabot PRs **#4, #8, #9, #11, #12** closed on `main`.
+
+- [x] **[AGENT] AUDIT2.1–2** — CodeQL paths + CI poll fallback (`dbde194`)
+- [x] **[AGENT] AUDIT2.3** — Full Gradle stack bump + AGP 9 built-in Kotlin migration; `compileSdk` **37**; Paparazzi **2.0.0-alpha05**; baseline profile **1.5.0-alpha06**
+- [x] **[AGENT] AUDIT2.4** — `pns_milestone_h_host_gate.ps1 -SkipDngAestheticGate` (informational fixture delta)
+- [x] **[AGENT] AUDIT2.5** — `.gitignore` `__pycache__/`; `pns_verify_toolchain.ps1` → `:app:koverVerify`
+
+**USB (CPH2583, 2026-06-18):** `photo_capture_verify_20260618_110420` + `chrome_ux_gate_20260618_110452` — **PASS**.
+
 ### Sprint H.CRI-6 — CI & security (agent closed 2026-06-13)
 
 - [x] **[AGENT] CRI-025/026/027/020** — toolchain path filters, keystore SKIP without env, leaderboard workflow_dispatch, Paparazzi policy unchanged

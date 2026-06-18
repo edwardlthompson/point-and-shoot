@@ -1,7 +1,7 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
 # Proves: Gradle assembleDebug, UTF-8 for every scripts/*.ps1 + Kotlin sources (main + unit-test),
 #         PowerShell parse OK, FOSS dep-audit (Play / Firebase / broad ML Kit guarded; face-detection allowed),
-#         and (with -RunTests) :app:detekt, :pns-*:detekt, :app:lintDebug, :app:testDebugUnitTest, :app:koverVerifyDebug.
+#         and (with -RunTests) :app:detekt, :pns-*:detekt, :app:lintDebug, :app:testDebugUnitTest, :app:koverVerify.
 # CI (`.github/workflows/toolchain-verify.yml`) invokes `-RunTests` so Gradle runs once for assemble + tests.
 # Usage:
 #   .\scripts\pns_verify_toolchain.ps1                              # full
@@ -422,13 +422,13 @@ if ($RunTests.IsPresent) {
         [void]$report.Add("OK: :app:testDebugUnitTest BUILD SUCCESSFUL")
       }
       if (-not $failed) {
-        Write-Verify "Gradle :app:koverVerifyDebug (fleet/DNG/bracket floor) in $ProjectRoot"
-        & $gradlew :app:koverVerifyDebug --no-daemon
+        Write-Verify "Gradle :app:koverVerify (fleet/DNG/bracket floor) in $ProjectRoot"
+        & $gradlew :app:koverVerify --no-daemon
         if ($LASTEXITCODE -ne 0) {
-          [void]$report.Add("FAIL: :app:koverVerifyDebug exit code $LASTEXITCODE (40% floor on scoped packages)")
+          [void]$report.Add("FAIL: :app:koverVerify exit code $LASTEXITCODE (40% floor on scoped packages)")
           $failed = $true
         } else {
-          [void]$report.Add("OK: :app:koverVerifyDebug BUILD SUCCESSFUL (fleet-dng-bracket-floor >= 40%)")
+          [void]$report.Add("OK: :app:koverVerify BUILD SUCCESSFUL (fleet-dng-bracket-floor >= 40%)")
         }
       }
     } finally {

@@ -63,7 +63,7 @@ toolchain-verify:
   script:
     - export ANDROID_HOME="$ANDROID_SDK_ROOT"
     # Host parity with GitHub Actions (subset): assemble + detekt + lint + unit tests + Kover floor.
-    - ./gradlew :app:assembleDebug :app:detekt :app:lintDebug :app:testDebugUnitTest :app:koverVerifyDebug --no-daemon --stacktrace
+    - ./gradlew :app:assembleDebug :app:detekt :app:lintDebug :app:testDebugUnitTest :app:koverVerify --no-daemon --stacktrace
   artifacts:
     when: on_failure
     expire_in: 7 days

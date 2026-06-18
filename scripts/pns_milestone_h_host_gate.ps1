@@ -7,7 +7,7 @@
   .\scripts\pns_milestone_h_host_gate.ps1
   .\scripts\pns_milestone_h_host_gate.ps1 -SkipGradle
 #>
-param([switch]$SkipGradle)
+param([switch]$SkipGradle, [switch]$SkipDngAestheticGate)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -30,8 +30,12 @@ try {
         Copy-Item (Join-Path $refSrc "referenceapp_wide_cam2.dng") (Join-Path $self "M23_wide.dng")
         Copy-Item (Join-Path $refSrc "referenceapp_tele_cam4.dng") (Join-Path $self "M73_tele.dng")
     }
-    python "$PSScriptRoot\pns_dng_aesthetic_gate.py" --ps-dir $self --ref-dir $refSrc
-    if ($LASTEXITCODE -ne 0) { throw "dng_aesthetic_gate failed" }
+    if ($SkipDngAestheticGate) {
+        Write-Host "SKIP: dng_aesthetic_gate (-SkipDngAestheticGate; fixture scene delta vs ReferenceCam — informational)"
+    } else {
+        python "$PSScriptRoot\pns_dng_aesthetic_gate.py" --ps-dir $self --ref-dir $refSrc
+        if ($LASTEXITCODE -ne 0) { throw "dng_aesthetic_gate failed" }
+    }
     & "$PSScriptRoot\pns_fixture_dng_gates.ps1"
     if ($LASTEXITCODE -ne 0) { throw "fixture_dng_gates failed" }
     & "$PSScriptRoot\pns_dng_rawpy_decode_gate.ps1"

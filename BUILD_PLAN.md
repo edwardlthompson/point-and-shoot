@@ -42,23 +42,9 @@ Full index: **`AGENTS.md`**.
 
 ---
 
-## Sprint AUDIT2-2026-06-18 — Post-ship hygiene (agent)
+## Sprint AUDIT2-2026-06-18 — Post-ship hygiene ✅ CLOSED
 
-**Source:** `/audit` #2 · ephemeral [`CODE_REVIEW.md`](CODE_REVIEW.md) · intake **F-001…F-009**.
-
-| ID | Task | Owner | Status |
-|----|------|-------|--------|
-| **AUDIT2.1** | CodeQL workflow: add `scripts/**` + `tests/fixtures/**` path filters | [AGENT] | ✅ |
-| **AUDIT2.2** | `pns_check_github_ci.ps1`: CodeQL fallback when commit has no CodeQL run | [AGENT] | ✅ |
-| **AUDIT2.3** | Gradle Dependabot PRs #4, #8, #9, #11, #12 (AGP 9 / Gradle 9.5 / CameraX / Compose) | [AGENT] | ⬜ deferred — separate sprint |
-| **AUDIT2.4** | `dng_aesthetic_gate` host self-test triage (informational scene delta) | [AGENT] | ⬜ backlog |
-| **AUDIT2.5** | `.gitignore` — `scripts/__pycache__/` | [AGENT] | ✅ |
-
-**Host (2026-06-18):** Tier 0 **8/8** · Tier 2 **PASS** · `pns_check_github_ci.ps1` **PASS** @ `e65baad`.
-
-**USB (2026-06-18):** `photo_capture_verify_20260618_025139` · `chrome_ux_gate_20260618_025206` — **PASS**.
-
-**Prior sprint archived:** [AUDIT-2026-06-18](BUILD_PLAN_COMPLETED.md#sprint-audit-2026-06-18--ci--tm-ship-agent-closed).
+Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT2](BUILD_PLAN_COMPLETED.md#sprint-audit2-2026-06-18--post-ship-hygiene-agent-closed).
 
 ---
 
@@ -99,7 +85,7 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
 
-**Last CPH2583 USB (2026-06-18):** audit #2 — capture `photo_capture_verify_20260618_025139` + chrome `chrome_ux_gate_20260618_025206` **PASS** (wireless ADB).
+**Last CPH2583 USB (2026-06-18):** AUDIT2.3 — capture `photo_capture_verify_20260618_110420` + chrome `chrome_ux_gate_20260618_110452` **PASS** (wireless ADB, Gradle 9.5 / AGP 9.1 stack).
 
 ---
 
@@ -213,7 +199,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction + T.14 
 
 ## Document control
 
-- **Version:** 2026-06-18 — AUDIT-2026-06-18 archived; AUDIT2 hygiene closed; human Milestone H remains.
+- **Version:** 2026-06-18 — AUDIT2 + Dependabot Gradle stack closed; human Milestone H remains.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

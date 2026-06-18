@@ -28,6 +28,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+. (Join-Path $PSScriptRoot "pns_resolve_fleet_paths.ps1")
+
 if ($Help) {
     Write-Host @"
 pns_fleet_parity_sweep.ps1 — Fleet Parity Sweep (M21)
@@ -114,8 +116,8 @@ function Build-GapBreakdownFromLogcat($Cells) {
 
 function Get-CatalogRowMetaMap {
     $projRoot = Split-Path -Parent $PSScriptRoot
-    $catalogKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalog.kt"
-    $expansionKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalogExpansion.kt"
+    $catalogKt = Resolve-PnsFleetMainKt -FileName "CameraCapabilityCatalog.kt" -ProjectRoot $projRoot
+    $expansionKt = Resolve-PnsFleetMainKt -FileName "CameraCapabilityCatalogExpansion.kt" -ProjectRoot $projRoot
     $map = @{}
     foreach ($path in @($catalogKt, $expansionKt)) {
         if (-not (Test-Path -LiteralPath $path)) { continue }
@@ -445,8 +447,9 @@ function Get-CurrentFleetMatrixObject {
 }
 
 function Get-CatalogStatusMap {
-    $catalogKt = Join-Path (Split-Path -Parent $PSScriptRoot) "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalog.kt"
-    $expansionKt = Join-Path (Split-Path -Parent $PSScriptRoot) "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalogExpansion.kt"
+    $projRoot = Split-Path -Parent $PSScriptRoot
+    $catalogKt = Resolve-PnsFleetMainKt -FileName "CameraCapabilityCatalog.kt" -ProjectRoot $projRoot
+    $expansionKt = Resolve-PnsFleetMainKt -FileName "CameraCapabilityCatalogExpansion.kt" -ProjectRoot $projRoot
     $map = @{}
     foreach ($path in @($catalogKt, $expansionKt)) {
         if (-not (Test-Path -LiteralPath $path)) { continue }

@@ -6,12 +6,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projRoot = Split-Path -Parent $PSScriptRoot
-$catalogKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalog.kt"
-$expansionKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\fleet\CameraCapabilityCatalogExpansion.kt"
+. (Join-Path $PSScriptRoot "pns_resolve_fleet_paths.ps1")
+$catalogKt = Resolve-PnsFleetMainKt -FileName "CameraCapabilityCatalog.kt" -ProjectRoot $projRoot
+$expansionKt = Resolve-PnsFleetMainKt -FileName "CameraCapabilityCatalogExpansion.kt" -ProjectRoot $projRoot
 $descriptorKt = Join-Path $projRoot "app\src\main\java\dev\pointandshoot\FormatQualityDescriptor.kt"
 
-if (-not (Test-Path -LiteralPath $catalogKt)) { throw "Missing $catalogKt" }
-if (-not (Test-Path -LiteralPath $expansionKt)) { throw "Missing $expansionKt" }
+if (-not (Test-Path -LiteralPath $descriptorKt)) { throw "Missing $descriptorKt" }
 
 $catalogText = Get-Content -LiteralPath $catalogKt -Raw
 $expansionText = Get-Content -LiteralPath $expansionKt -Raw

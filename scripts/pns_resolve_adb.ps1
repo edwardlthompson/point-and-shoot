@@ -83,7 +83,7 @@ if ($CheckOnly.IsPresent -and $mismatch) {
 if ($canonical -and $PrependToPath.IsPresent) {
   $pt = Split-Path -Parent $canonical
   if ($IsLinux -or $IsMacOS) {
-    $env:PATH = "$pt:$env:PATH"
+    $env:PATH = "${pt}:$env:PATH"
   } else {
     $env:PATH = "$pt;$env:PATH"
   }

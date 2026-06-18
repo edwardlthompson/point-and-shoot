@@ -10,17 +10,19 @@
 # USB lane (-IncludeUsb, serial mutex — run capture then chrome sequentially):
 #   6. pns_capture_pipeline_verify.ps1 -Fast
 #   7. pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost
-#   8. pns_eye_af_pixel_gate.ps1 (optional visual)
+#   8. pns_eye_af_pixel_gate.ps1 (optional visual; skip with -SkipEyeAfPixelGate when no face — CRI-032 human)
 #
 # Usage:
 #   .\scripts\pns_prerelease_gate.ps1
 #   .\scripts\pns_prerelease_gate.ps1 -SkipGradle          # host docs/fixture/fdroid/repro only (no Gradle)
 #   .\scripts\pns_prerelease_gate.ps1 -IncludeUsb -Serial <adb-serial>
+#   .\scripts\pns_prerelease_gate.ps1 -IncludeUsb -SkipEyeAfPixelGate
 
 param(
     [switch]$IncludeUsb,
     [string]$Serial = "",
-    [switch]$SkipGradle
+    [switch]$SkipGradle,
+    [switch]$SkipEyeAfPixelGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -125,23 +127,31 @@ try {
 
     # --- USB lane (never parallel capture + chrome on one serial) ---
     if ($IncludeUsb) {
-        $usbArgs = @()
-        if (-not [string]::IsNullOrWhiteSpace($Serial)) {
-            $usbArgs += "-Serial", $Serial
-        }
-
         Invoke-Step "capture_pipeline_verify" {
-            $capArgs = @("-Fast") + $usbArgs
-            & (Join-Path $PSScriptRoot "pns_capture_pipeline_verify.ps1") @capArgs
+            if ([string]::IsNullOrWhiteSpace($Serial)) {
+                & (Join-Path $PSScriptRoot "pns_capture_pipeline_verify.ps1") -Fast
+            } else {
+                & (Join-Path $PSScriptRoot "pns_capture_pipeline_verify.ps1") -Fast -Serial $Serial
+            }
         }
 
         Invoke-Step "chrome_ux_gate" {
-            $chromeArgs = @("-SkipGradle", "-SkipHost") + $usbArgs
-            & (Join-Path $PSScriptRoot "pns_chrome_ux_gate.ps1") @chromeArgs
+            if ([string]::IsNullOrWhiteSpace($Serial)) {
+                & (Join-Path $PSScriptRoot "pns_chrome_ux_gate.ps1") -SkipGradle -SkipHost
+            } else {
+                & (Join-Path $PSScriptRoot "pns_chrome_ux_gate.ps1") -SkipGradle -SkipHost -Serial $Serial
+            }
         }
 
         Invoke-Step "eye_af_pixel_gate" {
-            & (Join-Path $PSScriptRoot "pns_eye_af_pixel_gate.ps1") @usbArgs
+            if ($SkipEyeAfPixelGate) {
+                Write-Host "SKIP: eye_af_pixel_gate (-SkipEyeAfPixelGate; CRI-032 human face-in-frame)"
+                $global:LASTEXITCODE = 0
+            } elseif ([string]::IsNullOrWhiteSpace($Serial)) {
+                & (Join-Path $PSScriptRoot "pns_eye_af_pixel_gate.ps1")
+            } else {
+                & (Join-Path $PSScriptRoot "pns_eye_af_pixel_gate.ps1") -Serial $Serial
+            }
         }
     } else {
         Write-Host ""

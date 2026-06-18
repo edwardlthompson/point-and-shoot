@@ -1484,6 +1484,19 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **USB (CPH2583, 2026-06-17):** `photo_capture_verify_20260617_220239` + `chrome_ux_gate_20260617_220306` — **PASS**.
 
+### Sprint AUDIT-2026-06-18 — CI + TM ship (agent closed)
+
+**Gate:** Tier 0 **8/8** · Tier 2 **PASS** · GitHub **Toolchain verify** + **Security scan** + **CodeQL** (manual dispatch) **PASS** @ `e65baad`.
+
+- [x] **[AGENT] AUDIT.1–3** — `local.properties` / Trivy `@v0.36.0` / `modules/**` CI paths; detekt baseline + `:pns-*:detekt` in Tier 2
+- [x] **[AGENT] AUDIT.4–5** — USB capture + chrome on CPH2583 wireless; `pns_adb_device.env` serial refresh
+- [x] **[AGENT] AUDIT.6** — Sprint TM + bootstrap v0.10 pushed (`78a2ea5`…`e65baad`): `:pns-core/capture/fleet/preview`, batch commands, Linux CI script fixes, parity host fixture
+- [x] **[AGENT] AUDIT.7** — Dependabot Actions PRs #1–#3, #7, #13 closed; versions bumped on `main`
+
+**Follow-up commits:** catalog path resolver (`pns_resolve_fleet_paths.ps1`), `pns_java_home` / `pns_resolve_adb` Linux CI, `tests/fixtures/parity_sweep_host_fixture/`.
+
+**USB (CPH2583, 2026-06-18):** `photo_capture_verify_20260618_013837` + `chrome_ux_gate_20260618_013908`; second audit `photo_capture_verify_20260618_025139` + `chrome_ux_gate_20260618_025206` — **PASS**.
+
 ### Sprint H.CRI-6 — CI & security (agent closed 2026-06-13)
 
 - [x] **[AGENT] CRI-025/026/027/020** — toolchain path filters, keystore SKIP without env, leaderboard workflow_dispatch, Paparazzi policy unchanged

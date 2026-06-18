@@ -1,3 +1,7 @@
+# Python script caches
+__pycache__/
+*.pyc
+
 # Gradle / IntelliJ / Android Studio
 .gradle/
 build/

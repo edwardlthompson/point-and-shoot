@@ -40,6 +40,13 @@ while ($true) {
 
   foreach ($wf in $Required) {
     $wfRuns = @($runs | Where-Object { $_.workflowName -eq $wf })
+    $codeqlFallback = $false
+    if ($wfRuns.Count -eq 0 -and $wf -eq "CodeQL") {
+      $branchRuns = gh run list --repo $Repo --workflow "codeql-analysis.yml" --branch main --limit 5 `
+        --json workflowName,conclusion,status,url,headSha,createdAt | ConvertFrom-Json
+      $wfRuns = @($branchRuns | Where-Object { $_.conclusion -eq "success" } | Select-Object -First 1)
+      if ($wfRuns.Count -gt 0) { $codeqlFallback = $true }
+    }
     if ($wfRuns.Count -eq 0) {
       Write-Host "WAIT ${wf}: no run yet"
       $pending++
@@ -53,7 +60,13 @@ while ($true) {
       $run = $wfRuns | Select-Object -First 1
     }
     switch ($run.conclusion) {
-      "success" { Write-Host "OK   ${wf}: $($run.url)" }
+      "success" {
+        if ($codeqlFallback) {
+          Write-Host "OK   ${wf} (latest main success, not @$ShortRef): $($run.url)"
+        } else {
+          Write-Host "OK   ${wf}: $($run.url)"
+        }
+      }
       { $_ -in @("failure", "cancelled", "timed_out", "action_required") } {
         Write-Host "FAIL ${wf} ($($run.conclusion)): $($run.url)"
         $failed++

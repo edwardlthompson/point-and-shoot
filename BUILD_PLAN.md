@@ -42,23 +42,29 @@ Full index: **`AGENTS.md`**.
 
 ---
 
-## Sprint AUDIT-2026-06-18 — Weekly triage (agent)
+## Sprint AUDIT2-2026-06-18 — Post-ship hygiene (agent)
 
-**Source:** `/audit` · ephemeral [`CODE_REVIEW.md`](CODE_REVIEW.md) (gitignored) · intake **F-001…F-009**.
+**Source:** `/audit` #2 · ephemeral [`CODE_REVIEW.md`](CODE_REVIEW.md) · intake **F-001…F-009**.
 
 | ID | Task | Owner | Status |
 |----|------|-------|--------|
-| **AUDIT.1** | CI: `local.properties` + Trivy `@v0.36.0` + `modules/**` path filters | [AGENT] | ✅ done locally — **push to `main`** |
-| **AUDIT.2** | Detekt: module baseline drift (`LeafDngHalReconcile`, `BracketPattern`, `Legacy*` renames) | [AGENT] | ✅ done |
-| **AUDIT.3** | Tier 2: wire `:pns-*:detekt` in `pns_verify_toolchain.ps1` | [AGENT] | ✅ done |
-| **AUDIT.4** | USB CPH2583: capture → chrome (wireless serial `adb-b5214fc6-…`) | [AGENT] | ✅ `photo_capture_verify_20260618_013837` · `chrome_ux_gate_20260618_013908` |
-| **AUDIT.5** | Refresh `scripts/pns_adb_device.env` → live wireless serial | [AGENT] | ✅ done |
-| **AUDIT.6** | Git: stage + commit TM modularization + CI (no duplicate `??` fleet copies) | [AGENT] | ✅ pushed `main` @ `57171ef` |
-| **AUDIT.7** | Dependabot: merge Actions bumps after CI green | [AGENT] | ✅ closed PRs #1–#3, #7, #13; bumped on main |
+| **AUDIT2.1** | CodeQL workflow: add `scripts/**` + `tests/fixtures/**` path filters | [AGENT] | ✅ |
+| **AUDIT2.2** | `pns_check_github_ci.ps1`: CodeQL fallback when commit has no CodeQL run | [AGENT] | ✅ |
+| **AUDIT2.3** | Gradle Dependabot PRs #4, #8, #9, #11, #12 (AGP 9 / Gradle 9.5 / CameraX / Compose) | [AGENT] | ⬜ deferred — separate sprint |
+| **AUDIT2.4** | `dng_aesthetic_gate` host self-test triage (informational scene delta) | [AGENT] | ⬜ backlog |
+| **AUDIT2.5** | `.gitignore` — `scripts/__pycache__/` | [AGENT] | ✅ |
 
-**GitHub CI (2026-06-18 @ `57171ef`):** Toolchain verify **PASS** · Security scan **PASS** · CodeQL **PASS** (manual dispatch).
+**Host (2026-06-18):** Tier 0 **8/8** · Tier 2 **PASS** · `pns_check_github_ci.ps1` **PASS** @ `e65baad`.
 
-**Host (2026-06-18):** Tier 0 **8/8** · Tier 2 **PASS** · all `:pns-*:detekt` **PASS**.
+**USB (2026-06-18):** `photo_capture_verify_20260618_025139` · `chrome_ux_gate_20260618_025206` — **PASS**.
+
+**Prior sprint archived:** [AUDIT-2026-06-18](BUILD_PLAN_COMPLETED.md#sprint-audit-2026-06-18--ci--tm-ship-agent-closed).
+
+---
+
+## Sprint AUDIT-2026-06-18 — Weekly triage ✅ CLOSED
+
+Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT-2026-06-18](BUILD_PLAN_COMPLETED.md#sprint-audit-2026-06-18--ci--tm-ship-agent-closed).
 
 ---
 
@@ -93,7 +99,7 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
 
-**Last CPH2583 USB (2026-06-18):** audit — capture `photo_capture_verify_20260618_013837` + chrome `chrome_ux_gate_20260618_013908` **PASS** (wireless ADB).
+**Last CPH2583 USB (2026-06-18):** audit #2 — capture `photo_capture_verify_20260618_025139` + chrome `chrome_ux_gate_20260618_025206` **PASS** (wireless ADB).
 
 ---
 
@@ -207,7 +213,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction + T.14 
 
 ## Document control
 
-- **Version:** 2026-06-17 — H.HYGIENE closed; Tier 2 green; human Milestone H remains.
+- **Version:** 2026-06-18 — AUDIT-2026-06-18 archived; AUDIT2 hygiene closed; human Milestone H remains.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

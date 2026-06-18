@@ -6,6 +6,8 @@ on:
     paths:
       - 'app/**'
       - 'modules/**'
+      - 'scripts/**'
+      - 'tests/fixtures/**'
       - 'native/**'
       - 'gradle/**'
       - 'build.gradle.kts'
@@ -16,6 +18,8 @@ on:
     paths:
       - 'app/**'
       - 'modules/**'
+      - 'scripts/**'
+      - 'tests/fixtures/**'
       - 'native/**'
       - 'gradle/**'
       - 'build.gradle.kts'

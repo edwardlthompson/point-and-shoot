@@ -4,14 +4,14 @@
 
 ---
 
-## Current focus (updated 2026-06-18 — `/audit` + Sprint AUDIT)
+## Current focus (updated 2026-06-18 — `/audit` #2)
 
 | Field | Value |
 |-------|--------|
 | **Active milestone** | **H** — human & publication |
-| **Active sprint** | **AUDIT-2026-06-18** — CI fixes + TM commit hygiene |
-| **Primary USB device** | OnePlus 12 **CPH2583** — Wi‑Fi ADB `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp` (update `scripts/pns_adb_device.env`) |
-| **Agent lanes closed** | **H.CRI-5**, **T.14**, **H.HYGIENE**, **AUDIT.1–4** (local) |
+| **Active sprint** | **AUDIT2-2026-06-18** — post-ship CI hygiene (agent items closed) |
+| **Primary USB device** | OnePlus 12 **CPH2583** — Wi‑Fi ADB `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp` (`scripts/pns_adb_device.env`) |
+| **Agent lanes closed** | **H.CRI-5**, **T.14**, **H.HYGIENE**, **AUDIT-2026-06-18**, **AUDIT2.1–2, AUDIT2.5** |
 
 ## Last gates (2026-06-18)
 
@@ -20,33 +20,33 @@
 | `pns_validate_bootstrap.ps1` | **PASS** | Template 0.10.0, batch commands |
 | `pns_local_dev_parallel.ps1` | **PASS** | Tier 0 — 8/8 |
 | `pns_verify_toolchain.ps1 -RunTests` | **PASS** | detekt, lint, JVM tests, Kover |
-| `:pns-*:detekt` | **PASS** | After baseline patch (LeafDngFleetPolicies) |
-| `pns_capture_pipeline_verify.ps1` | **PASS** | `hfr-runs/photo_capture_verify_20260618_013837` |
-| `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_013908` |
-| GitHub CI (`main`) | **PASS** | Toolchain + Security + CodeQL (manual dispatch) |
+| `:pns-*:detekt` | **PASS** | Wired in Tier 2 |
+| `pns_capture_pipeline_verify.ps1` | **PASS** | `hfr-runs/photo_capture_verify_20260618_025139` |
+| `pns_chrome_ux_gate.ps1` | **PASS** | `hfr-runs/chrome_ux_gate_20260618_025206` |
+| `pns_check_github_ci.ps1` | **PASS** | Toolchain + Security @ `e65baad`; CodeQL fallback |
+| GitHub Dependabot alerts | **0** open | 5 Gradle PRs deferred (#4, #8, #9, #11, #12) |
 
 ## Open blockers
 
 | ID | Area | Status |
 |----|------|--------|
-| **AUDIT.6** | Git | Large uncommitted TM + CI worktree — needs integration commit + push |
-| **AUDIT.5** | ADB env | `pns_adb_device.env` still has stale `192.168.1.2:44891` |
 | **CRI-032…035** | Human | Eye-AF face, DCG colors, store/PRIVACY, OP13 ACR |
 | **H.9** | Release | Owner sign-off → `pns_github_release.ps1` |
+| **AUDIT2.3** | Dependencies | Gradle 9.5 / AGP / CameraX / Compose — separate sprint |
+| **AUDIT2.4** | Host | `dng_aesthetic_gate` informational scene delta |
 
 ## Backlog (not ship blockers on CPH2583)
 
-- `dng_aesthetic_gate` host self-test
 - Lint baseline ~170 warnings
-- Dependabot **13** open PRs (merge Actions after CI green)
-- Gradle 9.5 / major AGP — separate sprint
+- Branch protection optional (required checks on `main`)
+- ADR-0009 deferred: full PreviewEngineScreen / RawCaptureSupport extraction
 
 ## Immediate next steps
 
-1. **[AGENT]** Commit + push CI workflow fixes + TM modularization (AUDIT.6)
-2. **[AGENT]** Update `pns_adb_device.env` wireless serial (AUDIT.5)
-3. **[HUMAN]** Milestone H checklist + Dependabot triage after CI green
+1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + **H.9** release sign-off
+2. **[AGENT]** When approved: Gradle Dependabot sprint (**AUDIT2.3**) with Tier 2 + USB per bump
+3. **[AGENT]** Optional: triage `dng_aesthetic_gate` fixture expectations (**AUDIT2.4**)
 
 ---
 
-**Document control:** 2026-06-18 — `/audit` session; refresh at Milestone H closure or next audit.
+**Document control:** 2026-06-18 — `/audit` #2 closure; refresh at Milestone H ship or next audit.

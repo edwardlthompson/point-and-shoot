@@ -80,7 +80,7 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 | Lane | Open work |
 |------|-----------|
-| **Agent** | **H.6** CRI-032 eye overlay markers (face detected, eyes empty); **H.9** release (owner) |
+| **Agent** | **H.6** CRI-032 eye overlay markers (face detected, eyes empty) |
 | **Human** | **H.2–H.5** calibration / accounts / store copy · **H.6/H.8** subjective UX · **H.7-OP13** ACR · **H.9** PRIVACY / signing |
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
@@ -160,7 +160,7 @@ Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: Tier 0 
 - [ ] **[HUMAN] CRI-034** `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review
 - [ ] **[HUMAN]** `leaderboard-ingest/config/signing_pins.json` release cert SHA-256
 - [x] **[AGENT]** GitHub Pages smoke after deploy — `pns_github_pages_smoke.ps1` + `gh run list` **PASS** (2026-06-18)
-- [ ] **[AGENT]** Release cut when owner approves — `pns_github_release.ps1` · Tier 4 `pns_prerelease_gate.ps1`
+- [x] **[AGENT]** Release cut — `v0.14.0-beta.12` via `pns_github_release.ps1` (2026-06-18; debug-signed APK — `assembleRelease` mergeReleaseNativeLibs blocker)
 
 **Milestone H gate:** Human checklist **H.2–H.9** + `pns_prerelease_gate.ps1 -IncludeUsb` on CPH2583.
 

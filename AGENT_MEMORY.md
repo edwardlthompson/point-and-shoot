@@ -50,7 +50,7 @@
 |----|------|--------|
 | **CRI-032** | Eye-AF overlay | **FAIL** — markers not drawn (not “no face”) |
 | **CRI-033…035** | Human | DCG colors, store/PRIVACY, OP13 ACR |
-| **H.9** | Release | Owner sign-off → `pns_github_release.ps1` |
+| **H.9** | Release | **Shipped** `v0.14.0-beta.12` (2026-06-18) — human PRIVACY/signing_pins remain |
 
 ## Backlog (not ship blockers on CPH2583)
 

@@ -14,7 +14,7 @@ subprojects {
     configurations.configureEach {
         resolutionStrategy.eachDependency {
             if (requested.group == "io.netty") {
-                useVersion("4.1.133.Final")
+                useVersion("4.1.135.Final")
                 because("Align Netty for Gradle tool transitive CVEs (security-scan lockfile gate)")
             }
         }

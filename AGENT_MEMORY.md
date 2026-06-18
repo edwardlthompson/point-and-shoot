@@ -52,7 +52,7 @@
 ## Immediate next steps
 
 1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + **H.9** release sign-off
-2. **[AGENT]** CI installs `platforms;android-37.0` + `android-37` symlink (sdkmanager naming quirk)
+2. **[AGENT]** CodeQL job pins Kotlin **2.3.21** at build time until github/codeql#21938 (ship **2.4.0** on `main`)
 
 ---
 

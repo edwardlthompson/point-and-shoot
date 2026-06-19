@@ -62,5 +62,5 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.org.json)
-    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito:mockito-core:5.23.0")
 }

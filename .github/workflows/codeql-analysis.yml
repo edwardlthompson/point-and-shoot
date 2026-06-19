@@ -86,7 +86,7 @@ jobs:
         run: sed -i 's/kotlin = "2.4.0"/kotlin = "2.3.21"/g' gradle/libs.versions.toml
 
       - name: Build debug APK for CodeQL extraction
-        run: ./gradlew clean :app:assembleDebug --no-daemon --no-build-cache -PpnsSkipDependencyLocking
+        run: ./gradlew clean :app:assembleDebug --no-daemon --no-build-cache -PpnsSkipDependencyLocking=true
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3

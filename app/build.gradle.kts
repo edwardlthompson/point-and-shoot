@@ -285,8 +285,8 @@ dependencies {
 }
 
 // Milestone T.11 — Gradle dependency locking for libs.versions.toml catalog.
-// CodeQL CI pins Kotlin 2.3.21 while the lockfile holds 2.4.0 — pass -PpnsSkipDependencyLocking there.
-if (project.findProperty("pnsSkipDependencyLocking") != "true") {
+// CodeQL CI pins Kotlin 2.3.21 while the lockfile holds 2.4.0 — pass -PpnsSkipDependencyLocking=true there.
+if (project.findProperty("pnsSkipDependencyLocking")?.toString() != "true") {
     configurations.configureEach {
         if (isCanBeResolved) {
             resolutionStrategy.activateDependencyLocking()

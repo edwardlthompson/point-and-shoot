@@ -1,0 +1,1 @@
+EXIF privacy strip for JPEG stills; SAF JSON settings backup (export/import). Milestone 28 Wave A capture verification lane.

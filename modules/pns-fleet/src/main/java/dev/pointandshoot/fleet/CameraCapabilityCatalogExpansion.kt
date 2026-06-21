@@ -16,6 +16,7 @@ object CameraCapabilityCatalogExpansion {
         visibility: CameraCapabilityCatalog.VisibilityPolicy = CameraCapabilityCatalog.VisibilityPolicy.HideWhenUnavailable,
         sweepSkip: String? = null,
         proofScript: String? = null,
+        buildPlanSprint: String? = null,
     ): CameraCapabilityCatalog.CatalogRow =
         CameraCapabilityCatalog.CatalogRow(
             id = id,
@@ -28,6 +29,7 @@ object CameraCapabilityCatalogExpansion {
             visibilityPolicy = visibility,
             sweepSkipReason = sweepSkip,
             parityProofScript = proofScript,
+            buildPlanSprint = buildPlanSprint,
         )
 
     fun expandedRows(): List<CameraCapabilityCatalog.CatalogRow> = buildList {
@@ -50,9 +52,9 @@ object CameraCapabilityCatalogExpansion {
             for ((tierId, tierLabel) in tiers) {
                 val status =
                     when {
-                        codecId == "vp9" -> CameraCapabilityCatalog.AppStatus.Partial
-                        codecId == "av1" && tierId == "8k" -> CameraCapabilityCatalog.AppStatus.Partial
-                        codecId == "h264" || codecId == "hevc" -> CameraCapabilityCatalog.AppStatus.Shipped
+                        codecId == "av1" -> CameraCapabilityCatalog.AppStatus.Partial
+                        codecId == "h264" || codecId == "hevc" || codecId == "vp9" ->
+                            CameraCapabilityCatalog.AppStatus.Shipped
                         else -> CameraCapabilityCatalog.AppStatus.Partial
                     }
                 val proofScript =
@@ -83,9 +85,10 @@ object CameraCapabilityCatalogExpansion {
                     "Video",
                     CameraCapabilityCatalog.SourceLayer.Camera2,
                     "hfr $fps",
-                    CameraCapabilityCatalog.AppStatus.Partial,
+                    CameraCapabilityCatalog.AppStatus.Shipped,
                     surfacing = listOf("fps_rail"),
                     proofScript = "pns_hfr_fps_parity_verify.ps1",
+                    buildPlanSprint = "30.2",
                 ),
             )
         }
@@ -94,11 +97,11 @@ object CameraCapabilityCatalogExpansion {
             listOf(
                 Triple("jpeg", CameraCapabilityCatalog.AppStatus.Shipped, null),
                 Triple("avif", CameraCapabilityCatalog.AppStatus.Shipped, null),
-                Triple("jxl", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
+                Triple("jxl", CameraCapabilityCatalog.AppStatus.Shipped, "pns_still_export_verify.ps1"),
                 Triple("dng", CameraCapabilityCatalog.AppStatus.Shipped, null),
-                Triple("heic", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
-                Triple("tiff16", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
-                Triple("motion_photo", CameraCapabilityCatalog.AppStatus.Partial, "pns_still_export_verify.ps1"),
+                Triple("heic", CameraCapabilityCatalog.AppStatus.Shipped, "pns_still_export_verify.ps1"),
+                Triple("tiff16", CameraCapabilityCatalog.AppStatus.Shipped, "pns_still_export_verify.ps1"),
+                Triple("motion_photo", CameraCapabilityCatalog.AppStatus.Shipped, "pns_still_export_verify.ps1"),
                 Triple("monochrome_sensor", CameraCapabilityCatalog.AppStatus.ProbeOnly, null),
             )
         for ((fmt, st, script) in stillFormats) {
@@ -289,7 +292,16 @@ object CameraCapabilityCatalogExpansion {
         add(row("fleet.macro_benchmark_export", "Fleet macro benchmark CSV", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial, surfacing = listOf("engineering_hub")))
         add(row("workflow.presets_from_matrix", "Workflow presets from matrix", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial))
         add(row("preview.ae_lock", "Preview AE lock", "Preview HUD", surfacing = listOf("qs_grid")))
-        add(row("still.independent_tonal", "Independent tonal still", "Still capture", status = CameraCapabilityCatalog.AppStatus.Partial, proofScript = "pns_independent_tonal_verify.ps1"))
+        add(
+            row(
+                "still.independent_tonal",
+                "Independent tonal still",
+                "Still capture",
+                status = CameraCapabilityCatalog.AppStatus.Shipped,
+                proofScript = "pns_independent_tonal_verify.ps1",
+                buildPlanSprint = "30.1",
+            ),
+        )
         add(row("video.side_panels", "Video side panels", "Video", status = CameraCapabilityCatalog.AppStatus.Shipped))
         add(row("fleet.regression_pack", "Fleet regression pack", "Fleet", status = CameraCapabilityCatalog.AppStatus.Shipped, surfacing = listOf("engineering_hub")))
         add(row("tether.nsd", "NSD tether registrar", "Fleet", status = CameraCapabilityCatalog.AppStatus.Partial))

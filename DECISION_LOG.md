@@ -13,6 +13,7 @@ One-page index of [Architecture Decision Records](docs/adr/README.md). **Append 
 | [0007](docs/adr/0007-code-style-gate.md) | 2026-06-12 | Detekt-only style; Kover 40% scoped floor; no androidTest | Accepted |
 | [0008](docs/adr/0008-mock-mode-cold-restart.md) | 2026-06-12 | Gallery-return cold restart; defer T.14 mock mode | Accepted |
 | [0009](docs/adr/0009-modular-boundaries.md) | 2026-06-17 | Gradle `modules/pns-*` libraries; hub UI + capture session glue stays in `:app` | Accepted |
+| [0010](docs/adr/0010-extension-handoff-wave-c.md) | 2026-06-20 | Isolated extension handoff for Wave C HDR/AUTO (no inline session merge) | Accepted |
 
 **Related (not ADRs):** regression ledger [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) · curated index [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) · active plan [`BUILD_PLAN.md`](BUILD_PLAN.md) Milestone H + **H.CRI-0…7**.
 

@@ -22,6 +22,17 @@ function Write-Verify([string]$msg) {
   Write-Host "`[verify] $msg"
 }
 
+function Resolve-PnsPowerShellHost {
+  # Prefer full paths — minimal PATH shells (Cursor agent, CI) often lack pwsh/powershell aliases.
+  $pwshExe = Join-Path $PSHOME 'pwsh.exe'
+  if (Test-Path -LiteralPath $pwshExe) { return $pwshExe }
+  $winPsExe = Join-Path $PSHOME 'powershell.exe'
+  if (Test-Path -LiteralPath $winPsExe) { return $winPsExe }
+  if (Get-Command pwsh -ErrorAction SilentlyContinue) { return (Get-Command pwsh).Source }
+  if (Get-Command powershell -ErrorAction SilentlyContinue) { return (Get-Command powershell).Source }
+  return $null
+}
+
 function Test-AsciiLikeSourceByte([byte]$x) {
   return ($x -ge 0x20 -and $x -le 0x7E) -or ($x -in @(0x09, 0x0A, 0x0D))
 }
@@ -224,7 +235,7 @@ if (Test-Path -LiteralPath $perfBudgetGate) {
     [void]$report.Add("FAIL: performance budget drift (run pns_perf_budget_host_gate.ps1 for details)")
     $failed = $true
   } else {
-    [void]$report.Add("OK: performance budget drift (PerfBudget.kt ↔ PERFORMANCE_BUDGETS.md)")
+    [void]$report.Add('OK: performance budget drift (PerfBudget.kt <-> PERFORMANCE_BUDGETS.md)')
   }
 } else {
   [void]$report.Add("SKIP: performance budget drift (pns_perf_budget_host_gate.ps1 missing)")
@@ -253,7 +264,8 @@ $auditPaths = @()
 $auditPaths += Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File -ErrorAction SilentlyContinue |
   Where-Object {
     ($_.Name -like '*.gradle' -or $_.Name -like '*.gradle.kts') -and
-    ($_.FullName.Replace('\','/').ToLowerInvariant() -notmatch '/(build|\.gradle|_gradle_extract)/')
+    ($_.FullName.Replace('\','/').ToLowerInvariant() -notmatch '/(build|\.gradle|_gradle_extract)/') -and
+    ($_.FullName.Replace('\','/').ToLowerInvariant() -notmatch '/hfr-runs/camera_benchmark_')
   }
 $catalog = Join-Path $ProjectRoot "gradle/libs.versions.toml"
 if (Test-Path -LiteralPath $catalog) { $auditPaths += Get-Item -LiteralPath $catalog }
@@ -283,8 +295,11 @@ foreach ($f in $auditPaths) {
 $licenseScript = Join-Path $PSScriptRoot "pns_license_inventory.ps1"
 if (Test-Path -LiteralPath $licenseScript) {
   Write-Verify "License inventory drift check"
-  & pwsh -NoProfile -ExecutionPolicy Bypass -File $licenseScript -ProjectRoot $ProjectRoot | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  $licensePs = Resolve-PnsPowerShellHost
+  if ($licensePs) {
+    & $licensePs -NoProfile -ExecutionPolicy Bypass -File $licenseScript -ProjectRoot $ProjectRoot | Out-Null
+  }
+  if (-not $licensePs -or $LASTEXITCODE -ne 0) {
     [void]$report.Add("FAIL: license inventory drift (run pns_license_inventory.ps1 manually for details)")
     $failed = $true
   } else {
@@ -301,8 +316,11 @@ if (Test-Path -LiteralPath $licenseScript) {
 $sbomScript = Join-Path $PSScriptRoot "pns_sbom.ps1"
 if (Test-Path -LiteralPath $sbomScript) {
   Write-Verify "CycloneDX SBOM emit + structural verify"
-  & pwsh -NoProfile -ExecutionPolicy Bypass -File $sbomScript -ProjectRoot $ProjectRoot -Verify | Out-Null
-  if ($LASTEXITCODE -ne 0) {
+  $sbomPs = Resolve-PnsPowerShellHost
+  if ($sbomPs) {
+    & $sbomPs -NoProfile -ExecutionPolicy Bypass -File $sbomScript -ProjectRoot $ProjectRoot -Verify | Out-Null
+  }
+  if (-not $sbomPs -or $LASTEXITCODE -ne 0) {
     [void]$report.Add("FAIL: SBOM emit/verify (run pns_sbom.ps1 -Verify manually for details)")
     $failed = $true
   } else {

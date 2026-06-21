@@ -18,8 +18,7 @@ Curated map of **canonical docs → code → gates**. Index only — do not dupl
 | Reproducible builds | [docs/REPRODUCIBLE_BUILDS.md](docs/REPRODUCIBLE_BUILDS.md) | Lockfile, SOURCE_DATE_EPOCH, LUT pins · `pns_repro_build_verify.ps1` |
 | Code review planning intake | [docs/CODE_REVIEW_PLANNING_INTAKE.md](docs/CODE_REVIEW_PLANNING_INTAKE.md) | Full-project audit `CRI-*` rows for sprint promotion |
 | Multi-agent parallel | [docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md](docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md) | Worktrees, schema lock · `pns_agent_worktree_bootstrap.ps1` |
-
-**Stack:** Kotlin 2.1+, Jetpack Compose, Camera2, NDK (C++23). Min/target/compile SDK 28 / 36 / 36. No Play Services / Firebase in Gradle (FOSS audit in `pns_verify_toolchain.ps1`).
+| M28 peer benchmark | [BUILD_PLAN.md](BUILD_PLAN.md) Milestone 28 · [docs/CAMERA_APP_PIPELINE_BENCHMARK.md](docs/CAMERA_APP_PIPELINE_BENCHMARK.md) (Sprint 28.0) | `pns_camera_app_pipeline_scan.ps1` | Kotlin 2.1+, Jetpack Compose, Camera2, NDK (C++23). Min/target/compile SDK 28 / 36 / 36. No Play Services / Firebase in Gradle (FOSS audit in `pns_verify_toolchain.ps1`).
 
 ---
 

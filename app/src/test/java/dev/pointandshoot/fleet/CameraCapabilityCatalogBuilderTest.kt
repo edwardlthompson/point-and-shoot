@@ -18,8 +18,8 @@ class CameraCapabilityCatalogBuilderTest {
     }
 
     @Test
-    fun catalogVersion_isV3() {
-        assertEquals(3, CameraCapabilityCatalog.CATALOG_VERSION)
+    fun catalogVersion_isV6() {
+        assertEquals(6, CameraCapabilityCatalog.CATALOG_VERSION)
     }
 
     @Test

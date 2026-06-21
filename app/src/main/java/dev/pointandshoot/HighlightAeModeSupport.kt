@@ -24,7 +24,7 @@ import android.util.Log
  */
 object HighlightAeModeSupport {
 
-    private const val TAG = "PNS.HighlightAe"
+    const val TAG = "PNS.HighlightAe"
 
     private val highlightWeightedAeMode: Int? by lazy {
         resolveOptionalIntField(CaptureRequest::class.java, "CONTROL_AE_MODE_ON_HIGHLIGHT_WEIGHTED")

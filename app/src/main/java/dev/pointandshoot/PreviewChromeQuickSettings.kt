@@ -235,6 +235,15 @@ fun QuickSettingsRailSheetContent(
                 }
             },
         )
+        PreviewRailSettingToggle(
+            title = "Strip EXIF privacy tags",
+            subtitle = "Remove GPS, device make/model, and timestamps from new still JPEG exports.",
+            checked = chrome.stripExifPrivacyTags,
+            onCheckedChange = { on ->
+                chromePrefs.updateMutate { it.copy(stripExifPrivacyTags = on) }
+            },
+            settingKey = "privacy.exif_strip",
+        )
         PreviewRailSectionTitle("Stabilization")
         if (FleetUiVisibilityGate.visible("lens.ois", visibilityCtx)) {
         PreviewRailSettingToggle(

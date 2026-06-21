@@ -34,6 +34,19 @@
 
 ## Active entries
 
+### REG-20260620-001 — Pure-HAL DNG save (global default)
+
+- **Status:** active
+- **Area:** dng
+- **Symptom:** App color surgery (ASN/CM/FM/50708, capture-time IQ) masked HAL/`DngCreator` truth; H dial could look like Auto when reflected SDK highlight AE preempted software EV comp.
+- **Cause:** `LeafDngHalReconcile` / 50708 / color IQ on RAW stills; fleet visibility reset ADB `pns_preview_dial=H` to Auto before session create.
+- **Fix shipped:** `PureHalDngSavePolicy.ENABLED`; `Dng12Saver` direct `writeImage` + `dng save path=pure_hal`; keep `applyToDngUri`; H YUV when face pipeline suppressed; hardware H-AE only on root vendor-extra opt-in; `pns_highlight_meter_verify.ps1`.
+- **Do not:** Re-enable post-save TIFF reconcile, 50708, or RAW still `StillCaptureIqPolicy` / `LegacyLeafStillColorCorrection` without maintainer sign-off + USB `pns_aux_dng_capture_analyze.ps1` integrity/open gates.
+- **Proves OK:** `pns_capture_pipeline_verify.ps1` (`capture_pipeline_gate_20260620_031303`); `pns_aux_dng_capture_analyze.ps1` (`aux_dng_capture_analyze_20260620_032954` — `DNG INTEGRITY: PASS`, desktop open PASS); `pns_highlight_meter_verify.ps1` (`highlight_meter_verify_20260619_231827`); Tier 2 `pns_verify_toolchain.ps1 -RunTests` PASS.
+- **Also test:** `pns_chrome_ux_gate.ps1` when touching preview AE/YUV; never `ExifInterface.saveAttributes()` on DNG.
+- **Touches:** `PureHalDngSavePolicy.kt`, `Dng12Saver.kt`, `PreviewEngineScreen.kt`, `PreviewSessionRegularOutputsPolicy.kt`, `ReferenceAppPipelineContract.kt`
+- **Conflicts with:** Re-enabling R3/R4 bisect locks without fresh ACR proof (`docs/DNG_OPENABILITY_REGRESSIONS.md`)
+
 ### REG-20260605-003 — M25 resolution betrayal rows promoted to ship-blocker
 
 - **Status:** active

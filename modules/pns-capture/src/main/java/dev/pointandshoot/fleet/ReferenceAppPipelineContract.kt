@@ -1,6 +1,7 @@
 package dev.pointandshoot.fleet
 
 import dev.pointandshoot.LeafDngFleetPolicies
+import dev.pointandshoot.PureHalDngSavePolicy
 
 /**
  * Sprint **13.3g** — documents what “Standard / ReferenceCam” still save means on LegacyDevice.
@@ -10,6 +11,7 @@ object ReferenceAppPipelineContract {
 
     /** Leaf DNG: framework [android.hardware.camera2.DngCreator] only (no post-save TIFF reconcile). */
     fun leafPostSaveTiffReconcileEnabled(sessionCameraId: String): Boolean {
+        if (PureHalDngSavePolicy.ENABLED) return false
         if (!LeafDngFleetPolicies.active.appliesToDevice()) return false
         if (!LeafDngFleetPolicies.active.useReferenceAppPureDngSave()) return true
         if (LeafDngFleetPolicies.active.useWideLeafCalibrationForAuxDng() &&

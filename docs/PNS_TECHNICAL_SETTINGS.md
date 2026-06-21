@@ -85,7 +85,9 @@
 | FPS | `desiredFps < 120` | YUV analysis surface attached; at **120 fps** default, H **does not** get YUV highlight path |
 | YUV reader | Non-null `yuvImageReader` | Session must include analysis stream |
 
-**Hardware H-AE:** If `HighlightAeModeSupport.supportsHardwareHighlightForHMode` and vendor prefs allow, HAL highlight AE may be used instead of YUV EV comp (`usesHardwareHighlightAe`).
+**Hardware H-AE:** Only when **root vendor-extra opt-in** is enabled (`VendorHighlightAePrefs` + SU grant). Reflected SDK `CONTROL_AE_MODE_ON_HIGHLIGHT_WEIGHTED` alone uses the **software** YUV EV path (`usesHardwareHighlightAe` false). Log tag **`PNS.HighlightAe`**: `path=vendor_extra` when hardware mode is selected.
+
+**YUV when face pipeline suppressed:** H dial + fps &lt; 120 still attaches the analysis YUV stream even when `automationSuppressFacePipeline` (bracket automation); QR/face/histogram paths remain gated. Code: `PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis`.
 
 ### 2.2 YUV highlight pipeline (software path)
 
@@ -256,7 +258,11 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 **Diagnostics:** `Log.i(PNS.CaptureStill, "dng save diag …")` with `DngMetadataResolution.toDiagSummary()`.
 
-**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). `StillCaptureMetadata.applyToDngUri` → `TiffExifSubIfdCapturePatch` **in-place only** — never `ExifInterface.saveAttributes()` on DNG (loadability lock). On legacy device rear leaf (**2/3/4**), `skipStillMetadataApplyOnLeafDng` skips post-save EXIF patches (ReferenceCam parity). Leaf DNGs also skip P&S software auxiliary strings (`skipDngSoftwareDescriptionOnLeaf`).
+**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). **`PureHalDngSavePolicy` (global default, 2026-06-19):** direct `DngCreator.writeImage` — no post-save ASN/CM/FM reconcile, no tag **50708** / LUT `setDescription` line; log `dng save path=pure_hal`. **`StillCaptureMetadata.applyToDngUri`** remains (in-place Make/Model/EXIF only — never `ExifInterface.saveAttributes()` on DNG). Capture-time color IQ on RAW stills (`StillCaptureIqPolicy`, `LegacyLeafStillColorCorrection`, `RawStillProcessingHints.applyLinearRawFriendlyProcessing`) skipped when pure-HAL policy is on.
+
+**EXIF privacy strip (Sprint 29.1):** `PreviewChromePreferences.stripExifPrivacyTags` (Settings rail **`privacy.exif_strip`**). When enabled, JPEG still saves on the **`PNS.Reader`** encode lane run `JpegExifPrivacyStrip` after metadata apply (removes GPS, make/model, software, timestamps, user comment); DNG `applyToDngUri` is skipped. ADB seed: `--ez pns_preview_strip_exif true`. Gate: `scripts/pns_exif_strip_verify.ps1`.
+
+**Legacy leaf note:** On legacy device rear leaf (**2/3/4**), `skipStillMetadataApplyOnLeafDng` is bypassed when pure-HAL is on so `applyToDngUri` still runs. Leaf DNGs also skip P&S software auxiliary strings (`skipDngSoftwareDescriptionOnLeaf`) when not pure-HAL.
 
 **legacy device leaf DNG (shipped May 2026):** `ReferenceAppLeafStillCaptureRequest` + `ReferenceAppDngCreatorPair` mirror ReferenceCam decompile: crop + still IQ (lens shading map, edge/NR/tonemap/aberration/distortion) + **HAL AE** on still — **no** readout manual ISO, no `applyReferenceAppPreviewExposureFromResult` AE latch, no post-save TIFF reconcile. Code: `useExactReferenceAppLeafStillCaptureRequest()`, `useLegacyLeafAuxColorReconcile=false`, `useReferenceAppReferenceCalibration=false`.
 

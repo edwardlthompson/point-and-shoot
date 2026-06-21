@@ -366,6 +366,16 @@ elseif ($formatMode) {
     )
 }
 
+function Test-PhotoCaptureSuccessHaystack([string]$Haystack) {
+    if ([string]::IsNullOrEmpty($Haystack)) { return $false }
+    if ($monoModeActive) {
+        return $Haystack.Contains("MONO_FALLBACK_SNAPSHOT_SAVED") -or
+            $Haystack.Contains("captureComposedStill composed_smoke ok=true") -or
+            $Haystack.Contains("captureIndependentTonalStill composed_smoke ok=true saved=")
+    }
+    return $Haystack.Contains($successNeedle)
+}
+
 $seedList = if ($SweepCameraIds) { @("", "0", "1", "2", "3") } else { @("") }
 
 foreach ($camSeed in $seedList) {
@@ -429,7 +439,7 @@ foreach ($camSeed in $seedList) {
             continue
         }
 
-        Write-Host "[photo_capture_verify] polling up to ${WaitSec}s for scripted RAW still + save..."
+        Write-Host "[photo_capture_verify] polling up to ${WaitSec}s for scripted capture + save..."
         $deadline = (Get-Date).AddSeconds($WaitSec)
         $pollHaystack = ""
         $capturedEarly = $false
@@ -442,7 +452,7 @@ foreach ($camSeed in $seedList) {
                 Write-Warning "[photo_capture_verify] poll logcat failed: $_"
                 $pollHaystack = ""
             }
-            if ($pollHaystack.Contains($successNeedle)) {
+            if (Test-PhotoCaptureSuccessHaystack $pollHaystack) {
                 $capturedEarly = $true
                 Write-Host "[photo_capture_verify] success needle seen during poll"
                 break
@@ -495,7 +505,7 @@ foreach ($camSeed in $seedList) {
         $needTagFallback = (-not (Test-Path -LiteralPath $rawPath)) -or ((Get-Item -LiteralPath $rawPath).Length -eq 0)
         if (-not $needTagFallback -and (Test-Path -LiteralPath $rawPath)) {
             $snip = [System.IO.File]::ReadAllText($rawPath, [System.Text.UTF8Encoding]::new($false))
-            if ($snip -notmatch [regex]::Escape($successNeedle)) {
+            if ($snip -notmatch [regex]::Escape($successNeedle) -and -not (Test-PhotoCaptureSuccessHaystack $snip)) {
                 Write-Warning "[photo_capture_verify] pid log missing success needle; tag-filter fallback"
                 $needTagFallback = $true
                 Remove-Item -LiteralPath $rawPath -ErrorAction SilentlyContinue
@@ -549,7 +559,7 @@ foreach ($camSeed in $seedList) {
         }
 
         $haystack = if ($fullText.Length -gt 0) { $fullText } else { $logText }
-        if ($capturedEarly -and $pollHaystack.Length -gt 0 -and -not $haystack.Contains($successNeedle)) {
+        if ($capturedEarly -and $pollHaystack.Length -gt 0 -and -not (Test-PhotoCaptureSuccessHaystack $haystack)) {
             $haystack = $pollHaystack + "`n" + $haystack
             if ($logText.Length -gt 0) {
                 $logText = $pollHaystack + "`n" + $logText
@@ -559,13 +569,7 @@ foreach ($camSeed in $seedList) {
             }
             [System.IO.File]::WriteAllText($attemptPath, $logText, [System.Text.UTF8Encoding]::new($false))
         }
-        $ok =
-            if ($monoModeActive) {
-                $haystack.Contains("MONO_FALLBACK_SNAPSHOT_SAVED") -or
-                    $haystack.Contains("captureIndependentTonalStill composed_smoke ok=true saved=")
-            } else {
-                $haystack.Contains($successNeedle)
-            }
+        $ok = Test-PhotoCaptureSuccessHaystack $haystack
         $badFinal = $false
         foreach ($n in $failNeedles) {
             if ($haystack.Contains($n)) {

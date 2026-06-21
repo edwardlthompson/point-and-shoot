@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "latestRelease": {
-    "tag": "0.14.0-beta.12",
-    "date": "2026-06-18",
-    "versionCode": 22006
+    "tag": "0.14.0-beta.15",
+    "date": "2026-06-21",
+    "versionCode": 22009
   },
   "requiredMentions": [
     {
@@ -29,6 +29,10 @@
     {
       "id": "milestone_t",
       "pattern": "Milestone T"
+    },
+    {
+      "id": "milestone_28",
+      "pattern": "Milestone 28"
     }
   ]
 }

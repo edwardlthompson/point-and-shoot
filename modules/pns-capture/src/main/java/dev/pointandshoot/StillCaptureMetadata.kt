@@ -44,7 +44,13 @@ object StillCaptureMetadata {
         characteristics: CameraCharacteristics,
         result: TotalCaptureResult,
         location: Location? = null,
+        stripPrivacyExif: Boolean = false,
     ) {
+        if (stripPrivacyExif) {
+            Log.i(TAG, "apply DNG metadata skipped stripPrivacyExif=true uri=$uri")
+            PnsAdbLog.i(context, "exifStrip dngMetadataSkipped ok=true")
+            return
+        }
         runCatching {
             val rawBytes =
                 context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
@@ -115,6 +121,7 @@ object StillCaptureMetadata {
         result: TotalCaptureResult,
         location: Location? = null,
         colorSpaceTarget: ColorSpaceTarget = ColorSpaceTarget.DisplayP3,
+        stripPrivacyExif: Boolean = false,
     ) {
         applyCommonFd(
             context,
@@ -126,6 +133,7 @@ object StillCaptureMetadata {
             stampSoftwareTag = true,
             embedIccProfile = true,
             colorSpaceTarget = colorSpaceTarget,
+            stripPrivacyExif = stripPrivacyExif,
         )
     }
 
@@ -140,6 +148,7 @@ object StillCaptureMetadata {
         result: TotalCaptureResult,
         location: Location? = null,
         colorSpaceTarget: ColorSpaceTarget = ColorSpaceTarget.DisplayP3,
+        stripPrivacyExif: Boolean = false,
     ) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
         applyCommonFd(
@@ -152,6 +161,7 @@ object StillCaptureMetadata {
             stampSoftwareTag = false,
             embedIccProfile = false,
             colorSpaceTarget = colorSpaceTarget,
+            stripPrivacyExif = stripPrivacyExif,
         )
         Log.i(TAG, "apply AVIF metadata ok uri=$uri colorSpace=$colorSpaceTarget (ICC via muxer when used)")
     }
@@ -168,17 +178,20 @@ object StillCaptureMetadata {
         characteristics: CameraCharacteristics,
         result: TotalCaptureResult,
         location: Location? = null,
+        stripPrivacyExif: Boolean = false,
     ) {
         // TIFF EXIF capture fields are embedded directly in [RgbTiff16Encoder].
         // Here we only mirror geotag + compact MediaStore summary.
-        location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+        if (!stripPrivacyExif) {
+            location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+        }
         updateImageDescription(
             context = context,
             uri = uri,
             result = result,
             colorSpaceTarget = ColorSpaceTarget.Rec2020,
         )
-        Log.i(TAG, "apply TIFF metadata ok uri=$uri geo=${location != null}")
+        Log.i(TAG, "apply TIFF metadata ok uri=$uri geo=${location != null && !stripPrivacyExif}")
     }
 
     private fun applyCommonFd(
@@ -191,12 +204,28 @@ object StillCaptureMetadata {
         stampSoftwareTag: Boolean,
         embedIccProfile: Boolean,
         colorSpaceTarget: ColorSpaceTarget,
+        stripPrivacyExif: Boolean = false,
     ) {
+        val effectiveLocation = if (stripPrivacyExif) null else location
         runCatching {
             context.contentResolver.openFileDescriptor(uri, "rw")?.use { pfd ->
                 val exif = ExifInterface(pfd.fileDescriptor)
-                fillExifFields(exif, characteristics, result, location, setOrientation, stampSoftwareTag)
+                fillExifFields(
+                    exif,
+                    characteristics,
+                    result,
+                    effectiveLocation,
+                    setOrientation,
+                    stampSoftwareTag,
+                    stripPrivacyExif,
+                )
                 exif.saveAttributes()
+                if (stripPrivacyExif) {
+                    val removed = JpegExifPrivacyStrip.stripInPlace(exif)
+                    exif.saveAttributes()
+                    PnsAdbLog.i(context, "exifStrip ok=true removed=$removed")
+                    Log.i(TAG, "exif privacy strip ok uri=$uri removed=$removed")
+                }
                 runCatching {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                         Os.fsync(pfd.fileDescriptor)
@@ -207,14 +236,19 @@ object StillCaptureMetadata {
             if (embedIccProfile) {
                 embedIccProfileInJpegFd(context, uri, colorSpaceTarget)
             }
-            location?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+            if (!stripPrivacyExif) {
+                effectiveLocation?.let { MediaGeotag.applyMediaStoreImageLocationColumns(context, uri, it) }
+            }
             updateImageDescription(
                 context = context,
                 uri = uri,
                 result = result,
                 colorSpaceTarget = colorSpaceTarget,
             )
-            Log.i(TAG, "apply JPEG metadata ok uri=$uri geo=${location != null} icc=$embedIccProfile")
+            Log.i(
+                TAG,
+                "apply JPEG metadata ok uri=$uri geo=${effectiveLocation != null} icc=$embedIccProfile strip=$stripPrivacyExif",
+            )
         }.onFailure { e ->
             Log.w(TAG, "apply JPEG metadata failed uri=$uri err=${e.message}")
         }
@@ -296,33 +330,56 @@ object StillCaptureMetadata {
         location: Location?,
         setOrientation: Boolean,
         stampSoftwareTag: Boolean,
+        stripPrivacyExif: Boolean = false,
     ) {
         val iso = result.get(CaptureResult.SENSOR_SENSITIVITY) ?: fallbackIso(characteristics)
         val exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
         val focalMm = result.get(CaptureResult.LENS_FOCAL_LENGTH) ?: fallbackFocalMm(characteristics)
         val aperture = result.get(CaptureResult.LENS_APERTURE) ?: fallbackAperture(characteristics)
 
-        val make = Build.MANUFACTURER?.takeIf { it.isNotBlank() } ?: "Unknown"
-        val model = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Device"
-        val dateStr = LocalDateTime.now().format(exifDateTimeFormatter)
+        if (!stripPrivacyExif) {
+            val make = Build.MANUFACTURER?.takeIf { it.isNotBlank() } ?: "Unknown"
+            val model = Build.MODEL?.takeIf { it.isNotBlank() } ?: "Device"
+            val dateStr = LocalDateTime.now().format(exifDateTimeFormatter)
 
-        exif.setAttribute(ExifInterface.TAG_MAKE, make)
-        exif.setAttribute(ExifInterface.TAG_MODEL, model)
-        exif.setAttribute(ExifInterface.TAG_DATETIME, dateStr)
-        exif.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, dateStr)
-        exif.setAttribute(ExifInterface.TAG_DATETIME_DIGITIZED, dateStr)
-        if (stampSoftwareTag) {
-            exif.setAttribute(ExifInterface.TAG_SOFTWARE, "Point & Shoot")
-        }
-
-        val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
-        val lensDesc =
-            when (lensFacing) {
-                CameraCharacteristics.LENS_FACING_FRONT -> "Front Camera"
-                CameraCharacteristics.LENS_FACING_BACK -> "Back Camera"
-                else -> null
+            exif.setAttribute(ExifInterface.TAG_MAKE, make)
+            exif.setAttribute(ExifInterface.TAG_MODEL, model)
+            exif.setAttribute(ExifInterface.TAG_DATETIME, dateStr)
+            exif.setAttribute(ExifInterface.TAG_DATETIME_ORIGINAL, dateStr)
+            exif.setAttribute(ExifInterface.TAG_DATETIME_DIGITIZED, dateStr)
+            if (stampSoftwareTag) {
+                exif.setAttribute(ExifInterface.TAG_SOFTWARE, "Point & Shoot")
             }
-        lensDesc?.let { exif.setAttribute(ExifInterface.TAG_LENS_MODEL, it) }
+
+            val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
+            val lensDesc =
+                when (lensFacing) {
+                    CameraCharacteristics.LENS_FACING_FRONT -> "Front Camera"
+                    CameraCharacteristics.LENS_FACING_BACK -> "Back Camera"
+                    else -> null
+                }
+            lensDesc?.let { exif.setAttribute(ExifInterface.TAG_LENS_MODEL, it) }
+
+            val summary =
+                buildString {
+                    append("ISO ")
+                    append(iso ?: "?")
+                    append(", ")
+                    append(exposureNs?.let { exposureTimeExifString(it) } ?: "?")
+                    append("s, f/")
+                    append(aperture?.let { "%.2f".format(Locale.US, it) } ?: "?")
+                    append(", ")
+                    append(focalMm?.let { "%.2f".format(Locale.US, it) } ?: "?")
+                    append("mm")
+                    append(captureDebugSuffixForUserComment(result))
+                }
+            exif.setAttribute(ExifInterface.TAG_USER_COMMENT, summary)
+
+            location?.let { loc ->
+                runCatching { exif.setLatLong(loc.latitude, loc.longitude) }
+                    .onFailure { e -> Log.w(TAG, "setLatLong failed err=${e.message}") }
+            }
+        }
 
         iso?.let { exif.setAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, it.toString()) }
 
@@ -348,26 +405,6 @@ object StillCaptureMetadata {
                 else -> 0
             }
         exif.setAttribute(ExifInterface.TAG_FLASH, flashBits.toString())
-
-        val summary =
-            buildString {
-                append("ISO ")
-                append(iso ?: "?")
-                append(", ")
-                append(exposureNs?.let { exposureTimeExifString(it) } ?: "?")
-                append("s, f/")
-                append(aperture?.let { "%.2f".format(Locale.US, it) } ?: "?")
-                append(", ")
-                append(focalMm?.let { "%.2f".format(Locale.US, it) } ?: "?")
-                append("mm")
-                append(captureDebugSuffixForUserComment(result))
-            }
-        exif.setAttribute(ExifInterface.TAG_USER_COMMENT, summary)
-
-        location?.let { loc ->
-            runCatching { exif.setLatLong(loc.latitude, loc.longitude) }
-                .onFailure { e -> Log.w(TAG, "setLatLong failed err=${e.message}") }
-        }
 
         if (setOrientation) {
             exif.setAttribute(ExifInterface.TAG_ORIENTATION, ORIENTATION_NORMAL)

@@ -114,6 +114,7 @@ fun HudRailSheetContent(
             onApplyPreset = onApplyWorkflowPreset,
         )
         CloudBackupHudSection(context = ctx)
+        SettingsExportHudSection(context = ctx)
 
         if (developerUnlocked) {
         PreviewRailSectionTitle("Capability gate (rear camera)")
@@ -439,6 +440,9 @@ private fun HudSettingsScreenContent(
             }
             item(key = "cloud_backup") {
                 CloudBackupHudSection(context = LocalContext.current)
+            }
+            item(key = "settings_export") {
+                SettingsExportHudSection(context = LocalContext.current)
             }
             item(key = "still_capture_mode") {
                 HudStillCaptureModeRow(
@@ -1515,6 +1519,69 @@ private fun CloudBackupHudSection(context: android.content.Context) {
                 modifier = Modifier.weight(1f),
                 fillMaxTile = true,
                 enabled = enabled && folderUri != null,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsExportHudSection(context: android.content.Context) {
+    val exportLauncher =
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument(SettingsExportBundle.MIME_TYPE),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val result = SettingsExportBundle.writeToUri(context, uri)
+            if (result != null) {
+                Toast.makeText(
+                    context,
+                    "Exported ${result.keyCount} settings keys",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    val importLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val result = SettingsExportBundle.importFromUri(context, uri)
+            if (result != null) {
+                Toast.makeText(
+                    context,
+                    "Imported ${result.keyCount} keys",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                Toast.makeText(context, "Import failed", Toast.LENGTH_SHORT).show()
+            }
+        }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        PreviewRailSectionTitle("Settings backup (29.2)")
+        Text(
+            "Export HUD + chrome + workflow prefs as JSON via SAF. Does not include captures or calibration profiles.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FpsQuickChip(
+                label = "Export JSON",
+                selected = false,
+                requiresRoot = false,
+                onClick = { exportLauncher.launch(SettingsExportBundle.suggestedExportFilename()) },
+                modifier = Modifier.weight(1f),
+                fillMaxTile = true,
+            )
+            FpsQuickChip(
+                label = "Import JSON",
+                selected = false,
+                requiresRoot = false,
+                onClick = { importLauncher.launch(arrayOf(SettingsExportBundle.MIME_TYPE, "text/*")) },
+                modifier = Modifier.weight(1f),
+                fillMaxTile = true,
             )
         }
     }

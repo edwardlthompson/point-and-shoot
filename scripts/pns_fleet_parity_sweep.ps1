@@ -1475,7 +1475,8 @@ if ($inAppObj -and ($inAppObj.PSObject.Properties.Name -contains "experimentalUn
 }
 
 $schemaOk = ($inAppObj -and $inAppObj.schema -eq 'pns.fleet_parity_sweep.v2')
-$minDeltaCells = 50
+# Catalog status-only deltas (e.g. M28 Wave B v4→v5 promotions) are often 25–45 cells.
+$minDeltaCells = 25
 $deltaInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -ge $minDeltaCells))
 $fullInAppEvidenceOk = ($inAppObj -and $schemaOk -and ($cellCount -gt 100))
 $sweepEvidenceOk = [bool]$sweepCompleteLogged

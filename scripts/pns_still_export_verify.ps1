@@ -11,6 +11,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
+if (Test-Path "$PSScriptRoot\pns_resolve_adb.ps1") {
+    . "$PSScriptRoot\pns_resolve_adb.ps1" -PrependToPath -Quiet
+}
 if (-not $OutDir) {
     $OutDir = Join-Path $repoRoot "hfr-runs\still_export_verify_$(Get-Date -Format yyyyMMdd_HHmmss)_$Format"
 }
@@ -100,6 +103,7 @@ if ($captureExit -eq 0) {
             "jxl" { ".jxl" }
             default { "" }
         }
+    $candidate = $null
     $findResult = Invoke-AdbProcess -AdbExe $adbExe -AdbPrefix $adbPrefix -CmdArgs @("shell", "find /sdcard/DCIM -maxdepth 3 -type f 2>/dev/null")
     if ($findResult.ExitCode -eq 0 -and $findResult.StdOut) {
         $matchPath =
@@ -109,19 +113,21 @@ if ($captureExit -eq 0) {
                 Sort-Object -Descending |
                 Select-Object -First 1
         if (-not [string]::IsNullOrWhiteSpace($matchPath)) {
-            $pullResult = Invoke-AdbProcess -AdbExe $adbExe -AdbPrefix $adbPrefix -CmdArgs @("pull", $matchPath, $pullDir)
-            if ($pullResult.ExitCode -ne 0) {
-                $candidate = $null
+            $pullArgs = @()
+            if ($adbPrefix) { $pullArgs += $adbPrefix }
+            $pullArgs += @("pull", $matchPath, $pullDir)
+            & $adbExe @pullArgs
+            if ($LASTEXITCODE -ne 0) {
+                Write-Warning "[still_export_verify] adb pull failed for $matchPath (exit=$LASTEXITCODE)"
             }
         }
     }
-    if (-not $candidate) {
-        $candidate =
-            Get-ChildItem -LiteralPath $pullDir -Recurse -File -ErrorAction SilentlyContinue |
-                Where-Object { $_.Name.ToLower().EndsWith($ext) } |
-                Sort-Object LastWriteTimeUtc -Descending |
-                Select-Object -First 1
-        if ($null -ne $candidate -and (Test-Path -LiteralPath $candidate.FullName)) {
+    $candidate =
+        Get-ChildItem -LiteralPath $pullDir -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name.ToLower().EndsWith($ext) } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+    if ($null -ne $candidate -and (Test-Path -LiteralPath $candidate.FullName)) {
             $foundFile = $true
             $foundPath = $candidate.FullName
             try {
@@ -159,7 +165,6 @@ if ($captureExit -eq 0) {
             } catch {
                 $magicOk = $false
             }
-        }
     }
 }
 
@@ -168,7 +173,7 @@ if ($captureExit -eq 0 -and $foundFile -and -not $magicOk) {
     $magicOk = $true
     if (-not $magicTag) { $magicTag = "non_canonical_header" }
 }
-$pass = ($captureExit -eq 0)
+$pass = ($captureExit -eq 0) -and $foundFile
 $report = [ordered]@{
     schema = "pns.still_export_verify.v1"
     pass = $pass

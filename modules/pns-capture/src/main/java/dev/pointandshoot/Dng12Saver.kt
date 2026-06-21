@@ -7,6 +7,7 @@ import android.hardware.camera2.DngCreator
 import android.hardware.camera2.TotalCaptureResult
 import dev.pointandshoot.fleet.LeafDngHalReconcile
 import dev.pointandshoot.LeafDngFleetPolicies
+import dev.pointandshoot.PureHalDngSavePolicy
 import dev.pointandshoot.fleet.ReferenceAppPipelineContract
 import dev.pointandshoot.DngBayerAsShotNeutral
 import android.location.Location
@@ -108,7 +109,11 @@ class Dng12Saver(
                 runCatching { setLocation(fix) }
                     .onFailure { Log.w(TAG, "DngCreator.setLocation failed", it) }
             }
-            if (!softwareDescription.isNullOrBlank() && !DngSaveBisectState.skipDngSoftwareDescription) {
+            if (
+                !softwareDescription.isNullOrBlank() &&
+                !DngSaveBisectState.skipDngSoftwareDescription &&
+                !PureHalDngSavePolicy.ENABLED
+            ) {
                 runCatching { setDescription(softwareDescription) }
                     .onFailure { Log.w(TAG, "DngCreator.setDescription failed", it) }
             }
@@ -123,14 +128,17 @@ class Dng12Saver(
         // recorded here for downstream observability.
         Log.d(TAG, "writing DNG profile=${profile.id} raw=${profile.rawMode}")
 
-        val stamp50708 = !uniqueCameraModel.isNullOrBlank()
+        val pureHal = PureHalDngSavePolicy.ENABLED
+        val stamp50708 = !uniqueCameraModel.isNullOrBlank() && !pureHal
         val reconcileLeaf =
-            !sessionCameraId.isNullOrBlank() &&
+            !pureHal &&
+                !sessionCameraId.isNullOrBlank() &&
                 ReferenceAppPipelineContract.leafPostSaveTiffReconcileEnabled(sessionCameraId)
-        val wideCal = wideCalibrationCharacteristics != null
+        val wideCal = wideCalibrationCharacteristics != null && !pureHal
         Log.i(
             TAG,
-            "dng openability diag cam=$sessionCameraId reconcile=$reconcileLeaf " +
+            "dng save path=${if (pureHal) "pure_hal" else "processed"} " +
+                "cam=$sessionCameraId reconcile=$reconcileLeaf " +
                 "wideCal=$wideCal stamp50708=$stamp50708 " +
                 "pureReferenceApp=${LeafDngFleetPolicies.active.useReferenceAppPureDngSave()}",
         )

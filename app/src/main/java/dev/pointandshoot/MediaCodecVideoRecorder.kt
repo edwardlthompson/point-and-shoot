@@ -98,6 +98,10 @@ class MediaCodecVideoRecorder(
         /** AAC-LC samples per encoded access unit. */
         private const val AAC_SAMPLES_PER_FRAME = 1024L
 
+        /** WebM muxer rejects tiny codec-specific-data buffers; AV1 typically needs ≥8 bytes. */
+        private const val MUXER_CSD_MAX_INDEX = 3
+        private const val MUXER_CSD_MIN_REMAINING_BYTES = 8
+
         /**
          * Pick the best available encoder for [config].
          * HEVC priority: QTI main (480 fps, 10-bit) > QTI HDR (120 fps, 10-bit) > AOSP SW.
@@ -267,6 +271,41 @@ class MediaCodecVideoRecorder(
                 return MediaMuxer.OutputFormat.MUXER_OUTPUT_WEBM
             }
             return MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4
+        }
+
+        /**
+         * WebM [MediaMuxer.addTrack] rejects many vendor keys on AV1/VP9 encoder output formats.
+         * Pass a minimal mime + geometry + codec-specific-data set only.
+         */
+        internal fun videoMuxerFormatForTrack(
+            encoderOutput: MediaFormat,
+            config: Config,
+            targetFps: Int,
+        ): MediaFormat {
+            if (config.encoderKind != VideoEncoderKind.AV1 && config.encoderKind != VideoEncoderKind.VP9) {
+                return MediaFormat(encoderOutput).apply {
+                    setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
+                    runCatching { setInteger("capture-fps", targetFps) }
+                    if (config.encoderKind == VideoEncoderKind.HEVC) {
+                        runCatching { applyHevcColorMetadata(this, config) }
+                    }
+                }
+            }
+            val mime = encoderOutput.getString(MediaFormat.KEY_MIME) ?: videoMimeForConfig(config)
+            val width = encoderOutput.getInteger(MediaFormat.KEY_WIDTH)
+            val height = encoderOutput.getInteger(MediaFormat.KEY_HEIGHT)
+            val muxFormat = MediaFormat.createVideoFormat(mime, width, height)
+            muxFormat.setInteger(MediaFormat.KEY_FRAME_RATE, targetFps)
+            for (csdIndex in 0..MUXER_CSD_MAX_INDEX) {
+                val key = "csd-$csdIndex"
+                val csd = encoderOutput.getByteBuffer(key)
+                if (csd != null && csd.remaining() >= MUXER_CSD_MIN_REMAINING_BYTES) {
+                    val dup = csd.duplicate()
+                    dup.position(0)
+                    muxFormat.setByteBuffer(key, dup)
+                }
+            }
+            return muxFormat
         }
 
         /**
@@ -653,15 +692,8 @@ class MediaCodecVideoRecorder(
                     synchronized(muxerLock) {
                         if (muxerFinalized.get() || muxer == null || muxerStarted) return
                         if (videoTrack >= 0) return
-                        val muxFormat = MediaFormat(format).apply {
-                            setInteger(MediaFormat.KEY_FRAME_RATE, targetFpsForPts)
-                            runCatching { setInteger("capture-fps", targetFpsForPts) }
-                            if (config.encoderKind == VideoEncoderKind.HEVC) {
-                                // Some vendor codecs emit SDR defaults in output-format despite HDR input
-                                // configuration. Re-apply intended VUI/profile on mux track format.
-                                runCatching { applyHevcColorMetadata(this, config) }
-                            }
-                        }
+                        val muxFormat =
+                            videoMuxerFormatForTrack(format, config, targetFpsForPts)
                         videoTrack =
                             runCatching { muxer?.addTrack(muxFormat) ?: -1 }
                                 .onFailure { e ->

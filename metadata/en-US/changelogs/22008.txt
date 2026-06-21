@@ -1,0 +1,1 @@
+Motion Photo, HEIC, JXL, TIFF16, tonal and mono still exports; VP9 WebM, RAW video picker, UHD60 and HFR video surfacing. Milestone 28 Wave B.

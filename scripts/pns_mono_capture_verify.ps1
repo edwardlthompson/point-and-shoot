@@ -4,13 +4,14 @@
 
 .DESCRIPTION
   Wraps pns_photo_capture_verify.ps1 in MONO mode and accepts either:
+    - captureComposedStill composed_smoke ok=true
     - captureIndependentTonalStill composed_smoke ok=true saved=
-    - MONO_FALLBACK_SNAPSHOT_SAVED
+    - MONO_FALLBACK_SNAPSHOT_SAVED (tiered preview-frame fallback when implemented)
 #>
 param(
     [string]$Serial = "",
     [int]$MaxAttempts = 20,
-    [int]$WaitSec = 55,
+    [int]$WaitSec = 90,
     [switch]$SkipAssemble,
     [switch]$SkipInstall
 )

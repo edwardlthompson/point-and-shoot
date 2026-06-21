@@ -61,6 +61,23 @@ class PreviewSessionRegularOutputsPolicyTest {
     }
 
     @Test
+    fun wantsYuvAnalysis_hDialWhenFacePipelineSuppressed() {
+        val input =
+            PreviewSessionRegularOutputsPolicy.YuvAnalysisInput(
+                lifecycleBackgroundPaused = false,
+                commandDialMode = CommandDialMode.H,
+                desiredFps = 60,
+                automationSuppressFacePipeline = true,
+                previewHistogramEnabled = false,
+                highlightClipZebraEnabled = false,
+                hudFaceOverlayEnabled = false,
+                smileStillEnabled = false,
+                wantsReadoutExposureChase = false,
+            )
+        assertTrue(PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis(input))
+    }
+
+    @Test
     fun wantsYuvAnalysis_readoutChaseEvenWhenFacePipelineSuppressed() {
         val input =
             PreviewSessionRegularOutputsPolicy.YuvAnalysisInput(

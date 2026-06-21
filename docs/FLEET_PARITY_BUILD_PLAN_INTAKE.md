@@ -1,8 +1,8 @@
-﻿# Fleet parity build-plan intake
+# Fleet parity build-plan intake
 
-- Generated: 2026-06-13T01:17:06.6085017Z
+- Generated: 2026-06-21T04:37:53.3954018Z
 - Open rows: 1 / 99
-- Latest parity: serial=b5214fc6 mode=Full
+- Latest parity: serial=b5214fc6 mode=Delta
 
 Promote rows to [BUILD_PLAN.md](../BUILD_PLAN.md) Milestone 27 when scoped.
 

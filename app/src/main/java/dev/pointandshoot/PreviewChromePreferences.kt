@@ -36,6 +36,8 @@ data class PreviewChromePreferences(
     val hardwareCameraKeyCapture: Boolean = true,
     /** When true and location permission is granted, new captures use [CaptureLocationBridge] for GPS metadata. */
     val saveLocationWithMedia: Boolean = false,
+    /** Sprint **29.1** — strip identifying EXIF (GPS, make/model, timestamps) from JPEG still exports. */
+    val stripExifPrivacyTags: Boolean = false,
     /** Large circular shutter over the preview (Sony hardware-shutter style apps often omit this). */
     val showOnScreenShutter: Boolean = true,
     /**
@@ -135,6 +137,7 @@ data class PreviewChromePreferences(
         private const val KEY_BT_REMOTE_SHUTTER = "bt_remote_shutter"
         private const val KEY_HARDWARE_CAMERA_KEY = "hardware_camera_key_capture"
         private const val KEY_SAVE_LOCATION = "save_location_with_media"
+        private const val KEY_STRIP_EXIF_PRIVACY = "strip_exif_privacy_tags"
         private const val KEY_SHOW_SHUTTER = "show_on_screen_shutter"
         private const val KEY_TAP_PREVIEW_CAPTURE = "tap_preview_to_capture"
         private const val KEY_LIVE_CHART_CORNERS = "live_chart_corner_overlay"
@@ -243,6 +246,7 @@ data class PreviewChromePreferences(
                 btRemoteShutter = prefs.getBoolean(KEY_BT_REMOTE_SHUTTER, defaults.btRemoteShutter),
                 hardwareCameraKeyCapture = prefs.getBoolean(KEY_HARDWARE_CAMERA_KEY, defaults.hardwareCameraKeyCapture),
                 saveLocationWithMedia = prefs.getBoolean(KEY_SAVE_LOCATION, defaults.saveLocationWithMedia),
+                stripExifPrivacyTags = prefs.getBoolean(KEY_STRIP_EXIF_PRIVACY, defaults.stripExifPrivacyTags),
                 showOnScreenShutter = prefs.getBoolean(KEY_SHOW_SHUTTER, defaults.showOnScreenShutter),
                 tapPreviewToCapture = prefs.getBoolean(KEY_TAP_PREVIEW_CAPTURE, defaults.tapPreviewToCapture),
                 liveChartCornerOverlay = prefs.getBoolean(KEY_LIVE_CHART_CORNERS, defaults.liveChartCornerOverlay),
@@ -301,6 +305,7 @@ data class PreviewChromePreferences(
                 .putBoolean(KEY_BT_REMOTE_SHUTTER, value.btRemoteShutter)
                 .putBoolean(KEY_HARDWARE_CAMERA_KEY, value.hardwareCameraKeyCapture)
                 .putBoolean(KEY_SAVE_LOCATION, value.saveLocationWithMedia)
+                .putBoolean(KEY_STRIP_EXIF_PRIVACY, value.stripExifPrivacyTags)
                 .putBoolean(KEY_SHOW_SHUTTER, value.showOnScreenShutter)
                 .putBoolean(KEY_TAP_PREVIEW_CAPTURE, value.tapPreviewToCapture)
                 .putBoolean(KEY_LIVE_CHART_CORNERS, value.liveChartCornerOverlay)

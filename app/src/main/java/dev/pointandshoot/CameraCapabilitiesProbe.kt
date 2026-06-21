@@ -104,6 +104,9 @@ const val EXTRA_PNS_PREVIEW_RAW_STREAM = "pns_preview_raw_stream"
  */
 const val EXTRA_PNS_PREVIEW_JPEG_COMPANION = "pns_preview_jpeg_companion"
 
+/** Sprint **29.1** — session seed for [PreviewChromePreferences.stripExifPrivacyTags]. */
+const val EXTRA_PNS_PREVIEW_STRIP_EXIF = "pns_preview_strip_exif"
+
 /** Matrix bisect: skip [StillCaptureMetadata.applyToDngUri] after DNG save. */
 const val EXTRA_PNS_PREVIEW_DNG_SKIP_STILL_METADATA = "pns_preview_dng_skip_still_metadata"
 
@@ -145,6 +148,12 @@ const val EXTRA_PNS_PREVIEW_FLASH_STRENGTH = "pns_preview_flash_strength"
 
 /** Sprint **CC.3** — export newest calibration profile once (`pns_preview_cal_export`). */
 const val EXTRA_PNS_PREVIEW_CAL_EXPORT = "pns_preview_cal_export"
+
+/** Sprint **29.2** — export settings JSON to app-private automation path (`pns_preview_settings_export`). */
+const val EXTRA_PNS_PREVIEW_SETTINGS_EXPORT = "pns_preview_settings_export"
+
+/** Sprint **29.2** — import settings JSON from automation path (`pns_preview_settings_import`). */
+const val EXTRA_PNS_PREVIEW_SETTINGS_IMPORT = "pns_preview_settings_import"
 
 /** Sprint **UX.1** — `system` | `light` | `dark` (`pns_preview_theme_mode`). */
 const val EXTRA_PNS_PREVIEW_THEME_MODE = "pns_preview_theme_mode"
@@ -504,6 +513,15 @@ const val EXTRA_PNS_AUTO_HARDWARE_KEY_PROBE = "pns_auto_hardware_key_probe"
 /** Value for [EXTRA_PNS_SCREEN] — headless **`CameraDevice.createExtensionSession`** smoke (Milestone 4). */
 const val PNS_SCREEN_CAMERA_EXT_SMOKE = "cameraextsmoke"
 
+/** Value for [EXTRA_PNS_SCREEN] — Sprint **28.2** isolated HDR extension handoff spike. */
+const val PNS_SCREEN_EXTENSION_HANDOFF = "extensionhandoff"
+
+/** With [PNS_SCREEN_EXTENSION_HANDOFF]: cold handoff to [PNS_SCREEN_PREVIEW] after configure (default false). */
+const val EXTRA_PNS_EXTENSION_HANDOFF_RETURN_PREVIEW = "pns_extension_handoff_return_preview"
+
+/** Set when preview resumes after [PNS_SCREEN_EXTENSION_HANDOFF] — logs preview return proof once. */
+const val EXTRA_PNS_AFTER_EXTENSION_HANDOFF = "pns_after_extension_handoff"
+
 /**
  * With **`pns_screen=rootsettings`**: after persisted **Grant Su** ([`RootCapability.RootState.Granted`]),
  * run read-only [`RootPrivilegedDiagnostics.runScan`] once and log **`PNS.AdbValidation`** **`rootPrivScan …`**
@@ -590,6 +608,7 @@ fun CameraCapabilitiesProbe(
     var showRawHdrExcl by remember { mutableStateOf(false) }
     var showBurstProbe by remember { mutableStateOf(false) }
     var showCameraExtSmoke by remember { mutableStateOf(false) }
+    var showExtensionHandoff by remember { mutableStateOf(false) }
     var showLogicalPhysical by remember { mutableStateOf(false) }
     var showExhaustive by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
@@ -849,6 +868,8 @@ fun CameraCapabilitiesProbe(
             showBurstProbe = true
         } else if (launchScreen == PNS_SCREEN_CAMERA_EXT_SMOKE) {
             showCameraExtSmoke = true
+        } else if (launchScreen == PNS_SCREEN_EXTENSION_HANDOFF) {
+            showExtensionHandoff = true
         } else if (launchScreen == SCREEN_LOGICAL_PHYSICAL) {
             showLogicalPhysical = true
         } else if (launchScreen == SCREEN_EXHAUSTIVE) {
@@ -934,6 +955,7 @@ fun CameraCapabilitiesProbe(
                     inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_FACE_METER ||
                         inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_QR_SCAN ||
                         inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_CAMERA_EXT_SMOKE ||
+                        inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_EXTENSION_HANDOFF ||
                         (
                             inz.getStringExtra(EXTRA_PNS_SCREEN) == PNS_SCREEN_PREVIEW &&
                                 (
@@ -1026,6 +1048,7 @@ fun CameraCapabilitiesProbe(
         val adbStillResolutionModeRaw = activity?.intent.previewStillResolutionModeExtra()
         val adbRawStreamFromIntent = activity?.intent.previewRawStreamPreferenceExtra()
         val adbJpegCompanionFromIntent = activity?.intent.previewJpegCompanionSeedExtra()
+        val adbStripExifFromIntent = activity?.intent.previewStripExifSeedExtra()
         val adbCameraIdRaw = activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
         val adbPreviewStillsLutName = activity?.intent.previewStillsLutNameExtra()
         val adbM6FpsLutProbe = activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_M6_FPS_LUT_PROBE, false) ?: false
@@ -1388,6 +1411,18 @@ fun CameraCapabilitiesProbe(
             } else {
                 false
             }
+        val adbSettingsExportSmoke =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SETTINGS_EXPORT, false) ?: false
+            } else {
+                false
+            }
+        val adbSettingsImportSmoke =
+            if (trustIntentForPreviewPipeline) {
+                activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SETTINGS_IMPORT, false) ?: false
+            } else {
+                false
+            }
         val adbPreviewThemeMode =
             if (trustIntentForPreviewPipeline) {
                 activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_THEME_MODE)?.trim()?.takeIf { it.isNotEmpty() }
@@ -1573,6 +1608,7 @@ fun CameraCapabilitiesProbe(
         val adbBracketPattern = if (trustIntentForPreviewPipeline) adbBracketRaw else null
         val adbRawStreamPreference = if (useIntentAutomationPipeline) adbRawStreamFromIntent else null
         val adbJpegCompanionSeed = if (useIntentAutomationPipeline) adbJpegCompanionFromIntent else null
+        val adbStripExifPrivacySeed = if (useIntentAutomationPipeline) adbStripExifFromIntent else null
         val adbRawStillFastAutomation = if (trustIntentForPreviewPipeline) adbRawStillFastRaw else false
         val adbInitialDial =
             when {
@@ -1600,6 +1636,14 @@ fun CameraCapabilitiesProbe(
                 activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_SUPER_MACRO_PROBE, false) ?: false
             } else {
                 false
+            }
+        val adbAfterExtensionHandoff =
+            remember(activity) {
+                activity?.intent?.let { intent ->
+                    if (!intent.hasExtra(EXTRA_PNS_AFTER_EXTENSION_HANDOFF)) return@let false
+                    intent.getBooleanExtra(EXTRA_PNS_AFTER_EXTENSION_HANDOFF, false)
+                        .also { intent.removeExtra(EXTRA_PNS_AFTER_EXTENSION_HANDOFF) }
+                } ?: false
             }
         PreviewEngineScreen(
             onBack = {
@@ -1645,6 +1689,7 @@ fun CameraCapabilitiesProbe(
             adbPhotoResolutionMode = adbPhotoResolutionMode,
             adbRawStreamPreference = adbRawStreamPreference,
             adbJpegCompanionSeed = adbJpegCompanionSeed,
+            adbStripExifPrivacySeed = adbStripExifPrivacySeed,
             adbAudioHiFiSeed = adbAudioHiFiSeed,
             adbAudioWindSeed = adbAudioWindSeed,
             adbWindNoiseFilterSeed = adbWindNoiseFilterSeed,
@@ -1705,6 +1750,8 @@ fun CameraCapabilitiesProbe(
             adbPictureProfileId = adbPictureProfileId,
             adbFlashStrengthPercent = adbFlashStrengthPercent,
             adbCalExportSmoke = adbCalExportSmoke,
+            adbSettingsExportSmoke = adbSettingsExportSmoke,
+            adbSettingsImportSmoke = adbSettingsImportSmoke,
             adbPreviewThemeMode = adbPreviewThemeMode,
             adbWorkflowPresetId = adbWorkflowPresetId,
             adbOpenGallery = adbOpenGallery,
@@ -1733,8 +1780,23 @@ fun CameraCapabilitiesProbe(
             adbSceneVendorHints = adbSceneVendorHints,
             adbShowAboutOverlay = adbShowAboutOverlay,
             adbOpenSettingsRail = adbOpenSettingsRail,
+            adbAfterExtensionHandoff = adbAfterExtensionHandoff,
             themeMode = themeMode,
             onThemeModeChange = onThemeModeChange,
+        )
+        return
+    }
+
+    if (showExtensionHandoff) {
+        val adbCameraId =
+            activity?.intent?.getStringExtra(EXTRA_PNS_PREVIEW_CAMERA_ID)?.trim()?.takeIf { it.isNotBlank() }
+        val returnToPreview =
+            activity?.intent?.getBooleanExtra(EXTRA_PNS_EXTENSION_HANDOFF_RETURN_PREVIEW, false) ?: false
+        ExtensionHandoffSpikeScreen(
+            onBack = { showExtensionHandoff = false },
+            preferredCameraId = adbCameraId,
+            returnToPreview = returnToPreview,
+            finishActivityWhenDone = launchScreen == PNS_SCREEN_EXTENSION_HANDOFF,
         )
         return
     }
@@ -2802,6 +2864,13 @@ internal fun Intent?.previewRawStreamPreferenceExtra(): RawStreamPreference? {
 internal fun Intent?.previewJpegCompanionSeedExtra(): Boolean? =
     if (this != null && hasExtra(EXTRA_PNS_PREVIEW_JPEG_COMPANION)) {
         getBooleanExtra(EXTRA_PNS_PREVIEW_JPEG_COMPANION, true)
+    } else {
+        null
+    }
+
+internal fun Intent?.previewStripExifSeedExtra(): Boolean? =
+    if (this != null && hasExtra(EXTRA_PNS_PREVIEW_STRIP_EXIF)) {
+        getBooleanExtra(EXTRA_PNS_PREVIEW_STRIP_EXIF, true)
     } else {
         null
     }

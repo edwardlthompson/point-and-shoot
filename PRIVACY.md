@@ -14,6 +14,7 @@ Point & Shoot is a **FOSS pro camera** app. We do **not** sell personal data. Th
 | Crash reporting | **None** built into the app. OS-level crash dialogs are controlled by your device vendor. |
 | Account sign-in | **None** required to use the camera. |
 | Cloud photo backup | **Opt-in only** (Settings → cloud backup folder via Storage Access Framework). |
+| EXIF privacy strip | **Opt-in** (Settings → strip identifying EXIF from new still JPEG exports). |
 | Public leaderboard | **Opt-in only** (Settings → connectivity). Submits capability summaries you explicitly approve. |
 | LAN / WebDAV | **Opt-in only** when you configure endpoints in Settings. |
 | Face / eye HUD | **On-device** ML Kit processing; frames are not uploaded for face detection. |
@@ -23,6 +24,8 @@ Point & Shoot is a **FOSS pro camera** app. We do **not** sell personal data. Th
 ### Camera, microphone, and storage
 
 The app captures photos and videos you trigger. Still RAW (DNG), JPEG, and in-app video files are written to **local storage** (typically `DCIM/Point & Shoot/` or paths you choose). Audio is recorded only when you start video recording with audio enabled.
+
+Optional **Strip EXIF privacy tags** (Settings) removes GPS, device make/model, software, and capture timestamps from **JPEG** still exports on the encode lane (`PNS.Reader`). DNG post-save metadata enrichment is skipped when strip is enabled; DNG files are never rewritten with `ExifInterface.saveAttributes()` (loadability lock).
 
 ### On-device machine learning (ML Kit)
 

@@ -682,6 +682,7 @@ object IndependentTonalStillSaver {
             handle = null
             // Always tag fallback JPEG payload with the intended output color space.
             if (!lightweightMetadata) {
+                val stripPrivacy = PreviewChromePreferences.load(appContext).stripExifPrivacyTags
                 StillCaptureMetadata.applyToJpegUri(
                     appContext.applicationContext,
                     uri,
@@ -689,6 +690,7 @@ object IndependentTonalStillSaver {
                     captureResult,
                     location = null,
                     colorSpaceTarget = colorTarget,
+                    stripPrivacyExif = stripPrivacy,
                 )
                 updateImageDescription(appContext.applicationContext, uri, outputKind, colorTarget, captureResult)
             }
@@ -735,6 +737,8 @@ object IndependentTonalStillSaver {
             handle.close()
             handle = null
             if (!lightweightMetadata) {
+                val stripPrivacy = PreviewChromePreferences.load(appContext).stripExifPrivacyTags
+                val metaLocation = if (stripPrivacy) null else location
                 when (kind) {
                     CaptureStorage.CaptureKind.Avif10BitHdr ->
                         StillCaptureMetadata.applyToAvifUri(
@@ -742,8 +746,9 @@ object IndependentTonalStillSaver {
                             uri,
                             characteristics,
                             captureResult,
-                            location = location,
+                            location = metaLocation,
                             colorSpaceTarget = colorTarget,
+                            stripPrivacyExif = stripPrivacy,
                         )
                     CaptureStorage.CaptureKind.JpegSdr,
                     CaptureStorage.CaptureKind.MotionPhoto,
@@ -753,8 +758,9 @@ object IndependentTonalStillSaver {
                             uri,
                             characteristics,
                             captureResult,
-                            location = location,
+                            location = metaLocation,
                             colorSpaceTarget = colorTarget,
+                            stripPrivacyExif = stripPrivacy,
                         )
                     CaptureStorage.CaptureKind.Tiff16 ->
                         StillCaptureMetadata.applyToTiffUri(
@@ -762,7 +768,8 @@ object IndependentTonalStillSaver {
                             uri,
                             characteristics,
                             captureResult,
-                            location = location,
+                            location = metaLocation,
+                            stripPrivacyExif = stripPrivacy,
                         )
                     else -> Unit
                 }

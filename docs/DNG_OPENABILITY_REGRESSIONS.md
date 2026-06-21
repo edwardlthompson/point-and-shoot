@@ -33,6 +33,12 @@ Contract object: `ReferenceAppPipelineContract.kt`. Policy: `LegacyDeviceFleetPo
 
 ---
 
+## Pure-HAL global default (Sprint H-RESTORE, 2026-06-19)
+
+**`PureHalDngSavePolicy.ENABLED`** on all SKUs disables post-save reconcile (**R3**), capture-time leaf color IQ (**R4**), tag **50708**, and LUT `setDescription` — **`StillCaptureMetadata.applyToDngUri`** in-place Make/Model/EXIF remains. Parity/aesthetic gates may **FAIL** on aux UW/tele vs ReferenceCam fixtures; **loadability** gates (`dng_tiff_integrity_check.py`, `dng_desktop_open_gate.py`) remain mandatory.
+
+---
+
 ## Bisect protocol (13.3h)
 
 1. One variable per commit.

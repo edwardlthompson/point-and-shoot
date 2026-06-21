@@ -33,6 +33,7 @@ Shipped tasks grouped by **app area** for manual review. Open agent rows: **[BUI
 27. [Milestone 27 — completed sprints](#milestone-27--completed-sprints)
 28. [Milestone H — completed sprints](#milestone-h--completed-sprints)
 29. [Milestone T — Template alignment](#milestone-t--template-alignment)
+30. [Milestone 28 — Feature richness (Waves A–D)](#milestone-28--feature-richness-waves-a-d)
 
 ---
 
@@ -1333,7 +1334,32 @@ Moved from **`BUILD_PLAN.md`** (2026-06-05) after M27 gate closeout on **CPH2583
 
 ## Milestone H — completed sprints
 
-Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan. Latest archive pass: **2026-06-13** (OP13 regression lane + host validators).
+Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan. Latest archive pass: **2026-06-20** (Sprint H-RESTORE).
+
+### Sprint H-RESTORE-2026-06-19 — Highlight (H) metering + pure-HAL DNG (agent closed)
+
+**Objective:** Restore software Highlight (H) metering on CPH2583; ship global **pure-HAL** DNG save (HAL/`DngCreator` + `applyToDngUri` Make/Model/EXIF only).
+
+**Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** · USB sequential on CPH2583 (`adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp`).
+
+#### Track A — Highlight (H) metering
+
+- [x] **[AGENT] A.1 USB triage** — `pns_highlight_meter_verify.ps1`: `dial=H` `wantYuv=true` `yuvAttached=true` `highlightMeter ev=… aeComp=…` (`highlight_meter_verify_20260619_231827`); `PNS.PreviewSessionCtx` `dial=H` in session log
+- [x] **[AGENT] A.2 YUV policy** — H dial + fps &lt; 120 attaches YUV when `automationSuppressFacePipeline`; JVM `wantsYuvAnalysis_hDialWhenFacePipelineSuppressed`
+- [x] **[AGENT] A.3 Hardware vs software AE** — `usesHardwareHighlightAe` root vendor-extra only; `PNS.HighlightAe path=vendor_extra` when hardware path selected
+- [x] **[AGENT] A.4 Face AE vs H** — **N/A** (A.3 sufficient on CPH2583; no face `CONTROL_AE_REGIONS` skip shipped)
+- [x] **[AGENT] A.5 Gate script** — `scripts/pns_highlight_meter_verify.ps1` (photo-primary + dial H)
+
+#### Track B — Pure-HAL DNG
+
+- [x] **[AGENT] B.1** — `PureHalDngSavePolicy.ENABLED`; `ReferenceAppPipelineContract.leafPostSaveTiffReconcileEnabled` off when pure
+- [x] **[AGENT] B.2** — `Dng12Saver` direct `writeImage`; log `dng save path=pure_hal`
+- [x] **[AGENT] B.3** — null software/50708/wide-cal at save sites; `shouldApplyStillMetadataToDng` → `applyToDngUri`
+- [x] **[AGENT] B.4** — RAW still paths skip color IQ when pure-HAL
+- [x] **[AGENT] B.5** — `PureHalDngSavePolicyTest`, `PreviewSessionRegularOutputsPolicyTest`; [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md); [`docs/DNG_OPENABILITY_REGRESSIONS.md`](docs/DNG_OPENABILITY_REGRESSIONS.md) pure-HAL note
+- [x] **[AGENT] B.6 USB DNG** — `pns_capture_pipeline_verify.ps1` (`capture_pipeline_gate_20260620_031303`); `pns_aux_dng_capture_analyze.ps1` (`aux_dng_capture_analyze_20260620_032954` — 3/3, `DNG INTEGRITY: PASS`, desktop open PASS, no `leaf HAL reconcile`); `REG-20260620-001` in [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md). Legacy lane optional — primary fleet CPH2583 proof suffices for global policy.
+
+**USB artifacts:** `hfr-runs/capture_pipeline_gate_20260620_031303/` · `hfr-runs/highlight_meter_verify_20260619_231827/` · `hfr-runs/aux_dng_capture_analyze_20260620_032954/`
 
 ### Sprint H.1 — Desktop visual verification
 
@@ -1664,6 +1690,68 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 - [x] **[AGENT]** [`scripts/pns_milestone_tm_gate.ps1`](../scripts/pns_milestone_tm_gate.ps1)
 
 **Sprint TM closure (2026-06-17):** Host Tier 0 + Tier 2 green; USB smoke recommended when capture/preview modules change. Further extraction tracked in ADR-0009 deferred work.
+
+---
+
+## Milestone 28 — Feature richness (Waves A–D)
+
+**Closed:** 2026-06-21 · **Ship:** `0.14.0-beta.13` (Wave A) · `0.14.0-beta.14` (Wave B) · `0.14.0-beta.15` (Waves C+D) · catalog **v6** · primary USB **CPH2583** `b5214fc6`
+
+### Wave A — Foundation + privacy (28.0–28.2, 29.1–29.2)
+
+- [x] Peer benchmark `pns_camera_app_pipeline_scan.ps1` · `docs/CAMERA_APP_PIPELINE_BENCHMARK.md`
+- [x] G1–G8 pipeline audit · `CAPTURE_ARCHITECTURE.md`
+- [x] Extension handoff spike + ADR-0010
+- [x] EXIF privacy strip · settings SAF export/import
+- [x] Gates: capture pipeline · aux DNG · exif strip · settings export — USB PASS
+- [x] CHANGELOG **beta.13** / `versionCode` **22007**
+
+### Wave B — Partial closure (30.1–30.2)
+
+- [x] Still exports: Motion Photo · HEIC · JXL · TIFF16 · tonal · mono — `pns_still_export_verify` USB PASS
+- [x] Video formats: VP9 · RAW picker · UHD60/HFR surfacing — USB PASS; AV1 probe (record device-limited); 4K regular SKIP expected on CPH2583
+- [x] Catalog **v4→v5** promotions
+- [x] Parity Delta `parity_sweep_20260621_033312`
+- [x] CHANGELOG **beta.14** / `versionCode` **22008**
+
+### Wave C — Multi-cam + peer convenience (30.3, 31.3–31.4 partial)
+
+- [x] Dual video DUAL dial — `pns_dual_video_verify` USB PASS (5s record)
+- [x] PiP preview · multicam melt arm · spatial audio — verify scripts USB PASS
+- [x] Extension handoff — `pns_extension_handoff_spike` **PROBE_OK_NO_EXTENSIONS** on CPH2583
+- [x] Wait-for-AF-lock setting — catalog **Shipped**
+- [x] CameraX HDR/AUTO — **ProbeOnly**; consumer modes deferred (no OEM extensions on primary fleet)
+- [x] Human: dual-video framing (**H.8.2**) remains open in Milestone H
+
+### Wave D — Spikes + intentional defer (31.0–32.2)
+
+- [x] `docs/spikes/PANORAMA_SPIKE.md` — **NO-GO** · `still.panorama` **N/A**
+- [x] `docs/spikes/COMP_HDR_SPIKE.md` — **NO-GO** · `still.computational_hdr` **Planned**
+- [x] `docs/spikes/ML_KIT_FOSS_SPIKE.md` — ZXing default on `foss`; ML Kit QR **Planned**
+- [x] `still.ultrahdr` **N/A** primary fleet · `still.depth` **ProbeOnly** · `still.preview_shots` **Planned**
+- [x] `video.log_profile` **N/A** (FlatCine substitute documented)
+
+### Milestone 28 gate
+
+- [x] USB capture `photo_capture_verify_20260621_043524` · chrome `chrome_ux_gate_20260621_043540`
+- [x] Parity Delta `parity_sweep_20260621_043558` PASS (29 cells, 0 ship blockers)
+- [x] CHANGELOG **beta.15** / `versionCode` **22009**
+- [x] No consumer beauty surfacing (policy lock verified)
+
+**Deferred post-M28:** panorama · preview shots · computational HDR · depth export · ML Kit QR · full multicam melt encoder · Open Camera log profile · preview-res save · self-illumination · consumer CameraX extension modes when OEM HAL advertises extensions.
+
+### Sprint AUDIT-2026-06-21 — Post-M28 hygiene (agent closed)
+
+**Gate:** `pns_validate_bootstrap.ps1` **PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** (detekt app + `:pns-*`, lint, unit tests, kover).
+
+- [x] **[AGENT] AUDIT21.1** — Full repo review — [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) (post-M28; F-001–F-010)
+- [x] **[AGENT] AUDIT21.2** — `MediaCodecVideoRecorder` muxer CSD loop detekt fix; `CameraCapabilityCatalog` v6 row MaxLineLength detekt (`:pns-fleet:detekt`); `VideoEffectsProcessorTest` CSD buffer size aligned
+- [x] **[AGENT] AUDIT21.3** — `pns_verify_toolchain.ps1` — `Resolve-PnsPowerShellHost` uses `$PSHOME\pwsh.exe` / `powershell.exe` when PATH lacks shell aliases (license + SBOM subprocess gate)
+- [x] **[AGENT] AUDIT21.4** — `docs/CAMERA_APP_PIPELINE_BENCHMARK.md` refresh for M28 closure
+- [ ] **[AGENT] AUDIT21.5** — Tier 0 **FAIL** on this host — `python` not on PATH (fixture gate); install Python 3 for full Tier 0
+- [ ] **[AGENT] AUDIT21.6** — `ffprobe` / `gh` not on PATH — VF mediacodec gate + Dependabot/CodeQL poll skipped
+
+**USB (CPH2583, 2026-06-21):** `photo_capture_verify_20260621_043524` + `chrome_ux_gate_20260621_043540` + parity Delta `parity_sweep_20260621_043558` — **PASS** (M28 closure artifacts; no new USB in this sprint).
 
 ---
 

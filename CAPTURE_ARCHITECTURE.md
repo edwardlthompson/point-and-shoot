@@ -103,3 +103,22 @@ The color pipeline lives **between** the existing capture stages and the final e
 
 * AVIF vs JXL encoding inside the encode executor vs a separate `Executors.newFixedThreadPool(2, "PNS.Encode")`. Decision deferred until we benchmark `libavif` and `libjxl` on the legacy device.
 * Whether the histogram path becomes `RenderScript`-free (RenderScript is deprecated; we will likely use a tiny C++ kernel via JNI tied into the same NDK pipeline as AVIF / JXL).
+
+## Sprint 28.1 pipeline audit (Milestone 28)
+
+Evidence doc: [`docs/CAMERA_APP_PIPELINE_BENCHMARK.md`](docs/CAMERA_APP_PIPELINE_BENCHMARK.md) G1–G8 table. **USB gates PASS** on **b5214fc6** (2026-06-20).
+
+| Id | Code audit (host) | USB gate | Notes |
+|----|-------------------|----------|-------|
+| **G1** Audio routing | **PASS** | `pns_audio_quality_test.ps1` **PASS** | `audio_quality_test_20260620_123511` |
+| **G2** MediaStore pending | **PASS** | JVM smoke pending | `CaptureStorage` IS_PENDING contract |
+| **G3** JPEG focus-lock | **PASS** | `pns_capture_pipeline_verify.ps1` **PASS** | `capture_pipeline_gate_20260620_123712` |
+| **G4** Session configuration | **PASS** | capture pipeline **PASS** | §4a `streamHints=false` locked |
+| **G5** Backpressure / lanes | **PASS** (doc match) | backpressure script pending | See § Sprint 7.3 |
+| **G6** Lifecycle / GLES | **PASS** | chrome gate pending | `queueSetGeometry` only from `PreviewMainViewport` |
+| **G7** RAW session outputs | **PASS** | capture pipeline **PASS** | logical RAW/DNG pairing |
+| **G8** DNG loadability | **PASS** | `pns_aux_dng_capture_analyze.ps1` **PASS** | `aux_dng_capture_analyze_20260620_123721` |
+
+**Regression locks verified (no flip):** §4a `streamHints=false` · §2 RAW tier bisect unchanged · DNG IFD-only patches · GLES single geometry writer.
+
+**Last green USB (CPH2583, 2026-06-20):** Sprint **28.1** — `audio_quality_test_20260620_123511` · `capture_pipeline_gate_20260620_123712` · `aux_dng_capture_analyze_20260620_123721` (integrity + desktop open PASS; USB **b5214fc6**).

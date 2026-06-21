@@ -414,26 +414,25 @@ private fun dngSoftwareDescriptionForSave(
     cameraId: String,
     lut: LutCatalog,
 ): String? =
-    if (dev.pointandshoot.fleet.LegacyFleetPolicy.skipDngSoftwareDescriptionOnLeaf(cameraId)) {
-        null
-    } else {
-        formatDngSoftwareLine(context, lut)
+    when {
+        dev.pointandshoot.PureHalDngSavePolicy.ENABLED -> null
+        dev.pointandshoot.fleet.LegacyFleetPolicy.skipDngSoftwareDescriptionOnLeaf(cameraId) -> null
+        else -> formatDngSoftwareLine(context, lut)
     }
 
 private fun dngUniqueCameraModelForSave(cameraId: String, lut: LutCatalog): String? =
-    if (
+    when {
+        dev.pointandshoot.PureHalDngSavePolicy.ENABLED -> null
         DngSaveBisectState.skipUniqueCameraModel ||
-        dev.pointandshoot.fleet.LegacyFleetPolicy.skipUniqueCameraModelOnLeafDng(cameraId)
-    ) {
-        null
-    } else {
-        formatDngUniqueCameraModelLine(cameraId, lut)
+            dev.pointandshoot.fleet.LegacyFleetPolicy.skipUniqueCameraModelOnLeafDng(cameraId) -> null
+        else -> formatDngUniqueCameraModelLine(cameraId, lut)
     }
 
 private fun wideLeafCalibrationCharacteristicsForDngSave(
     cm: android.hardware.camera2.CameraManager,
     sessionCameraId: String,
 ): android.hardware.camera2.CameraCharacteristics? {
+    if (dev.pointandshoot.PureHalDngSavePolicy.ENABLED) return null
     if (!dev.pointandshoot.fleet.LegacyFleetPolicy.useWideLeafCalibrationForAuxDng()) {
         return null
     }
@@ -448,6 +447,7 @@ private fun wideLeafCalibrationCharacteristicsForDngSave(
 
 private fun shouldApplyStillMetadataToDng(sessionCameraId: String): Boolean {
     if (DngSaveBisectState.skipStillMetadataApply) return false
+    if (dev.pointandshoot.PureHalDngSavePolicy.ENABLED) return true
     if (dev.pointandshoot.fleet.LegacyFleetPolicy.skipStillMetadataApplyOnLeafDng(sessionCameraId)) {
         return false
     }
@@ -485,6 +485,7 @@ private const val ULTRA_MAX_ADB_SEQUENTIAL_RAW_SETTLE_MS = 6000L
 
 /** After session open, require this many TextureView updates before ADB sequential RAW12 (M6 cold start). */
 private const val ADB_SEQUENTIAL_RAW_MIN_TEXTURE_FRAMES = 30L
+private const val ADB_SETTINGS_EXCHANGE_DELAY_MS = 1500L
 
 private const val ADB_SEQUENTIAL_RAW_TEXTURE_FRAME_WAIT_MAX_ITERATIONS = 200
 
@@ -894,6 +895,8 @@ fun PreviewEngineScreen(
     adbRawStreamPreference: RawStreamPreference? = null,
     /** When non-null, session-only seed for JPEG companion (`pns_preview_jpeg_companion`). */
     adbJpegCompanionSeed: Boolean? = null,
+    /** Sprint **29.1** — `pns_preview_strip_exif` session seed. */
+    adbStripExifPrivacySeed: Boolean? = null,
     /** Sprint **AS.1** — `pns_preview_audio_hifi` (session-only). */
     adbAudioHiFiSeed: Boolean? = null,
     /** Sprint **AS.1** — `pns_preview_audio_wind` (session-only). */
@@ -1039,6 +1042,10 @@ fun PreviewEngineScreen(
     adbFlashStrengthPercent: Int? = null,
     /** Sprint **CC.3** — `pns_preview_cal_export` exports newest calibration JSON once. */
     adbCalExportSmoke: Boolean = false,
+    /** Sprint **29.2** — `pns_preview_settings_export` writes automation JSON once. */
+    adbSettingsExportSmoke: Boolean = false,
+    /** Sprint **29.2** — `pns_preview_settings_import` reads automation JSON once. */
+    adbSettingsImportSmoke: Boolean = false,
     /** Sprint **UX.1** — `pns_preview_theme_mode` (`system` | `light` | `dark`). */
     adbPreviewThemeMode: PnsThemeMode? = null,
     /** Sprint **UX.3** — `pns_preview_workflow_preset` (e.g. `street`). */
@@ -1058,6 +1065,8 @@ fun PreviewEngineScreen(
     adbWebDavProbe: Boolean = false,
     adbSocialStreamProbe: Boolean = false,
     adbCollaborativeProbe: Boolean = false,
+    /** Sprint **28.2** — preview resumed after isolated extension handoff route. */
+    adbAfterExtensionHandoff: Boolean = false,
     /** Engineering hub: live D-pad alignment for face/eye HUD overlays (Sprint **15.1**). */
     eyeOverlayCalibratorActive: Boolean = false,
     onEyeOverlayCalibratorDone: () -> Unit = {},
@@ -1093,6 +1102,10 @@ fun PreviewEngineScreen(
     val captureScope = rememberCoroutineScope()
     val snackbarHostState = LocalPnsSnackbarHostState.current
     val controller = remember { PreviewController(context.applicationContext) }
+    LaunchedEffect(adbAfterExtensionHandoff) {
+        if (!adbAfterExtensionHandoff) return@LaunchedEffect
+        PnsAdbLog.i(context, "previewReturnAfterExtensionHandoff ok=true route=extensionhandoff")
+    }
     controller.setAdbPendingRawStillAutomationCount(adbSequentialRawStills)
     if (adbAutomationVideoCodecOrdinal != null) {
         controller.adbAutomationVideoCodecOrdinal = adbAutomationVideoCodecOrdinal
@@ -1169,6 +1182,8 @@ fun PreviewEngineScreen(
             !adbPictureProfileId.isNullOrBlank() ||
             adbFlashStrengthPercent != null ||
             adbCalExportSmoke ||
+            adbSettingsExportSmoke ||
+            adbSettingsImportSmoke ||
             adbPreviewThemeMode != null ||
             !adbWorkflowPresetId.isNullOrBlank()
     controller.superMacroAdbProbe = adbSuperMacroProbe
@@ -2027,6 +2042,14 @@ fun PreviewEngineScreen(
                         hdrWhenJpegOff = composedStillIntent.raw,
                     ).coerceNoOffOff()
         }
+    }
+    LaunchedEffect(adbStripExifPrivacySeed) {
+        val want = adbStripExifPrivacySeed ?: return@LaunchedEffect
+        val cur = chromePrefs.current
+        if (cur.stripExifPrivacyTags != want) {
+            chromePrefs.applySessionOnly(cur.copy(stripExifPrivacyTags = want))
+        }
+        PnsAdbLog.i(context, "preview seeded stripExifPrivacyTags=$want (session-only)")
     }
     LaunchedEffect(adbAudioHiFiSeed, adbAudioWindSeed) {
         if (adbAudioHiFiSeed == null && adbAudioWindSeed == null) return@LaunchedEffect
@@ -3795,6 +3818,36 @@ fun PreviewEngineScreen(
         }
     }
 
+    LaunchedEffect(adbSettingsExportSmoke) {
+        if (!adbSettingsExportSmoke) return@LaunchedEffect
+        delay(ADB_SETTINGS_EXCHANGE_DELAY_MS)
+        val exported = SettingsExportBundle.exportToAutomationFile(context)
+        if (exported != null) {
+            val theme = UxSettings.loadThemeMode(context).name
+            PnsAdbLog.i(
+                context,
+                "settingsExport ok=true keys=${exported.keyCount} themeMode=$theme path=${exported.path}",
+            )
+        } else {
+            PnsAdbLog.e(context, "settingsExport ok=false")
+        }
+    }
+
+    LaunchedEffect(adbSettingsImportSmoke) {
+        if (!adbSettingsImportSmoke) return@LaunchedEffect
+        delay(ADB_SETTINGS_EXCHANGE_DELAY_MS)
+        val imported = SettingsExportBundle.importFromAutomationFile(context)
+        if (imported != null) {
+            val theme = UxSettings.loadThemeMode(context).name
+            PnsAdbLog.i(
+                context,
+                "settingsImport ok=true keys=${imported.keyCount} themeMode=$theme stripExif=${imported.stripExifPrivacyTags}",
+            )
+        } else {
+            PnsAdbLog.e(context, "settingsImport ok=false")
+        }
+    }
+
     LaunchedEffect(adbPreviewThemeMode) {
         val mode = adbPreviewThemeMode ?: return@LaunchedEffect
         UxSettings.saveThemeMode(context, mode)
@@ -4401,6 +4454,7 @@ fun PreviewEngineScreen(
         chromePrefs.current.saveLocationWithMedia && fineLocationGranted
     SideEffect {
         controller.setStillEmbedLocationInFiles(embedStillLocation)
+        controller.setStripExifPrivacyTags(chromePrefs.current.stripExifPrivacyTags)
     }
 
     PreviewMaxBrightnessEffect(chromePrefs.current.maxBrightnessInPreview)
@@ -5579,13 +5633,16 @@ private fun PreviewEngineContent(
             adbInitialDial ?: HudSettings.loadCommandDialMode(context),
         )
     }
-    LaunchedEffect(primaryPhoto, visibilityCtx) {
+    LaunchedEffect(primaryPhoto, visibilityCtx, adbInitialDial) {
         val allowed =
             FleetChromeVisibility.filterCommandDialModes(
                 CaptureMediaFamily.commandDialModesFor(CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto)),
                 visibilityCtx,
             ).toSet()
         if (commandDialMode !in allowed) {
+            if (adbInitialDial != null && commandDialMode == adbInitialDial) {
+                return@LaunchedEffect
+            }
             commandDialMode = CommandDialMode.Auto
             HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
         }
@@ -11329,6 +11386,7 @@ private class PreviewController(
     @Volatile private var framesFromTexture: Long = 0L
     /** When true and still pipeline uses [CaptureLocationBridge.snapshot], embed GPS in DNG/JPEG EXIF. */
     @Volatile private var stillEmbedLocationInFiles: Boolean = false
+    @Volatile private var stripExifPrivacyTags: Boolean = false
     @Volatile private var textureWindowStartNs: Long = 0L
     @Volatile private var textureWindowFrames: Long = 0L
 
@@ -11939,7 +11997,8 @@ private class PreviewController(
     private fun usesHardwareHighlightAe(chars: CameraCharacteristics): Boolean =
         commandDialMode == CommandDialMode.H &&
             desiredFps < 120 &&
-            HighlightAeModeSupport.supportsHardwareHighlightForHMode(chars, highlightAeTryVendorExtraModes())
+            highlightAeTryVendorExtraModes() &&
+            HighlightAeModeSupport.resolveHighlightWeightedAeModeOrNull(chars, true) != null
 
     fun cameraIds(): List<String> =
         runCatching { cm.cameraIdList.toList() }.getOrDefault(emptyList())
@@ -13463,8 +13522,14 @@ private class PreviewController(
         stillEmbedLocationInFiles = enabled
     }
 
-    private fun locationForStillMetadata(): Location? =
-        if (stillEmbedLocationInFiles) CaptureLocationBridge.snapshot() else null
+    fun setStripExifPrivacyTags(enabled: Boolean) {
+        stripExifPrivacyTags = enabled
+    }
+
+    private fun locationForStillMetadata(): Location? {
+        if (stripExifPrivacyTags) return null
+        return if (stillEmbedLocationInFiles) CaptureLocationBridge.snapshot() else null
+    }
 
     private fun shouldSkipStablePreviewPipelineRestart(
         camId: String,
@@ -14287,6 +14352,7 @@ private class PreviewController(
                 captureResult,
                 location = loc,
                 colorSpaceTarget = profile.colorSpace,
+                stripPrivacyExif = stripExifPrivacyTags,
             )
             LutCaptureSidecars.writeBundledLutSidecarIfNeeded(
                 appContext.applicationContext,
@@ -14813,26 +14879,28 @@ private class PreviewController(
                         manualExposureNsOverride,
                     )
                 }
-                RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
-                RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
-                    this,
-                    chars,
-                    camId,
-                    proShotPreviewResult,
-                    latchManualExposureFromPreview = latchReferenceAppManualExposure,
-                    exposureLatch = proShotExposureLatch,
-                )
-                StillCaptureIqPolicy.applyToStillCaptureRequest(
-                    this,
-                    chars,
-                    dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
-                )
-                dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
-                    this,
-                    chars,
-                    camId,
-                    proShotPreviewResult,
-                )
+                if (!dev.pointandshoot.PureHalDngSavePolicy.ENABLED) {
+                    RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
+                    RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
+                        this,
+                        chars,
+                        camId,
+                        proShotPreviewResult,
+                        latchManualExposureFromPreview = latchReferenceAppManualExposure,
+                        exposureLatch = proShotExposureLatch,
+                    )
+                    StillCaptureIqPolicy.applyToStillCaptureRequest(
+                        this,
+                        chars,
+                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
+                    )
+                    dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
+                        this,
+                        chars,
+                        camId,
+                        proShotPreviewResult,
+                    )
+                }
                 if (
                     commandDialMode == CommandDialMode.H &&
                     !manualSensorStill &&
@@ -15019,6 +15087,7 @@ private class PreviewController(
                             dngChars,
                             dngResult,
                             location = loc,
+                            stripPrivacyExif = stripExifPrivacyTags,
                         )
                     } else {
                         Log.i(
@@ -16125,24 +16194,26 @@ private class PreviewController(
                         manualIsoOverride,
                         manualExposureNsOverride,
                     )
-                    RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
-                    RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
-                        this,
-                        chars,
-                        camId,
-                        lastPreviewTotalCaptureResult,
-                    )
-                    StillCaptureIqPolicy.applyToStillCaptureRequest(
-                        this,
-                        chars,
-                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
-                    )
-                    dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
-                        this,
-                        chars,
-                        camId,
-                        lastPreviewTotalCaptureResult,
-                    )
+                    if (!dev.pointandshoot.PureHalDngSavePolicy.ENABLED) {
+                        RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
+                        RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
+                            this,
+                            chars,
+                            camId,
+                            lastPreviewTotalCaptureResult,
+                        )
+                        StillCaptureIqPolicy.applyToStillCaptureRequest(
+                            this,
+                            chars,
+                            dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
+                        )
+                        dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
+                            this,
+                            chars,
+                            camId,
+                            lastPreviewTotalCaptureResult,
+                        )
+                    }
                     if (commandDialMode == CommandDialMode.H && !manualSensorStill && adbValidationShotLabel == null) {
                         RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
                     }
@@ -16878,14 +16949,17 @@ private class PreviewController(
                     manualIsoOverride,
                     manualExposureNsOverride,
                 )
-                RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
-                RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
-                    this,
-                    chars,
-                    camId,
-                    lastPreviewTotalCaptureResult,
-                )
-                if (bracketWritesRaw) {
+                if (
+                    bracketWritesRaw &&
+                    !dev.pointandshoot.PureHalDngSavePolicy.ENABLED
+                ) {
+                    RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
+                    RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
+                        this,
+                        chars,
+                        camId,
+                        lastPreviewTotalCaptureResult,
+                    )
                     StillCaptureIqPolicy.applyToStillCaptureRequest(
                         this,
                         chars,
@@ -17105,6 +17179,7 @@ private class PreviewController(
                                                     metaChars,
                                                     metaResult,
                                                     location = loc,
+                                                    stripPrivacyExif = stripExifPrivacyTags,
                                                 )
                                             }
                                             writeCalibrationSidecarIfNeeded(
@@ -17319,6 +17394,7 @@ private class PreviewController(
                                     metaChars,
                                     metaResult,
                                     location = loc,
+                                    stripPrivacyExif = stripExifPrivacyTags,
                                 )
                             }
                             writeCalibrationSidecarIfNeeded(
@@ -21666,13 +21742,14 @@ private class PreviewController(
     private fun applyAutoProgramAeOn(req: CaptureRequest.Builder, chars: CameraCharacteristics) {
         val aeModes = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES) ?: intArrayOf()
         if (commandDialMode == CommandDialMode.H && desiredFps < 120) {
-            val mode = HighlightAeModeSupport.resolveHighlightWeightedAeModeOrNull(
-                chars,
-                highlightAeTryVendorExtraModes(),
-            )
-            if (mode != null && aeModes.contains(mode)) {
-                req.set(CaptureRequest.CONTROL_AE_MODE, mode)
-                return
+            val tryVendor = highlightAeTryVendorExtraModes()
+            if (tryVendor) {
+                val mode = HighlightAeModeSupport.resolveHighlightWeightedAeModeOrNull(chars, true)
+                if (mode != null && aeModes.contains(mode)) {
+                    Log.i(HighlightAeModeSupport.TAG, "path=vendor_extra aeMode=$mode")
+                    req.set(CaptureRequest.CONTROL_AE_MODE, mode)
+                    return
+                }
             }
         }
         val picked = PreviewFlashPolicy.aeModeForAutoProgramWithFlashPref(aeModes, previewFlashMode)

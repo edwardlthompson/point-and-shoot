@@ -69,7 +69,58 @@ Milestone H automation lane, Gradle 9.5 stack, wireless USB gates on CPH2583.
 - **Milestone H automation (2026-06-18)** — `pns_github_pages_smoke.ps1`; wireless ADB gate lane on CPH2583; SBOM repro baseline refresh; prerelease USB subset PASS.
 ## Unreleased
 
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+_(Nothing yet — add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+
+
+
+## [0.14.0-beta.15] - 2026-06-21
+
+Milestone **28 Waves C+D** closure - multi-cam video scaffolds + spike decisions.
+
+**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.15.apk
+
+### Added
+
+- **Dual video mode** - stacked front+rear composite on the mode dial (DUAL); USB verified on CPH2583.
+- **Spatial audio** - in-app video records spatial metadata where the encoder path supports it.
+- **Wait-for-AF-lock** - HUD setting to defer still capture until AF precapture completes.
+
+### Changed
+
+- **Extension handoff** - isolated Camera2 extension route with cold preview return (N/A when OEM reports no extensions on device).
+- **Fleet catalog v6** - Wave C promotions (ideo.dual, preview.pip, udio.spatial); Wave D rows documented as Shipped, N/A, Planned, or ProbeOnly per spike outcomes.
+
+### Added (maintainer / engineering)
+
+- **Milestone 28** closed - Waves A-D; spikes docs/spikes/PANORAMA_SPIKE.md (NO-GO), COMP_HDR_SPIKE.md (NO-GO), ML_KIT_FOSS_SPIKE.md (ZXing default on foss); parity Delta PASS on CPH2583.
+## [0.14.0-beta.14] - 2026-06-21
+
+Milestone **28 Wave B** - still export formats + video format surfacing.
+
+**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.14.apk
+
+### Added
+
+- **Still export formats** - Motion Photo, HEIC, JPEG XL (JXL), 16-bit TIFF, independent tonal JPEG, and monochrome still capture in the format picker.
+- **Video formats** - VP9 WebM recording; RAW video (MCRAW) in the format picker; 4K regular / UHD 60 fps and high-speed video (HFR) surfacing on supported encoders; AV1 encoder probe (in-app WebM record remains device/OEM dependent).
+
+### Added (maintainer / engineering)
+
+- **Milestone 28 Wave B** - catalog **v5** promotions; USB gates on CPH2583 (pns_still_export_verify, pns_video_format_test, pns_raw_video_verify, pns_in_app_video_verify, pns_fleet_parity_sweep -Mode Delta).
+## [0.14.0-beta.13] - 2026-06-18
+
+Milestone **28 Wave A** — EXIF privacy strip, settings backup, capture pipeline verification lane.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.13.apk`
+
+### Added
+
+- **EXIF privacy strip** — Settings toggle removes identifying metadata (GPS, make/model, timestamps) from JPEG still exports; DNG saves skip post-save EXIF rewrite (loadability lock).
+- **Settings backup** — HUD Settings → Export / Import JSON via SAF (HUD overlays, preview chrome, workflow presets).
+
+### Added (maintainer / engineering)
+
+- **Milestone 28 Wave A** — peer camera-app pipeline benchmark (`pns_camera_app_pipeline_scan.ps1`); G1–G8 capture architecture audit; Camera2 extension handoff isolated route + ADR-0010; USB gates on CPH2583 (`pns_capture_pipeline_verify`, `pns_exif_strip_verify`, `pns_aux_dng_capture_analyze`, `pns_settings_export_verify`).
 ## [0.14.0-beta.7] - 2026-06-04
 
 Pre-release for **Milestone 24 reliability hardening**, fleet truth wiring, and ReferenceApp naming/fixture migration cleanup.

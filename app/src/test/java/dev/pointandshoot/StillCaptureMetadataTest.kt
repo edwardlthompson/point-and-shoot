@@ -75,6 +75,17 @@ class StillCaptureMetadataTest {
         assertEquals("row-strip tables must stay unchanged after in-place IFD0 patches", beforeStrips, afterStrips)
     }
 
+    @Test
+    fun applyToDngUri_skips_when_strip_privacy_enabled() {
+        val source = stillCaptureMetadataSource()
+        val body =
+            source
+                .substringAfter("fun applyToDngUri")
+                .substringBefore("fun applyToJpegUri")
+        assertTrue(body.contains("stripPrivacyExif"))
+        assertTrue(body.contains("exifStrip dngMetadataSkipped ok=true"))
+    }
+
     private fun stillCaptureMetadataSource(): String {
         var dir = File(System.getProperty("user.dir") ?: error("no user.dir"))
         while (true) {

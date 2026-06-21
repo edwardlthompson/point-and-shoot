@@ -73,7 +73,7 @@ if ($failures.Count -eq 0) {
   }
 
   if (-not (Test-Path -LiteralPath $lockfile)) {
-    Add-Fail "missing app/gradle.lockfile — run :app:dependencies --write-locks after enabling dependency locking"
+    Add-Fail 'missing app/gradle.lockfile - run :app:dependencies --write-locks after enabling dependency locking'
   } elseif ((Get-Item -LiteralPath $lockfile).Length -lt 32) {
     Add-Fail "app/gradle.lockfile looks empty or truncated"
   }
@@ -111,11 +111,11 @@ if ($failures.Count -eq 0) {
       [System.IO.File]::WriteAllText($sbomBaseline, "$fingerprint`n", [System.Text.UTF8Encoding]::new($false))
       Write-Host "Wrote SBOM purl fingerprint baseline: $sbomBaseline"
     } elseif (-not (Test-Path -LiteralPath $sbomBaseline)) {
-      Add-Fail "missing docs/repro/sbom-purl-list.sha256 — run pns_repro_build_verify.ps1 -WriteSbomBaseline"
+    Add-Fail 'missing docs/repro/sbom-purl-list.sha256 - run pns_repro_build_verify.ps1 -WriteSbomBaseline'
     } else {
       $expected = ([System.IO.File]::ReadAllText($sbomBaseline)).Trim()
       if ($expected -ne $fingerprint) {
-        Add-Fail "SBOM purl fingerprint drift (expected $expected, got $fingerprint) — refresh with -WriteSbomBaseline if deps changed intentionally"
+        Add-Fail ("SBOM purl fingerprint drift (expected {0}, got {1}) - refresh with -WriteSbomBaseline if deps changed intentionally" -f $expected, $fingerprint)
       }
     }
   } catch {
@@ -154,7 +154,7 @@ if ($failures.Count -eq 0) {
 
 if ($failures.Count -gt 0) {
   foreach ($f in $failures) { Write-Host $f }
-  Write-Host "REPRO BUILD VERIFY: FAIL ($($failures.Count) issue(s))"
+  Write-Host ('REPRO BUILD VERIFY: FAIL (' + $failures.Count + ' issues)')
   exit 1
 }
 

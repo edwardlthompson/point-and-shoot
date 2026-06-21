@@ -42,19 +42,19 @@ object PreviewSessionRegularOutputsPolicy {
 
     fun wantsYuvAnalysis(input: YuvAnalysisInput): Boolean {
         if (input.lifecycleBackgroundPaused) return false
-        if (!input.automationSuppressFacePipeline) {
-            val hOrQr =
-                (input.commandDialMode == CommandDialMode.H || input.commandDialMode == CommandDialMode.Qr) &&
-                    input.desiredFps < PreviewVideoConstants.HFR_THRESHOLD_FPS
-            if (hOrQr) return true
-            if (input.previewHistogramEnabled) return true
-            if (input.highlightClipZebraEnabled) return true
-            if (input.hudFaceOverlayEnabled) return true
-            if (input.smileStillEnabled) return true
-        }
-        if (input.wantsReadoutExposureChase && input.desiredFps < PreviewVideoConstants.HFR_THRESHOLD_FPS) {
-            return true
-        }
-        return false
+        val underHfr = input.desiredFps < PreviewVideoConstants.HFR_THRESHOLD_FPS
+        if (input.commandDialMode == CommandDialMode.H && underHfr) return true
+        val facePipelineOk = !input.automationSuppressFacePipeline
+        val wantsFaceOrQrYuv =
+            facePipelineOk &&
+                underHfr &&
+                (
+                    input.commandDialMode == CommandDialMode.Qr ||
+                        input.previewHistogramEnabled ||
+                        input.highlightClipZebraEnabled ||
+                        input.hudFaceOverlayEnabled ||
+                        input.smileStillEnabled
+                )
+        return wantsFaceOrQrYuv || (input.wantsReadoutExposureChase && underHfr)
     }
 }

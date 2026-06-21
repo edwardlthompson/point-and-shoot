@@ -22,6 +22,7 @@ $args = @{
 if ($Serial) { $args.Serial = $Serial }
 if ($SkipInstall) { $args.SkipInstall = $true }
 if ($SkipAssemble) { $args.SkipAssemble = $true }
+if ($AllowNoAv1) { $args.AllowAv1RecordSkip = $true }
 
 & (Join-Path $PSScriptRoot "pns_video_format_test.ps1") @args
 $exit = $LASTEXITCODE

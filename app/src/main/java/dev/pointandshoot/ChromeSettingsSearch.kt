@@ -85,6 +85,13 @@ fun buildChromeSettingsSearchIndex(): List<ChromeSettingSearchHit> =
             settingKey = "capture.geotag",
         ),
         ChromeSettingSearchHit(
+            "Strip EXIF privacy tags",
+            "Preview & capture",
+            "privacy exif strip gps make model metadata",
+            "capture",
+            settingKey = "privacy.exif_strip",
+        ),
+        ChromeSettingSearchHit(
             "On-screen shutter button",
             "Preview & behavior",
             "shutter tray button capture",

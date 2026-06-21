@@ -4,15 +4,16 @@
 
 ---
 
-## Current focus (updated 2026-06-21 — AUDIT-2026-06-21)
+## Current focus (updated 2026-06-21 — AUDIT4)
 
 | Field | Value |
 |-------|--------|
 | **Active milestone** | **H** — human & publication |
-| **Active sprint** | None (AUDIT-2026-06-21 closed) |
+| **Active sprint** | None (AUDIT4 closed) |
 | **Ship line** | **0.14.0-beta.15** / `versionCode` **22009** / catalog **v6** |
-| **Primary USB device** | OnePlus 12 **CPH2583** — wireless ADB `b5214fc6` (`scripts/pns_adb_device.env`) |
-| **Agent lanes closed** | **Milestone 28** (Waves A–D), **AUDIT-2026-06-21**, **AUDIT3**, **AUDIT2**, **H.CRI-5**, **T.14**, **H.HYGIENE** |
+| **GitHub release** | [v0.14.0-beta.15](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.15) |
+| **Primary USB device** | OnePlus 12 **CPH2583** — wireless ADB `b5214fc6` |
+| **Agent lanes closed** | **AUDIT4** (H metering + QR), **Milestone 28**, **AUDIT-2026-06-21**, **H.CRI-5**, **T.14** |
 
 ## Toolchain stack (2026-06-21)
 
@@ -25,35 +26,34 @@
 | Compose BOM | **2026.05.01** |
 | CameraX | **1.6.1** |
 
-## Last gates (2026-06-21)
+## Last gates (2026-06-21 AUDIT4)
 
 | Gate | Result | Artifact / notes |
 |------|--------|------------------|
 | `pns_validate_bootstrap.ps1` | **PASS** | `/audit` step 1 |
-| `pns_local_dev_parallel.ps1` (Tier 0) | **FAIL** | `python` not on PATH (fixture gate) |
-| `pns_verify_toolchain.ps1 -RunTests` | **PASS** | After `$PSHOME` PowerShell host fix |
-| `:app:detekt` | **PASS** | `MediaCodecVideoRecorder` muxer helper |
-| USB capture + chrome | **PASS** | `photo_capture_verify_20260621_043524`, `chrome_ux_gate_20260621_043540` |
-| Parity Delta | **PASS** | `parity_sweep_20260621_043558` (0 ship blockers) |
-| `pns_eye_af_pixel_gate.ps1` | **FAIL** | No face in frame; open **CRI-032** |
-| `pns_mediacodec_hfr_verify -GateProfile vf` | **FAIL** | `ffprobe` not on PATH (host) |
-| Dependabot / CodeQL (`gh`) | **SKIP** | `gh` not on PATH |
+| `pns_local_dev_parallel.ps1` (Tier 0) | **PASS** | 8/8 jobs |
+| `pns_verify_toolchain.ps1 -RunTests` | **PASS** | After AUDIT4 detekt fixes |
+| `pns_highlight_meter_verify.ps1` | **PASS** | `highlight_meter_verify_20260621_152031` |
+| `pns_qr_scan_verify.ps1` | **PASS** | `qr_scan_verify_20260621_152424` |
+| CI Toolchain / CodeQL / Security (`b762061`) | **PASS** | `gh run list` |
+| `pns_mediacodec_hfr_verify -GateProfile vf` | **SKIP/FAIL** | `ffprobe` not on PATH |
+| Wireless `adb install` | **FLAKE** | `INSTALL_PARSE_FAILED_NOT_APK` — gates ran on installed APK |
 
 ## Open blockers
 
 | ID | Area | Status |
 |----|------|--------|
-| **CRI-032** | Eye-AF pixel gate | Only open **[AGENT]** row — needs face in frame for green markers |
+| **CRI-032** | Eye-AF pixel gate | Needs face in frame for green markers |
 | **CRI-033…035** | Human | DCG colors, store/PRIVACY, OP13 ACR |
-| **H.9** | Signing | Debug-key release; human keystore + `signing_pins.json` |
-| **Host** | Tier 0 / VF | Install **Python 3** + **FFmpeg/ffprobe** on PATH for full local gates |
+| **H.9** | Signing | Debug-key release shipped; production keystore open |
+| **Host** | `ffprobe` | VF mediacodec gate blocked without FFmpeg on PATH |
 
 ## Immediate next steps
 
 1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + subjective UX (**H.8.3** DCG colors)
-2. **[AGENT]** Re-run `pns_eye_af_pixel_gate.ps1` with face in finder when capture lane free
-3. **[HUMAN]** **H.9** release sign-off — GitHub release for **beta.15** when approved
+2. **[AGENT]** Commit AUDIT4 code (H metering + QR) when user requests
+3. **[MAINTAINER]** Install **ffprobe** on PATH; retry wireless sideload if testing fresh debug APK
 
 ---
 
-**Document control:** 2026-06-21 — AUDIT-2026-06-21 + M28 closure; refresh at Milestone H ship.
+**Document control:** 2026-06-21 — AUDIT4 closed; refresh at Milestone H ship.

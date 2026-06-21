@@ -36,7 +36,7 @@ class FleetChromeVisibilityTest {
         )
 
     @Test
-    fun filterCommandDialModes_hidesQrWhenNotSupported() {
+    fun filterCommandDialModes_keepsQrWhenMatrixSaysUnsupported() {
         val matrix =
             JSONObject(
                 """
@@ -52,7 +52,7 @@ class FleetChromeVisibilityTest {
                 listOf(CommandDialMode.Auto, CommandDialMode.Qr),
                 ctx(matrix = matrix),
             )
-        assertEquals(listOf(CommandDialMode.Auto), filtered)
+        assertEquals(listOf(CommandDialMode.Auto, CommandDialMode.Qr), filtered)
     }
 
     @Test

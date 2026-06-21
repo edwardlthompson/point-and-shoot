@@ -182,4 +182,39 @@ class HighlightMeterTest {
             evTiny < evKey,
         )
     }
+
+    @Test
+    fun `0xFF garbage histogram is untrusted`() {
+        val h = emptyHist().also { it[255] = 10_000 }
+        assertTrue(HighlightMeter.isUntrustedAnalysisHistogram(h))
+    }
+
+    @Test
+    fun `normal mid key histogram is trusted`() {
+        val h = emptyHist().apply {
+            for (b in 90..130) this[b] = 2_000
+        }
+        assertTrue(!HighlightMeter.isUntrustedAnalysisHistogram(h))
+    }
+
+    @Test
+    fun `tiny sun disk on dark bulk is trusted`() {
+        val h = emptyHist().apply {
+            this[50] = 999_000
+            this[255] = 1_000
+        }
+        assertTrue(!HighlightMeter.isUntrustedAnalysisHistogram(h))
+    }
+
+    @Test
+    fun `dark bulk with modest clip tail scales engagement down`() {
+        val scale = HighlightMeter.bulkHighlightTailEngagementScale(p50 = 30, fracAt255 = 0.057)
+        assertTrue("expected partial engagement scale; was $scale", scale in 0.15..0.45)
+    }
+
+    @Test
+    fun `bright bulk keeps full engagement scale`() {
+        val scale = HighlightMeter.bulkHighlightTailEngagementScale(p50 = 120, fracAt255 = 0.08)
+        assertEquals(1.0, scale, 1e-9)
+    }
 }

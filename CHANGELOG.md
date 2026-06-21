@@ -67,12 +67,17 @@ Milestone H automation lane, Gradle 9.5 stack, wireless USB gates on CPH2583.
 - **Sprint TM (2026-06-17, engineering)** — Gradle libraries `:pns-core`, `:pns-fleet`, `:pns-capture`, `:pns-preview` under `modules/`; bootstrap gates `pns_validate_bootstrap.ps1` / `pns_watch_agent_gates.ps1`; Golden Path docs in `examples/golden-path/`; ADR-0009 module boundaries. **Post-TM deferred extraction:** capture RAW/DNG pipeline + leaf reconcile in `:pns-capture`; preview session orchestrators in `:pns-preview`; `LeafDngFleetPolicy` / focal routing types in `:pns-core`. **Bootstrap v0.10 batch commands:** 25 `.cursor/commands/*.md` slash workflows + `pns_check_batch_commands.ps1` + `docs/help/BATCH_COMMANDS.md`.
 - **AUDIT2.3 dependency bump (2026-06-18)** — Gradle **9.5.1**, AGP **9.1.1**, Kotlin **2.4.0**, Compose BOM **2026.05.01**, CameraX **1.6.1**, androidx.core **1.19.0** / lifecycle **2.10.0** / activity **1.13.0**; `compileSdk` **37**; AGP 9 built-in Kotlin (`kotlin.android` plugin removed); Paparazzi **2.0.0-alpha05**; baseline profile plugin **1.5.0-alpha06**; `:pns-core` namespace `dev.pointandshoot.core`; Kover gate task `koverVerify`.
 - **Milestone H automation (2026-06-18)** — `pns_github_pages_smoke.ps1`; wireless ADB gate lane on CPH2583; SBOM repro baseline refresh; prerelease USB subset PASS.
+## [0.14.0-beta.16] - 2026-06-21
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.16.apk`
+
+### Fixed
+
+- **Highlight (H) metering** — YUV warmup and garbage-frame guard stop pegging min AE compensation at session start; bulk-tail engagement avoids crushing exposure on mostly-dark scenes with a modest bright tail; face tracking no longer biases AE on H dial (AF only). Gate: `pns_highlight_meter_verify.ps1`.
+- **QR scan mode** — Restored **QR** in Photo programs on the mode dial (`preview.qr` fleet visibility **AlwaysShow**); ZXing decode + finder overlay unchanged. Gate: `pns_qr_scan_verify.ps1`.
 ## Unreleased
 
-_(Nothing yet — add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
-
-
-
+_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
 ## [0.14.0-beta.15] - 2026-06-21
 
 Milestone **28 Waves C+D** closure - multi-cam video scaffolds + spike decisions.
@@ -88,7 +93,7 @@ Milestone **28 Waves C+D** closure - multi-cam video scaffolds + spike decisions
 ### Changed
 
 - **Extension handoff** - isolated Camera2 extension route with cold preview return (N/A when OEM reports no extensions on device).
-- **Fleet catalog v6** - Wave C promotions (ideo.dual, preview.pip, udio.spatial); Wave D rows documented as Shipped, N/A, Planned, or ProbeOnly per spike outcomes.
+- **Fleet catalog v6** - Wave C promotions (video.dual, preview.pip, audio.spatial); Wave D rows documented as Shipped, N/A, Planned, or ProbeOnly per spike outcomes.
 
 ### Added (maintainer / engineering)
 

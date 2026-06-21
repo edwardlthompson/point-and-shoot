@@ -94,6 +94,8 @@
 | Setting | Value | Location |
 |---------|-------|----------|
 | Histogram / EV sample interval | **380 ms** min | `highlightMeterMinIntervalMs` |
+| Session warmup before AE comp | **2200 ms** after repeating start | `highlightMeterSessionWarmupMs` — skips 0xFF garbage YUV |
+| Untrusted histogram guard | `HighlightMeter.isUntrustedAnalysisHistogram` | Rejects near-all-255 frames (frac255 &gt; 0.92, p50 ≥ 247) |
 | AE comp refresh min gap | **900 ms** | `highlightAeRefreshMinGapMs` |
 | Darken only | **true** | `highlightMeterDarkenOnly` — no positive EV pump |
 | EV stability zone (snap to 0) | **0.24** | `highlightEvStabilityZone` |
@@ -102,7 +104,7 @@
 | Deadband brighten | **0.155** (unused when darken-only) | `highlightMeterEvDeadbandBrighten` |
 | Darken engagement EMA | `HighlightMeter.suggestEvCorrectionBreakdown` → `smoothHighlightDarkenEngagement` | Reduces breathing |
 
-**CaptureRequest:** While AE stays **ON**, sets `CONTROL_AE_EXPOSURE_COMPENSATION` from smoothed EV (`HighlightMeterSupport.evToCompensationIndex`). Log tag: **`PNS.ChromeUx`** / adb **`HighlightMeter`** lines (~3.5 s throttle).
+**CaptureRequest:** While AE stays **ON**, sets `CONTROL_AE_EXPOSURE_COMPENSATION` from smoothed EV (`HighlightMeterSupport.evToCompensationIndex`). On **H**, face tracking sets **AF** regions only — not `CONTROL_AE_REGIONS` (global highlight meter). Log tag: **`PNS.ChromeUx`** / adb **`HighlightMeter`** lines (~3.5 s throttle, includes `p50` / `f255` diag).
 
 ### 2.3 H + locked readout axis (Sprint 14.7)
 
@@ -371,7 +373,7 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | Surface | Gate helper | Catalog ids (examples) |
 |---------|-------------|------------------------|
 | QS quick actions | `quickActionFeatureId()` | `face.eye_af`, `hud.histogram`, `hud.zebra`, `lens.ois`, `lens.eis` |
-| Mode dial menu | `FleetChromeVisibility.filterCommandDialModes` | `hud.highlight_meter`, `still.bracket`, `preview.qr`, `video.dual`, … |
+| Mode dial menu | `FleetChromeVisibility.filterCommandDialModes` | `hud.highlight_meter`, `still.bracket`, `preview.qr` (**AlwaysShow**), `video.dual`, … |
 | Focal row | dynamic prime mapping from `resolvePrimeLensAssignments`; hides unsupported targets (<12 MP effective) | `lens.multi` |
 | Tray format FABs | Left tray slot (next to gallery thumb) is mode-dependent: **Photo** always shows the still-format FAB and opens still format flow in this order: **MAX Photo preset**, then **Color space**, **Sensor resolution**, **RAW format**, **Compressed format**. Sensor resolution offers **Binned** (default stream map) and **Max resolution** (maximum-resolution stream map + `SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION` when available, with fallback to binned). RAW/compressed lists hide incompatible entries for the selected color space, keep `Off` in both lists, and sort by bit depth high→low. MAX picks highest-CQI still color space plus the highest-bit-depth RAW/compressed pair for that space (**Rec.2020 MAX now prefers TIFF 16-bit over JXL 12-bit**) and selects **Max resolution**. Tonal-only Max-resolution captures now attempt adaptive progressive tiling (`SCALER_CROP_REGION`) with overlap seam blending (`maxphoto_stitch`): grid auto-selects **1×1 / 2×1 / 2×2** from active-array vs baseline still size and blends overlapping seams while stitching. **Video** keeps Max presets first and forces highest-CQI video color space when selected. | `PreviewBottomCaptureTray`, `StillFormatPickerSheet`, `ComposedStillIntent.StillPhotoPickerMatrix`, `ComposedStillIntent.coerceForStillColorSpace`, `PreviewController.setComposedCapturePlan`, `RawCaptureSupport.pickRawOutputForPreviewSession`, `MaxPhotoTileStitch`, `VideoFormatPickerSheet` |
 | Settings rails | per-toggle `FleetUiVisibilityGate.visible` | overlays, video QS, capture tools, FPS rail |

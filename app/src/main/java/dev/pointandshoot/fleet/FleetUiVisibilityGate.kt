@@ -213,6 +213,7 @@ object FleetUiVisibilityGate {
             featureId == "face.priority_ae" -> caps.hasFaceDetectFull
             featureId == "hud.zebra" || featureId == "hud.histogram" -> caps.hasPreviewHistogram
             featureId == "lens.eis" -> true
+            featureId == "preview.qr" -> true
             featureId == "lens.aperture" -> caps.activeApertureCount > 0
             featureId == "lens.variable_aperture" -> caps.activeApertureCount > 1
             else -> false

@@ -49,6 +49,12 @@ Full index: **`AGENTS.md`**.
 
 ---
 
+## Sprint AUDIT4-2026-06-21 — H metering + QR restore ✅ CLOSED
+
+Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT4](BUILD_PLAN_COMPLETED.md#sprint-audit4-2026-06-21--h-metering--qr-restore-agent-closed).
+
+---
+
 ## Sprint AUDIT-2026-06-21 — Post-M28 hygiene ✅ CLOSED
 
 Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT-2026-06-21](BUILD_PLAN_COMPLETED.md#sprint-audit-2026-06-21--post-m28-hygiene-agent-closed).
@@ -104,24 +110,23 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** + **H-RESTORE** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
 
-**Last CPH2583 USB (2026-06-21):** Milestone **28** closure + AUDIT — `photo_capture_verify_20260621_043524` · `chrome_ux_gate_20260621_043540` · `parity_sweep_20260621_043558` PASS (0 ship blockers) · M28 Wave C gates (`dual_video`, `spatial_audio`, `extension_handoff_spike`) PASS.
+**Last CPH2583 USB (2026-06-21):** AUDIT4 — `highlight_meter_verify_20260621_152031` · `qr_scan_verify_20260621_152424` PASS. Prior: M28 closure `photo_capture_verify_20260621_043524` · `chrome_ux_gate_20260621_043540` · parity Delta PASS.
 
 ---
 
-### Code review recommendations (2026-06-21)
+### Code review recommendations (2026-06-21 AUDIT4)
 
-Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host evidence: bootstrap **PASS** · detekt **PASS** (post AUDIT fix) · Tier 0 **FAIL** (`python` missing) · Tier 2 re-run after `pwsh` fallback fix.
+Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS** · USB highlight + QR **PASS** on CPH2583.
 
 | Priority | Item | Owner | Notes |
 |----------|------|-------|-------|
 | **P1** | Human Milestone H closure | Human | **CRI-032** eye-AF (face in frame) · **CRI-033** H.265 DCG @4K · **CRI-034** store/PRIVACY · **CRI-035** OP13 ACR |
-| **P1** | Release cut | Human + agent | **H.9** — `0.14.0-beta.15` shipped in repo; GitHub release + Tier 4 `pns_prerelease_gate.ps1 -IncludeUsb` after human sign-off |
-| **P2** | Host toolchain PATH | Agent / maintainer | Install **python** + **ffprobe** on PATH; re-run Tier 0 + VF mediacodec gate |
-| **P2** | `dng_aesthetic_gate` self-test | Host | Milestone H host gate — blocked without Python |
-| **P2** | Lint baseline ~170 | Hygiene | `updateLintBaseline` when triaging warnings |
-| **P2** | `PBI-video.hfr.120-DeliveryHonesty` | M24 | `blocked_unstable` on CPH2583 — matrix truth |
-| — | DNG / capture locks | Hard rule | USB proof before §4a / §2 changes |
-| — | M28 deferred features | Post-M28 | Panorama, preview shots, comp HDR — see `docs/spikes/` |
+| **P1** | Release cut | Human + agent | **beta.15** shipped; production signing (**H.9**) still open |
+| **P2** | Host `ffprobe` on PATH | Maintainer | VF mediacodec gate |
+| **P2** | Wireless ADB install flake | Maintainer | `INSTALL_PARSE_FAILED_NOT_APK` on large debug APK — retry sideload |
+| — | H metering + QR | **Closed AUDIT4** | Warmup, engagement scale, face AE split; `preview.qr` AlwaysShow |
+
+### Code review recommendations (2026-06-21 AUDIT — superseded)
 
 **Prior audit (2026-06-17):** Tier 0 **8/8** when Python on PATH · Tier 2 PASS — superseded by host PATH gaps above.
 
@@ -229,7 +234,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction, **H-RE
 
 ## Document control
 
-- **Version:** 2026-06-21 — **Milestone 28** archived (Waves A–D); **Milestone H** remains active.
+- **Version:** 2026-06-21 — **AUDIT4** closed (H metering + QR); **Milestone H** remains active.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

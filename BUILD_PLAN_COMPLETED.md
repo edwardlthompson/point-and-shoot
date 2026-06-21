@@ -1740,6 +1740,20 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **Deferred post-M28:** panorama · preview shots · computational HDR · depth export · ML Kit QR · full multicam melt encoder · Open Camera log profile · preview-res save · self-illumination · consumer CameraX extension modes when OEM HAL advertises extensions.
 
+### Sprint AUDIT4-2026-06-21 — H metering + QR restore (agent closed)
+
+**Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** · USB `pns_highlight_meter_verify.ps1` + `pns_qr_scan_verify.ps1` PASS (CPH2583 `b5214fc6`).
+
+- [x] **[AGENT] AUDIT4.1** — [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) refresh (F-001–F-008)
+- [x] **[AGENT] AUDIT4.2** — **Highlight (H)** metering: YUV warmup (`HIGHLIGHT_METER_SESSION_WARMUP_MS`), `isUntrustedAnalysisHistogram`, `bulkHighlightTailEngagementScale`, H dial skips face `CONTROL_AE_REGIONS`; `REG-20260621-001`
+- [x] **[AGENT] AUDIT4.3** — **QR mode** restored: `preview.qr` **AlwaysShow** in catalog; `FleetUiVisibilityGate` default; unit test updated
+- [x] **[AGENT] AUDIT4.4** — Detekt: magic-number constants, `applyFaceAwbMeteringRegionIfSupported` (nested depth)
+- [x] **[AGENT] AUDIT4.5** — USB highlight + QR gates (install flake on wireless ADB noted)
+
+**Touches:** `HighlightMeter.kt`, `PreviewEngineScreen.kt`, `CameraCapabilityCatalog.kt`, `FleetUiVisibilityGate.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`, `docs/AGENT_REGRESSION_MEMORY.md`
+
+---
+
 ### Sprint AUDIT-2026-06-21 — Post-M28 hygiene (agent closed)
 
 **Gate:** `pns_validate_bootstrap.ps1` **PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** (detekt app + `:pns-*`, lint, unit tests, kover).

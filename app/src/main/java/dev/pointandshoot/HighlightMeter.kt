@@ -82,6 +82,49 @@ object HighlightMeter {
         val darkenEngagement: Double,
     )
 
+    /** Lightweight histogram stats for adb / debug when triaging H-mode metering. */
+    data class HistogramDiagnostics(
+        val p50: Int,
+        val pMetered: Int,
+        val fracAtOrAbove245: Double,
+        val fracAt255: Double,
+    )
+
+    /**
+     * YUV analysis frames can be **0xFF-filled** for a short window after session start (or when
+     * the HAL has not delivered valid luma yet). Treating that as “scene at clip” pegs AE comp at
+     * min and makes H mode look broken vs Auto.
+     */
+    fun isUntrustedAnalysisHistogram(histogram256: IntArray): Boolean {
+        require(histogram256.size == 256) { "expected 256-bin histogram, got ${histogram256.size}" }
+        val total = histogram256.fold(0L) { acc, n -> acc + n }
+        if (total <= 0L) return true
+        val frac255 = fractionAtOrAbove(histogram256, total, 255)
+        val p50 = lowerTailBin(histogram256, total, 0.5)
+        return frac255 > UNTRUSTED_GARBAGE_FRAC255 && p50 >= UNTRUSTED_GARBAGE_P50_MIN
+    }
+
+    fun histogramDiagnostics(histogram256: IntArray): HistogramDiagnostics? {
+        require(histogram256.size == 256) { "expected 256-bin histogram, got ${histogram256.size}" }
+        val total = histogram256.fold(0L) { acc, n -> acc + n }
+        if (total <= 0L) return null
+        val pTail = lowerTailBin(histogram256, total, DEFAULT_BRIGHT_TAIL_PERCENTILE)
+        val minSupport = minPeakSupportCount(total)
+        val pPeak = highestBinWithMinSupport(histogram256, minSupport)
+        val pMetered =
+            if (DEFAULT_BRIGHT_TAIL_PERCENTILE >= PEAK_BLEND_MIN_PERCENTILE) {
+                max(pTail, pPeak)
+            } else {
+                pTail
+            }
+        return HistogramDiagnostics(
+            p50 = lowerTailBin(histogram256, total, 0.5),
+            pMetered = pMetered,
+            fracAtOrAbove245 = fractionAtOrAbove(histogram256, total, NEAR_CLIP_PIXEL_BIN_245),
+            fracAt255 = fractionAtOrAbove(histogram256, total, 255),
+        )
+    }
+
     /**
      * @param histogram256 a 256-bin luminance histogram (bin 0 = darkest).
      * @param percentile   lower-tail mass in (0,1]; see [DEFAULT_BRIGHT_TAIL_PERCENTILE].
@@ -143,8 +186,12 @@ object HighlightMeter {
         if (p == effectiveCeiling) return HighlightEvBreakdown(0.0, 0.0)
 
         val frac245 = fractionAtOrAbove(histogram256, total, NEAR_CLIP_PIXEL_BIN_245)
+        val p50 = lowerTailBin(histogram256, total, 0.5)
+        val frac255 = fractionAtOrAbove(histogram256, total, 255)
         val p995 = lowerTailBin(histogram256, total, LOWER_TAIL_PERCENTILE_995)
-        val darkenEngage = darkenEngagementWeight(frac245, p995, p)
+        val darkenEngage =
+            darkenEngagementWeight(frac245, p995, p) *
+                bulkHighlightTailEngagementScale(p50, frac255)
 
         val current = p.coerceAtLeast(1).toDouble()
         val target8 = effectiveCeiling.toDouble()
@@ -210,6 +257,31 @@ object HighlightMeter {
         return max(max(w245, w995), wPeak).coerceIn(0.0, 1.0)
     }
 
+    /**
+     * When bulk luminance is low but only a **moderate** fraction sits at bin 255, do not apply the
+     * full clip-save pull (avoids pegging min AE comp on mostly-dark scenes with a small window /
+     * lamp tail). Tiny speculars (frac255 ≪ 1%) still keep strong engagement via [modestTail] near 0.
+     */
+    fun bulkHighlightTailEngagementScale(p50: Int, fracAt255: Double): Double {
+        if (fracAt255 >= BULK_TAIL_FRAC255_HIGH || p50 >= BULK_P50_BRIGHT) return 1.0
+        // Tiny speculars / filaments: keep full engagement (do not soften sun-disk pulls).
+        if (fracAt255 < BULK_TAIL_FRAC255_LOW) return 1.0
+        val darkBulk =
+            smoothstep01((BULK_P50_DARK_REF - p50.toDouble()) / BULK_P50_DARK_SPAN)
+        val modestTail =
+            smoothstep01((BULK_TAIL_FRAC255_HIGH - fracAt255) / (BULK_TAIL_FRAC255_HIGH - BULK_TAIL_FRAC255_LOW))
+        return (1.0 - darkBulk * modestTail * BULK_TAIL_ENGAGE_SUPPRESS).coerceIn(BULK_TAIL_ENGAGE_MIN, 1.0)
+    }
+
+    private const val BULK_P50_DARK_REF: Double = 62.0
+    private const val BULK_P50_DARK_SPAN: Double = 35.0
+    private const val BULK_P50_BRIGHT: Int = 66
+    /** Tail mass below this is treated as specular / filament (full engagement). */
+    private const val BULK_TAIL_FRAC255_LOW: Double = 0.02
+    private const val BULK_TAIL_FRAC255_HIGH: Double = 0.14
+    private const val BULK_TAIL_ENGAGE_SUPPRESS: Double = 0.88
+    private const val BULK_TAIL_ENGAGE_MIN: Double = 0.12
+
     /** No near-clip mass and modest 99.5% bin → do not brighten toward the highlight ceiling. */
     private fun shouldSuppressPositiveBrighten(fracAtOrAbove245: Double, p995Bin: Int): Boolean =
         fracAtOrAbove245 < POSITIVE_SUPPRESS_FRAC245 && p995Bin < POSITIVE_SUPPRESS_P995
@@ -226,6 +298,11 @@ object HighlightMeter {
 
     /** Metered highlight bin must approach white before peak-alone engagement ramps. */
     private const val CLIP_P_LOW: Double = 234.0
+
+    /** YUV garbage frame: nearly all pixels at bin 255 with bright median. */
+    private const val UNTRUSTED_GARBAGE_FRAC255: Double = 0.92
+
+    private const val UNTRUSTED_GARBAGE_P50_MIN: Int = 247
 
     private const val CLIP_P_HIGH: Double = 252.0
 

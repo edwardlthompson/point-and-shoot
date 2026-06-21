@@ -34,6 +34,19 @@
 
 ## Active entries
 
+### REG-20260621-001 — H dial YUV garbage + face AE conflict
+
+- **Status:** active
+- **Area:** preview / highlight metering
+- **Symptom:** H dial selects but preview matches Auto or pegs at min AE comp (`aeComp=-18`, `ev=-13.64`) on CPH2583; face in frame can fight global highlight EV comp.
+- **Cause:** YUV analysis frames often 0xFF-filled right after session start → meter thinks scene is at clip; `CONTROL_AE_REGIONS` on face during H dial biased HAL AE away from software comp.
+- **Fix shipped:** `highlightMeterSessionWarmupMs` (2200 ms); `HighlightMeter.isUntrustedAnalysisHistogram`; H dial skips face `CONTROL_AE_REGIONS` (AF/AWB on face retained).
+- **Do not:** Remove warmup or untrusted guard without USB proof; re-enable face AE regions on H without maintainer sign-off.
+- **Proves OK:** `pns_highlight_meter_verify.ps1`; `HighlightMeterTest` untrusted histogram cases; adb `highlightMeter` lines with sane `p50`/`ev` after warmup.
+- **Also test:** `pns_chrome_ux_gate.ps1` when touching metering; manual bright-window torture on device.
+- **Touches:** `HighlightMeter.kt`, `PreviewEngineScreen.kt`, `docs/PNS_TECHNICAL_SETTINGS.md` §2
+- **Conflicts with:** REG-20260620-001 (H metering path — complementary)
+
 ### REG-20260620-001 — Pure-HAL DNG save (global default)
 
 - **Status:** active

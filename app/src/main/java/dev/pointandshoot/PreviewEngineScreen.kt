@@ -11050,6 +11050,9 @@ private class PreviewController(
         /** EMA alpha when [highlightDarkenEngageEma] rises (very slow — protect highlights, less breathing). */
         private const val HIGHLIGHT_ENGAGE_EMA_RISE_ALPHA = 0.07
 
+        /** Skip YUV histogram until preview repeating settles (garbage 0xFF frames). */
+        private const val HIGHLIGHT_METER_SESSION_WARMUP_MS = 2200L
+
         // Video constants moved to VideoRecordingController (Sprint 12.4)
 
         /** HUD **Wait for AF before still**: poll repeating AF state on [PreviewController.handler]. */
@@ -11759,6 +11762,11 @@ private class PreviewController(
      * Highlight dial: protect **highlights / whites** only; do not pump brightness via positive EV.
      */
     private val highlightMeterDarkenOnly: Boolean = true
+
+    /** Ignore YUV histogram samples until preview repeating has settled (garbage 0xFF frames). */
+    private var highlightMeterSessionAnchorWallMs: Long = 0L
+
+    private val highlightMeterSessionWarmupMs: Long = HIGHLIGHT_METER_SESSION_WARMUP_MS
 
     /** Sprint **15.10** — locked-axis YUV chase (see [ReadoutExposureChase]). */
     @Volatile
@@ -19580,6 +19588,7 @@ private class PreviewController(
         highlightMeterEvEma = Double.NaN
         highlightDarkenEngageEma = Double.NaN
         lastHighlightAeRefreshWallMs = 0L
+        highlightMeterSessionAnchorWallMs = 0L
     }
 
     /** Debounced repeating request refresh when Highlight (H) AE compensation changes. */
@@ -21338,59 +21347,86 @@ private class PreviewController(
                         }
                     }
                     if (wantHighlight && hist != null) {
-                        val bd = HighlightMeter.suggestEvCorrectionBreakdown(hist)
-                        val engageSm = smoothHighlightDarkenEngagement(bd.darkenEngagement)
-                        val rawEv =
-                            when {
-                                bd.evCore < 0.0 -> bd.evCore * engageSm
-                                highlightMeterDarkenOnly -> 0.0
-                                else -> bd.evCore
-                            }
-                        val smoothedEv = smoothHighlightMeterEv(rawEv)
-                        val evForDrive =
-                            when {
-                                smoothedEv <= -highlightMeterStabilityDarkenBypassEv -> smoothedEv
-                                kotlin.math.abs(smoothedEv) < highlightEvStabilityZone -> 0.0
-                                else -> smoothedEv
-                            }
-                        val passesDeadband =
-                            when {
-                                evForDrive <= 0.0 ->
-                                    kotlin.math.abs(evForDrive) >= highlightMeterEvDeadbandDarken
-                                else ->
-                                    kotlin.math.abs(evForDrive) >= highlightMeterEvDeadbandBrighten
-                            }
-                        val camId = selectedCameraId ?: return
-                        val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
-                            ?: return
-                        val comp =
-                            HighlightMeterSupport.evToCompensationIndex(evForDrive, chars) ?: return
-                        val shouldPostComp =
-                            comp != lastAppliedHighlightComp &&
-                                (
-                                    passesDeadband ||
-                                        (comp == 0 && lastAppliedHighlightComp != null)
-                                )
-                        if (shouldPostComp) {
-                            val camHandler = handler ?: return
-                            camHandler.post {
-                                if (!wantsHighlightMetering() || yuvImageReader == null) return@post
-                                if (comp == lastAppliedHighlightComp) return@post
-                                lastAppliedHighlightComp = if (comp == 0) null else comp
-                                Log.d(
-                                    tag,
-                                    "HighlightMeter rawEv=${"%.2f".format(rawEv)} sm=${"%.2f".format(smoothedEv)} " +
-                                        "aeComp=$comp",
-                                )
-                                val adbWall = SystemClock.elapsedRealtime()
-                                if (adbWall - lastHighlightMeterAdbLogMs >= 3500L) {
-                                    lastHighlightMeterAdbLogMs = adbWall
-                                    PnsAdbLog.i(
-                                        appContext,
-                                        "highlightMeter ev=${"%.2f".format(evForDrive)} aeComp=$comp dial=H",
-                                    )
+                        val highlightWall = SystemClock.elapsedRealtime()
+                        val warmupReady =
+                            highlightMeterSessionAnchorWallMs > 0L &&
+                                highlightWall - highlightMeterSessionAnchorWallMs >=
+                                highlightMeterSessionWarmupMs
+                        if (warmupReady && !HighlightMeter.isUntrustedAnalysisHistogram(hist)) {
+                            val bd = HighlightMeter.suggestEvCorrectionBreakdown(hist)
+                            val engageSm = smoothHighlightDarkenEngagement(bd.darkenEngagement)
+                            val rawEv =
+                                when {
+                                    bd.evCore < 0.0 -> bd.evCore * engageSm
+                                    highlightMeterDarkenOnly -> 0.0
+                                    else -> bd.evCore
                                 }
-                                refreshRepeatingPreviewForHighlightMeter()
+                            val smoothedEv = smoothHighlightMeterEv(rawEv)
+                            val evForDrive =
+                                when {
+                                    smoothedEv <= -highlightMeterStabilityDarkenBypassEv -> smoothedEv
+                                    kotlin.math.abs(smoothedEv) < highlightEvStabilityZone -> 0.0
+                                    else -> smoothedEv
+                                }
+                            val passesDeadband =
+                                when {
+                                    evForDrive <= 0.0 ->
+                                        kotlin.math.abs(evForDrive) >= highlightMeterEvDeadbandDarken
+                                    else ->
+                                        kotlin.math.abs(evForDrive) >= highlightMeterEvDeadbandBrighten
+                                }
+                            val camId = selectedCameraId
+                            val chars =
+                                if (camId != null) {
+                                    runCatching { cm.getCameraCharacteristics(camId) }.getOrNull()
+                                } else {
+                                    null
+                                }
+                            val comp =
+                                if (chars != null) {
+                                    HighlightMeterSupport.evToCompensationIndex(evForDrive, chars)
+                                } else {
+                                    null
+                                }
+                            if (comp != null) {
+                                val shouldPostComp =
+                                    comp != lastAppliedHighlightComp &&
+                                        (
+                                            passesDeadband ||
+                                                (comp == 0 && lastAppliedHighlightComp != null)
+                                        )
+                                if (shouldPostComp) {
+                                    val camHandler = handler
+                                    if (camHandler != null) {
+                                        camHandler.post {
+                                            if (!wantsHighlightMetering() || yuvImageReader == null) return@post
+                                            if (comp == lastAppliedHighlightComp) return@post
+                                            lastAppliedHighlightComp = if (comp == 0) null else comp
+                                            Log.d(
+                                                tag,
+                                                "HighlightMeter rawEv=${"%.2f".format(rawEv)} sm=${"%.2f".format(smoothedEv)} " +
+                                                    "aeComp=$comp",
+                                            )
+                                            val adbWall = SystemClock.elapsedRealtime()
+                                            if (adbWall - lastHighlightMeterAdbLogMs >= 3500L) {
+                                                lastHighlightMeterAdbLogMs = adbWall
+                                                val diag = HighlightMeter.histogramDiagnostics(hist)
+                                                val diagSuffix =
+                                                    if (diag != null) {
+                                                        " p50=${diag.p50} p=${diag.pMetered} f255=" +
+                                                            "%.4f".format(diag.fracAt255)
+                                                    } else {
+                                                        ""
+                                                    }
+                                                PnsAdbLog.i(
+                                                    appContext,
+                                                    "highlightMeter ev=${"%.2f".format(evForDrive)} aeComp=$comp dial=H$diagSuffix",
+                                                )
+                                            }
+                                            refreshRepeatingPreviewForHighlightMeter()
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -21479,6 +21515,19 @@ private class PreviewController(
         )
     }
 
+    private fun applyFaceAwbMeteringRegionIfSupported(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        faceRect: MeteringRectangle,
+    ) {
+        if (manualAwbModeOverride != null) return
+        val maxAwb =
+            (chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB) as? IntArray)?.firstOrNull() ?: 0
+        if (maxAwb > 0) {
+            req.set(CaptureRequest.CONTROL_AWB_REGIONS, arrayOf(faceRect))
+        }
+    }
+
     private fun applyScalerCropAndMetering(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
@@ -21511,7 +21560,7 @@ private class PreviewController(
         }
         val tap = tapMeteringRect
         val manualFocusLocksAf = tap == null && wantsManualFocusDistance()
-        val faceMeterForAe =
+        val faceMeterRect =
             if (tap == null &&
                 facePriorityMeteringRect != null &&
                 hudFaceOverlayEnabled &&
@@ -21522,8 +21571,15 @@ private class PreviewController(
             } else {
                 null
             }
+        // H dial: global highlight meter drives AE comp — do not weight AE to the face.
+        val faceMeterForAe =
+            if (commandDialMode == CommandDialMode.H) {
+                null
+            } else {
+                faceMeterRect
+            }
         // Manual distance needs AF OFF; do not drive face CAF over the rack.
-        val faceMeter = if (manualFocusLocksAf) null else faceMeterForAe
+        val faceMeter = if (manualFocusLocksAf) null else faceMeterRect
         when {
             tap != null -> {
                 req.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(tap))
@@ -21542,30 +21598,14 @@ private class PreviewController(
             }
             faceMeterForAe != null && manualFocusLocksAf -> {
                 req.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(faceMeterForAe))
-                if (manualAwbModeOverride == null) {
-                    val maxAwb =
-                        (chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB) as? IntArray)
-                            ?.firstOrNull()
-                            ?: 0
-                    if (maxAwb > 0) {
-                        req.set(CaptureRequest.CONTROL_AWB_REGIONS, arrayOf(faceMeterForAe))
-                    }
-                }
+                applyFaceAwbMeteringRegionIfSupported(req, chars, faceMeterForAe)
             }
             faceMeter != null -> {
-                // Exposure + focus both weighted to the tracked face (max metering weight).
-                req.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(faceMeter))
-                req.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(faceMeter))
-                // Auto WB: bias color toward the face when the device supports AWB regions.
-                if (manualAwbModeOverride == null) {
-                    val maxAwb =
-                        (chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AWB) as? IntArray)
-                            ?.firstOrNull()
-                            ?: 0
-                    if (maxAwb > 0) {
-                        req.set(CaptureRequest.CONTROL_AWB_REGIONS, arrayOf(faceMeter))
-                    }
+                faceMeterForAe?.let { aeRect ->
+                    req.set(CaptureRequest.CONTROL_AE_REGIONS, arrayOf(aeRect))
+                    applyFaceAwbMeteringRegionIfSupported(req, chars, aeRect)
                 }
+                req.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(faceMeter))
                 val afModes =
                     chars.get(CameraCharacteristics.CONTROL_AF_AVAILABLE_MODES) ?: intArrayOf()
                 val afMode =
@@ -21953,6 +21993,9 @@ private class PreviewController(
 
             sess.setRepeatingRequest(req, fpsMeasuringCallback(), handler)
             lastStatus = "Preview running (normal)"
+            if (wantsHighlightMetering()) {
+                highlightMeterSessionAnchorWallMs = SystemClock.elapsedRealtime()
+            }
             Log.d(tag, "Normal repeatingRequest started")
             scheduleReadoutChromeUxFallback()
             // Sprint 12.4: Video recorder start handled by VideoRecordingController after preview settles.

@@ -1,6 +1,6 @@
 {
   "schema": "pns.fleet_leaderboard_site.v1",
-  "updatedUtc": "2026-06-21T03:32:38.6799561Z",
+  "updatedUtc": "2026-06-21T03:35:00.5289189Z",
   "catalogVersion": 3,
   "deviceCount": 5,
   "breakthroughCount": 2,
@@ -20,17 +20,17 @@
   ],
   "oemRankings": [
     {
-      "manufacturer": "Essential Products",
-      "opennessPercent": 100.0,
-      "gateHonestyPercent": 50.0,
-      "compositePercent": 80.0,
-      "restrictionIndex": 20.0,
+      "manufacturer": "HTC",
+      "opennessPercent": 87.0,
+      "gateHonestyPercent": 53.3,
+      "compositePercent": 73.5,
+      "restrictionIndex": 26.5,
       "avgResolutionBetrayal": 0.0,
-      "breakthroughCount": 1,
-      "withheldFeatureCount": 0,
+      "breakthroughCount": 0,
+      "withheldFeatureCount": 16,
       "deviceCount": 1,
       "deviceSlugs": [
-        "dff79fd1b3808b1d"
+        "088f8b18916ff4ea"
       ]
     },
     {
@@ -48,6 +48,20 @@
       ]
     },
     {
+      "manufacturer": "Essential Products",
+      "opennessPercent": 100.0,
+      "gateHonestyPercent": 50.0,
+      "compositePercent": 80.0,
+      "restrictionIndex": 20.0,
+      "avgResolutionBetrayal": 0.0,
+      "breakthroughCount": 1,
+      "withheldFeatureCount": 0,
+      "deviceCount": 1,
+      "deviceSlugs": [
+        "dff79fd1b3808b1d"
+      ]
+    },
+    {
       "manufacturer": "OnePlus",
       "opennessPercent": 99.1,
       "gateHonestyPercent": 68.7,
@@ -60,20 +74,6 @@
       "deviceSlugs": [
         "718a8115ff142454",
         "3e2a7b88f6db66c0"
-      ]
-    },
-    {
-      "manufacturer": "HTC",
-      "opennessPercent": 87.0,
-      "gateHonestyPercent": 53.3,
-      "compositePercent": 73.5,
-      "restrictionIndex": 26.5,
-      "avgResolutionBetrayal": 0.0,
-      "breakthroughCount": 0,
-      "withheldFeatureCount": 16,
-      "deviceCount": 1,
-      "deviceSlugs": [
-        "088f8b18916ff4ea"
       ]
     }
   ],

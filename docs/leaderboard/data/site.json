@@ -1,6 +1,6 @@
 {
   "schema": "pns.fleet_leaderboard_site.v1",
-  "updatedUtc": "2026-06-21T03:28:59.6494478Z",
+  "updatedUtc": "2026-06-21T03:32:38.6799561Z",
   "catalogVersion": 3,
   "deviceCount": 5,
   "breakthroughCount": 2,
@@ -20,18 +20,17 @@
   ],
   "oemRankings": [
     {
-      "manufacturer": "OnePlus",
-      "opennessPercent": 99.1,
-      "gateHonestyPercent": 68.7,
-      "compositePercent": 86.9,
-      "restrictionIndex": 13.1,
+      "manufacturer": "Essential Products",
+      "opennessPercent": 100.0,
+      "gateHonestyPercent": 50.0,
+      "compositePercent": 80.0,
+      "restrictionIndex": 20.0,
       "avgResolutionBetrayal": 0.0,
       "breakthroughCount": 1,
-      "withheldFeatureCount": 2,
-      "deviceCount": 2,
+      "withheldFeatureCount": 0,
+      "deviceCount": 1,
       "deviceSlugs": [
-        "718a8115ff142454",
-        "3e2a7b88f6db66c0"
+        "dff79fd1b3808b1d"
       ]
     },
     {
@@ -49,17 +48,18 @@
       ]
     },
     {
-      "manufacturer": "Essential Products",
-      "opennessPercent": 100.0,
-      "gateHonestyPercent": 50.0,
-      "compositePercent": 80.0,
-      "restrictionIndex": 20.0,
+      "manufacturer": "OnePlus",
+      "opennessPercent": 99.1,
+      "gateHonestyPercent": 68.7,
+      "compositePercent": 86.9,
+      "restrictionIndex": 13.1,
       "avgResolutionBetrayal": 0.0,
       "breakthroughCount": 1,
-      "withheldFeatureCount": 0,
-      "deviceCount": 1,
+      "withheldFeatureCount": 2,
+      "deviceCount": 2,
       "deviceSlugs": [
-        "dff79fd1b3808b1d"
+        "718a8115ff142454",
+        "3e2a7b88f6db66c0"
       ]
     },
     {

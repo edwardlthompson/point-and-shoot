@@ -1,8 +1,57 @@
 {
   "schema": "pns.leaderboard_oem_accountability.v1",
-  "updatedUtc": "2026-06-21T03:28:59.6299553Z",
+  "updatedUtc": "2026-06-21T03:32:38.6743157Z",
   "subtitle": "Rankings reflect Camera2/CameraX access for third-party apps, not OEM camera app quality.",
   "oems": [
+    {
+      "manufacturer": "Essential Products",
+      "restrictionIndex": 20.0,
+      "opennessPercent": 100.0,
+      "gateHonestyPercent": 50.0,
+      "avgResolutionBetrayal": 0.0,
+      "totalShipBlockers": 0,
+      "withheldFeatureCount": 0,
+      "deviceCount": 1,
+      "worstOffenders": [],
+      "deviceSlugs": [
+        "dff79fd1b3808b1d"
+      ]
+    },
+    {
+      "manufacturer": "Sony",
+      "restrictionIndex": 13.0,
+      "opennessPercent": 95.4,
+      "gateHonestyPercent": 74.4,
+      "avgResolutionBetrayal": 0.0,
+      "totalShipBlockers": 0,
+      "withheldFeatureCount": 5,
+      "deviceCount": 1,
+      "worstOffenders": [
+        {
+          "catalogId": "video.delivery_honesty",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.heic",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "still.independent_tonal",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.bt709",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.color.flat",
+          "deviceCount": 1
+        }
+      ],
+      "deviceSlugs": [
+        "acf7a326d2a12131"
+      ]
+    },
     {
       "manufacturer": "OnePlus",
       "restrictionIndex": 13.1,
@@ -28,55 +77,6 @@
       ]
     },
     {
-      "manufacturer": "Sony",
-      "restrictionIndex": 13.0,
-      "opennessPercent": 95.4,
-      "gateHonestyPercent": 74.4,
-      "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 0,
-      "withheldFeatureCount": 5,
-      "deviceCount": 1,
-      "worstOffenders": [
-        {
-          "catalogId": "video.delivery_honesty",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.bt709",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.independent_tonal",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "still.heic",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.flat",
-          "deviceCount": 1
-        }
-      ],
-      "deviceSlugs": [
-        "acf7a326d2a12131"
-      ]
-    },
-    {
-      "manufacturer": "Essential Products",
-      "restrictionIndex": 20.0,
-      "opennessPercent": 100.0,
-      "gateHonestyPercent": 50.0,
-      "avgResolutionBetrayal": 0.0,
-      "totalShipBlockers": 0,
-      "withheldFeatureCount": 0,
-      "deviceCount": 1,
-      "worstOffenders": [],
-      "deviceSlugs": [
-        "dff79fd1b3808b1d"
-      ]
-    },
-    {
       "manufacturer": "HTC",
       "restrictionIndex": 26.5,
       "opennessPercent": 87.0,
@@ -87,23 +87,23 @@
       "deviceCount": 1,
       "worstOffenders": [
         {
-          "catalogId": "video.uhd60",
-          "deviceCount": 1
-        },
-        {
           "catalogId": "video.hfr",
           "deviceCount": 1
         },
         {
-          "catalogId": "raw.dng",
+          "catalogId": "video.hfr.30",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.uhd60",
+          "deviceCount": 1
+        },
+        {
+          "catalogId": "video.hfr.24",
           "deviceCount": 1
         },
         {
           "catalogId": "video.4k_regular",
-          "deviceCount": 1
-        },
-        {
-          "catalogId": "video.color.bt709",
           "deviceCount": 1
         }
       ],

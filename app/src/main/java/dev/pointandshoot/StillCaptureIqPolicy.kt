@@ -3,6 +3,7 @@ package dev.pointandshoot
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraMetadata
 import android.hardware.camera2.CaptureRequest
+import android.util.Log
 import dev.pointandshoot.fleet.FleetCameraProfile
 import dev.pointandshoot.fleet.LegacyFleetPolicy
 
@@ -12,6 +13,28 @@ import dev.pointandshoot.fleet.LegacyFleetPolicy
 object StillCaptureIqPolicy {
 
     /**
+     * USB bisect: when false, skip EDGE/NR/TONEMAP/hot-pixel/optical/shading on still — only
+     * TEMPLATE_STILL_CAPTURE defaults + AWB/AE elsewhere. ProShot tele Bayer R/G matches ASN;
+     * P&S ASN matched while Bayer R/G lagged — isolate whether still-IQ keys desync RAW.
+     */
+    const val APPLY_REFERENCE_APP_STILL_IQ: Boolean = true
+
+    /**
+     * When [APPLY_REFERENCE_APP_STILL_IQ] is true: ProShot pref defaults ON, but OP13 tele ProShot
+     * DNGs and P&S map-ON USB both show map does **not** change Bayer (only embeds OpcodeList2).
+     * Keep OFF for ProShot DNG footprint (no GainMaps).
+     */
+    const val REQUEST_LENS_SHADING_MAP_ON_STILL: Boolean = false
+
+    /**
+     * USB bisect (ProShot stream set): when true + pure-HAL RAW session, omit face/hist/zebra
+     * **YUV analysis** from the REGULAR session graph (preview + RAW + JPEG only). Does **not**
+     * use [automationSuppressFacePipeline] (that lock broke sequential RAW on legacy). H dial /
+     * readout chase still force YUV via [PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis].
+     */
+    const val OMIT_YUV_ANALYSIS_FOR_PURE_HAL_RAW_SESSION: Boolean = true
+
+    /**
      * ReferenceCam still IQ only — used by [ReferenceAppLeafStillCaptureRequest] (no duplicate pipeline pass).
      */
     fun applyReferenceAppLeafStillIq(
@@ -19,6 +42,7 @@ object StillCaptureIqPolicy {
         chars: CameraCharacteristics,
         profile: FleetCameraProfile?,
     ) {
+        if (!APPLY_REFERENCE_APP_STILL_IQ || DngSaveBisectState.skipStillIq) return
         applyReferenceAppStillPipeline(req, chars)
         if (!shouldApplyLensShading(profile, chars)) return
         applyLensShadingMapAndMode(req, chars, profile)
@@ -29,6 +53,12 @@ object StillCaptureIqPolicy {
         chars: CameraCharacteristics,
         profile: FleetCameraProfile?,
     ) {
+        if (!APPLY_REFERENCE_APP_STILL_IQ || DngSaveBisectState.skipStillIq) {
+            if (DngSaveBisectState.skipStillIq) {
+                Log.i("PNS.StillIq", "skipStillIq=true (fleet exposure bisect E11)")
+            }
+            return
+        }
         val proShotLeaf =
             LegacyFleetPolicy.useExactReferenceAppLeafStillCaptureRequest() &&
                 isLeafBackCharacteristics(chars)
@@ -36,17 +66,9 @@ object StillCaptureIqPolicy {
             applyReferenceAppLeafStillIq(req, chars, profile)
             return
         }
-        val legacyReferenceAppLeaf =
-            LegacyFleetPolicy.useReferenceAppPureDngSave() && isLeafBackCharacteristics(chars)
-        if (legacyReferenceAppLeaf) {
-            applyReferenceAppStillPipeline(req, chars)
-        } else if (
-            AltReferenceAppInspiredStillPolicy.applyReferenceAppOpticalCorrectionOnLeaf() &&
-                LegacyFleetPolicy.appliesToDevice() &&
-                isLeafBackCharacteristics(chars)
-        ) {
-            applyReferenceAppOpticalCorrection(req, chars)
-        }
+        // ProShot / ReferenceCam still path (A5 z2=true): advertised still IQ on all SKUs.
+        // Capability-gated inside; no Build.MODEL / LegacySku branch.
+        applyReferenceAppStillPipeline(req, chars)
         applyLensShadingMapAndMode(req, chars, profile)
     }
 
@@ -59,10 +81,18 @@ object StillCaptureIqPolicy {
         val mapModes =
             chars.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES)
                 ?: return
-        if (mapModes.contains(CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON)) {
+        if (REQUEST_LENS_SHADING_MAP_ON_STILL || DngSaveBisectState.useProShotCapturePipeline) {
+            if (mapModes.contains(CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON)) {
+                req.set(
+                    CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE,
+                    CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON,
+                )
+            }
+        } else if (mapModes.contains(CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_OFF)) {
+            // Match ProShot tele DNG footprint (no OpcodeList2). Prefer explicit OFF over omitting.
             req.set(
                 CaptureRequest.STATISTICS_LENS_SHADING_MAP_MODE,
-                CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON,
+                CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_OFF,
             )
         }
         if (AltReferenceAppInspiredStillPolicy.teleLensShadingMapOnly(profile)) {
@@ -153,12 +183,29 @@ object StillCaptureIqPolicy {
         }
     }
 
+    /**
+     * USB bisect: when [SENSOR_INFO_LENS_SHADING_APPLIED] is true, skip / OFF [SHADING_MODE].
+     * OP13 tele RAW already has shading in the buffer; HQ shading on top correlated with elevated
+     * edge green (full-frame R/G ≪ center) while ProShot samples stay flatter.
+     */
+    const val SKIP_SHADING_MODE_WHEN_LENS_SHADING_APPLIED: Boolean = true
+
     private fun applyShadingMode(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,
         preferHighQuality: Boolean,
     ) {
         val shadingModes = chars.get(CameraCharacteristics.SHADING_AVAILABLE_MODES) ?: return
+        if (
+            SKIP_SHADING_MODE_WHEN_LENS_SHADING_APPLIED &&
+            chars.get(CameraCharacteristics.SENSOR_INFO_LENS_SHADING_APPLIED) == true
+        ) {
+            if (shadingModes.contains(CaptureRequest.SHADING_MODE_OFF)) {
+                req.set(CaptureRequest.SHADING_MODE, CaptureRequest.SHADING_MODE_OFF)
+            }
+            Log.d("PNS.StillIq", "shadingMode=OFF (lensShadingApplied=true)")
+            return
+        }
         when {
             preferHighQuality && shadingModes.contains(CaptureRequest.SHADING_MODE_HIGH_QUALITY) ->
                 req.set(CaptureRequest.SHADING_MODE, CaptureRequest.SHADING_MODE_HIGH_QUALITY)
@@ -173,11 +220,15 @@ object StillCaptureIqPolicy {
         profile: FleetCameraProfile?,
         chars: CameraCharacteristics,
     ): Boolean {
+        // Explicit fleet profile wins when present (built from HAL ads).
         profile?.let { return it.lensShadingMapOnStill }
-        if (!LegacyFleetPolicy.appliesToDevice()) return false
+        // ProShot default: LENS_SHADING_MAP on when STATISTICS_INFO advertises ON — no model gate.
         val facing = chars.get(CameraCharacteristics.LENS_FACING)
         if (facing != CameraCharacteristics.LENS_FACING_BACK) return false
-        return isLeafBackCharacteristics(chars)
+        val mapModes =
+            chars.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_LENS_SHADING_MAP_MODES)
+                ?: return false
+        return mapModes.contains(CameraMetadata.STATISTICS_LENS_SHADING_MAP_MODE_ON)
     }
 
     internal fun isLeafBackCharacteristics(chars: CameraCharacteristics): Boolean {

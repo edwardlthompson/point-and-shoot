@@ -36,15 +36,20 @@ adb -s $Serial shell am force-stop $pkg | Out-Null
 adb -s $Serial shell am start -W -n "$pkg/.MainActivity" `
     --activity-clear-task `
     --es pns_screen preview `
+    --es pns_preview_camera_id 2 `
     --ei pns_preview_readout_iso $Iso | Out-Host
 
 Start-Sleep -Seconds $WaitSec
 $logPath = Join-Path $outDir "logcat_readout_iso.txt"
-adb -s $Serial logcat -d -s PNS.ChromeUx:I PNS.PreviewController:I | Out-File -Encoding utf8 $logPath
+adb -s $Serial exec-out logcat -d -v brief 2>$null |
+    Select-String -Pattern "PNS\.(Cam|ChromeUx|AdbValidation|Preview)" |
+    ForEach-Object { $_.Line } |
+    Out-File -Encoding utf8 $logPath
 
 adb -s $Serial shell am force-stop $pkg | Out-Null
 
 $text = Get-Content $logPath -Raw
+if ($null -eq $text) { $text = "" }
 $applied = $text -match "readoutAeApplied coupling=LOCKED_ISO_AUTO_SS"
 $probe = $text -match "readoutIsoProbe=locked iso=$Iso"
 $isoInReq = $text -match "readoutAeApplied[^\n]*iso=$Iso"

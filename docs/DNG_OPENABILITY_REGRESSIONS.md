@@ -35,7 +35,7 @@ Contract object: `ReferenceAppPipelineContract.kt`. Policy: `LegacyDeviceFleetPo
 
 ## Pure-HAL global default (Sprint H-RESTORE, 2026-06-19)
 
-**`PureHalDngSavePolicy.ENABLED`** on all SKUs disables post-save reconcile (**R3**), capture-time leaf color IQ (**R4**), tag **50708**, and LUT `setDescription` — **`StillCaptureMetadata.applyToDngUri`** in-place Make/Model/EXIF remains. Parity/aesthetic gates may **FAIL** on aux UW/tele vs ReferenceCam fixtures; **loadability** gates (`dng_tiff_integrity_check.py`, `dng_desktop_open_gate.py`) remain mandatory.
+**`PureHalDngSavePolicy.ENABLED`** on all SKUs disables post-save reconcile (**R3**), app capture-time color surgery (**R4** / `LegacyLeafStillColorCorrection` + linear-raw overrides), tag **50708**, and LUT `setDescription` — **`StillCaptureMetadata.applyToDngUri`** in-place Make/Model/EXIF remains. Capability-gated **`StillCaptureIqPolicy`** (lens shading / advertised modes) stays **on** under pure-HAL (REG-20260712-001). Parity/aesthetic gates may still **FAIL** on aux UW/tele vs ReferenceCam fixtures; **loadability** gates (`dng_tiff_integrity_check.py`, `dng_desktop_open_gate.py`) remain mandatory.
 
 ---
 

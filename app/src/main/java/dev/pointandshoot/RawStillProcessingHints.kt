@@ -8,6 +8,7 @@ import android.util.Log
 import dev.pointandshoot.fleet.LegacyFleetPolicy
 import dev.pointandshoot.StillDngBackend
 import dev.pointandshoot.fleet.StillDngBackendPolicy
+import dev.pointandshoot.getColorCorrectionAvailableModesOrEmpty
 
 /**
  * Capture-time hints for **linear-ish RAW** stills (LYT-style sensors): avoid heavy spatial NR /
@@ -72,6 +73,104 @@ object RawStillProcessingHints {
         val ok = chars.get(CameraCharacteristics.CONTROL_AE_LOCK_AVAILABLE) ?: false
         if (ok) {
             req.set(CaptureRequest.CONTROL_AE_LOCK, true)
+        }
+    }
+
+    /**
+     * ProShot Auto still (`A5` + `s6` with ISO/exp prefs unset): keep HAL AE **ON**, unlock AE,
+     * copy EV + post-raw boost from the last preview/precapture result onto a fresh STILL builder.
+     * Does **not** latch [SENSOR_SENSITIVITY] / [SENSOR_EXPOSURE_TIME] (that path crushed Bayer on
+     * legacy May 2026; ProShot Auto also leaves SENSOR unset).
+     */
+    fun applyProShotAutoStillMeteringKeysFromResult(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        result: TotalCaptureResult?,
+    ) {
+        if (result == null) return
+        val requestKeys = chars.availableCaptureRequestKeys ?: emptyList()
+        val aeModes = chars.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_MODES) ?: intArrayOf()
+        if (aeModes.contains(CaptureRequest.CONTROL_AE_MODE_ON)) {
+            req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON)
+        }
+        if (requestKeys.contains(CaptureRequest.CONTROL_AE_LOCK)) {
+            req.set(CaptureRequest.CONTROL_AE_LOCK, false)
+        }
+        result.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION)?.let { ev ->
+            if (requestKeys.contains(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION)) {
+                val range = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE)
+                val clamped = if (range != null) ev.coerceIn(range.lower, range.upper) else ev
+                req.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, clamped)
+            }
+        }
+        result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST)?.let { boost ->
+            if (requestKeys.contains(CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST)) {
+                runCatching {
+                    req.set(CaptureRequest.CONTROL_POST_RAW_SENSITIVITY_BOOST, boost)
+                }
+            }
+        }
+        Log.i(
+            TAG,
+            "proshotAutoStill metering aeOn unlocked " +
+                "ev=${result.get(CaptureResult.CONTROL_AE_EXPOSURE_COMPENSATION)} " +
+                "postRaw=${result.get(CaptureResult.CONTROL_POST_RAW_SENSITIVITY_BOOST)} " +
+                "iso=${result.get(CaptureResult.SENSOR_SENSITIVITY)}",
+        )
+    }
+
+    fun applyAwbLockIfAvailable(req: CaptureRequest.Builder, chars: CameraCharacteristics, lock: Boolean) {
+        if (!lock) return
+        val ok = chars.get(CameraCharacteristics.CONTROL_AWB_LOCK_AVAILABLE) ?: false
+        if (ok) {
+            req.set(CaptureRequest.CONTROL_AWB_LOCK, true)
+        }
+    }
+
+    /**
+     * USB bisect flag: ProShot sets COLOR_CORRECTION HQ on FULL/LEVEL_3. When false, still AWB AUTO
+     * only — check whether CC HQ desyncs Bayer vs ASN on tele RAW.
+     */
+    const val APPLY_COLOR_CORRECTION_MODE_ON_RAW_STILL: Boolean = true
+
+    /**
+     * ProShot `C0353b0.w6` auto-WB path: [CONTROL_AWB_MODE_AUTO], [CONTROL_AWB_LOCK]=false.
+     * Optionally set [COLOR_CORRECTION_MODE_HIGH_QUALITY] on FULL / LEVEL_3 (ProShot does).
+     * [setColorCorrectionMode] false keeps AWB only — USB bisect when CC HQ desyncs Bayer vs ASN.
+     */
+    fun applyProShotStyleAwbAndColorCorrection(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        manualAwbOrColorCorrectionAlreadySet: Boolean,
+        setColorCorrectionMode: Boolean = APPLY_COLOR_CORRECTION_MODE_ON_RAW_STILL,
+    ) {
+        if (manualAwbOrColorCorrectionAlreadySet) return
+        val awbModes = chars.get(CameraCharacteristics.CONTROL_AWB_AVAILABLE_MODES) ?: intArrayOf()
+        if (awbModes.contains(CaptureRequest.CONTROL_AWB_MODE_AUTO)) {
+            req.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO)
+            req.set(CaptureRequest.CONTROL_AWB_LOCK, false)
+        }
+        if (!setColorCorrectionMode) return
+        val hwLevel = chars.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL) ?: return
+        // ProShot: only FULL (1) or LEVEL_3 (3) — not LIMITED.
+        if (
+            hwLevel != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL &&
+            hwLevel != CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3
+        ) {
+            return
+        }
+        val ccModes = chars.getColorCorrectionAvailableModesOrEmpty()
+        when {
+            ccModes.contains(CaptureRequest.COLOR_CORRECTION_MODE_HIGH_QUALITY) ->
+                req.set(
+                    CaptureRequest.COLOR_CORRECTION_MODE,
+                    CaptureRequest.COLOR_CORRECTION_MODE_HIGH_QUALITY,
+                )
+            ccModes.contains(CaptureRequest.COLOR_CORRECTION_MODE_FAST) ->
+                req.set(
+                    CaptureRequest.COLOR_CORRECTION_MODE,
+                    CaptureRequest.COLOR_CORRECTION_MODE_FAST,
+                )
         }
     }
 

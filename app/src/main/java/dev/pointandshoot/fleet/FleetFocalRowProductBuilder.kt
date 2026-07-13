@@ -11,7 +11,7 @@ import org.json.JSONObject
  */
 object FleetFocalRowProductBuilder {
 
-    private val CHIP_TARGETS = listOf(14, 23, 35, 50, 73, 85, 150)
+    private val CHIP_TARGETS = dev.pointandshoot.FocalLensStripSupport.FOCAL_CHIP_EQ_MM
 
     fun build(
         context: Context,

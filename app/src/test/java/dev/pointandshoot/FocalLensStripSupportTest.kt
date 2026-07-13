@@ -40,6 +40,51 @@ class FocalLensStripSupportTest {
     }
 
     @Test
+    fun primeEqTargets_includeNativeTeleAndDigitalCrops() {
+        assertEquals(listOf(14, 23, 35, 50, 73, 85, 150), FocalLensStripSupport.primeEqTargets())
+        assertEquals(FocalLensStripSupport.FOCAL_CHIP_EQ_MM, FocalLensStripSupport.primeEqTargets())
+    }
+
+    @Test
+    fun primeAssignments_teleChipTargetsKeepNative73DistinctFrom85() {
+        val assignments =
+            FocalLensStripSupport.resolvePrimeLensAssignmentsFromCandidates(
+                candidates =
+                    listOf(
+                        FocalLensStripSupport.PrimeLensCandidate(
+                            cameraId = "wide",
+                            nativeEqMm = 23,
+                            focalMm = 6.1f,
+                            sensorMp = 12.6,
+                        ),
+                        FocalLensStripSupport.PrimeLensCandidate(
+                            cameraId = "tele",
+                            nativeEqMm = 73,
+                            focalMm = 13.9f,
+                            sensorMp = 12.6,
+                        ),
+                    ),
+                targets = FocalLensStripSupport.FOCAL_CHIP_EQ_MM,
+            )
+        val byTarget = assignments.associateBy { it.targetEqMm }
+        assertEquals("tele", byTarget.getValue(73).cameraId)
+        assertTrue(byTarget.getValue(73).isNative)
+        assertEquals("tele", byTarget.getValue(85).cameraId)
+        assertFalse(byTarget.getValue(85).isNative)
+        assertEquals("tele", byTarget.getValue(150).cameraId)
+        // Nearest-chip remap must not collapse 73 → 85.
+        val nearest73 =
+            assignments.minWith(
+                compareBy(
+                    { kotlin.math.abs(it.targetEqMm - 73) },
+                    { if (it.isNative) 0 else 1 },
+                    { it.targetEqMm },
+                ),
+            )
+        assertEquals(73, nearest73.targetEqMm)
+    }
+
+    @Test
     fun primeAssignments_preferLeastCropOverHigherEffectiveMp() {
         val assignments =
             FocalLensStripSupport.resolvePrimeLensAssignmentsFromCandidates(

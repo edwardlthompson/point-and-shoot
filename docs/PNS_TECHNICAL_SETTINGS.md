@@ -87,7 +87,7 @@
 
 **Hardware H-AE:** Only when **root vendor-extra opt-in** is enabled (`VendorHighlightAePrefs` + SU grant). Reflected SDK `CONTROL_AE_MODE_ON_HIGHLIGHT_WEIGHTED` alone uses the **software** YUV EV path (`usesHardwareHighlightAe` false). Log tag **`PNS.HighlightAe`**: `path=vendor_extra` when hardware mode is selected.
 
-**YUV when face pipeline suppressed:** H dial + fps &lt; 120 still attaches the analysis YUV stream even when `automationSuppressFacePipeline` (bracket automation); QR/face/histogram paths remain gated. Code: `PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis`.
+**YUV when face pipeline suppressed:** H dial + fps &lt; 120 still attaches the analysis YUV stream even when `automationSuppressFacePipeline` (bracket automation); QR/face/histogram paths remain gated. Code: `PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis`. **H / readout-chase YUV is not gated by `lifecycleBackgroundPaused`** (attach during createSession; processing still no-ops when paused).
 
 ### 2.2 YUV highlight pipeline (software path)
 
@@ -104,7 +104,7 @@
 | Deadband brighten | **0.155** (unused when darken-only) | `highlightMeterEvDeadbandBrighten` |
 | Darken engagement EMA | `HighlightMeter.suggestEvCorrectionBreakdown` → `smoothHighlightDarkenEngagement` | Reduces breathing |
 
-**CaptureRequest:** While AE stays **ON**, sets `CONTROL_AE_EXPOSURE_COMPENSATION` from smoothed EV (`HighlightMeterSupport.evToCompensationIndex`). On **H**, face tracking sets **AF** regions only — not `CONTROL_AE_REGIONS` (global highlight meter). Log tag: **`PNS.ChromeUx`** / adb **`HighlightMeter`** lines (~3.5 s throttle, includes `p50` / `f255` diag).
+**CaptureRequest:** While AE stays **ON**, sets `CONTROL_AE_EXPOSURE_COMPENSATION` from smoothed EV (`HighlightMeterSupport.evToCompensationIndex`). On **H**, face tracking sets **AF** regions only — not `CONTROL_AE_REGIONS` (global highlight meter). **RAW / bracket stills** also omit face **AE** regions (`includeFaceAeRegions=false`) so metering matches ProShot/ReferenceCam HAL default; preview face AE unchanged. Log tag: **`PNS.ChromeUx`** / adb **`HighlightMeter`** lines (~3.5 s throttle, includes `p50` / `f255` diag).
 
 ### 2.3 H + locked readout axis (Sprint 14.7)
 
@@ -113,7 +113,7 @@ When **locked ISO** or **locked shutter** is active **and** dial is **H** with `
 - Locked ISO → `ReadoutExposureChase.adjustExposureNsFromEv` on `readoutChaseExposureNs`
 - Locked SS → `ReadoutExposureChase.adjustIsoFromEv` on `readoutChaseIso`
 
-Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2).
+Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2). When chase is active, AE compensation posts are skipped so only the free axis is driven. ADB: `highlightMeter … aeComp=chase` and `readoutChase … highlightEv=`.
 
 ### 2.4 H on RAW still
 
@@ -131,20 +131,22 @@ Uses shared `highlightEvForReadoutChase()` (same engagement / EMA as §2.2).
 | Coupling | ISO chip | Shutter chip | `CONTROL_AE_MODE` on preview/still |
 |----------|----------|--------------|-------------------------------------|
 | **AUTO** | Auto | Auto | HAL AE **ON** (default program) |
-| **LOCKED_ISO_AUTO_SS** | Locked | Auto | **OFF** + `CONTROL_MODE_OFF` + manual `SENSOR_*` |
-| **LOCKED_SS_AUTO_ISO** | Auto | Locked | **OFF** + manual `SENSOR_*` |
-| **MANUAL_BOTH** | Locked | Locked | **OFF** + both axes from picks / metadata |
+| **LOCKED_ISO_AUTO_SS** | Locked | Auto | **`CONTROL_MODE_OFF`** + AE **OFF** + manual `SENSOR_*` |
+| **LOCKED_SS_AUTO_ISO** | Auto | Locked | **`CONTROL_MODE_OFF`** + AE **OFF** + manual `SENSOR_*` |
+| **MANUAL_BOTH** | Locked | Locked | **`CONTROL_MODE_OFF`** + AE **OFF** + both axes from picks / metadata |
 
 **Important:** Dial **M** is **focus only**; “manual exposure” means **both readout chips locked**, not dial M alone.
 
 ### 3.2 ISO auto range checklist
 
-- ISO menu now has a **range checklist** section.
+- ISO menu has a **range checklist** section above the lock list.
 - **Auto (sensor range)** is the top row (no custom clamp).
-- Tapping one ISO stop sets a single-stop range; tapping a second stop fills the full span (`100` then `800` => `100…800`).
+- **First tap** on a stop sets a single-stop range **and locks ISO** at that stop (chip shows `N·L`, AE leaves Auto). This matches the common “pick ISO 400” expectation.
+- **Second tap** on another stop fills a multi-stop Auto clamp (`100` then `800` => `100…800`) and **clears** the ISO lock (AE Auto again; band still floors/ceilings chase + future locks).
+- Lock-list rows (“Lock ISO · auto shutter”) also set a matching single-stop band.
 - All ISO picks / chase updates are clamped to the selected range plus HAL `SENSOR_INFO_SENSITIVITY_RANGE`.
 - Persistence token for tray restore uses `auto` or `range:min-max` (legacy enum tokens still parse for backward compatibility).
-
+- Log: `PNS.ChromeUx readoutIsoBand=… lockedIso=…`
 ### 3.3 Applying exposure to HAL
 
 **Function:** `PreviewController.applyReadoutManualExposureAndWb`  
@@ -260,7 +262,9 @@ ADB: `--es pns_preview_focus_mode manual|auto|macro|…`. Gate: `pns_macro_focus
 
 **Diagnostics:** `Log.i(PNS.CaptureStill, "dng save diag …")` with `DngMetadataResolution.toDiagSummary()`.
 
-**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). **`PureHalDngSavePolicy` (global default, 2026-06-19):** direct `DngCreator.writeImage` — no post-save ASN/CM/FM reconcile, no tag **50708** / LUT `setDescription` line; log `dng save path=pure_hal`. **`StillCaptureMetadata.applyToDngUri`** remains (in-place Make/Model/EXIF only — never `ExifInterface.saveAttributes()` on DNG). Capture-time color IQ on RAW stills (`StillCaptureIqPolicy`, `LegacyLeafStillColorCorrection`, `RawStillProcessingHints.applyLinearRawFriendlyProcessing`) skipped when pure-HAL policy is on.
+**Post-save / creator metadata (Sprint 15.14+):** `Dng12Saver` uses `setLocation` when geotag + fix available; capture time from `DngCreator` ctor (`SENSOR_TIMESTAMP`). **`PureHalDngSavePolicy` (global default, 2026-06-19):** direct `DngCreator.writeImage` — no CM/FM/50708/LUT surgery; log `dng save path=pure_hal` or **`pure_hal_bayer_asn`**. **`DngBayerAsnSyncPolicy.ENABLED`:** in-place IFD0 **AsShotNeutral only** — ASN **R** from center Bayer R/G, ASN **B** kept from HAL (ProShot R-sync pattern; full Bayer ASN crushed blue after CM on OP13 UW). **`StillCaptureMetadata.applyToDngUri`** remains (in-place Make/Model/EXIF only — never `ExifInterface.saveAttributes()` on DNG). Under pure-HAL, skip **app color surgery** (`LegacyLeafStillColorCorrection`, `RawStillProcessingHints.applyLinearRawFriendlyProcessing`, preview-exposure latch). **Keep** capability-gated `StillCaptureIqPolicy` (EDGE/NR/TONEMAP/SHADING; **`REQUEST_LENS_SHADING_MAP_ON_STILL=false`** — map ON only embeds OpcodeList2, no Bayer change on OP13; **`SKIP_SHADING_MODE_WHEN_LENS_SHADING_APPLIED=true`** → `SHADING_MODE` OFF when HAL already shaded RAW). **RAW still `CaptureRequest`:** dual-target **RAW + JPEG** via live `jpegCaptureSurface()` (`rawStillDualTarget`); never preview. Face-detect on stills: **OFF** (`StillCaptureFaceDetectParity.FORCE_OFF_ON_RAW_STILL` — ProShot never sets FACE on still). **Session YUV:** when `OMIT_YUV_ANALYSIS_FOR_PURE_HAL_RAW_SESSION` + pure-HAL + RAW reader, omit face/hist/zebra analysis YUV (ProShot stream set); **H dial / readout chase keep YUV** — never use `automationSuppressFacePipeline` for sequential RAW alone. After `stopRepeating`, **AE precapture** + rebuild with converged result + pure-HAL **AE_LOCK**. ProShot `w6` AWB/CC via `applyProShotStyleAwbAndColorCorrection`. Preserve prime-eq **85** / FocalMode **150** crops. Skip `PreviewJpegProcessingHints` on RAW stills. Default AE regions: ProShot weight-0 full array. UW/tele ASN proof: `docs/PROSHOT_APK_FLEET_ANALYSIS.md` / REG-20260712-007.
+
+**Fleet exposure / ProShot process (Sprint DNG-FLEET-EXPOSURE-2026-07):** Default RAW Auto stills use **ProShot-style AE precapture** ([`ProShotStyleAePrecapture`](../app/src/main/java/dev/pointandshoot/ProShotStyleAePrecapture.kt)): `setRepeatingRequest` + `capture` with `CONTROL_AE_PRECAPTURE_TRIGGER` **while repeating runs**, then `stopRepeating` + `TEMPLATE_STILL_CAPTURE` (RAW±JPEG). Replaces stop-first one-shot precapture. **Keep** pure-HAL AE_LOCK after converge, Bayer ASN sync, lens-shading map OFF. ADB **`pns_preview_dng_proshot_pipeline`** still enables full PS01 bisect extras (skip AE_LOCK / skip ASN / map ON) for OP13 experiments only. Matrix: [`docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md`](DNG_FLEET_EXPOSURE_BISECT_MATRIX.md). Host: `scripts/dng_same_scene_exposure_metric.py`. USB same-scene: `scripts/pns_proshot_pns_same_scene_ps01.ps1`.
 
 **EXIF privacy strip (Sprint 29.1):** `PreviewChromePreferences.stripExifPrivacyTags` (Settings rail **`privacy.exif_strip`**). When enabled, JPEG still saves on the **`PNS.Reader`** encode lane run `JpegExifPrivacyStrip` after metadata apply (removes GPS, make/model, software, timestamps, user comment); DNG `applyToDngUri` is skipped. ADB seed: `--ez pns_preview_strip_exif true`. Gate: `scripts/pns_exif_strip_verify.ps1`.
 
@@ -350,7 +354,7 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | Fleet policy enum | **No** second tele routing policy / persisted prefs (dodge path only) |
 | First-launch scan | `FleetCameraStartupScan` → `files/fleet_focal_map.json` (legacy); **M16** consolidates into `files/fleet_device_matrix.json` **`product.focalSlots`** |
 | Fleet matrix (M16) | `FleetDeviceMatrixBuilder` quick tier on hub probe → `fleet_device_matrix.json`; invalidates on fingerprint + `appVersionCode` — `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` |
-| Prime focal row (dynamic) | Candidate targets fixed to **14,16,20,24,28,35,40,50,85,100,135,200** (35mm eq). Each target maps to exactly one rear camera using highest effective MP; hidden if crop output would fall below **12 MP** |
+| Prime focal row (chrome chips) | Targets **14, 23, 35, 50, 73, 85, 150** (`FocalLensStripSupport.FOCAL_CHIP_EQ_MM`). Native **73** must stay distinct from digital **85** / **150** on the mid-tele sensor. Broader 12-prime list is tooling-only (`broaderPrimeEqTargets`). |
 | Prime crop gating | Crop-only mapping (`target >= native`), active only below **120 fps**; at/above 120 fps row remains visible but digital crop is not applied |
 
 **Verification:** `pns_chrome_ux_gate.ps1 -FocalMmSlot 150` — do **not** run parallel with `pns_photo_capture_verify` on one device. **Primary fleet USB device:** CPH2583 (see `AGENTS.md`).

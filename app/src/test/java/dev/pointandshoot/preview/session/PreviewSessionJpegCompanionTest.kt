@@ -34,13 +34,27 @@ class PreviewSessionJpegCompanionTest {
     }
 
     @Test
-    fun shouldAttach_falseWhenNoTierAndNoSize() {
+    fun shouldAttach_rawJpegAnchorWhenSizePresent() {
+        assertTrue(
+            PreviewSessionJpegCompanion.shouldAttachJpegSurface(
+                jpegOnlySession = false,
+                wantsIndependentTonalStill = false,
+                wantsJpegSidecarOnRaw = false,
+                jpegSize = Size(4032, 3024),
+                wantsRawStillJpegAnchor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun shouldAttach_falseWhenNoTiersNoAnchorAndNoSize() {
         assertFalse(
             PreviewSessionJpegCompanion.shouldAttachJpegSurface(
                 jpegOnlySession = false,
                 wantsIndependentTonalStill = false,
                 wantsJpegSidecarOnRaw = false,
                 jpegSize = null,
+                wantsRawStillJpegAnchor = false,
             ),
         )
     }

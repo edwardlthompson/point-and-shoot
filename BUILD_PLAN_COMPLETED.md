@@ -1740,6 +1740,20 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **Deferred post-M28:** panorama · preview shots · computational HDR · depth export · ML Kit QR · full multicam melt encoder · Open Camera log profile · preview-res save · self-illumination · consumer CameraX extension modes when OEM HAL advertises extensions.
 
+### Sprint AUDIT5-2026-07-11 — Post-beta.16 security scan + memory (agent closed)
+
+**Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** (post-allowlist). USB capture/chrome **SKIP** (online `8bf09993` ≠ env `b5214fc6`).
+
+- [x] **[AGENT] A5.1** — `.gitleaks.toml` allowlist for `FleetPolicyPreferences` + `LutImportValidator` (scheduled Security scan FPs)
+- [x] **[AGENT] A5.2** — `AGENT_MEMORY.md` / `docs/CODE_REVIEW.md` refresh for **0.14.0-beta.16**
+- [x] **[AGENT] A5.3** — Tier 0 + Tier 2 re-run after A5.1–A5.2
+- [ ] **[HUMAN]** Milestone H **CRI-032…035**, **H.9** (unchanged)
+- [ ] **[MAINTAINER]** Dependabot triage; refresh `PNS_ADB_SERIAL` for CPH2583
+
+**Touches:** `.gitleaks.toml`, `docs/CODE_REVIEW.md`, `AGENT_MEMORY.md`, `BUILD_PLAN.md`
+
+---
+
 ### Sprint AUDIT4-2026-06-21 — H metering + QR restore (agent closed)
 
 **Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** · USB `pns_highlight_meter_verify.ps1` + `pns_qr_scan_verify.ps1` PASS (CPH2583 `b5214fc6`).

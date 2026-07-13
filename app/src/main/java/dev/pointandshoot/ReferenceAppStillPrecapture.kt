@@ -10,20 +10,26 @@ import android.hardware.camera2.TotalCaptureResult
 import android.os.Handler
 import android.util.Log
 import android.view.Surface
-import dev.pointandshoot.fleet.LegacyFleetPolicy
 
 /**
- * ReferenceCam-style AE precapture after [CameraCaptureSession.stopRepeating]: one or more preview-template
- * captures with [CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER] so the still fires with converged metering.
+ * ReferenceCam / ProShot-style AE precapture after [CameraCaptureSession.stopRepeating]: one or more
+ * preview-template captures with [CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER] so the still fires
+ * with converged metering.
+ *
+ * Fleet-generic: runs when the HAL advertises the precapture key (no Build.MODEL / LegacySku gate).
+ * See `docs/PROSHOT_APK_FLEET_ANALYSIS.md` (`L6` / `CONTROL_AE_PRECAPTURE_TRIGGER`).
  */
 object ReferenceAppStillPrecapture {
     private const val TAG = "PNS.ReferenceAppStill"
     private const val MAX_ROUNDS = 24
     private const val RETRY_DELAY_MS = 50L
 
-    fun shouldRun(chars: CameraCharacteristics): Boolean =
-        LegacyFleetPolicy.useReferenceAppPureDngSave() &&
-            StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
+    fun shouldRun(chars: CameraCharacteristics): Boolean {
+        val keys = chars.availableCaptureRequestKeys ?: return false
+        if (!keys.contains(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER)) return false
+        val facing = chars.get(CameraCharacteristics.LENS_FACING)
+        return facing == CameraCharacteristics.LENS_FACING_BACK
+    }
 
     fun runAfterStopRepeating(
         session: CameraCaptureSession,
@@ -44,7 +50,11 @@ object ReferenceAppStillPrecapture {
             onComplete(null)
             return
         }
-        Log.i(TAG, "aePrecapture begin maxRounds=$MAX_ROUNDS")
+        Log.i(
+            TAG,
+            "aePrecapture begin maxRounds=$MAX_ROUNDS " +
+                "template=${if (DngSaveBisectState.precaptureUseStillTemplate) "STILL" else "PREVIEW"}",
+        )
         var lastResult: TotalCaptureResult? = null
         var round = 0
         lateinit var poll: Runnable
@@ -55,9 +65,15 @@ object ReferenceAppStillPrecapture {
                     onComplete(lastResult)
                     return@Runnable
                 }
+                val template =
+                    if (DngSaveBisectState.precaptureUseStillTemplate) {
+                        CameraDevice.TEMPLATE_STILL_CAPTURE
+                    } else {
+                        CameraDevice.TEMPLATE_PREVIEW
+                    }
                 val req =
                     try {
-                        camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW).apply {
+                        camera.createCaptureRequest(template).apply {
                             addTarget(previewSurface)
                             configurePreviewLikeStill()
                             if (round == 0) {

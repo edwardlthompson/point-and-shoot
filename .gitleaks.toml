@@ -23,6 +23,11 @@ paths = [
   '''(?i)scripts/pns_gitlab_setup\.ps1''',
   '''(?i)scripts/pns_keystore_verify\.ps1''',
   '''(?i)keystore\.properties\.example''',
+  # Scheduled Security scan false positives (generic-api-key on SharedPreferences
+  # name / LUT format heuristics — not credentials). Historical app/ path kept for
+  # gitleaks history scan after Sprint TM move to modules/pns-fleet.
+  '''(?i)(app/src/main/java/dev/pointandshoot/fleet/|modules/pns-fleet/.*/)FleetPolicyPreferences\.kt''',
+  '''(?i).*/LutImportValidator\.kt''',
 ]
 
 regexTarget = "match"

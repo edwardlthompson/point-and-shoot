@@ -2,6 +2,22 @@
 
 All notable changes to **Point & Shoot** are documented here. The project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions and [Semantic Versioning](https://semver.org/) once tagged releases begin.
 
+## [0.14.0-beta.17] - 2026-07-13
+
+**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.17.apk
+
+### Changed
+
+- **RAW still AE precapture (ProShot process)** — Auto RAW stills now settle AE with ProShot-style CONTROL_AE_PRECAPTURE_TRIGGER on the **repeating** preview stream (setRepeatingRequest + one-shot), then stopRepeating and fire TEMPLATE_STILL_CAPTURE (RAW±JPEG). Replaces stop-first one-shot precapture. Keeps pure-HAL AE lock, AsShotNeutral sync, and lens-shading map off. USB: CPH2583 pns_capture_pipeline_verify PASS (process=proshot_process_default).
+
+### Added (maintainer / engineering)
+
+- **DNG fleet exposure bisect** — matrix + ADB extras (pns_preview_dng_*), same-scene metric, ProShot UI same-scene helper; OP13 residual shadow crush deferred. Docs: docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md, REG-20260713-001…004.
+
+## Unreleased
+
+_(Nothing yet - add user-visible deltas here; run pns_changelog_gate.ps1 before milestone gates.)_
+
 ## [0.14.0-beta.8] - 2026-06-05
 
 **Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.8.apk`
@@ -75,9 +91,6 @@ Milestone H automation lane, Gradle 9.5 stack, wireless USB gates on CPH2583.
 
 - **Highlight (H) metering** — YUV warmup and garbage-frame guard stop pegging min AE compensation at session start; bulk-tail engagement avoids crushing exposure on mostly-dark scenes with a modest bright tail; face tracking no longer biases AE on H dial (AF only). Gate: `pns_highlight_meter_verify.ps1`.
 - **QR scan mode** — Restored **QR** in Photo programs on the mode dial (`preview.qr` fleet visibility **AlwaysShow**); ZXing decode + finder overlay unchanged. Gate: `pns_qr_scan_verify.ps1`.
-## Unreleased
-
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
 ## [0.14.0-beta.15] - 2026-06-21
 
 Milestone **28 Waves C+D** closure - multi-cam video scaffolds + spike decisions.

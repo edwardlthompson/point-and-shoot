@@ -713,27 +713,37 @@ fun PreviewReadoutStrip(
                     )
                     val rangeStops = menu.isoChoices.filterNotNull().distinct().sorted()
                     for (stop in rangeStops) {
-                        val selected = !menu.isoBand.isAutoRange && menu.isoBand.contains(stop)
+                        val band = menu.isoBand
+                        val selected =
+                            !band.isAutoRange &&
+                                band.minIso == stop &&
+                                band.maxIso == stop
                         PnsChromePlainMenuItem(
                             label = stop.toString(),
                             selected = selected,
                             onClick = {
                                 val start = isoRangeStart
                                 if (start == null || menu.isoBand.isAutoRange) {
+                                    // Single-stop range = lock that ISO (AE leaves Auto).
+                                    // A second tap fills a multi-stop auto-range clamp.
                                     onPickIsoBand(ReadoutIsoBand.fromBounds(stop, stop))
+                                    onPickIso(stop)
                                     isoRangeStart = stop
                                 } else {
                                     val lo = minOf(start, stop)
                                     val hi = maxOf(start, stop)
                                     onPickIsoBand(ReadoutIsoBand.fromBounds(lo, hi))
+                                    // Span clamp keeps AE Auto; band still floors/ceilings chase + locks.
+                                    onPickIso(null)
                                     isoRangeStart = null
                                 }
+                                isoMenu = false
                             },
                         )
                     }
                     if (isoRangeStart != null && !menu.isoBand.isAutoRange) {
                         Text(
-                            text = "Tap another ISO to fill range from $isoRangeStart",
+                            text = "Tap another ISO to fill Auto range from $isoRangeStart (clears lock)",
                             style = MaterialTheme.typography.labelSmall,
                             color = PnsColors.PhotoOrange.copy(alpha = 0.82f),
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -756,7 +766,9 @@ fun PreviewReadoutStrip(
                                 subtitle = "Lock ISO · auto shutter",
                                 selected = choice == menu.selectedIso,
                                 onClick = {
+                                    onPickIsoBand(ReadoutIsoBand.fromBounds(choice, choice))
                                     onPickIso(choice)
+                                    isoRangeStart = null
                                     isoMenu = false
                                 },
                             )

@@ -46,6 +46,8 @@ object DngBayerAsShotNeutral {
         characteristics: CameraCharacteristics,
         image: Image,
         captureResult: TotalCaptureResult? = null,
+        /** When true, sample only [SENSOR_INFO_COLOR_FILTER_ARRANGEMENT] (no alternate CFA scoring). */
+        hintedCfaOnly: Boolean = false,
     ): BayerAsnEstimate? {
         if (image.format != ImageFormat.RAW_SENSOR) return null
         val plane = image.planes.getOrNull(0) ?: return null
@@ -64,7 +66,8 @@ object DngBayerAsShotNeutral {
             plane.pixelStride,
             plane.buffer.duplicate().apply { clear() },
             captureResult,
-            source = "image",
+            source = if (hintedCfaOnly) "image_hintedCfa" else "image",
+            hintedCfaOnly = hintedCfaOnly,
         )
     }
 
@@ -80,6 +83,7 @@ object DngBayerAsShotNeutral {
     fun estimateWithBayerRatiosFromDngBytes(
         dng: ByteArray,
         characteristics: CameraCharacteristics,
+        hintedCfaOnly: Boolean = false,
     ): BayerAsnEstimate? {
         val strip = parseRowStripLayout(dng) ?: return null
         return estimateWithStatsFromPlane(
@@ -90,9 +94,10 @@ object DngBayerAsShotNeutral {
             pixelStride = 2,
             buf = null,
             captureResult = null,
-            source = "dng",
+            source = if (hintedCfaOnly) "dng_hintedCfa" else "dng",
             dng = dng,
             stripLayout = strip,
+            hintedCfaOnly = hintedCfaOnly,
         )
     }
 
@@ -137,9 +142,15 @@ object DngBayerAsShotNeutral {
         source: String,
         dng: ByteArray? = null,
         stripLayout: RowStripLayout? = null,
+        hintedCfaOnly: Boolean = false,
     ): BayerAsnEstimate? {
         val black = blackLevel(characteristics, captureResult, stripLayout)
-        val order = cfaTryOrder(characteristics)
+        val order =
+            if (hintedCfaOnly) {
+                cfaHintOnly(characteristics)
+            } else {
+                cfaTryOrder(characteristics)
+            }
         var best: BayerAsnEstimate? = null
         var bestScore = 0.0
         for (cfa in order) {
@@ -218,6 +229,18 @@ object DngBayerAsShotNeutral {
         return buildList {
             if (hinted != null) add(hinted)
             CFA_CANDIDATES.forEach { cfa -> if (cfa != hinted) add(cfa) }
+        }
+    }
+
+    /** Sensor-advertised CFA only — used by [DngBayerAsnSyncPolicy] to avoid wrong-phase R/G. */
+    private fun cfaHintOnly(characteristics: CameraCharacteristics): List<Int> {
+        val hinted =
+            characteristics.get(CameraCharacteristics.SENSOR_INFO_COLOR_FILTER_ARRANGEMENT)
+        return if (hinted != null) {
+            listOf(hinted)
+        } else {
+            // Fall back to first candidate rather than scoring all phases.
+            listOf(CFA_CANDIDATES.first())
         }
     }
 

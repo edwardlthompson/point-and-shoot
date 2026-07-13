@@ -406,6 +406,11 @@ fun storageProfileFromBundle(bundle: StillCaptureBundle): ImagingProfile =
 
 fun ComposedCapturePlan.withStillExportOverride(kind: StillExportKind?): ComposedCapturePlan {
     if (kind == null) return this
+    // ADB `pns_preview_still_format` with a RAW IMG tier: keep DNG and add independent tonal
+    // (DNG+TIFF / DNG+JXL). JPEG-only profile gates still wipe RAW below.
+    if (raw != null && kind != StillExportKind.Dng) {
+        return withPreferredStillExportKind(kind)
+    }
     val targetTonal =
         when (kind) {
             StillExportKind.Heic -> TonalContainer.Heic10Bit

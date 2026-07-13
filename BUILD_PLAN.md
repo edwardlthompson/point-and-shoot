@@ -49,6 +49,12 @@ Full index: **`AGENTS.md`**.
 
 ---
 
+## Sprint AUDIT5-2026-07-11 — Post-beta.16 security scan + memory ✅ CLOSED
+
+Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT5](BUILD_PLAN_COMPLETED.md#sprint-audit5-2026-07-11--post-beta16-security-scan--memory-agent-closed).
+
+---
+
 ## Sprint AUDIT4-2026-06-21 — H metering + QR restore ✅ CLOSED
 
 Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT4](BUILD_PLAN_COMPLETED.md#sprint-audit4-2026-06-21--h-metering--qr-restore-agent-closed).
@@ -97,6 +103,34 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 ---
 
+## Sprint DNG-FLEET-EXPOSURE-2026-07 — UW RAW exposure bisect (agent)
+
+**Objective:** Close leaf/aux **RAW still underexposure** (OP13 UW 14 mm black-crush with TIFF OK) via a **fleet-generic** exposure-first matrix; record dead ends so ASN/map/CM mistakes are not repeated.
+
+| SoT | Path |
+|-----|------|
+| Plan | `.cursor/plans/fleet_dng_bisect_matrix_30e23d6a.plan.md` |
+| Matrix | [`docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md`](docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md) |
+| Host metric | `scripts/dng_same_scene_exposure_metric.py` |
+| Same-scene UI | `scripts/pns_proshot_pns_same_scene_ps01.ps1` (calibrated ProShot taps) |
+| Dead ends | [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) REG-20260713-001…003 · [`docs/PROSHOT_APK_FLEET_ANALYSIS.md`](docs/PROSHOT_APK_FLEET_ANALYSIS.md) |
+
+**Status (2026-07-13):** **PS01 process shipped** as fleet default (REG-20260713-004). Full PS01 ADB extras remain optional. OP13 residual shadow crush deferred.
+
+### Fleet promotion plan (main app)
+
+| Step | Work | Status |
+|------|------|--------|
+| **P0** | Keep E\* EV bisect ADB-only | **done** |
+| **P1** | CPH2583 baseline + PS01 mosaics healthy | **done** 2026-07-13 (`b5214fc6`) |
+| **P2** | Default = `ProShotStyleAePrecapture` **process only** | **done** (beta.17) |
+| **P3** | OP13 residual shadow/`frac&lt;bl` — deferred | deferred |
+| **P4** | REG-20260713-004 + settings + release | **done** |
+
+**Gates:** `pns_capture_pipeline_verify.ps1` · `pns_aux_dng_capture_analyze.ps1` · `pns_proshot_pns_same_scene_ps01.ps1` · never capture ∥ chrome · force-stop after USB.
+
+---
+
 ## Milestone H — Human & publication
 
 **Objective:** Irreducible human judgment; agent hygiene + release when owner approves.
@@ -105,33 +139,31 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 | Lane | Open work |
 |------|-----------|
-| **Agent** | **H.6** CRI-032 — ADB overlay seed wired; pixel gate needs **face in frame** (see AUDIT3) |
+| **Agent** | **DNG-FLEET-EXPOSURE-2026-07** UW RAW exposure matrix · **H.6** CRI-032 overlay pixel gate (face in frame) |
 | **Human** | **H.2–H.5** calibration / accounts / store copy · **H.6/H.8** subjective UX · **H.7-OP13** ACR · **H.9** PRIVACY / signing |
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** + **H-RESTORE** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
 
-**Last CPH2583 USB (2026-06-21):** AUDIT4 — `highlight_meter_verify_20260621_152031` · `qr_scan_verify_20260621_152424` PASS. Prior: M28 closure `photo_capture_verify_20260621_043524` · `chrome_ux_gate_20260621_043540` · parity Delta PASS.
+**Last CPH2583 USB (2026-06-21):** AUDIT4 — `highlight_meter_verify_20260621_152031` · `qr_scan_verify_20260621_152424` PASS · ship **beta.16**. **This host (2026-07-11):** online ADB **`8bf09993`** (OP13); env still `b5214fc6`.
 
 ---
 
-### Code review recommendations (2026-06-21 AUDIT4)
+### Code review recommendations (2026-07-11 AUDIT5)
 
-Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS** · USB highlight + QR **PASS** on CPH2583.
+Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS**. Security scan scheduled **FAIL** until A5.1.
 
 | Priority | Item | Owner | Notes |
 |----------|------|-------|-------|
-| **P1** | Human Milestone H closure | Human | **CRI-032** eye-AF (face in frame) · **CRI-033** H.265 DCG @4K · **CRI-034** store/PRIVACY · **CRI-035** OP13 ACR |
-| **P1** | Release cut | Human + agent | **beta.15** shipped; production signing (**H.9**) still open |
-| **P2** | Host `ffprobe` on PATH | Maintainer | VF mediacodec gate |
-| **P2** | Wireless ADB install flake | Maintainer | `INSTALL_PARSE_FAILED_NOT_APK` on large debug APK — retry sideload |
-| — | H metering + QR | **Closed AUDIT4** | Warmup, engagement scale, face AE split; `preview.qr` AlwaysShow |
+| **P1** | Gitleaks FP allowlist | Agent | **A5.1** — unblock Security scan |
+| **P1** | Human Milestone H closure | Human | **CRI-032** eye-AF · **CRI-033** DCG · **CRI-034** store/PRIVACY · **CRI-035** OP13 ACR |
+| **P1** | Production signing | Human | **H.9** — beta.16 still debug-key |
+| **P2** | Dependabot backlog (10 PRs) | Maintainer | `/dependabot`; gate AGP/Compose |
+| **P2** | ADB env vs online device | Maintainer | Env `b5214fc6`; online `8bf09993` |
+| — | AGENT_MEMORY ship line | Agent | **A5.2** beta.16 |
 
-### Code review recommendations (2026-06-21 AUDIT — superseded)
+### Code review recommendations (2026-06-21 AUDIT4 — superseded)
 
-**Prior audit (2026-06-17):** Tier 0 **8/8** when Python on PATH · Tier 2 PASS — superseded by host PATH gaps above.
-
-**H.HYGIENE closed** · **H-RESTORE closed** → [BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints).
-
+**AUDIT4** closed H metering + QR → [COMPLETED](BUILD_PLAN_COMPLETED.md#sprint-audit4-2026-06-21--h-metering--qr-restore-agent-closed). Host PATH `ffprobe` now present.
 ---
 
 ### Sprint H.CRI-7 — Human + release (cross-tagged)
@@ -234,7 +266,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction, **H-RE
 
 ## Document control
 
-- **Version:** 2026-06-21 — **AUDIT4** closed (H metering + QR); **Milestone H** remains active.
+- **Version:** 2026-07-11 — **AUDIT5** (gitleaks + memory); **Milestone H** remains active.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

@@ -130,6 +130,7 @@ fun StillFormatPickerSheet(
                 nextIntent.raw != ImgMenuTier.Off && nextIntent.jpeg == ImgMenuTier.Off -> StillExportKind.Dng
                 else -> null
             }
+        // Intent first, then export kind — PreviewEngine applies plan via LaunchedEffect on both.
         onApply(
             nextChrome.copy(stillExportKindOrdinal = StillExportScaffolds.toOrdinal(resolvedExportKind)),
             nextIntent,

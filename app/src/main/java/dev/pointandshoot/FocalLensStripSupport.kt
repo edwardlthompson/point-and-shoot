@@ -24,6 +24,16 @@ object FocalLensStripSupport {
     private const val NATIVE_MM_INTEGER_EPSILON = 1e-3f
     // Exclude tiny/non-imaging auxiliary sensors from fleet focal slot routing.
     private const val MIN_FOCAL_ROUTING_SENSOR_MP = 2.0
+
+    /**
+     * Chrome / matrix / ADB focal chips ([FocalMmSlot]). Includes native tele **73** and digital
+     * **85** / **150** on the same mid-tele sensor — do not drop 73 (nearest-85 remap flattens FOV).
+     */
+    val FOCAL_CHIP_EQ_MM: List<Int> = listOf(14, 23, 35, 50, 73, 85, 150)
+
+    /** Broader classic 12-prime set (no dedicated native-73 chip) — retained for tooling. */
+    fun broaderPrimeEqTargets(): List<Int> = PRIME_EQ_MM
+
     private val PRIME_EQ_MM = listOf(14, 16, 20, 24, 28, 35, 40, 50, 85, 100, 135, 200)
 
     fun isTeleSlot(slot: FocalMmSlot): Boolean =
@@ -50,24 +60,24 @@ object FocalLensStripSupport {
             get() = targetEqMm == nativeEqMm
     }
 
-    /** Fixed 35mm-equivalent prime set requested for the chrome focal row. */
-    fun primeEqTargets(): List<Int> = PRIME_EQ_MM
+    /** Fixed 35mm-equivalent set for the chrome focal row / ADB slot remap / matrix chips. */
+    fun primeEqTargets(): List<Int> = FOCAL_CHIP_EQ_MM
 
     /** Native camera 35mm-equivalent map for active camera ids. */
     fun cameraNativeEqById(context: Context, ids: List<String>): Map<String, Int> =
         collectPrimeLensCandidates(context, ids).associate { it.cameraId to it.nativeEqMm }
 
     /**
-     * Assign each prime-equivalent focal target to exactly one camera:
+     * Assign each chrome chip focal target to exactly one camera:
      * - crop-only (`target >= native`)
-     * - keep effective output >= 12 MP
-     * - choose the candidate with highest effective MP
+     * - keep effective output >= 12 MP when ranking crops
+     * - choose the candidate with least crop, then highest effective MP
      */
     fun resolvePrimeLensAssignments(
         context: Context,
         ids: List<String>,
     ): List<PrimeLensAssignment> {
-        return resolvePrimeLensAssignments(context, ids, PRIME_EQ_MM)
+        return resolvePrimeLensAssignments(context, ids, FOCAL_CHIP_EQ_MM)
     }
 
     /**

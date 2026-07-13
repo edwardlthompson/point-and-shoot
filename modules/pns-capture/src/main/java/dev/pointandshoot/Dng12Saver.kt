@@ -135,25 +135,40 @@ class Dng12Saver(
                 !sessionCameraId.isNullOrBlank() &&
                 ReferenceAppPipelineContract.leafPostSaveTiffReconcileEnabled(sessionCameraId)
         val wideCal = wideCalibrationCharacteristics != null && !pureHal
+        val bayerAsnSync =
+            pureHal &&
+                DngBayerAsnSyncPolicy.ENABLED &&
+                !DngSaveBisectState.useProShotCapturePipeline
+        val pathLabel =
+            when {
+                pureHal && DngSaveBisectState.useProShotCapturePipeline -> "pure_hal_proshot_pipeline"
+                pureHal && bayerAsnSync -> "pure_hal_bayer_asn"
+                pureHal -> "pure_hal"
+                else -> "processed"
+            }
         Log.i(
             TAG,
-            "dng save path=${if (pureHal) "pure_hal" else "processed"} " +
+            "dng save path=$pathLabel " +
                 "cam=$sessionCameraId reconcile=$reconcileLeaf " +
-                "wideCal=$wideCal stamp50708=$stamp50708 " +
+                "wideCal=$wideCal stamp50708=$stamp50708 bayerAsnSync=$bayerAsnSync " +
                 "pureReferenceApp=${LeafDngFleetPolicies.active.useReferenceAppPureDngSave()}",
         )
-        if (!stamp50708 && !reconcileLeaf) {
+        if (!stamp50708 && !reconcileLeaf && !bayerAsnSync) {
             creator.writeImage(destination, image)
         } else {
             val preWriteBayerEstimate =
                 if (
-                    reconcileLeaf &&
-                    LeafDngHalReconcile.shouldEstimateBayerBeforeWrite(sessionCameraId)
+                    bayerAsnSync ||
+                        (
+                            reconcileLeaf &&
+                                LeafDngHalReconcile.shouldEstimateBayerBeforeWrite(sessionCameraId)
+                        )
                 ) {
                     DngBayerAsShotNeutral.estimateWithBayerRatios(
                         characteristics,
                         image,
                         captureResult,
+                        hintedCfaOnly = bayerAsnSync,
                     )
                 } else {
                     null
@@ -162,6 +177,20 @@ class Dng12Saver(
             val baos = ByteArrayOutputStream()
             creator.writeImage(baos, image)
             var rawBytes = baos.toByteArray()
+            if (bayerAsnSync) {
+                val estimate =
+                    preWriteBayerEstimate
+                        ?: DngBayerAsShotNeutral.estimateWithBayerRatiosFromDngBytes(
+                            rawBytes,
+                            characteristics,
+                            hintedCfaOnly = true,
+                        )
+                if (estimate != null) {
+                    rawBytes = DngBayerAsnSyncPolicy.applyToDngBytes(rawBytes, estimate)
+                } else {
+                    Log.w(TAG, "bayer ASN sync skipped: no Bayer estimate")
+                }
+            }
             if (reconcileLeaf) {
                 rawBytes =
                     LeafDngHalReconcile.applyPostDngCreatorPatches(

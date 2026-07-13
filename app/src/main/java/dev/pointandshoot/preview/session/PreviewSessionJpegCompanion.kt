@@ -29,6 +29,12 @@ object PreviewSessionJpegCompanion {
         val stillPhotoResolutionMode: PhotoResolutionMode,
         val wantsIndependentTonalStill: Boolean,
         val wantsJpegSidecarOnRaw: Boolean,
+        /**
+         * ProShot still path: keep a hardware JPEG [ImageReader] attached whenever RAW DNG is
+         * enabled so the still request can dual-target RAW+JPEG (HAL AE/IQ). Discard JPEG when
+         * the user did not ask for a tonal file.
+         */
+        val wantsRawStillJpegAnchor: Boolean = false,
     )
 
     sealed class SkipReason {
@@ -60,10 +66,12 @@ object PreviewSessionJpegCompanion {
         wantsIndependentTonalStill: Boolean,
         wantsJpegSidecarOnRaw: Boolean,
         jpegSize: Size?,
+        wantsRawStillJpegAnchor: Boolean = false,
     ): Boolean =
         jpegOnlySession ||
             (wantsIndependentTonalStill && jpegSize != null) ||
-            (wantsJpegSidecarOnRaw && jpegSize != null)
+            (wantsJpegSidecarOnRaw && jpegSize != null) ||
+            (wantsRawStillJpegAnchor && jpegSize != null)
 
     fun shouldTryExperimentalMultiResolution(
         jpegOnlySession: Boolean,
@@ -95,12 +103,15 @@ object PreviewSessionJpegCompanion {
                 wantsIndependentTonalStill = input.wantsIndependentTonalStill,
                 wantsJpegSidecarOnRaw = input.wantsJpegSidecarOnRaw,
                 jpegSize = jpegSize,
+                wantsRawStillJpegAnchor = input.wantsRawStillJpegAnchor,
             )
         ) {
             val reason =
                 when {
                     jpegOnlySession -> SkipReason.JpegOnlyNoSizes
-                    !input.wantsIndependentTonalStill && !input.wantsJpegSidecarOnRaw -> SkipReason.TonalOff
+                    !input.wantsIndependentTonalStill &&
+                        !input.wantsJpegSidecarOnRaw &&
+                        !input.wantsRawStillJpegAnchor -> SkipReason.TonalOff
                     else -> SkipReason.NoJpegSizes
                 }
             return Outcome.Skipped(reason)

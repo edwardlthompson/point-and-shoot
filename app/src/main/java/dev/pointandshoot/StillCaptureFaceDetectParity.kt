@@ -4,10 +4,16 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CaptureRequest
 
 /**
- * Mirrors preview [CaptureRequest.STATISTICS_FACE_DETECT_MODE] onto still requests when the face HUD
- * is enabled, so preview vs still metadata does not diverge ([StillCaptureBoundaryDiag] `face_detect_mode_delta`).
+ * Face-detect mode on still requests.
+ *
+ * ProShot `C0353b0` never sets [CaptureRequest.STATISTICS_FACE_DETECT_MODE] on stills (no FACE keys
+ * in the still path). Mirroring FULL face detect onto RAW stills left `faceMode=1` in
+ * `PNS.CaptureStill` while Bayer R/G stayed low vs ProShot — USB-bisect OFF on RAW stills.
  */
 object StillCaptureFaceDetectParity {
+    /** When true, RAW / pure-HAL stills force face-detect OFF (ProShot still footprint). */
+    const val FORCE_OFF_ON_RAW_STILL: Boolean = true
+
     fun pickMode(chars: CameraCharacteristics): Int {
         val modes =
             chars.get(CameraCharacteristics.STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES)
@@ -26,9 +32,10 @@ object StillCaptureFaceDetectParity {
         chars: CameraCharacteristics,
         faceHudEnabled: Boolean,
         automationSuppressFacePipeline: Boolean,
+        forceOffForRawStill: Boolean = FORCE_OFF_ON_RAW_STILL,
     ) {
         val mode =
-            if (automationSuppressFacePipeline || !faceHudEnabled) {
+            if (forceOffForRawStill || automationSuppressFacePipeline || !faceHudEnabled) {
                 CaptureRequest.STATISTICS_FACE_DETECT_MODE_OFF
             } else {
                 pickMode(chars)

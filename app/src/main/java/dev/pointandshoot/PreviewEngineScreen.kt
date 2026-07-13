@@ -2684,7 +2684,8 @@ fun PreviewEngineScreen(
         if (adbFocalMmSlotProbe != null) return@LaunchedEffect
         if (readoutExposureProbeConsumed || selectedCameraId.isNullOrBlank()) return@LaunchedEffect
         if (adbReadoutIsoProbe == null && adbReadoutShutterNsProbe == null) return@LaunchedEffect
-        delay(400)
+        // Wait past tray-mode SharedPreferences restore so seeded ISO/SS is not wiped by iso=null.
+        delay(1200)
         applyAdbReadoutExposureProbe(
             controller = controller,
             iso = adbReadoutIsoProbe,
@@ -2766,17 +2767,15 @@ fun PreviewEngineScreen(
         PnsAdbLog.i(context, "preview seeded videoShutterAngle=$angleId fps=$fps (adb)")
     }
 
-    // Keep [PreviewController] session outputs aligned with IMG tiers before any shutter tap (LaunchedEffect
-    // alone races tray capture → missing JPEG surface → generic save failure).
+    // Keep [PreviewController] session outputs aligned with IMG tiers + export kind before shutter.
+    // Keyed LaunchedEffect (not SideEffect) so TIFF/DNG export-kind changes always rebuild JPEG surface.
     fun resolveActiveComposedPlan(intent: ComposedStillIntent): ComposedCapturePlan =
         intent
             .resolveCapturePlan()
             .withStillExportOverride(adbStillExportFormat)
             .withPreferredStillExportKind(selectedStillExportKind)
-    SideEffect {
-        controller.setComposedCapturePlan(
-            resolveActiveComposedPlan(composedStillIntent),
-        )
+    LaunchedEffect(composedStillIntent, selectedStillExportKind, adbStillExportFormat) {
+        controller.setComposedCapturePlan(resolveActiveComposedPlan(composedStillIntent))
     }
 
     LaunchedEffect(composedStillIntent) {
@@ -4676,6 +4675,7 @@ fun PreviewEngineScreen(
                 stillsLut = stillsLutLatest.value,
                 adbValidationShotLabel = "composed_smoke",
             ) { result ->
+                applyStillResultToGalleryThumb(result)
                 result.fold(
                     onSuccess = { out ->
                         PnsAdbLog.i(
@@ -4880,6 +4880,7 @@ fun PreviewEngineScreen(
                                 adbValidationShotLabel = label,
                             ) { result ->
                                 rawResult = result
+                                applyStillResultToGalleryThumb(result)
                                 cont.resume(Unit)
                             }
                         }
@@ -4924,6 +4925,7 @@ fun PreviewEngineScreen(
                                             adbValidationShotLabel = "$label retry",
                                         ) { result ->
                                             retryResult = result
+                                            applyStillResultToGalleryThumb(result)
                                             cont.resume(Unit)
                                         }
                                     }
@@ -5268,11 +5270,11 @@ fun PreviewEngineScreen(
         onComposedStillIntentChange = { intent ->
             composedStillIntent = intent
             syncHudJpegEncodeFromImgMenu(intent, hudState)
-            controller.setComposedCapturePlan(resolveActiveComposedPlan(intent))
+            // LaunchedEffect(composedStillIntent, selectedStillExportKind) applies the plan.
         },
         onStillExportKindChange = { kind ->
             selectedStillExportKind = kind
-            controller.setComposedCapturePlan(resolveActiveComposedPlan(composedStillIntent))
+            // Apply after intent when picker sets both; LaunchedEffect syncs session JPEG surface.
         },
         onCaptureDng = {
             trayStillCaptureRef.value?.invoke()
@@ -7141,8 +7143,9 @@ private fun PreviewEngineContent(
                     selectedExportKind = selectedStillExportKind,
                     onApply = { nextChrome, nextIntent, nextKind ->
                         chromePrefs.update(nextChrome)
-                        onStillExportKindChange(nextKind)
+                        // Intent before kind so resolveActiveComposedPlan sees both on next frame.
                         onComposedStillIntentChange(nextIntent)
+                        onStillExportKindChange(nextKind)
                         Log.i(
                             "PNS.ChromeUx",
                             "stillFormatPick colorOrdinal=${nextChrome.stillColorSpaceOrdinal} " +
@@ -9089,7 +9092,7 @@ private fun PreviewChromeGrid7x3(
         val gridUx =
             "grid7x3=layout shortcutRows=2 settingsAt=r2c6=true " +
                 "quickActions=timer,horizon,eyeAf,dnd,flash,overlays,videoQs " +
-                "quickGrid=focalRowPrime12_dynamic_scroll targetFpsOnReadout=true"
+                "quickGrid=focalRowChip7_14_23_35_50_73_85_150 targetFpsOnReadout=true"
         Log.i("PNS.ChromeUx", gridUx)
     }
 
@@ -10945,7 +10948,10 @@ private fun applyAdbReadoutExposureProbe(
 ) {
     if (iso == null && shutterNs == null) return
     iso?.let {
+        // Band first so setReadoutManualIso clamps into the single-stop range.
+        controller.setReadoutIsoBand(ReadoutIsoBand.fromBounds(it, it))
         controller.setReadoutManualIso(it)
+        Log.i("PNS.ChromeUx", "readoutIsoProbe=locked iso=$it cameraId=$cameraId")
         PnsAdbLog.i(context, "preview seeded readoutIso=$it cameraId=$cameraId (adb)")
     }
     shutterNs?.let {
@@ -11785,6 +11791,7 @@ private class PreviewController(
     private var lastReadoutChaseRefreshWallMs: Long = 0L
 
     private var lastReadoutChaseLogWallMs: Long = 0L
+    private var lastReadoutAeAppliedLogMs: Long = 0L
 
     private val readoutChaseHistMinIntervalMs: Long = 33L
 
@@ -13235,12 +13242,15 @@ private class PreviewController(
     }
 
     fun setReadoutIsoBand(band: ReadoutIsoBand) {
-        if (readoutIsoBand == band) return
-        readoutIsoBand = band
-        val isoRange = currentSensitivityRangeOrNull()
-        manualIsoOverride = manualIsoOverride?.let { readoutIsoBand.clampPick(isoRange, it) }
-        readoutChaseIso = readoutChaseIso?.let { readoutIsoBand.clampPick(isoRange, it) }
-        refreshRepeatingPreviewOnly()
+        runOnCameraThread {
+            if (readoutIsoBand == band) return@runOnCameraThread
+            readoutIsoBand = band
+            val isoRange = currentSensitivityRangeOrNull()
+            manualIsoOverride = manualIsoOverride?.let { readoutIsoBand.clampPick(isoRange, it) }
+            readoutChaseIso = readoutChaseIso?.let { readoutIsoBand.clampPick(isoRange, it) }
+            Log.i("PNS.ChromeUx", "readoutIsoBand=${band.menuLabel} lockedIso=${manualIsoOverride ?: "auto"}")
+            refreshRepeatingPreviewOnly()
+        }
     }
 
     fun cycleReadoutIsoBand() {
@@ -13631,8 +13641,8 @@ private class PreviewController(
     private fun isTimelapseVideoSessionActive(): Boolean =
         TimeLapseMode.isTimelapseVideoSession(readHudCapturePrefs())
 
-    /** Single still: RAW DNG and/or independent tonal. */
-    fun canCaptureStill(): Boolean = canCaptureRawStill() || canCaptureIndependentTonalStill()
+    /** Single still: RAW DNG and/or independent tonal — ready for the active [composedCapturePlan]. */
+    fun canCaptureStill(): Boolean = composedCaptureBlockedReason(composedCapturePlan) == null
 
     /**
      * User-visible blocker when [plan] cannot run on the current session (IMG tiers vs attached surfaces).
@@ -13659,11 +13669,19 @@ private class PreviewController(
                 return "RAW still session not ready — wait a moment and try again."
             }
         }
-        if (plan.tonal != null && jpegImageReader == null) {
-            return "JPEG still session not ready — wait a moment and try again."
-        }
-        if (plan.jpegSidecarPreset != null && jpegImageReader == null) {
-            return "JPEG sidecar session not ready — wait a moment and try again."
+        val needsJpegSurface = plan.tonal != null || plan.jpegSidecarPreset != null
+        if (needsJpegSurface && jpegCaptureSurface() == null) {
+            if (captureSessionAsyncConfigurePending ||
+                cameraDeviceOpenPending ||
+                sessionCommittedGeneration != generation
+            ) {
+                return "Camera session is updating — wait a moment and try again."
+            }
+            return if (plan.jpegSidecarPreset != null) {
+                "JPEG sidecar session not ready — wait a moment and try again."
+            } else {
+                "JPEG still session not ready — wait a moment and try again."
+            }
         }
         if (plan.raw == null && plan.tonal == null) {
             return "Enable RAW and/or JPEG in the IMG menu."
@@ -14433,6 +14451,8 @@ private class PreviewController(
                     )
                 }
             raw != null && tonal != null ->
+                // ProShot: one still request targets RAW + JPEG ImageReaders (same AE/IQ).
+                // Sequential RAW-then-tonal produced black DNGs next to bright TIFFs on OP13.
                 captureRawStill(
                     appContext,
                     haptics,
@@ -14441,43 +14461,20 @@ private class PreviewController(
                     stillsLut,
                     adbValidationShotLabel,
                     deferReadoutHapticUntilTonal = true,
-                ) { rawResult ->
-                    rawResult.fold(
-                        onSuccess = { rawOut ->
-                            captureIndependentTonalStill(
-                                appContext,
-                                haptics,
-                                surfaceRotation,
-                                tonalBundle = tonal,
-                                stillsLut = stillsLut,
-                                adbValidationShotLabel = adbValidationShotLabel,
-                                lowLatencyBurst = burstLowLatency,
-                                onTonalReady = onTonalReady,
-                            ) { tonalResult ->
-                                tonalResult.fold(
-                                    onSuccess = { tonalOut ->
-                                        onResult(
-                                            Result.success(
-                                                RawStillSaveSuccess(
-                                                    dngUriString = rawOut.dngUriString,
-                                                    tonalUriString = tonalOut.tonalUriString,
-                                                ),
-                                            ),
-                                        )
-                                    },
-                                    onFailure = { e ->
-                                        Log.w(
-                                            tag,
-                                            "tonal still after DNG failed: ${e.message}; DNG kept",
-                                        )
-                                        onResult(Result.success(rawOut))
-                                    },
-                                )
-                            }
-                        },
-                        onFailure = { onResult(Result.failure(it)) },
-                    )
-                }
+                    jpegSidecarPreset =
+                        ImgMenuJpegEncodePresets.forTier(
+                            when (tonal.tonalContainer) {
+                                TonalContainer.JpegXl12Bit,
+                                TonalContainer.Heic10Bit,
+                                TonalContainer.Tiff16,
+                                -> ImgMenuTier.Ultra
+                                else -> ImgMenuTier.Standard
+                            },
+                        ),
+                    sameRequestTonalBundle = tonal,
+                    onJpegSidecarReady = onTonalReady,
+                    onResult = onResult,
+                )
             raw != null && plan.jpegSidecarPreset != null ->
                 captureRawStill(
                     appContext,
@@ -14679,6 +14676,11 @@ private class PreviewController(
         deferReadoutHapticUntilTonal: Boolean = false,
         /** Same-tier DNG+JPEG: hardware JPEG from this still request (not a second capture). */
         jpegSidecarPreset: ImgMenuJpegEncodePreset? = null,
+        /**
+         * ProShot-aligned: encode independent tonal (TIFF/JXL/AVIF) from the **same** still's
+         * hardware JPEG (dual-target RAW+JPEG). Avoids a second still that can diverge in AE.
+         */
+        sameRequestTonalBundle: StillCaptureBundle? = null,
         onJpegSidecarReady: ((Uri?) -> Unit)? = null,
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
@@ -14787,14 +14789,20 @@ private class PreviewController(
 
         val manualSensorStill = manualIsoOverride != null || manualExposureNsOverride != null
         val sidecarPreset = jpegSidecarPreset
-        val jReader = if (sidecarPreset != null) jpegImageReader else null
-        if (sidecarPreset != null && jReader == null) {
+        val sameRequestTonal = sameRequestTonalBundle
+        // ProShot dual-target: attach JPEG whenever the session has a reader (HAL AE/IQ), even for
+        // DNG-only — discard bytes unless sidecar / same-request tonal needs them.
+        // Resolve JPEG at use-time (not a frozen local): focal-slot / session restart can attach the
+        // ImageReader after captureRawStill begins waiting.
+        fun liveJpegReader(): ImageReader? = jpegImageReader
+        fun liveJpegSurface(): android.view.Surface? = jpegCaptureSurface()
+        if ((sidecarPreset != null || sameRequestTonal != null) && liveJpegSurface() == null) {
             releaseCaptureBusy()
             mainHandler.post {
                 onResult(
                     Result.failure(
                         IllegalStateException(
-                            "JPEG sidecar session not ready — wait for preview and try again",
+                            "JPEG still session not ready — wait for preview and try again",
                         ),
                     ),
                 )
@@ -14805,28 +14813,31 @@ private class PreviewController(
             LegacyFleetPolicy.useReferenceAppPureDngSave() &&
                 StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
         val locForStillRequest = locationForStillMetadata()
-        val neutralRawStillPipeline =
-            !proShotPureLeafStill &&
-                RawCaptureSupport.useNeutralColorPipelineForRawStill(
-                    cm,
-                    cameraIds(),
-                    chars,
-                    camId,
-                    previewSurfacePhysicalCameraId,
-                    focalCropMode,
-                )
         fun buildRawStillCaptureRequest(
             proShotPreviewResult: TotalCaptureResult?,
             latchReferenceAppManualExposure: Boolean,
             proShotExposureLatch: RawStillProcessingHints.ReferenceAppExposureLatch? = null,
         ): CaptureRequest =
             cam.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-                addTarget(previewSurf)
+                // ProShot still (C0353b0): target JPEG and/or RAW ImageReaders only — not preview.
+                // Including preview on the still request can bias HAL AE toward the preview stream
+                // (tele underexposure vs ProShot at the same shutter). Fleet-generic.
                 addTarget(reader.surface)
-                if (sidecarPreset != null) {
-                    addTarget(checkNotNull(jReader).surface)
+                val jpegSurf = liveJpegSurface()
+                if (jpegSurf != null) {
+                    addTarget(jpegSurf)
+                    Log.i(CaptureStillLog.TAG, "rawStillDualTarget jpeg=1")
+                } else {
+                    Log.w(CaptureStillLog.TAG, "rawStillDualTarget jpeg=0")
                 }
                 applyStillSensorResolutionMode(this, chars)
+                // ProShot still A5 → x6(0): reset zoom so still uses native FOV (not preview zoom).
+                runCatching {
+                    val keys = chars.availableCaptureRequestKeys ?: emptyList()
+                    if (keys.contains(CaptureRequest.CONTROL_ZOOM_RATIO)) {
+                        set(CaptureRequest.CONTROL_ZOOM_RATIO, 1.0f)
+                    }
+                }
                 if (ReferenceAppLeafStillCaptureRequest.applies(chars)) {
                     val useDigitalCrop = focalCropMode != null && desiredFps < 120
                     val modeForCrop = if (useDigitalCrop) focalCropMode else null
@@ -14857,7 +14868,13 @@ private class PreviewController(
                     } else {
                         aeHighlightCompensationValue()
                     },
+                    includeFaceAeRegions = false,
                 )
+                // ProShot B4(): full-array AE region with weight 0 → HAL default meter (no face/tap bias).
+                if (!DngSaveBisectState.skipProShotDefaultAeRegions) {
+                    applyProShotStyleDefaultAeRegions(this, chars, manualSensorStill)
+                }
+                applyFleetExposureBisectAeCompensation(this, chars)
                 applyReadoutManualExposureAndWb(this, chars, camId)
                 PreviewFlashPolicy.applyStillFlashKeys(
                     this,
@@ -14887,6 +14904,19 @@ private class PreviewController(
                         manualExposureNsOverride,
                     )
                 }
+                // Fleet-generic: advertised still IQ (lens shading, etc.) even under pure-HAL.
+                // Pure-HAL only skips post-save surgery + app color/exposure latch overrides.
+                StillCaptureIqPolicy.applyToStillCaptureRequest(
+                    this,
+                    chars,
+                    dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
+                )
+                // ProShot w6: AWB AUTO + COLOR_CORRECTION HQ so still ASN matches Bayer (fleet).
+                RawStillProcessingHints.applyProShotStyleAwbAndColorCorrection(
+                    this,
+                    chars,
+                    manualAwbAlreadySetsColorCorrection(),
+                )
                 if (!dev.pointandshoot.PureHalDngSavePolicy.ENABLED) {
                     RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
                     RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
@@ -14897,15 +14927,26 @@ private class PreviewController(
                         latchManualExposureFromPreview = latchReferenceAppManualExposure,
                         exposureLatch = proShotExposureLatch,
                     )
-                    StillCaptureIqPolicy.applyToStillCaptureRequest(
-                        this,
-                        chars,
-                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
-                    )
                     dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
                         this,
                         chars,
                         camId,
+                        proShotPreviewResult,
+                    )
+                } else if (
+                    !manualSensorStill &&
+                    proShotPreviewResult != null &&
+                    !DngSaveBisectState.skipPureHalAeLockOnStill
+                ) {
+                    // Hold converged precapture AE on the still (USB: unlocking Auto still
+                    // dropped tele ISO ~1480→741 and crushed Bayer R). Not SENSOR_* latch.
+                    // E03 bisect: pns_preview_dng_skip_ae_lock=true
+                    RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
+                }
+                if (DngSaveBisectState.useProShotCapturePipeline && !manualSensorStill) {
+                    RawStillProcessingHints.applyProShotAutoStillMeteringKeysFromResult(
+                        this,
+                        chars,
                         proShotPreviewResult,
                     )
                 }
@@ -14925,26 +14966,19 @@ private class PreviewController(
                     wantZsl = false,
                     manualSensorStill = manualSensorStill,
                 )
-                if (
-                    !DngSaveBisectState.skipJpegProcessingHintsOnRawStill &&
-                    !proShotPureLeafStill
-                ) {
-                    PreviewJpegProcessingHints.applyToCaptureRequest(
-                        this,
-                        chars,
-                        readHudCapturePrefs(),
-                        skipColorCorrection =
-                            manualAwbAlreadySetsColorCorrection() || neutralRawStillPipeline,
-                    )
-                }
+                // StillCaptureIqPolicy already sets ProShot-class EDGE/NR/TONEMAP. Do not apply
+                // PreviewJpegProcessingHints on RAW stills — JPEG ISP bias can override to FAST and
+                // desync COLOR_CORRECTION / channel gains from Bayer (ProShot A5 still path).
             }.build()
-        // RAW still: include preview surface. Scripted ADB (`shotTag` set) may skip [stopRepeating] so the
-        // HAL keeps repeating while delivering RAW on some logical-camera stacks (legacy target class).
+        // RAW still: ProShot targets RAW/JPEG ImageReaders only (no preview surface on still).
+        // Scripted ADB may skip [stopRepeating]; preview keeps repeating separately while still delivers RAW.
         val still =
             buildRawStillCaptureRequest(
                 lastPreviewTotalCaptureResult,
                 latchReferenceAppManualExposure = false,
             )
+        // Latch JPEG reader after the first still build so focal/session restarts are visible.
+        val jReader = liveJpegReader()
 
         lastStatus =
             buildString {
@@ -14955,7 +14989,7 @@ private class PreviewController(
 
         val pendingRaw = java.util.concurrent.atomic.AtomicReference<Image?>(null)
         val pendingJpeg =
-            if (sidecarPreset != null) {
+            if (jReader != null) {
                 java.util.concurrent.atomic.AtomicReference<Image?>(null)
             } else {
                 null
@@ -15120,26 +15154,48 @@ private class PreviewController(
                             "captureRawStill $shotTag ok=true saved=$dngDisplayName",
                         )
                     }
-                    mainHandler.post {
-                        publishLastStillPostReadout(
-                            StillPostReadoutExtract.from(
-                                result,
-                                rawFormatLabel,
-                                sessionPreviewDynamicRangeShort,
-                            ),
-                        )
-                        lastStatus = "Preview running (normal)"
-                        onResult(
-                            Result.success(
-                                RawStillSaveSuccess(dngUriString = uri),
-                            ),
-                        )
-                        if (wantsZslStillRing()) {
-                            attachZslRawRingListener()
+                    var tonalUriString: String? = null
+                    if (jpegImg != null && sameRequestTonal != null) {
+                        val tonalBundle = sameRequestTonal
+                        val tonalJpeg = jpegImg
+                        val jpegQuality =
+                            sidecarPreset?.softwareJpegCompanionQuality
+                                ?: ImgMenuJpegEncodePresets.forTier(ImgMenuTier.Ultra)
+                                    .softwareJpegCompanionQuality
+                        try {
+                            mainHandler.post { lastStatus = "Processing tonal still…" }
+                            val outcome =
+                                IndependentTonalStillSaver.saveFromHardwareJpeg(
+                                    appContext = appContext,
+                                    storageProfile = ImagingProfile.JpegOnly,
+                                    tonalBundle = tonalBundle,
+                                    jpegImage = tonalJpeg,
+                                    stillsLut = stillsLut,
+                                    characteristics = dngChars,
+                                    captureResult = dngResult,
+                                    orientationDegrees = orient,
+                                    softwareJpegQuality = jpegQuality,
+                                )
+                            tonalUriString = outcome.uri?.toString()
+                            Log.i(
+                                CaptureStillLog.TAG,
+                                "dng same-request tonal ok=${outcome.uri != null} " +
+                                    "container=${tonalBundle.tonalContainer} label=${shotTag ?: "-"}",
+                            )
+                            if (shotTag != null && outcome.uri != null) {
+                                PnsAdbLog.i(
+                                    appContext,
+                                    "captureIndependentTonalStill $shotTag ok=true saved=${outcome.displayName}",
+                                )
+                            }
+                            mainHandler.post { onJpegSidecarReady?.invoke(outcome.uri) }
+                        } catch (t: Throwable) {
+                            Log.w(CaptureStillLog.TAG, "same-request tonal failed: ${t.message}")
+                            mainHandler.post { onJpegSidecarReady?.invoke(null) }
+                        } finally {
+                            runCatching { tonalJpeg.close() }
                         }
-                    }
-                    releaseCaptureBusy()
-                    if (jpegImg != null && sidecarPreset != null) {
+                    } else if (jpegImg != null && sidecarPreset != null) {
                         val preset = sidecarPreset
                         val sidecarJpeg = jpegImg
                         companionJpegExecutor.execute {
@@ -15169,10 +15225,32 @@ private class PreviewController(
                         }
                     } else {
                         runCatching { jpegImg?.close() }
-                        if (sidecarPreset != null) {
+                        if (sidecarPreset != null || sameRequestTonal != null) {
                             mainHandler.post { onJpegSidecarReady?.invoke(null) }
                         }
                     }
+                    mainHandler.post {
+                        publishLastStillPostReadout(
+                            StillPostReadoutExtract.from(
+                                result,
+                                rawFormatLabel,
+                                sessionPreviewDynamicRangeShort,
+                            ),
+                        )
+                        lastStatus = "Preview running (normal)"
+                        onResult(
+                            Result.success(
+                                RawStillSaveSuccess(
+                                    dngUriString = uri,
+                                    tonalUriString = tonalUriString,
+                                ),
+                            ),
+                        )
+                        if (wantsZslStillRing()) {
+                            attachZslRawRingListener()
+                        }
+                    }
+                    releaseCaptureBusy()
                 } catch (t: Throwable) {
                     Log.w(
                         CaptureStillLog.TAG,
@@ -15235,7 +15313,7 @@ private class PreviewController(
 
         fun maybeProcess() {
             if (pendingRaw.get() == null) return
-            if (sidecarPreset != null && pendingJpeg?.get() == null) return
+            if (jReader != null && pendingJpeg?.get() == null) return
             if (pendingResult.get() == null) return
             if (!processed.compareAndSet(false, true)) return
             cancelStillWatchdog()
@@ -15310,6 +15388,147 @@ private class PreviewController(
             try {
                 previewSnapAtStop =
                     if (stillBoundaryDiagEnabled()) lastPreviewBoundarySnapshot else null
+                val configurePreviewForSettle: CaptureRequest.Builder.() -> Unit = {
+                    applyScalerCropAndMetering(
+                        this,
+                        chars,
+                        camId,
+                        if (manualSensorStill || proShotPureLeafStill) {
+                            null
+                        } else {
+                            aeHighlightCompensationValue()
+                        },
+                        includeFaceAeRegions = false,
+                    )
+                    applyReadoutManualExposureAndWb(this, chars, camId)
+                    PreviewFlashPolicy.applyPreviewFlashHardwareKeys(
+                        this,
+                        chars,
+                        previewFlashMode,
+                        commandDialMode,
+                        manualSensorStill,
+                        previewFlashStrengthPercent,
+                    )
+                    PreviewAeAntibanding.applyToRequest(this, chars)
+                    applyFaceDetectMode(this, chars)
+                    StillCaptureIqPolicy.applyToStillCaptureRequest(
+                        this,
+                        chars,
+                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(
+                            appContext,
+                            camId,
+                        ),
+                    )
+                }
+                // Fleet default (2026-07-13): ProShot L6/i4/j4 — precapture while repeating, then
+                // stop + STILL. Replaces stop-first ReferenceAppStillPrecapture for rear cams that
+                // advertise CONTROL_AE_PRECAPTURE_TRIGGER. Bisect flag adds OP13-only extras
+                // (skip AE_LOCK / skip ASN / map ON) without changing this process.
+                if (
+                    !manualSensorStill &&
+                        ProShotStyleAePrecapture.shouldRun(chars)
+                ) {
+                    val processLabel =
+                        if (DngSaveBisectState.useProShotCapturePipeline) {
+                            "proshot_pipeline"
+                        } else {
+                            "proshot_process_default"
+                        }
+                    Log.i("PNS.ProShotPipeline", "captureRawStill process=$processLabel cam=$camId")
+                    ProShotStyleAePrecapture.runWhileRepeating(
+                        session = sess,
+                        camera = cam,
+                        previewSurface = previewSurf,
+                        chars = chars,
+                        configurePreviewLikeStill = configurePreviewForSettle,
+                        bgHandler = bgHandler,
+                        onComplete = { precaptureResult ->
+                            boundaryTimings.tStopRepeatingNs = SystemClock.elapsedRealtimeNanos()
+                            runCatching { sess.stopRepeating() }
+                                .exceptionOrNull()
+                                ?.let {
+                                    Log.w(tag, "proshotPipeline stopRepeating: ${it.message}")
+                                }
+                            val fireProShotStill =
+                                Runnable {
+                                    try {
+                                        tRequestNs.set(SystemClock.elapsedRealtimeNanos())
+                                        boundaryTimings.tFireStillCaptureNs = tRequestNs.get()
+                                        val stillToCapture =
+                                            buildRawStillCaptureRequest(
+                                                precaptureResult ?: lastPreviewTotalCaptureResult,
+                                                latchReferenceAppManualExposure = false,
+                                            )
+                                        sess.capture(
+                                            stillToCapture,
+                                            object : CameraCaptureSession.CaptureCallback() {
+                                                override fun onCaptureCompleted(
+                                                    session: CameraCaptureSession,
+                                                    request: CaptureRequest,
+                                                    result: TotalCaptureResult,
+                                                ) {
+                                                    boundaryTimings.tOnCaptureCompletedNs =
+                                                        SystemClock.elapsedRealtimeNanos()
+                                                    onStillCaptureReadoutComplete(
+                                                        haptics,
+                                                        deferReadoutHapticUntilTonal,
+                                                    )
+                                                    pendingResult.set(result)
+                                                    maybeProcess()
+                                                    val postCompleteWaitMs =
+                                                        when (stillCaptureBundle.rawMode) {
+                                                            RawMode.UncompressedRaw12Dng ->
+                                                                RAW_STILL_POST_COMPLETE_WAIT_MS_RAW12
+                                                            else ->
+                                                                RAW_STILL_POST_COMPLETE_WAIT_MS_DEFAULT
+                                                        }
+                                                    bgHandler.postDelayed({
+                                                        if (!processed.get() && pendingRaw.get() == null) {
+                                                            fail(IllegalStateException("No RAW buffer"))
+                                                        }
+                                                    }, postCompleteWaitMs)
+                                                }
+
+                                                override fun onCaptureFailed(
+                                                    session: CameraCaptureSession,
+                                                    request: CaptureRequest,
+                                                    failure: CaptureFailure,
+                                                ) {
+                                                    fail(
+                                                        RuntimeException(
+                                                            "capture failed reason=${failure.reason}",
+                                                        ),
+                                                    )
+                                                }
+                                            },
+                                            bgHandler,
+                                        )
+                                        val halWatchdogMs =
+                                            when (stillCaptureBundle.rawMode) {
+                                                RawMode.UncompressedRaw12Dng ->
+                                                    RAW_STILL_HAL_COMPLETION_WATCHDOG_MS_RAW12
+                                                else -> RAW_STILL_HAL_COMPLETION_WATCHDOG_MS_DEFAULT
+                                            }
+                                        bgHandler.postDelayed(checkNotNull(stillWatchdog), halWatchdogMs)
+                                    } catch (t: Throwable) {
+                                        fail(t)
+                                    }
+                                }
+                            val debounceMs =
+                                when {
+                                    DngSaveBisectState.afterStopDebounceMsOverride > 0L ->
+                                        DngSaveBisectState.afterStopDebounceMsOverride
+                                    else -> PRO_SHOT_STILL_AFTER_PRECAPTURE_DELAY_MS
+                                }
+                            if (debounceMs > 0L) {
+                                bgHandler.postDelayed(fireProShotStill, debounceMs)
+                            } else {
+                                fireProShotStill.run()
+                            }
+                        },
+                    )
+                    return@Runnable
+                }
                 val proShotExposureLatchBeforeStop =
                     if (proShotPureLeafStill) {
                         RawStillProcessingHints.snapshotReferenceAppExposure(lastPreviewTotalCaptureResult)
@@ -15348,7 +15567,12 @@ private class PreviewController(
                                     latchReferenceAppManualExposure = false,
                                 )
                             } else {
-                                still
+                                // Rebuild after stopRepeating / AE precapture so still sees converged AE
+                                // (pre-built request from before stop is stale for metering).
+                                buildRawStillCaptureRequest(
+                                    lastPreviewTotalCaptureResult,
+                                    latchReferenceAppManualExposure = false,
+                                )
                             }
                         sess.capture(
                             stillToCapture,
@@ -15371,13 +15595,13 @@ private class PreviewController(
                                         if (!processed.get()) {
                                             val missingRaw = pendingRaw.get() == null
                                             val missingJpeg =
-                                                sidecarPreset != null && pendingJpeg?.get() == null
+                                                jReader != null && pendingJpeg?.get() == null
                                             if (missingRaw || missingJpeg) {
                                                 fail(
                                                     IllegalStateException(
                                                         when {
                                                             missingRaw && missingJpeg -> "No RAW/JPEG buffer"
-                                                            missingJpeg -> "No JPEG sidecar buffer"
+                                                            missingJpeg -> "No JPEG buffer"
                                                             else -> "No RAW buffer"
                                                         },
                                                     ),
@@ -15410,32 +15634,7 @@ private class PreviewController(
                     }
                 val runStillAfterOptionalAfSettle =
                     Runnable {
-                        val configurePreviewForSettle: CaptureRequest.Builder.() -> Unit = {
-                            applyScalerCropAndMetering(
-                                this,
-                                chars,
-                                camId,
-                                if (manualSensorStill || proShotPureLeafStill) {
-                                    null
-                                } else {
-                                    aeHighlightCompensationValue()
-                                },
-                            )
-                            applyReadoutManualExposureAndWb(this, chars, camId)
-                            PreviewFlashPolicy.applyPreviewFlashHardwareKeys(
-                                this,
-                                chars,
-                                previewFlashMode,
-                                commandDialMode,
-                                manualSensorStill,
-                                previewFlashStrengthPercent,
-                            )
-                            PreviewAeAntibanding.applyToRequest(this, chars)
-                            applyFaceDetectMode(this, chars)
-                            if (proShotPureLeafStill) {
-                                StillCaptureIqPolicy.applyReferenceAppStillPipeline(this, chars)
-                            }
-                        }
+                        // configurePreviewForSettle defined above (shared with PS01 branch)
                         if (
                             proShotPureLeafStill &&
                                 LegacyFleetPolicy.useReferenceAppStillPrecapture()
@@ -15531,6 +15730,103 @@ private class PreviewController(
                             )
                             return@Runnable
                         }
+                        // Fleet-generic ProShot/ReferenceCam AE precapture (no exposure latch / pure-HAL).
+                        if (!manualSensorStill && ReferenceAppStillPrecapture.shouldRun(chars)) {
+                            ReferenceAppStillPrecapture.runAfterStopRepeating(
+                                session = sess,
+                                camera = cam,
+                                previewSurface = previewSurf,
+                                chars = chars,
+                                configurePreviewLikeStill = configurePreviewForSettle,
+                                bgHandler = bgHandler,
+                                onComplete = { precaptureResult ->
+                                    // Must rebuild with the converged precapture TotalCaptureResult so
+                                    // pure-HAL AE/AWB lock holds that metering (not stale preview).
+                                    try {
+                                        tRequestNs.set(SystemClock.elapsedRealtimeNanos())
+                                        boundaryTimings.tFireStillCaptureNs = tRequestNs.get()
+                                        val stillToCapture =
+                                            buildRawStillCaptureRequest(
+                                                precaptureResult ?: lastPreviewTotalCaptureResult,
+                                                latchReferenceAppManualExposure = false,
+                                            )
+                                        sess.capture(
+                                            stillToCapture,
+                                            object : CameraCaptureSession.CaptureCallback() {
+                                                override fun onCaptureCompleted(
+                                                    session: CameraCaptureSession,
+                                                    request: CaptureRequest,
+                                                    result: TotalCaptureResult,
+                                                ) {
+                                                    boundaryTimings.tOnCaptureCompletedNs =
+                                                        SystemClock.elapsedRealtimeNanos()
+                                                    onStillCaptureReadoutComplete(
+                                                        haptics,
+                                                        deferReadoutHapticUntilTonal,
+                                                    )
+                                                    pendingResult.set(result)
+                                                    maybeProcess()
+                                                    val postCompleteWaitMs =
+                                                        when (stillCaptureBundle.rawMode) {
+                                                            RawMode.UncompressedRaw12Dng ->
+                                                                RAW_STILL_POST_COMPLETE_WAIT_MS_RAW12
+                                                            else ->
+                                                                RAW_STILL_POST_COMPLETE_WAIT_MS_DEFAULT
+                                                        }
+                                                    bgHandler.postDelayed({
+                                                        if (!processed.get()) {
+                                                            val missingRaw = pendingRaw.get() == null
+                                                            val missingJpeg =
+                                                                jReader != null &&
+                                                                    pendingJpeg?.get() == null
+                                                            if (missingRaw || missingJpeg) {
+                                                                fail(
+                                                                    IllegalStateException(
+                                                                        when {
+                                                                            missingRaw && missingJpeg ->
+                                                                                "No RAW/JPEG buffer"
+                                                                            missingJpeg ->
+                                                                                "No JPEG buffer"
+                                                                            else -> "No RAW buffer"
+                                                                        },
+                                                                    ),
+                                                                )
+                                                            }
+                                                        }
+                                                    }, postCompleteWaitMs)
+                                                }
+
+                                                override fun onCaptureFailed(
+                                                    session: CameraCaptureSession,
+                                                    request: CaptureRequest,
+                                                    failure: CaptureFailure,
+                                                ) {
+                                                    fail(
+                                                        RuntimeException(
+                                                            "capture failed reason=${failure.reason}",
+                                                        ),
+                                                    )
+                                                }
+                                            },
+                                            bgHandler,
+                                        )
+                                        val halWatchdogMs =
+                                            when (stillCaptureBundle.rawMode) {
+                                                RawMode.UncompressedRaw12Dng ->
+                                                    RAW_STILL_HAL_COMPLETION_WATCHDOG_MS_RAW12
+                                                else -> RAW_STILL_HAL_COMPLETION_WATCHDOG_MS_DEFAULT
+                                            }
+                                        bgHandler.postDelayed(
+                                            checkNotNull(stillWatchdog),
+                                            halWatchdogMs,
+                                        )
+                                    } catch (t: Throwable) {
+                                        fail(t)
+                                    }
+                                },
+                            )
+                            return@Runnable
+                        }
                         val prefs = readHudCapturePrefs()
                         val wantAfSettle =
                             prefs.enableExternalCameraAppStyleAfSettleBeforeStill &&
@@ -15559,16 +15855,17 @@ private class PreviewController(
                         }
                     }
                 val afterStopDebounceMs =
-                    if (skipStopForReferenceAppLeaf) {
-                        0L
-                    } else if (shotTag != null) {
-                        // Scripted ADB: give the HAL longer after stopRepeating before firing still (OEM settle).
-                        maxOf(
-                            RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS,
-                            RAW_STILL_SCRIPTED_MIN_POST_STOP_DEBOUNCE_MS,
-                        )
-                    } else {
-                        RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS
+                    when {
+                        DngSaveBisectState.afterStopDebounceMsOverride > 0L ->
+                            DngSaveBisectState.afterStopDebounceMsOverride
+                        skipStopForReferenceAppLeaf -> 0L
+                        shotTag != null ->
+                            // Scripted ADB: give the HAL longer after stopRepeating before firing still (OEM settle).
+                            maxOf(
+                                RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS,
+                                RAW_STILL_SCRIPTED_MIN_POST_STOP_DEBOUNCE_MS,
+                            )
+                        else -> RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS
                     }
                 if (shotTag != null && afterStopDebounceMs > RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS) {
                     PnsAdbLog.i(appContext, "captureRawStill afterStopRepeatingDebounceMs=$afterStopDebounceMs label=$shotTag")
@@ -16202,6 +16499,16 @@ private class PreviewController(
                         manualIsoOverride,
                         manualExposureNsOverride,
                     )
+                    StillCaptureIqPolicy.applyToStillCaptureRequest(
+                        this,
+                        chars,
+                        dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
+                    )
+                    RawStillProcessingHints.applyProShotStyleAwbAndColorCorrection(
+                        this,
+                        chars,
+                        manualAwbAlreadySetsColorCorrection(),
+                    )
                     if (!dev.pointandshoot.PureHalDngSavePolicy.ENABLED) {
                         RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
                         RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
@@ -16210,17 +16517,14 @@ private class PreviewController(
                             camId,
                             lastPreviewTotalCaptureResult,
                         )
-                        StillCaptureIqPolicy.applyToStillCaptureRequest(
-                            this,
-                            chars,
-                            dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
-                        )
                         dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
                             this,
                             chars,
                             camId,
                             lastPreviewTotalCaptureResult,
                         )
+                    } else if (!manualSensorStill && lastPreviewTotalCaptureResult != null) {
+                        RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
                     }
                     if (commandDialMode == CommandDialMode.H && !manualSensorStill && adbValidationShotLabel == null) {
                         RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
@@ -16239,14 +16543,7 @@ private class PreviewController(
                     wantZsl = lowLatencyBurst,
                     manualSensorStill = manualSensorStill,
                 )
-                if (!lowLatencyBurst) {
-                    PreviewJpegProcessingHints.applyToCaptureRequest(
-                        this,
-                        chars,
-                        readHudCapturePrefs(),
-                        skipColorCorrection = manualAwbAlreadySetsColorCorrection(),
-                    )
-                }
+                // RAW burst: StillCaptureIqPolicy owns EDGE/NR/TONEMAP; skip JPEG ISP bias overrides.
                 stillRequestOverride?.invoke(this, chars)
             }.build()
         val hardwareBurstCount = burstRequestCount.coerceIn(1, 8)
@@ -16906,7 +17203,7 @@ private class PreviewController(
 
         fun buildBracketStillRequest(aeComp: Int): CaptureRequest =
             cam.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
-                addTarget(previewSurf)
+                // ProShot still: ImageReader targets only (no preview surface).
                 if (bracketWritesRaw) {
                     addTarget(checkNotNull(reader).surface)
                 }
@@ -16930,7 +17227,7 @@ private class PreviewController(
                     set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeComp)
                     return@apply
                 }
-                applyScalerCropAndMetering(this, chars, camId, null)
+                applyScalerCropAndMetering(this, chars, camId, null, includeFaceAeRegions = false)
                 applyReadoutManualExposureAndWb(this, chars, camId)
                 PreviewFlashPolicy.applyStillFlashKeys(
                     this,
@@ -16957,43 +17254,40 @@ private class PreviewController(
                     manualIsoOverride,
                     manualExposureNsOverride,
                 )
-                if (
-                    bracketWritesRaw &&
-                    !dev.pointandshoot.PureHalDngSavePolicy.ENABLED
-                ) {
-                    RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
-                    RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
-                        this,
-                        chars,
-                        camId,
-                        lastPreviewTotalCaptureResult,
-                    )
+                if (bracketWritesRaw) {
                     StillCaptureIqPolicy.applyToStillCaptureRequest(
                         this,
                         chars,
                         dev.pointandshoot.fleet.FleetCameraProfiles.profileForCameraId(appContext, camId),
                     )
-                    dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
+                    RawStillProcessingHints.applyProShotStyleAwbAndColorCorrection(
                         this,
                         chars,
-                        camId,
-                        lastPreviewTotalCaptureResult,
+                        manualAwbAlreadySetsColorCorrection(),
                     )
+                    if (!dev.pointandshoot.PureHalDngSavePolicy.ENABLED) {
+                        RawStillProcessingHints.applyLinearRawFriendlyProcessing(this, chars)
+                        RawStillProcessingHints.applyReferenceAppPreviewExposureFromResult(
+                            this,
+                            chars,
+                            camId,
+                            lastPreviewTotalCaptureResult,
+                        )
+                        dev.pointandshoot.fleet.LegacyLeafStillColorCorrection.applyToStillCaptureRequest(
+                            this,
+                            chars,
+                            camId,
+                            lastPreviewTotalCaptureResult,
+                        )
+                    } else if (!manualSensorBracket && lastPreviewTotalCaptureResult != null) {
+                        RawStillProcessingHints.applyAeLockIfAvailable(this, chars, lock = true)
+                    }
                 }
                 val proShotPureLeafBracket =
                     LegacyFleetPolicy.useReferenceAppPureDngSave() &&
                         StillCaptureIqPolicy.isLeafBackCharacteristics(chars)
-                val neutralBracketPipeline =
-                    !proShotPureLeafBracket &&
-                        RawCaptureSupport.useNeutralColorPipelineForRawStill(
-                            cm,
-                            cameraIds(),
-                            chars,
-                            camId,
-                            previewSurfacePhysicalCameraId,
-                            focalCropMode,
-                        )
                 if (
+                    !bracketWritesRaw &&
                     !DngSaveBisectState.skipJpegProcessingHintsOnRawStill &&
                     !proShotPureLeafBracket
                 ) {
@@ -17001,8 +17295,7 @@ private class PreviewController(
                         this,
                         chars,
                         readHudCapturePrefs(),
-                        skipColorCorrection =
-                            manualAwbAlreadySetsColorCorrection() || neutralBracketPipeline,
+                        skipColorCorrection = manualAwbAlreadySetsColorCorrection(),
                     )
                 }
                 set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, aeComp)
@@ -17746,6 +18039,11 @@ private class PreviewController(
 
     private var wantsJpegSidecarOnRaw: Boolean = false
 
+    /** ProShot dual-target: JPEG ImageReader present whenever a RAW still may fire. */
+    // Must match [composedCapturePlan] default (raw non-null) so the first createSession attaches
+    // JPEG before Compose LaunchedEffect — otherwise RAW-only stills miss ProShot's HEIC+DNG stream set.
+    private var wantsRawStillJpegAnchor: Boolean = true
+
     @Volatile
     private var composedCapturePlan: ComposedCapturePlan =
         ComposedCapturePlan(
@@ -17780,13 +18078,25 @@ private class PreviewController(
     fun setComposedCapturePlan(plan: ComposedCapturePlan) {
         wantsJpegSidecarOnRaw = plan.jpegSidecarPreset != null
         wantsIndependentTonalStill = plan.tonal != null
+        // ProShot still (C0353b0): RAW DNG stills dual-target JPEG ImageReader for HAL AE/IQ.
+        wantsRawStillJpegAnchor = plan.raw != null
         val streamBundle = plan.raw ?: checkNotNull(plan.tonal) { "forbidden off+off" }
         val storage =
             when {
                 plan.raw != null -> storageProfileFromBundle(plan.raw)
                 else -> ImagingProfile.JpegOnly
             }
-        if (composedCapturePlan == plan && stillCaptureBundle == streamBundle && imagingProfileForStreams == storage) {
+        val needsJpegSurface =
+            plan.tonal != null || plan.jpegSidecarPreset != null || plan.raw != null
+        // Plan can match while the live session still lacks a JPEG ImageReader (deferred restart,
+        // DNG→DNG+TIFF export pick). Force rebuild so tonal/TIFF stills are not permanently blocked.
+        val jpegSurfaceMissing = needsJpegSurface && jpegCaptureSurface() == null
+        if (
+            composedCapturePlan == plan &&
+            stillCaptureBundle == streamBundle &&
+            imagingProfileForStreams == storage &&
+            !jpegSurfaceMissing
+        ) {
             return
         }
         composedCapturePlan = plan
@@ -17797,6 +18107,7 @@ private class PreviewController(
             tag,
             "setComposedCapturePlan raw=${plan.raw?.rawMode} tonal=${plan.tonal?.tonalContainer} " +
                 "jpegSidecar=${plan.jpegSidecarPreset != null} wantTonalSurface=$wantsIndependentTonalStill " +
+                "rawJpegAnchor=$wantsRawStillJpegAnchor jpegMissing=$jpegSurfaceMissing " +
                 "storage=${storage.id} resMode=${plan.photoResolutionMode.storageId}",
         )
         maybeRestart()
@@ -18751,6 +19062,7 @@ private class PreviewController(
                             stillPhotoResolutionMode = stillPhotoResolutionMode,
                             wantsIndependentTonalStill = wantsIndependentTonalStill,
                             wantsJpegSidecarOnRaw = wantsJpegSidecarOnRaw,
+                            wantsRawStillJpegAnchor = wantsRawStillJpegAnchor,
                         ),
                     surfaces = surfaces,
                     extraOutputConfigs = extraOutputConfigs,
@@ -19064,6 +19376,12 @@ private class PreviewController(
 
             // YUV analysis must stay attached during in-app video record when readout chase (or H/face/hist)
             // is active — [videoController.isRecorderPresent] only gates RAW/JPEG still surfaces.
+            // ProShot still stream set = preview+RAW+JPEG (no analysis YUV). Gate via still IQ flag —
+            // never automationSuppressFacePipeline for sequential RAW alone (AGENTS.md / legacy lock).
+            val omitYuvForPureHalRawStillSession =
+                StillCaptureIqPolicy.OMIT_YUV_ANALYSIS_FOR_PURE_HAL_RAW_SESSION &&
+                    PureHalDngSavePolicy.ENABLED &&
+                    rawImageReader != null
             val wantYuv =
                 PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis(
                     PreviewSessionRegularOutputsPolicy.YuvAnalysisInput(
@@ -19076,8 +19394,22 @@ private class PreviewController(
                         hudFaceOverlayEnabled = hudFaceOverlayEnabled,
                         smileStillEnabled = smileStillEnabled,
                         wantsReadoutExposureChase = wantsReadoutExposureChase(),
+                        omitYuvForPureHalRawStillSession = omitYuvForPureHalRawStillSession,
                     ),
                 )
+            if (omitYuvForPureHalRawStillSession) {
+                Log.i(
+                    tag,
+                    "omitYuvForPureHalRawStillSession=true wantYuv=$wantYuv dial=$commandDialMode",
+                )
+            }
+            if (commandDialMode == CommandDialMode.H && desiredFps < 120 && !wantYuv) {
+                Log.w(
+                    tag,
+                    "Highlight YUV gate unexpected: dial=H fps=$desiredFps paused=$lifecycleBackgroundPaused " +
+                        "suppressFace=$automationSuppressFacePipeline → wantYuv=false",
+                )
+            }
             if (wantYuv) {
                 val yuvPick = desiredSurfaceSize ?: currentSurfaceSize
                 val yuvSize = HighlightMeterSupport.pickYuv420AnalysisSize(map, yuvPick)
@@ -19906,7 +20238,37 @@ private class PreviewController(
         }
     }
 
-    private fun maybeAdjustReadoutChaseFromHistogram(hist: IntArray) {
+    /**
+     * Shared Highlight EV used by AE compensation (§2.2) and locked-axis readout chase (§2.3).
+     * Returns null while warming up or when the analysis histogram is untrusted.
+     */
+    private fun highlightEvForReadoutChase(hist: IntArray): Double? {
+        if (HighlightMeter.isUntrustedAnalysisHistogram(hist)) return null
+        val highlightWall = SystemClock.elapsedRealtime()
+        val warmupReady =
+            highlightMeterSessionAnchorWallMs > 0L &&
+                highlightWall - highlightMeterSessionAnchorWallMs >= highlightMeterSessionWarmupMs
+        if (!warmupReady) return null
+        val bd = HighlightMeter.suggestEvCorrectionBreakdown(hist)
+        val engageSm = smoothHighlightDarkenEngagement(bd.darkenEngagement)
+        val rawEv =
+            when {
+                bd.evCore < 0.0 -> bd.evCore * engageSm
+                highlightMeterDarkenOnly -> 0.0
+                else -> bd.evCore
+            }
+        val smoothedEv = smoothHighlightMeterEv(rawEv)
+        return when {
+            smoothedEv <= -highlightMeterStabilityDarkenBypassEv -> smoothedEv
+            kotlin.math.abs(smoothedEv) < highlightEvStabilityZone -> 0.0
+            else -> smoothedEv
+        }
+    }
+
+    private fun maybeAdjustReadoutChaseFromHistogram(
+        hist: IntArray,
+        precomputedHighlightEv: Double? = null,
+    ) {
         if (!wantsReadoutExposureChase()) return
         val now = SystemClock.elapsedRealtime()
         if (now - lastReadoutChaseProcessWallMs < readoutChaseHistMinIntervalMs) return
@@ -19923,8 +20285,19 @@ private class PreviewController(
         val chars = runCatching { cm.getCameraCharacteristics(camId) }.getOrNull() ?: return
         val isoRange = chars.get(CameraCharacteristics.SENSOR_INFO_SENSITIVITY_RANGE)
         val expRange = chars.get(CameraCharacteristics.SENSOR_INFO_EXPOSURE_TIME_RANGE)
+        // H dial + locked axis: chase the free axis from highlight EV (not median luminance).
+        val useHighlightEv = commandDialMode == CommandDialMode.H && desiredFps < 120
+        val highlightEv =
+            when {
+                !useHighlightEv -> null
+                precomputedHighlightEv != null -> precomputedHighlightEv
+                else -> highlightEvForReadoutChase(hist)
+            }
+        if (useHighlightEv && highlightEv == null) return
         val sampleBin = ReadoutExposureChase.medianBin(hist)
-        readoutChaseMedianEma = ReadoutExposureChase.smoothMedian(readoutChaseMedianEma, sampleBin)
+        if (!useHighlightEv) {
+            readoutChaseMedianEma = ReadoutExposureChase.smoothMedian(readoutChaseMedianEma, sampleBin)
+        }
         val medianEma = readoutChaseMedianEma
         var applied = false
         when (coupling) {
@@ -19936,7 +20309,12 @@ private class PreviewController(
                         ?: expRange?.lower
                         ?: 33_333_333L
                 readoutChaseExposureNs = cur
-                val res = ReadoutExposureChase.adjustExposureNs(cur, medianEma, expRange)
+                val res =
+                    if (highlightEv != null) {
+                        ReadoutExposureChase.adjustExposureNsFromEv(cur, highlightEv, expRange)
+                    } else {
+                        ReadoutExposureChase.adjustExposureNs(cur, medianEma, expRange)
+                    }
                 if (res.applied) {
                     readoutChaseExposureNs = res.value
                     applied = true
@@ -19952,7 +20330,21 @@ private class PreviewController(
                 val clampedCur = readoutIsoBand.clampPick(isoRange, cur)
                 readoutChaseIso = clampedCur
                 val res =
-                    ReadoutExposureChase.adjustIso(clampedCur, medianEma, isoRange, readoutIsoBand)
+                    if (highlightEv != null) {
+                        ReadoutExposureChase.adjustIsoFromEv(
+                            clampedCur,
+                            highlightEv,
+                            isoRange,
+                            readoutIsoBand,
+                        )
+                    } else {
+                        ReadoutExposureChase.adjustIso(
+                            clampedCur,
+                            medianEma,
+                            isoRange,
+                            readoutIsoBand,
+                        )
+                    }
                 if (res.applied) {
                     readoutChaseIso = res.value
                     applied = true
@@ -19963,11 +20355,25 @@ private class PreviewController(
         val logEveryMs = if (adbReadoutChaseProof) 1000L else 3000L
         if (now - lastReadoutChaseLogWallMs >= logEveryMs) {
             lastReadoutChaseLogWallMs = now
+            val drive =
+                if (highlightEv != null) {
+                    "highlightEv=${"%.2f".format(highlightEv)}"
+                } else {
+                    "medianEma=${"%.1f".format(medianEma)}"
+                }
             Log.i(
                 tag,
                 "readoutChase iso=${readoutChaseIso} ss=${readoutChaseExposureNs} " +
-                    "coupling=$coupling medianEma=${"%.1f".format(medianEma)}",
+                    "coupling=$coupling $drive",
             )
+            if (highlightEv != null && now - lastHighlightMeterAdbLogMs >= 3500L) {
+                lastHighlightMeterAdbLogMs = now
+                PnsAdbLog.i(
+                    appContext,
+                    "highlightMeter ev=${"%.2f".format(highlightEv)} " +
+                        "aeComp=chase coupling=$coupling dial=H",
+                )
+            }
         }
         if (applied) {
             scheduleReadoutChasePreviewRefresh(now)
@@ -20005,24 +20411,26 @@ private class PreviewController(
             if (!aeModes.contains(CaptureRequest.CONTROL_AE_MODE_OFF)) {
                 Log.w(tag, "Readout manual ISO/shutter unavailable: no CONTROL_AE_MODE_OFF (AWB still applied)")
             } else {
+                val controlModes = chars.get(CameraCharacteristics.CONTROL_AVAILABLE_MODES) ?: intArrayOf()
+                if (controlModes.contains(CaptureRequest.CONTROL_MODE_OFF)) {
+                    req.set(CaptureRequest.CONTROL_MODE, CaptureRequest.CONTROL_MODE_OFF)
+                }
                 req.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+                var appliedIso: Int? = null
+                var appliedExpNs: Long? = null
                 when (coupling) {
                     ReadoutAeCoupling.LOCKED_ISO_AUTO_SS -> {
                         val isoPick =
                             manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
-                        req.set(
-                            CaptureRequest.SENSOR_SENSITIVITY,
-                            readoutIsoBand.clampPick(isoRange, isoPick),
-                        )
+                        appliedIso = readoutIsoBand.clampPick(isoRange, isoPick)
+                        req.set(CaptureRequest.SENSOR_SENSITIVITY, appliedIso)
                         val expPick =
                             readoutChaseExposureNs
                                 ?: previewMetadata.get().exposureNs
                                 ?: expRange?.lower
                                 ?: 33_333_333L
-                        req.set(
-                            CaptureRequest.SENSOR_EXPOSURE_TIME,
-                            ReadoutExposureCatalog.clampExposure(expRange, expPick),
-                        )
+                        appliedExpNs = ReadoutExposureCatalog.clampExposure(expRange, expPick)
+                        req.set(CaptureRequest.SENSOR_EXPOSURE_TIME, appliedExpNs)
                     }
                     ReadoutAeCoupling.LOCKED_SS_AUTO_ISO -> {
                         val isoPick =
@@ -20030,38 +20438,39 @@ private class PreviewController(
                                 ?: previewMetadata.get().iso
                                 ?: isoRange?.lower
                                 ?: 100
-                        req.set(
-                            CaptureRequest.SENSOR_SENSITIVITY,
-                            readoutIsoBand.clampPick(isoRange, isoPick),
-                        )
+                        appliedIso = readoutIsoBand.clampPick(isoRange, isoPick)
+                        req.set(CaptureRequest.SENSOR_SENSITIVITY, appliedIso)
                         val expPick =
                             manualExposureNsOverride
                                 ?: previewMetadata.get().exposureNs
                                 ?: expRange?.lower
                                 ?: 33_333_333L
-                        req.set(
-                            CaptureRequest.SENSOR_EXPOSURE_TIME,
-                            ReadoutExposureCatalog.clampExposure(expRange, expPick),
-                        )
+                        appliedExpNs = ReadoutExposureCatalog.clampExposure(expRange, expPick)
+                        req.set(CaptureRequest.SENSOR_EXPOSURE_TIME, appliedExpNs)
                     }
                     ReadoutAeCoupling.MANUAL_BOTH -> {
                         val isoPick =
                             manualIsoOverride ?: previewMetadata.get().iso ?: isoRange?.lower ?: 100
-                        req.set(
-                            CaptureRequest.SENSOR_SENSITIVITY,
-                            readoutIsoBand.clampPick(isoRange, isoPick),
-                        )
+                        appliedIso = readoutIsoBand.clampPick(isoRange, isoPick)
+                        req.set(CaptureRequest.SENSOR_SENSITIVITY, appliedIso)
                         val expPick =
                             manualExposureNsOverride
                                 ?: previewMetadata.get().exposureNs
                                 ?: expRange?.lower
                                 ?: 33_333_333L
-                        req.set(
-                            CaptureRequest.SENSOR_EXPOSURE_TIME,
-                            ReadoutExposureCatalog.clampExposure(expRange, expPick),
-                        )
+                        appliedExpNs = ReadoutExposureCatalog.clampExposure(expRange, expPick)
+                        req.set(CaptureRequest.SENSOR_EXPOSURE_TIME, appliedExpNs)
                     }
                     ReadoutAeCoupling.AUTO -> Unit
+                }
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastReadoutAeAppliedLogMs >= 1500L) {
+                    lastReadoutAeAppliedLogMs = now
+                    Log.i(
+                        "PNS.ChromeUx",
+                        "readoutAeApplied coupling=$coupling iso=${appliedIso ?: "?"} " +
+                            "ssNs=${appliedExpNs ?: "?"} band=${readoutIsoBand.menuLabel}",
+                    )
                 }
             }
         }
@@ -21301,8 +21710,19 @@ private class PreviewController(
                         } else {
                             null
                         }
+                    val sharedHighlightEv =
+                        if (hist != null &&
+                            (
+                                wantHighlight ||
+                                    (wantChase && commandDialMode == CommandDialMode.H)
+                                )
+                        ) {
+                            highlightEvForReadoutChase(hist)
+                        } else {
+                            null
+                        }
                     if (wantChase && hist != null) {
-                        maybeAdjustReadoutChaseFromHistogram(hist)
+                        maybeAdjustReadoutChaseFromHistogram(hist, sharedHighlightEv)
                     }
                     if (wantZebra && w > 0 && h > 0) {
                         val wall = SystemClock.elapsedRealtime()
@@ -21347,27 +21767,8 @@ private class PreviewController(
                         }
                     }
                     if (wantHighlight && hist != null) {
-                        val highlightWall = SystemClock.elapsedRealtime()
-                        val warmupReady =
-                            highlightMeterSessionAnchorWallMs > 0L &&
-                                highlightWall - highlightMeterSessionAnchorWallMs >=
-                                highlightMeterSessionWarmupMs
-                        if (warmupReady && !HighlightMeter.isUntrustedAnalysisHistogram(hist)) {
-                            val bd = HighlightMeter.suggestEvCorrectionBreakdown(hist)
-                            val engageSm = smoothHighlightDarkenEngagement(bd.darkenEngagement)
-                            val rawEv =
-                                when {
-                                    bd.evCore < 0.0 -> bd.evCore * engageSm
-                                    highlightMeterDarkenOnly -> 0.0
-                                    else -> bd.evCore
-                                }
-                            val smoothedEv = smoothHighlightMeterEv(rawEv)
-                            val evForDrive =
-                                when {
-                                    smoothedEv <= -highlightMeterStabilityDarkenBypassEv -> smoothedEv
-                                    kotlin.math.abs(smoothedEv) < highlightEvStabilityZone -> 0.0
-                                    else -> smoothedEv
-                                }
+                        val evForDrive = sharedHighlightEv
+                        if (evForDrive != null) {
                             val passesDeadband =
                                 when {
                                     evForDrive <= 0.0 ->
@@ -21388,7 +21789,7 @@ private class PreviewController(
                                 } else {
                                     null
                                 }
-                            if (comp != null) {
+                            if (comp != null && !wantsReadoutExposureChase()) {
                                 val shouldPostComp =
                                     comp != lastAppliedHighlightComp &&
                                         (
@@ -21404,8 +21805,7 @@ private class PreviewController(
                                             lastAppliedHighlightComp = if (comp == 0) null else comp
                                             Log.d(
                                                 tag,
-                                                "HighlightMeter rawEv=${"%.2f".format(rawEv)} sm=${"%.2f".format(smoothedEv)} " +
-                                                    "aeComp=$comp",
+                                                "HighlightMeter ev=${"%.2f".format(evForDrive)} aeComp=$comp",
                                             )
                                             val adbWall = SystemClock.elapsedRealtime()
                                             if (adbWall - lastHighlightMeterAdbLogMs >= 3500L) {
@@ -21533,6 +21933,12 @@ private class PreviewController(
         chars: CameraCharacteristics,
         camId: String,
         aeHighlightComp: Int? = null,
+        /**
+         * Preview may bias AE to a face. RAW stills match ProShot/ReferenceCam: HAL default /
+         * crop metering only (no face AE regions) so face false-positives cannot underexpose the still.
+         * AF face regions remain when [includeFaceAeRegions] is false.
+         */
+        includeFaceAeRegions: Boolean = true,
     ) {
         val useDigitalCrop = focalCropMode != null && desiredFps < 120
         val modeForCrop = if (useDigitalCrop) focalCropMode else null
@@ -21542,8 +21948,18 @@ private class PreviewController(
             } else {
                 null
             }
+        // Respect FocalMode (Portrait85 / LongTele150) and prime-eq digital zoom (85 on tele
+        // sensor via primeFocalTargetEqMm). Do not force full-array on stills — that flattened
+        // advertised 85 mm crops (REG-20260712-003 partial revert).
         var cropRect = scalerCropRectForSession(chars, camId, modeForCrop)
-        val breathingScale = FocusBreathingCompensator.currentScale()
+        // Only apply focus-breathing digital zoom while that compensator is active (stale
+        // currentScale must not shrink Auto stills after leaving M-dial rack).
+        val breathingScale =
+            if (focusBreathingConfig().active) {
+                FocusBreathingCompensator.currentScale()
+            } else {
+                1f
+            }
         if (breathingScale > 1.001f && cropRect.width() > 0 && cropRect.height() > 0) {
             val active = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
             if (active != null) {
@@ -21555,7 +21971,8 @@ private class PreviewController(
             Log.d(
                 tag,
                 "SCALER_CROP_REGION=${cropRect.left},${cropRect.top}-${cropRect.right},${cropRect.bottom} " +
-                    "mode=${modeForCrop?.name ?: primeCropLabel ?: "full"} breathingScale=${"%.4f".format(breathingScale)}",
+                    "mode=${modeForCrop?.name ?: primeCropLabel ?: "full"} " +
+                    "breathingScale=${"%.4f".format(breathingScale)}",
             )
         }
         val tap = tapMeteringRect
@@ -21571,9 +21988,9 @@ private class PreviewController(
             } else {
                 null
             }
-        // H dial: global highlight meter drives AE comp — do not weight AE to the face.
+        // H dial / RAW still: do not weight AE to the face (global meter / HAL default).
         val faceMeterForAe =
-            if (commandDialMode == CommandDialMode.H) {
+            if (!includeFaceAeRegions || commandDialMode == CommandDialMode.H) {
                 null
             } else {
                 faceMeterRect
@@ -21796,6 +22213,47 @@ private class PreviewController(
         if (picked != null && aeModes.contains(picked)) {
             req.set(CaptureRequest.CONTROL_AE_MODE, picked)
         }
+    }
+
+    /**
+     * ProShot `C0353b0.B4()`: full active-array [MeteringRectangle] with **weight 0** so the HAL
+     * ignores custom AE regions and uses default metering. Skip when the user has tap-metered or
+     * locked manual sensor exposure.
+     */
+    private fun applyProShotStyleDefaultAeRegions(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+        manualSensorStill: Boolean,
+    ) {
+        if (manualSensorStill || tapMeteringRect != null) return
+        val maxAe = chars.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE) ?: 0
+        if (maxAe <= 0) return
+        val active = chars.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE) ?: return
+        req.set(
+            CaptureRequest.CONTROL_AE_REGIONS,
+            arrayOf(
+                MeteringRectangle(
+                    0,
+                    0,
+                    (active.width() - 1).coerceAtLeast(0),
+                    (active.height() - 1).coerceAtLeast(0),
+                    0,
+                ),
+            ),
+        )
+    }
+
+    /** Fleet exposure matrix E08 — capability-gated AE compensation steps (no model gate). */
+    private fun applyFleetExposureBisectAeCompensation(
+        req: CaptureRequest.Builder,
+        chars: CameraCharacteristics,
+    ) {
+        val steps = DngSaveBisectState.stillAeExposureCompensationSteps
+        if (steps == 0) return
+        val range = chars.get(CameraCharacteristics.CONTROL_AE_COMPENSATION_RANGE) ?: return
+        val clamped = steps.coerceIn(range.lower, range.upper)
+        req.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, clamped)
+        Log.i("PNS.DngBisect", "aeCompSteps=$clamped (requested=$steps range=$range)")
     }
 
     private fun applyAutoProgramAf(req: CaptureRequest.Builder, chars: CameraCharacteristics) {

@@ -4,18 +4,18 @@
 
 ---
 
-## Current focus (updated 2026-06-21 — AUDIT4)
+## Current focus (updated 2026-07-11 — AUDIT5 closed)
 
 | Field | Value |
 |-------|--------|
 | **Active milestone** | **H** — human & publication |
-| **Active sprint** | None (AUDIT4 closed) |
-| **Ship line** | **0.14.0-beta.15** / `versionCode` **22009** / catalog **v6** |
-| **GitHub release** | [v0.14.0-beta.15](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.15) |
-| **Primary USB device** | OnePlus 12 **CPH2583** — wireless ADB `b5214fc6` |
-| **Agent lanes closed** | **AUDIT4** (H metering + QR), **Milestone 28**, **AUDIT-2026-06-21**, **H.CRI-5**, **T.14** |
+| **Active sprint** | None (AUDIT5 closed) |
+| **Ship line** | **0.14.0-beta.16** / `versionCode` **22010** / catalog **v6** |
+| **GitHub release** | [v0.14.0-beta.16](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.16) |
+| **Primary USB device** | OnePlus 12 **CPH2583** — env `b5214fc6`; **online AUDIT5:** `8bf09993` (OP13) |
+| **Agent lanes closed** | **AUDIT5**, **AUDIT4**, **Milestone 28**, **H.CRI-5**, **T.14** |
 
-## Toolchain stack (2026-06-21)
+## Toolchain stack (2026-07-11)
 
 | Component | Version |
 |-----------|---------|
@@ -26,18 +26,18 @@
 | Compose BOM | **2026.05.01** |
 | CameraX | **1.6.1** |
 
-## Last gates (2026-06-21 AUDIT4)
+## Last gates (2026-07-11 AUDIT5)
 
 | Gate | Result | Artifact / notes |
 |------|--------|------------------|
 | `pns_validate_bootstrap.ps1` | **PASS** | `/audit` step 1 |
-| `pns_local_dev_parallel.ps1` (Tier 0) | **PASS** | 8/8 jobs |
-| `pns_verify_toolchain.ps1 -RunTests` | **PASS** | After AUDIT4 detekt fixes |
-| `pns_highlight_meter_verify.ps1` | **PASS** | `highlight_meter_verify_20260621_152031` |
-| `pns_qr_scan_verify.ps1` | **PASS** | `qr_scan_verify_20260621_152424` |
-| CI Toolchain / CodeQL / Security (`b762061`) | **PASS** | `gh run list` |
-| `pns_mediacodec_hfr_verify -GateProfile vf` | **SKIP/FAIL** | `ffprobe` not on PATH |
-| Wireless `adb install` | **FLAKE** | `INSTALL_PARSE_FAILED_NOT_APK` — gates ran on installed APK |
+| `pns_local_dev_parallel.ps1` (Tier 0) | **PASS** | 8/8 (pre + post A5.1) |
+| `pns_verify_toolchain.ps1 -RunTests` | **PASS** | Pre + post A5.1 |
+| CI Toolchain (`0616f5e`) | **PASS** | beta.16 push |
+| CodeQL scheduled | **PASS** | 2026-07-06 |
+| Security scan | **FAIL** → allowlist shipped | Confirm next schedule after commit |
+| Dependabot Critical/High | **0** open alerts | **10** open Dependabot PRs |
+| `ffprobe` | **On PATH** | Desktop FFmpeg 7.0.2 |
 
 ## Open blockers
 
@@ -46,14 +46,13 @@
 | **CRI-032** | Eye-AF pixel gate | Needs face in frame for green markers |
 | **CRI-033…035** | Human | DCG colors, store/PRIVACY, OP13 ACR |
 | **H.9** | Signing | Debug-key release shipped; production keystore open |
-| **Host** | `ffprobe` | VF mediacodec gate blocked without FFmpeg on PATH |
 
 ## Immediate next steps
 
-1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + subjective UX (**H.8.3** DCG colors)
-2. **[AGENT]** Commit AUDIT4 code (H metering + QR) when user requests
-3. **[MAINTAINER]** Install **ffprobe** on PATH; retry wireless sideload if testing fresh debug APK
+1. **[HUMAN]** Milestone H checklist (**CRI-032…035**) + **H.9** signing
+2. **[MAINTAINER]** Commit AUDIT5 (`.gitleaks.toml` + memory/docs) when ready; `/dependabot` triage
+3. **[MAINTAINER]** Refresh `PNS_ADB_SERIAL` for CPH2583 (or use `-Serial 8bf09993` for OP13 lane)
 
 ---
 
-**Document control:** 2026-06-21 — AUDIT4 closed; refresh at Milestone H ship.
+**Document control:** 2026-07-11 — AUDIT5 agent lane closed; refresh at Milestone H ship.

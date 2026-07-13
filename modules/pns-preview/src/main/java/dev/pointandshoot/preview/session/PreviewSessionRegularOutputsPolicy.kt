@@ -38,12 +38,24 @@ object PreviewSessionRegularOutputsPolicy {
         val hudFaceOverlayEnabled: Boolean,
         val smileStillEnabled: Boolean,
         val wantsReadoutExposureChase: Boolean,
+        /**
+         * ProShot-parity RAW session: drop face/hist/zebra/QR analysis YUV after H/chase gates.
+         * Wired from still IQ + pure-HAL + RAW reader present — never via
+         * [automationSuppressFacePipeline] alone for sequential RAW.
+         */
+        val omitYuvForPureHalRawStillSession: Boolean = false,
     )
 
     fun wantsYuvAnalysis(input: YuvAnalysisInput): Boolean {
-        if (input.lifecycleBackgroundPaused) return false
         val underHfr = input.desiredFps < PreviewVideoConstants.HFR_THRESHOLD_FPS
+        // Highlight + readout chase must keep the analysis surface in the session graph even if
+        // createSession races a brief ON_PAUSE (lifecycleBackgroundPaused). Processing still
+        // no-ops when paused; omitting the surface leaves H stuck with wantYuv=false forever.
         if (input.commandDialMode == CommandDialMode.H && underHfr) return true
+        if (input.wantsReadoutExposureChase && underHfr) return true
+        if (input.lifecycleBackgroundPaused) return false
+        // ProShot still path has no analysis YUV; strip face/hist/zebra/QR only (H/chase already returned).
+        if (input.omitYuvForPureHalRawStillSession) return false
         val facePipelineOk = !input.automationSuppressFacePipeline
         val wantsFaceOrQrYuv =
             facePipelineOk &&
@@ -55,6 +67,6 @@ object PreviewSessionRegularOutputsPolicy {
                         input.hudFaceOverlayEnabled ||
                         input.smileStillEnabled
                 )
-        return wantsFaceOrQrYuv || (input.wantsReadoutExposureChase && underHfr)
+        return wantsFaceOrQrYuv
     }
 }

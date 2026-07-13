@@ -140,4 +140,54 @@ class ComposedStillIntentBracketTest {
         assertEquals(ImgMenuTier.Ultra, max.jpeg)
         assertEquals(ImgMenuTier.Ultra, max.hdrWhenJpegOff)
     }
+
+    @Test
+    fun preferredTiffOnMatchedUltra_keepsRawAndIndependentTonal() {
+        val intent =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Ultra,
+                jpeg = ImgMenuTier.Ultra,
+                hdrWhenJpegOff = ImgMenuTier.Ultra,
+            )
+        assertTrue(intent.wantsMatchedTierJpegSidecar())
+        val plan =
+            intent
+                .resolveCapturePlan()
+                .withPreferredStillExportKind(StillExportKind.Tiff16)
+        assertEquals(RawMode.UncompressedRaw12Dng, plan.raw!!.rawMode)
+        assertEquals(TonalContainer.Tiff16, plan.tonal!!.tonalContainer)
+        assertNull(plan.jpegSidecarPreset)
+    }
+
+    @Test
+    fun stillExportOverride_withRawKeepsDngPlusTiff() {
+        val intent =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Ultra,
+                jpeg = ImgMenuTier.Off,
+                hdrWhenJpegOff = ImgMenuTier.Ultra,
+            )
+        val plan =
+            intent
+                .resolveCapturePlan()
+                .withStillExportOverride(StillExportKind.Tiff16)
+        assertEquals(RawMode.UncompressedRaw12Dng, plan.raw!!.rawMode)
+        assertEquals(TonalContainer.Tiff16, plan.tonal!!.tonalContainer)
+    }
+
+    @Test
+    fun stillExportOverride_jpegOnlyStillWipesRaw() {
+        val intent =
+            ComposedStillIntent(
+                raw = ImgMenuTier.Off,
+                jpeg = ImgMenuTier.Ultra,
+                hdrWhenJpegOff = ImgMenuTier.Ultra,
+            )
+        val plan =
+            intent
+                .resolveCapturePlan()
+                .withStillExportOverride(StillExportKind.Tiff16)
+        assertNull(plan.raw)
+        assertEquals(TonalContainer.Tiff16, plan.tonal!!.tonalContainer)
+    }
 }

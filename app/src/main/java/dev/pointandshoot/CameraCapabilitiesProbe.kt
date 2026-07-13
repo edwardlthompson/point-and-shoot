@@ -217,6 +217,27 @@ const val EXTRA_PNS_PREVIEW_DNG_FORCE_BAYER_ASN = "pns_preview_dng_force_bayer_a
 
 /** Skip [DngCreator.setDescription] / LUT software line on DNG save. */
 const val EXTRA_PNS_PREVIEW_DNG_SKIP_SOFTWARE_DESC = "pns_preview_dng_skip_software_desc"
+
+/** Fleet exposure E03 — skip pure-HAL AE_LOCK after precapture. */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_AE_LOCK = "pns_preview_dng_skip_ae_lock"
+
+/** Fleet exposure E04 — after stopRepeating debounce ms. */
+const val EXTRA_PNS_PREVIEW_DNG_AFTER_STOP_DEBOUNCE_MS = "pns_preview_dng_after_stop_debounce_ms"
+
+/** Fleet exposure E05 — skip ProShot weight-0 AE regions. */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_AE_REGIONS = "pns_preview_dng_skip_ae_regions"
+
+/** Fleet exposure E08 — AE compensation steps. */
+const val EXTRA_PNS_PREVIEW_DNG_AE_COMP_STEPS = "pns_preview_dng_ae_comp_steps"
+
+/** Fleet exposure E09 — precapture STILL template. */
+const val EXTRA_PNS_PREVIEW_DNG_PRECAPTURE_STILL_TEMPLATE = "pns_preview_dng_precapture_still_template"
+
+/** Fleet exposure E11 — skip still IQ pipeline. */
+const val EXTRA_PNS_PREVIEW_DNG_SKIP_STILL_IQ = "pns_preview_dng_skip_still_iq"
+
+/** ProShot L6/f6 process rebuild — ADB bisect only (`DngSaveBisectState.useProShotCapturePipeline`). */
+const val EXTRA_PNS_PREVIEW_DNG_PROSHOT_PIPELINE = "pns_preview_dng_proshot_pipeline"
 /** When true: one [PreviewController.captureComposedStill] after preview ready (IMG matrix path). */
 const val EXTRA_PNS_PREVIEW_COMPOSED_STILL = "pns_preview_composed_still"
 /** Optional physical/logical id (e.g. `3` = ultra-wide on dodge) for scripted preview validation. */

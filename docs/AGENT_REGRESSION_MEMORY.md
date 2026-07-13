@@ -34,6 +34,155 @@
 
 ## Active entries
 
+### REG-20260713-004 — ProShot-style AE precapture is default RAW process (CPH2583 OK)
+
+- **Status:** active
+- **Area:** capture
+- **Symptom:** Stop-first one-shot AE precapture diverged from ProShot `L6`/`i4`/`j4` (repeating + capture with PRECAPTURE); OP13 midtones far below ProShot.
+- **Cause:** Different Camera2 AE settle path after `stopRepeating`.
+- **Fix shipped:** Default RAW Auto stills use [`ProShotStyleAePrecapture`](../app/src/main/java/dev/pointandshoot/ProShotStyleAePrecapture.kt) (process only). **Do not** ship full PS01 bisect extras as default (skip AE_LOCK / skip ASN / map ON) — those remain ADB `pns_preview_dng_proshot_pipeline`.
+- **Do not:** Revert to stop-first-only precapture without CPH2583 + OP13 proof; unlock AE_LOCK / disable ASN / force map ON fleet-wide without USB; treat OP13 residual `frac&lt;bl` crush as closed.
+- **Proves OK:** CPH2583 `pns_capture_pipeline_verify` baseline PASS `hfr-runs/capture_pipeline_gate_20260713_143453`; PS01 bisect mosaics `centerMed≈191 fracBl≈0` `hfr-runs/dng_fleet_exposure_PS01_20260713_103502`; post-promote verify (same session).
+- **Also test:** Chrome gate alone (not ∥ capture); force-stop after USB.
+- **Touches:** `ProShotStyleAePrecapture.kt`, `PreviewEngineScreen.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260713-001 isolation for **E\*** EV tweaks (process promote is explicit exception)
+
+### REG-20260713-001 — UW RAW black-crush is exposure, not ASN (fleet bisect SoT)
+
+- **Status:** active
+- **Area:** dng / capture
+- **Symptom:** Same-scene OP13 UW 14 mm (FL 2.3): P&S DNG far darker than ProShot; companion TIFF/JPEG much brighter than the RAW mosaic. Wide 6.1 mm same session looked fine.
+- **Cause:** Leaf/aux **RAW still AE / stream integration** leaves mosaic underexposed (p50≈8 vs ProShot≈68; ~80% pixels below black). ASN already ≈ ProShot (~0.66) — post-save ASN sync cannot lift crushed Bayer.
+- **Fix shipped:** Sprint **DNG-FLEET-EXPOSURE-2026-07** — exposure-first bisect matrix ([`docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md`](DNG_FLEET_EXPOSURE_BISECT_MATRIX.md)); host pair metric `scripts/dng_same_scene_exposure_metric.py`. Color/ASN cells only after mosaic pass bar.
+- **Do not:** Treat UW darkness as an ASN/CM/FM problem; force ASN when HAL ASN ≈ Bayer; compare mismatched FLs; re-bisect map/YUV/shading/CC-off for exposure without a new hypothesis; **promote OP13 E\* EV / skip-IQ levers into GenericFleet** (process-only ProShot precapture is REG-20260713-004 — separate).
+- **Proves OK:** Baseline crush `hfr-runs/same_scene_14_61_20260713_0106` (14 mm dark, 6.1 mm OK) via `scripts/dng_same_scene_exposure_metric.py` — UW `PASS_EXPOSURE=False` (centerMed 0.27×); wide `PASS_EXPOSURE=True`. Matrix + ADB extras shipped (`docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md`, `pns_dng_fleet_exposure_bisect.ps1`). **USB cell loop blocked 2026-07-13** on OP13 (Activity class does not exist after reboot; prior Surface abandoned) — resume when package launches.
+- **Also test:** Wide control after every UW-moving cell; tele when 73 recovers; never capture ∥ chrome; CPH2583 `pns_capture_pipeline_verify` after mosaic PASS.
+- **Conflicts with:** REG-20260712-007 (ASN sync remains valid for **desync** cases only — not UW crush)
+
+### REG-20260713-002 — ASN sync dead ends (multi-CFA / no-op / full Bayer B)
+
+- **Status:** active
+- **Area:** dng
+- **Symptom:** Night UW ASN sync wrote or locked wrong neutrals; later pairs showed ASN already matched Bayer so sync was a no-op while image stayed dark/green.
+- **Cause:** (1) Multi-CFA scoring picked wrong phase (ASN R≈0.95 in “trusted” band while true Bayer R/G≈0.58). (2) When HAL ASN ≈ Bayer, hybrid patch is correctly a no-op. (3) Full Bayer ASN (R+B) crushed blue after ColorMatrix.
+- **Fix shipped:** `hintedCfaOnly=true` for ASN sync estimate; mode **Bayer R + HAL B** only; trusted R/G band skip keeps HAL.
+- **Do not:** Multi-CFA score for ASN sync; “force” ASN rewrite when Δ(ASN,Bayer)≈0; full Bayer ASN including B without CM proof; use ASN sync as UW underexposure fix (see REG-20260713-001).
+- **Proves OK:** REG-007 host re-patch `0056`; `same_scene_14mm_20260713_0100` ASN≈Bayer no-op while crush remained.
+- **Also test:** `dng_tiff_integrity_check.py` after any ASN path change.
+- **Conflicts with:** REG-20260619-001 (narrow ASN exception still applies)
+
+### REG-20260713-003 — Tele color levers proven ineffective (map / shading / YUV / CC HQ off)
+
+- **Status:** active
+- **Area:** capture / dng
+- **Symptom:** Tele Bayer R/G and edge green vs ProShot after ISO improved.
+- **Cause:** Not lens-shading map OpcodeList2, not SHADING HQ vs OFF when applied, not face/hist YUV alone, not CC HQ off — USB bisects left Bayer essentially unchanged for color.
+- **Fix shipped:** Keep ProShot footprint (map OFF, face OFF, YUV-free session for pure-HAL RAW, dual JPEG). Record as **skip-proven-wrong** for color/exposure matrix until a new hypothesis.
+- **Do not:** Re-run map ON / shading toggle / YUV-free / CC HQ off as the primary tele or UW color fix without a new mechanism; treat one ProShot R/G≈0.57 as universal truth (scene-dependent ~0.52–0.57).
+- **Proves OK:** `hfr-runs/dng_map_on_yuv_free_tele73_20260712`; `dng_shading_off_applied_tele73_20260712`; `dng_yuv_free_tele73_20260712`; `dng_cc_off_tele73_20260712`.
+- **Also test:** Same-scene tele when 73 sensor responsive.
+- **Conflicts with:** REG-20260712-005/006 (extends — dead-end table)
+
+### REG-20260712-007 — Pure-HAL AsShotNeutral: Bayer R + HAL B (UW proof)
+
+- **Area:** `DngBayerAsnSyncPolicy` / `Dng12Saver` / `DngBayerAsShotNeutral`
+- **Symptom:** Same-scene UW 14 mm (FL 2.3): ProShot ASN R ≈ Bayer R/G (Δ≈0); P&S HAL ASN R ≈0.06 above Bayer → camWB green_index +0.14 vs ProShot −0.10. CM/FM identical.
+- **Cause:** HAL `DngCreator` ASN desynced from delivered Bayer on P&S still path. Full Bayer ASN (R+B) crushed blue after ColorMatrix (edge B/G>1).
+- **Fix shipped:** Under pure-HAL, in-place IFD0 ASN patch only: **R = center Bayer R/G**, **B = HAL ASN B**, max-normalize. Log `dng save path=pure_hal_bayer_asn` / `PNS.BayerAsnSync`.
+- **Do not:** Full Bayer ASN including B without CM proof; `ExifInterface` on DNG; CM/FM surgery; treat this as tele-closed until 73 sensor returns.
+- **Proves OK:** Host `hfr-runs/same_scene_14mm_20260712_1951`; USB UW pairs `…0046` / `…0056`. Night UW: multi-CFA scoring locked ASN R≈0.95 (trusted band) while Bayer R/G≈0.58 — sync no-op. **Fix:** ASN sync uses **hinted CFA only**. Host re-patch `0056`: gi +0.13→−0.02.
+- **Also test:** Another same-scene UW pair after hinted-CFA install; tele when 73 recovers.
+- **Conflicts with:** REG-20260619-001 pure-HAL “no ASN surgery” — **narrow exception** for ASN-only IFD0 patch (explicit).
+
+### REG-20260712-006 — ProShot tele: YUV-free session; map/shading do not fix edge green
+
+- **Area:** `PreviewSessionRegularOutputsPolicy` / `StillCaptureIqPolicy` / `PreviewEngineScreen` createSession
+- **Symptom:** Tele DNG looked greener than selected ProShot refs (R/G ~0.40 vs ~0.57).
+- **Cause:** (1) Face/hist YUV on REGULAR session vs ProShot still stream set. (2) Cross-day ProShot R/G is **scene-dependent** (~0.52–0.57); P&S center R/G≈0.53–0.54 is already in-band. (3) P&S full-frame shows **elevated edge G** (R≈ProShot, G≫). Map ON only embeds OpcodeList2; SHADING HQ vs OFF (when `lensShadingApplied`) does not change Bayer.
+- **Fix shipped:** `OMIT_YUV_ANALYSIS_FOR_PURE_HAL_RAW_SESSION` (H/chase still force YUV; never `automationSuppressFacePipeline` for sequential RAW). Keep `REQUEST_LENS_SHADING_MAP_ON_STILL=false`. `SKIP_SHADING_MODE_WHEN_LENS_SHADING_APPLIED` → OFF when HAL already shaded.
+- **Do not:** Treat single ProShot R/G=0.57 as universal truth; ASN surgery; `forceFullActiveArrayCrop`; map ON for color (footprint only).
+- **Proves OK:** `hfr-runs/dng_yuv_free_tele73_20260712` (`omitYuv…wantYuv=false`); map-on `dng_map_on_yuv_free_tele73_20260712`; shading-off `dng_shading_off_applied_tele73_20260712`.
+- **Also test:** Same-scene ProShot+P&S tele pair; `pns_photo_capture_verify` alone (not parallel chrome).
+- **Conflicts with:** REG-20260712-005 (extends — YUV-free + shading-applied OFF)
+
+### REG-20260712-005 — ProShot still footprint: dual JPEG + map OFF + face OFF
+
+- **Status:** active (partial — Bayer R/G gap remains)
+- **Area:** dng / capture
+- **Symptom:** Tele DNG ASN ≈ ProShot (~0.56) but Bayer R/G ≈ 0.40 (ProShot R/G ≈ 0.57 matches ASN). ProShot tele DNGs lack OpcodeList2; P&S had GainMaps; ADB RAW stills often RAW-only vs ProShot HEIC+DNG.
+- **Cause:** (1) Frozen `jpegImageReader` local before session attach → still missed JPEG target. (2) `STATISTICS_LENS_SHADING_MAP_MODE_ON` wrote OpcodeList2 unlike sampled ProShot tele DNGs. (3) Face-detect FULL mirrored onto stills; ProShot `C0353b0` never sets FACE on still.
+- **Fix shipped:** Live `jpegCaptureSurface()` at still build (`rawStillDualTarget jpeg=1`); default `wantsRawStillJpegAnchor=true`; `REQUEST_LENS_SHADING_MAP_ON_STILL=false`; `StillCaptureFaceDetectParity.FORCE_OFF_ON_RAW_STILL`; keep 73/85 crop split (REG-004).
+- **Do not:** Snapshot JPEG reader only at captureRawStill entry; reintroduce map-ON without ProShot OpcodeList2 proof; force full-array crop.
+- **Proves OK:** `hfr-runs/dng_dual_livejpeg_tele73_20260712` — `rawStillDualTarget jpeg=1`, op2=0, native 73 crop. Residual R/G≈0.40.
+- **Also test:** Same-scene ProShot tele DNG; YUV-free session bisect.
+- **Touches:** `PreviewEngineScreen.kt`, `StillCaptureIqPolicy.kt`, `StillCaptureFaceDetectParity.kt`, `docs/PROSHOT_APK_FLEET_ANALYSIS.md`
+- **Conflicts with:** REG-20260712-003 (map OFF supersedes “always map ON” for tele DNG footprint)
+
+### REG-20260712-004 — Chrome/ADB prime list must include native tele 73
+
+- **Status:** active
+- **Area:** chrome / fleet / capture
+- **Symptom:** ADB `pns_preview_focal_mm_slot=73` logged `remap=advertised(85)` and still used Prime85 crop `289,217-3806,2855` — native 73 FOV collapsed into 85 digital crop.
+- **Cause:** Default `resolvePrimeLensAssignments` used classic `PRIME_EQ_MM` (no **73** / **150**); nearest-target remap for slot 73 picked **85**.
+- **Fix shipped:** Default chrome/ADB/matrix chip targets = `FOCAL_CHIP_EQ_MM` (`14/23/35/50/73/85/150`); keep broader 12-prime list as `broaderPrimeEqTargets()` only.
+- **Do not:** Drop 73 from default prime assignments; remap 73→85 via nearest classic prime.
+- **Proves OK:** USB `hfr-runs/dng_focal_chip73_20260712` — `focalSlotTap=mm=73 remap=advertised(73)` crop `0,0-4096,3072`; `mm=85 remap=advertised(85)` crop `289,217-3806,2855`. JVM `FocalLensStripSupportTest`.
+- **Also test:** Manual 73 vs 85 vs 150 FOV; chrome gate `-FocalMmSlot 73` then `85`.
+- **Touches:** `FocalLensStripSupport.kt`, `FleetFocalRowProductBuilder.kt`, `PreviewEngineScreen.kt`
+- **Conflicts with:** REG-20260712-003 (complements — preserve 85 crop *and* native 73)
+
+### REG-20260712-003 — Native RAW still full-array crop + ProShot AWB/AE hold
+
+- **Status:** active (partial — **forceFullActiveArrayCrop reverted**)
+- **Area:** dng / capture
+- **Symptom:** OP13 tele DNG still dark/green vs ProShot / vs same-shot TIFF; tagged ASN could look ProShot-like while Bayer R/G stayed low.
+- **Cause:** (1) Fleet AE precapture discarded the converged `TotalCaptureResult` and rebuilt the still from stale preview. (2) Pure-HAL skipped AE lock (SENSOR_* latch is unsafe — May 2026). (3) JPEG ISP bias hints could override still CC/EDGE after ProShot-class IQ. (4) **Incorrect follow-up:** `forceFullActiveArrayCrop` when `focalCropMode==null` flattened **prime-eq 85 mm** crops (85 is `primeFocalTargetEqMm` with `focalCrop=null`, not only `FocalMode.Portrait85`).
+- **Fix shipped:** Rebuild still with precapture result; pure-HAL **AE_LOCK** after precapture (USB: unlocking dropped tele ISO and crushed R); `applyProShotStyleAwbAndColorCorrection` (FULL/LEVEL_3 CC); skip `PreviewJpegProcessingHints` on RAW stills; breathing scale only while active. **`forceFullActiveArrayCrop` removed** — keep prime 85 / FocalMode 150 crops.
+- **Do not:** Force full-array when `focalCropMode==null` (breaks 85 prime crop); discard precapture result; SENSOR_* latch; skip AE_LOCK after precapture on this HAL without Bayer proof; force lens-shading map OFF when `LENS_SHADING_APPLIED`.
+- **Proves OK:** 85 crop USB `hfr-runs/dng_85_crop_and_tele_20260712` stillBoundary `Prime85` `289,217-3806,2855`. AE_LOCK needed: no-lock run ISO 741 / R/G≈0 vs lock ISO ~1480. Residual: Bayer R/G still ≪ ProShot.
+- **Also test:** Manual 73 vs 85 vs 150 FOV; composed DNG+TIFF.
+- **Touches:** `PreviewEngineScreen.kt`, `RawStillProcessingHints.kt`, `docs/PROSHOT_APK_FLEET_ANALYSIS.md`
+- **Conflicts with:** REG-20260712-001 (extends); dodge tele focal routing (85/150 crops)
+
+### REG-20260712-002 — DNG+TIFF JPEG surface + DNG gallery thumb
+
+- **Status:** active
+- **Area:** capture / chrome
+- **Symptom:** "JPEG still session not ready" with TIFF+DNG selected; DNG saves left the tray gallery thumb blank.
+- **Cause:** (1) Export-kind / IMG plan could request independent tonal without forcing a session rebuild when the JPEG `ImageReader` was missing; shutter readiness treated RAW-only as enough. (2) P&S DNGs have no embedded JPEG SubIFD and `BitmapFactory` cannot decode Bayer; sequential/composed ADB paths also skipped `applyStillResultToGalleryThumb`.
+- **Fix shipped:** `withStillExportOverride` keeps RAW when adding tonal; `setComposedCapturePlan` restarts if JPEG surface missing; `canCaptureStill` uses full `composedCaptureBlockedReason`; LaunchedEffect syncs plan on export kind; `DngBayerPreviewDecoder` + gallery load fallbacks; gallery thumb update on composed/sequential RAW saves.
+- **Do not:** Re-wipe RAW in `withStillExportOverride` when imaging profile still has DNG enabled; early-return `setComposedCapturePlan` while tonal/sidecar needs JPEG and `jpegCaptureSurface()` is null.
+- **Proves OK:** USB OP13 `8bf09993`: `hfr-runs/dng_tiff_gallery_smoke_20260712_092829` — `JPEG ImageReader`, `captureComposedStill … ok=true` DNG+TIFF, `galleryThumbUpdated`; DNG-only `captureRawStill 1/1 ok=true` + `galleryThumbUpdated path=106677`; unit `ComposedStillIntentBracketTest` preferred/override TIFF cases.
+- **Also test:** Manual DNG-only tray shutter → thumb visible; `pns_still_export_verify.ps1 -Format tiff16` (jpeg_only) still PASS.
+- **Touches:** `ComposedStillIntent.kt`, `PreviewEngineScreen.kt`, `GalleryThumbnail.kt`, `DngBayerPreviewDecoder.kt`, `StillFormatPickerSheet.kt` (apply order via PreviewEngine)
+- **Conflicts with:** none
+
+### REG-20260712-001 — Pure-HAL keeps capability-gated still IQ (fleet)
+
+- **Status:** active
+- **Area:** dng / capture
+- **Symptom:** On OP13 tele (13.8 mm vs ProShot same FL/CM2), P&S DNG dark+green while ProShot balanced; same shutter 1/120, P&S ISO ~1300 vs ProShot ~2200.
+- **Cause:** (1) Pure-HAL skipped capture-time still IQ. (2) Face AE on stills. (3) **ProShot decompile:** still `CaptureRequest` targets **RAW/JPEG ImageReaders only** — P&S also targeted **preview**, biasing HAL AE. (4) Still IQ / lens-shading must be capability-gated for all SKUs (ProShot defaults `LENS_SHADING_MAP`+`VIGNETTE_CORRECTION` on).
+- **Fix shipped:** Pure-HAL keeps `StillCaptureIqPolicy`; no face AE on RAW/bracket stills; RAW/bracket stills **omit preview surface**; fleet **AE precapture** when `CONTROL_AE_PRECAPTURE_TRIGGER` advertised (no Legacy gate); ProShot-style weight-0 default AE regions; rebuild still after stop/precapture. See `docs/PROSHOT_APK_FLEET_ANALYSIS.md`.
+- **Do not:** Re-add preview surface on RAW-only still without USB tele ISO proof; re-add CPH2655-only color branches; post-save ASN/CM under pure-HAL; treat mismatched-FL UW pairs as truth; gate AE precapture on LegacySku only.
+- **Proves OK:** USB OP13 tele 13.8 mm: `aePrecapture converged … iso≈2092` then still `iso≈2276` (`PNS.ReferenceAppStill` / `dng save diag`); aux `hfr-runs/aux_dng_capture_analyze_20260712_125436` ISO **2257**, ASN≈ProShot, green_index **0.08** (was ~0.51); integrity/open PASS. Manual: `hfr-runs/proshot_ae_precapture_tele_20260712/M73_tele_iso2276.dng`.
+- **Also test:** `pns_capture_pipeline_verify.ps1` on CPH2583 when available (precapture + no-preview still).
+- **Touches:** `PreviewEngineScreen.kt`, `StillCaptureIqPolicy.kt`, `ReferenceAppStillPrecapture.kt`, `PureHalDngSavePolicy.kt`, `docs/PROSHOT_APK_FLEET_ANALYSIS.md`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** REG-20260620-001 (narrowed)
+
+### REG-20260711-001 — ISO range pick stays Auto; H+locked ISO median chase
+
+- **Status:** active
+- **Area:** preview / readout / highlight metering
+- **Symptom:** Tapping ISO range stop **400** left AE in Auto (chip not `·L`); Highlight **H** with ISO locked behaved like median auto-exposure, not highlight protection.
+- **Cause:** Range checklist only set `ReadoutIsoBand` without `onPickIso`; locked-axis chase always used histogram median instead of documented `adjust*FromEv` / `highlightEvForReadoutChase`.
+- **Fix shipped:** First range-stop tap locks ISO (`CONTROL_MODE_OFF` + AE OFF + `SENSOR_*`); H+locked axis uses shared highlight EV chase; AE-comp posts skipped while chase active; H YUV attach ignores brief `lifecycleBackgroundPaused`.
+- **Do not:** Revert range tap to band-only; replace H chase with median-only while dial is H; re-gate H YUV on `lifecycleBackgroundPaused` without USB proof.
+- **Proves OK:** `pns_readout_iso_verify.ps1 -Iso 400` (`readoutAeApplied` + `readoutIsoProbe`); `pns_highlight_meter_verify.ps1` (`highlightEv=` / `aeComp=chase` with locked ISO, or AE-comp path with `-AutoAeOnly`).
+- **Also test:** Manual ISO 400 → H dial on bright window; `PreviewSessionRegularOutputsPolicyTest` paused-H case.
+- **Touches:** `PreviewReadoutStrip.kt`, `PreviewEngineScreen.kt`, `PreviewSessionRegularOutputsPolicy.kt`, `docs/PNS_TECHNICAL_SETTINGS.md` §2–§3, `pns_highlight_meter_verify.ps1`
+- **Conflicts with:** none
+
 ### REG-20260621-001 — H dial YUV garbage + face AE conflict
 
 - **Status:** active
@@ -54,7 +203,7 @@
 - **Symptom:** App color surgery (ASN/CM/FM/50708, capture-time IQ) masked HAL/`DngCreator` truth; H dial could look like Auto when reflected SDK highlight AE preempted software EV comp.
 - **Cause:** `LeafDngHalReconcile` / 50708 / color IQ on RAW stills; fleet visibility reset ADB `pns_preview_dial=H` to Auto before session create.
 - **Fix shipped:** `PureHalDngSavePolicy.ENABLED`; `Dng12Saver` direct `writeImage` + `dng save path=pure_hal`; keep `applyToDngUri`; H YUV when face pipeline suppressed; hardware H-AE only on root vendor-extra opt-in; `pns_highlight_meter_verify.ps1`.
-- **Do not:** Re-enable post-save TIFF reconcile, 50708, or RAW still `StillCaptureIqPolicy` / `LegacyLeafStillColorCorrection` without maintainer sign-off + USB `pns_aux_dng_capture_analyze.ps1` integrity/open gates.
+- **Do not:** Re-enable post-save TIFF reconcile, 50708, or `LegacyLeafStillColorCorrection` / linear-raw COLOR_CORRECTION / preview-exposure latch under pure-HAL without maintainer sign-off + USB `pns_aux_dng_capture_analyze.ps1` integrity/open gates. Capability-gated `StillCaptureIqPolicy` is allowed under pure-HAL (REG-20260712-001).
 - **Proves OK:** `pns_capture_pipeline_verify.ps1` (`capture_pipeline_gate_20260620_031303`); `pns_aux_dng_capture_analyze.ps1` (`aux_dng_capture_analyze_20260620_032954` — `DNG INTEGRITY: PASS`, desktop open PASS); `pns_highlight_meter_verify.ps1` (`highlight_meter_verify_20260619_231827`); Tier 2 `pns_verify_toolchain.ps1 -RunTests` PASS.
 - **Also test:** `pns_chrome_ux_gate.ps1` when touching preview AE/YUV; never `ExifInterface.saveAttributes()` on DNG.
 - **Touches:** `PureHalDngSavePolicy.kt`, `Dng12Saver.kt`, `PreviewEngineScreen.kt`, `PreviewSessionRegularOutputsPolicy.kt`, `ReferenceAppPipelineContract.kt`

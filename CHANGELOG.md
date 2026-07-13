@@ -14,10 +14,22 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 - **DNG fleet exposure bisect** — matrix + ADB extras (pns_preview_dng_*), same-scene metric, ProShot UI same-scene helper; OP13 residual shadow crush deferred. Docs: docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md, REG-20260713-001…004.
 
+## [0.14.0-beta.18] - 2026-07-13
+
+Hotfix: gate CONTROL_ZOOM_RATIO behind API 30; CI/detekt hygiene from beta.17 follow-ups.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.18.apk`
+
+### Fixed
+
+- **RAW still zoom reset on API 28-29** — CONTROL_ZOOM_RATIO (ProShot native-FOV reset on still) is gated behind API 30 so older devices do not touch the R+ field.
+
+### Changed (maintainer)
+
+- Detekt shared-baseline hygiene and F-Droid metadata sync for the beta.17 ship lane.
 ## Unreleased
 
-_(Nothing yet - add user-visible deltas here; run pns_changelog_gate.ps1 before milestone gates.)_
-
+_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
 ## [0.14.0-beta.8] - 2026-06-05
 
 **Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.8.apk`

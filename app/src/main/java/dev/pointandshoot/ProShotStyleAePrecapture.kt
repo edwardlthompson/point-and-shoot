@@ -30,7 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 object ProShotStyleAePrecapture {
     private const val TAG = "PNS.ProShotPipeline"
     private const val MAX_WAIT_MS = 1200L
-    private const val POLL_MS = 50L
 
     fun shouldRun(chars: CameraCharacteristics): Boolean {
         val keys = chars.availableCaptureRequestKeys ?: return false

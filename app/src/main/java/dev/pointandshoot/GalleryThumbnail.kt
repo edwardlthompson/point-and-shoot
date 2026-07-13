@@ -186,6 +186,7 @@ private fun readIfdEntry(bb: ByteBuffer, bytes: ByteArray, ifdOffset: Int, wantT
     return null
 }
 
+@Suppress("UnusedParameter")
 private fun readIntValue(bb: ByteBuffer, bytes: ByteArray, entry: IfdEntry): Int? {
     // SHORT / LONG inline or pointed
     return when (entry.type) {

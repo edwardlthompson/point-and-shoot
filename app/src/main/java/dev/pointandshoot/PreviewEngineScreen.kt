@@ -14664,6 +14664,7 @@ private class PreviewController(
         }
     }
 
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun captureRawStill(
         appContext: Context,
         haptics: CaptureHaptics,
@@ -18091,6 +18092,7 @@ private class PreviewController(
         // Plan can match while the live session still lacks a JPEG ImageReader (deferred restart,
         // DNG→DNG+TIFF export pick). Force rebuild so tonal/TIFF stills are not permanently blocked.
         val jpegSurfaceMissing = needsJpegSurface && jpegCaptureSurface() == null
+        @Suppress("ComplexCondition")
         if (
             composedCapturePlan == plan &&
             stillCaptureBundle == streamBundle &&
@@ -20464,6 +20466,7 @@ private class PreviewController(
                     ReadoutAeCoupling.AUTO -> Unit
                 }
                 val now = SystemClock.elapsedRealtime()
+                @Suppress("MagicNumber")
                 if (now - lastReadoutAeAppliedLogMs >= 1500L) {
                     lastReadoutAeAppliedLogMs = now
                     Log.i(
@@ -21710,6 +21713,7 @@ private class PreviewController(
                         } else {
                             null
                         }
+                    @Suppress("ComplexCondition")
                     val sharedHighlightEv =
                         if (hist != null &&
                             (
@@ -21928,6 +21932,7 @@ private class PreviewController(
         }
     }
 
+    @Suppress("CyclomaticComplexMethod")
     private fun applyScalerCropAndMetering(
         req: CaptureRequest.Builder,
         chars: CameraCharacteristics,

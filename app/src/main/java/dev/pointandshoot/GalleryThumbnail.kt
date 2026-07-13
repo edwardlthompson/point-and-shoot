@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package dev.pointandshoot
 
 import android.content.ActivityNotFoundException

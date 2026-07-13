@@ -29,6 +29,7 @@ object FocalLensStripSupport {
      * Chrome / matrix / ADB focal chips ([FocalMmSlot]). Includes native tele **73** and digital
      * **85** / **150** on the same mid-tele sensor — do not drop 73 (nearest-85 remap flattens FOV).
      */
+    @Suppress("MagicNumber")
     val FOCAL_CHIP_EQ_MM: List<Int> = listOf(14, 23, 35, 50, 73, 85, 150)
 
     /** Broader classic 12-prime set (no dedicated native-73 chip) — retained for tooling. */

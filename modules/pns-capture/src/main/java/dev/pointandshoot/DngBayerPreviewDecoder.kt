@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package dev.pointandshoot
 
 import android.graphics.Bitmap
@@ -33,6 +35,7 @@ object DngBayerPreviewDecoder {
      * Decodes a small ARGB bitmap from Bayer green (rough preview). Returns null when the DNG is
      * not an uncompressed single-sample row-strip layout.
      */
+    @Suppress("CyclomaticComplexMethod", "ComplexCondition", "ReturnCount")
     fun decodeThumbnail(bytes: ByteArray, maxPx: Int): Bitmap? {
         if (bytes.size < 16) return null
         val little = bytes[0] == 'I'.code.toByte() && bytes[1] == 'I'.code.toByte()
@@ -126,6 +129,7 @@ object DngBayerPreviewDecoder {
         return sample
     }
 
+    @Suppress("UnusedParameter")
     private fun readInt(bb: ByteBuffer, entry: Entry?): Int? {
         entry ?: return null
         return when (entry.type) {

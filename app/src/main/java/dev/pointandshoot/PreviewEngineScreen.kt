@@ -14834,9 +14834,11 @@ private class PreviewController(
                 applyStillSensorResolutionMode(this, chars)
                 // ProShot still A5 → x6(0): reset zoom so still uses native FOV (not preview zoom).
                 runCatching {
-                    val keys = chars.availableCaptureRequestKeys ?: emptyList()
-                    if (keys.contains(CaptureRequest.CONTROL_ZOOM_RATIO)) {
-                        set(CaptureRequest.CONTROL_ZOOM_RATIO, 1.0f)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        val keys = chars.availableCaptureRequestKeys ?: emptyList()
+                        if (keys.contains(CaptureRequest.CONTROL_ZOOM_RATIO)) {
+                            set(CaptureRequest.CONTROL_ZOOM_RATIO, 1.0f)
+                        }
                     }
                 }
                 if (ReferenceAppLeafStillCaptureRequest.applies(chars)) {

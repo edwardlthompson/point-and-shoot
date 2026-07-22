@@ -1,0 +1,32 @@
+---
+description: Post-push CI poll protocol and gate ordering
+globs:
+  - ".github/workflows/**"
+  - "scripts/pns_check_github_ci.*"
+  - "BUILD_PLAN.md"
+---
+
+# CI Gates
+
+## Post-Push Poll (required)
+
+After push to `main` or before release sign-off:
+
+```powershell
+.\scripts\pns_check_github_ci.ps1 -WaitSeconds 300
+```
+
+Required green (P&S names): **Toolchain verify**, **Security scan**, **CodeQL**.
+
+## Gate order (local)
+
+1. Tier 0: `.\scripts\pns_local_dev_parallel.ps1` (includes bootstrap validate)
+2. Tier 1: `.\scripts\pns_prerelease_gate.ps1 -SkipGradle`
+3. Tier 2: `.\scripts\pns_verify_toolchain.ps1 -RunTests`
+4. Tier 3 USB: capture **then** chrome (one serial); force-stop after
+5. Push → `pns_check_github_ci.ps1`
+
+## Do Not Mark Complete
+
+- BUILD_PLAN `[AUTO]` items while required CI is red
+- Device-facing rows ✅ without USB proof (`AGENTS.md` device truth rule)

@@ -1,0 +1,26 @@
+---
+description: Weekly security triage and Dependabot expectations
+alwaysApply: false
+globs:
+  - "BUILD_PLAN.md"
+  - "docs/SECURITY_TRIAGE.md"
+  - "SECURITY.md"
+  - ".github/dependabot.yml"
+---
+
+# Security Triage (Weekly)
+
+## Cadence
+
+- Follow [`docs/SECURITY_TRIAGE.md`](../../docs/SECURITY_TRIAGE.md)
+- Triage OpenSSF Scorecard SARIF findings into BUILD_PLAN `[AGENT]` rows when actionable
+
+## Gates
+
+- Zero open Critical/High Dependabot alerts before release (or documented `[HUMAN]` exception)
+- Required workflows green: **Toolchain verify**, **Security scan**, **CodeQL**
+- Scorecard is informational until `[HUMAN]` enables it as a required check
+
+## Batch
+
+Use `/dependabot` or `/triage` for maintenance passes.

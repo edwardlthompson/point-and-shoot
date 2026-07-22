@@ -1,0 +1,27 @@
+---
+description: Prefer local PC parallelism over Cloud when working on This Computer
+alwaysApply: true
+---
+
+# Local Compute First
+
+When the session runs on **This Computer** (local IDE / local CLI), maximize the machine before paying for Cloud Agents.
+
+## Prefer (local)
+
+1. **Parallel Task subagents** after Sequential lock — `/scope` with non-overlapping file scopes (`docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md`)
+2. **Worktrees** — `scripts/pns_agent_worktree_bootstrap.ps1 -Create` for `feature/agent-*` branches
+3. **Side chats** for parallel research while the main Agent keeps coding
+4. **Local gates** — `pns_local_dev_parallel.ps1` (Tier 0), then Tier 1/2 as needed
+5. **USB** — one serial; capture then chrome sequentially; always force-stop after sessions
+
+## Avoid by default (local sessions)
+
+- Handing work to **Cloud Agents** when the laptop can run Agent + terminals + worktrees
+- Serializing independent Parallel BUILD_PLAN rows on one agent
+- Running `pns_capture_pipeline_verify` and `pns_chrome_ux_gate` in parallel on one device
+
+## When Cloud is appropriate
+
+- Machine unavailable / remote-only workflow
+- Explicit user request for a cloud subagent

@@ -4,14 +4,40 @@
 
 | SoT | Path |
 |-----|------|
+| Agent entry | `docs/START_HERE.md` · `docs/FOR_AGENTS.md` · `AGENTS.md` |
+| Bootstrap alignment | `docs/BOOTSTRAP_ALIGNMENT.md` · `TEMPLATE_INDEX.json` |
 | Settings / pipeline | `docs/PNS_TECHNICAL_SETTINGS.md` |
 | Regression locks | `docs/AGENT_REGRESSION_MEMORY.md` · `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8 |
 | Fleet / DNG | `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` · `AGENTS.md` CRITICAL sections |
 | Code review intake | `docs/CODE_REVIEW_PLANNING_INTAKE.json` · [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) |
 | Parity debt | `docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json` |
 | Peer benchmark + M28 program | `docs/CAMERA_APP_PIPELINE_BENCHMARK.md` (Sprint **28.0**) · plan `.cursor/plans/camera_pipeline_benchmark_ba492901.plan.md` |
+| Human backlog | `HUMAN_BACKLOG.md` |
 
 **Primary device:** OnePlus 12 **CPH2583** · wireless ADB mDNS `adb-b5214fc6-D4ZwCF._adb-tls-connect._tcp` (`scripts/pns_adb_device.env` — refresh `PNS_ADB_SERIAL` when IP changes).
+
+### Owner label legend
+
+| Label | Owner | When to use |
+|-------|-------|-------------|
+| `[AGENT]` | Cursor Agent | Code, docs, scaffolding, tests, CI config |
+| `[HUMAN]` | Human developer | Approvals, credentials, GitHub settings, product decisions |
+| `[ADB]` | Human (Android) | USB device testing, F-Droid submission, ACR viewer sign-off |
+| `[AUTO]` | CI/scripts/bots | GitHub Actions, Dependabot, pre-commit, update checker |
+
+### Status markers
+
+Use **emoji markers** (not `- [ ]` GitHub checkboxes). **Intentional deviation** from upstream bootstrap `🟡/🔴`: this repo keeps **`🔲` / `✅` / `❌`**.
+
+| Marker | State |
+|--------|-------|
+| 🔲 | Open |
+| ✅ | Done |
+| ❌ | Blocked — append reason |
+
+**Task format:** `🔲 [OWNER] Description`
+
+**Lanes:** execute **Sequential** `[AGENT]` first → **Parallel** (isolated paths) → **Human & device (after automation)**.
 
 ---
 
@@ -100,6 +126,35 @@ Archive: [BUILD_PLAN_COMPLETED.md — Milestone T](BUILD_PLAN_COMPLETED.md#miles
 ## Sprint TM — Template Migration (bootstrap + modularization) ✅ CLOSED
 
 Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-tm--template-migration).
+
+---
+
+## Sprint BOOTSTRAP-0.15 — Template alignment (agent-project-bootstrap v0.15.0)
+
+**Objective:** Reference-mode process alignment to upstream **v0.15.0** without touching camera product code. Record: [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md).
+
+### Sequential
+
+- ✅ `[AGENT]` Write `docs/BOOTSTRAP_ALIGNMENT.md` gap analysis + locked decisions
+- ✅ `[AGENT]` Add Reference entrypoints (`START_HERE`, `CURSOR_MODES`, `FOR_AGENTS`, `INITIALIZATION_PROMPT`, `UPGRADING_FROM_TEMPLATE`)
+- ✅ `[AGENT]` Metadata: `TEMPLATE_INDEX.json`, `.template-version` 0.15.0, `.template-update.json`, hygiene stubs
+- ✅ `[AGENT]` Generic `.cursor/rules` + `/cleanup` command + batch registry 26
+- ✅ `[AGENT]` AGENTS.md router + BUILD_PLAN legend (`AGENT|HUMAN|ADB|AUTO`, Sequential/Parallel/Human lanes)
+- ✅ `[AGENT]` Scripts + validate-bootstrap + additive CI (dependency-review, Scorecard) + `SECURITY_TRIAGE`
+- ✅ `[AGENT]` Run `pns_validate_bootstrap` + Tier 0; DECISION_LOG / AGENT_MEMORY / README pointers
+
+### Parallel
+
+| Agent | Scope | Status |
+|-------|-------|--------|
+| — | Shared contracts locked in Sequential; no parallel needed for this sprint | ✅ |
+
+### Human & device (after automation)
+
+- 🔲 `[HUMAN]` Confirm whether OpenSSF Scorecard should become a required branch-protection check
+- 🔲 `[HUMAN]` Dependabot backlog triage (`/dependabot`) — unchanged product maintenance
+- 🔲 `[ADB]` No USB required for bootstrap process alignment (N/A — host-only)
+- 🔲 `[AUTO]` Weekly `pns_check_template_updates.ps1` / Scorecard schedule once merged
 
 ---
 
@@ -258,6 +313,8 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction, **H-RE
 |------|---------|
 | Open human | `^- 🔲 \[HUMAN\]` |
 | Open agent | `^- 🔲 \[AGENT\]` |
+| Open ADB | `^- 🔲 \[ADB\]` |
+| Open AUTO | `^- 🔲 \[AUTO\]` |
 | Blocked | `^- ❌` |
 | Done | `^- ✅` |
 | Sprint headers | `^### Sprint` |
@@ -266,7 +323,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction, **H-RE
 
 ## Document control
 
-- **Version:** 2026-07-11 — **AUDIT5** (gitleaks + memory); **Milestone H** remains active.
+- **Version:** 2026-07-22 — **BOOTSTRAP-0.15** (template v0.15.0 Reference alignment); **Milestone H** remains active.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

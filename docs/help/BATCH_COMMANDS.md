@@ -35,7 +35,7 @@ Bookmark this page when you return after a break.
 
 **Maintenance:** `/triage` · `/dependabot` · `/audit`
 
-**Long sessions:** `/compact` · `/restore`
+**Long sessions:** `/compact` · `/restore` · `/cleanup` (archive finished BUILD_PLAN rows)
 
 **Device testing:** use `scripts/pns_capture_pipeline_verify.ps1` then `pns_chrome_ux_gate.ps1` **sequentially** on one phone (not part of `/gates` by default).
 

@@ -1,0 +1,29 @@
+---
+description: FOSS compliance, privacy, and telemetry constraints
+alwaysApply: true
+---
+
+# FOSS & Privacy Compliance
+
+## License
+
+- Pure FOSS under **Apache-2.0** (not MIT) — see `LICENSE` and ADR-0005
+- No proprietary closed-source SDKs in the production path without an explicit ADR
+- Prefer F-Droid-friendly dependencies
+
+## Distribution
+
+- GitHub Releases / Obtainium as primary sideload channel
+- F-Droid metadata under `metadata/`
+
+## Privacy & Telemetry
+
+- Opt-in only telemetry — never enabled by default
+- No PII in logs without explicit user consent
+- See `PRIVACY.md`
+
+## Security
+
+- Secrets never committed (Gitleaks / security-scan)
+- Dependency scanning via CodeQL, Security scan, Dependency Review
+- Input validation at data boundaries

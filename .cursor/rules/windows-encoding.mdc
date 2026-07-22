@@ -1,0 +1,13 @@
+---
+description: Windows UTF-8 write rule for agents and editors
+alwaysApply: true
+---
+
+# Windows Encoding
+
+On Windows, never save repository text files as UTF-16 LE.
+
+- Prefer UTF-8 without BOM for scripts and docs
+- PowerShell: `[System.IO.File]::WriteAllText(path, content, (New-Object System.Text.UTF8Encoding $false))` or `Set-Content -Encoding utf8`
+- UTF-16 corruption breaks `.gitignore`, JSON, YAML, and Gradle/Kotlin tooling
+- After suspicious Windows edits, re-open key files and confirm they are not UTF-16

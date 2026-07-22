@@ -1,0 +1,27 @@
+---
+description: Require inspecting types and interfaces before code changes
+alwaysApply: true
+---
+
+# Read-Before-Write Rule
+
+Before modifying any file:
+
+1. Identify boundaries — interfaces, types, schemas, lock contracts
+2. Read upstream via @filename
+3. For capture/DNG/GLES/fleet/chrome: also read `docs/AGENT_REGRESSION_MEMORY.md` and relevant `.cursor/rules/*-lock.mdc`
+4. State signatures in plan when non-trivial
+5. Then edit
+
+## Critique Checklist
+
+- Null/empty values
+- Race conditions / session lifecycle
+- Unhandled exceptions
+- USB proof requirements before claiming delivery
+
+## UTF-8 & Verification
+
+- Write all text files as UTF-8 without BOM (never UTF-16)
+- Never mark BUILD_PLAN tasks ✅ without running validate scripts / gates
+- After bootstrap surface changes: `.\scripts\pns_validate_bootstrap.ps1`

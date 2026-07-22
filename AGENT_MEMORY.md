@@ -4,16 +4,18 @@
 
 ---
 
-## Current focus (updated 2026-07-11 — AUDIT5 closed)
+## Current focus (updated 2026-07-22 — BOOTSTRAP-0.15)
 
 | Field | Value |
 |-------|--------|
 | **Active milestone** | **H** — human & publication |
-| **Active sprint** | None (AUDIT5 closed) |
-| **Ship line** | **0.14.0-beta.16** / `versionCode` **22010** / catalog **v6** |
-| **GitHub release** | [v0.14.0-beta.16](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.16) |
+| **Active sprint** | **BOOTSTRAP-0.15** — template v0.15.0 Reference alignment (host-only) |
+| **Template pin** | **0.15.0** (`.template-version`) — see `docs/BOOTSTRAP_ALIGNMENT.md` |
+| **Ship line** | **0.14.0-beta.19** / `versionCode` **22013** |
+| **GitHub release** | [v0.14.0-beta.19](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.19) (pending push) |
 | **Primary USB device** | OnePlus 12 **CPH2583** — env `b5214fc6`; **online AUDIT5:** `8bf09993` (OP13) |
 | **Agent lanes closed** | **AUDIT5**, **AUDIT4**, **Milestone 28**, **H.CRI-5**, **T.14** |
+| **Session protocol** | `docs/START_HERE.md` → `CURSOR_MODES` → `FOR_AGENTS` → `AGENTS.md` → BUILD_PLAN Sequential |
 
 ## Toolchain stack (2026-07-11)
 

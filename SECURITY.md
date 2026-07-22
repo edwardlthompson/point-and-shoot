@@ -44,7 +44,11 @@ Complex camera/HAL issues may require USB proof on fleet hardware; we will keep 
 | **Gitleaks** | [`.github/workflows/security-scan.yml`](.github/workflows/security-scan.yml) | Secret detection (`.gitleaks.toml`) |
 | **Trivy** | [`.github/workflows/security-scan.yml`](.github/workflows/security-scan.yml) | FS vuln scan (`gradle/`, `app/build.gradle.kts`; `.trivyignore`) |
 | **Dependabot** | [`.github/dependabot.yml`](.github/dependabot.yml) | GitHub Actions + Gradle (grouped) |
+| **Dependency Review** | [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) | PR dependency vulns (fail on High+) |
+| **OpenSSF Scorecard** | [`.github/workflows/scorecard.yml`](.github/workflows/scorecard.yml) | Weekly supply-chain scorecard (informational until human enables required check) |
 | **FOSS dep-audit** | [`scripts/pns_verify_toolchain.ps1`](scripts/pns_verify_toolchain.ps1) | Blocks Play Services / Firebase / ads SDKs |
+
+**Weekly triage playbook:** [`docs/SECURITY_TRIAGE.md`](docs/SECURITY_TRIAGE.md).
 
 ## Scope notes
 

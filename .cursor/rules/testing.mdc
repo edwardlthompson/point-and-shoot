@@ -1,0 +1,29 @@
+---
+description: Test and USB gate expectations for Point & Shoot
+globs:
+  - "app/src/test/**"
+  - "**/src/test/**"
+  - "scripts/pns_*verify*.ps1"
+  - "scripts/pns_*gate*.ps1"
+---
+
+# Testing Rules
+
+## Host (JVM)
+
+- Unit tests: `.\scripts\pns_gradlew.ps1 :app:testDebugUnitTest` (also via `pns_verify_toolchain.ps1 -RunTests`)
+- Coverage floor: Kover verify (scoped fleet/DNG/bracket helpers) — see ADR-0007
+- Detekt + Android Lint via toolchain verify
+
+## Device (USB)
+
+- No checked-in `androidTest/` UI tree — proof via ADB scripts
+- Capture / DNG: `pns_photo_capture_verify` / `pns_capture_pipeline_verify`
+- Chrome: `pns_chrome_ux_gate` (never parallel with capture on one serial)
+- Always `adb shell am force-stop dev.pointandshoot` after sessions
+
+## When to add tests
+
+- Bug fixes: JVM regression test when practical
+- CRITICAL lock areas: USB gate + `REG-*` row in `docs/AGENT_REGRESSION_MEMORY.md` same commit
+- Doc-only / bootstrap process: host `pns_validate_bootstrap.ps1` is enough

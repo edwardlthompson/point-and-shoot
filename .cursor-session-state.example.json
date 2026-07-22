@@ -1,0 +1,40 @@
+{
+  "$comment": "Copy to .cursor-session-state.json (or .cursor-session-state) to restore agent context after clearing chat. Dual format with .cursor-session-state.example.",
+  "schemaVersion": 1,
+  "version": 1,
+  "saved_at": "2026-07-22T00:00:00Z",
+  "updatedAt": "2026-07-22T00:00:00Z",
+  "mode": "reference",
+  "$comment_mode": "Repo mode (bootstrap|reference) — not Cursor Ask/Plan/Agent/Debug; see docs/CURSOR_MODES.md",
+  "stack": "android",
+  "milestone": "BOOTSTRAP-0.15",
+  "sprint": "BOOTSTRAP-0.15",
+  "active_sprint": "BOOTSTRAP-0.15",
+  "activePlan": "BUILD_PLAN.md",
+  "sequential_step": 0,
+  "build_plan_lane": "sequential",
+  "deviceSerial": "CPH2583",
+  "deviceEnvFile": "scripts/pns_adb_device.env",
+  "parallel_tasks_in_flight": [],
+  "agent_count_target": null,
+  "parallel_steps_completed": [],
+  "last_files_touched": [],
+  "lastGates": {
+    "toolchain": null,
+    "bootstrap": null,
+    "capturePipeline": null,
+    "chromeUx": null
+  },
+  "lastArtifacts": [],
+  "openBlockers": [],
+  "nextSteps": [
+    "Read docs/START_HERE.md (Reference mode)",
+    "Execute BUILD_PLAN Sequential lane"
+  ],
+  "autonomous_mode": false,
+  "current_feature": null,
+  "last_gate_exit": null,
+  "strikes": 0,
+  "destructive_ops_approved": [],
+  "notes": "Delete after fresh chat reads it. Preserve CRITICAL locks in AGENTS.md / .cursor/rules."
+}

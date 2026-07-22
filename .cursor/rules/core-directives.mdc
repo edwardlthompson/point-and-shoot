@@ -1,0 +1,38 @@
+---
+description: Core agent directives — plan-first, read-before-write, 3-strike rule
+alwaysApply: true
+---
+
+# Core Directives
+
+On session start, read `docs/START_HERE.md`, pick Cursor mode via `docs/CURSOR_MODES.md`, then edit.
+
+## Plan First, Code Second
+
+- Cursor mode routing: see `cursor-modes.mdc` and `docs/CURSOR_MODES.md`
+- Plan Mode for non-trivial tasks; Ask for read-only exploration
+- Include mandatory `### Critique` subsection in every plan
+
+## Read-Before-Write
+
+- Inspect types/interfaces via @filename before altering code
+- CRITICAL areas: also `docs/AGENT_REGRESSION_MEMORY.md` + lock rules
+
+## BUILD_PLAN Protocol
+
+- Sequential lane before Parallel lane
+- Respect `AGENT`, `HUMAN`, `ADB`, `AUTO` labels
+- Status markers: 🔲 open · ✅ done · ❌ blocked (emoji, not `- [ ]` checkboxes)
+
+## 3-Strike Rule
+
+Halt after 3 consecutive failed fix attempts; escalate to human.
+
+## Memory Files
+
+Update only at session start, milestone boundary, or architectural pivot.
+Exception: `docs/AGENT_REGRESSION_MEMORY.md` / `docs/PNS_TECHNICAL_SETTINGS.md` / changelog on every matching change.
+
+## Local Compute
+
+On This Computer, prefer parallel Task/worktrees and multi-core local gates over Cloud Agents — see `local-compute.mdc`.

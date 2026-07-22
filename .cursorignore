@@ -1,0 +1,26 @@
+# Ephemeral and bulky paths — keep agents from indexing caches and build output
+node_modules/
+.venv/
+__pycache__/
+dist/
+build/
+app/build/
+*/build/
+target/
+coverage/
+htmlcov/
+.gradle/
+.idea/
+*.iml
+playwright-report/
+test-results/
+.lighthouseci/
+*.log
+hfr-runs/
+perf-runs/
+local.properties
+*.apk
+*.aab
+*.dex
+.cxx/
+captures/

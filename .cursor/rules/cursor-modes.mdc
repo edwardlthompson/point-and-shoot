@@ -1,0 +1,21 @@
+---
+description: Cursor mode routing — Ask/Plan/Agent/Debug
+alwaysApply: true
+---
+
+# Cursor Mode Routing
+
+Pick the correct Cursor mode before editing. Full router: [`docs/CURSOR_MODES.md`](../../docs/CURSOR_MODES.md).
+
+- **Ask** — read-only exploration; no file edits
+- **Plan** — non-trivial work; include mandatory `### Critique`; get approval before coding
+- **Agent** — approved execution, `[AGENT]` BUILD_PLAN rows, mechanical gate autofix
+- **Debug** — evidence-first triage (logs, USB artifacts, KB / regression memory); not pre-release audits
+
+**Trivial vs non-trivial:** see rubric in `docs/CURSOR_MODES.md`. Uncertain → Plan.
+
+**Transitions:** scope creep → Plan; root cause found → Agent; 3-strike → Debug then escalate.
+
+Do not debug in Plan Mode. Do not edit in Ask Mode.
+
+Session start: read `docs/START_HERE.md` (Reference mode) before broad edits.

@@ -72,8 +72,8 @@ android {
         // versionName: semver (user-visible; Keep a Changelog / GitHub tag v-prefix).
         // versionCode: monotonic integer for Play/Obtainium upgrades; release script uses
         // semverOrIncrement policy (scripts/pns_release_naming.ps1) — never decrease.
-        versionCode = 22012
-        versionName = "0.14.0-beta.18"
+        versionCode = 22013
+        versionName = "0.14.0-beta.19"
         // Legacy target: app hit ClassNotFound on large Compose entrypoints when they landed in
         // secondary dex. Keep multidex explicitly enabled to ensure all classesN.dex are loaded.
         multiDexEnabled = true

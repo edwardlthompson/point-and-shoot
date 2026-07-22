@@ -1,0 +1,30 @@
+---
+description: Track source only; avoid committing build output and secrets
+alwaysApply: true
+---
+
+# Repo Hygiene
+
+## Track in git
+
+- Source, tests, docs, CI workflows, `*.example` configs, Gradle lockfiles / version catalogs
+- Agent process files (`AGENTS.md`, `BUILD_PLAN.md`, `.cursor/`)
+
+## Never track
+
+- `.gradle/`, `build/`, `app/build/`, caches, `local.properties`
+- `.env`, `scripts/pns_adb_device.env` (keep `.example` stubs)
+- Bulk `hfr-runs/` / `perf-runs/` artifacts (unless explicitly intended)
+- OS junk: `.DS_Store`, `Thumbs.db`
+
+## Agent commit discipline
+
+1. Review `git status` before every commit
+2. Stage **explicit paths** — avoid blind `git add -A`
+3. Run `.\scripts\pns_check_repo_hygiene.ps1` before push when hygiene may have drifted
+4. Never commit device serials or signing keystores
+
+## Policies
+
+- **No Git LFS** or **submodules** without `[HUMAN]` approval
+- Build outputs publish via CI artifacts / GitHub Releases — not git history

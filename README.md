@@ -26,9 +26,19 @@
 [![Plan doc verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**Security:** see [`SECURITY.md`](SECURITY.md) for supported versions and vulnerability reporting.
+**Security:** see [`SECURITY.md`](SECURITY.md) for supported versions and vulnerability reporting. Weekly triage: [`docs/SECURITY_TRIAGE.md`](docs/SECURITY_TRIAGE.md).
 
 **Contributing:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, CI checks, and pre-commit hooks.
+
+### How agents should work in this repo
+
+1. Read [`docs/START_HERE.md`](docs/START_HERE.md) (Reference mode — already initialized).
+2. Pick Cursor mode via [`docs/CURSOR_MODES.md`](docs/CURSOR_MODES.md).
+3. Follow [`docs/FOR_AGENTS.md`](docs/FOR_AGENTS.md), then [`AGENTS.md`](AGENTS.md) for automation + CRITICAL locks.
+4. Execute [`BUILD_PLAN.md`](BUILD_PLAN.md) **Sequential** first; use emoji status (`🔲`/`✅`/`❌`) and labels `[AGENT]`/`[HUMAN]`/`[ADB]`/`[AUTO]`.
+5. Local-first gates: Tier 0 `pns_local_dev_parallel.ps1` → Tier 2 `pns_verify_toolchain.ps1 -RunTests` → USB capture then chrome (never parallel on one serial).
+
+Bootstrap alignment: [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md) (pin **v0.15.0**).
 
 **Privacy:** see [`PRIVACY.md`](PRIVACY.md) — no analytics; on-device ML Kit; opt-in network features.
 

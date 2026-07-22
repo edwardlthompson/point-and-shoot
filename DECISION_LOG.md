@@ -15,6 +15,13 @@ One-page index of [Architecture Decision Records](docs/adr/README.md). **Append 
 | [0009](docs/adr/0009-modular-boundaries.md) | 2026-06-17 | Gradle `modules/pns-*` libraries; hub UI + capture session glue stays in `:app` | Accepted |
 | [0010](docs/adr/0010-extension-handoff-wave-c.md) | 2026-06-20 | Isolated extension handoff for Wave C HDR/AUTO (no inline session merge) | Accepted |
 
+### 2026-07-22 — Bootstrap template v0.15.0 Reference alignment
+
+- **Decision:** Align agent process/tooling with [agent-project-bootstrap v0.15.0](https://github.com/edwardlthompson/agent-project-bootstrap/tree/v0.15.0) in **Reference** mode; keep Apache-2.0, P&S CRITICAL locks, and existing CI (`toolchain-verify` / `security-scan` / CodeQL).
+- **Status markers:** Keep `🔲`/`✅`/`❌` (document deviation from upstream `🟡`/`🔴`).
+- **CI:** Additive Dependency Review + non-blocking Scorecard only; no release-please / stale import.
+- **Record:** [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md).
+
 **Related (not ADRs):** regression ledger [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) · curated index [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) · active plan [`BUILD_PLAN.md`](BUILD_PLAN.md) Milestone H + **H.CRI-0…7**.
 
 *Milestone H — link gate: `scripts/pns_template_doc_link_check.ps1`*

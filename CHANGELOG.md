@@ -27,6 +27,15 @@ Hotfix: gate CONTROL_ZOOM_RATIO behind API 30; CI/detekt hygiene from beta.17 fo
 ### Changed (maintainer)
 
 - Detekt shared-baseline hygiene and F-Droid metadata sync for the beta.17 ship lane.
+## [0.14.0-beta.19] - 2026-07-21
+
+Agent-project-bootstrap v0.15.0 Reference-mode alignment (process/docs; no camera pipeline changes).
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.19.apk`
+
+### Changed (maintainer / agent process)
+
+- **Bootstrap template alignment (v0.15.0)** — Reference-mode agent entrypoints (`docs/START_HERE.md`, `CURSOR_MODES.md`, `FOR_AGENTS.md`), generic Cursor rules, `/cleanup` batch command (26 total), `TEMPLATE_INDEX.json`, template update checker, additive Dependency Review + OpenSSF Scorecard workflows, and `docs/SECURITY_TRIAGE.md`. Product CRITICAL locks and Apache-2.0 unchanged. See `docs/BOOTSTRAP_ALIGNMENT.md`.
 ## Unreleased
 
 _(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_

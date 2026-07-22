@@ -129,15 +129,18 @@ Runtime artifact: `files/fleet_device_matrix.json` (app private storage; pulled 
 
 | Topic | Doc | Role |
 |-------|-----|------|
+| Session entry | [docs/START_HERE.md](docs/START_HERE.md) · [CURSOR_MODES.md](docs/CURSOR_MODES.md) · [FOR_AGENTS.md](docs/FOR_AGENTS.md) | Reference-mode agent protocol |
+| Bootstrap alignment | [docs/BOOTSTRAP_ALIGNMENT.md](docs/BOOTSTRAP_ALIGNMENT.md) · [TEMPLATE_INDEX.json](TEMPLATE_INDEX.json) | v0.15.0 pin + gap record |
 | Automation index | [AGENTS.md](AGENTS.md) | Scripts, CRITICAL locks, device rules |
 | Regression ledger | [docs/AGENT_REGRESSION_MEMORY.md](docs/AGENT_REGRESSION_MEMORY.md) | Append-only `REG-*` rows |
-| Architecture decisions | [DECISION_LOG.md](DECISION_LOG.md) · [docs/adr/](docs/adr/) | ADR-0001…0009; append-only |
+| Architecture decisions | [DECISION_LOG.md](DECISION_LOG.md) · [docs/adr/](docs/adr/) | ADR-0001…0010; append-only |
 | Agent memory (ephemeral) | [AGENT_MEMORY.md](AGENT_MEMORY.md) | Session/milestone scratch pad — not REG ledger |
 | Prompt library | [PROMPT_LIBRARY.md](PROMPT_LIBRARY.md) | Reusable agent workflows |
 | Probe / automation plan | [PROBE_BUILD_PLAN.md](PROBE_BUILD_PLAN.md) | §5 audit log |
-| Cursor rules | [.cursor/rules/](.cursor/rules/) | Subsystem locks (`*-lock.mdc`) |
-| Build execution | [BUILD_PLAN.md](BUILD_PLAN.md) | Milestone H sprints + **H.CRI** fix program |
-| Template map | [AGENTS.md](AGENTS.md) § Template file map | Update policy + `.cursor/rules/` inventory |
+| Cursor rules | [.cursor/rules/](.cursor/rules/) | Generic bootstrap + subsystem locks (`*-lock.mdc`) |
+| Build execution | [BUILD_PLAN.md](BUILD_PLAN.md) | Milestone H + BOOTSTRAP-0.15 + **H.CRI** |
+| Security triage | [docs/SECURITY_TRIAGE.md](docs/SECURITY_TRIAGE.md) | Weekly Dependabot / Scorecard |
+| Template map | [docs/BOOTSTRAP_TEMPLATE_MAP.md](docs/BOOTSTRAP_TEMPLATE_MAP.md) · [AGENTS.md](AGENTS.md) § Template file map | Path aliases + update policy |
 
 Read **`AGENT_REGRESSION_MEMORY.md`** before capture/DNG/preview/fleet edits. Session focus: **`AGENT_MEMORY.md`**. Workflows: **`PROMPT_LIBRARY.md`**.
 

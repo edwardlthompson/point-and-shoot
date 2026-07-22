@@ -1,0 +1,84 @@
+{
+  "template_version": "0.15.0",
+  "repo_mode": "reference",
+  "license": "Apache-2.0",
+  "upstream": "edwardlthompson/agent-project-bootstrap",
+  "alignment": "docs/BOOTSTRAP_ALIGNMENT.md",
+  "entry_points": {
+    "start_here": "docs/START_HERE.md",
+    "reference": "docs/FOR_AGENTS.md",
+    "initialization_prompt": "docs/INITIALIZATION_PROMPT.md",
+    "cursor_modes": "docs/CURSOR_MODES.md",
+    "batch_commands_help": "docs/help/BATCH_COMMANDS.md",
+    "batch_commands_catalog": "docs/BATCH_COMMANDS.md",
+    "agents": "AGENTS.md",
+    "build_plan": "BUILD_PLAN.md"
+  },
+  "files": [
+    { "path": "docs/START_HERE.md", "purpose": "Single entry point; Reference mode", "read_when": "session_start" },
+    { "path": "docs/CURSOR_MODES.md", "purpose": "Cursor Ask/Plan/Agent/Debug router", "read_when": "session_start" },
+    { "path": "docs/FOR_AGENTS.md", "purpose": "Agent protocol for this product", "read_when": "session_start" },
+    { "path": "docs/INITIALIZATION_PROMPT.md", "purpose": "Already-initialized notice; no re-scaffold", "read_when": "bootstrap_session_start" },
+    { "path": "docs/UPGRADING_FROM_TEMPLATE.md", "purpose": "Cherry-pick guide for upstream bumps", "read_when": "template_upgrade" },
+    { "path": "docs/BOOTSTRAP_ALIGNMENT.md", "purpose": "Gap analysis and migration decisions", "read_when": "template_upgrade" },
+    { "path": "docs/BOOTSTRAP_TEMPLATE_MAP.md", "purpose": "Template → P&S path aliases", "read_when": "session_start" },
+    { "path": "docs/SECURITY_TRIAGE.md", "purpose": "Weekly CVE / Dependabot triage", "read_when": "security_triage" },
+    { "path": "AGENTS.md", "purpose": "Automation hub + CRITICAL camera locks", "read_when": "session_start" },
+    { "path": "BUILD_PLAN.md", "purpose": "Active sprint board with AGENT/HUMAN/ADB/AUTO", "read_when": "session_start" },
+    { "path": "HUMAN_BACKLOG.md", "purpose": "Deferred HUMAN/ADB automation failures", "read_when": "session_start" },
+    { "path": ".template-version", "purpose": "Pinned bootstrap template semver", "read_when": "update_check" },
+    { "path": ".template-update.json", "purpose": "Update checker config", "read_when": "update_check" },
+    { "path": "scripts/pns_validate_bootstrap.ps1", "purpose": "Host bootstrap compliance gate", "read_when": "validation" },
+    { "path": "scripts/pns_check_template_updates.ps1", "purpose": "Poll upstream releases", "read_when": "update_check" },
+    { "path": "scripts/pns_check_batch_commands.ps1", "purpose": "Batch command registry sync", "read_when": "validation" },
+    { "path": "scripts/pns_check_repo_hygiene.ps1", "purpose": "Tracked-artifact hygiene smoke", "read_when": "validation" }
+  ],
+  "modules": {
+    "android": {
+      "guide": "modules/pns-core/MODULE.md",
+      "libraries": [
+        "modules/pns-core",
+        "modules/pns-fleet",
+        "modules/pns-capture",
+        "modules/pns-preview"
+      ],
+      "example": "examples/golden-path",
+      "activate_when": "always (this repo)",
+      "note": "Template modules/android maps to pns-* Gradle libraries; do not copy inactive template examples"
+    }
+  },
+  "inactive_stacks": ["web", "python", "node", "go", "rust", "lightroom"],
+  "roadmap": {
+    "active": "BUILD_PLAN.md",
+    "completed_archive": "BUILD_PLAN_COMPLETED.md",
+    "completed_stub": "COMPLETED_TASKS.md",
+    "batch_commands": [
+      ".cursor/commands/audit.md",
+      ".cursor/commands/debug.md",
+      ".cursor/commands/gates.md",
+      ".cursor/commands/triage.md",
+      ".cursor/commands/dependabot.md",
+      ".cursor/commands/push.md",
+      ".cursor/commands/prerelease.md",
+      ".cursor/commands/regress.md",
+      ".cursor/commands/feature.md",
+      ".cursor/commands/fix.md",
+      ".cursor/commands/init.md",
+      ".cursor/commands/prune.md",
+      ".cursor/commands/ci.md",
+      ".cursor/commands/docs.md",
+      ".cursor/commands/upgrade.md",
+      ".cursor/commands/setup.md",
+      ".cursor/commands/plan.md",
+      ".cursor/commands/restore.md",
+      ".cursor/commands/compact.md",
+      ".cursor/commands/scope.md",
+      ".cursor/commands/cleanup.md",
+      ".cursor/commands/bootstrap.md",
+      ".cursor/commands/verify.md",
+      ".cursor/commands/build.md",
+      ".cursor/commands/ship.md",
+      ".cursor/commands/maintain.md"
+    ]
+  }
+}

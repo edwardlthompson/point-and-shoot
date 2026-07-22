@@ -1,5 +1,20 @@
 # Agent automation reference (Point & Shoot)
 
+## Agent router (read first)
+
+| Step | Doc |
+|------|-----|
+| 1 | [`docs/START_HERE.md`](docs/START_HERE.md) — Reference mode entry |
+| 2 | [`docs/CURSOR_MODES.md`](docs/CURSOR_MODES.md) — Ask / Plan / Agent / Debug |
+| 3 | [`docs/FOR_AGENTS.md`](docs/FOR_AGENTS.md) — protocol, 3-strike, USB hygiene |
+| 4 | [`TEMPLATE_INDEX.json`](TEMPLATE_INDEX.json) — file index (bootstrap **v0.15.0**) |
+| 5 | **This file** — automation scripts + CRITICAL camera locks |
+| 6 | [`BUILD_PLAN.md`](BUILD_PLAN.md) — Sequential lane first |
+
+Alignment: [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md) · map: [`docs/BOOTSTRAP_TEMPLATE_MAP.md`](docs/BOOTSTRAP_TEMPLATE_MAP.md).
+
+---
+
 This document is for **AI coding agents** (Cursor and similar) working in this repository. It lists **what you can run yourself** instead of asking the human to copy commands into PowerShell.
 
 **Technical settings source of truth:** [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) — command dial modes, H-mode metering, readout/YUV chase constants, RAW/DNG locks, HUD defaults, and related code pointers. **Update that file whenever you add, change, or remove any of those settings** (same commit as the code change). Tie new `BUILD_PLAN.md` sprints to the relevant section.
@@ -33,6 +48,10 @@ Maps the Cursor **Project Initialization Prompt** template to this repo. **Do no
 
 | Template file | Repo path | When to update |
 |---------------|-----------|----------------|
+| `docs/START_HERE.md` | [`docs/START_HERE.md`](docs/START_HERE.md) | Template entry-point / mode changes |
+| `docs/CURSOR_MODES.md` | [`docs/CURSOR_MODES.md`](docs/CURSOR_MODES.md) | Cursor mode router changes |
+| `docs/FOR_AGENTS.md` | [`docs/FOR_AGENTS.md`](docs/FOR_AGENTS.md) | Agent protocol changes |
+| `TEMPLATE_INDEX.json` | [`TEMPLATE_INDEX.json`](TEMPLATE_INDEX.json) | New indexed agent files |
 | `AGENTS.md` | [`AGENTS.md`](AGENTS.md) | New/changed automation scripts, CRITICAL locks, template map |
 | `AGENT_MEMORY.md` | [`AGENT_MEMORY.md`](AGENT_MEMORY.md) | Session startup, milestone boundary, handoff to fresh chat only |
 | `KNOWLEDGE_BASE.md` | [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) | New SoT doc, code entry point, or gate script; milestone boundary |
@@ -40,9 +59,10 @@ Maps the Cursor **Project Initialization Prompt** template to this repo. **Do no
 | `docs/adr/` | [`docs/adr/`](docs/adr/) | Major architectural trade-off — **append** ADR; never rewrite history |
 | `DECISION_LOG.md` | [`DECISION_LOG.md`](DECISION_LOG.md) | Index when adding ADR-0008+ |
 | `BUILD_PLAN.md` | [`BUILD_PLAN.md`](BUILD_PLAN.md) | Active sprint tasks, gates, promotion from parity intake |
+| `HUMAN_BACKLOG.md` | [`HUMAN_BACKLOG.md`](HUMAN_BACKLOG.md) | Deferred HUMAN/ADB automation failures |
 | `PROBE_BUILD_PLAN.md` | [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md) | Probe/automation lifecycle; §5 blockers |
 | Regression ledger | [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) | After USB-proven fix or reverted experiment (`REG-*` row, same commit) |
-| `.cursor-session-state` | [`.cursor-session-state.example`](.cursor-session-state.example); gitignored live file | Milestone end / architectural pivot; delete after handoff |
+| `.cursor-session-state` | [`.cursor-session-state.example.json`](.cursor-session-state.example.json) / [`.cursor-session-state.example`](.cursor-session-state.example); gitignored live file | Milestone end / architectural pivot; delete after handoff |
 | Technical settings | [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) | Any settings/constants/mode behavior change (same commit) |
 | Changelog | [`CHANGELOG.md`](CHANGELOG.md) + [`scripts/changelog_coverage.v1.json`](scripts/changelog_coverage.v1.json) | User-visible ship / `versionCode` bump (same commit) |
 | `CONTRIBUTING.md` | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Trunk flow, pre-commit install, CI checklist |
@@ -62,6 +82,10 @@ Modify memory/plan files **only** at:
 
 ### `.cursor/rules/` inventory (replaces `.cursorrules`)
 
+**Generic (bootstrap v0.15):** `core-directives`, `cursor-modes`, `destructive-ops`, `local-compute`, `read-before-write`, `repo-hygiene`, `security-triage`, `ci-gates`, `testing`, `windows-encoding`, `foss-compliance`, `batch-commands`, `multi-agent-parallel`, `session-checkpoint`.
+
+**Product CRITICAL locks:**
+
 | Rule file | Locks |
 |-----------|--------|
 | `agent-automation-hub.mdc` | Points to this file + `scripts/` |
@@ -77,7 +101,6 @@ Modify memory/plan files **only** at:
 | `pns-technical-settings.mdc` | PNS_TECHNICAL_SETTINGS sync |
 | `preview-chrome-ui-lock.mdc` | Preview chrome layout |
 | `preview-readout-video-mode-lock.mdc` | Photo vs video readout |
-| `session-checkpoint.mdc` | Session handoff / `.cursor-session-state` |
 
 ---
 

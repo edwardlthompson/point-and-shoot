@@ -48,24 +48,43 @@ Require-Path "COMPLETED_TASKS.md"
 Require-Path "DECISION_LOG.md"
 Require-Path "KNOWLEDGE_BASE.md"
 Require-Path "CONTRIBUTING.md"
+Require-Path "HUMAN_BACKLOG.md"
+Require-Path "TEMPLATE_INDEX.json"
+Require-Path "docs/START_HERE.md"
+Require-Path "docs/CURSOR_MODES.md"
+Require-Path "docs/FOR_AGENTS.md"
+Require-Path "docs/INITIALIZATION_PROMPT.md"
+Require-Path "docs/UPGRADING_FROM_TEMPLATE.md"
+Require-Path "docs/BOOTSTRAP_ALIGNMENT.md"
 Require-Path "docs/BOOTSTRAP_TEMPLATE_MAP.md"
+Require-Path "docs/SECURITY_TRIAGE.md"
 Require-Path "docs/adr/README.md"
 Require-Path ".cursor/rules/agent-automation-hub.mdc"
+Require-Path ".cursor/rules/cursor-modes.mdc"
+Require-Path ".cursor/rules/destructive-ops.mdc"
+Require-Path ".cursor/rules/core-directives.mdc"
 Require-Path ".pre-commit-config.yaml"
 Require-Path ".github/CODEOWNERS"
+Require-Path ".github/workflows/dependency-review.yml"
 Require-Path "scripts/pns_local_dev_parallel.ps1"
 Require-Path "scripts/pns_watch_agent_gates.ps1"
 Require-Path "scripts/pns_check_batch_commands.ps1"
+Require-Path "scripts/pns_check_template_updates.ps1"
+Require-Path "scripts/pns_check_repo_hygiene.ps1"
 Require-Path ".cursor/rules/batch-commands.mdc"
 Require-Path "docs/BATCH_COMMANDS.md"
 Require-Path "docs/help/BATCH_COMMANDS.md"
 Require-Path "CODE_REVIEW.md.example"
 Require-Path "RELEASE_NOTES.md.example"
 Require-Path ".template-version"
+Require-Path ".template-update.json"
+Require-Path ".env.example"
+Require-Path ".cursor-session-state.example.json"
 
 foreach ($cmd in @(
     "audit", "debug", "gates", "triage", "dependabot", "push", "prerelease", "regress",
     "feature", "fix", "init", "prune", "ci", "docs", "upgrade", "setup", "plan", "restore", "compact", "scope",
+    "cleanup",
     "bootstrap", "verify", "build", "ship", "maintain"
   )) {
   Require-Path ".cursor/commands/$cmd.md" ".cursor/commands/$cmd.md"
@@ -74,7 +93,11 @@ foreach ($cmd in @(
 # Sprint labels
 Require-FileContains "BUILD_PLAN.md" '\[AGENT\]' "BUILD_PLAN has [AGENT] labels"
 Require-FileContains "BUILD_PLAN.md" '\[HUMAN\]' "BUILD_PLAN has [HUMAN] labels"
+Require-FileContains "BUILD_PLAN.md" '\[ADB\]' "BUILD_PLAN has [ADB] labels"
+Require-FileContains "BUILD_PLAN.md" '\[AUTO\]' "BUILD_PLAN has [AUTO] labels"
 Require-FileContains "AGENTS.md" 'Template file map' "AGENTS.md template map"
+Require-FileContains "AGENTS.md" 'Agent router' "AGENTS.md agent router"
+Require-FileContains ".template-version" '0\.15\.0' ".template-version is 0.15.0"
 
 # Module scaffolds (Sprint TM)
 foreach ($mod in @("pns-core", "pns-fleet", "pns-capture", "pns-preview")) {

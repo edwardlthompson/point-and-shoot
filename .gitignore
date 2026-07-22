@@ -50,8 +50,9 @@ dist/
 tools/jadx/*
 !tools/jadx/README.md
 
-# Agent session checkpoint (Milestone T; copy from .cursor-session-state.example)
+# Agent session checkpoint (Milestone T; copy from .cursor-session-state.example[.json])
 .cursor-session-state
+.cursor-session-state.json
 
 # Ephemeral batch-command outputs (template)
 CODE_REVIEW.md

@@ -129,32 +129,18 @@ Archive: [BUILD_PLAN_COMPLETED.md — Sprint TM](BUILD_PLAN_COMPLETED.md#sprint-
 
 ---
 
-## Sprint BOOTSTRAP-0.15 — Template alignment (agent-project-bootstrap v0.15.0)
+## Sprint BOOTSTRAP-0.15 — Template alignment (agent-project-bootstrap v0.15.0) ✅ CLOSED (agent)
 
-**Objective:** Reference-mode process alignment to upstream **v0.15.0** without touching camera product code. Record: [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md).
-
-### Sequential
-
-- ✅ `[AGENT]` Write `docs/BOOTSTRAP_ALIGNMENT.md` gap analysis + locked decisions
-- ✅ `[AGENT]` Add Reference entrypoints (`START_HERE`, `CURSOR_MODES`, `FOR_AGENTS`, `INITIALIZATION_PROMPT`, `UPGRADING_FROM_TEMPLATE`)
-- ✅ `[AGENT]` Metadata: `TEMPLATE_INDEX.json`, `.template-version` 0.15.0, `.template-update.json`, hygiene stubs
-- ✅ `[AGENT]` Generic `.cursor/rules` + `/cleanup` command + batch registry 26
-- ✅ `[AGENT]` AGENTS.md router + BUILD_PLAN legend (`AGENT|HUMAN|ADB|AUTO`, Sequential/Parallel/Human lanes)
-- ✅ `[AGENT]` Scripts + validate-bootstrap + additive CI (dependency-review, Scorecard) + `SECURITY_TRIAGE`
-- ✅ `[AGENT]` Run `pns_validate_bootstrap` + Tier 0; DECISION_LOG / AGENT_MEMORY / README pointers
-
-### Parallel
-
-| Agent | Scope | Status |
-|-------|-------|--------|
-| — | Shared contracts locked in Sequential; no parallel needed for this sprint | ✅ |
+**Shipped:** [v0.14.0-beta.19](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.19) · record [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md).
 
 ### Human & device (after automation)
 
 - 🔲 `[HUMAN]` Confirm whether OpenSSF Scorecard should become a required branch-protection check
 - 🔲 `[HUMAN]` Dependabot backlog triage (`/dependabot`) — unchanged product maintenance
-- 🔲 `[ADB]` No USB required for bootstrap process alignment (N/A — host-only)
-- 🔲 `[AUTO]` Weekly `pns_check_template_updates.ps1` / Scorecard schedule once merged
+- ✅ `[ADB]` No USB required for bootstrap process alignment (N/A — host-only)
+- 🔲 `[AUTO]` Weekly Scorecard / template-update cadence on `main`
+
+Archive note: agent Sequential work closed with beta.19; leave Human rows open above.
 
 ---
 

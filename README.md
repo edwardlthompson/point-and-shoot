@@ -48,9 +48,9 @@ A FOSS pro camera app for **fleet-oriented Camera2 devices** (primary validation
 
 > Predictable controls. RAW-first workflows. A HUD designed for shooting. **No proprietary blobs. No Google Play Services.**
 
-- **Stack**: Kotlin 2.1+, Jetpack Compose, Camera2, NDK (C++23), CMake
+- **Stack**: Kotlin 2.4.x, Jetpack Compose, Camera2, NDK (C++23), CMake
 - **Output formats** (planned): DNG (RAW12), AVIF (10-bit HDR), JPEG XL (12-bit)
-- **Min / target / compile SDK**: 28 / 36 / 36
+- **Min / target / compile SDK**: 28 / 36 / 37
 - **License**: Apache-2.0
 - **Constraint**: zero proprietary binaries, no Google Play Services dependencies
 

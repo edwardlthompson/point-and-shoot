@@ -9,7 +9,7 @@
 | Settings / pipeline | `docs/PNS_TECHNICAL_SETTINGS.md` |
 | Regression locks | `docs/AGENT_REGRESSION_MEMORY.md` · `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8 |
 | Fleet / DNG | `docs/FLEET_DEVICE_CAPABILITY_MATRIX.md` · `AGENTS.md` CRITICAL sections |
-| Code review intake | `docs/CODE_REVIEW_PLANNING_INTAKE.json` · [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md) |
+| Code review intake | `docs/CODE_REVIEW_PLANNING_INTAKE.json` · ephemeral `CODE_REVIEW.md` (gitignored; from [`CODE_REVIEW.md.example`](CODE_REVIEW.md.example)) |
 | Parity debt | `docs/FLEET_PARITY_BUILD_PLAN_INTAKE.json` |
 | Peer benchmark + M28 program | `docs/CAMERA_APP_PIPELINE_BENCHMARK.md` (Sprint **28.0**) · plan `.cursor/plans/camera_pipeline_benchmark_ba492901.plan.md` |
 | Human backlog | `HUMAN_BACKLOG.md` |
@@ -72,6 +72,12 @@ Full rules (multi-agent, git, changelog): prior BUILD_PLAN §How agents must exe
 | Release | `pns_github_release.ps1` — **`.cursor/skills/github-release/SKILL.md`** |
 
 Full index: **`AGENTS.md`**.
+
+---
+
+## Sprint AUDIT6-2026-08-03 — Weekly health + Trivy Netty ✅ CLOSED
+
+Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT6](BUILD_PLAN_COMPLETED.md#sprint-audit6-2026-08-03--weekly-health--trivy-netty-agent-closed).
 
 ---
 
@@ -189,22 +195,20 @@ Archive note: agent Sequential work closed with beta.19; leave Human rows open a
 
 ---
 
-### Code review recommendations (2026-07-11 AUDIT5)
+### Code review recommendations (2026-08-03 AUDIT6)
 
-Full audit: [`docs/CODE_REVIEW.md`](docs/CODE_REVIEW.md). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS**. Security scan scheduled **FAIL** until A5.1.
+Ephemeral: `CODE_REVIEW.md` (gitignored). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS**. Trivy Netty **4.1.136.Final** shipped (confirm next Security scan schedule).
 
 | Priority | Item | Owner | Notes |
 |----------|------|-------|-------|
-| **P1** | Gitleaks FP allowlist | Agent | **A5.1** — unblock Security scan |
 | **P1** | Human Milestone H closure | Human | **CRI-032** eye-AF · **CRI-033** DCG · **CRI-034** store/PRIVACY · **CRI-035** OP13 ACR |
-| **P1** | Production signing | Human | **H.9** — beta.16 still debug-key |
+| **P1** | Production signing | Human | **H.9** — still debug-key fallback without keystore |
 | **P2** | Dependabot backlog (10 PRs) | Maintainer | `/dependabot`; gate AGP/Compose |
-| **P2** | ADB env vs online device | Maintainer | Env `b5214fc6`; online `8bf09993` |
-| — | AGENT_MEMORY ship line | Agent | **A5.2** beta.16 |
+| **P2** | PreviewEngineScreen monolith | Deferred | ~22k lines — incremental ADR-0009 only |
 
-### Code review recommendations (2026-06-21 AUDIT4 — superseded)
+### Code review recommendations (2026-07-11 AUDIT5 — superseded)
 
-**AUDIT4** closed H metering + QR → [COMPLETED](BUILD_PLAN_COMPLETED.md#sprint-audit4-2026-06-21--h-metering--qr-restore-agent-closed). Host PATH `ffprobe` now present.
+**AUDIT5** gitleaks allowlist → [COMPLETED](BUILD_PLAN_COMPLETED.md#sprint-audit5-2026-07-11--post-beta16-security-scan--memory-agent-closed).
 ---
 
 ### Sprint H.CRI-7 — Human + release (cross-tagged)
@@ -309,7 +313,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction, **H-RE
 
 ## Document control
 
-- **Version:** 2026-07-22 — **BOOTSTRAP-0.15** (template v0.15.0 Reference alignment); **Milestone H** remains active.
+- **Version:** 2026-08-03 — **AUDIT6** (Trivy Netty 4.1.136.Final + hygiene); **Milestone H** remains active.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

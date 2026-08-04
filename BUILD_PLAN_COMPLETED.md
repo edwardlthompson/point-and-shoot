@@ -1740,6 +1740,22 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **Deferred post-M28:** panorama · preview shots · computational HDR · depth export · ML Kit QR · full multicam melt encoder · Open Camera log profile · preview-res save · self-illumination · consumer CameraX extension modes when OEM HAL advertises extensions.
 
+### Sprint AUDIT6-2026-08-03 — Weekly health + Trivy Netty (agent closed)
+
+**Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** (assemble, detekt, lint, unit tests, kover). USB **SKIP** (no ADB). Workspace was empty — recloned from `edwardlthompson/point-and-shoot` @ `2905d10` before audit.
+
+- [x] **[AGENT] AUDIT6.1** — Force `io.netty` **4.1.136.Final** (CVE-2026-56819 / CVE-2026-59901 / HTTP HIGH set); refresh `app/gradle.lockfile` + `settings-gradle.lockfile`
+- [x] **[AGENT] AUDIT6.2** — README compileSdk **37** + Kotlin 2.4.x; BUILD_PLAN SoT → ephemeral `CODE_REVIEW.md` / `CODE_REVIEW.md.example`
+- [x] **[AGENT] AUDIT6.3** — Delete tracked `_recover_removed.kt`
+- [ ] **[AGENT] AUDIT6.4** — Drop multidex — **kept** (intentional `MultiDex.install` for Compose secondary-dex ClassNotFound)
+- [x] **[AGENT] AUDIT6.5** — Tier 0 + Tier 2 green; `AGENT_MEMORY.md` + archive
+- [ ] **[HUMAN]** Milestone H **CRI-032…035**, **H.9** (unchanged)
+- [ ] **[MAINTAINER]** Dependabot triage (10 open PRs); confirm Security scan schedule after Netty bump
+
+**Touches:** `build.gradle.kts`, `app/gradle.lockfile`, `settings-gradle.lockfile`, `README.md`, `BUILD_PLAN.md`, `AGENT_MEMORY.md`, delete `_recover_removed.kt`
+
+---
+
 ### Sprint AUDIT5-2026-07-11 — Post-beta.16 security scan + memory (agent closed)
 
 **Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** (post-allowlist). USB capture/chrome **SKIP** (online `8bf09993` ≠ env `b5214fc6`).

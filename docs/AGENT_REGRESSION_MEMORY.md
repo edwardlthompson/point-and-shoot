@@ -34,6 +34,19 @@
 
 ## Active entries
 
+### REG-20260806-001 — Same-camera prime-eq crops must refresh repeating (not skip-stable no-op)
+
+- **Status:** active
+- **Area:** chrome / preview
+- **Symptom:** OP13 (CPH2655): focal chips **35** / **50** stayed full-array FOV while **85** / **150** cropped correctly; log `setPrimeFocalTargetEqMm target=35|50` then `maybeRestartBody: skip stable pipeline` with no `Prime35`/`Prime50` `SCALER_CROP_REGION`.
+- **Cause:** `shouldSkipStablePreviewPipelineRestart` correctly avoids session teardown when camera id + buffer size are unchanged, but the skip path returned without rebuilding the repeating request — same-lens digital primes never applied `SCALER_CROP_REGION`. Camera-switch slots (14, 73/85 from wide seed) still restarted and looked “cropped in.”
+- **Fix shipped:** On stable-pipeline skip, call `refreshRepeatingPreviewOnlyBody()` so prime-eq / FocalMode crop changes apply without full reopen.
+- **Do not:** Restore bare `return` on stable skip without a repeating refresh; force full `closeCamera` for every 35/50 tap without USB proof that refresh is insufficient.
+- **Proves OK:** Baseline OP13 `hfr-runs/op13_focal_crop_diag_tele_20260807_032021` (35/50 full-only; 85 Prime85; 150 Prime150). Post-fix `hfr-runs/op13_focal_crop_fix_verify_20260807_032744`: **23=full**, **35=Prime35** `702,527-3393,2545`, **50=Prime50** `1106,829-2990,2242`, **85=Prime85**; skip path logs `refresh repeating`.
+- **Also test:** Manual 23→35→50→23 FOV; tele 73→85→150; `pns_chrome_ux_gate.ps1 -SkipGradle -SkipHost -FocalMmSlot 85` (alone, not ∥ capture); force-stop after.
+- **Touches:** `PreviewEngineScreen.kt` (`maybeRestartBody`)
+- **Conflicts with:** REG-20260712-003 (prime-85 crop must remain; this restores same-camera primes)
+
 ### REG-20260713-004 — ProShot-style AE precapture is default RAW process (CPH2583 OK)
 
 - **Status:** active

@@ -36,6 +36,15 @@ Agent-project-bootstrap v0.15.0 Reference-mode alignment (process/docs; no camer
 ### Changed (maintainer / agent process)
 
 - **Bootstrap template alignment (v0.15.0)** — Reference-mode agent entrypoints (`docs/START_HERE.md`, `CURSOR_MODES.md`, `FOR_AGENTS.md`), generic Cursor rules, `/cleanup` batch command (26 total), `TEMPLATE_INDEX.json`, template update checker, additive Dependency Review + OpenSSF Scorecard workflows, and `docs/SECURITY_TRIAGE.md`. Product CRITICAL locks and Apache-2.0 unchanged. See `docs/BOOTSTRAP_ALIGNMENT.md`.
+## [0.14.0-beta.20] - 2026-08-07
+
+Fix same-lens 35/50 mm prime FOV crops on OP13-class devices.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.20.apk`
+
+### Fixed
+
+- **Same-lens prime focal crops (35 / 50 mm)** — On OP13-class stacks, tapping 35mm or 50mm on the wide camera no longer left preview at full-array FOV. `maybeRestartBody` still skips a full session teardown when the pipeline is stable, but now refreshes the repeating request so prime-eq `SCALER_CROP_REGION` applies (REG-20260806-001). USB: CPH2655 `Prime35` / `Prime50` crop rects after cold `pns_preview_focal_mm_slot`.
 ## Unreleased
 
 _(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_

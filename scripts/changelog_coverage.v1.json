@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "latestRelease": {
-    "tag": "0.14.0-beta.19",
-    "date": "2026-07-21",
-    "versionCode": 22013
+    "tag": "0.14.0-beta.20",
+    "date": "2026-08-07",
+    "versionCode": 22014
   },
   "requiredMentions": [
     {

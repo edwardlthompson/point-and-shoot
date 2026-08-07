@@ -1,0 +1,1 @@
+Fix same-lens 35/50 mm prime FOV crops (OP13-class). Stable pipeline skip now refreshes repeating request so SCALER_CROP applies.

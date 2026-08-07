@@ -69,7 +69,7 @@
 
 **Dial visibility:** `CommandDial` composable hides **Qr**; **Night** / **Bokeh** hidden when extension probe fails (typical LineageOS / AOSP); **MONO** appears only when a dedicated monochrome camera is detected.
 
-**Interaction with FPS:** Digital focal crops (**85** / **150** mm) apply only when `desiredFps < 120` (`PreviewController` / crop gates). At **120 fps**, tele digital equivalence is not applied the same way — see `DODGE_PROFILE.md`.
+**Interaction with FPS:** Digital focal crops (**35** / **50** / **85** / **150** mm) apply when `desiredFps < 120` (`PreviewController` / crop gates). At **120 fps**, tele digital equivalence is not applied the same way — see `DODGE_PROFILE.md`. Same-lens prime taps (e.g. **23→35** on wide) must refresh the repeating request when `maybeRestartBody` skips a stable pipeline — otherwise `SCALER_CROP_REGION` stays full-array (REG-20260806-001).
 
 ---
 

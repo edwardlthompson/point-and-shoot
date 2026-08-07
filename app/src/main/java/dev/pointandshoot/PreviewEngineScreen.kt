@@ -18632,7 +18632,15 @@ private class PreviewController(
         val ws = wantedSurfaceSize
 
         if (shouldSkipStablePreviewPipelineRestart(camId, surf, ws)) {
-            Log.d(tag, "maybeRestartBody: skip stable pipeline cam=$camId ${ws?.width}x${ws?.height} gen=$generation")
+            // Same camera + buffer size: skip full teardown, but still rebuild the repeating
+            // request so same-lens prime-eq crops (35/50 on wide, 85/150 on tele) and FocalMode
+            // crops apply. Skipping entirely left SCALER_CROP stuck at full array (OP13 USB).
+            Log.d(
+                tag,
+                "maybeRestartBody: skip stable pipeline cam=$camId ${ws?.width}x${ws?.height} " +
+                    "gen=$generation; refresh repeating",
+            )
+            refreshRepeatingPreviewOnlyBody()
             return
         }
 

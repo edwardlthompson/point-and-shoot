@@ -64,8 +64,8 @@ object PnsProductUpdate {
         val match =
             APK_NAME_REGEX.find(name.trim()) ?: return null
         var version = match.groupValues[1]
-        if (version.endsWith("-foss", ignoreCase = true)) {
-            version = version.dropLast(5)
+        if (version.endsWith(FOSS_SUFFIX, ignoreCase = true)) {
+            version = version.dropLast(FOSS_SUFFIX.length)
         }
         if (!CORE_VERSION_REGEX.containsMatchIn(version)) return null
         return version
@@ -129,7 +129,7 @@ object PnsProductUpdate {
     internal fun compareVersions(left: String, right: String): Int {
         val a = parseSemver(left)
         val b = parseSemver(right)
-        for (i in 0..2) {
+        for (i in 0 until SEMVER_CORE_PARTS) {
             val diff = a.core[i] - b.core[i]
             if (diff != 0) return diff
         }
@@ -167,11 +167,14 @@ object PnsProductUpdate {
         val parsedCore = coreStr.split('.').map { it.toIntOrNull() ?: 0 }
         val core =
             when {
-                parsedCore.size >= 3 -> parsedCore.take(3)
-                else -> parsedCore + List(3 - parsedCore.size) { 0 }
+                parsedCore.size >= SEMVER_CORE_PARTS -> parsedCore.take(SEMVER_CORE_PARTS)
+                else -> parsedCore + List(SEMVER_CORE_PARTS - parsedCore.size) { 0 }
             }
         return ParsedSemver(core, preStr?.split('.'))
     }
+
+    private const val FOSS_SUFFIX = "-foss"
+    private const val SEMVER_CORE_PARTS = 3
 
     private val APK_NAME_REGEX =
         Regex("""(?i)^point-and-shoot-(.+)\.apk$""")

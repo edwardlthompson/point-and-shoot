@@ -25,6 +25,7 @@ private const val KIND_UPDATE = "update"
  * Optional donate-after-update note and GitHub update prompt. Never mixed.
  * Skipped for ADB / capture-intent automation so gates stay unblocked.
  */
+@Suppress("FunctionNaming")
 @Composable
 fun PnsLaunchPromptsHost(enabled: Boolean) {
     if (!enabled) return
@@ -90,6 +91,7 @@ fun PnsLaunchPromptsHost(enabled: Boolean) {
     }
 }
 
+@Suppress("FunctionNaming")
 @Composable
 private fun DonateNudgeDialog(
     onDonate: () -> Unit,
@@ -122,6 +124,7 @@ private fun DonateNudgeDialog(
     )
 }
 
+@Suppress("FunctionNaming")
 @Composable
 private fun UpdateAvailableDialog(
     version: String,

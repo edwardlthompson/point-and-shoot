@@ -9750,8 +9750,21 @@ private fun RailSettingsHomeContent(
         PreviewRailSectionTitle("About")
         RailSettingsMenuEntryCard(
             title = "About & heritage",
-            subtitle = "Credits, LG dual-camera nod, support development (Venmo).",
+            subtitle = "Credits, LG dual-camera nod, Donate via Venmo.",
             onClick = onAbout,
+        )
+        val donateContext = LocalContext.current
+        RailSettingsMenuEntryCard(
+            title = "Donate via Venmo",
+            subtitle = "Optional. Opens Venmo in your browser — never required for updates.",
+            onClick = {
+                val ok = openExternalUrl(donateContext, PNS_VENMO_DONATION_URL)
+                if (!ok) {
+                    Toast.makeText(donateContext, "No browser found to open Venmo.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.i("PNS.ChromeUx", "settingsVenmo=opened")
+                }
+            },
         )
         PreviewRailSectionTitle("Developer")
         RailSettingsMenuEntryCard(

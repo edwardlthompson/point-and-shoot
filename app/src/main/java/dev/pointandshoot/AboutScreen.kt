@@ -160,7 +160,7 @@ private fun AboutHeritageBody(
         "Optional tips help cover device testing and release time — opens Venmo in your browser, not inside the app.",
     )
     FpsQuickChip(
-        label = "Support development (Venmo)",
+        label = "Donate via Venmo",
         selected = false,
         requiresRoot = false,
         onClick = {

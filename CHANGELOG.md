@@ -45,6 +45,16 @@ Fix same-lens 35/50 mm prime FOV crops on OP13-class devices.
 ### Fixed
 
 - **Same-lens prime focal crops (35 / 50 mm)** — On OP13-class stacks, tapping 35mm or 50mm on the wide camera no longer left preview at full-array FOV. `maybeRestartBody` still skips a full session teardown when the pipeline is stable, but now refreshes the repeating request so prime-eq `SCALER_CROP_REGION` applies (REG-20260806-001). USB: CPH2655 `Prime35` / `Prime50` crop rects after cold `pns_preview_focal_mm_slot`.
+## [0.14.0-beta.21] - 2026-08-20
+
+Quiet Venmo donate plus once-per-day GitHub APK update check.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.21.apk`
+
+### Added
+
+- **Donate via Venmo** — always available from Settings and About. After an update, one optional “Development is still going” note (Donate / Not now); never on the update dialog and never on a daily timer.
+- **Quiet GitHub update check** — once per 24 hours, compares Point & Shoot APK filenames on the latest GitHub release. Newer build: Install / Later. Later silences that version. Failed or same-version checks stay silent.
 ## Unreleased
 
 _(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_

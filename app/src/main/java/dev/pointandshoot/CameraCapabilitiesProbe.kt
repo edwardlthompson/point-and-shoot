@@ -829,6 +829,25 @@ fun CameraCapabilitiesProbe(
         return
     }
 
+    val skipLaunchPrompts =
+        launchScreen != null ||
+            imageCaptureReturn != null ||
+            videoCaptureReturn != null ||
+            autoSweep ||
+            autoEncProbe ||
+            autoDeepCaps ||
+            autoSessionMatrix ||
+            autoHdrDcgRuntime ||
+            autoCaptureLatency ||
+            autoRawHdrExclusivity ||
+            autoBurstProbe ||
+            autoLogicalPhysical ||
+            autoExhaustive ||
+            autoLegacyCamera1 ||
+            autoFaceMeterProbe ||
+            previewLaunchExtras.wantsVideoAutomation
+    PnsLaunchPromptsHost(enabled = !skipLaunchPrompts)
+
     // Native diagnostics is the one launch screen that does not require
     // CAMERA permission (it inspects the .so / Kotlin facade only). Run a
     // separate effect for it so `--es pns_screen native` works on a fresh

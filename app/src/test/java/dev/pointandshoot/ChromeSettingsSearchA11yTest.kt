@@ -29,10 +29,10 @@ class ChromeSettingsSearchA11yTest {
 
     @Test
     fun searchIndex_includesAboutEntry() {
-        val about =
-            buildChromeSettingsSearchIndex().single { it.subPage == "about" }
-        assertTrue(about.title.contains("About", ignoreCase = true))
-        assertEquals("about.heritage", about.settingKey)
+        val abouts = buildChromeSettingsSearchIndex().filter { it.subPage == "about" }
+        assertTrue(abouts.any { it.title.contains("About", ignoreCase = true) })
+        assertEquals("about.heritage", abouts.single { it.settingKey == "about.heritage" }.settingKey)
+        assertTrue(abouts.any { it.title == "Donate via Venmo" && it.settingKey == "about.donate" })
     }
 
     @Test

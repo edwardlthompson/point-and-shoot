@@ -248,9 +248,16 @@ fun buildChromeSettingsSearchIndex(): List<ChromeSettingSearchHit> =
         ChromeSettingSearchHit(
             "About & heritage",
             "Support & updates",
-            "about heritage credits venmo changelog github release notes support",
+            "about heritage credits venmo changelog github release notes support donate",
             "about",
             settingKey = "about.heritage",
+        ),
+        ChromeSettingSearchHit(
+            "Donate via Venmo",
+            "Support & updates",
+            "donate venmo tip support development optional",
+            "about",
+            settingKey = "about.donate",
         ),
     )
 

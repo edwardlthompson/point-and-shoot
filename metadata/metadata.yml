@@ -32,9 +32,9 @@ RepoType: git
 
 # F-Droid builder recipe (Gradle + NDK). Tag must exist on GitHub for reproducible builds.
 Builds:
-  - versionName: '0.14.0-beta.20'
-    versionCode: 22014
-    commit: v0.14.0-beta.20
+  - versionName: '0.14.0-beta.21'
+    versionCode: 22015
+    commit: v0.14.0-beta.21
     subdir: ''
     sudo:
       - openjdk-17-jdk-headless

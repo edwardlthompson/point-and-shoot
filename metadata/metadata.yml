@@ -37,6 +37,7 @@ Builds:
   - versionName: '0.14.0-beta.22'
     versionCode: 22016
     commit: v0.14.0-beta.22
+    # publishedApkSha256: b3355b102c817551d6ca28da58faeb0d91aed041734ebdc50f3108e5a0b5af63
     subdir: ''
     sudo:
       - openjdk-17-jdk-headless

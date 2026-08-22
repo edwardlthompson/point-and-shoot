@@ -14041,11 +14041,15 @@ private class PreviewController(
         ws: Size?,
     ): Boolean {
         if (ws == null) return false
+        val sizeOk = currentSurfaceSize?.width == ws.width && currentSurfaceSize?.height == ws.height
         if (device?.id != camId || session == null || !surf.isValid) return false
-        if (currentSurfaceSize?.width != ws.width || currentSurfaceSize?.height != ws.height) return false
+        if (!sizeOk) return false
         if (sessionCommittedGeneration != generation) return false
-        if (videoRecordingSessionRebuildPending) return false
-        if (captureSessionAsyncConfigurePending || cameraDeviceOpenPending) return false
+        val sessionBusy =
+            videoRecordingSessionRebuildPending ||
+                captureSessionAsyncConfigurePending ||
+                cameraDeviceOpenPending
+        if (sessionBusy) return false
         if (wantsRawStillSurfacesInSession() && rawImageReader == null) return false
         if (PnsUsbWebcam.active && PnsWebcamEncoder.generation != webcamEncoderGenApplied) return false
         return true

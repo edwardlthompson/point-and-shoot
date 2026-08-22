@@ -1,4 +1,4 @@
-@file:Suppress("MagicNumber", "TooGenericExceptionCaught")
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught", "NestedBlockDepth", "LoopWithTooManyJumpStatements")
 
 package dev.pointandshoot
 
@@ -251,10 +251,15 @@ object PnsWebcamEncoder {
         }
     }
 
+    private fun isAnnexB(raw: ByteArray): Boolean {
+        if (raw.size < 4) return false
+        if (raw[0] != 0.toByte() || raw[1] != 0.toByte()) return false
+        if (raw[2] == 1.toByte()) return true
+        return raw[2] == 0.toByte() && raw[3] == 1.toByte()
+    }
+
     private fun toAnnexB(raw: ByteArray): ByteArray {
-        if (raw.size >= 4 && raw[0] == 0.toByte() && raw[1] == 0.toByte() &&
-            (raw[2] == 1.toByte() || (raw[2] == 0.toByte() && raw[3] == 1.toByte()))
-        ) {
+        if (isAnnexB(raw)) {
             return raw
         }
         val out = ByteArray(startCode.size + raw.size)

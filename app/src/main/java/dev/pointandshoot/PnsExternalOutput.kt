@@ -45,7 +45,6 @@ object PnsExternalOutput {
     private const val COPY_INTERVAL_MS: Long = 66L
     private const val WEBCAM_INTERVAL_MS: Long = 16L
     private const val MAX_EDGE: Int = 1920
-    private const val WEBCAM_MAX_EDGE: Int = 3840
     private const val JPEG_QUALITY: Int = 78
     private const val WEBCAM_JPEG_QUALITY: Int = 82
     private const val DISPLAY_SETTLE_MS: Long = 450L

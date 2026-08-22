@@ -5,6 +5,7 @@ package dev.pointandshoot
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
@@ -63,7 +64,7 @@ object GalleryVideoFinish {
                 }
             muxer.start()
             val buf = java.nio.ByteBuffer.allocateDirect(1_048_576)
-            val info = android.media.MediaCodec.BufferInfo()
+            val info = MediaCodec.BufferInfo()
             val startUs = startMs * 1000L
             val endUs = endMs * 1000L
             extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
@@ -76,7 +77,7 @@ object GalleryVideoFinish {
                 info.size = extractor.readSampleData(buf, 0)
                 if (info.size < 0) break
                 info.presentationTimeUs = (pts - startUs).coerceAtLeast(0L)
-                info.flags = extractor.sampleFlags
+                info.flags = muxerFlagsFromExtractor(extractor.sampleFlags)
                 val dest = if (track == videoTrack) vIdx else aIdx
                 if (dest >= 0 && pts >= startUs) {
                     muxer.writeSampleData(dest, buf, info)
@@ -95,6 +96,18 @@ object GalleryVideoFinish {
             runCatching { extractor.release() }
             runCatching { muxer?.release() }
         }
+    }
+
+    /** Map extractor sample bits onto MediaCodec buffer flags lint accepts. */
+    private fun muxerFlagsFromExtractor(sampleFlags: Int): Int {
+        var flags = 0
+        if (sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
+            flags = flags or MediaCodec.BUFFER_FLAG_KEY_FRAME
+        }
+        if (sampleFlags and MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME != 0) {
+            flags = flags or MediaCodec.BUFFER_FLAG_PARTIAL_FRAME
+        }
+        return flags
     }
 
     private fun saveJpeg(context: Context, bitmap: Bitmap, name: String): Uri? {

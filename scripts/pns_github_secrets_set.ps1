@@ -101,9 +101,9 @@ $keyPassPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($ptr)
 # Define secrets to set
 $secrets = @{
     ANDROID_KEYSTORE_BASE64 = $keystoreBase64
-    KEYSTORE_PASSWORD = $keystorePassPlain
-    KEY_PASSWORD = $keyPassPlain
-    KEY_ALIAS = $KeyAlias
+    ANDROID_KEYSTORE_PASSWORD = $keystorePassPlain
+    ANDROID_KEY_PASSWORD = $keyPassPlain
+    ANDROID_KEY_ALIAS = $KeyAlias
 }
 
 $results = @{

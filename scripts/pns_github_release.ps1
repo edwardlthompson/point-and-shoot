@@ -461,7 +461,11 @@ $sectionBody
             "--notes-file=$notesFile"
         )
         if ($IsDraft) { $ghArgs += "--draft" }
-        if ($IsPrerelease) { $ghArgs += "--prerelease" }
+        if ($IsPrerelease) {
+            $ghArgs += "--prerelease"
+        } elseif (-not $IsDraft) {
+            $ghArgs += "--latest"
+        }
 
         if ($artifactApk) {
             $ghArgs += $artifactApk
@@ -529,13 +533,17 @@ if ([string]::IsNullOrWhiteSpace($Date)) {
 }
 
 if ($VersionCode -le 0) {
-    $policy = [string]$config.versionBump.versionCodePolicy
-    if ([string]::IsNullOrWhiteSpace($policy)) { $policy = "semverOrIncrement" }
-    $VersionCode = Get-PnsNextVersionCode `
-        -VersionName $SemverTag `
-        -CurrentVersionCode $currentCode `
-        -Policy $policy `
-        -Step ([int]$config.versionBump.versionCodeStep)
+    if ($SkipPrepare) {
+        $VersionCode = $currentCode
+    } else {
+        $policy = [string]$config.versionBump.versionCodePolicy
+        if ([string]::IsNullOrWhiteSpace($policy)) { $policy = "semverOrIncrement" }
+        $VersionCode = Get-PnsNextVersionCode `
+            -VersionName $SemverTag `
+            -CurrentVersionCode $currentCode `
+            -Policy $policy `
+            -Step ([int]$config.versionBump.versionCodeStep)
+    }
 }
 
 $gitTagPrefix = [string]$config.github.tagPrefix

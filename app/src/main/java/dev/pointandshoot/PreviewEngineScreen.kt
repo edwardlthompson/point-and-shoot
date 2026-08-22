@@ -51,6 +51,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
+import android.content.res.Configuration
 import android.net.Uri
 import android.provider.MediaStore
 import android.provider.Settings
@@ -196,6 +197,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
@@ -920,6 +922,7 @@ fun PreviewEngineScreen(
     /** `--ez pns_preview_composed_still true` — one IMG-matrix still via [PreviewController.captureComposedStill]. */
     adbComposedStillSmoke: Boolean = false,
     adbSeedCameraId: String? = null,
+    adbSeedWebcam: Boolean = false,
     adbSuperMacroProbe: Boolean = false,
     /** [LutCatalog] enum name — optional `am start` seed for scripted LUT capture / M6 V&V. */
     adbPreviewStillsLutName: String? = null,
@@ -1321,6 +1324,7 @@ fun PreviewEngineScreen(
     var primaryPhoto by rememberSaveable(resolvedInitialPrimaryPhoto) {
         mutableStateOf(resolvedInitialPrimaryPhoto)
     }
+    var webcamMode by rememberSaveable { mutableStateOf(adbSeedWebcam) }
     var photoTraySnapshot by remember {
         mutableStateOf(PreviewTrayModeStore.load(appContext, photo = true))
     }
@@ -1517,7 +1521,8 @@ fun PreviewEngineScreen(
             val snap = powerThermalMonitor.sample()
             val batteryPct = adbAdaptiveBatteryPctOverride ?: snap.batteryPct
             val thermal = adbAdaptiveThermalStatusOverride ?: snap.thermalStatus
-            val decision = PreviewAdaptiveFpsPolicy.decide(userSelectedFps, batteryPct, thermal)
+            val profileFps = PnsPowerProfile.applyCap(userSelectedFps, PnsPowerProfile.load(context))
+            val decision = PreviewAdaptiveFpsPolicy.decide(profileFps, batteryPct, thermal)
             if (decision.capFps != null && selectedFps != decision.effectiveFps) {
                 Log.i(
                     "PNS.PowerThermal",
@@ -1525,6 +1530,9 @@ fun PreviewEngineScreen(
                         "battery=$batteryPct thermal=$thermal reason=${decision.reason}",
                 )
                 selectedFps = decision.effectiveFps
+                PnsFinderChangeReason.sentence(decision.reason)?.let { line ->
+                    Toast.makeText(context, line, Toast.LENGTH_SHORT).show()
+                }
             } else if (decision.capFps == null && selectedFps != userSelectedFps) {
                 val lensAware =
                     selectedCameraId?.let { cam ->
@@ -2355,6 +2363,154 @@ fun PreviewEngineScreen(
     }
 
     var isRecording by remember { mutableStateOf(false) }
+    LaunchedEffect(isRecording) {
+        PnsForegroundCapture.isRecording = isRecording
+        if (isRecording) {
+            VideoChapterMarks.clear()
+        }
+    }
+    LaunchedEffect(selectedCameraId, selectedFps) {
+        val id = selectedCameraId ?: return@LaunchedEffect
+        PnsLastGoodSession.save(
+            context.applicationContext,
+            PnsLastGoodSession.Snapshot(
+                cameraId = id,
+                fps = selectedFps,
+                wantRaw = imagingProfile != ImagingProfile.JpegOnly,
+                summary = "camera $id @ $selectedFps",
+            ),
+        )
+    }
+    DisposableEffect(Unit) {
+        onDispose { PnsForegroundCapture.isRecording = false }
+    }
+    LaunchedEffect(hudState.current.intervalometerRunning) {
+        PnsForegroundCapture.intervalometerRunning = hudState.current.intervalometerRunning
+    }
+    DisposableEffect(Unit) {
+        onDispose { PnsForegroundCapture.intervalometerRunning = false }
+    }
+    LaunchedEffect(Unit) {
+        CaptureLocationBridge.cachedMode = PnsProductPrefs.geotagMode(context)
+        if (PnsProductPrefs.wearRemoteEnabled(context)) {
+            PnsWearBleServer.start(context)
+        }
+        if (PnsProductPrefs.mjpegWebcamEnabled(context) || PnsProductPrefs.usbWebcamMode(context)) {
+            PnsMjpegStreamServer.start(context)
+        }
+        val recipe = PnsProductPrefs.recipe(context)
+        if (recipe == PnsProductPrefs.CaptureRecipe.Concert ||
+            recipe == PnsProductPrefs.CaptureRecipe.Museum
+        ) {
+            chromePrefs.updateMutate {
+                it.copy(
+                    shutterSoundVolume = 0f,
+                    previewFlashMode = PreviewFlashMode.Off,
+                )
+            }
+        }
+    }
+    DisposableEffect(previewHostSlot) {
+        val act = context.findHostActivity()
+        if (act != null) {
+            PnsExternalOutput.attach(act, previewHostSlot.view)
+        }
+        onDispose {
+            PnsExternalOutput.detach()
+        }
+    }
+    LaunchedEffect(previewHostSlot) {
+        repeat(20) {
+            val view = previewHostSlot.view
+            val act = context.findHostActivity()
+            if (act != null && view != null) {
+                PnsExternalOutput.attach(act, view)
+                return@LaunchedEffect
+            }
+            delay(400)
+        }
+    }
+    DisposableEffect(Unit) {
+        PnsWebcamModeBridge.request = { on ->
+            webcamMode = on
+            if (on) {
+                if (isRecording) isRecording = false
+                if (primaryPhoto) primaryPhoto = false
+            }
+        }
+        onDispose { PnsWebcamModeBridge.request = null }
+    }
+    LaunchedEffect(selectedCameraId, cameraIdsStableKey) {
+        PnsWebcamControls.cameraId = selectedCameraId ?: ""
+        PnsWebcamControls.camerasCsv = controller.cameraIds().joinToString(",")
+        val cm = context.getSystemService(CameraManager::class.java)
+        PnsWebcamControls.facing =
+            if (cm != null &&
+                selectedCameraId != null &&
+                isPreviewFrontCameraActive(cm, selectedCameraId)
+            ) {
+                "front"
+            } else {
+                "back"
+            }
+        PnsWebcamControls.depthAvailable =
+            try {
+                val id = selectedCameraId
+                if (cm == null || id.isNullOrEmpty()) {
+                    false
+                } else {
+                    val caps =
+                        cm.getCameraCharacteristics(id)
+                            .get(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES)
+                    caps?.contains(CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_DEPTH_OUTPUT) == true
+                }
+            } catch (_: Exception) {
+                false
+            }
+    }
+    LaunchedEffect(webcamMode, selectedCameraId) {
+        PnsWebcamModeBridge.active.value = webcamMode
+        val act = context.findHostActivity()
+        if (webcamMode) {
+            controller.setCommandDialMode(CommandDialMode.Auto)
+            selectedFps = 60
+            userSelectedFps = 60
+            if (primaryPhoto) primaryPhoto = false
+            val cmFace = context.getSystemService(CameraManager::class.java)
+            val front =
+                cmFace != null &&
+                    selectedCameraId != null &&
+                    isPreviewFrontCameraActive(cmFace, selectedCameraId)
+            val ready = PnsWebcamEncoder.prepare(context, allowUhd = !front)
+            if (ready) PnsWebcamEncoder.startDrain()
+            val encFps = PnsWebcamEncoder.tier?.fps ?: 60
+            selectedFps = encFps
+            userSelectedFps = encFps
+            controller.setDesired(selectedCameraId, encFps)
+            PnsWebcamEncoder.onNeedSessionRebuild = {
+                val fps = PnsWebcamEncoder.tier?.fps ?: 60
+                selectedFps = fps
+                userSelectedFps = fps
+                controller.setDesired(selectedCameraId, fps)
+                controller.kickPreviewPipelineRestart()
+            }
+            if (act != null) {
+                PnsUsbWebcam.start(act)
+                PnsExternalOutput.attach(act, previewHostSlot.view)
+            }
+            PnsMjpegStreamServer.start(context)
+            controller.kickPreviewPipelineRestart()
+            val enc = PnsWebcamEncoder.tier
+            Log.i(
+                "PNS.UsbWebcam",
+                "mode on camera=${selectedCameraId ?: "-"} fps=$selectedFps " +
+                    "encode=${enc?.name ?: "off"} ${enc?.width ?: 0}x${enc?.height ?: 0}",
+            )
+        } else {
+            PnsWebcamEncoder.stop()
+            PnsUsbWebcam.stop()
+        }
+    }
     val timelapseEncoderRef = remember { mutableStateOf<TimeLapseVideoEncoder?>(null) }
     val trayStillCaptureRef = remember { mutableStateOf<(() -> Unit)?>(null) }
     val trayLongPressBurstStartRef = remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -2370,6 +2526,18 @@ fun PreviewEngineScreen(
     var holdBurstSaveCount by remember { mutableIntStateOf(0) }
     var holdBurstSavePending by remember { mutableIntStateOf(0) }
     var holdBurstDroppedCount by remember { mutableIntStateOf(0) }
+    LaunchedEffect(holdBurstActive) {
+        PnsForegroundCapture.holdBurstActive = holdBurstActive
+    }
+    LaunchedEffect(stillQueueInFlight, stillQueuePending) {
+        PnsForegroundCapture.stillQueueBusy = stillQueueInFlight + stillQueuePending > 0
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            PnsForegroundCapture.holdBurstActive = false
+            PnsForegroundCapture.stillQueueBusy = false
+        }
+    }
     val holdBurstCaptureLatencyMs = remember { mutableListOf<Long>() }
     val holdBurstJpegSaveLimiter = remember { Semaphore(3) }
     var burstPipelineStrategy by remember { mutableStateOf(BurstPipelineStrategy.Aggressive) }
@@ -2850,13 +3018,16 @@ fun PreviewEngineScreen(
                 if (pick != null) {
                     lastGalleryUri = pick
                     Log.i("PNS.ChromeUx", "galleryThumbUpdated path=${pick.lastPathSegment}")
+                    CaptureJournal.record(true, pick.lastPathSegment ?: "still saved")
                 }
                 dngUri?.let { CloudCaptureBackup.queueUri(appContext, it) }
                 if (tonalUri != null && tonalUri != dngUri) {
                     CloudCaptureBackup.queueUri(appContext, tonalUri)
                 }
             },
-            onFailure = { },
+            onFailure = { err ->
+                CaptureJournal.record(false, err.message ?: "still failed")
+            },
         )
     }
 
@@ -2865,12 +3036,34 @@ fun PreviewEngineScreen(
         lateinit var runTrayStillBurstImpl: () -> Unit
         lateinit var runTrayNightScapeImpl: () -> Unit
         lateinit var dispatchQueuedStill: () -> Unit
+        fun plannedQueueFrames(): Int {
+            val hud = hudState.current
+            return PreviewStillStorageGate.plannedFrameCount(
+                hdrStill = hud.stillCaptureMode == StillCaptureMode.HdrStill,
+                hdrShotCount = dev.pointandshoot.fleet.LegacyFleetPolicy.hdrStillShotCount(),
+                burstEnabled = hud.burstModeEnabled,
+                burstCount = hud.burstShotCount,
+                bracketEnabled = controller.peekCommandDialMode() == CommandDialMode.BKT,
+                bracketCount = HudSettings.loadBracketPattern(context).shotCount,
+                nightScapeEnabled = controller.peekCommandDialMode() == CommandDialMode.Night,
+                nightScapeCount = hud.nightScapeFrameCount,
+            )
+        }
+
         fun onQueuedCaptureFinished() {
             if (stillQueueInFlight > 0) {
                 stillQueueInFlight--
                 stillQueueCompleted++
             }
             if (stillQueuePending > 0) {
+                val avail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+                if (!PreviewStillStorageGate.hasRoomForStill(avail, plannedQueueFrames())) {
+                    Toast.makeText(context, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                    stillQueuePending = 0
+                    stillQueueBatchTotal = 0
+                    stillQueueCompleted = 0
+                    return
+                }
                 stillQueuePending--
                 stillQueueInFlight++
                 dispatchQueuedStill()
@@ -2881,6 +3074,11 @@ fun PreviewEngineScreen(
         }
 
         fun enqueueStillCaptureRequest() {
+            val avail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+            if (!PreviewStillStorageGate.hasRoomForStill(avail, plannedQueueFrames())) {
+                Toast.makeText(context, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                return
+            }
             stillQueueBatchTotal++
             if (stillQueueInFlight == 0 && stillQueuePending == 0) {
                 stillQueueInFlight = 1
@@ -3060,6 +3258,34 @@ fun PreviewEngineScreen(
                 else -> scheduleTrayStillCapture()
             }
         }
+        PnsRemoteCommandBus.onShutter = PnsMediaSessionManager.onRemoteShutter
+        PnsRemoteCommandBus.onToggleVideo = {
+            isRecording = !isRecording
+        }
+        PnsRemoteCommandBus.onStartVideo = {
+            isRecording = true
+        }
+        PnsRemoteCommandBus.onStopVideo = {
+            isRecording = false
+        }
+        PnsRemoteCommandBus.onChapter = {
+            if (isRecording) {
+                VideoChapterMarks.addElapsed()
+                Toast.makeText(context, "Chapter mark", Toast.LENGTH_SHORT).show()
+            }
+        }
+        PnsWebcamControls.camerasCsv = controller.cameraIds().joinToString(",")
+        PnsWebcamControls.cameraId = selectedCameraId ?: ""
+        PnsWebcamControls.onSwitchCamera = { id ->
+            if (id in controller.cameraIds()) selectedCameraId = id
+        }
+        PnsWebcamControls.onAfMode = { mode ->
+            controller.setCommandDialMode(
+                if (mode == "manual") CommandDialMode.M else CommandDialMode.Auto,
+            )
+        }
+        PnsRemoteCommandBus.photoPrimary = primaryPhoto
+        PnsRemoteCommandBus.sessionReady = controller.canCaptureStill() || !primaryPhoto
         PnsHardwareShutterRouter.onShutter = PnsMediaSessionManager.onRemoteShutter
         runTrayStillBurstImpl = {
             val hud = hudState.current
@@ -3111,6 +3337,17 @@ fun PreviewEngineScreen(
         }
         fun startLongPressBurstCapture() {
             if (holdBurstActive) return
+            val holdStartPlan =
+                resolveBurstIntent(composedStillIntentState.value, hudState.current).resolveCapturePlan()
+            val holdStartFrames =
+                PreviewStillStorageGate.holdBurstFrameBudget(
+                    holdStartPlan.raw != null && holdStartPlan.tonal != null,
+                )
+            val holdStartAvail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+            if (!PreviewStillStorageGate.hasRoomForStill(holdStartAvail, holdStartFrames)) {
+                Toast.makeText(context, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                return
+            }
             val initialHud = hudState.current
             val startedProfile = initialHud.burstPhotoQualityProfileEnum().name
             Log.i(
@@ -3215,6 +3452,21 @@ fun PreviewEngineScreen(
 
                     fun dispatchBufferedShotIfPossible() {
                         if (holdBurstBufferedPending <= 0) return
+                        val holdPlan =
+                            resolveBurstIntent(composedStillIntentState.value, hudState.current)
+                                .resolveCapturePlan()
+                        val holdFrames =
+                            PreviewStillStorageGate.holdBurstFrameBudget(
+                                holdPlan.raw != null && holdPlan.tonal != null,
+                            )
+                        val holdAvail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+                        if (!PreviewStillStorageGate.hasRoomForStill(holdAvail, holdFrames)) {
+                            Toast.makeText(context, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                            holdBurstActive = false
+                            holdBurstBufferedPending = 0
+                            BurstStatusTelemetry.reset()
+                            return
+                        }
                         val burstHud = hudState.current
                         val burstIntent = resolveBurstIntent(composedStillIntentState.value, burstHud)
                         val burstProfile = normalizeBurstFileTypeProfile(burstHud.burstPhotoQualityProfileEnum())
@@ -3577,7 +3829,17 @@ fun PreviewEngineScreen(
             return@LaunchedEffect
         }
 
+        val intervalAvail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+        if (!PreviewStillStorageGate.hasRoomForIntervalometer(intervalAvail)) {
+            Toast.makeText(context, "Not enough storage for intervalometer.", Toast.LENGTH_LONG).show()
+            val next = hudState.current.copy(intervalometerRunning = false)
+            hudState.update(next)
+            HudSettings.save(context, next)
+            return@LaunchedEffect
+        }
+
         val intervalSec = hudState.current.intervalometerIntervalSec
+        var rampTick = 0
         Log.i(
             if (videoMode) TimeLapseVideoEncoder.TAG else "PNS.ChromeUx",
             "intervalometer active mode=${mode.name} intervalSec=$intervalSec",
@@ -3611,6 +3873,47 @@ fun PreviewEngineScreen(
                     !hudState.current.intervalometerRunning ||
                     hudState.current.timeLapseModeEnum() != mode
                 ) {
+                    break
+                }
+                val tickAvail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+                val videoTickTight =
+                    mode == TimeLapseMode.Video &&
+                        run {
+                            val session =
+                                PreviewVideoStorageEstimate.Session(
+                                    encodeWidth = chromePrefs.current.inAppVideoEncodeWidth.coerceAtLeast(1),
+                                    encodeHeight = chromePrefs.current.inAppVideoEncodeHeight.coerceAtLeast(1),
+                                    targetFps = selectedFps,
+                                    rawVideoLane = false,
+                                    enableResearchDcgHdr = hudState.current.enableResearchDcgHDR,
+                                    adbPreviewVideoDcg = adbAutomationVideoDcg,
+                                    adbPreviewVideoTenBit = adbAutomationVideoTenBit,
+                                )
+                            val minutes =
+                                PreviewVideoStorageEstimate.withAvailableBytes(
+                                    PreviewVideoStorageEstimate.estimate(session),
+                                    tickAvail,
+                                ).minutesRemaining
+                            PreviewVideoStorageEstimate.shouldRefuseRecordStart(minutes) ||
+                                PreviewVideoStorageEstimate.shouldStopRecordForEmpty(minutes)
+                        }
+                val tickFrames =
+                    PreviewStillStorageGate.intervalometerTickFrames(
+                        videoMode = mode == TimeLapseMode.Video,
+                        nightScapeEnabled = controller.peekCommandDialMode() == CommandDialMode.Night,
+                        nightScapeCount = hudState.current.nightScapeFrameCount,
+                        hdrStill = hudState.current.stillCaptureMode == StillCaptureMode.HdrStill,
+                        hdrShotCount = dev.pointandshoot.fleet.LegacyFleetPolicy.hdrStillShotCount(),
+                        burstEnabled = hudState.current.burstModeEnabled,
+                        burstCount = hudState.current.burstShotCount,
+                        bracketEnabled = controller.peekCommandDialMode() == CommandDialMode.BKT,
+                        bracketCount = HudSettings.loadBracketPattern(context).shotCount,
+                    )
+                if (videoTickTight || !PreviewStillStorageGate.hasRoomForStill(tickAvail, tickFrames)) {
+                    Toast.makeText(context, "Not enough storage for intervalometer.", Toast.LENGTH_LONG).show()
+                    val next = hudState.current.copy(intervalometerRunning = false)
+                    hudState.update(next)
+                    HudSettings.save(context, next)
                     break
                 }
                 when (mode) {
@@ -3668,6 +3971,17 @@ fun PreviewEngineScreen(
                     TimeLapseMode.Off,
                     TimeLapseMode.Photo,
                     -> trayStillCaptureRef.value?.invoke()
+                }
+                if (PnsProductPrefs.rampEnabled(context)) {
+                    val iso =
+                        IntervalometerRamp.step(
+                            PnsProductPrefs.rampIsoStart(context),
+                            PnsProductPrefs.rampIsoEnd(context),
+                            rampTick,
+                            12,
+                        )
+                    controller.setReadoutManualIso(iso)
+                    rampTick++
                 }
             }
         } finally {
@@ -3945,7 +4259,7 @@ fun PreviewEngineScreen(
             PnsConnectivity.setLanTransferEnabled(context, true)
         }
         lanMediaServer.fileProvider = {
-            PnsMediaStoreGallery.loadIndex(context, maxItems = 24).map { item ->
+            PnsMediaStoreGallery.loadIndex(context, maxItems = 200).map { item ->
                 LanMediaTransferServer.FileEntry(
                     id = item.uri.lastPathSegment?.toLongOrNull() ?: item.uri.hashCode().toLong(),
                     uri = item.uri,
@@ -4981,6 +5295,61 @@ fun PreviewEngineScreen(
         }
     }
 
+    fun refuseVideoRecordStart(host: Context): Boolean {
+        val session =
+            PreviewVideoStorageEstimate.Session(
+                encodeWidth = encW.coerceAtLeast(1),
+                encodeHeight = encH.coerceAtLeast(1),
+                targetFps = selectedFps,
+                rawVideoLane = hudState.current.videoEncodeLane == VideoEncodeLane.Raw,
+                enableResearchDcgHdr = hudState.current.enableResearchDcgHDR,
+                adbPreviewVideoDcg = adbAutomationVideoDcg,
+                adbPreviewVideoTenBit = adbAutomationVideoTenBit,
+            )
+        val avail =
+            PreviewVideoStorageProbe.availableBytesForDcim(host, adbStorageAvailableBytes)
+        val minutes =
+            PreviewVideoStorageEstimate.withAvailableBytes(
+                PreviewVideoStorageEstimate.estimate(session),
+                avail,
+            ).minutesRemaining
+        return PreviewVideoStorageEstimate.shouldRefuseRecordStart(minutes)
+    }
+
+    LaunchedEffect(isRecording, encW, encH, selectedFps) {
+        if (!isRecording) return@LaunchedEffect
+        var lowStorageToasted = false
+        while (isActive && isRecording) {
+            val session =
+                PreviewVideoStorageEstimate.Session(
+                    encodeWidth = encW.coerceAtLeast(1),
+                    encodeHeight = encH.coerceAtLeast(1),
+                    targetFps = selectedFps,
+                    rawVideoLane = hudState.current.videoEncodeLane == VideoEncodeLane.Raw,
+                    enableResearchDcgHdr = hudState.current.enableResearchDcgHDR,
+                    adbPreviewVideoDcg = adbAutomationVideoDcg,
+                    adbPreviewVideoTenBit = adbAutomationVideoTenBit,
+                )
+            val avail =
+                PreviewVideoStorageProbe.availableBytesForDcim(context, adbStorageAvailableBytes)
+            val minutes =
+                PreviewVideoStorageEstimate.withAvailableBytes(
+                    PreviewVideoStorageEstimate.estimate(session),
+                    avail,
+                ).minutesRemaining
+            if (PreviewVideoStorageEstimate.shouldStopRecordForEmpty(minutes)) {
+                Toast.makeText(context, "Storage full — recording stopped.", Toast.LENGTH_LONG).show()
+                isRecording = false
+                break
+            }
+            if (PreviewVideoStorageEstimate.isLowStorageWarning(minutes) && !lowStorageToasted) {
+                Toast.makeText(context, "About 5 minutes of recording left.", Toast.LENGTH_LONG).show()
+                lowStorageToasted = true
+            }
+            delay(3_000)
+        }
+    }
+
     val seedOpenAboutSheet = adbShowAboutOverlay
     val seedOpenSettingsRail = adbOpenSettingsRail
 
@@ -5047,6 +5416,12 @@ fun PreviewEngineScreen(
                 captureScope.pnsShowSnackbar(
                     snackbarHostState,
                     "Stop time-lapse video before normal recording.",
+                    longDuration = true,
+                )
+            } else if (want && refuseVideoRecordStart(context)) {
+                captureScope.pnsShowSnackbar(
+                    snackbarHostState,
+                    "Not enough storage to record.",
                     longDuration = true,
                 )
             } else {
@@ -5815,12 +6190,23 @@ private fun PreviewEngineContent(
     )
     var selfTimerRemaining by remember { mutableIntStateOf(0) }
     var selfTimerCountdownActive by remember { mutableStateOf(false) }
+    LaunchedEffect(selfTimerCountdownActive) {
+        PnsForegroundCapture.selfTimerRunning = selfTimerCountdownActive
+    }
+    DisposableEffect(Unit) {
+        onDispose { PnsForegroundCapture.selfTimerRunning = false }
+    }
 
     fun triggerStillCapture() {
         val delaySec =
             PreviewChromePreferences.normalizeSelfTimerDelaySec(chromePrefs.current.selfTimerDelaySec)
         if (commandDialMode == CommandDialMode.BKT) {
             val pat = HudSettings.loadBracketPattern(context)
+            val bktAvail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+            if (!PreviewStillStorageGate.hasRoomForStill(bktAvail, pat.shotCount)) {
+                Toast.makeText(context, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                return
+            }
             when {
                 controller.canCaptureBracketBurst() -> onBracketBurst(pat)
                 else ->
@@ -5847,7 +6233,21 @@ private fun PreviewEngineContent(
                     remaining--
                 }
                 selfTimerRemaining = 0
-                onCaptureDng()
+                val timerAvail = PreviewVideoStorageProbe.availableBytesForDcim(context)
+                val timerFrames =
+                    PreviewStillStorageGate.plannedFrameCount(
+                        hdrStill = hudState.current.stillCaptureMode == StillCaptureMode.HdrStill,
+                        hdrShotCount = dev.pointandshoot.fleet.LegacyFleetPolicy.hdrStillShotCount(),
+                        burstEnabled = hudState.current.burstModeEnabled,
+                        burstCount = hudState.current.burstShotCount,
+                        bracketEnabled = commandDialMode == CommandDialMode.BKT,
+                        bracketCount = HudSettings.loadBracketPattern(context).shotCount,
+                    )
+                if (!PreviewStillStorageGate.hasRoomForStill(timerAvail, timerFrames)) {
+                    Toast.makeText(context, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                } else {
+                    onCaptureDng()
+                }
             } finally {
                 selfTimerCountdownActive = false
                 selfTimerRemaining = 0
@@ -6330,6 +6730,8 @@ private fun PreviewEngineContent(
         controller.setFaceHudOverlayListener { state ->
             eyeMarksBuffer = state.eyeMarks
             faceTrackBoxesBuffer = state.faceBoxesBuffer
+            PnsWebcamControls.faceCount = state.faceBoxesBuffer.size
+            PnsWebcamControls.tracking = state.faceBoxesBuffer.isNotEmpty()
         }
         onDispose {
             controller.setFaceHudOverlayListener(null)
@@ -6655,6 +7057,11 @@ private fun PreviewEngineContent(
                 if (!chrome.volumeKeysCapture) return@onPreviewKeyEvent false
                 when (it.nativeKeyEvent.keyCode) {
                     AndroidKeyEvent.KEYCODE_VOLUME_UP -> {
+                        if (isRecording) {
+                            VideoChapterMarks.addElapsed()
+                            Toast.makeText(context, "Chapter mark", Toast.LENGTH_SHORT).show()
+                            return@onPreviewKeyEvent true
+                        }
                         when {
                             commandDialMode == CommandDialMode.BKT && controller.canCaptureBracketBurst() ->
                                 onBracketBurst(HudSettings.loadBracketPattern(context))
@@ -6760,7 +7167,12 @@ private fun PreviewEngineContent(
                 containerColor = PnsColors.Charcoal,
             )
         }
-        Column(modifier = Modifier.fillMaxSize()) {
+        val landscape =
+            LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        PnsAdaptivePreviewChrome(
+            landscape = landscape,
+            finderFlexWeight = PreviewChromeFinderFlexWeight,
+            topBand = {
             // Top → bottom: inset band, finder, readout chips, 7×3 quick settings (+ focal row), shutter tray.
             // Canonical spec: docs/preview-chrome-layout-style-guide.md + .cursor/rules/preview-chrome-ui-lock.mdc
             val topInsetBand = padding.calculateTopPadding()
@@ -6800,16 +7212,19 @@ private fun PreviewEngineContent(
                         modifier = Modifier.align(Alignment.TopCenter),
                     )
                 }
+                PnsUsbWebcamBanner(
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
             PreviewChromeSectionDivider()
+            },
+            finder = { finderMod ->
             // Share vertical space with the chrome rail ([PreviewChromeFinderFlexWeight] : rail).
             // Target **width / height = 3 / 4**; when the slot is tall enough, use full width and
             // exact height (no side letterbox). Otherwise fit inside the slot without clipping.
             BoxWithConstraints(
                 modifier =
-                    Modifier
-                        .weight(PreviewChromeFinderFlexWeight)
-                        .fillMaxWidth()
+                    finderMod
                         // Keep preview + overlays from painting into the chrome below when collapsed.
                         .clip(RectangleShape),
             ) {
@@ -7009,6 +7424,8 @@ private fun PreviewEngineContent(
                     }
                 }
             }
+            },
+            belowFinder = {
             PreviewChromeSectionDivider()
             PreviewReadoutStrip(
                 iso = previewReadoutIso,
@@ -7373,7 +7790,8 @@ private fun PreviewEngineContent(
                     )
                 }
             }
-        }
+            },
+        )
         if (calibrateOverlayActive) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
@@ -7732,7 +8150,12 @@ private fun PreviewMainViewport(
             lutPreviewRenderer,
             glSurfaceHost,
         ) {
-            val lut3d = previewLutCatalog.load(BuiltInLuts.DEFAULT_SIZE)
+            val lut3d =
+                PnsActiveLook.resolveLut3d(
+                    context,
+                    previewLutCatalog.name,
+                    null,
+                )
             lutPreviewRenderer.setLut(lut3d)
             val enabled = LutShaderProgram.BypassPolicy.lutEnabledUniform(lut3d) > 0.5f
             Log.i(
@@ -8098,8 +8521,8 @@ private fun PreviewMainViewport(
     }
 }
 
-/** Photo / Video: one circular FAB toggles [primaryPhoto]; icon reflects active mode (52dp, bordered). */
-@Suppress("FunctionNaming")
+/** Photo / Video / Webcam: one circular FAB cycles the capture family (52dp, bordered). */
+@Suppress("FunctionNaming", "MagicNumber")
 @Composable
 private fun PreviewTrayPhotoVideoModeToggleFab(
     primaryPhoto: Boolean,
@@ -8107,14 +8530,23 @@ private fun PreviewTrayPhotoVideoModeToggleFab(
     onPrimaryPhotoChange: (Boolean) -> Unit,
     onRecordingChange: (Boolean) -> Unit,
 ) {
+    val webcamMode = PnsWebcamModeBridge.active.value
+    val onWebcamModeChange: (Boolean) -> Unit = { PnsWebcamModeBridge.request?.invoke(it) }
     val ring = Color.White.copy(alpha = 0.88f)
+    val webcamCyan = Color(0xFF4FC3F7)
     FloatingActionButton(
         onClick = {
-            if (primaryPhoto) {
-                onPrimaryPhotoChange(false)
-            } else {
-                if (isRecording) onRecordingChange(false)
-                onPrimaryPhotoChange(true)
+            when {
+                webcamMode -> {
+                    onWebcamModeChange(false)
+                    onPrimaryPhotoChange(true)
+                }
+                primaryPhoto -> onPrimaryPhotoChange(false)
+                else -> {
+                    if (isRecording) onRecordingChange(false)
+                    onPrimaryPhotoChange(true)
+                    onWebcamModeChange(true)
+                }
             }
         },
         modifier =
@@ -8123,23 +8555,36 @@ private fun PreviewTrayPhotoVideoModeToggleFab(
                 .border(2.dp, ring, CircleShape)
                 .semantics {
                     contentDescription =
-                        if (primaryPhoto) {
-                            "Photo mode active. Tap to switch to video mode."
-                        } else {
-                            "Video mode active. Tap to switch to photo mode."
+                        when {
+                            webcamMode ->
+                                "Webcam mode active. Tap to switch to photo mode. USB Video Device on Windows uses inbox usbvideo.sys."
+                            primaryPhoto ->
+                                "Photo mode active. Tap to switch to video mode."
+                            else ->
+                                "Video mode active. Tap to switch to webcam mode."
                         }
                 },
         containerColor =
-            if (primaryPhoto) {
-                PnsColors.PhotoOrange.copy(alpha = 0.92f)
-            } else {
-                PnsColors.RecordRed.copy(alpha = 0.88f)
+            when {
+                webcamMode -> webcamCyan.copy(alpha = 0.92f)
+                primaryPhoto -> PnsColors.PhotoOrange.copy(alpha = 0.92f)
+                else -> PnsColors.RecordRed.copy(alpha = 0.88f)
             },
-        contentColor = if (primaryPhoto) Color.Black else Color.White.copy(alpha = 0.92f),
+        contentColor =
+            when {
+                webcamMode -> Color.Black
+                primaryPhoto -> Color.Black
+                else -> Color.White.copy(alpha = 0.92f)
+            },
         shape = CircleShape,
     ) {
         Icon(
-            imageVector = if (primaryPhoto) Icons.Outlined.Image else Icons.Outlined.Videocam,
+            imageVector =
+                when {
+                    webcamMode -> Icons.Outlined.Videocam
+                    primaryPhoto -> Icons.Outlined.Image
+                    else -> Icons.Outlined.Videocam
+                },
             contentDescription = null,
             modifier = Modifier.size(26.dp),
         )
@@ -8147,7 +8592,7 @@ private fun PreviewTrayPhotoVideoModeToggleFab(
 }
 
 /** Bottom tray: gallery (+ video format FAB), centered shutter, Photo/Video + mode dial (end). */
-@Suppress("FunctionNaming")
+@Suppress("FunctionNaming", "MagicNumber")
 @Composable
 private fun PreviewBottomCaptureTray(
     context: Context,
@@ -8284,9 +8729,30 @@ private fun PreviewBottomCaptureTray(
             }
         }
 
+        val webcamMode = PnsWebcamModeBridge.active.value
         if (showOnScreenShutter) {
             Box(modifier = Modifier.align(Alignment.Center)) {
-                if (primaryPhoto) {
+                if (webcamMode) {
+                    FloatingActionButton(
+                        onClick = { PnsUsbWebcam.openHostUsbSettings(context) },
+                        modifier =
+                            Modifier
+                                .size(64.dp)
+                                .semantics {
+                                    contentDescription =
+                                        "USB webcam live. Tap to open USB Webcam settings so Windows loads USB Video Device."
+                                },
+                        containerColor = Color(0xFF4FC3F7),
+                        contentColor = Color.Black,
+                        shape = CircleShape,
+                    ) {
+                        Text(
+                            "USB",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.Black,
+                        )
+                    }
+                } else if (primaryPhoto) {
                     val onTapShutter: () -> Unit = {
                         if (canCaptureRawStill) {
                             onCaptureDng()
@@ -10346,6 +10812,12 @@ private fun PreviewRightRail(
     /** Settings ▸ Guides & framing nested pane. */
     var settingsGuidesPane by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsSubPage by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(expandedKey) {
+        PnsForegroundCapture.settingsOpen = expandedKey == "Settings"
+    }
+    DisposableEffect(Unit) {
+        onDispose { PnsForegroundCapture.settingsOpen = false }
+    }
     var settingsSearchQuery by rememberSaveable { mutableStateOf("") }
     var pendingSettingHighlightKey by rememberSaveable { mutableStateOf<String?>(null) }
     val settingsHighlightFlash = rememberSettingHighlightFlash()
@@ -11560,6 +12032,7 @@ private class PreviewController(
     /** Video tray active — align preview stream to encode aspect before record starts. */
     @Volatile
     private var videoPrimarySession: Boolean = false
+    private var webcamEncoderGenApplied: Int = -1
 
     @Volatile
     var adbAutomationVideoAv1: Boolean = false
@@ -13574,6 +14047,7 @@ private class PreviewController(
         if (videoRecordingSessionRebuildPending) return false
         if (captureSessionAsyncConfigurePending || cameraDeviceOpenPending) return false
         if (wantsRawStillSurfacesInSession() && rawImageReader == null) return false
+        if (PnsUsbWebcam.active && PnsWebcamEncoder.generation != webcamEncoderGenApplied) return false
         return true
     }
 
@@ -14384,6 +14858,7 @@ private class PreviewController(
             val jpegUri = handle.uri
             handle.close()
             handle = null
+            val credits = PnsJpegCreditPrefs(appContext.applicationContext)
             StillCaptureMetadata.applyToJpegUri(
                 appContext.applicationContext,
                 jpegUri,
@@ -14392,6 +14867,8 @@ private class PreviewController(
                 location = loc,
                 colorSpaceTarget = profile.colorSpace,
                 stripPrivacyExif = stripExifPrivacyTags,
+                artist = credits.artist(),
+                copyright = credits.copyright(),
             )
             LutCaptureSidecars.writeBundledLutSidecarIfNeeded(
                 appContext.applicationContext,
@@ -14426,6 +14903,7 @@ private class PreviewController(
         onTonalReady: ((Uri?) -> Unit)? = null,
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
+        if (rejectStillForLowStorage(appContext, adbValidationShotLabel, onResult)) return
         setComposedCapturePlan(plan)
         composedCaptureBlockedReason(plan)?.let { blocked ->
             mainHandler.post { onResult(Result.failure(IllegalStateException(blocked))) }
@@ -14677,6 +15155,63 @@ private class PreviewController(
         }
     }
 
+    private fun plannedStillFrameCount(appContext: Context): Int {
+        val hud = readHudCapturePrefs()
+        return PreviewStillStorageGate.plannedFrameCount(
+            hdrStill = effectiveStillCaptureMode() == StillCaptureMode.HdrStill,
+            hdrShotCount = dev.pointandshoot.fleet.LegacyFleetPolicy.hdrStillShotCount(),
+            burstEnabled = hud.burstModeEnabled,
+            burstCount = hud.burstShotCount,
+            bracketEnabled = commandDialMode == CommandDialMode.BKT,
+            bracketCount = HudSettings.loadBracketPattern(appContext).shotCount,
+        )
+    }
+
+    private var fewStillsWarned: Boolean = false
+
+    private fun warnFewStillsIfNeeded(appContext: Context, frames: Int) {
+        if (fewStillsWarned) return
+        val available = PreviewVideoStorageProbe.availableBytesForDcim(appContext)
+        if (!PreviewStillStorageGate.isFewStillsWarning(available, frames)) return
+        fewStillsWarned = true
+        mainHandler.post {
+            val left = PreviewStillStorageGate.remainingShots(available, frames)
+            val extra = if (left != null) " (~$left left)" else ""
+            Toast.makeText(appContext, "Only a few photos left on this card.$extra", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun rejectStillForLowStorage(
+        appContext: Context,
+        shotTag: String?,
+        onResult: (Result<RawStillSaveSuccess>) -> Unit,
+    ): Boolean {
+        val available = PreviewVideoStorageProbe.availableBytesForDcim(appContext)
+        val frames = plannedStillFrameCount(appContext)
+        if (PreviewStillStorageGate.hasRoomForStill(available, frames)) {
+            warnFewStillsIfNeeded(appContext, frames)
+            return false
+        }
+        Log.w(
+            CaptureStillLog.TAG,
+            "captureRawStill ok=false err=low_storage label=${shotTag ?: "-"} " +
+                "available=$available frames=$frames",
+        )
+        recordCapturePipelineEvent(
+            "RAW_STILL_REJECT",
+            "low_storage",
+            mapOf("label" to (shotTag ?: "-")),
+        )
+        mainHandler.post {
+            Toast.makeText(appContext, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+            if (shotTag != null) {
+                PnsAdbLog.i(appContext, "captureRawStill $shotTag ok=false err=low_storage")
+            }
+            onResult(Result.failure(IllegalStateException("Not enough storage")))
+        }
+        return true
+    }
+
     @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun captureRawStill(
         appContext: Context,
@@ -14698,6 +15233,7 @@ private class PreviewController(
         onJpegSidecarReady: ((Uri?) -> Unit)? = null,
         onResult: (Result<RawStillSaveSuccess>) -> Unit,
     ) {
+        if (rejectStillForLowStorage(appContext, adbValidationShotLabel, onResult)) return
         if (effectiveStillCaptureMode() == StillCaptureMode.HdrStill) {
             onStillShutterFired(haptics)
             captureHdrStillBurst(
@@ -16002,6 +16538,15 @@ private class PreviewController(
     ) {
         val total = NightScapeCapture.normalizeFrameCount(frameCount)
         val gapMs = NightScapeCapture.FRAME_GAP_MS
+        val nightAvail = PreviewVideoStorageProbe.availableBytesForDcim(appContext)
+        if (!PreviewStillStorageGate.hasRoomForStill(nightAvail, total)) {
+            mainHandler.post {
+                Toast.makeText(appContext, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                onResult(Result.failure(IllegalStateException("Not enough storage")))
+            }
+            return
+        }
+        warnFewStillsIfNeeded(appContext, total)
         if (!canCaptureNightScape()) {
             mainHandler.post {
                 onResult(
@@ -16020,6 +16565,7 @@ private class PreviewController(
             }
             return
         }
+        mainHandler.post { PnsForegroundCapture.nightScapeBusy = true }
         val collected = ArrayList<NightScapeCapture.FramePayload>(total)
         val bgHandler = handler
         Log.i(NightScapeCapture.TAG, "stack begin frames=$total gapMs=$gapMs")
@@ -16028,6 +16574,7 @@ private class PreviewController(
         }
         fun finishFailure(t: Throwable) {
             releaseCaptureBusy()
+            mainHandler.post { PnsForegroundCapture.nightScapeBusy = false }
             lastStatus = "NightScape failed: ${t.message?.take(48) ?: t::class.java.simpleName}"
             Log.w(NightScapeCapture.TAG, "stack ok=false err=${t.message}", t)
             if (adbValidationShotLabel != null) {
@@ -16036,6 +16583,15 @@ private class PreviewController(
             mainHandler.post { onResult(Result.failure(t)) }
         }
         fun captureFrame(index: Int) {
+            val remain = total - index
+            val frameAvail = PreviewVideoStorageProbe.availableBytesForDcim(appContext)
+            if (!PreviewStillStorageGate.hasRoomForStill(frameAvail, remain)) {
+                mainHandler.post {
+                    Toast.makeText(appContext, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                }
+                finishFailure(IllegalStateException("Not enough storage"))
+                return
+            }
             val frameNum = index + 1
             NightScapeCapture.logFrameProgress(frameNum, total)
             onProgress?.let { mainHandler.post { it(frameNum, total) } }
@@ -16114,6 +16670,7 @@ private class PreviewController(
                                             )
                                             lastStatus = "Preview running (normal)"
                                             releaseCaptureBusy()
+                                            PnsForegroundCapture.nightScapeBusy = false
                                             onResult(
                                                 Result.success(
                                                     RawStillSaveSuccess(
@@ -17069,6 +17626,7 @@ private class PreviewController(
      * **RAW** → DNG only; **JPEG** (companion on or JPEG-only RAW Off) → hardware JPEG per stop;
      * **both** → DNG + JPEG with `bktNofM-` suffixes. Uses [captureBusy] (exclusive with single still).
      */
+    @Suppress("ReturnCount", "CyclomaticComplexMethod", "LongMethod")
     fun captureBracketBurst(
         appContext: Context,
         haptics: CaptureHaptics,
@@ -17084,12 +17642,18 @@ private class PreviewController(
         fun finishFailure(t: Throwable) {
             if (!finished.compareAndSet(false, true)) return
             releaseCaptureBusy()
-            mainHandler.post { onResult(Result.failure(t)) }
+            mainHandler.post {
+                PnsForegroundCapture.bracketBusy = false
+                onResult(Result.failure(t))
+            }
         }
         fun finishSuccess(message: String) {
             if (!finished.compareAndSet(false, true)) return
             releaseCaptureBusy()
-            mainHandler.post { onResult(Result.success(message)) }
+            mainHandler.post {
+                PnsForegroundCapture.bracketBusy = false
+                onResult(Result.success(message))
+            }
         }
 
         if (!captureBusy.compareAndSet(false, true)) {
@@ -17098,6 +17662,20 @@ private class PreviewController(
             }
             return
         }
+        val bracketAvail = PreviewVideoStorageProbe.availableBytesForDcim(appContext)
+        if (!PreviewStillStorageGate.hasRoomForStill(bracketAvail, pattern.shotCount)) {
+            Log.w(
+                CaptureStillLog.TAG,
+                "captureBracketBurst ok=false err=low_storage frames=${pattern.shotCount}",
+            )
+            mainHandler.post {
+                Toast.makeText(appContext, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+            }
+            finishFailure(IllegalStateException("Not enough storage"))
+            return
+        }
+        warnFewStillsIfNeeded(appContext, pattern.shotCount)
+        mainHandler.post { PnsForegroundCapture.bracketBusy = true }
         if (purpose == BracketBurstPurpose.BktDial && commandDialMode != CommandDialMode.BKT) {
             finishFailure(IllegalStateException("Set command dial to BKT"))
             return
@@ -17596,6 +18174,15 @@ private class PreviewController(
                 reader?.setOnImageAvailableListener(null, null)
                 jReader?.setOnImageAvailableListener(null, null)
                 finishSuccess(savedUris.joinToString("\n"))
+                return
+            }
+            val remain = aeInts.size - idx
+            val shotAvail = PreviewVideoStorageProbe.availableBytesForDcim(appContext)
+            if (!PreviewStillStorageGate.hasRoomForStill(shotAvail, remain)) {
+                mainHandler.post {
+                    Toast.makeText(appContext, "Not enough storage for a photo.", Toast.LENGTH_LONG).show()
+                }
+                finishFailure(IllegalStateException("Not enough storage"))
                 return
             }
             mainHandler.post {
@@ -18603,12 +19190,16 @@ private class PreviewController(
             when {
                 dualVideoActive && inAppVideoRecordingArmed ->
                     DualVideoRecordingController.compositeRecordSize()
+                PnsUsbWebcam.active && PnsWebcamEncoder.isRunning ->
+                    webcamEncodeSize() ?: resolveInAppVideoRecordSize()
                 (inAppVideoRecordingArmed || videoPrimarySession) && desiredFps < 120 ->
                     resolveInAppVideoRecordSize()
                 else -> null
             }
         val previewAlignedToRecord =
-            if (recordForNegotiation != null && needsUltraHd60Delivery(map)) {
+            if (PnsUsbWebcam.active && PnsWebcamEncoder.isUhd60) {
+                UltraHd60RecordSupport.pickInterleavedPreviewSize(map)
+            } else if (recordForNegotiation != null && needsUltraHd60Delivery(map)) {
                 UltraHd60RecordSupport.pickInterleavedPreviewSize(map)
             } else {
                 recordForNegotiation?.let { rec ->
@@ -18869,6 +19460,14 @@ private class PreviewController(
             cameraFaultRecoveryCameraId == camId &&
                 (now - cameraFaultRecoveryWindowStartMs) <= CAMERA_FAULT_REOPEN_WINDOW_MS
         if (!inWindow) {
+            mainHandler.post {
+                val hint = PnsLastGoodSession.formatHint(PnsLastGoodSession.load(appContext))
+                Toast.makeText(
+                    appContext,
+                    hint ?: "Camera disconnected. Reopening…",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
             cameraFaultRecoveryCameraId = camId
             cameraFaultRecoveryWindowStartMs = now
             cameraFaultRecoveryAttempts = 0
@@ -19177,7 +19776,7 @@ private class PreviewController(
                     camId = camId,
                     prefs = prefs,
                     streamConfigurationMap = ch.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP),
-                    recordSize = resolveInAppVideoRecordSize(),
+                    recordSize = webcamEncodeSize() ?: resolveInAppVideoRecordSize(),
                     desiredFps = desiredFps,
                     inAppVideoRecordingArmed = inAppVideoRecordingArmed,
                     recorderPresent = videoController.isRecorderPresent(),
@@ -19186,6 +19785,7 @@ private class PreviewController(
                     previewFpsRange = pickNormalFpsRange(camId, previewTargetFpsForSession()),
                     experimentalVendorSessionAllowed = experimentalAllowed,
                     maxResSweepSessionKeys = maxResSweepSessionKeys,
+                    webcamUhd60 = PnsUsbWebcam.active && PnsWebcamEncoder.isUhd60,
                 ),
             onInfoLog = { msg -> PnsAdbLog.i(appContext, msg) },
             onMaxResSweepProbe = { keyName, present, settable, hit ->
@@ -19204,14 +19804,16 @@ private class PreviewController(
         )
     }
 
-    private fun needsUltraHd60Delivery(map: StreamConfigurationMap?): Boolean =
-        UltraHd60RecordSupport.needsUltraHd60Delivery(
+    private fun needsUltraHd60Delivery(map: StreamConfigurationMap?): Boolean {
+        if (PnsUsbWebcam.active && PnsWebcamEncoder.isUhd60) return true
+        return UltraHd60RecordSupport.needsUltraHd60Delivery(
             recordSize = resolveInAppVideoRecordSize(),
             desiredFps = desiredFps,
             map = map,
             inAppVideoRecordingArmed = inAppVideoRecordingArmed,
             recorderPresent = videoController.isRecorderPresent(),
         )
+    }
 
     private fun pickVideoRecordFpsRange(camId: String, map: StreamConfigurationMap?): Range<Int>? {
         if (needsUltraHd60Delivery(map)) {
@@ -19324,6 +19926,10 @@ private class PreviewController(
         val additionalOutputConfigurations = mutableListOf<OutputConfiguration>()
         if (!dualVideoActive) {
             videoController.getRecordingSurface()?.takeIf { it.isValid }?.let { surfaces.add(it) }
+            if (PnsUsbWebcam.active) {
+                PnsWebcamEncoder.inputSurface?.takeIf { it.isValid }?.let { surfaces.add(it) }
+                webcamEncoderGenApplied = PnsWebcamEncoder.generation
+            }
         }
         if (!useHighSpeed && !dualVideoActive) {
             val leanVideoWarmup =
@@ -19772,7 +20378,15 @@ private class PreviewController(
                         PreviewSessionHighSpeedCreate.SURFACE_ABANDON_RETRY_DELAY_MS,
                     )
                 } else {
-                    closeCamera()
+                    val retryWebcam =
+                        PnsUsbWebcam.active &&
+                            PnsWebcamEncoder.dropTier("sessionCreate") &&
+                            PnsWebcamEncoder.prepare(appContext)
+                    if (retryWebcam) {
+                        h.post { maybeRestartBody() }
+                    } else {
+                        closeCamera()
+                    }
                 }
             }
             return
@@ -20015,6 +20629,7 @@ private class PreviewController(
         val template =
             when {
                 inAppVideoRecordingArmed && videoController.isRecorderPresent() -> CameraDevice.TEMPLATE_RECORD
+                PnsUsbWebcam.active && PnsWebcamEncoder.isRunning -> CameraDevice.TEMPLATE_RECORD
                 fpsRange != null && fpsRange.lower >= 120 -> CameraDevice.TEMPLATE_RECORD
                 else -> CameraDevice.TEMPLATE_PREVIEW
             }
@@ -20039,6 +20654,10 @@ private class PreviewController(
                             "pending=$videoRecordingSessionRebuildPending",
                     )
                 }
+            }
+            if (PnsUsbWebcam.active && !dualVideoActive) {
+                val enc = PnsWebcamEncoder.inputSurface?.takeIf { it.isValid }
+                if (enc != null && enc != surf) addTarget(enc)
             }
             yuvImageReader?.let { addTarget(it.surface) }
             if (rawVideoController.isRecording) {
@@ -22756,6 +23375,11 @@ private class PreviewController(
             desiredFps >= 120 -> session ?: pref ?: Size(1920, 1080)
             else -> pref ?: session ?: Size(1920, 1080)
         }
+    }
+
+    private fun webcamEncodeSize(): android.util.Size? {
+        val t = PnsWebcamEncoder.tier ?: return null
+        return android.util.Size(t.width, t.height)
     }
 
     private fun pickNormalFpsRange(camId: String, desiredFps: Int): Range<Int>? {

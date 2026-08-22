@@ -1,5 +1,6 @@
 package dev.pointandshoot
 
+import android.content.Context
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -11,9 +12,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
@@ -21,6 +30,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Heritage / About content per BUILD_PLAN §6 (Phase 3 / Part 4).
@@ -100,22 +112,109 @@ private fun AboutHeritageBody(
     )
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val installedVersion = PnsAppInfo.versionName(context)
+    var checkingUpdates by remember { mutableStateOf(false) }
+    var manualUpdate by remember { mutableStateOf<PnsProductUpdate.LaunchPrompt.Update?>(null) }
+    var installRequest by remember { mutableStateOf<PnsApkInstaller.Request?>(null) }
+    var showNotes by remember { mutableStateOf(false) }
+    var knownGithub by remember {
+        mutableStateOf(PnsUpdatePrefs(context).lastKnownGithubVersion())
+    }
+    var cachedNotes by remember {
+        mutableStateOf(PnsUpdatePrefs(context).lastReleaseNotes().orEmpty())
+    }
+    val debugSigned = remember { PnsAppSigning.isDebugOrTestSigned(context) }
+    var lastCheckLabel by remember {
+        mutableStateOf(
+            PnsProductUpdate.formatLastChecked(
+                PnsUpdatePrefs(context).lastCheckAt(),
+                System.currentTimeMillis(),
+            ),
+        )
+    }
     PreviewRailSectionTitle("App & updates")
     ChromeSettingsIntroText(
-        "Installed $installedVersion · Release notes and APK downloads live on GitHub " +
-            "(Obtainium tracks the same releases feed).",
+        buildString {
+            if (knownGithub.isNullOrBlank()) {
+                append("Installed $installedVersion · GitHub version unknown until the first successful check.")
+            } else {
+                append("Installed $installedVersion · GitHub $knownGithub")
+            }
+            lastCheckLabel?.let { append(" $it.") }
+            if (debugSigned) {
+                append(" This install is debug/test-signed; a later production-signed build will not replace it.")
+            }
+        },
+    )
+    FpsQuickChip(
+        label = if (checkingUpdates) "Checking…" else "Check for updates",
+        selected = false,
+        requiresRoot = false,
+        enabled = !checkingUpdates,
+        onClick = {
+            checkingUpdates = true
+            scope.launch {
+                val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching { PnsAppUpdates.evaluateManualCheck(context.applicationContext) }
+                            .getOrNull()
+                    }
+                checkingUpdates = false
+                knownGithub = PnsUpdatePrefs(context).lastKnownGithubVersion()
+                cachedNotes = PnsUpdatePrefs(context).lastReleaseNotes().orEmpty()
+                lastCheckLabel =
+                    PnsProductUpdate.formatLastChecked(
+                        PnsUpdatePrefs(context).lastCheckAt(),
+                        System.currentTimeMillis(),
+                    )
+                when (val prompt = result?.prompt) {
+                    is PnsProductUpdate.LaunchPrompt.Update -> manualUpdate = prompt
+                    else -> {
+                        val msg =
+                            if (result?.fetchSucceeded == true) {
+                                "You're on the latest build."
+                            } else {
+                                PnsAppUpdates.manualCheckFailureMessage()
+                            }
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = AboutScreenA11y.CHECK_UPDATES,
+    )
+    var wifiOnly by remember {
+        mutableStateOf(PnsUpdatePrefs(context).wifiOnlyAutomatic())
+    }
+    FpsQuickChip(
+        label = if (wifiOnly) "Wi-Fi only updates: on" else "Wi-Fi only updates: off",
+        selected = wifiOnly,
+        requiresRoot = false,
+        onClick = {
+            val next = !wifiOnly
+            wifiOnly = next
+            PnsUpdatePrefs(context).setWifiOnlyAutomatic(next)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = AboutScreenA11y.WIFI_ONLY_UPDATES,
     )
     FpsQuickChip(
         label = "What's new (GitHub release notes)",
         selected = false,
         requiresRoot = false,
         onClick = {
-            val ok = openExternalUrl(context, PNS_GITHUB_RELEASES_LATEST_URL)
-            if (!ok) {
-                Toast.makeText(context, "No browser found to open release notes.", Toast.LENGTH_SHORT).show()
+            if (cachedNotes.isNotBlank()) {
+                showNotes = true
             } else {
-                Log.i("PNS.ChromeUx", "aboutReleaseNotes=opened tag=$PNS_GITHUB_LATEST_RELEASE_TAG")
+                val notesUrl = githubReleaseNotesUrl(knownGithub)
+                val ok = openExternalUrl(context, notesUrl)
+                if (!ok) {
+                    Toast.makeText(context, "No browser found to open release notes.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.i("PNS.ChromeUx", "aboutReleaseNotes=opened url=$notesUrl")
+                }
             }
         },
         modifier = Modifier.fillMaxWidth(),
@@ -151,6 +250,7 @@ private fun AboutHeritageBody(
         modifier = Modifier.fillMaxWidth(),
         contentDescription = AboutScreenA11y.PRIVACY,
     )
+    AboutLegalCreditsSection(context)
 
     PreviewRailSectionTitle("Heritage")
     HeritageCreditsBlock()
@@ -174,6 +274,69 @@ private fun AboutHeritageBody(
         modifier = Modifier.fillMaxWidth(),
         contentDescription = AboutScreenA11y.VENMO,
     )
+
+    val pendingUpdate = manualUpdate
+    if (pendingUpdate != null) {
+        UpdateAvailableDialog(
+            version = pendingUpdate.version,
+            notes = PnsProductUpdate.sanitizeReleaseNotes(cachedNotes),
+            sha256Url = pendingUpdate.sha256Url,
+            onInstall = {
+                installRequest =
+                    PnsApkInstaller.Request(
+                        url = pendingUpdate.url.ifBlank { PnsProductUpdate.RELEASES_PAGE },
+                        sha256Url = pendingUpdate.sha256Url,
+                        expectedVersion = pendingUpdate.version,
+                        sizeBytes = pendingUpdate.sizeBytes,
+                    )
+                manualUpdate = null
+            },
+            onLater = {
+                PnsAppUpdates.markUpdateDismissed(context.applicationContext, pendingUpdate.version)
+                manualUpdate = null
+            },
+            onObtainium = {
+                val ok = openExternalUrl(context, PNS_OBTAINIUM_ADD_URL)
+                if (!ok) {
+                    Toast.makeText(context, "Obtainium is not installed.", Toast.LENGTH_SHORT).show()
+                }
+            },
+        )
+    }
+    PnsUpdateInstallHost(request = installRequest, onFinished = { installRequest = null })
+    if (showNotes && cachedNotes.isNotBlank()) {
+        AlertDialog(
+            onDismissRequest = { showNotes = false },
+            title = { Text("What's new", color = Color.White) },
+            text = {
+                Text(
+                    PnsProductUpdate.sanitizeReleaseNotes(cachedNotes),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.88f),
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNotes = false
+                        val notesUrl = githubReleaseNotesUrl(knownGithub)
+                        if (!openExternalUrl(context, notesUrl)) {
+                            Toast.makeText(context, "No browser found to open release notes.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                ) {
+                    Text("Open on GitHub", color = PnsColors.PhotoOrange)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNotes = false }) {
+                    Text("Close", color = Color.White.copy(alpha = 0.75f))
+                }
+            },
+            containerColor = PnsColors.Charcoal,
+        )
+    }
 
     PreviewRailSectionTitle("Command dial — Snap (street)")
     Text(
@@ -349,6 +512,83 @@ private fun AboutLutCreditPanel(row: LutCreditsBuilder.LutCreditRow) {
     }
 }
 
+@Suppress("FunctionNaming")
+@Composable
+private fun AboutLegalCreditsSection(context: Context) {
+    FpsQuickChip(
+        label = "NOTICE / licenses (GitHub)",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_GITHUB_NOTICE_URL)
+            if (!ok) {
+                Toast.makeText(context, "No browser found to open NOTICE.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutNotice=opened")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = AboutScreenA11y.NOTICE,
+    )
+    FpsQuickChip(
+        label = "LICENSE (Apache-2.0)",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_GITHUB_LICENSE_URL)
+            if (!ok) {
+                Toast.makeText(context, "No browser found to open LICENSE.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutLicense=opened")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = AboutScreenA11y.LICENSE,
+    )
+    FpsQuickChip(
+        label = "Add in Obtainium",
+        selected = false,
+        requiresRoot = false,
+        onClick = {
+            val ok = openExternalUrl(context, PNS_OBTAINIUM_ADD_URL)
+            if (!ok) {
+                Toast.makeText(context, "Obtainium is not installed.", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.i("PNS.ChromeUx", "aboutObtainium=opened")
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        contentDescription = AboutScreenA11y.OBTAINIUM,
+    )
+    val creditPrefs = remember { PnsJpegCreditPrefs(context) }
+    var artistText by remember { mutableStateOf(creditPrefs.artist()) }
+    var copyrightText by remember { mutableStateOf(creditPrefs.copyright()) }
+    ChromeSettingsIntroText(
+        "Optional JPEG Artist and Copyright. Never written to DNG.",
+    )
+    OutlinedTextField(
+        value = artistText,
+        onValueChange = {
+            artistText = it.take(PnsJpegCreditPrefs.CREDIT_MAX)
+            creditPrefs.saveArtist(artistText)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("JPEG artist", color = Color.White.copy(alpha = 0.55f)) },
+        singleLine = true,
+    )
+    OutlinedTextField(
+        value = copyrightText,
+        onValueChange = {
+            copyrightText = it.take(PnsJpegCreditPrefs.CREDIT_MAX)
+            creditPrefs.saveCopyright(copyrightText)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text("JPEG copyright", color = Color.White.copy(alpha = 0.55f)) },
+        singleLine = true,
+    )
+}
+
+@Suppress("FunctionNaming")
 @Composable
 private fun HeritageCreditsBlock() {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

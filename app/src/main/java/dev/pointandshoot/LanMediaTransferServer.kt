@@ -154,6 +154,23 @@ class LanMediaTransferServer(
                     }
                 writeHttp(writer, 200, """{"ok":true,"items":[$items]}""", "application/json")
             }
+            path == PnsRemoteProtocol.HTTP_STATUS_PATH || path == "/remote/status" -> {
+                val host = socket.localAddress?.hostAddress ?: "0.0.0.0"
+                writeHttp(writer, 200, PnsRemoteCommandBus.statusJson(host, boundPort), "application/json")
+            }
+            path == PnsRemoteProtocol.HTTP_COMMAND_PATH || path == "/remote" -> {
+                val cmd = PnsRemoteProtocol.parseQuery(query["action"], query["sec"])
+                if (cmd == null) {
+                    writeHttp(writer, HTTP_BAD_REQUEST, """{"ok":false}""", "application/json")
+                    return
+                }
+                PnsRemoteCommandBus.post(cmd)
+                writeHttp(writer, 200, """{"ok":true,"action":"${cmd.action.wire}"}""", "application/json")
+            }
+            path == PnsRemoteProtocol.HTTP_PROOFING_PATH || path == "/proofing" -> {
+                val files = kotlinx.coroutines.runBlocking { fileProvider() }
+                writeHttp(writer, 200, LanProofing.html(files), "text/html; charset=utf-8")
+            }
             method == "GET" && path == "/file" -> {
                 val id = query["id"]?.toLongOrNull()
                 val files = kotlinx.coroutines.runBlocking { fileProvider() }
@@ -217,6 +234,7 @@ class LanMediaTransferServer(
     companion object {
         const val TAG = "PNS.LanTransfer"
         const val DEFAULT_PORT = 28766
+        private const val HTTP_BAD_REQUEST = 400
         private val StartLock = Any()
     }
 }

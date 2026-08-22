@@ -1,3 +1,5 @@
+@file:Suppress("FunctionNaming")
+
 package dev.pointandshoot
 
 import androidx.compose.foundation.background
@@ -25,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
 /**
@@ -74,6 +77,7 @@ fun LutChipRow(
     }
 
     val pickingScope = picking
+    val context = LocalContext.current
     if (pickingScope != null) {
         LutPickerDialog(
             scope = pickingScope,
@@ -82,7 +86,9 @@ fun LutChipRow(
                 LutCatalog.Scope.Video -> settings.selectedLutForVideo
                 LutCatalog.Scope.Both -> settings.selectedLutForStills
             },
+            importedNames = ImportedLutStore.list(context).map { it.name },
             onSelect = { entry ->
+                PnsProductPrefs.setSelectedImportedLut(context, null)
                 state.update(
                     when (pickingScope) {
                         LutCatalog.Scope.Stills -> settings.copy(selectedLutForStills = entry.name)
@@ -93,6 +99,10 @@ fun LutChipRow(
                         )
                     },
                 )
+                picking = null
+            },
+            onSelectImported = { fileName ->
+                PnsProductPrefs.setSelectedImportedLut(context, fileName)
                 picking = null
             },
             onDismiss = { picking = null },
@@ -136,7 +146,9 @@ private fun LutChip(
 private fun LutPickerDialog(
     scope: LutCatalog.Scope,
     currentSelectionName: String,
+    importedNames: List<String> = emptyList(),
     onSelect: (LutCatalog) -> Unit,
+    onSelectImported: (String) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     val choices = remember(scope) { LutCatalog.forScope(scope) }
@@ -191,6 +203,17 @@ private fun LutPickerDialog(
                             color = Color.White.copy(alpha = 0.7f),
                         )
                     }
+                }
+                importedNames.forEach { name ->
+                    Text(
+                        text = "Imported · $name",
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectImported(name) }
+                                .padding(8.dp),
+                        color = PnsColors.PhotoOrange,
+                    )
                 }
             }
         },

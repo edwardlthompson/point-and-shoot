@@ -115,6 +115,7 @@ fun HudRailSheetContent(
         )
         CloudBackupHudSection(context = ctx)
         SettingsExportHudSection(context = ctx)
+        PnsProductSettingsSection()
 
         if (developerUnlocked) {
         PreviewRailSectionTitle("Capability gate (rear camera)")
@@ -443,6 +444,9 @@ private fun HudSettingsScreenContent(
             }
             item(key = "settings_export") {
                 SettingsExportHudSection(context = LocalContext.current)
+            }
+            item(key = "product_systems") {
+                PnsProductSettingsSection()
             }
             item(key = "still_capture_mode") {
                 HudStillCaptureModeRow(
@@ -1276,6 +1280,7 @@ private fun AdvancedCaptureHudSection(
     settings: HudSettings,
     onUpdate: (HudSettings) -> Unit,
 ) {
+    val context = LocalContext.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1379,11 +1384,20 @@ private fun AdvancedCaptureHudSection(
                 description = "Timed stills while preview is open (photo mode, not recording).",
                 enabled = settings.intervalometerRunning && settings.intervalometerIntervalSec > 0,
                 onChange = { run ->
-                    onUpdate(
-                        settings.copy(
-                            intervalometerRunning = run,
-                        ),
-                    )
+                    val blocked =
+                        run &&
+                            !PreviewStillStorageGate.hasRoomForIntervalometer(
+                                PreviewVideoStorageProbe.availableBytesForDcim(context),
+                            )
+                    if (blocked) {
+                        Toast.makeText(
+                            context,
+                            "Not enough storage for intervalometer.",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    } else {
+                        onUpdate(settings.copy(intervalometerRunning = run))
+                    }
                 },
             ),
         )
@@ -1583,6 +1597,50 @@ private fun SettingsExportHudSection(context: android.content.Context) {
                 modifier = Modifier.weight(1f),
                 fillMaxTile = true,
             )
+        }
+        FpsQuickChip(
+            label = "Share settings pack",
+            selected = false,
+            requiresRoot = false,
+            onClick = {
+                val wrote = SettingsExportBundle.exportToAutomationFile(context)
+                val path = wrote?.path
+                if (path != null) {
+                    val file = java.io.File(path)
+                    val uri =
+                        androidx.core.content.FileProvider.getUriForFile(
+                            context,
+                            SharingManager.FILE_PROVIDER_AUTHORITY,
+                            file,
+                        )
+                    SharingManager.shareSingle(context, uri, "Share settings pack")
+                } else {
+                    Toast.makeText(context, "Export failed", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            fillMaxTile = true,
+        )
+        Text(
+            PnsPrivacyReceipt.asParagraph(),
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.7f),
+        )
+        var power by remember { mutableStateOf(PnsPowerProfile.load(context)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PnsPowerProfile.entries.forEach { profile ->
+                FpsQuickChip(
+                    label = profile.label,
+                    selected = power == profile,
+                    requiresRoot = false,
+                    onClick = {
+                        power = profile
+                        PnsPowerProfile.save(context, profile)
+                    },
+                    modifier = Modifier.weight(1f),
+                    fillMaxTile = true,
+                )
+            }
         }
     }
 }

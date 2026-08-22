@@ -55,6 +55,14 @@ enum class LutCatalog(
         scope = Scope.Both,
         generator = BuiltInLuts::pnsCinematic,
     ),
+    NegativeInvert(
+        displayName = "Negative invert",
+        description = "Orange-mask invert plus a mild contrast stretch for film scans.",
+        spdx = "Apache-2.0",
+        source = "Original work by the Point & Shoot project (BuiltInLuts.negativeInvert)",
+        scope = Scope.Both,
+        generator = BuiltInLuts::negativeInvert,
+    ),
     ;
 
     enum class Scope { Stills, Video, Both }

@@ -25,14 +25,21 @@ object UltraHd60SessionParameters {
         inAppVideoRecordingArmed: Boolean,
         recorderPresent: Boolean,
         map: android.hardware.camera2.params.StreamConfigurationMap?,
-    ): Boolean =
-        UltraHd60RecordSupport.needsUltraHd60Delivery(
+        webcamUhd60: Boolean = false,
+    ): Boolean {
+        if (webcamUhd60 && desiredFps == UltraHd60RecordSupport.TARGET_FPS &&
+            UltraHd60RecordSupport.isUltraHdSize(recordSize.width, recordSize.height)
+        ) {
+            return true
+        }
+        return UltraHd60RecordSupport.needsUltraHd60Delivery(
             recordSize = recordSize,
             desiredFps = desiredFps,
             map = map,
             inAppVideoRecordingArmed = inAppVideoRecordingArmed,
             recorderPresent = recorderPresent,
         )
+    }
 
     fun buildSessionParametersTemplate(
         camera: CameraDevice,

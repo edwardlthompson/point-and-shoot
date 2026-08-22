@@ -33,6 +33,12 @@ class ChromeSettingsSearchA11yTest {
         assertTrue(abouts.any { it.title.contains("About", ignoreCase = true) })
         assertEquals("about.heritage", abouts.single { it.settingKey == "about.heritage" }.settingKey)
         assertTrue(abouts.any { it.title == "Donate via Venmo" && it.settingKey == "about.donate" })
+        assertTrue(abouts.any { it.title == "Check for updates" && it.settingKey == "about.checkUpdates" })
+        assertTrue(abouts.any { it.title == "Wi-Fi only updates" && it.settingKey == "about.wifiOnly" })
+        assertTrue(abouts.any { it.title == "Add in Obtainium" && it.settingKey == "about.obtainium" })
+        assertTrue(abouts.any { it.title == "What's new" && it.settingKey == "about.whatsNew" })
+        assertTrue(abouts.any { it.title == "Open NOTICE / licenses" && it.settingKey == "about.notice" })
+        assertTrue(abouts.any { it.title == "Open LICENSE" && it.settingKey == "about.license" })
     }
 
     @Test

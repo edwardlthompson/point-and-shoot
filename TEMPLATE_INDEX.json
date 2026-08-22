@@ -74,6 +74,8 @@
       ".cursor/commands/compact.md",
       ".cursor/commands/scope.md",
       ".cursor/commands/cleanup.md",
+      ".cursor/commands/ideas.md",
+      ".cursor/commands/coach.md",
       ".cursor/commands/bootstrap.md",
       ".cursor/commands/verify.md",
       ".cursor/commands/build.md",

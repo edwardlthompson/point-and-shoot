@@ -19,7 +19,7 @@ class PnsCameraWidgetProvider : AppWidgetProvider() {
         for (id in appWidgetIds) {
             val views = RemoteViews(context.packageName, R.layout.pns_widget_camera)
             val launch =
-                Intent(Intent.ACTION_VIEW, Uri.parse("pointandshoot://preview")).apply {
+                Intent(Intent.ACTION_VIEW, Uri.parse("pointandshoot://preview?shoot=1")).apply {
                     setClass(context, MainActivity::class.java)
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 }

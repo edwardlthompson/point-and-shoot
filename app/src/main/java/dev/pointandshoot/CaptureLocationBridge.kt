@@ -14,5 +14,11 @@ object CaptureLocationBridge {
         latest = location
     }
 
-    fun snapshot(): Location? = latest
+    fun snapshot(): Location? {
+        val loc = latest ?: return null
+        return PnsGeotagPrivacy.apply(loc, cachedMode)
+    }
+
+    @Volatile
+    var cachedMode: PnsGeotagMode = PnsGeotagMode.Off
 }

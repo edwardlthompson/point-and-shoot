@@ -34,6 +34,7 @@ object StillCaptureMetadata {
     private const val TAG = "PNS.StillExif"
 
     private const val ORIENTATION_NORMAL = ExifInterface.ORIENTATION_NORMAL.toString()
+    private const val CREDIT_MAX_CHARS = 128
 
     private val exifDateTimeFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss")
@@ -122,6 +123,8 @@ object StillCaptureMetadata {
         location: Location? = null,
         colorSpaceTarget: ColorSpaceTarget = ColorSpaceTarget.DisplayP3,
         stripPrivacyExif: Boolean = false,
+        artist: String? = null,
+        copyright: String? = null,
     ) {
         applyCommonFd(
             context,
@@ -134,6 +137,8 @@ object StillCaptureMetadata {
             embedIccProfile = true,
             colorSpaceTarget = colorSpaceTarget,
             stripPrivacyExif = stripPrivacyExif,
+            artist = artist,
+            copyright = copyright,
         )
     }
 
@@ -205,6 +210,8 @@ object StillCaptureMetadata {
         embedIccProfile: Boolean,
         colorSpaceTarget: ColorSpaceTarget,
         stripPrivacyExif: Boolean = false,
+        artist: String? = null,
+        copyright: String? = null,
     ) {
         val effectiveLocation = if (stripPrivacyExif) null else location
         runCatching {
@@ -218,6 +225,8 @@ object StillCaptureMetadata {
                     setOrientation,
                     stampSoftwareTag,
                     stripPrivacyExif,
+                    artist,
+                    copyright,
                 )
                 exif.saveAttributes()
                 if (stripPrivacyExif) {
@@ -331,6 +340,8 @@ object StillCaptureMetadata {
         setOrientation: Boolean,
         stampSoftwareTag: Boolean,
         stripPrivacyExif: Boolean = false,
+        artist: String? = null,
+        copyright: String? = null,
     ) {
         val iso = result.get(CaptureResult.SENSOR_SENSITIVITY) ?: fallbackIso(characteristics)
         val exposureNs = result.get(CaptureResult.SENSOR_EXPOSURE_TIME)
@@ -350,6 +361,8 @@ object StillCaptureMetadata {
             if (stampSoftwareTag) {
                 exif.setAttribute(ExifInterface.TAG_SOFTWARE, "Point & Shoot")
             }
+            sanitizeCredit(artist)?.let { exif.setAttribute(ExifInterface.TAG_ARTIST, it) }
+            sanitizeCredit(copyright)?.let { exif.setAttribute(ExifInterface.TAG_COPYRIGHT, it) }
 
             val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
             val lensDesc =
@@ -464,6 +477,12 @@ object StillCaptureMetadata {
                 else -> isoRange.upper / 2
             }
         return guess.coerceIn(isoRange.lower, isoRange.upper)
+    }
+
+    fun sanitizeCredit(raw: String?): String? {
+        val trimmed = raw?.trim().orEmpty()
+        if (trimmed.isEmpty()) return null
+        return trimmed.take(CREDIT_MAX_CHARS)
     }
 
     fun exposureTimeExifString(ns: Long): String? {

@@ -1,6 +1,7 @@
 package dev.pointandshoot
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class PreviewHdrSessionSupportTest {
@@ -27,5 +28,10 @@ class PreviewHdrSessionSupportTest {
             listOf(1L, 9L),
             PreviewHdrSessionSupport.orderedDynamicRangeCandidates(null, listOf(9L, 1L)),
         )
+    }
+
+    @Test
+    fun hdr10LivePreview_defaultsOff() {
+        assertFalse(HudSettings().enableHdr10LivePreview)
     }
 }

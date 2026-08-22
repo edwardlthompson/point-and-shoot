@@ -35,8 +35,17 @@
     <!-- Sprint IP.2 — LAN media transfer + optional social webhook POST -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Sprint 15.37 — LAN tether discovery (NSD / Wi‑Fi Direct companion) -->
     <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
 
     <application
         android:name=".PnsApplication"
@@ -47,6 +56,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Point &amp; Shoot"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
+        android:networkSecurityConfig="@xml/pns_network_security_config"
         android:supportsRtl="true">
 
         <!-- Lets Macrobenchmark / BaselineProfile read GPU framestats on release-class builds (API 31+). -->
@@ -56,7 +66,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="Point &amp; Shoot"
-            android:screenOrientation="portrait"
+            android:screenOrientation="fullUser"
             android:configChanges="orientation|screenLayout|screenSize|smallestScreenSize|keyboardHidden|uiMode"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
             android:clearTaskOnLaunch="true">

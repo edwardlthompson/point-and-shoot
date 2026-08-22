@@ -21,7 +21,7 @@
 | **3** | Medium | Imaging profile **`remember`**: Milestone 9 **`runCatching`** / singleton-touch + **`StandardPro` fallback**; **`SideEffect { setImagingProfileForStreams }`** kept | **In tree** (unchanged) |
 | **4** | Medium | **§4a** stream hints off. **§4b** 0 ms debounce: **rejected** (crash). **§4e:** scripted post-**`stopRepeating`** delay **≥420 ms**. **§4d+:** texture / Ultra-Max settle — **pending** | **§4a KEEP bisect (off)** on legacy SKU (May 2026): stream hints on → RAW still timeout; **§4e** **shipped** |
 | **5** | Lower | **`PreviewPostRawSensitivity.applyIfCompatible`** on RAW still + bracket still `TEMPLATE_STILL_CAPTURE` (default pref off) | **RESTORED** (May 2026, USB **legacy serial**) — with §4a off + §2 bisected; see §8 |
-| **6** | Lower | **`PreviewHdrSessionSupport`** dynamic range on preview output (`enableHdr10LivePreview`, default off) | **Pending** |
+| **6** | Lower | **`PreviewHdrSessionSupport`** dynamic range on preview output (`enableHdr10LivePreview`, default off) | **IN TREE** (default off; no default-on without USB) |
 
 After each step: run **`scripts/pns_capture_pipeline_verify.ps1 -BisectStep <n>`** (or **`scripts/pns_photo_capture_verify.ps1`**) and your usual **`pns_milestone6_gate.ps1`** when appropriate. If capture succeeds, the last **REVERTED** step is the prime suspect; consider a **narrow fix** (e.g. OIS off for RAW still only) instead of keeping the full revert.
 
@@ -197,11 +197,11 @@ Always use **`RAW_STILL_AFTER_STOP_REPEATING_DEBOUNCE_MS`** for **`postDelayed(f
 
 ---
 
-## §6 — HDR preview dynamic range on outputs (**Pending**)
+## §6 — HDR preview dynamic range on outputs (**IN TREE**, default off)
 
 **Introduced:** `7bf0723` / `PreviewHdrSessionSupport.kt`.
 
-Default `enableHdr10LivePreview` is **off**. If enabled and implicated, keep pref off or remove `chosenPreviewDr` wiring after confirmation.
+`PreviewHdrSessionSupport.pickProfileForPreviewOutputsOrNull` still applies `chosenPreviewDr` only when **`HudSettings.enableHdr10LivePreview`** is on (Settings → HUD / Settings rail). Default stays **off**. Do not flip the default on without USB `pns_photo_capture_verify` on CPH2583. Host contract: `PreviewHdrSessionSupportTest.hdr10LivePreview_defaultsOff`.
 
 ---
 

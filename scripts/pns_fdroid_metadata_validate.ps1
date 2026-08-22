@@ -79,6 +79,18 @@ if ($yaml -notmatch "versionCode:\s*$gradleCode\b") {
 if ($yaml -notmatch [regex]::Escape("versionName: '$gradleName'")) {
   Add-Fail "metadata.yml Builds versionName must match app ('$gradleName')"
 }
+if ($yaml -notmatch "(?m)^CurrentVersion: $([regex]::Escape($gradleName))\s*$") {
+  Add-Fail "metadata.yml CurrentVersion must match app ($gradleName)"
+}
+if ($yaml -notmatch "(?m)^CurrentVersionCode: $gradleCode\s*$") {
+  Add-Fail "metadata.yml CurrentVersionCode must match app ($gradleCode)"
+}
+if ($yaml -match '(?m)^\s+# publishedApkSha256: (\S+)\s*$') {
+  $pubSha = $Matches[1]
+  if ($pubSha -notmatch '^[a-f0-9]{64}$') {
+    Add-Fail "publishedApkSha256 must be 64 lowercase hex"
+  }
+}
 
 $textFiles = @{
   "title.txt" = (Join-Path $enUs "title.txt")

@@ -18,7 +18,7 @@ if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
 $atomic = @(
   "audit", "debug", "gates", "triage", "dependabot", "push", "prerelease", "regress",
   "feature", "fix", "init", "prune", "ci", "docs", "upgrade", "setup", "plan", "restore", "compact", "scope",
-  "cleanup"
+  "cleanup", "ideas", "coach"
 )
 $super = @("bootstrap", "verify", "build", "ship", "maintain")
 $superChains = @{

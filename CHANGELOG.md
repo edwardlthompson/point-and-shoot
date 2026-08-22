@@ -2,17 +2,134 @@
 
 All notable changes to **Point & Shoot** are documented here. The project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions and [Semantic Versioning](https://semver.org/) once tagged releases begin.
 
-## [0.14.0-beta.17] - 2026-07-13
+## Unreleased
 
-**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.17.apk
+_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+## [0.14.0-beta.22] - 2026-08-22
+
+Wear remote, HDMI/MJPEG, Lineage USB Webcam for Camera/Zoom/Teams, gallery desk, and capture recipes.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.22.apk`
+
+### Added
+
+- **Wear OS remote or timer** — `:wear` APK with a Remote / Timer switch. Watch countdown (3/5/10s, cancel, vibrate, keep-awake) or phone timer via BLE/LAN. BLE rescan on drop. Phone `timer_cancel` cancels a stacked delay. No Play Services.
+- **HDMI + MJPEG output** — clean-feed Presentation prefers cable HDMI, retries after display settle, keeps last-good JPEG on PixelCopy miss; `http://phone:28770/mjpeg` and `/snapshot.jpg` for OBS/VLC. No second camera session.
+- **USB webcam mode** — Camera / Zoom / Teams use Lineage **USB → Webcam** (UVC + DeviceAsWebcam, inbox **usbvideo.sys** / **Android Webcam**). `scripts/pns_usb_webcam_windows.ps1` runs `svc usb setFunctions uvc` and taps the Settings radio if needed. In-app USB button opens Connected devices; Grant Su (already stored) can flip the same `svc` commands. Tray Webcam HTTP encode stays OBS-only — those apps cannot open `/mjpeg`. Entering Webcam no longer auto-opens Settings (that backgrounded preview and tripped camera error 4).
+- **Gallery library desk** — side-by-side compare, stack cull, day contact sheet, keywords/collections, travel days, video trim/frame extract, LUT bake, folder export, vault copy, Immich/WebDAV publish, LAN `/proofing`, redact-before-share, SHA-256 evidence, redacted bug pack.
+- **Capture recipes** — concert/museum silent, airplane-safe (no launch donate/update), intervalometer ISO ramp, motion trip, geotag Off/Coarse/Precise (coarse ~1 km, never rewrites DNG).
+- **Looks** — imported `.cube` in the LUT picker, negative-invert catalog look, JPEG-only credit/bake finish, DNG XMP sidecar (file beside DNG).
+- **Landscape finder** — portrait chrome unchanged; landscape uses finder | rail. Activity `fullUser` rotation.
+
+### Added
+
+
+- **Gallery capture groups** — DNG + JPEG (and BKT / NightScape stacks) share, delete, and describe as one shot. Share asks JPEG / both. Delete can be undone for 30 seconds.
+- **What this file is** — one-line pair / stack / lens / ISO card in the in-app gallery.
+- **Capture journal** — last saved / failed stills without logcat.
+- **Power profile** — Performance / Balanced / Endurance in Settings backup.
+- **Privacy receipt** — what a new file can contain (location, JPEG credits, no DNG EXIF rewrite, update prefs local).
+- **Home widget still** — `pointandshoot://preview?shoot=1` fires a composed still.
+- **Chapter marks** — volume-up while recording drops a timestamp mark.
+- **LAN roll** — `/files` lists up to 200 P&S DCIM items.
 
 ### Changed
 
-- **RAW still AE precapture (ProShot process)** — Auto RAW stills now settle AE with ProShot-style CONTROL_AE_PRECAPTURE_TRIGGER on the **repeating** preview stream (setRepeatingRequest + one-shot), then stopRepeating and fire TEMPLATE_STILL_CAPTURE (RAW±JPEG). Replaces stop-first one-shot precapture. Keeps pure-HAL AE lock, AsShotNeutral sync, and lens-shading map off. USB: CPH2583 pns_capture_pipeline_verify PASS (process=proshot_process_default).
+- **Finder honesty** — a toast explains thermal / battery / profile FPS caps.
+- **Camera disconnect** — named reopen toast with the last good session when known.
+- **Few stills** — warning includes an approximate remaining-shot count.
+- **Install download** — APK cache names are sanitized under `cache/updates`, must end in `.apk`, must look like a ZIP, and GitHub / Content-Length sizes over 150 MB are refused. Timeout and I/O failures toast instead of opening GitHub. Progress shows received / total MB. One install at a time.
+- **Automatic update check** — skipped in Battery Saver, when Wi-Fi-only is on and the network is not Wi-Fi, and while an install is already running. A 403 / 429 from About Check is a named rate-limit toast and does not start the 24-hour silence.
+- **Still storage** — the still queue refuses and then aborts remaining shots when the planned floor is missing. Video-mode intervalometer uses encode remaining. Hold-burst RAW+JPEG budgets two files per shot. NightScape and BKT re-check before each frame.
+- **Prerelease-aware update check** — daily GitHub check now reads recent releases (including betas) and still compares APK filenames, not git tags. A failed or timed-out fetch no longer starts the 24-hour silence.
+- **Metered / offline skip** — automatic checks stay silent on metered or disconnected networks. About → **Check for updates** always talks to GitHub and uses the same Install / Later dialog (no donate on that dialog).
+- **About → What's new** — opens the tagged GitHub release (last-known APK version, else the shipped tag), not `/releases/latest`.
+- **Install** — downloads the APK and starts the system package installer. Failures toast; they do not open GitHub.
+- **CHANGELOG order** — `## Unreleased` is first; dated sections are newest-first.
 
-### Added (maintainer / engineering)
+### Added
 
-- **DNG fleet exposure bisect** — matrix + ADB extras (pns_preview_dng_*), same-scene metric, ProShot UI same-scene helper; OP13 residual shadow crush deferred. Docs: docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md, REG-20260713-001…004.
+- **About → Wi-Fi only updates** — device-local; automatic GitHub checks stay on Wi-Fi. Manual Check still works.
+- **Update dialog → Add in Obtainium** — same Obtainium add URL as About.
+- **Few stills toast** — warning when free space drops below three planned stills (no chrome change).
+
+- **About → Check for updates** — user-initiated APK check that ignores the daily wait.
+- **About GitHub version line** — after a successful check, shows the last-known APK version next to the installed build.
+- **`/ideas` and `/coach`** — backlog and next-action recipes in the batch-command registry.
+- **F-Droid CurrentVersion** — `metadata.yml` now has top-level `CurrentVersion` / `CurrentVersionCode`; Prepare syncs them.
+- **Conditional GitHub fetch** — daily check sends `If-None-Match` and reuses a cached body on HTTP 304.
+- **Release SHA-256 sidecar** — `-Publish` uploads `{apk}.sha256` next to the APK and writes `# publishedApkSha256` on the first F-Droid Builds row.
+- **Update dialog notes** — cached GitHub release body is shown on Install / Later.
+- **About last-checked** — shows how stale the last successful GitHub check is.
+- **About → NOTICE / licenses** — opens the tagged GitHub `NOTICE` file.
+- **JPEG artist / copyright** — optional EXIF on JPEG only; never written to DNG.
+- **Settings search** — What’s new is indexed.
+- **Metered Install size** — uses the GitHub APK `size` when present.
+- **About → LICENSE** — opens the Apache-2.0 LICENSE on GitHub.
+- **Install SHA-256 short** — Update dialog shows the first 12 hex chars when the sidecar is available.
+
+### Fixed
+
+- **GitHub release notes** — the published body no longer includes the `## Unreleased` placeholder that sat after the dated section.
+- **Prepare-only F-Droid sync** — `pns_github_release.ps1 -PrepareOnly` now updates `metadata/metadata.yml` Builds and writes `metadata/en-US/changelogs/{versionCode}.txt`.
+- **`-Publish -SkipPrepare` without `-Tag`** — uses the current gradle `versionName` instead of auto-incrementing.
+- **Install safety** — the downloader checks the APK package is `dev.pointandshoot` and, when a sidecar exists, the SHA-256. Wrong file or hash: no installer. Metered networks ask before the ~50 MB download. A progress dialog is shown. Unknown-sources Settings is explained.
+- **Install follow-through** — Later still silences a version; Install does not until the system installer starts. Same-signer and `versionName` must match. Download can be cancelled. After unknown-sources Settings, install resumes when permission is granted.
+- **About** — in-app What’s new from the last cached GitHub release body; **Add in Obtainium**; a debug/test-signed warning when the installed cert is the Android debug subject.
+- **Still low-storage** — refuse a photo when free space is below one DNG-sized floor (toast only).
+- **Launch dialogs** — donate / update stay hidden while in-app video is recording.
+- **Truncated APK** — download is rejected when bytes do not match `Content-Length`.
+- **Update cache** — stale `cache/updates` APKs are deleted on the next launch when no install is pending.
+- **Still storage** — NightScape / HDR / burst require free space for the planned frame count, not one DNG.
+- **Intervalometer** — will not arm when space is below two still floors.
+- **Video start** — refuse record when remaining time is under 1 minute.
+- **APK size** — download is rejected when bytes do not match the GitHub asset size.
+- **APK versionCode** — install is refused when the archive is not newer than the installed build.
+- **Release notes** — cached GitHub body is stripped of HTML and capped before display.
+- **BKT storage** — AE bracket (3/5/7) requires free space for every planned frame.
+- **Intervalometer / hold-burst / self-timer** — each tick, shot, or timer fire re-checks one still floor and stops with a toast.
+- **Video empty card** — a running clip stops when remaining time hits zero (toast; overlay geometry unchanged).
+- **APK redirects** — downloads only follow HTTPS to `github.com` or `*.githubusercontent.com`.
+- **APK size headers** — download is refused when GitHub `size` and `Content-Length` both exist and disagree.
+- **Stale pending install** — cleared when the installed version already matches.
+- **Launch dialogs** — donate / update stay hidden while Settings or About is open, and during intervalometer or self-timer.
+- **APK space** — Install refuses when cache cannot hold the APK (GitHub size + slack, or a 56 MB budget).
+- **Intervalometer tick** — HDR / NightScape / burst / BKT ticks use the planned frame count, not one still.
+- **Hold-burst start** — refuses before the first shot when one still floor is missing.
+- **Video 5-minute warning** — toast even if the remaining-time overlay is hidden.
+- **Cached APK reuse** — skips the download when a cache file already matches the SHA-256 sidecar.
+- **HTTPS updates** — `networkSecurityConfig` disables cleartext except loopback (LAN tether).
+- **Blocked download toast** — redirect / size / space rejects toast instead of opening GitHub.
+## [0.14.0-beta.21] - 2026-08-20
+
+Quiet Venmo donate plus once-per-day GitHub APK update check.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.21.apk`
+
+### Added
+
+- **Donate via Venmo** — always available from Settings and About. After an update, one optional “Development is still going” note (Donate / Not now); never on the update dialog and never on a daily timer.
+- **Quiet GitHub update check** — once per 24 hours, compares Point & Shoot APK filenames on the latest GitHub release. Newer build: Install / Later. Later silences that version. Failed or same-version checks stay silent.
+
+## [0.14.0-beta.20] - 2026-08-07
+
+Fix same-lens 35/50 mm prime FOV crops on OP13-class devices.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.20.apk`
+
+### Fixed
+
+- **Same-lens prime focal crops (35 / 50 mm)** — On OP13-class stacks, tapping 35mm or 50mm on the wide camera no longer left preview at full-array FOV. `maybeRestartBody` still skips a full session teardown when the pipeline is stable, but now refreshes the repeating request so prime-eq `SCALER_CROP_REGION` applies (REG-20260806-001). USB: CPH2655 `Prime35` / `Prime50` crop rects after cold `pns_preview_focal_mm_slot`.
+
+## [0.14.0-beta.19] - 2026-07-21
+
+Agent-project-bootstrap v0.15.0 Reference-mode alignment (process/docs; no camera pipeline changes).
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.19.apk`
+
+### Changed (maintainer / agent process)
+
+- **Bootstrap template alignment (v0.15.0)** — Reference-mode agent entrypoints (`docs/START_HERE.md`, `CURSOR_MODES.md`, `FOR_AGENTS.md`), generic Cursor rules, `/cleanup` batch command (26 total), `TEMPLATE_INDEX.json`, template update checker, additive Dependency Review + OpenSSF Scorecard workflows, and `docs/SECURITY_TRIAGE.md`. Product CRITICAL locks and Apache-2.0 unchanged. See `docs/BOOTSTRAP_ALIGNMENT.md`.
 
 ## [0.14.0-beta.18] - 2026-07-13
 
@@ -27,81 +144,79 @@ Hotfix: gate CONTROL_ZOOM_RATIO behind API 30; CI/detekt hygiene from beta.17 fo
 ### Changed (maintainer)
 
 - Detekt shared-baseline hygiene and F-Droid metadata sync for the beta.17 ship lane.
-## [0.14.0-beta.19] - 2026-07-21
 
-Agent-project-bootstrap v0.15.0 Reference-mode alignment (process/docs; no camera pipeline changes).
+## [0.14.0-beta.17] - 2026-07-13
 
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.19.apk`
+**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.17.apk
 
-### Changed (maintainer / agent process)
+### Changed
 
-- **Bootstrap template alignment (v0.15.0)** — Reference-mode agent entrypoints (`docs/START_HERE.md`, `CURSOR_MODES.md`, `FOR_AGENTS.md`), generic Cursor rules, `/cleanup` batch command (26 total), `TEMPLATE_INDEX.json`, template update checker, additive Dependency Review + OpenSSF Scorecard workflows, and `docs/SECURITY_TRIAGE.md`. Product CRITICAL locks and Apache-2.0 unchanged. See `docs/BOOTSTRAP_ALIGNMENT.md`.
-## [0.14.0-beta.20] - 2026-08-07
-
-Fix same-lens 35/50 mm prime FOV crops on OP13-class devices.
-
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.20.apk`
-
-### Fixed
-
-- **Same-lens prime focal crops (35 / 50 mm)** — On OP13-class stacks, tapping 35mm or 50mm on the wide camera no longer left preview at full-array FOV. `maybeRestartBody` still skips a full session teardown when the pipeline is stable, but now refreshes the repeating request so prime-eq `SCALER_CROP_REGION` applies (REG-20260806-001). USB: CPH2655 `Prime35` / `Prime50` crop rects after cold `pns_preview_focal_mm_slot`.
-## [0.14.0-beta.21] - 2026-08-20
-
-Quiet Venmo donate plus once-per-day GitHub APK update check.
-
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.21.apk`
-
-### Added
-
-- **Donate via Venmo** — always available from Settings and About. After an update, one optional “Development is still going” note (Donate / Not now); never on the update dialog and never on a daily timer.
-- **Quiet GitHub update check** — once per 24 hours, compares Point & Shoot APK filenames on the latest GitHub release. Newer build: Install / Later. Later silences that version. Failed or same-version checks stay silent.
-## Unreleased
-
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
-## [0.14.0-beta.8] - 2026-06-05
-
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.8.apk`
-
-- **GitHub release automation** — `scripts/pns_github_release.ps1` prepares semver version bumps, cuts CHANGELOG sections, and publishes GitHub releases with changelog body + APK (`Point-and-Shoot-{version}.apk`) + attached `CHANGELOG.md`. About → **What's new** / **Full changelog** open GitHub release notes.
-- **Milestone 23 hardening (in progress, not shipped)** — workstream placeholder for fleet resilience improvements. Items below remain draft until M23 closeout gates pass.
-- **Milestone 24 4K120 stability/truth lane (USB-closed on CPH2583, 2026-06-05)** — strict 4K120 truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`) with parity/endurance evidence; OnePlus 12 classifies **blocked_unstable** (120 fps HS at 1920×1080 deliver, not false `true_4k120`); pipeline fixes for GLES buffer sizing, RAW automation vs lean-video warmup, and audio-meter crash guard.
-
-### Milestone 23 hardening bucket (placeholder)
-
-- **Automation truthfulness:** fleet-critical gate scripts now require real device evidence and stricter focal proof semantics.
-- **Capture/session hardening:** preview session create/open seams extracted into dedicated `preview/session/*` + `preview/capture/*` gateways, bracket capture now uses callback-order-safe reader waits, and stale generation guards block teardown races.
-- **DNG safety and memory:** DNG/JPEG metadata writes now stage bytes before final URI replacement to reduce truncate-risk windows and lower peak post-patch churn.
-- **Fleet matrix/catalog correctness:** policy/visibility/parity semantics tightened for cross-device consistency.
-- **Fleet focal + parity hardening:** focal resolver now fails closed for non-openable ids and parity sweep can promote optional subtracks to blocking via script flag when requested.
-## [0.14.0-beta.9] - 2026-06-05
-
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.9.apk`
-
-- **Camera2 source-of-truth leaderboard shipped (M25)** — live GitHub Pages leaderboard with product groups, OEM accountability rollups, CSV/RSS/catalog exports, and submit/merge pipeline for approved community parity submissions.
-- **Fleet parity closure pipeline (M26)** — debt/intake generation (`FLEET_PARITY_DEBT_LEDGER*`, `FLEET_PARITY_BUILD_PLAN_INTAKE*`), proof-pack merge hardening, and ownership mapping updates for recurring not-proven/unautomated rows.
-- **4K120 truthfulness + stability hardening (M24)** — strict HFR policy and telemetry, endurance classification, and parity truth-class handoff to avoid over-claiming delivered 4K120 behavior.
-- **Fleet-adapted UI and capability gating** — device-adapted format/catalog gating, readiness-aware visibility, and expanded hub/diagnostics reporting for cross-device honesty.
-## [0.14.0-beta.10] - 2026-06-05
-
-Parity closure and Milestone H active-plan cleanup.
-
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.10.apk`
-
-_(No user-visible changes in this drop — version bump / packaging only.)_
-## [0.14.0-beta.11] - 2026-06-12
-
-CRI program + Milestone T template alignment; OP13 regression lane; RAW video lane fix.
-
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.11.apk`
-
-### Fixed
-
-- **CRI program (H.CRI-0…6)** — AGENTS.md DNG pairing doc aligned with shipped `false` policy; host `pns_release_asset_check` SKIP when no GitHub APK; shared ReferenceApp fixture resolver (`referenceapp_legacy_sku` → `referenceapp_cph2655` fallback); RAW video lane attaches RAW ImageReader in video-primary preview sessions (**CPH2583** `pns_raw_video_verify` PASS); detekt baseline burn-down; CI path filters for fixtures/metadata.
-- **OP13 regression lane (H.CRI-1/3 USB)** — `8bf09993` CPH2655: fleet matrix quick PASS; aux DNG openability 3/3 (`aux_dng_capture_analyze_20260613_014424`); ProShot fixture refresh + `manifest.json`; PiP + multicam melt PASS; `pns_op13_regression_pack.ps1` hashtable splat fix.
+- **RAW still AE precapture (ProShot process)** — Auto RAW stills now settle AE with ProShot-style CONTROL_AE_PRECAPTURE_TRIGGER on the **repeating** preview stream (setRepeatingRequest + one-shot), then stopRepeating and fire TEMPLATE_STILL_CAPTURE (RAW±JPEG). Replaces stop-first one-shot precapture. Keeps pure-HAL AE lock, AsShotNeutral sync, and lens-shading map off. USB: CPH2583 pns_capture_pipeline_verify PASS (process=proshot_process_default).
 
 ### Added (maintainer / engineering)
 
-- **Milestone T — Project template alignment** — KNOWLEDGE_BASE + ADR index + AGENT_MEMORY; pre-commit, CONTRIBUTING, devcontainer; Kover coverage floor; perf/a11y/Paparazzi scaffold; F-Droid metadata + `pns_fdroid_metadata_validate.ps1`; PRIVACY.md, NOTICE, reproducible builds + `pns_repro_build_verify.ps1`; full pre-release orchestrator **`pns_prerelease_gate.ps1`**; local-first Tier 0 **`pns_local_dev_parallel.ps1`** + multi-agent orchestration docs; **Milestone T closed (agent lane 2026-06-12)** via **`pns_milestone_t_gate.ps1`** — human store copy + PRIVACY sign-off deferred to Milestone **H**.
+- **DNG fleet exposure bisect** — matrix + ADB extras (pns_preview_dng_*), same-scene metric, ProShot UI same-scene helper; OP13 residual shadow crush deferred. Docs: docs/DNG_FLEET_EXPOSURE_BISECT_MATRIX.md, REG-20260713-001…004.
+
+## [0.14.0-beta.16] - 2026-06-21
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.16.apk`
+
+### Fixed
+
+- **Highlight (H) metering** — YUV warmup and garbage-frame guard stop pegging min AE compensation at session start; bulk-tail engagement avoids crushing exposure on mostly-dark scenes with a modest bright tail; face tracking no longer biases AE on H dial (AF only). Gate: `pns_highlight_meter_verify.ps1`.
+- **QR scan mode** — Restored **QR** in Photo programs on the mode dial (`preview.qr` fleet visibility **AlwaysShow**); ZXing decode + finder overlay unchanged. Gate: `pns_qr_scan_verify.ps1`.
+
+## [0.14.0-beta.15] - 2026-06-21
+
+Milestone **28 Waves C+D** closure - multi-cam video scaffolds + spike decisions.
+
+**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.15.apk
+
+### Added
+
+- **Dual video mode** - stacked front+rear composite on the mode dial (DUAL); USB verified on CPH2583.
+- **Spatial audio** - in-app video records spatial metadata where the encoder path supports it.
+- **Wait-for-AF-lock** - HUD setting to defer still capture until AF precapture completes.
+
+### Changed
+
+- **Extension handoff** - isolated Camera2 extension route with cold preview return (N/A when OEM reports no extensions on device).
+- **Fleet catalog v6** - Wave C promotions (video.dual, preview.pip, audio.spatial); Wave D rows documented as Shipped, N/A, Planned, or ProbeOnly per spike outcomes.
+
+### Added (maintainer / engineering)
+
+- **Milestone 28** closed - Waves A-D; spikes docs/spikes/PANORAMA_SPIKE.md (NO-GO), COMP_HDR_SPIKE.md (NO-GO), ML_KIT_FOSS_SPIKE.md (ZXing default on foss); parity Delta PASS on CPH2583.
+
+## [0.14.0-beta.14] - 2026-06-21
+
+Milestone **28 Wave B** - still export formats + video format surfacing.
+
+**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.14.apk
+
+### Added
+
+- **Still export formats** - Motion Photo, HEIC, JPEG XL (JXL), 16-bit TIFF, independent tonal JPEG, and monochrome still capture in the format picker.
+- **Video formats** - VP9 WebM recording; RAW video (MCRAW) in the format picker; 4K regular / UHD 60 fps and high-speed video (HFR) surfacing on supported encoders; AV1 encoder probe (in-app WebM record remains device/OEM dependent).
+
+### Added (maintainer / engineering)
+
+- **Milestone 28 Wave B** - catalog **v5** promotions; USB gates on CPH2583 (pns_still_export_verify, pns_video_format_test, pns_raw_video_verify, pns_in_app_video_verify, pns_fleet_parity_sweep -Mode Delta).
+
+## [0.14.0-beta.13] - 2026-06-18
+
+Milestone **28 Wave A** — EXIF privacy strip, settings backup, capture pipeline verification lane.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.13.apk`
+
+### Added
+
+- **EXIF privacy strip** — Settings toggle removes identifying metadata (GPS, make/model, timestamps) from JPEG still exports; DNG saves skip post-save EXIF rewrite (loadability lock).
+- **Settings backup** — HUD Settings → Export / Import JSON via SAF (HUD overlays, preview chrome, workflow presets).
+
+### Added (maintainer / engineering)
+
+- **Milestone 28 Wave A** — peer camera-app pipeline benchmark (`pns_camera_app_pipeline_scan.ps1`); G1–G8 capture architecture audit; Camera2 extension handoff isolated route + ADR-0010; USB gates on CPH2583 (`pns_capture_pipeline_verify`, `pns_exif_strip_verify`, `pns_aux_dng_capture_analyze`, `pns_settings_export_verify`).
+
 ## [0.14.0-beta.12] - 2026-06-18
 
 Milestone H automation lane, Gradle 9.5 stack, wireless USB gates on CPH2583.
@@ -123,62 +238,55 @@ Milestone H automation lane, Gradle 9.5 stack, wireless USB gates on CPH2583.
 - **Sprint TM (2026-06-17, engineering)** — Gradle libraries `:pns-core`, `:pns-fleet`, `:pns-capture`, `:pns-preview` under `modules/`; bootstrap gates `pns_validate_bootstrap.ps1` / `pns_watch_agent_gates.ps1`; Golden Path docs in `examples/golden-path/`; ADR-0009 module boundaries. **Post-TM deferred extraction:** capture RAW/DNG pipeline + leaf reconcile in `:pns-capture`; preview session orchestrators in `:pns-preview`; `LeafDngFleetPolicy` / focal routing types in `:pns-core`. **Bootstrap v0.10 batch commands:** 25 `.cursor/commands/*.md` slash workflows + `pns_check_batch_commands.ps1` + `docs/help/BATCH_COMMANDS.md`.
 - **AUDIT2.3 dependency bump (2026-06-18)** — Gradle **9.5.1**, AGP **9.1.1**, Kotlin **2.4.0**, Compose BOM **2026.05.01**, CameraX **1.6.1**, androidx.core **1.19.0** / lifecycle **2.10.0** / activity **1.13.0**; `compileSdk` **37**; AGP 9 built-in Kotlin (`kotlin.android` plugin removed); Paparazzi **2.0.0-alpha05**; baseline profile plugin **1.5.0-alpha06**; `:pns-core` namespace `dev.pointandshoot.core`; Kover gate task `koverVerify`.
 - **Milestone H automation (2026-06-18)** — `pns_github_pages_smoke.ps1`; wireless ADB gate lane on CPH2583; SBOM repro baseline refresh; prerelease USB subset PASS.
-## [0.14.0-beta.16] - 2026-06-21
 
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.16.apk`
+## [0.14.0-beta.11] - 2026-06-12
+
+CRI program + Milestone T template alignment; OP13 regression lane; RAW video lane fix.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.11.apk`
 
 ### Fixed
 
-- **Highlight (H) metering** — YUV warmup and garbage-frame guard stop pegging min AE compensation at session start; bulk-tail engagement avoids crushing exposure on mostly-dark scenes with a modest bright tail; face tracking no longer biases AE on H dial (AF only). Gate: `pns_highlight_meter_verify.ps1`.
-- **QR scan mode** — Restored **QR** in Photo programs on the mode dial (`preview.qr` fleet visibility **AlwaysShow**); ZXing decode + finder overlay unchanged. Gate: `pns_qr_scan_verify.ps1`.
-## [0.14.0-beta.15] - 2026-06-21
-
-Milestone **28 Waves C+D** closure - multi-cam video scaffolds + spike decisions.
-
-**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.15.apk
-
-### Added
-
-- **Dual video mode** - stacked front+rear composite on the mode dial (DUAL); USB verified on CPH2583.
-- **Spatial audio** - in-app video records spatial metadata where the encoder path supports it.
-- **Wait-for-AF-lock** - HUD setting to defer still capture until AF precapture completes.
-
-### Changed
-
-- **Extension handoff** - isolated Camera2 extension route with cold preview return (N/A when OEM reports no extensions on device).
-- **Fleet catalog v6** - Wave C promotions (video.dual, preview.pip, audio.spatial); Wave D rows documented as Shipped, N/A, Planned, or ProbeOnly per spike outcomes.
+- **CRI program (H.CRI-0…6)** — AGENTS.md DNG pairing doc aligned with shipped `false` policy; host `pns_release_asset_check` SKIP when no GitHub APK; shared ReferenceApp fixture resolver (`referenceapp_legacy_sku` → `referenceapp_cph2655` fallback); RAW video lane attaches RAW ImageReader in video-primary preview sessions (**CPH2583** `pns_raw_video_verify` PASS); detekt baseline burn-down; CI path filters for fixtures/metadata.
+- **OP13 regression lane (H.CRI-1/3 USB)** — `8bf09993` CPH2655: fleet matrix quick PASS; aux DNG openability 3/3 (`aux_dng_capture_analyze_20260613_014424`); ProShot fixture refresh + `manifest.json`; PiP + multicam melt PASS; `pns_op13_regression_pack.ps1` hashtable splat fix.
 
 ### Added (maintainer / engineering)
 
-- **Milestone 28** closed - Waves A-D; spikes docs/spikes/PANORAMA_SPIKE.md (NO-GO), COMP_HDR_SPIKE.md (NO-GO), ML_KIT_FOSS_SPIKE.md (ZXing default on foss); parity Delta PASS on CPH2583.
-## [0.14.0-beta.14] - 2026-06-21
+- **Milestone T — Project template alignment** — KNOWLEDGE_BASE + ADR index + AGENT_MEMORY; pre-commit, CONTRIBUTING, devcontainer; Kover coverage floor; perf/a11y/Paparazzi scaffold; F-Droid metadata + `pns_fdroid_metadata_validate.ps1`; PRIVACY.md, NOTICE, reproducible builds + `pns_repro_build_verify.ps1`; full pre-release orchestrator **`pns_prerelease_gate.ps1`**; local-first Tier 0 **`pns_local_dev_parallel.ps1`** + multi-agent orchestration docs; **Milestone T closed (agent lane 2026-06-12)** via **`pns_milestone_t_gate.ps1`** — human store copy + PRIVACY sign-off deferred to Milestone **H**.
 
-Milestone **28 Wave B** - still export formats + video format surfacing.
+## [0.14.0-beta.10] - 2026-06-05
 
-**Release notes:** **APK:** Point-and-Shoot-0.14.0-beta.14.apk
+Parity closure and Milestone H active-plan cleanup.
 
-### Added
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.10.apk`
 
-- **Still export formats** - Motion Photo, HEIC, JPEG XL (JXL), 16-bit TIFF, independent tonal JPEG, and monochrome still capture in the format picker.
-- **Video formats** - VP9 WebM recording; RAW video (MCRAW) in the format picker; 4K regular / UHD 60 fps and high-speed video (HFR) surfacing on supported encoders; AV1 encoder probe (in-app WebM record remains device/OEM dependent).
+_(No user-visible changes in this drop — version bump / packaging only.)_
 
-### Added (maintainer / engineering)
+## [0.14.0-beta.9] - 2026-06-05
 
-- **Milestone 28 Wave B** - catalog **v5** promotions; USB gates on CPH2583 (pns_still_export_verify, pns_video_format_test, pns_raw_video_verify, pns_in_app_video_verify, pns_fleet_parity_sweep -Mode Delta).
-## [0.14.0-beta.13] - 2026-06-18
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.9.apk`
 
-Milestone **28 Wave A** — EXIF privacy strip, settings backup, capture pipeline verification lane.
+- **Camera2 source-of-truth leaderboard shipped (M25)** — live GitHub Pages leaderboard with product groups, OEM accountability rollups, CSV/RSS/catalog exports, and submit/merge pipeline for approved community parity submissions.
+- **Fleet parity closure pipeline (M26)** — debt/intake generation (`FLEET_PARITY_DEBT_LEDGER*`, `FLEET_PARITY_BUILD_PLAN_INTAKE*`), proof-pack merge hardening, and ownership mapping updates for recurring not-proven/unautomated rows.
+- **4K120 truthfulness + stability hardening (M24)** — strict HFR policy and telemetry, endurance classification, and parity truth-class handoff to avoid over-claiming delivered 4K120 behavior.
+- **Fleet-adapted UI and capability gating** — device-adapted format/catalog gating, readiness-aware visibility, and expanded hub/diagnostics reporting for cross-device honesty.
 
-**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.13.apk`
+## [0.14.0-beta.8] - 2026-06-05
 
-### Added
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0-beta.8.apk`
 
-- **EXIF privacy strip** — Settings toggle removes identifying metadata (GPS, make/model, timestamps) from JPEG still exports; DNG saves skip post-save EXIF rewrite (loadability lock).
-- **Settings backup** — HUD Settings → Export / Import JSON via SAF (HUD overlays, preview chrome, workflow presets).
+- **GitHub release automation** — `scripts/pns_github_release.ps1` prepares semver version bumps, cuts CHANGELOG sections, and publishes GitHub releases with changelog body + APK (`Point-and-Shoot-{version}.apk`) + attached `CHANGELOG.md`. About → **What's new** / **Full changelog** open GitHub release notes.
+- **Milestone 23 hardening (in progress, not shipped)** — workstream placeholder for fleet resilience improvements. Items below remain draft until M23 closeout gates pass.
+- **Milestone 24 4K120 stability/truth lane (USB-closed on CPH2583, 2026-06-05)** — strict 4K120 truth classes (`true_4k120`, `hs120_sub4k`, `blocked_unstable`) with parity/endurance evidence; OnePlus 12 classifies **blocked_unstable** (120 fps HS at 1920×1080 deliver, not false `true_4k120`); pipeline fixes for GLES buffer sizing, RAW automation vs lean-video warmup, and audio-meter crash guard.
 
-### Added (maintainer / engineering)
+### Milestone 23 hardening bucket (placeholder)
 
-- **Milestone 28 Wave A** — peer camera-app pipeline benchmark (`pns_camera_app_pipeline_scan.ps1`); G1–G8 capture architecture audit; Camera2 extension handoff isolated route + ADR-0010; USB gates on CPH2583 (`pns_capture_pipeline_verify`, `pns_exif_strip_verify`, `pns_aux_dng_capture_analyze`, `pns_settings_export_verify`).
+- **Automation truthfulness:** fleet-critical gate scripts now require real device evidence and stricter focal proof semantics.
+- **Capture/session hardening:** preview session create/open seams extracted into dedicated `preview/session/*` + `preview/capture/*` gateways, bracket capture now uses callback-order-safe reader waits, and stale generation guards block teardown races.
+- **DNG safety and memory:** DNG/JPEG metadata writes now stage bytes before final URI replacement to reduce truncate-risk windows and lower peak post-patch churn.
+- **Fleet matrix/catalog correctness:** policy/visibility/parity semantics tightened for cross-device consistency.
+- **Fleet focal + parity hardening:** focal resolver now fails closed for non-openable ids and parity sweep can promote optional subtracks to blocking via script flag when requested.
+
 ## [0.14.0-beta.7] - 2026-06-04
 
 Pre-release for **Milestone 24 reliability hardening**, fleet truth wiring, and ReferenceApp naming/fixture migration cleanup.

@@ -36,7 +36,7 @@ On the live preview route (`PreviewEngineScreen` → `PreviewEngineContent`), th
 
 7. **Quick settings** — `PreviewRightRail` / `PreviewChromeGrid7x3` (focal row + **two** logical shortcut icon rows + shortcut dialogs). **`Modifier.weight(PreviewChromeRailFlexWeight)`** (baseline **1f**); **clipped** to its lane. **Settings** expand tile at **row 2, column 6** (`settingsAt=r2c6` in **`PNS.ChromeUx`**). Total **physical** grid rows in the rail = **3** (focal + two shortcut rows).
 
-8. **Shutter bar** — `PreviewBottomCaptureTray` when gallery thumb, on-screen shutter, or command dial is shown. Fixed height; **clipped** to its lane. **Tray:** gallery thumb + **video format FAB** (start row, video mode), **geometric-center** shutter (breathing room vs left/right clusters), **Photo/Video** toggle + mode dial (end). Divider above when present follows the same divider component.
+8. **Shutter bar** — `PreviewBottomCaptureTray` when gallery thumb, on-screen shutter, or command dial is shown. Fixed height; **clipped** to its lane. **Tray:** gallery thumb + **video format FAB** (start row, video mode), **geometric-center** shutter (breathing room vs left/right clusters), **Photo/Video/Webcam** toggle + mode dial (end). Divider above when present follows the same divider component.
 
 ---
 

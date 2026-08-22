@@ -15,6 +15,7 @@
         <include domain="sharedpref" path="pns_ux_settings.xml" />
         <include domain="sharedpref" path="pns_workflow_presets.xml" />
         <include domain="sharedpref" path="pns_preview_last_surface.xml" />
+        <include domain="sharedpref" path="pns_jpeg_credits.xml" />
     </cloud-backup>
     <device-transfer>
         <include domain="sharedpref" path="pns_preview_chrome.xml" />
@@ -30,5 +31,6 @@
         <include domain="sharedpref" path="pns_ux_settings.xml" />
         <include domain="sharedpref" path="pns_workflow_presets.xml" />
         <include domain="sharedpref" path="pns_preview_last_surface.xml" />
+        <include domain="sharedpref" path="pns_jpeg_credits.xml" />
     </device-transfer>
 </data-extraction-rules>

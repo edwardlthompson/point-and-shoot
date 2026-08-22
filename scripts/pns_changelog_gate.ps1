@@ -84,6 +84,14 @@ foreach ($entry in @($coverage.requiredMentions)) {
   }
 }
 
+$sectionTest = Join-Path $PSScriptRoot "pns_changelog_section_test.ps1"
+if (Test-Path -LiteralPath $sectionTest) {
+  & $sectionTest -ProjectRoot $ProjectRoot
+  if ($LASTEXITCODE -ne 0) {
+    $failures.Add("FAIL: pns_changelog_section_test.ps1")
+  }
+}
+
 if ($failures.Count -gt 0) {
   foreach ($line in $failures) {
     Write-Host $line

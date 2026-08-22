@@ -242,6 +242,8 @@ const val EXTRA_PNS_PREVIEW_DNG_PROSHOT_PIPELINE = "pns_preview_dng_proshot_pipe
 const val EXTRA_PNS_PREVIEW_COMPOSED_STILL = "pns_preview_composed_still"
 /** Optional physical/logical id (e.g. `3` = ultra-wide on dodge) for scripted preview validation. */
 const val EXTRA_PNS_PREVIEW_CAMERA_ID = "pns_preview_camera_id"
+/** Cold-start Webcam tray mode (USB / MJPEG smoke). */
+const val EXTRA_PNS_PREVIEW_WEBCAM = "pns_preview_webcam"
 /**
  * When true with [EXTRA_PNS_PREVIEW_CAMERA_ID] on ultra-wide: attempt `com.oplus.macro.closeup.enable` on the
  * repeating preview request (Sprint 5.3 Super Macro ADB evidence).
@@ -846,6 +848,12 @@ fun CameraCapabilitiesProbe(
             autoLegacyCamera1 ||
             autoFaceMeterProbe ||
             previewLaunchExtras.wantsVideoAutomation
+    LaunchedEffect(showAbout) {
+        PnsForegroundCapture.aboutOpen = showAbout
+    }
+    DisposableEffect(Unit) {
+        onDispose { PnsForegroundCapture.aboutOpen = false }
+    }
     PnsLaunchPromptsHost(enabled = !skipLaunchPrompts)
 
     // Native diagnostics is the one launch screen that does not require
@@ -1752,6 +1760,9 @@ fun CameraCapabilitiesProbe(
             adbShutterSoundPackSeed = adbShutterSoundPackSeed,
             adbComposedStillSmoke = adbComposedStillSmoke,
             adbSeedCameraId = adbSeedCameraId,
+            adbSeedWebcam =
+                trustIntentForPreviewPipeline &&
+                    (activity?.intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_WEBCAM, false) == true),
             adbSuperMacroProbe = adbSuperMacroProbe,
             adbPreviewStillsLutName = adbPreviewStillsLutName,
             adbM6FpsLutProbe = adbM6FpsLutProbe,

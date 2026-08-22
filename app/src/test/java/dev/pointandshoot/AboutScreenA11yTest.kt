@@ -10,7 +10,7 @@ class AboutScreenA11yTest {
     @Test
     fun externalLinkDescriptions_areNonBlankAndUnique() {
         val descriptions = AboutScreenA11y.EXTERNAL_LINK_DESCRIPTIONS
-        assertEquals(4, descriptions.size)
+        assertEquals(7, descriptions.size)
         assertEquals(descriptions.size, descriptions.toSet().size)
         descriptions.forEach { desc ->
             assertTrue("contentDescription must not be blank", desc.isNotBlank())

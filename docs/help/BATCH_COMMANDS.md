@@ -37,6 +37,8 @@ Bookmark this page when you return after a break.
 
 **Long sessions:** `/compact` · `/restore` · `/cleanup` (archive finished BUILD_PLAN rows)
 
+**Next work:** `/coach` (what to do now) · `/ideas` (ranked backlog, no implementation)
+
 **Device testing:** use `scripts/pns_capture_pipeline_verify.ps1` then `pns_chrome_ux_gate.ps1` **sequentially** on one phone (not part of `/gates` by default).
 
 ## Before you publish

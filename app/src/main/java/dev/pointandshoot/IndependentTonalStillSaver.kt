@@ -683,6 +683,7 @@ object IndependentTonalStillSaver {
             // Always tag fallback JPEG payload with the intended output color space.
             if (!lightweightMetadata) {
                 val stripPrivacy = PreviewChromePreferences.load(appContext).stripExifPrivacyTags
+                val credits = PnsJpegCreditPrefs(appContext.applicationContext)
                 StillCaptureMetadata.applyToJpegUri(
                     appContext.applicationContext,
                     uri,
@@ -691,6 +692,8 @@ object IndependentTonalStillSaver {
                     location = null,
                     colorSpaceTarget = colorTarget,
                     stripPrivacyExif = stripPrivacy,
+                    artist = credits.artist(),
+                    copyright = credits.copyright(),
                 )
                 updateImageDescription(appContext.applicationContext, uri, outputKind, colorTarget, captureResult)
             }
@@ -752,7 +755,8 @@ object IndependentTonalStillSaver {
                         )
                     CaptureStorage.CaptureKind.JpegSdr,
                     CaptureStorage.CaptureKind.MotionPhoto,
-                    ->
+                    -> {
+                        val credits = PnsJpegCreditPrefs(appContext.applicationContext)
                         StillCaptureMetadata.applyToJpegUri(
                             appContext.applicationContext,
                             uri,
@@ -761,7 +765,10 @@ object IndependentTonalStillSaver {
                             location = metaLocation,
                             colorSpaceTarget = colorTarget,
                             stripPrivacyExif = stripPrivacy,
+                            artist = credits.artist(),
+                            copyright = credits.copyright(),
                         )
+                    }
                     CaptureStorage.CaptureKind.Tiff16 ->
                         StillCaptureMetadata.applyToTiffUri(
                             appContext.applicationContext,

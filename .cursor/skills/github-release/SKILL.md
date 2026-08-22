@@ -2,9 +2,10 @@
 name: github-release
 description: >-
   Cut a Point & Shoot GitHub release: bump versionCode/versionName, move CHANGELOG
-  Unreleased to a dated section, sync changelog_coverage.v1.json, build APK, create
-  gh release with changelog body + assets. Use when the user asks to ship, publish,
-  or cut a GitHub release, release notes, or version bump for Obtainium.
+  Unreleased to a dated section, sync changelog_coverage.v1.json and F-Droid
+  metadata/changelog excerpt, build APK, create gh release with changelog body +
+  APK + `{apk}.sha256` sidecar. Use when the user asks to ship, publish, or cut a GitHub release,
+  release notes, or version bump for Obtainium.
 ---
 
 # GitHub release (Point & Shoot)
@@ -26,10 +27,12 @@ Apply this skill when the user asks to **make a release**, **publish to GitHub**
 # 1) Prepare — review diff before commit
 .\scripts\pns_github_release.ps1 -PrepareOnly
 
-# 2) Commit CHANGELOG.md, changelog_coverage.v1.json, app/build.gradle.kts, PnsExternalUrl.kt
+# 2) Commit CHANGELOG.md, changelog_coverage.v1.json, app/build.gradle.kts,
+#    PnsExternalUrl.kt, metadata/metadata.yml, metadata/en-US/changelogs/{versionCode}.txt
 
 # 3) Publish — build APK, tag, GitHub release
-.\scripts\pns_github_release.ps1 -Publish -SkipPrepare -Prerelease
+# Always pass -Tag when using -SkipPrepare (or omit -Tag to reuse gradle versionName).
+.\scripts\pns_github_release.ps1 -Publish -SkipPrepare -Prerelease -Tag 0.14.0-beta.21
 
 # 4) Push branch + tag
 git push origin main

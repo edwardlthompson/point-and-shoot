@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package dev.pointandshoot
 
 /**
@@ -81,6 +83,30 @@ object BuiltInLuts {
                     out[idx] = outR.coerceIn(0f, 1f)
                     out[idx + 1] = outG.coerceIn(0f, 1f)
                     out[idx + 2] = outB.coerceIn(0f, 1f)
+                }
+            }
+        }
+        return Lut3D(size, out)
+    }
+
+    /**
+     * Orange-mask negative invert: `1 - rgb` then a mild contrast stretch.
+     * Original Apache-2.0 math for film-scan work.
+     */
+    fun negativeInvert(size: Int = DEFAULT_SIZE): Lut3D {
+        require(size in Lut3D.SUPPORTED_SIZES) { "size must be in ${Lut3D.SUPPORTED_SIZES} (was $size)" }
+        val out = FloatArray(size * size * size * 3)
+        val denom = (size - 1).toFloat()
+        for (b in 0 until size) {
+            val bf = 1f - (b / denom)
+            for (g in 0 until size) {
+                val gf = 1f - (g / denom)
+                for (r in 0 until size) {
+                    val rf = 1f - (r / denom)
+                    val idx = ((b * size + g) * size + r) * 3
+                    out[idx] = (rf * 1.08f - 0.04f).coerceIn(0f, 1f)
+                    out[idx + 1] = (gf * 1.08f - 0.04f).coerceIn(0f, 1f)
+                    out[idx + 2] = (bf * 1.12f - 0.06f).coerceIn(0f, 1f)
                 }
             }
         }

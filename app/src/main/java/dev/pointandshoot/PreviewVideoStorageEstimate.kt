@@ -7,6 +7,9 @@ object PreviewVideoStorageEstimate {
     /** Warn when fewer than this many minutes remain at the estimated record rate. */
     const val LOW_STORAGE_WARNING_MINUTES = 5.0
 
+    /** Refuse a new record start when remaining time is below this. */
+    const val MIN_RECORD_START_MINUTES = 1.0
+
     /** Typical AAC stereo camcorder overhead (bits per second). */
     const val ESTIMATED_AUDIO_BITS_PER_SEC = 128_000
 
@@ -78,6 +81,12 @@ object PreviewVideoStorageEstimate {
 
     fun isLowStorageWarning(minutes: Double?): Boolean =
         minutes != null && minutes < LOW_STORAGE_WARNING_MINUTES
+
+    fun shouldRefuseRecordStart(minutes: Double?): Boolean =
+        minutes != null && minutes < MIN_RECORD_START_MINUTES
+
+    fun shouldStopRecordForEmpty(minutes: Double?): Boolean =
+        minutes != null && minutes <= 0.0
 
     fun encodedBytesPerSecond(videoBitrateBps: Int): Long {
         val totalBps = videoBitrateBps + ESTIMATED_AUDIO_BITS_PER_SEC

@@ -17,6 +17,8 @@ class SettingsExportBundleTest {
         assertTrue(source.contains("importFromUri"))
         assertTrue(source.contains("last_rear_camera_id"))
         assertTrue(source.contains("HudSettings.PREFS_NAME"))
+        assertTrue(source.contains("jpegCredits"))
+        assertTrue(source.contains("PnsJpegCreditPrefs.PREFS"))
         assertTrue(source.contains("PreviewChromePreferences.PREFS_NAME"))
         assertFalse("donate/update prefs must stay device-local", source.contains("pns_updates"))
         assertFalse(

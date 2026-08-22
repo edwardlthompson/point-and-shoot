@@ -26,6 +26,20 @@ class PreviewVideoStorageEstimateTest {
   }
 
   @Test
+  fun shouldRefuseRecordStart_belowOneMinute() {
+    assertFalse(PreviewVideoStorageEstimate.shouldRefuseRecordStart(null))
+    assertFalse(PreviewVideoStorageEstimate.shouldRefuseRecordStart(1.0))
+    assertTrue(PreviewVideoStorageEstimate.shouldRefuseRecordStart(0.9))
+  }
+
+  @Test
+  fun shouldStopRecordForEmpty_onlyWhenKnownAndZero() {
+    assertFalse(PreviewVideoStorageEstimate.shouldStopRecordForEmpty(null))
+    assertFalse(PreviewVideoStorageEstimate.shouldStopRecordForEmpty(0.1))
+    assertTrue(PreviewVideoStorageEstimate.shouldStopRecordForEmpty(0.0))
+  }
+
+  @Test
   fun lowStorageWarning_aboveFiveMinutes() {
     val bps = VideoFormatPresets.calculateBitrate(1920, 1080, 30, VideoCodec.H264)
     val bytesPerSec = PreviewVideoStorageEstimate.encodedBytesPerSecond(bps)

@@ -20,6 +20,13 @@ class StillCaptureMetadataTest {
     }
 
     @Test
+    fun sanitizeCredit_trimsAndCaps() {
+        assertEquals(null, StillCaptureMetadata.sanitizeCredit("  "))
+        assertEquals("Ada", StillCaptureMetadata.sanitizeCredit("  Ada  "))
+        assertEquals(128, StillCaptureMetadata.sanitizeCredit("x".repeat(200))?.length)
+    }
+
+    @Test
     fun applyToDngUri_sourceNeverCallsExifSaveAttributes() {
         val source = stillCaptureMetadataSource()
         val body =
@@ -28,6 +35,8 @@ class StillCaptureMetadataTest {
                 .substringBefore("fun applyToJpegUri")
         assertFalse("applyToDngUri must not call ExifInterface.saveAttributes()", body.contains("exif.saveAttributes()"))
         assertFalse("applyToDngUri must not construct ExifInterface", body.contains("ExifInterface("))
+        assertFalse("applyToDngUri must not stamp Artist", body.contains("TAG_ARTIST"))
+        assertFalse("applyToDngUri must not stamp Copyright", body.contains("TAG_COPYRIGHT"))
     }
 
     @Test

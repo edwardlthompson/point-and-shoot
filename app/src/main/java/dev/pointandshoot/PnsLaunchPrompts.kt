@@ -1,14 +1,21 @@
 package dev.pointandshoot
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
@@ -30,9 +37,24 @@ private const val KIND_UPDATE = "update"
 fun PnsLaunchPromptsHost(enabled: Boolean) {
     if (!enabled) return
     val context = LocalContext.current
+    val hideDialogs =
+        PnsForegroundCapture.isRecording ||
+            PnsForegroundCapture.settingsOpen ||
+            PnsForegroundCapture.aboutOpen ||
+            PnsForegroundCapture.intervalometerRunning ||
+            PnsForegroundCapture.selfTimerRunning ||
+            PnsForegroundCapture.holdBurstActive ||
+            PnsForegroundCapture.stillQueueBusy ||
+            PnsForegroundCapture.bracketBusy ||
+            PnsForegroundCapture.nightScapeBusy ||
+            PnsForegroundCapture.installDialogOpen ||
+            PnsProductPrefs.airplaneSafe(context)
     var kind by rememberSaveable { mutableStateOf(KIND_UNEVALUATED) }
     var promptVersion by rememberSaveable { mutableStateOf("") }
     var promptUrl by rememberSaveable { mutableStateOf("") }
+    var promptSha by rememberSaveable { mutableStateOf("") }
+    var promptSize by rememberSaveable { mutableStateOf(0L) }
+    var installRequest by remember { mutableStateOf<PnsApkInstaller.Request?>(null) }
 
     LaunchedEffect(Unit) {
         if (kind != KIND_UNEVALUATED) return@LaunchedEffect
@@ -50,12 +72,14 @@ fun PnsLaunchPromptsHost(enabled: Boolean) {
                 kind = KIND_UPDATE
                 promptVersion = prompt.version
                 promptUrl = prompt.url
+                promptSha = prompt.sha256Url.orEmpty()
+                promptSize = prompt.sizeBytes
             }
             PnsProductUpdate.LaunchPrompt.None -> kind = KIND_NONE
         }
     }
 
-    when (kind) {
+    if (!hideDialogs) when (kind) {
         KIND_DONATE ->
             DonateNudgeDialog(
                 onDonate = {
@@ -74,21 +98,32 @@ fun PnsLaunchPromptsHost(enabled: Boolean) {
         KIND_UPDATE ->
             UpdateAvailableDialog(
                 version = promptVersion,
+                notes = PnsProductUpdate.sanitizeReleaseNotes(PnsUpdatePrefs(context).lastReleaseNotes()),
+                sha256Url = promptSha.takeIf { it.isNotBlank() },
                 onInstall = {
-                    PnsAppUpdates.markUpdateDismissed(context.applicationContext, promptVersion)
-                    val target = promptUrl.ifBlank { PnsProductUpdate.RELEASES_PAGE }
-                    val ok = openExternalUrl(context, target)
-                    if (!ok) {
-                        Toast.makeText(context, "No browser found to open the update.", Toast.LENGTH_SHORT).show()
-                    }
+                    installRequest =
+                        PnsApkInstaller.Request(
+                            url = promptUrl.ifBlank { PnsProductUpdate.RELEASES_PAGE },
+                            sha256Url = promptSha.takeIf { it.isNotBlank() },
+                            expectedVersion = promptVersion.takeIf { it.isNotBlank() },
+                            sizeBytes = promptSize,
+                        )
                     kind = KIND_NONE
                 },
                 onLater = {
                     PnsAppUpdates.markUpdateDismissed(context.applicationContext, promptVersion)
                     kind = KIND_NONE
                 },
+                onObtainium = {
+                    val ok = openExternalUrl(context, PNS_OBTAINIUM_ADD_URL)
+                    if (!ok) {
+                        Toast.makeText(context, "Obtainium is not installed.", Toast.LENGTH_SHORT).show()
+                    }
+                },
             )
     }
+
+    PnsUpdateInstallHost(request = installRequest, onFinished = { installRequest = null })
 }
 
 @Suppress("FunctionNaming")
@@ -126,10 +161,13 @@ private fun DonateNudgeDialog(
 
 @Suppress("FunctionNaming")
 @Composable
-private fun UpdateAvailableDialog(
+internal fun UpdateAvailableDialog(
     version: String,
+    notes: String = "",
+    sha256Url: String? = null,
     onInstall: () -> Unit,
     onLater: () -> Unit,
+    onObtainium: (() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onLater,
@@ -137,11 +175,43 @@ private fun UpdateAvailableDialog(
             Text("Update available", color = Color.White)
         },
         text = {
-            Text(
-                "Point & Shoot $version is on GitHub. Install it when you are ready.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.88f),
-            )
+            val context = LocalContext.current
+            var shaShort by remember(sha256Url) { mutableStateOf<String?>(null) }
+            LaunchedEffect(sha256Url) {
+                shaShort =
+                    withContext(Dispatchers.IO) {
+                        PnsApkInstaller.peekSha256Short(context.applicationContext, sha256Url)
+                    }
+            }
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "Point & Shoot $version is on GitHub. Install it when you are ready.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.88f),
+                )
+                shaShort?.let { short ->
+                    Text(
+                        "SHA-256 $short…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.88f),
+                    )
+                }
+                if (notes.isNotBlank()) {
+                    Text(
+                        notes,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.88f),
+                    )
+                }
+                if (onObtainium != null) {
+                    TextButton(onClick = onObtainium) {
+                        Text("Add in Obtainium", color = PnsColors.PhotoOrange)
+                    }
+                }
+            }
         },
         confirmButton = {
             TextButton(onClick = onInstall) {

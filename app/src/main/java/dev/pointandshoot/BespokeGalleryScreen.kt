@@ -236,6 +236,20 @@ fun BespokeGalleryScreen(
     var selectionMode by remember { mutableStateOf(false) }
     var selectedUris by remember { mutableStateOf(setOf<Uri>()) }
     var adbBatchShareDone by remember { mutableStateOf(false) }
+    var showShareFormat by remember { mutableStateOf(false) }
+    var showFileCard by remember { mutableStateOf(false) }
+    var compareUri by remember { mutableStateOf<Uri?>(null) }
+    var showLibraryDesk by remember { mutableStateOf(false) }
+    var showComparePane by remember { mutableStateOf(false) }
+    var trashStash by remember { mutableStateOf<GalleryTrash.Stash?>(null) }
+    var undoUntil by remember { mutableStateOf(0L) }
+    val groups = remember(mediaItems) { GalleryCaptureGroups.group(mediaItems) }
+    val selectedGroup =
+        remember(selectedMedia, groups) {
+            selectedMedia?.let { media ->
+                groups.firstOrNull { group -> group.items.any { it.uri == media.uri } }
+            }
+        }
 
     // Initialize memory profiler
     val memoryProfiler = remember { MemoryProfiler.getInstance(context, lifecycleScope) }
@@ -395,7 +409,7 @@ fun BespokeGalleryScreen(
                 IconButton(onClick = onBack) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = GalleryA11y.BACK,
                         tint = Color.White
                     )
                 }
@@ -407,23 +421,17 @@ fun BespokeGalleryScreen(
                 }) {
                     Icon(
                         if (isGridView) Icons.Default.Add else Icons.Default.Remove,
-                        contentDescription = if (isGridView) "Single View" else "Grid View",
+                        contentDescription = if (isGridView) GalleryA11y.SINGLE else GalleryA11y.GRID,
                         tint = Color.White
                     )
                 }
                 IconButton(
-                    onClick = {
-                        if (selectionMode && selectedUris.isNotEmpty()) {
-                            shareMediaBatch(context, selectedUris.toList())
-                        } else {
-                            selectedMedia?.let { media -> shareMedia(context, media.uri) }
-                        }
-                    },
+                    onClick = { showShareFormat = true },
                     enabled = !selectionMode || selectedUris.isNotEmpty() || selectedMedia != null,
                 ) {
                     Icon(
                         Icons.Default.Share,
-                        contentDescription = "Share",
+                        contentDescription = GalleryA11y.SHARE,
                         tint = Color.White
                     )
                 }
@@ -432,8 +440,38 @@ fun BespokeGalleryScreen(
                 }) {
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = "Delete",
+                        contentDescription = GalleryA11y.DELETE,
                         tint = Color.White
+                    )
+                }
+                IconButton(
+                    onClick = {
+                        val media = selectedMedia ?: return@IconButton
+                        if (compareUri != null && compareUri != media.uri) {
+                            showComparePane = true
+                        } else {
+                            compareUri = if (compareUri == media.uri) null else media.uri
+                        }
+                    },
+                ) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = GalleryA11y.COMPARE,
+                        tint = if (compareUri != null) PnsColors.PhotoOrange else Color.White,
+                    )
+                }
+                IconButton(onClick = { showLibraryDesk = true }) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = GalleryA11y.DESK,
+                        tint = Color.White,
+                    )
+                }
+                IconButton(onClick = { showFileCard = true }) {
+                    Icon(
+                        Icons.Default.OpenInBrowser,
+                        contentDescription = GalleryA11y.FILE_CARD,
+                        tint = Color.White,
                     )
                 }
                 IconButton(onClick = onExternalGallery) {
@@ -822,25 +860,120 @@ fun BespokeGalleryScreen(
         }
     }
     
-    // Delete confirmation dialog
+    if (showShareFormat && selectedGroup != null) {
+        AlertDialog(
+            onDismissRequest = { showShareFormat = false },
+            title = { Text("Share") },
+            text = { Text(GalleryCaptureGroups.describe(selectedGroup)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        shareMediaBatch(
+                            context,
+                            GalleryCaptureGroups.urisForShare(selectedGroup, GalleryCaptureGroups.ShareFormat.Jpeg),
+                        )
+                        showShareFormat = false
+                    },
+                ) { Text("JPEG") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        shareMediaBatch(
+                            context,
+                            GalleryCaptureGroups.urisForShare(selectedGroup, GalleryCaptureGroups.ShareFormat.Both),
+                        )
+                        showShareFormat = false
+                    },
+                ) { Text("Both") }
+            },
+        )
+    }
+    if (showFileCard && selectedGroup != null) {
+        AlertDialog(
+            onDismissRequest = { showFileCard = false },
+            title = { Text("What this file is") },
+            text = { Text(GalleryCaptureGroups.describe(selectedGroup)) },
+            confirmButton = { TextButton(onClick = { showFileCard = false }) { Text("OK") } },
+        )
+    }
+    if (undoUntil > 0L && trashStash != null) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Deleted") },
+            text = { Text("Undo within 30 seconds to put the files back.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val stash = trashStash
+                        trashStash = null
+                        undoUntil = 0L
+                        if (stash != null) {
+                            lifecycleScope.launch {
+                                withContext(Dispatchers.IO) { GalleryTrash.restore(context, stash) }
+                                mediaItems = PnsMediaStoreGallery.loadIndex(context)
+                                selectedMedia = mediaItems.firstOrNull()
+                            }
+                        }
+                    },
+                ) { Text("Undo") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        GalleryTrash.prune(trashStash)
+                        trashStash = null
+                        undoUntil = 0L
+                    },
+                ) { Text("Done") }
+            },
+        )
+    }
+    val compareLeft = compareUri?.let { uri -> mediaItems.firstOrNull { it.uri == uri } }
+    val compareRight = selectedMedia
+    val comparePairReady = compareLeft != null && compareRight != null && compareLeft.uri != compareRight.uri
+    if (showComparePane && comparePairReady) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showComparePane = false }) {
+            GalleryComparePane(
+                left = compareLeft,
+                right = compareRight,
+                onClose = { showComparePane = false },
+            )
+        }
+    }
+    if (showLibraryDesk) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = { showLibraryDesk = false }) {
+            PnsLibraryDeskScreen(
+                items = mediaItems,
+                selected = selectedMedia,
+                compare = compareLeft,
+                onBack = { showLibraryDesk = false },
+                onOpenCompare = {
+                    if (compareLeft != null && selectedMedia != null) {
+                        showComparePane = true
+                    }
+                },
+            )
+        }
+    }
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
             title = { Text("Delete Media") },
-            text = { Text("Are you sure you want to delete this media file?") },
+            text = { Text("Delete this capture? You can undo for 30 seconds.") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        selectedMedia?.let { media ->
-                            deleteMedia(context, media.uri) {
-                                showDeleteConfirmation = false
-                                lifecycleScope.launch {
-                                    mediaItems = PnsMediaStoreGallery.loadIndex(context)
-                                    selectedMedia = mediaItems.firstOrNull()
-                                }
-                            }
+                        val victims = selectedGroup?.items ?: listOfNotNull(selectedMedia)
+                        showDeleteConfirmation = false
+                        lifecycleScope.launch {
+                            trashStash =
+                                withContext(Dispatchers.IO) { GalleryTrash.stashAndDelete(context, victims) }
+                            undoUntil = System.currentTimeMillis() + GalleryTrash.UNDO_MS
+                            mediaItems = PnsMediaStoreGallery.loadIndex(context)
+                            selectedMedia = mediaItems.firstOrNull()
                         }
-                    }
+                    },
                 ) {
                     Text("Delete", color = Color.Red)
                 }
@@ -849,7 +982,7 @@ fun BespokeGalleryScreen(
                 TextButton(onClick = { showDeleteConfirmation = false }) {
                     Text("Cancel")
                 }
-            }
+            },
         )
     }
 }
@@ -1063,23 +1196,9 @@ private fun readDescriptionMetadata(context: Context, uri: Uri): ExifMetadata {
     }.getOrDefault(ExifMetadata())
 }
 
-private fun shareMedia(context: Context, uri: Uri) {
-    SharingManager.shareSingle(context, uri, "Share media")
-}
-
 private fun shareMediaBatch(context: Context, uris: List<Uri>) {
     if (uris.isEmpty()) return
     Log.i("PNS.Gallery", "batchShare count=${uris.size}")
     PnsAdbLog.i(context, "gallery batchShare count=${uris.size}")
     SharingManager.shareUris(context, uris, "Share ${uris.size} items")
-}
-
-private fun deleteMedia(context: Context, uri: Uri, onSuccess: () -> Unit) {
-    try {
-        context.contentResolver.delete(uri, null, null)
-        Log.d("BespokeGallery", "Successfully deleted media: $uri")
-        onSuccess()
-    } catch (e: Exception) {
-        Log.e("BespokeGallery", "Error deleting media", e)
-    }
 }

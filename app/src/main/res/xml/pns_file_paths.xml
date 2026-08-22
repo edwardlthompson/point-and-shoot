@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="share_cache" path="share/" />
+    <cache-path name="updates_cache" path="updates/" />
     <external-cache-path name="external_share_cache" path="share/" />
 </paths>

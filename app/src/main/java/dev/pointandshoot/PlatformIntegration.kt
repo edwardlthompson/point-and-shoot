@@ -19,6 +19,7 @@ object PlatformIntegration {
         val primaryPhoto: Boolean? = null,
         val openGallery: Boolean = false,
         val shareProbe: Boolean = false,
+        val composedStill: Boolean = false,
     )
 
     fun parseDeepLink(uri: Uri?): DeepLinkRoute? =
@@ -32,7 +33,11 @@ object PlatformIntegration {
         val host = uri.host?.lowercase() ?: return null
         return when (host) {
             "preview", "camera" ->
-                DeepLinkRoute(screen = PNS_SCREEN_PREVIEW, primaryPhoto = true)
+                DeepLinkRoute(
+                    screen = PNS_SCREEN_PREVIEW,
+                    primaryPhoto = true,
+                    composedStill = uri.query?.contains("shoot=1") == true,
+                )
             "video" ->
                 DeepLinkRoute(screen = PNS_SCREEN_PREVIEW, primaryPhoto = false)
             "gallery" ->
@@ -57,6 +62,7 @@ object PlatformIntegration {
         route.primaryPhoto?.let { intent.putExtra(EXTRA_PNS_PREVIEW_PRIMARY_PHOTO, it) }
         if (route.openGallery) intent.putExtra(EXTRA_PNS_PREVIEW_OPEN_GALLERY, true)
         if (route.shareProbe) intent.putExtra(EXTRA_PNS_PREVIEW_PLATFORM_SHARE_PROBE, true)
+        if (route.composedStill) intent.putExtra(EXTRA_PNS_PREVIEW_COMPOSED_STILL, true)
         intent.action = Intent.ACTION_VIEW
         Log.i(TAG, "deepLink host=${intent.data?.host} screen=${route.screen}")
         Log.i(TAG, "deepLink adb host=${intent.data?.host}")

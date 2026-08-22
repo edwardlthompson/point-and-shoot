@@ -16,6 +16,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "point-and-shoot"
 include(":app")
+include(":wear")
 include(":baselineprofile")
 include(":pns-core")
 include(":pns-fleet")

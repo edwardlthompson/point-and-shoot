@@ -75,6 +75,181 @@ Full index: **`AGENTS.md`**.
 
 ---
 
+## Sprint IDEAS-2026-08-21m — USB webcam mode ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Tray Photo → Video → Webcam; `PnsUsbWebcam` USB_STATE + UVC/RNDIS/NCM
+- ✅ `[AGENT]` Open USB Webcam settings (Windows inbox `usbvideo.sys` / USB Video Device)
+- ✅ `[AGENT]` Same-cable MJPEG via USB tether + `scripts/pns_usb_webcam_windows.ps1` (`adb forward`)
+
+**USB:** Windows Camera listed **Android Webcam** (`usbvideo.sys`) after Lineage **USB → Webcam** / `svc usb setFunctions uvc`. P&S cannot own kernel UVC (`DeviceAsWebcam` is system-signed). Portrait chrome geometry unchanged except the locked tray toggle now has a third **Webcam** state (explicit request).
+
+---
+
+## Sprint IDEAS-2026-08-21k — Library desk + Wear + HDMI ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Wear OS `:wear` remote **or** timer (BLE rescan, cancel, vibrate; LAN `/remote`) — no Play Services
+- ✅ `[AGENT]` HDMI Presentation clean feed + MJPEG `:28770` (settle/retry, last-good JPEG, HDMI-first rank, no 2nd session)
+- ✅ `[AGENT]` Gallery desk: compare, cull, days, keywords, travel, trim/frame, bake, export, vault, publish, proofing, redact, evidence, bug pack
+- ✅ `[AGENT]` Geotag Off/Coarse/Precise · recipes · interval ramp · imported LUT + negative invert · XMP sidecar
+- ✅ `[AGENT]` Landscape adaptive chrome (portrait weights unchanged) · airplane-safe prompts
+- ⏭ Guest / kids mode skipped (user)
+
+**USB:** Wear / HDMI / landscape not USB-proven. DNG locks unchanged. Guest mode not shipped.
+
+---
+
+## Sprint IDEAS-2026-08-21j — Review + session + product systems ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Gallery pair / stack / share format / 30s undo / file card / TalkBack labels
+- ✅ `[AGENT]` Capture journal + last-good session hint on camera disconnect
+- ✅ `[AGENT]` Remaining-shots estimate + power profile + “why the finder changed”
+- ✅ `[AGENT]` Widget one-tap still (`pointandshoot://preview?shoot=1`) + LAN roll 200
+- ✅ `[AGENT]` Chapter marks while recording · settings pack share · privacy receipt
+- ✅ `[AGENT]` Interval ramp / focus stack / motion trip / geotag mode helpers (wired where safe)
+
+**USB:** gallery / widget / disconnect toast not USB-proven. Portrait chrome geometry and DNG locks unchanged. Landscape finder / foldable two-pane / in-app DNG develop left as chrome-unlock follow-ups.
+
+---
+
+## Sprint IDEAS-2026-08-21i — Install harden + storage + prompt honesty ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Pin APK dest under `cache/updates` (safe `.apk` name, ZIP magic, 150 MB cap)
+- ✅ `[AGENT]` Null archive info / timeout-IO stay blocked (no GitHub browser fallback)
+- ✅ `[AGENT]` One in-flight install; progress shows received / total MB; prune leftover cache
+- ✅ `[AGENT]` Still-queue refuse + abort; video-lapse uses encode remaining; few-stills toast
+- ✅ `[AGENT]` Hold-burst RAW+JPEG dual-file budget; NightScape / BKT re-check each frame
+- ✅ `[AGENT]` Shared `PreviewFreeSpace` StatFs helper (fail open)
+- ✅ `[AGENT]` Hide donate/update during hold-burst, still-queue, BKT, NightScape, install UI
+- ✅ `[AGENT]` Skip auto-check in Battery Saver / Wi-Fi-only / in-flight install; 403/429 toast
+
+**USB:** install / storage / prompt flags not USB-proven. No chrome-geometry or DNG lock change.
+
+---
+
+## Sprint IDEAS-2026-08-21h — APK space + timed-capture storage ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Refuse APK download when cache cannot hold the asset
+- ✅ `[AGENT]` Scale intervalometer tick by planned still (HDR / NightScape / burst / BKT)
+- ✅ `[AGENT]` Preflight hold-burst before the first shot
+- ✅ `[AGENT]` Toast at ~5 minutes of video left even if overlay is hidden
+- ✅ `[AGENT]` Reuse cached APK when SHA-256 already matches
+- ✅ `[AGENT]` HTTPS-only `networkSecurityConfig` (loopback cleartext for tether)
+- ✅ `[AGENT]` Hide launch donate/update during intervalometer or self-timer
+- ✅ `[AGENT]` Toast when APK download is blocked (redirect / size / space)
+
+**USB:** storage / 5-minute toast not USB-proven. No session-create or chrome-geometry change.
+
+---
+
+## Sprint IDEAS-2026-08-21g — Bracket storage + install redirects ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Scale still-storage floor for BKT / AE bracket
+- ✅ `[AGENT]` Allowlist APK download redirect hosts
+- ✅ `[AGENT]` Stop in-app video when remaining time hits 0
+- ✅ `[AGENT]` Re-check storage on intervalometer tick and hold-burst shot
+- ✅ `[AGENT]` Re-check storage when the self-timer fires
+- ✅ `[AGENT]` Refuse download when GitHub size and Content-Length disagree
+- ✅ `[AGENT]` Clear pending install when installed version already matches
+- ✅ `[AGENT]` Hide launch donate/update while Settings or About is open
+
+**USB:** storage re-check / empty-card stop not USB-proven. No session-create or chrome-geometry change.
+
+---
+
+## Sprint IDEAS-2026-08-21f — Storage scale + install guards ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Scale still-storage floor by planned frame count
+- ✅ `[AGENT]` Reject APK when bytes ≠ GitHub `assets[].size`
+- ✅ `[AGENT]` Refuse video record start under 1 minute remaining
+- ✅ `[AGENT]` Refuse install when APK versionCode ≤ installed
+- ✅ `[AGENT]` Sanitize cached GitHub release notes
+- ✅ `[AGENT]` Intervalometer preflight (two still floors)
+- ✅ `[AGENT]` About → Open LICENSE
+- ✅ `[AGENT]` Short SHA-256 on Install dialog
+
+**USB:** storage refuse / video-start refuse not USB-proven. No session-create change.
+
+---
+
+## Sprint IDEAS-2026-08-21e — Storage, credits, install hygiene ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Block still save below one DNG-sized free-space floor
+- ✅ `[AGENT]` Skip launch donate/update dialogs while recording
+- ✅ `[AGENT]` Metered confirm uses GitHub asset `size`
+- ✅ `[AGENT]` Reject truncated APK vs Content-Length
+- ✅ `[AGENT]` About → NOTICE / licenses
+- ✅ `[AGENT]` Prune stale `cache/updates` APKs
+- ✅ `[AGENT]` Settings search for What’s new
+- ✅ `[AGENT]` Optional JPEG artist / copyright (never on DNG)
+
+**USB:** still-storage toast not USB-proven (fail-open if StatFs missing). No session-create change.
+
+---
+
+## Sprint IDEAS-2026-08-21d — Install follow-through ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Dismiss update only after installer starts
+- ✅ `[AGENT]` Same-signer check vs installed cert
+- ✅ `[AGENT]` Match APK `versionName` to prompted GitHub version
+- ✅ `[AGENT]` Resume Install after unknown-sources Settings
+- ✅ `[AGENT]` Cancel in-flight APK download
+- ✅ `[AGENT]` Cached notes on the Update dialog
+- ✅ `[AGENT]` About last successful check time
+- ✅ `[AGENT]` Publish SHA-256 into F-Droid Builds comment
+
+**USB:** not required (no session-create change).
+
+---
+
+## Sprint IDEAS-2026-08-21c — Install safety + About honesty ✅ CLOSED (agent)
+
+- ✅ `[AGENT]` Verify APK package is `dev.pointandshoot` before installer
+- ✅ `[AGENT]` Confirm before APK download on metered networks
+- ✅ `[AGENT]` Download progress on Install
+- ✅ `[AGENT]` Publish `{apk}.sha256` and verify when present
+- ✅ `[AGENT]` About → Add in Obtainium
+- ✅ `[AGENT]` In-app What’s new from cached GitHub `body`
+- ✅ `[AGENT]` Toast when opening unknown-sources Settings
+- ✅ `[AGENT]` About line when the install is debug/test-signed
+
+**USB:** not required (no session-create change).
+
+---
+
+## Sprint IDEAS-2026-08-21b — Update/release follow-through ✅ CLOSED (agent)
+
+**Objective:** Ship the second `/ideas` set (tagged What's new, no publish auto-bump, PackageInstaller, About GitHub version, F-Droid CurrentVersion, ETag, changelog parser test, Keep-a-Changelog order).
+
+- ✅ `[AGENT]` About What's new uses tagged release URL
+- ✅ `[AGENT]` `-Publish -SkipPrepare` without `-Tag` uses gradle versionName
+- ✅ `[AGENT]` Install uses PackageInstaller (browser fallback)
+- ✅ `[AGENT]` About shows last-known GitHub APK version
+- ✅ `[AGENT]` F-Droid `CurrentVersion` / `CurrentVersionCode`
+- ✅ `[AGENT]` Conditional GitHub fetch (`If-None-Match`)
+- ✅ `[AGENT]` Host test for `Get-ChangelogSectionForTag`
+- ✅ `[AGENT]` CHANGELOG Unreleased-first, dated sections newest-first
+
+**USB:** not required (no session-create change).
+
+---
+
+## Sprint IDEAS-2026-08-21 — Donate/update follow-through ✅ CLOSED (agent)
+
+**Objective:** Ship the eight `/ideas` items after beta.21 (prerelease-aware check, failed-fetch quota, About check, F-Droid prepare sync, changelog body parser, metered skip, `/ideas`+`/coach`, HDR10 §6 honesty).
+
+- ✅ `[AGENT]` Prerelease-aware GitHub `/releases` list + APK-filename pick
+- ✅ `[AGENT]` Do not mark the daily check after a failed fetch
+- ✅ `[AGENT]` About → Check for updates (same Install / Later dialog)
+- ✅ `[AGENT]` `-PrepareOnly` syncs F-Droid `metadata.yml` + changelog excerpt
+- ✅ `[AGENT]` `Get-ChangelogSectionForTag` stops at `## Unreleased`
+- ✅ `[AGENT]` Skip automatic GitHub fetch on metered / no-network
+- ✅ `[AGENT]` Register `/ideas` and `/coach` (23 atomic + 5 super)
+- ✅ `[AGENT]` HDR10 live preview remains **IN TREE**, default **off** (no default-on without USB)
+
+**USB:** not required (no session-create change; §6 default unchanged).
+
+---
+
 ## Sprint AUDIT6-2026-08-03 — Weekly health + Trivy Netty ✅ CLOSED
 
 Archive: [BUILD_PLAN_COMPLETED.md — Sprint AUDIT6](BUILD_PLAN_COMPLETED.md#sprint-audit6-2026-08-03--weekly-health--trivy-netty-agent-closed).

@@ -15,4 +15,5 @@
     <include domain="sharedpref" path="pns_ux_settings.xml" />
     <include domain="sharedpref" path="pns_workflow_presets.xml" />
     <include domain="sharedpref" path="pns_connectivity.xml" />
+    <include domain="sharedpref" path="pns_jpeg_credits.xml" />
 </full-backup-content>

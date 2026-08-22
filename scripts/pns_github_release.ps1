@@ -5,7 +5,8 @@
 
 .DESCRIPTION
   -PrepareOnly: bump versionCode/versionName, cut CHANGELOG Unreleased -> dated section,
-                sync scripts/changelog_coverage.v1.json, run pns_changelog_gate.ps1.
+                sync scripts/changelog_coverage.v1.json, F-Droid metadata + changelog excerpt,
+                run pns_changelog_gate.ps1.
   -Publish:     assembleRelease, package APK, git tag, gh release with changelog body + assets.
   Default (no switch): Prepare then Publish.
 
@@ -22,7 +23,8 @@
   Publish using current CHANGELOG / coverage / gradle versions as-is.
 
 .PARAMETER Tag
-  Semver without leading v (default: auto-increment beta from coverage manifest).
+  Semver without leading v. Prepare without -Tag auto-increments. -Publish -SkipPrepare
+  without -Tag uses app/build.gradle.kts versionName (does not bump).
 
 .PARAMETER Date
   Release date YYYY-MM-DD (default: today, local).
@@ -78,6 +80,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . "$PSScriptRoot\pns_release_naming.ps1"
+. "$PSScriptRoot\pns_github_release_lib.ps1"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $configPath = Join-Path $PSScriptRoot "release_config.v1.json"
@@ -118,34 +121,77 @@ function Get-ReleaseApkFileName([object]$Config, [string]$SemverTag) {
         -Template ([string]$Config.apkFileNameTemplate)
 }
 
-function Get-UnreleasedBody([string]$ChangelogText) {
-    if ($ChangelogText -notmatch '(?ms)^## Unreleased\s*\r?\n(.*?)(?=^## \[|\z)') {
-        throw "CHANGELOG.md missing ## Unreleased section"
+function Update-FdroidMetadata(
+    [string]$MetadataYml,
+    [string]$VersionName,
+    [int]$VersionCode,
+    [string]$GitTag,
+    [string]$Section,
+    [switch]$WhatIf
+) {
+    if (-not (Test-Path -LiteralPath $MetadataYml)) {
+        throw "Missing F-Droid metadata: $MetadataYml"
     }
-    return $Matches[1].Trim()
+    $text = [System.IO.File]::ReadAllText($MetadataYml)
+    $pattern = "(?s)(Builds:\r?\n  - versionName: )'[^']+'(\r?\n    versionCode: )\d+(\r?\n    commit: )[^\r\n]+"
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] {
+        param($m)
+        $m.Groups[1].Value + "'$VersionName'" + $m.Groups[2].Value + "$VersionCode" + $m.Groups[3].Value + $GitTag
+    }
+    $text = [regex]::Replace($text, $pattern, $evaluator, 1)
+    if ($text -notmatch [regex]::Escape("versionName: '$VersionName'")) {
+        throw "Failed to update first F-Droid Builds versionName to '$VersionName'"
+    }
+    if ($text -match '(?m)^CurrentVersion:') {
+        $text = [regex]::Replace($text, '(?m)^CurrentVersion:.*', "CurrentVersion: $VersionName")
+        $text = [regex]::Replace($text, '(?m)^CurrentVersionCode:.*', "CurrentVersionCode: $VersionCode")
+    } else {
+        $text = [regex]::Replace(
+            $text,
+            '(?m)^(AutoName: .+)',
+            "`${1}`nCurrentVersion: $VersionName`nCurrentVersionCode: $VersionCode"
+        )
+    }
+    $changelogDir = Join-Path (Split-Path -Parent $MetadataYml) "en-US\changelogs"
+    $changelogFile = Join-Path $changelogDir "$VersionCode.txt"
+    $snippet = Get-FdroidChangelogSnippet -Section $Section -SemverTag $VersionName
+    if ($WhatIf) {
+        Write-Step "Would sync F-Droid metadata versionName=$VersionName versionCode=$VersionCode commit=$GitTag"
+        return
+    }
+    [System.IO.File]::WriteAllText($MetadataYml, $text)
+    if (-not (Test-Path -LiteralPath $changelogDir)) {
+        New-Item -ItemType Directory -Path $changelogDir | Out-Null
+    }
+    [System.IO.File]::WriteAllText($changelogFile, $snippet + "`n")
+    Write-Step "Synced F-Droid metadata (versionCode=$VersionCode, changelog=$changelogFile)"
 }
 
-function Test-UnreleasedHasContent([string]$Body) {
-    $lines = @(
-        $Body -split "`r?`n" |
-            ForEach-Object { $_.Trim() } |
-            Where-Object {
-                $_ -and
-                $_ -notmatch '^\(_Nothing yet' -and
-                $_ -notmatch '^_\(' -and
-                $_ -ne '_'
-            }
-    )
-    return ($lines.Length -gt 0)
-}
-
-function Get-ChangelogSectionForTag([string]$ChangelogText, [string]$SemverTag) {
-    $header = "## [$SemverTag]"
-    if ($ChangelogText -notmatch "(?ms)^$([regex]::Escape($header)) - .*?\r?\n(.*?)(?=^## \[|\z)") {
-        return $null
+function Set-FdroidPublishedApkSha256(
+    [string]$MetadataYml,
+    [string]$Sha256,
+    [switch]$WhatIf
+) {
+    $hash = $Sha256.Trim().ToLowerInvariant()
+    if ($hash -notmatch '^[a-f0-9]{64}$') {
+        throw "Invalid published APK SHA-256"
     }
-    $section = $Matches[1].Trim()
-    return $section
+    $text = [System.IO.File]::ReadAllText($MetadataYml)
+    $pattern = "(?m)(^Builds:\r?\n  - versionName: '[^']+'\r?\n    versionCode: \d+\r?\n    commit: [^\r\n]+)(?:\r?\n    # publishedApkSha256: [a-f0-9]{64})?"
+    $evaluator = [System.Text.RegularExpressions.MatchEvaluator] {
+        param($m)
+        $m.Groups[1].Value + "`n    # publishedApkSha256: $hash"
+    }
+    $text = [regex]::Replace($text, $pattern, $evaluator, 1)
+    if ($text -notmatch [regex]::Escape("# publishedApkSha256: $hash")) {
+        throw "Failed to write publishedApkSha256 into $MetadataYml"
+    }
+    if ($WhatIf) {
+        Write-Step "Would write publishedApkSha256 into F-Droid Builds"
+        return
+    }
+    [System.IO.File]::WriteAllText($MetadataYml, $text)
+    Write-Step "Wrote F-Droid publishedApkSha256"
 }
 
 function Get-GitHubTag([string]$SemverTag, [string]$Prefix) {
@@ -256,7 +302,7 @@ _(Nothing yet - add user-visible deltas here; run ``pns_changelog_gate.ps1`` bef
 
     $afterUnreleased = $text.Substring($match.Index + $match.Length)
     $beforeUnreleased = $text.Substring(0, $match.Index)
-    $newText = $beforeUnreleased + $newSection + $placeholder + $afterUnreleased.TrimStart("`r", "`n")
+    $newText = $beforeUnreleased + $placeholder + $newSection + $afterUnreleased.TrimStart("`r", "`n")
 
     if ($WhatIf) {
         Write-Step "Would cut CHANGELOG release [$SemverTag] - $ReleaseDate"
@@ -289,6 +335,16 @@ function Invoke-PreparePhase {
     Update-GradleFile -Path $gradlePath -NewCode $NewCode -NewName $SemverTag -WhatIf:$DryRun
     Update-CoverageManifest -Path $coveragePath -SemverTag $SemverTag -ReleaseDate $ReleaseDate -NewCode $NewCode -WhatIf:$DryRun
     Update-ExternalUrlLatestTag -Path $externalUrlPath -SemverTag $SemverTag -WhatIf:$DryRun
+    $preparedChangelog = [System.IO.File]::ReadAllText($changelogPath)
+    $fdroidSection = Get-ChangelogSectionForTag -ChangelogText $preparedChangelog -SemverTag $SemverTag
+    if ($null -eq $fdroidSection) { $fdroidSection = "" }
+    Update-FdroidMetadata `
+        -MetadataYml (Join-Path $repoRoot "metadata\metadata.yml") `
+        -VersionName $SemverTag `
+        -VersionCode $NewCode `
+        -GitTag (Get-GitHubTag -SemverTag $SemverTag -Prefix ([string]$Config.github.tagPrefix)) `
+        -Section $fdroidSection `
+        -WhatIf:$DryRun
 
     if (-not $DryRun) {
         & (Join-Path $PSScriptRoot "pns_changelog_gate.ps1") -ProjectRoot $repoRoot
@@ -370,7 +426,10 @@ $sectionBody
     if ($DryRun) {
         Write-Step "Would create GitHub release $GitTag on $ghRepo (prerelease=$IsPrerelease draft=$IsDraft)"
         Write-Step "Release notes length: $($releaseNotes.Length) chars"
-        if ($artifactApk) { Write-Step "Would upload: $artifactApk" }
+        if ($artifactApk) {
+            Write-Step "Would upload: $artifactApk"
+            Write-Step "Would attach: $artifactApk.sha256"
+        }
         Write-Step "Would attach: CHANGELOG.md"
         return
     }
@@ -390,6 +449,15 @@ $sectionBody
 
         if ($artifactApk) {
             $ghArgs += $artifactApk
+            $shaFile = "$artifactApk.sha256"
+            $hash = (Get-FileHash -LiteralPath $artifactApk -Algorithm SHA256).Hash.ToLowerInvariant()
+            $leaf = [System.IO.Path]::GetFileName($artifactApk)
+            [System.IO.File]::WriteAllText($shaFile, "$hash  $leaf`n", (New-Object System.Text.UTF8Encoding $false))
+            $ghArgs += $shaFile
+            Write-Step "SHA-256 sidecar $shaFile"
+            Set-FdroidPublishedApkSha256 `
+                -MetadataYml (Join-Path $repoRoot "metadata\metadata.yml") `
+                -Sha256 $hash
         }
         $ghArgs += $changelogPath
 
@@ -431,7 +499,12 @@ $currentTag = [string]$coverage.latestRelease.tag
 $currentCode = Get-GradleVersionCode $gradleText
 
 if ([string]::IsNullOrWhiteSpace($Tag)) {
-    $Tag = Get-PnsNextSemverVersionName -CurrentVersionName $currentTag
+    if ($SkipPrepare) {
+        $Tag = Get-GradleVersionName $gradleText
+        Write-Step "No -Tag with -SkipPrepare; using gradle versionName=$Tag"
+    } else {
+        $Tag = Get-PnsNextSemverVersionName -CurrentVersionName $currentTag
+    }
 }
 $SemverTag = ConvertTo-PnsSemverTag $Tag
 

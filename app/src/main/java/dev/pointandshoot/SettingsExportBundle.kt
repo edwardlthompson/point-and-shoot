@@ -87,6 +87,12 @@ object SettingsExportBundle {
                             prefsToJson(
                                 app.getSharedPreferences("pns_workflow_presets", Context.MODE_PRIVATE),
                             ),
+                        )
+                        .put(
+                            "jpegCredits",
+                            prefsToJson(
+                                app.getSharedPreferences(PnsJpegCreditPrefs.PREFS, Context.MODE_PRIVATE),
+                            ),
                         ),
                 )
         return root.toString(2)
@@ -173,6 +179,11 @@ object SettingsExportBundle {
         imported += mergePrefs(
             context.getSharedPreferences("pns_workflow_presets", Context.MODE_PRIVATE),
             prefsRoot.optJSONObject("workflow"),
+            emptySet(),
+        )
+        imported += mergePrefs(
+            context.getSharedPreferences(PnsJpegCreditPrefs.PREFS, Context.MODE_PRIVATE),
+            prefsRoot.optJSONObject("jpegCredits"),
             emptySet(),
         )
         val strip =

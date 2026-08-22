@@ -2,7 +2,7 @@
 
 > Technical catalog for agents and maintainers. **Humans:** start with [docs/help/BATCH_COMMANDS.md](help/BATCH_COMMANDS.md).
 
-26 slash commands: **21 atomic** workflows + **5 super** orchestrators. Bare-word triggers: `.cursor/rules/batch-commands.mdc`.
+28 slash commands: **23 atomic** workflows + **5 super** orchestrators. Bare-word triggers: `.cursor/rules/batch-commands.mdc`.
 
 Upstream template: [agent-project-bootstrap](https://github.com/edwardlthompson/agent-project-bootstrap) v0.15.0 (`/.template-version`).
 
@@ -41,6 +41,8 @@ Upstream template: [agent-project-bootstrap](https://github.com/edwardlthompson/
 | `/compact` | `.cursor-session-state` | — |
 | `/scope` | `MULTI_AGENT_PARALLEL_ORCHESTRATION.md`, worktree bootstrap | — |
 | `/cleanup` | Archive ✅ BUILD_PLAN rows → `BUILD_PLAN_COMPLETED.md` | — |
+| `/ideas` | Ranked backlog; do not implement unless the user names a number | — |
+| `/coach` | Next recommended action now (BUILD_PLAN + industry reason) | — |
 
 ## Decision tree
 

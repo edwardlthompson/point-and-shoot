@@ -31,6 +31,7 @@ object PreviewVendorSessionParameters {
         val previewFpsRange: Range<Int>?,
         val experimentalVendorSessionAllowed: Boolean,
         val maxResSweepSessionKeys: List<String>,
+        val webcamUhd60: Boolean = false,
     )
 
     fun sessionSweepKeys(
@@ -62,6 +63,7 @@ object PreviewVendorSessionParameters {
                 inAppVideoRecordingArmed = input.inAppVideoRecordingArmed,
                 recorderPresent = input.recorderPresent,
                 map = map,
+                webcamUhd60 = input.webcamUhd60,
             )
         ) {
             val fpsRange = UltraHd60RecordSupport.recordFpsRange(input.desiredFps)

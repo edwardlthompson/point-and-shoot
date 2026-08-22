@@ -11,4 +11,5 @@ object GalleryA11y {
     const val SINGLE = "Switch to single view"
     const val EXTERNAL = "Open in system gallery"
     const val DESK = "Library desk"
+    const val MORE = "More gallery actions"
 }

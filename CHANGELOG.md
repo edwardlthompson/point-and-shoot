@@ -5,6 +5,13 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 ## Unreleased
 
 _(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+## [0.14.1] - 2026-08-22
+
+Gallery title no longer shoves the viewer down; signed-tag CI no longer blocks the APK.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.1.apk`
+
+- **Gallery viewer** — “Gallery” title no longer wraps into a tall column (overflow menu for extra actions); the 3:4 image tile sizes to the leftover slot instead of being shoved down.
 ## [0.14.0] - 2026-08-22
 
 First stable Point & Shoot 0.14.0: product name, photorealistic icon, signed-APK /ship, pitch README.

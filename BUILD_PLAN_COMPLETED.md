@@ -1740,6 +1740,20 @@ Moved from **`BUILD_PLAN.md`**. Open human/agent rows remain in the active plan.
 
 **Deferred post-M28:** panorama · preview shots · computational HDR · depth export · ML Kit QR · full multicam melt encoder · Open Camera log profile · preview-res save · self-illumination · consumer CameraX extension modes when OEM HAL advertises extensions.
 
+### Sprint AUDIT-2026-08-22 — Post-0.14.0 health + signed-CI + gallery (agent closed)
+
+**Gate:** bootstrap **PASS** · Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS**. USB gallery title on CPH2583 **`b5214fc6`** (force-stop after). Dependabot high/critical **0**. Latest release **v0.14.0**.
+
+- [x] **[AGENT] F-001** — `build-signed.yml`: remove full toolchain verify on tag (unblocks signed `assembleRelease`)
+- [x] **[AGENT] F-002** — Gallery “Gallery” title wrap → overflow menu + slot-sized 3:4 tile
+- [x] **[AGENT] F-003** — `AGENT_MEMORY.md` + BUILD_PLAN H.9 → **0.14.0** / `22017` Latest
+- [ ] **[HUMAN] F-004** — `PNS_ADB_SERIAL` default (env file labeled OP13 `8bf09993`)
+- [ ] **[HUMAN] F-006** — **CRI-032…035**, keystore backup, leaderboard pin
+
+**Touches:** `.github/workflows/build-signed.yml`, `BespokeGalleryScreen.kt`, `GalleryA11y.kt`, `CHANGELOG.md` Unreleased, `BUILD_PLAN.md`, `AGENT_MEMORY.md`, ephemeral `CODE_REVIEW.md`
+
+---
+
 ### Sprint AUDIT6-2026-08-03 — Weekly health + Trivy Netty (agent closed)
 
 **Gate:** Tier 0 **8/8 PASS** · Tier 2 **`pns_verify_toolchain.ps1 -RunTests` PASS** (assemble, detekt, lint, unit tests, kover). USB **SKIP** (no ADB). Workspace was empty — recloned from `edwardlthompson/point-and-shoot` @ `2905d10` before audit.

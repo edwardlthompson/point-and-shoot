@@ -25,8 +25,10 @@ import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.activity.compose.BackHandler
@@ -241,6 +243,7 @@ fun BespokeGalleryScreen(
     var compareUri by remember { mutableStateOf<Uri?>(null) }
     var showLibraryDesk by remember { mutableStateOf(false) }
     var showComparePane by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     var trashStash by remember { mutableStateOf<GalleryTrash.Stash?>(null) }
     var undoUntil by remember { mutableStateOf(0L) }
     val groups = remember(mediaItems) { GalleryCaptureGroups.group(mediaItems) }
@@ -398,12 +401,15 @@ fun BespokeGalleryScreen(
     ) {
         // Top bar
         TopAppBar(
-            title = { 
+            title = {
                 Text(
-                    "Gallery", 
+                    "Gallery",
                     color = Color.White,
-                    fontSize = 18.sp
-                ) 
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                )
             },
             navigationIcon = {
                 IconButton(onClick = onBack) {
@@ -415,7 +421,7 @@ fun BespokeGalleryScreen(
                 }
             },
             actions = {
-                IconButton(onClick = { 
+                IconButton(onClick = {
                     isGridView = !isGridView
                     memoryProfiler.logEvent("Toggled view mode: ${if (isGridView) "grid" else "single"}")
                 }) {
@@ -435,51 +441,69 @@ fun BespokeGalleryScreen(
                         tint = Color.White
                     )
                 }
-                IconButton(onClick = { 
-                    showDeleteConfirmation = true 
-                }) {
+                IconButton(onClick = { showDeleteConfirmation = true }) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = GalleryA11y.DELETE,
                         tint = Color.White
                     )
                 }
-                IconButton(
-                    onClick = {
-                        val media = selectedMedia ?: return@IconButton
-                        if (compareUri != null && compareUri != media.uri) {
-                            showComparePane = true
-                        } else {
-                            compareUri = if (compareUri == media.uri) null else media.uri
-                        }
-                    },
-                ) {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = GalleryA11y.COMPARE,
-                        tint = if (compareUri != null) PnsColors.PhotoOrange else Color.White,
-                    )
-                }
-                IconButton(onClick = { showLibraryDesk = true }) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = GalleryA11y.DESK,
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = { showFileCard = true }) {
-                    Icon(
-                        Icons.Default.OpenInBrowser,
-                        contentDescription = GalleryA11y.FILE_CARD,
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onExternalGallery) {
-                    Icon(
-                        Icons.Default.OpenInBrowser,
-                        contentDescription = "External Gallery",
-                        tint = Color.White
-                    )
+                Box {
+                    IconButton(onClick = { showOverflowMenu = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = GalleryA11y.MORE,
+                            tint = Color.White,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showOverflowMenu,
+                        onDismissRequest = { showOverflowMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Compare") },
+                            onClick = {
+                                showOverflowMenu = false
+                                val media = selectedMedia ?: return@DropdownMenuItem
+                                if (compareUri != null && compareUri != media.uri) {
+                                    showComparePane = true
+                                } else {
+                                    compareUri = if (compareUri == media.uri) null else media.uri
+                                }
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = if (compareUri != null) PnsColors.PhotoOrange else LocalContentColor.current,
+                                )
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Library desk") },
+                            onClick = {
+                                showOverflowMenu = false
+                                showLibraryDesk = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("What this file is") },
+                            onClick = {
+                                showOverflowMenu = false
+                                showFileCard = true
+                            },
+                            leadingIcon = { Icon(Icons.Default.OpenInBrowser, contentDescription = null) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("System gallery") },
+                            onClick = {
+                                showOverflowMenu = false
+                                onExternalGallery()
+                            },
+                            leadingIcon = { Icon(Icons.Default.OpenInBrowser, contentDescription = null) },
+                        )
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -541,7 +565,7 @@ fun BespokeGalleryScreen(
                 ) { pageIndex ->
                     val media = mediaItems[pageIndex]
                     
-                    Column {
+                    Column(modifier = Modifier.fillMaxSize()) {
                         var pageExif by remember(media.uri) { mutableStateOf<ExifMetadata?>(null) }
                         var pageVideoMeta by remember(media.uri) { mutableStateOf<VideoCaptureMetadata.ReadInfo?>(null) }
                         LaunchedEffect(media.uri) {
@@ -563,15 +587,25 @@ fun BespokeGalleryScreen(
                         val isDng = media.displayName.lowercase().endsWith(".dng")
                         val videoRot = pageVideoMeta?.rotationDegrees ?: 0
 
-                        // Sprint **15.7**: lock viewer tile to 3:4; letterbox media inside (ContentScale.Fit).
-                        Box(
+                        // Sprint **15.7**: 3:4 viewer tile, letterbox media (ContentScale.Fit).
+                        // Size the tile to the leftover slot so a tall app bar cannot shove it off-screen.
+                        BoxWithConstraints(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .aspectRatio(3f / 4f)
+                                    .weight(1f)
                                     .background(Color.DarkGray),
                             contentAlignment = Alignment.Center,
                         ) {
+                            val tileWidth = minOf(maxWidth, maxHeight * 3f / 4f)
+                            val tileHeight = tileWidth * 4f / 3f
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .size(tileWidth, tileHeight)
+                                        .background(Color.DarkGray),
+                                contentAlignment = Alignment.Center,
+                            ) {
                             if (media.isVideo) {
                                 GalleryInlineVideoPlayer(
                                     uri = media.uri,
@@ -642,13 +676,14 @@ fun BespokeGalleryScreen(
                                     CircularProgressIndicator(color = Color.White)
                                 }
                             }
+                            }
                         }
                         
                         // Media specs below - scrollable
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
+                                .heightIn(max = 240.dp)
                                 .verticalScroll(rememberScrollState())
                                 .padding(16.dp)
                         ) {

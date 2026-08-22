@@ -75,6 +75,20 @@ Full index: **`AGENTS.md`**.
 
 ---
 
+## Sprint AUDIT-2026-08-22 — Post-0.14.0 health + signed-CI + gallery ✅ CLOSED (agent)
+
+Ephemeral review: `CODE_REVIEW.md`. Host: bootstrap **PASS** · Tier 0 **8/8** · Tier 2 **PASS**. USB gallery title smoke on CPH2583 **`b5214fc6`** (force-stop after). Dependabot high/critical **0**.
+
+- ✅ `[AGENT]` F-001 — `build-signed.yml` no longer re-runs full toolchain verify on `v*` (unblocked signed `assembleRelease`)
+- ✅ `[AGENT]` F-002 — Gallery title one-line + overflow menu; 3:4 tile uses leftover slot
+- ✅ `[AGENT]` F-003 — `AGENT_MEMORY.md` + H.9 notes → **Point & Shoot 0.14.0** / `22017` Latest
+- 🔲 `[HUMAN]` F-004 — set gitignored `PNS_ADB_SERIAL=b5214fc6` (env still had `8bf09993`)
+- 🔲 `[HUMAN]` F-006 — Milestone H **CRI-032…035**, keystore backup, leaderboard pin
+
+Archive: [BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md#sprint-audit-2026-08-22--post-0140-health--signed-ci--gallery-agent-closed).
+
+---
+
 ## Sprint IDEAS-2026-08-21m — USB webcam mode ✅ CLOSED (agent)
 
 - ✅ `[AGENT]` Tray Photo → Video → Webcam; `PnsUsbWebcam` USB_STATE + UVC/RNDIS/NCM
@@ -366,24 +380,23 @@ Archive note: agent Sequential work closed with beta.19; leave Human rows open a
 
 **CRI program:** **H.CRI-0…6** + **H.CRI-5** + **H-RESTORE** archived → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints). **H.CRI-7** = human (**CRI-032/033/034/035**).
 
-**Last CPH2583 USB (2026-06-21):** AUDIT4 — `highlight_meter_verify_20260621_152031` · `qr_scan_verify_20260621_152424` PASS · ship **beta.16**. **This host (2026-07-11):** online ADB **`8bf09993`** (OP13); env still `b5214fc6`.
+**Last CPH2583 USB (2026-08-22):** gallery title smoke on **`b5214fc6`** (`pns_preview_open_gallery`). Prior AUDIT4 highlight/QR **2026-06-21**. Env serial was stale **`8bf09993`** — refresh gitignored `PNS_ADB_SERIAL`.
 
 ---
 
-### Code review recommendations (2026-08-03 AUDIT6)
+### Code review recommendations (2026-08-22 AUDIT)
 
-Ephemeral: `CODE_REVIEW.md` (gitignored). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS**. Trivy Netty **4.1.136.Final** shipped (confirm next Security scan schedule).
+Ephemeral: `CODE_REVIEW.md` (gitignored). Host: Tier 0 **8/8 PASS** · Tier 2 **PASS**. Latest GitHub release **Point & Shoot 0.14.0**.
 
 | Priority | Item | Owner | Notes |
 |----------|------|-------|-------|
 | **P1** | Human Milestone H closure | Human | **CRI-032** eye-AF · **CRI-033** DCG · **CRI-034** store/PRIVACY · **CRI-035** OP13 ACR |
-| **P1** | Production signing | Human | **H.9** — still debug-key fallback without keystore |
-| **P2** | Dependabot backlog (10 PRs) | Maintainer | `/dependabot`; gate AGP/Compose |
-| **P2** | PreviewEngineScreen monolith | Deferred | ~22k lines — incremental ADR-0009 only |
+| **P1** | Keystore custody + leaderboard pin | Human | Local production keystore + GH secrets exist; back up `release.keystore` / `keystore.properties`; pin cert SHA in `signing_pins.json` |
+| **P2** | Dependabot PRs | Maintainer | **0** open vulnerability alerts; `/dependabot` for version PRs |
+| **P2** | PreviewEngineScreen monolith | Deferred | 23,559 lines — incremental ADR-0009 only |
 
-### Code review recommendations (2026-07-11 AUDIT5 — superseded)
+Prior AUDIT6 / AUDIT5 tables → [COMPLETED](BUILD_PLAN_COMPLETED.md#milestone-h--completed-sprints).
 
-**AUDIT5** gitleaks allowlist → [COMPLETED](BUILD_PLAN_COMPLETED.md#sprint-audit5-2026-07-11--post-beta16-security-scan--memory-agent-closed).
 ---
 
 ### Sprint H.CRI-7 — Human + release (cross-tagged)
@@ -394,7 +407,7 @@ Ephemeral: `CODE_REVIEW.md` (gitignored). Host: Tier 0 **8/8 PASS** · Tier 2 **
 | **033** | H.8.3 | Human — H.265 DCG @4K colors (fail 2026-05-26) |
 | **034** | H.5, H.9 | Human — store copy + PRIVACY/metadata |
 | **035** | H.7-OP13 | Human — ACR on OP13 aux DNGs (integrity PASS; scene parity FAIL) |
-| Release | H.9 | ❌ Blocked on owner sign-off |
+| Release | H.9 | **0.14.0** on GitHub Latest (host-signed). Human: keystore backup + leaderboard pin + CRI-034 |
 
 ---
 
@@ -438,8 +451,9 @@ Ephemeral: `CODE_REVIEW.md` (gitignored). Host: Tier 0 **8/8 PASS** · Tier 2 **
 
 - 🔲 **[HUMAN] CRI-034** `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review
 - 🔲 **[HUMAN]** `leaderboard-ingest/config/signing_pins.json` release cert SHA-256
+- 🔲 **[HUMAN]** Confirm backup of gitignored `release.keystore` + `keystore.properties`
 - ✅ **[AGENT]** GitHub Pages smoke after deploy — `pns_github_pages_smoke.ps1` + `gh run list` **PASS** (2026-06-18)
-- ✅ **[AGENT]** Release cut — `v0.14.0-beta.12` minified release APK (~48 MB) on GitHub (2026-06-18; debug-key signed)
+- ✅ **[AGENT]** Release cut — **Point & Shoot 0.14.0** / `22017` / tag `v0.14.0` Latest (2026-08-22; production-signed host APK). CI signed job failed on redundant toolchain verify (fixed this sprint).
 
 **Milestone H gate:** Human checklist **H.2–H.9** + `pns_prerelease_gate.ps1 -IncludeUsb` on CPH2583.
 
@@ -488,7 +502,7 @@ Template alignment (T), CRI program (0–6), H.CRI-5 monolith extraction, **H-RE
 
 ## Document control
 
-- **Version:** 2026-08-03 — **AUDIT6** (Trivy Netty 4.1.136.Final + hygiene); **Milestone H** remains active.
+- **Version:** 2026-08-22 — **AUDIT** (0.14.0 Latest + signed-CI + gallery); **Milestone H** remains active.
 - **Owner:** Maintainer closes Milestone H after human checklist + release sign-off.
 
 ---

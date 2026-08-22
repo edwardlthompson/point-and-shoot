@@ -1,0 +1,1 @@
+Gallery viewer — “Gallery” title no longer wraps into a tall column (overflow menu for extra actions); the 3:4 image tile sizes to the leftover slot instead of being shoved down.

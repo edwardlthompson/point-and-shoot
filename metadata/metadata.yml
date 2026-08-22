@@ -37,7 +37,7 @@ Builds:
   - versionName: '0.14.1'
     versionCode: 22018
     commit: v0.14.1
-    # publishedApkSha256: 813ee247d5370af927d04eec6d956b807c528cafd894e32b0e7f80617e948cf3
+    # publishedApkSha256: 3cd2e112de35a73743275e9aebf898f7ae5fb46471008de6dcfb62d0c6515189
     subdir: ''
     sudo:
       - openjdk-17-jdk-headless

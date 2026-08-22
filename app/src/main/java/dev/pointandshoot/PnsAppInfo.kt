@@ -7,6 +7,15 @@ import android.os.Build
 /** Host-readable app identity for DNG metadata + diagnostics. */
 object PnsAppInfo {
 
+    fun displayLabel(appName: String, version: String): String {
+        val name = appName.trim()
+        val ver = version.trim()
+        return if (name.isEmpty()) ver else "$name $ver"
+    }
+
+    fun displayLabel(context: Context): String =
+        displayLabel(context.getString(R.string.app_name), versionName(context))
+
     fun versionName(context: Context): String =
         runCatching {
             val pm = context.applicationContext.packageManager

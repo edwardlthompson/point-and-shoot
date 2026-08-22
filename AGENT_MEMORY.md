@@ -11,8 +11,8 @@
 | **Active milestone** | **H** — human & publication |
 | **Active sprint** | **AUDIT6** closed (agent) · human H.2–H.9 remain |
 | **Template pin** | **0.15.0** (`.template-version`) — see `docs/BOOTSTRAP_ALIGNMENT.md` |
-| **Ship line** | **0.14.0-beta.19** / `versionCode` **22013** |
-| **GitHub release** | [v0.14.0-beta.19](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.19) |
+| **Ship line** | Last published **0.14.0-beta.22** / `22016`. Policy: next `/ship` is **Point & Shoot 0.14.0** (signed APK) |
+| **GitHub release** | [v0.14.0-beta.22](https://github.com/edwardlthompson/point-and-shoot/releases/tag/v0.14.0-beta.22) |
 | **Primary USB device** | OnePlus 12 **CPH2583** — refresh `scripts/pns_adb_device.env` `PNS_ADB_SERIAL` when online |
 | **Agent lanes closed** | **AUDIT6**, **AUDIT5**, **AUDIT4**, **Milestone 28**, **H.CRI-5**, **T.14**, **BOOTSTRAP-0.15** |
 | **Session protocol** | `docs/START_HERE.md` → `CURSOR_MODES` → `FOR_AGENTS` → `AGENTS.md` → BUILD_PLAN Sequential |

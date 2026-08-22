@@ -113,7 +113,6 @@ private fun AboutHeritageBody(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val installedVersion = PnsAppInfo.versionName(context)
     var checkingUpdates by remember { mutableStateOf(false) }
     var manualUpdate by remember { mutableStateOf<PnsProductUpdate.LaunchPrompt.Update?>(null) }
     var installRequest by remember { mutableStateOf<PnsApkInstaller.Request?>(null) }
@@ -137,9 +136,11 @@ private fun AboutHeritageBody(
     ChromeSettingsIntroText(
         buildString {
             if (knownGithub.isNullOrBlank()) {
-                append("Installed $installedVersion · GitHub version unknown until the first successful check.")
+                append(
+                    "Installed ${PnsAppInfo.displayLabel(context)} · GitHub version unknown until the first successful check.",
+                )
             } else {
-                append("Installed $installedVersion · GitHub $knownGithub")
+                append("Installed ${PnsAppInfo.displayLabel(context)} · GitHub $knownGithub")
             }
             lastCheckLabel?.let { append(" $it.") }
             if (debugSigned) {

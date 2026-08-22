@@ -1,1 +1,1 @@
-FOSS pro camera: fleet-first Camera2, RAW DNG, professional HUD.
+A FOSS camera for people who shoot. Honest RAW, video, and webcam.

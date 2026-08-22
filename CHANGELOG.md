@@ -5,6 +5,15 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 ## Unreleased
 
 _(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+## [0.14.0] - 2026-08-22
+
+First stable Point & Shoot 0.14.0: product name, photorealistic icon, signed-APK /ship, pitch README.
+
+**Release notes:** **APK:** `Point-and-Shoot-0.14.0.apk`
+
+- **Product README** — pitch + charcoal/orange branding, photorealistic launcher icon.
+- **Stable product version** — About and GitHub releases use **Point & Shoot {x.y.z}** (no `-beta.N`). Next `/ship` graduates `0.14.0-beta.22` to **0.14.0**.
+- **Signed `/ship` APKs** — publish refuses debug-key fallback; requires `keystore.properties` or `ANDROID_KEYSTORE_*`.
 ## [0.14.0-beta.22] - 2026-08-22
 
 Wear remote, HDMI/MJPEG, Lineage USB Webcam for Camera/Zoom/Teams, gallery desk, and capture recipes.

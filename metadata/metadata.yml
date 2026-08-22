@@ -12,8 +12,8 @@ IssueTracker: https://github.com/edwardlthompson/point-and-shoot/issues
 Translation: https://github.com/edwardlthompson/point-and-shoot
 
 AutoName: Point & Shoot
-CurrentVersion: 0.14.0-beta.22
-CurrentVersionCode: 22016
+CurrentVersion: 0.14.0
+CurrentVersionCode: 22017
 Summary: FOSS pro camera — fleet-first Camera2, RAW DNG, locked preview chrome.
 Description: |-
   Point & Shoot is a fully open-source pro camera app for Android 9+ (API 28+).
@@ -34,9 +34,9 @@ RepoType: git
 
 # F-Droid builder recipe (Gradle + NDK). Tag must exist on GitHub for reproducible builds.
 Builds:
-  - versionName: '0.14.0-beta.22'
-    versionCode: 22016
-    commit: v0.14.0-beta.22
+  - versionName: '0.14.0'
+    versionCode: 22017
+    commit: v0.14.0
     # publishedApkSha256: b3355b102c817551d6ca28da58faeb0d91aed041734ebdc50f3108e5a0b5af63
     subdir: ''
     sudo:

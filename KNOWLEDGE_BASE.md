@@ -8,7 +8,7 @@ Curated map of **canonical docs → code → gates**. Index only — do not dupl
 
 | Topic | Doc | Notes |
 |-------|-----|-------|
-| Overview | [README.md](README.md) | FOSS pro camera; fleet-first validation (CPH2583) |
+| Overview | [README.md](README.md) | Product pitch + branding; fleet-first validation (CPH2583) |
 | Architecture | [CAPTURE_ARCHITECTURE.md](CAPTURE_ARCHITECTURE.md) | Threading, capture pipeline |
 | Dodge product profile | [DODGE_PROFILE.md](DODGE_PROFILE.md) | Tele 73/85/150 mm routing reference |
 | Performance targets | [PERFORMANCE_BUDGETS.md](PERFORMANCE_BUDGETS.md) | Cold start, preview FPS, capture latency |
@@ -100,7 +100,7 @@ Runtime artifact: `files/fleet_device_matrix.json` (app private storage; pulled 
 | Security policy | [SECURITY.md](SECURITY.md) | CodeQL + gitleaks + Trivy CI |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) | Pre-commit, PR checklist, trunk flow |
 | Coverage manifest | [scripts/changelog_coverage.v1.json](scripts/changelog_coverage.v1.json) | Sync `versionCode` on release |
-| Release packaging | [RELEASE_NOTES_TEMPLATE.md](RELEASE_NOTES_TEMPLATE.md) | `pns_release_packaging.ps1`, `pns_github_release.ps1` |
+| Release packaging | [RELEASE_NOTES_TEMPLATE.md](RELEASE_NOTES_TEMPLATE.md) | `pns_release_packaging.ps1`, `pns_github_release.ps1` (stable `Point & Shoot x.y.z`, signed APK on `/ship`) |
 | License inventory | [LICENSES.md](LICENSES.md) | `pns_license_inventory.ps1` |
 | Active plan | [BUILD_PLAN.md](BUILD_PLAN.md) | Milestone H + **H.CRI-0…7** code-review program |
 | Shipped archive | [BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md) | §29 Milestone T |

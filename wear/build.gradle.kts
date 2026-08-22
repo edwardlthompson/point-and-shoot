@@ -11,8 +11,8 @@ android {
         applicationId = "dev.pointandshoot.wear"
         minSdk = 30
         targetSdk = 36
-        versionCode = 22016
-        versionName = "0.14.0-beta.22"
+        versionCode = 22017
+        versionName = "0.14.0"
     }
 
     buildTypes {

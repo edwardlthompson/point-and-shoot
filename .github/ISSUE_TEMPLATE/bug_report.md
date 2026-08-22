@@ -22,7 +22,7 @@ body:
     id: version
     attributes:
       label: App version
-      placeholder: "e.g. 0.14.0-beta.7 (versionCode …)"
+      placeholder: "e.g. Point & Shoot 0.14.0 (versionCode …)"
     validations:
       required: true
 

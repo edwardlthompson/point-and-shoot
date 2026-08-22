@@ -92,6 +92,14 @@ if (Test-Path -LiteralPath $sectionTest) {
   }
 }
 
+$namingTest = Join-Path $PSScriptRoot "pns_release_naming_test.ps1"
+if (Test-Path -LiteralPath $namingTest) {
+  & $namingTest
+  if ($LASTEXITCODE -ne 0) {
+    $failures.Add("FAIL: pns_release_naming_test.ps1")
+  }
+}
+
 if ($failures.Count -gt 0) {
   foreach ($line in $failures) {
     Write-Host $line

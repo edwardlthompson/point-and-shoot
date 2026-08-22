@@ -18,7 +18,7 @@ Bookmark this page when you return after a break.
 | `/bootstrap` | Fresh agent session — context + local gates |
 | `/verify` | After your changes, before opening a pull request |
 | `/build` | Start a new feature (plans first, then implements) |
-| `/ship` | Publish a release to GitHub (checks, push, post-release) |
+| `/ship` | Publish **Point & Shoot x.y.z** to GitHub with a **signed** APK |
 | `/maintain` | Weekly health pass — security, dependencies, full review |
 
 **Worked example — before a PR:** make changes → `/verify` → fix any red gates → open PR.

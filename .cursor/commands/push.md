@@ -2,6 +2,11 @@
 
 **User invoked `/push` — explicit approval for `git push`.**
 
+## Version + signing (mandatory)
+
+- **Name:** GitHub title and About line are `Point & Shoot {MAJOR.MINOR.PATCH}`. Do **not** auto-cut `-beta.N` names. Next prepare after `0.14.0-beta.22` is **`0.14.0`**.
+- **Signed APK:** `-Publish` must upload a **production-signed** `assembleRelease` APK. Halt if `keystore.properties` / `ANDROID_KEYSTORE_*` is missing. Never pass `-AllowDebugKey`. Never pass `-Prerelease` unless the user explicitly asks for a GitHub pre-release.
+
 ## Step 1 — Pre-release validation
 
 ```powershell
@@ -24,7 +29,17 @@ Draft from `RELEASE_NOTES.md.example` / dated `CHANGELOG.md` section.
 
 ## Step 4 — Release
 
-Prefer `.cursor/skills/github-release/SKILL.md` → `scripts/pns_github_release.ps1` for Obtainium-ready GitHub releases.
+Follow `.cursor/skills/github-release/SKILL.md`:
+
+```powershell
+.\scripts\pns_github_release.ps1 -PrepareOnly
+# commit version/changelog files, then:
+.\scripts\pns_github_release.ps1 -Publish -SkipPrepare
+git push origin HEAD
+git push origin v<semver>
+```
+
+`-Publish` runs `pns_release_packaging.ps1` (signed APK + zipalign + apksigner) and uploads `{apk}` + `{apk}.sha256` + `CHANGELOG.md`.
 
 ## Step 5 — Cleanup
 

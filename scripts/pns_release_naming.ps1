@@ -5,10 +5,12 @@
 
 .DESCRIPTION
   Industry-aligned conventions:
-  - versionName: semver in app/build.gradle.kts (e.g. 0.14.0-beta.6) - user-visible.
+  - versionName: stable semver in app/build.gradle.kts (e.g. 0.14.0) - user-visible.
+  - GitHub title / About: "Point & Shoot {versionName}".
   - versionCode: monotonic positive integer (Android requirement); derived from semver when
     the encoded value exceeds the installed baseline so upgrades keep working.
   - APK filename: {AppDisplayName}-{versionName}.apk (hyphens, no spaces).
+  - /ship uploads a production-signed APK only (keystore.properties or ANDROID_KEYSTORE_*).
 
   Dot-source from release scripts:
     . "$PSScriptRoot\pns_release_naming.ps1"
@@ -129,17 +131,73 @@ function Get-PnsNextSemverVersionName {
     param([string]$CurrentVersionName)
 
     $semver = ConvertTo-PnsSemverTag $CurrentVersionName
-    if ($semver -match '^(.+-beta\.)(\d+)$') {
-        return "$($Matches[1])$([int]$Matches[2] + 1)"
-    }
-    if ($semver -match '^(.+-alpha\.)(\d+)$') {
-        return "$($Matches[1])$([int]$Matches[2] + 1)"
-    }
-    if ($semver -match '^(.+-rc\.)(\d+)$') {
-        return "$($Matches[1])$([int]$Matches[2] + 1)"
+    # Leave the 0.14.0-beta.N line: first /ship after this policy graduates to 0.14.0.
+    if ($semver -match '^(\d+\.\d+\.\d+)-') {
+        return $Matches[1]
     }
     if ($semver -match '^(\d+)\.(\d+)\.(\d+)$') {
         return "$($Matches[1]).$($Matches[2]).$([int]$Matches[3] + 1)"
     }
     throw "Cannot auto-increment versionName '$CurrentVersionName' - pass an explicit tag."
+}
+
+function Get-PnsReleaseTitle {
+    param(
+        [string]$VersionName,
+        [string]$AppTitle = "Point & Shoot"
+    )
+    $semver = ConvertTo-PnsSemverTag $VersionName
+    if ([string]::IsNullOrWhiteSpace($AppTitle)) { $AppTitle = "Point & Shoot" }
+    return "$AppTitle $semver"
+}
+
+function Test-PnsReleaseSigningConfigured {
+    param([string]$RepoRoot)
+
+    $envPath = [string]$env:ANDROID_KEYSTORE_PATH
+    if (-not [string]::IsNullOrWhiteSpace($envPath) -and
+        -not [string]::IsNullOrWhiteSpace([string]$env:ANDROID_KEYSTORE_PASSWORD) -and
+        -not [string]::IsNullOrWhiteSpace([string]$env:ANDROID_KEY_ALIAS) -and
+        -not [string]::IsNullOrWhiteSpace([string]$env:ANDROID_KEY_PASSWORD) -and
+        (Test-Path -LiteralPath $envPath)) {
+        return $true
+    }
+
+    $propsPath = Join-Path $RepoRoot "keystore.properties"
+    if (-not (Test-Path -LiteralPath $propsPath)) { return $false }
+
+    $map = @{}
+    foreach ($line in Get-Content -LiteralPath $propsPath) {
+        if ($line -match '^\s*#' -or $line -notmatch '=') { continue }
+        $parts = $line -split '=', 2
+        if ($parts.Count -lt 2) { continue }
+        $map[$parts[0].Trim()] = $parts[1].Trim()
+    }
+    $store = [string]$map['storeFile']
+    if ([string]::IsNullOrWhiteSpace($store)) { return $false }
+    $storeFile = $store
+    if (-not [IO.Path]::IsPathRooted($storeFile)) {
+        $storeFile = Join-Path $RepoRoot $store
+    }
+    $storePw = [string]$map['storePassword']
+    $keyPw = [string]$map['keyPassword']
+    return (Test-Path -LiteralPath $storeFile) -and
+        -not [string]::IsNullOrWhiteSpace($storePw) -and
+        $storePw -ne 'CHANGE_ME' -and
+        -not [string]::IsNullOrWhiteSpace([string]$map['keyAlias']) -and
+        -not [string]::IsNullOrWhiteSpace($keyPw) -and
+        $keyPw -ne 'CHANGE_ME'
+}
+
+function Assert-PnsReleaseSigningReady {
+    param([string]$RepoRoot)
+
+    if (Test-PnsReleaseSigningConfigured -RepoRoot $RepoRoot) { return }
+    throw @"
+Release signing is not configured. /ship uploads a production-signed APK only.
+
+Copy keystore.properties.example to keystore.properties (gitignored) and set storeFile
+to your .jks/.keystore, or set ANDROID_KEYSTORE_PATH / ANDROID_KEYSTORE_PASSWORD /
+ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD.
+"@
 }

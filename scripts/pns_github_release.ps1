@@ -39,7 +39,8 @@
   Create GitHub release as draft.
 
 .PARAMETER Prerelease
-  Mark GitHub release pre-release (default from release_config when omitted).
+  Mark GitHub release as a GitHub pre-release. Default is a full release
+  (`release_config.versionBump.defaultPrerelease`). Do not pass this on /ship.
 
 .PARAMETER SkipBuild
   Use existing release APK in app/build/outputs or dist/.
@@ -57,7 +58,7 @@
   .\scripts\pns_github_release.ps1 -PrepareOnly
 
 .EXAMPLE
-  .\scripts\pns_github_release.ps1 -Publish -SkipPrepare -Prerelease
+  .\scripts\pns_github_release.ps1 -Publish -SkipPrepare
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -207,7 +208,7 @@ function Update-GradleFile([string]$Path, [int]$NewCode, [string]$NewName, [swit
         return
     }
     [System.IO.File]::WriteAllText($Path, $text)
-    Write-Step "Updated app/build.gradle.kts (versionCode=$NewCode, versionName=$NewName)"
+    Write-Step "Updated $(Split-Path -Leaf $Path) (versionCode=$NewCode, versionName=$NewName)"
 }
 
 function Update-CoverageManifest(
@@ -333,6 +334,10 @@ function Invoke-PreparePhase {
         -WhatIf:$DryRun
 
     Update-GradleFile -Path $gradlePath -NewCode $NewCode -NewName $SemverTag -WhatIf:$DryRun
+    $wearGradle = Join-Path $repoRoot "wear\build.gradle.kts"
+    if (Test-Path -LiteralPath $wearGradle) {
+        Update-GradleFile -Path $wearGradle -NewCode $NewCode -NewName $SemverTag -WhatIf:$DryRun
+    }
     Update-CoverageManifest -Path $coveragePath -SemverTag $SemverTag -ReleaseDate $ReleaseDate -NewCode $NewCode -WhatIf:$DryRun
     Update-ExternalUrlLatestTag -Path $externalUrlPath -SemverTag $SemverTag -WhatIf:$DryRun
     $preparedChangelog = [System.IO.File]::ReadAllText($changelogPath)
@@ -374,18 +379,29 @@ function Invoke-PublishPhase {
         throw "CHANGELOG.md missing body for [$SemverTag] - run -PrepareOnly first."
     }
 
+    $appTitle = [string]$Config.appTitle
+    if ([string]::IsNullOrWhiteSpace($appTitle)) { $appTitle = "Point & Shoot" }
+    $releaseTitle = Get-PnsReleaseTitle -VersionName $SemverTag -AppTitle $appTitle
     $releaseNotes = @"
-# Point & Shoot $SemverTag
+# $releaseTitle
 
 Full changelog: https://github.com/$owner/$repo/blob/main/CHANGELOG.md
 
 $sectionBody
 "@
 
+    $requireSigned = $true
+    if ($null -ne $Config.versionBump.requireReleaseSigning) {
+        $requireSigned = [bool]$Config.versionBump.requireReleaseSigning
+    }
+    if ($requireSigned -and -not $DryRun) {
+        Assert-PnsReleaseSigningReady -RepoRoot $repoRoot
+    }
+
     $artifactApk = $null
     if (-not $SkipBuild) {
         if ($DryRun) {
-            Write-Step "Would run pns_release_packaging.ps1"
+            Write-Step "Would run pns_release_packaging.ps1 (signed APK required)"
         } else {
             & (Join-Path $PSScriptRoot "pns_release_packaging.ps1")
             if ($LASTEXITCODE -ne 0) {
@@ -424,7 +440,7 @@ $sectionBody
     }
 
     if ($DryRun) {
-        Write-Step "Would create GitHub release $GitTag on $ghRepo (prerelease=$IsPrerelease draft=$IsDraft)"
+        Write-Step "Would create GitHub release $GitTag on $ghRepo title='$releaseTitle' prerelease=$IsPrerelease draft=$IsDraft"
         Write-Step "Release notes length: $($releaseNotes.Length) chars"
         if ($artifactApk) {
             Write-Step "Would upload: $artifactApk"
@@ -441,7 +457,7 @@ $sectionBody
         $ghArgs = @(
             "release", "create", $GitTag,
             "--repo=$ghRepo",
-            "--title=$SemverTag",
+            "--title=$releaseTitle",
             "--notes-file=$notesFile"
         )
         if ($IsDraft) { $ghArgs += "--draft" }

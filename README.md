@@ -1,314 +1,114 @@
-# Point & Shoot
+<p align="center">
+  <img src="docs/branding/point-and-shoot-banner.png" alt="Point &amp; Shoot — a FOSS camera for people who shoot" width="920" />
+</p>
 
-> **Project status (June 2026):** Maintenance releases continue (CRI program + Milestone **T** template alignment). Primary USB validation: **OnePlus 12 CPH2583**; optional **OP13 / CPH2655** legacy regression lane. See [`BUILD_PLAN.md`](BUILD_PLAN.md) and [`CHANGELOG.md`](CHANGELOG.md).
+<p align="center">
+  <img src="docs/branding/point-and-shoot-icon.png" alt="Point &amp; Shoot icon" width="128" />
+</p>
+
+<h1 align="center">Point &amp; Shoot</h1>
+
+<p align="center"><strong>A FOSS camera for people who shoot.</strong></p>
+
+<p align="center">
+  Predictable controls. Honest hardware. Files that open where you edit.<br />
+  No Play Services. No proprietary blobs. Apache-2.0.
+</p>
+
+<p align="center">
+  <a href="https://github.com/edwardlthompson/point-and-shoot/releases/latest"><img src="https://img.shields.io/github/v/release/edwardlthompson/point-and-shoot?include_prereleases&label=release&color=FF5C00" alt="Latest release" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-181A1B?labelColor=181A1B&color=FF5C00" alt="Apache-2.0" /></a>
+  <a href="https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml"><img src="https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml/badge.svg?branch=main" alt="Toolchain verify" /></a>
+</p>
 
 ---
 
-## STOP — capture / ADB automation (read before changing preview or RAW stills)
+Most phone cameras try to be clever. Point & Shoot tries to be **a camera**.
 
-**Do not** tie **`automationSuppressFacePipeline`** to **`pns_preview_raw_count`** / sequential RAW-only automation. Suppressing the face/YUV analysis path forced **`wantYuv=false`** on the H-dial preview session and broke RAW still session create on real hardware (e.g. **legacy SKU / legacy device class stacks**): `SESSION_CREATE_THROW` / `CAMERA_DISCONNECTED`. **Rule:** `automationSuppressFacePipeline` is for **bracket** automation only; sequential RAW-only must keep the **same preview stream wiring as in-app H** so scripted still capture matches user capture. After any change under `PreviewEngineScreen.kt` / `RawCaptureSupport.kt` affecting stills or sessions, run **`scripts/pns_photo_capture_verify.ps1`** (or **`pns_capture_pipeline_verify.ps1`**) on USB. See **`AGENTS.md`** (capture automation warning), **`BUILD_PLAN.md`** item **11**, and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** (top warning).
+You get a finder you can trust, a readout you can read in sunlight, and files you can take into Lightroom. What the hardware cannot do stays hidden — no greyed-out theater. What it can do, you drive: aperture, shutter, ISO, LUT, focal length, Photo / Video / Webcam.
 
-**Bulk “restore everything” from the bisect checklist without per-step USB proof is unsafe.** On **legacy SKU** (`legacy serial`, May 2026), re-enabling **§4a** (API 33+ stream-use-case tags on the REGULAR session) alone caused **RAW still timeouts**; re-applying Milestone **10.1** **§2** RAW10-before-RAW_SENSOR order produced **RAW10** captures that **`DngCreator`** refused (**unsupported format 37**). **§1** (still **PreviewStabilization**) and **§5** (**PreviewPostRawSensitivity**) were restored **with** a green **`pns_photo_capture_verify`** only while **§4a** and the **§2** bisect tier order stayed reverted. See **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 for the incremental proof table.
-
-**Future agents — do not merge without USB proof if you change:**
-
-| Area | Avoid |
-|------|--------|
-| `PreviewEngineScreen.kt` REGULAR `createSession` | Turning **`streamHints`** back to **`SDK_INT >= TIRAMISU`** (§4a “restore”) — **RAW still timeout** + **`onError` 4** on this fleet. |
-| `RawCaptureSupport.kt` **`Default`** tier | **RAW12 → RAW10 → RAW_SENSOR** (Milestone 10.1 order) — **`DngCreator` format 37** failure on this fleet; keep **RAW_SENSOR before RAW10** unless DNG path + device gate prove otherwise. |
-| `DngMetadataResolver.kt` / RAW still DNG save in `PreviewEngineScreen.kt` | **Hybrid** physical `CameraCharacteristics` + **logical** `TotalCaptureResult` when **`physicalCameraTotalResults`** omits the picked id; removing **`DngMetadataResolution`** / **`dng save diag`** without USB proof. See **`AGENTS.md`** CRITICAL “DNG metadata pairing” and **`.cursor/rules/dng-logical-multicam-metadata-lock.mdc`**. |
-| `BackCameraRoleResolver.kt` / `SensorCropGeometry.kt` / tele **`resolveFocalMmSlot`** | **Fleet-style dual policy**, **`longTele`** routing for **150 mm**, or **logical-first** tele when **physical tele is in `cameraIdList`** — breaks **85/150** digital crops vs **73** on dodge; see **`AGENTS.md`** CRITICAL “Dodge tele focal slots”. Verify with **`pns_chrome_ux_gate.ps1 -FocalMmSlot 150`**. |
-| Bisect doc §1–§5 | **All hunks at once** — use **per-hunk** **`pns_photo_capture_verify.ps1`**; see **`AGENTS.md`** (§4a / §2 CRITICAL) and **`docs/REVERTED_FEATURES_RESTORE_LIST.md`** §8 “What agents must avoid”. |
+**Get it:** [GitHub Releases](https://github.com/edwardlthompson/point-and-shoot/releases/latest) · [Obtainium](https://github.com/ImranR98/Obtainium) (`https://github.com/edwardlthompson/point-and-shoot`) · F-Droid listing in progress
 
 ---
 
-[![Toolchain verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/toolchain-verify.yml)
-[![Plan doc verify](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml/badge.svg?branch=main)](https://github.com/edwardlthompson/point-and-shoot/actions/workflows/plan-doc-verify.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+## The finder
 
-**Security:** see [`SECURITY.md`](SECURITY.md) for supported versions and vulnerability reporting. Weekly triage: [`docs/SECURITY_TRIAGE.md`](docs/SECURITY_TRIAGE.md).
+A locked portrait chrome built for shooting, not browsing settings.
 
-**Contributing:** see [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, CI checks, and pre-commit hooks.
+- **3:4 live finder** with a professional readout: ISO, shutter, white balance, aperture when the lens has it, AF, LUT
+- **7×3 quick grid** — focal lengths and the tools you actually tap, including Settings on the rail
+- **Command dial** — A / M / H / S / BKT / Macro, plus Photo, Video, and Webcam on the tray
+- **Dodge tele row** — 73 / 85 / 150 mm on the mid-tele when the phone has it
+- **Looks on the glass** — built-in and imported `.cube` LUTs, focus peaking, RGB histogram, zebras, horizon, eye-AF overlay
+- **Landscape** uses finder beside the rail; portrait chrome stays put
+- **Selfie ring**, smile still, QR scan, and a status bar that shows timecode and meters while you record
 
-### How agents should work in this repo
+## Stills that survive the desktop
 
-1. Read [`docs/START_HERE.md`](docs/START_HERE.md) (Reference mode — already initialized).
-2. Pick Cursor mode via [`docs/CURSOR_MODES.md`](docs/CURSOR_MODES.md).
-3. Follow [`docs/FOR_AGENTS.md`](docs/FOR_AGENTS.md), then [`AGENTS.md`](AGENTS.md) for automation + CRITICAL locks.
-4. Execute [`BUILD_PLAN.md`](BUILD_PLAN.md) **Sequential** first; use emoji status (`🔲`/`✅`/`❌`) and labels `[AGENT]`/`[HUMAN]`/`[ADB]`/`[AUTO]`.
-5. Local-first gates: Tier 0 `pns_local_dev_parallel.ps1` → Tier 2 `pns_verify_toolchain.ps1 -RunTests` → USB capture then chrome (never parallel on one serial).
+- **DNG first** — loadable files, not “phone RAW” that Adobe refuses
+- Hardware **JPEG** when you want a companion, optional artist/copyright on JPEG only (never rewritten onto DNG)
+- **ZSL, HDR, brackets, burst** — including long-press JPEG burst with a real cadence
+- **Recipes** — concert/museum silent, airplane-safe, intervalometer with ISO ramp, motion trip
+- **Geotag** Off / Coarse / Precise (coarse ~1 km; DNG is never EXIF-rewritten)
+- **Home widget** that fires a still
+- Power profile: Performance / Balanced / Endurance
 
-Bootstrap alignment: [`docs/BOOTSTRAP_ALIGNMENT.md`](docs/BOOTSTRAP_ALIGNMENT.md) (pin **v0.15.0**).
+## Video you can finish
 
-**Privacy:** see [`PRIVACY.md`](PRIVACY.md) — no analytics; on-device ML Kit; opt-in network features.
+- In-app **H.264 / HEVC** MP4, high frame rates when the encoder allows, 10-bit and **HDR10** on Dual Conversion Gain stacks
+- **RAW video** (`.mcraw`) when you want the sensor, not a baked clip
+- Format picker, video LUT on the finder, stabilization when the HAL has it
+- Timecode, audio meters, hi-fi extras, wind filter, chapter marks on volume-up
+- **Stacked dual video** into one MP4
+- Honest remaining-minutes and thermal/battery FPS — a toast when the finder is capped, not a silent lie
 
-**Third-party notices:** see [`NOTICE`](NOTICE) and [`LICENSES.md`](LICENSES.md).
+## Out of the pocket
 
-A FOSS pro camera app for **fleet-oriented Camera2 devices** (primary validation lane: **OnePlus 12 CPH2583**), with strict truth-first capture and video gates.
+- **USB webcam** — on Lineage, USB → Webcam so Windows Camera, Zoom, and Teams see **Android Webcam** (inbox UVC)
+- **HDMI / MJPEG** — clean feed over a cable, or `mjpeg` / snapshot for OBS and VLC
+- **Wear OS** remote or timer — countdown, cancel, vibrate, BLE or LAN, no Play Services
+- **LAN roll** — list and proof files on the network
 
-> Predictable controls. RAW-first workflows. A HUD designed for shooting. **No proprietary blobs. No Google Play Services.**
+## A gallery that is a desk
 
-- **Stack**: Kotlin 2.4.x, Jetpack Compose, Camera2, NDK (C++23), CMake
-- **Output formats** (planned): DNG (RAW12), AVIF (10-bit HDR), JPEG XL (12-bit)
-- **Min / target / compile SDK**: 28 / 36 / 37
-- **License**: Apache-2.0
-- **Constraint**: zero proprietary binaries, no Google Play Services dependencies
+Not a film-roll graveyard.
 
-## Why this exists
+- Compare side by side, cull stacks, day contact sheets, keywords and collections, travel days
+- DNG + JPEG (and night / bracket stacks) share and delete as **one shot**
+- Trim, pull a frame, bake a LUT, vault copy, Immich / WebDAV, redact-before-share
+- SHA-256 evidence and a redacted bug pack when something breaks
+- Capture journal of last saved and failed stills — no logcat required
 
-- **Speed and determinism** — camera behavior you can learn and trust.
-- **Modern formats** — RAW (DNG) plus AVIF/JXL targets for high-quality stills.
-- **Fleet-first correctness** — capability-catalog + parity-driven behavior that scales across onboarded SKUs while preserving product-specific profiles where needed.
-- **CRI fix program (Milestone H)** — code-review intake closed across host gates (DNG loadability locks, RAW video lane, detekt/Kover, CI security scans, OP13 fixture refresh); human ACR/store-copy rows remain in [`BUILD_PLAN.md`](BUILD_PLAN.md).
-- **Milestone T (template alignment)** — KNOWLEDGE_BASE, ADRs, CONTRIBUTING, pre-commit, F-Droid metadata scaffold, reproducible-build verify, **`pns_prerelease_gate.ps1`** orchestrator.
-- **Sprint TM (Gradle modules)** — `:pns-core`, `:pns-fleet`, `:pns-capture`, `:pns-preview` under [`modules/`](modules/); bootstrap gates **`pns_validate_bootstrap.ps1`** / **`pns_watch_agent_gates.ps1`**; closure **`pns_milestone_tm_gate.ps1`**; [ADR-0009](docs/adr/0009-modular-boundaries.md).
+## Honest on every phone
 
-## Gradle modules
+Point & Shoot learns the device. Unavailable features **disappear**. Root-only tools stay visible and say so.
 
-```
-:app (android.application)
- ├── :pns-preview
- │    ├── :pns-capture
- │    │    ├── :pns-fleet
- │    │    │    └── :pns-core
- │    │    └── :pns-core
- │    ├── :pns-fleet
- │    └── :pns-core
- ├── :pns-capture
- ├── :pns-fleet
- └── :pns-core
-```
+Primary development is on a **OnePlus 12**. The same app is meant to travel — capability catalog and parity, not a pile of one-off OEM flags.
 
-| Command | Role |
-|---------|------|
-| `.\scripts\pns_validate_bootstrap.ps1` | Template file / `MODULE.md` / label checks |
-| `.\scripts\pns_watch_agent_gates.ps1 -Step tier0` | Tier 0 parallel host gates (includes bootstrap) |
-| `.\scripts\pns_milestone_tm_gate.ps1` | Sprint TM closure (bootstrap + Tier 0 + Tier 2) |
+**Privacy is default.** No analytics. On-device face work. Network features are opt-in. See [PRIVACY.md](PRIVACY.md).
 
-Golden Path (no duplicate app tree): [`examples/golden-path/README.md`](examples/golden-path/README.md) — probe hub + `pns_screen mock`.
+## Install & updates
 
-Per-module contracts: [`modules/pns-core/MODULE.md`](modules/pns-core/MODULE.md) and siblings.
+| | |
+|---|---|
+| **Package** | `dev.pointandshoot` |
+| **GitHub** | [Releases](https://github.com/edwardlthompson/point-and-shoot/releases) — signed APK on each ship |
+| **Obtainium** | Add `https://github.com/edwardlthompson/point-and-shoot` · on-device: `obtainium://add/github.com/edwardlthompson/point-and-shoot` |
+| **In-app** | About → Check for updates, Wi-Fi-only option, SHA-256 on the install dialog |
+| **F-Droid** | Metadata is in-repo; listing is next |
 
-## Highlights
+A production-signed build will not replace a debug-signed sideload. Uninstall the old one first.
 
-- **Comprehensive Camera2 capability probe**
-  - Deep characteristics, session-configuration matrix, HDR/DCG runtime, capture latency, RAW + dynamic-range exclusivity, burst / AE bracket, logical-vs-physical, exhaustive HFR + encoder matrix, legacy Camera1 sanity.
-  - JSON artifacts that survive on-device runs and a Markdown export for review.
-  - **Milestone 10.1:** the Markdown export also lists **RAW12 / RAW10 / RAW_SENSOR** stream sizes (with min frame duration), **`rawPickEffective=`** (aligned with `RawCaptureSupport.pickRawOutput`), **HFR rollup** lines, and a versioned **shallow fleet JSON** block — treat those exports plus **`hfr-runs/`** pulls as canonical per-device numbers, not chat-only summaries.
-- **Portrait preview engine (locked chrome)** — **7×3** quick grid, **3:4** finder, dodge tele **73 / 85 / 150 mm** on physical mid-tele when enumerated; GLES external-OES preview with per-mode LUTs, optional focus peaking (M dial + video), horizon line, histogram / zebra aids. Layout contract: [`docs/preview-chrome-layout-style-guide.md`](docs/preview-chrome-layout-style-guide.md).
-- **Bespoke in-app gallery** — Tray **Gallery** opens [`BespokeGalleryScreen`](app/src/main/java/dev/pointandshoot/BespokeGalleryScreen.kt) (grid/single view, EXIF panel, share/delete, zoom/pan). **Photo / Video / Gallery** last surface restores on cold start via [`PreviewLastSurfacePrefs`](app/src/main/java/dev/pointandshoot/PreviewLastSurfacePrefs.kt). DNG previews read TIFF orientation tag **274** once ([`DngGalleryOrientation`](app/src/main/java/dev/pointandshoot/DngGalleryOrientation.kt)); JPEG uses system thumbnail EXIF without double-rotation.
-- **Stills (M13)** — ReferenceApp-style **DNG** via framework `DngCreator`; optional **ZSL** / **HDR still** (3× DNG bracket); fleet **`FleetCameraProfile`** + openability gates.
-- **Encoded video (M12 + 13V)** — In-app **MP4** (`MediaRecorder` ≤60 fps, **MediaCodec** for HFR / 10-bit / DCG); unified **format picker**; DCG + HDR10 metadata path; power-button quick-launch; macro dial; timecode + audio meters; RGB histogram; focus peaking; GLES **video LUT** preview; battery/thermal + **storage-remaining** HUD on video modes.
-- **RAW video lane (M13.6)** — MCRAW-class **`.mcraw`** (`PNMRAWV1`) when HUD **RAW** lane is enabled — not a gallery-playable MP4.
-- **Host orchestration** (`scripts/pns_hfr_autorun.ps1`)
-  - Build → install → grant camera → run any subset of probes → pull JSON → write a suite-summary file → optional Phase 9 thermal snapshot.
-- **Toolchain gate** (`scripts/pns_verify_toolchain.ps1`)
-  - Gradle `assembleDebug`, UTF-8 enforcement on Kotlin and PowerShell, PowerShell parser sanity. Mirrored in CI on Ubuntu (`.github/workflows/toolchain-verify.yml`).
-- **CLI-only workflow** — every step runs from PowerShell + ADB; Android Studio is optional.
+Support the work: Venmo from **About & heritage**.
 
-## Imaging-engine targets (roadmap vs shipped)
+---
 
-| Area | Shipped (reference: **fleet USB gates**) | Still planned / partial |
-|------|-------------------------------------------|-------------------------|
-| **Stills** | DNG (RAW_SENSOR-first where applicable), hardware JPEG companion, ZSL / HDR still modes, bracket bursts | Full **AVIF** / **JPEG XL** still encode bodies (NDK path stubbed); Ultra-Max profile polish |
-| **Video** | H.264/HEVC MP4; HFR via MediaCodec; 10-bit + DCG HDR10; RAW `.mcraw` lane; LUT on preview; smile still + bitrate scale (**13V.17**) | LUT baked into encoded MP4 |
-| **HUD / metering** | Highlight-weighted meter, eye-AF overlay, face track boxes, readout strip, command dial **A/M/H/S/BKT/Macro** | Nikon-style 3D tracking persistence |
-| **LUTs & color** | Built-in + imported `.cube`; GLES preview + still CPU path; calibration screen | Full DNG matrix injection from calibration export |
-| **Haptics** | Still capture haptics; video tally without record haptics | — |
+## For people who build it
 
-Probe outputs still gate **new** OEM keys and fleet expansion — see [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md).
-
-## Status
-
-| Milestone | State | Notes |
-|-----------|--------|--------|
-| **Phase 0 / probes** | ✅ | JSON + Markdown export; `hfr-runs/` artifacts |
-| **M10** (product expansion) | ✅ Gate passed | Shallow cache, focal strip, JPEG-only profile, Photo\|Video tray, 7×3 grid, QR scan, … → [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
-| **M11** (capture UX) | ✅ Gate passed | WB menu order, dodge tele crops, in-app video + RES selector |
-| **M12** (video completeness) | ✅ Gate passed | Audio policy, `VideoRecordingController`, MediaCodec HFR path |
-| **M13** (fleet RAW) | ✅ Archived | Fleet RAW gate lane and ReferenceApp still pipeline archived in completed plan |
-| **M13V** (video expansion) | ✅ USB-verified | **13V.1–13V.18** — see table below |
-| **M14** (preview polish) | ✅ Shipped (beta) | Readout/HUD, QR, ISO coupling, focus picker, stacked **dual video**, About heritage — **H.8** subjective |
-| **BG** (bespoke gallery) | ✅ Closed | In-app gallery + tray surface restore — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) |
-| **PO** (performance) | ✅ Gate passed | Memory profiler, adaptive FPS, lifecycle pause |
-| **M21–M23** (fleet parity + hardening) | ✅ Archived | Parity honesty/proof-pack closure + fleet resilience closeout |
-| **M24** (4K120 stability + truth) | 🚧 Active | Strict route/warmup/retry lane + endurance + parity truth source binding |
-| **Milestone T** (template alignment) | ✅ Agent closed | KNOWLEDGE_BASE, security CI, Kover, F-Droid metadata, pre-release gate — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) §29 |
-| **Milestone H** (CRI + publication) | 🚧 Active | CRI-0…6 agent closed; human store/ACR/eye-AF rows open — [`BUILD_PLAN.md`](BUILD_PLAN.md) |
-
-**Latest pre-release:** [`v0.14.0-beta.11`](https://github.com/edwardlthompson/point-and-shoot/releases/latest) — Obtainium: `https://github.com/edwardlthompson/point-and-shoot` (enable **Include prereleases**)
-
-**Active roadmap:** [`BUILD_PLAN.md`](BUILD_PLAN.md) · **Archive:** [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md) · **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
-
-### Shipped video & preview features (M13V.1–13V.18)
-
-| Sprint | Feature | Verify script (USB) |
-|--------|---------|---------------------|
-| **13V.1** | Power button / QS tiles → preview | `pns_power_button_gate.ps1` |
-| **13V.15** | HEVC MediaCodec capability matrix (`PNS.VideoCapProbe`) | `pns_video_capability_probe.ps1` |
-| **13V.2–4** | MediaCodec 10-bit + HFR + format picker | `pns_mediacodec_hfr_verify.ps1` |
-| **13V.5** | DCG session + HDR10 metadata | `pns_video_hdr10_metadata_verify.ps1` |
-| **13V.6** | Macro command dial | `pns_macro_focus_verify.ps1` |
-| **13V.8** | Timecode + audio meters | `pns_recording_overlays_verify.ps1` |
-| **13V.9** | RGB histogram | `pns_rgb_histogram_verify.ps1` |
-| **13V.10** | Focus peaking (M dial video) | `pns_focus_peaking_verify.ps1` |
-| **13V.11** | Video LUT on GLES preview | `pns_video_lut_preview_verify.ps1` |
-| **13V.12** | Battery + thermal HUD | `pns_power_thermal_verify.ps1` |
-| **13V.13** | Storage minutes remaining | `pns_storage_remaining_verify.ps1` |
-| **13V.16** | 4K@120 encode unlock (HFR MediaCodec) | `pns_mediacodec_hfr_verify.ps1` |
-| **13V.17** | Smile still, scene probe, bitrate scale | `pns_ai_features_verify.ps1` |
-| **13V.18** | CameraX OEM extension probe | `pns_camerax_extension_probe.ps1` |
-
-Sprint docs: [`docs/M13V_10_FOCUS_PEAKING.md`](docs/M13V_10_FOCUS_PEAKING.md) … [`docs/M13V_18_CAMERAX_EXTENSIONS.md`](docs/M13V_18_CAMERAX_EXTENSIONS.md). Agent automation index: [`AGENTS.md`](AGENTS.md).
-
-### Shipped Milestone 14 (preview polish)
-
-| Sprint | Feature | Verify script (USB) |
-|--------|---------|---------------------|
-| **14.1** | Video readout + format chip | `pns_chrome_ux_gate.ps1` |
-| **14.2** | Status-bar HUD (timecode, audio) | `pns_video_status_bar_verify.ps1` |
-| **14.3** | Mode dial Photo/Video sections | `pns_chrome_ux_gate.ps1` |
-| **14.4** | QR scan (photo mode) | `pns_qr_scan_verify.ps1` |
-| **14.6** | HFR HEVC BT.709 VUI | `pns_video_codec_color_compare.ps1` |
-| **14.7** | ISO band + readout AE coupling | `pns_capture_pipeline_verify.ps1` |
-| **14.8** | Focus mode picker | `pns_focus_peaking_verify.ps1` |
-| **14.9** | Selfie ring + smile (Eye AF menu) | `pns_ai_features_verify.ps1` |
-| **14.10** | DND restore | `pns_dnd_restore_verify.ps1` |
-| **14.11** | Heritage + Venmo About | `pns_about_links_verify.ps1` |
-| **14.12** | Stacked dual video (one MP4) | `pns_dual_video_verify.ps1` |
-
-Docs: [`docs/M14_12_DUAL_VIDEO.md`](docs/M14_12_DUAL_VIDEO.md), [`docs/M14_READOUT_STATUS_BAR.md`](docs/M14_READOUT_STATUS_BAR.md).
-
-### Performance & gallery (PO + BG)
-
-| Sprint | Feature | Verify script (USB) |
-|--------|---------|---------------------|
-| **PO.1** | Memory profiler + bitmap guard + indexed gallery load | `pns_memory_profiler.ps1` |
-| **PO.2** | Adaptive preview FPS + background pause for YUV/sweep | `pns_battery_life_test.ps1` |
-| **PO gate** | Combined PO.1 + PO.2 | `pns_po_optimization_gate.ps1` |
-| **BG.1–3** | Bespoke gallery + UX polish | `pns_gallery_integration_verify.ps1` (device) |
-
-Docs: [`docs/M13V_12_POWER_THERMAL.md`](docs/M13V_12_POWER_THERMAL.md) (PO.2 adaptive FPS + pause needles).
-
-### Core capture gates (still regression)
+This repo is a product, then a workshop. Start at [docs/START_HERE.md](docs/START_HERE.md), then [AGENTS.md](AGENTS.md) for capture locks and scripts. [CONTRIBUTING.md](CONTRIBUTING.md) is the human path.
 
 ```powershell
-.\scripts\pns_capture_pipeline_verify.ps1    # RAW still 1/1 — after session/DNG changes
-.\scripts\pns_photo_capture_verify.ps1 -Fast # lighter still smoke
-.\scripts\pns_chrome_ux_gate.ps1 -FocalMmSlot 150   # dodge tele — do not run parallel with capture verify
-.\scripts\pns_op13_regression_pack.ps1 -Serial <adb>  # optional CPH2655 legacy lane (matrix + aux DNG + PiP)
-.\scripts\pns_prerelease_gate.ps1 -SkipGradle       # host pre-release checklist before GitHub cut
-.\scripts\pns_github_release.ps1 -PrepareOnly       # bump version + CHANGELOG (maintainers)
+.\scripts\pns_sideload_and_launch.ps1
 ```
 
-See `PROBE_BUILD_PLAN.md` for detailed device limitation documentation.
-
-## Screenshots
-
-Raster screenshots are **not** stored in this repository. Capture locally with `scripts/pns_device_screencap.ps1` after installing on a device. Historical validation narrative remains in `PROBE_BUILD_PLAN.md` §5.
-
-## Quickstart
-
-> Prereqs: Android SDK + ADB on PATH, JDK 17 (Android Studio's `jbr` works), and a connected Android device with camera permission grantable. **Android Studio is not required.**
-
-End-to-end build + sideload (PowerShell):
-
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
-.\gradlew.bat :app:assembleDebug
-adb install -r app\build\outputs\apk\debug\app-debug.apk
-adb shell am start -n dev.pointandshoot/.MainActivity
-```
-
-Detailed CLI flow (no Android Studio): see [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md).
-
-Probe automation (Windows, ADB-attached device):
-
-```powershell
-.\scripts\pns_hfr_autorun.ps1 -OutDir .\hfr-runs -RunProbeSmoke -Sideload
-.\scripts\pns_hfr_autorun.ps1 -OutDir .\hfr-runs -RunCoreProbePlan -ExhaustiveHfrOnly -MaxRuns 1
-.\scripts\pns_hfr_autorun.ps1 -OutDir .\hfr-runs -RunFullSuite -ExhaustiveHfrOnly -MaxRuns 1
-```
-
-Toolchain gate (run after Kotlin / PowerShell changes):
-
-```powershell
-.\scripts\pns_verify_toolchain.ps1                # full
-.\scripts\pns_verify_toolchain.ps1 -SkipGradle    # docs-only
-.\scripts\pns_verify_toolchain.ps1 -RunTests      # full + JVM unit tests
-```
-
-## Documentation
-
-### Product
-- **Knowledge base (index)** — [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) — canonical docs → code → gates
-- **Technical settings (source of truth)** — [`docs/PNS_TECHNICAL_SETTINGS.md`](docs/PNS_TECHNICAL_SETTINGS.md) — command dial modes, H metering, readout/YUV chase, RAW/DNG locks, HUD defaults; **update whenever those settings change**
-- **Product roadmap & V&V gates** — [`BUILD_PLAN.md`](BUILD_PLAN.md) · completed milestones — [`BUILD_PLAN_COMPLETED.md`](BUILD_PLAN_COMPLETED.md)
-- **Probe automation plan** — [`PROBE_BUILD_PLAN.md`](PROBE_BUILD_PLAN.md)
-- **Dodge profile hardware-to-software mapping (product-specific lane)** — [`DODGE_PROFILE.md`](DODGE_PROFILE.md)
-- **Latest probe export** — [`PROBE_RESULTS.md`](PROBE_RESULTS.md)
-- **Fleet RAW / DNG policy** — [`docs/FLEET_ONEPLUS13_RAW_POLICY.md`](docs/FLEET_ONEPLUS13_RAW_POLICY.md) · [`docs/DNG_OPENABILITY_REGRESSIONS.md`](docs/DNG_OPENABILITY_REGRESSIONS.md)
-- **Video (DCG / RAW lane)** — [`docs/M13_4_DCG_SESSION.md`](docs/M13_4_DCG_SESSION.md) · [`docs/M13_6_RAW_VIDEO.md`](docs/M13_6_RAW_VIDEO.md)
-- **Preview chrome layout (locked)** — [`docs/preview-chrome-layout-style-guide.md`](docs/preview-chrome-layout-style-guide.md)
-
-### Engineering
-- **Capture engine architecture** (threading, backpressure, cancellation) — [`CAPTURE_ARCHITECTURE.md`](CAPTURE_ARCHITECTURE.md)
-- **Performance budgets** (per mode FPS / latency / cold start) — [`PERFORMANCE_BUDGETS.md`](PERFORMANCE_BUDGETS.md)
-- **Storage strategy** (MediaStore vs SAF vs app-private; per-profile destinations) — [`STORAGE_STRATEGY.md`](STORAGE_STRATEGY.md)
-- **NDK pipeline plan** (libavif + libjxl + JNI surface + fallback) — [`NDK_PLAN.md`](NDK_PLAN.md)
-- **Color pipeline & LUTs** (sensor → demosaic → WB → CCM → tone → LUT → encode; calibration mode flow; pinned numbers) — [`COLOR_PIPELINE.md`](COLOR_PIPELINE.md)
-- **Failure matrix** (graceful-degradation policy, severity-tagged) — [`FAILURE_MATRIX.md`](FAILURE_MATRIX.md)
-- **Third-party license inventory** (FOSS hygiene) — [`LICENSES.md`](LICENSES.md)
-- **CLI build / sideload** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
-
-### Releases
-- **Latest beta** — [GitHub Releases](https://github.com/edwardlthompson/point-and-shoot/releases/latest) · [`CHANGELOG.md`](CHANGELOG.md)
-- **Release automation** — [`scripts/pns_github_release.ps1`](scripts/pns_github_release.ps1) (`-PrepareOnly` then `-Publish -SkipPrepare -Prerelease`)
-- **Release-notes template** — [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)
-- **Local release-signing config** — [`keystore.properties.example`](keystore.properties.example) (copy to gitignored `keystore.properties` at repo root, or set `ANDROID_KEYSTORE_PATH` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` / `ANDROID_KEY_PASSWORD` in CI).
-- **Host release APK packaging** — [`scripts/pns_release_packaging.ps1`](scripts/pns_release_packaging.ps1) (`assembleRelease` → `dist/Point-and-Shoot-{versionName}.apk` + `zipalign -c -v 4`). Prefer [`scripts/pns_github_release.ps1`](scripts/pns_github_release.ps1) for prepare + publish.
-- **CLI signed builds** — [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)
-
-#### Updates without Google Play (users)
-
-**Package ID:** `dev.pointandshoot`
-
-| Channel | What to use |
-|--------|----------------|
-| **GitHub Releases** | [Releases](https://github.com/edwardlthompson/point-and-shoot/releases) — install the signed APK attached to each release (sideload / `adb install -r`). |
-| **[Obtainium](https://github.com/ImranR98/Obtainium)** | Add the repository URL **`https://github.com/edwardlthompson/point-and-shoot`** so updates track **GitHub Releases** assets. If maintainers mark drops as **Pre-release** only, turn on **Include prereleases** for this entry in Obtainium. Quick add on device: `obtainium://add/github.com/edwardlthompson/point-and-shoot`. For bulk paste import (one URL per line), see [`scripts/obtainium-sources.txt`](scripts/obtainium-sources.txt). |
-| **F-Droid** | Inclusion is **planned** (FOSS-only stack aligns with project rules). Metadata placeholders live under [`metadata/`](metadata/README.md); submission follows the [official inclusion process](https://f-droid.org/docs/Including_an_App/) (typically a merge request to [fdroiddata](https://gitlab.com/fdroid/fdroiddata)). Until it is listed, use GitHub Releases or Obtainium. |
-
-#### Publishing checklist (maintainers — GitHub ↔ Obtainium ↔ F-Droid prep)
-
-1. Bump **`versionCode`** / **`versionName`** in [`app/build.gradle.kts`](app/build.gradle.kts).
-2. Summarize user-visible changes in [`CHANGELOG.md`](CHANGELOG.md) (and optional [`RELEASE_NOTES_TEMPLATE.md`](RELEASE_NOTES_TEMPLATE.md)).
-3. **Signed APK:** push a Git tag matching **`v*`** to run [`.github/workflows/build-signed.yml`](.github/workflows/build-signed.yml) (requires repo **Actions secrets** for the release keystore — see workflow header). The workflow uploads a **`pns-release-apk-*`** artifact. Alternatively build locally with real signing via `keystore.properties` (see [`CLI_BUILD_AND_SIDELOAD.md`](CLI_BUILD_AND_SIDELOAD.md)).
-4. **GitHub Release:** create a release for that tag and **attach the signed `app-release.apk`** (or a clearly named renamed APK) so Obtainium and sideload users download the same binary. Keep signing keys stable across releases so in-place upgrades work.
-5. **F-Droid (when ready):** tagged source, reproducible/recipe-friendly builds, and metadata in [`metadata/`](metadata/README.md) — coordinate with F-Droid’s [build server docs](https://f-droid.org/docs/Build_Server_Setup/) and reviewer feedback.
-
-## Repo layout
-
-- `app/` — Android app (Compose + Camera2 probe + Pro HUD scaffolds + capture-engine helpers)
-  - `app/src/main/java/dev/pointandshoot/` — production Kotlin (`PnsTheme`, `CommandDial`, `ProHudScreen`, `LutChipRow`, `LutImporterScreen`, `ImportedLutStore`, `CalibrateScreen`, `BitmapRgbPlane`, `GLPreviewScreen`, `LutPreviewRenderer`, `TestPattern`, `NativeEncoders`, `EncoderRoute`, `NativeDiagnosticsScreen`, `RootCapability`, `RootCapabilityProbe`, `RootSettingsScreen`, `HdrCurves`, `ColorSpaceMatrix`, `WorkingSpace`, `AvifColrPayload`, `HdrStaticMetadata`, `IsobmffSampleAspect`, `AvifAuxiliaryBoxes`, `IsobmffBox`, `ItemPropertyAssociation`, `IsobmffItemProperties`, `PrimaryItemBox`, `ItemInfoEntry`, `ItemInfoBox`, `HandlerReferenceBox`, `ItemLocationBox`, `MetaBox`, `FileTypeBox`, `MediaDataBox`, `ImageSpatialExtents`, `AvifStillMuxer`, `Av1CodecConfiguration`, `ItemReferenceBox`, `AvifAuxiliaryTypeProperty`, `AvifImageGrid`, `AvifImageOverlay`, `LensInfoSummary`, `LensInfoExtractor`, `PreviewLumaHistogram`, `DngLutMetadata`, `Dng12Saver`, `DngColorTags`, `CaptureStorage`, `CaptureHaptics`, `BracketPlan`, `BracketScheduler`, `HighlightMeter`, `EyeAfOverlay`, `FaceDetectAdapter`, `TrackerState`, `CropPlan`, `CapabilityGate`, `EncoderResultAggregator`, `EncoderAttemptJsonAdapter`, `EncoderRecipeBuilder`, `PerfBudget`, `PnsLog`, `VendorKeyGuard`, `DiagnosticsMode`, `AboutScreen`, `HudSettings`, `Lut3D`, `LutPipeline`, `LutShaderProgram`, `LutImportValidator`, `BuiltInLuts`, `LutCatalog`, `LutSidecar`, `LutSidecarWriter`, `CalibrationProfile`, `CalibrationProfileJsonAdapter`, `CalibrationProfileStorage`, `CalibrationMath`, `CalibrationToLut`, `ReferenceTarget`, `BundledReferenceTargets`, `CalibrationSampler`, `SlantedEdgeMtf`, `ColorMath`, `LutCreditsBuilder`, `LutDiagnosticsBuilder`, ...)
-  - `app/src/main/assets/shaders/` — GLES 3.0 shader assets (`lut_apply.vert.glsl` + `lut_apply.frag.glsl` for the live-preview / video LUT apply path).
-  - `app/src/main/assets/fonts/jetbrainsmono/` — vendored JetBrains Mono Regular `v2.304` (SIL OFL 1.1) license + provenance metadata (`LICENSE.txt`, `SOURCE.txt`, `SHA256.txt`); the matching `.ttf` lives at `app/src/main/res/font/jetbrainsmono_regular.ttf`.
-  - `app/src/test/java/dev/pointandshoot/` — pure-JVM unit tests (`BracketPlanTest`, `BracketSchedulerTest`, `HighlightMeterTest`, `TimecodeFormatTest`, `CaptureStorageFilenameTest`, `CropPlanTest`, `FaceDetectAdapterTest`, `TrackerStateTest`, `CapabilityGateTest`, `EncoderResultAggregatorTest`, `EncoderAttemptJsonAdapterTest`, `EncoderRecipeBuilderTest`, `PerfBudgetTest`, `PnsLogTest`, `Lut3DTest`, `LutPipelineTest`, `LutShaderProgramSourceTest`, `LutPreviewRendererQuadTest`, `TestPatternTest`, `NativeEncodersFallbackTest`, `EncoderRouteTest`, `LensInfoSummaryTest`, `PreviewLumaHistogramTest`, `Dl3ParserTest`, `Spi3dParserTest`, `DngLutMetadataTest`, `RootCapabilityTest`, `RootCapabilityProbeTest`, `HdrCurvesTest`, `ColorSpaceMatrixTest`, `WorkingSpaceTest`, `AvifColrPayloadTest`, `HdrStaticMetadataTest`, `IsobmffSampleAspectTest`, `AvifAuxiliaryBoxesTest`, `IsobmffBoxTest`, `ItemPropertyAssociationTest`, `IsobmffItemPropertiesTest`, `PrimaryItemBoxTest`, `ItemInfoEntryTest`, `ItemInfoBoxTest`, `HandlerReferenceBoxTest`, `ItemLocationBoxTest`, `MetaBoxTest`, `FileTypeBoxTest`, `MediaDataBoxTest`, `ImageSpatialExtentsTest`, `AvifStillMuxerTest`, `Av1CodecConfigurationTest`, `ItemReferenceBoxTest`, `AvifAuxiliaryTypePropertyTest`, `AvifImageGridTest`, `AvifImageOverlayTest`, `LutImportValidatorTest`, `BuiltInLutsTest`, `LutCatalogTest`, `LutSidecarTest`, `LutSidecarWriterTest`, `HudSettingsLutResolutionTest`, `ImportedLutStoreTest`, `BitmapRgbPlaneTest`, `CalibrationMathTest`, `CalibrationToLutTest`, `CalibrationProfileJsonAdapterTest`, `CalibrationProfileStorageTest`, `CalibrationCcmAccuracyTest`, `DngColorTagsTest`, `ReferenceTargetTest`, `CalibrationSamplerTest`, `SlantedEdgeMtfTest`, `ColorMathTest`, `LutCreditsBuilderTest`, `LutDiagnosticsBuilderTest`, `MetadataSerializationGoldenTest`)
-- `native/` — NDK / JNI stubs + CMake skeleton + license matrix for the planned libavif / libjxl pipeline (`pns_native.cpp` JNI stubs matching `NativeEncoders`; `CMakeLists.txt` with commented `FetchContent_Declare` blocks; `THIRD_PARTY.md` license matrix; `README.md` Phase-0 layout)
-- `metadata/` — F-Droid compliance placeholders
-- `scripts/` — PowerShell automation: **`pns_verify_toolchain.ps1`**, **`pns_hfr_autorun.ps1`**, capture gates (**`pns_capture_pipeline_verify.ps1`**, **`pns_photo_capture_verify.ps1`**, **`pns_aux_dng_capture_analyze.ps1`**), video gates (**`pns_mediacodec_hfr_verify.ps1`**, **`pns_in_app_video_verify.ps1`**, …), performance gates (**`pns_memory_profiler.ps1`**, **`pns_battery_life_test.ps1`**, **`pns_po_optimization_gate.ps1`**), **`pns_sideload_and_launch.ps1`**, **`pns_chrome_ux_gate.ps1`**, **`pns_qr_scan_verify.ps1`**. Full index: [`AGENTS.md`](AGENTS.md).
-- `hfr-runs/` — pulled probe artifacts (gitignored)
-- `.github/workflows/` — CI: toolchain verify + unit tests + Kover, plan-doc verify, CodeQL/gitleaks/Trivy security scans, signed-build (manual / `v*` tag)
-
-## Contributing
-
-- File issues / PRs against `main`.
-- Code style: Kotlin idiomatic, UTF-8 source files (Windows users: do not save as UTF-16 LE — the toolchain gate rejects it).
-- Before pushing:
-  - Code changes (Kotlin / PowerShell): `.\scripts\pns_verify_toolchain.ps1 -RunTests`
-  - Docs-only changes: `.\scripts\pns_verify_toolchain.ps1 -SkipGradle`
-- New scripts and Kotlin sources must pass the same gate. New pure-JVM logic should ship with a JUnit test under `app/src/test/java/dev/pointandshoot/`.
-
-## License
-
-Apache-2.0. See [`LICENSE`](LICENSE).
+License: [Apache-2.0](LICENSE) · Notices: [NOTICE](NOTICE) · [LICENSES.md](LICENSES.md) · [CHANGELOG.md](CHANGELOG.md) · [SECURITY.md](SECURITY.md)

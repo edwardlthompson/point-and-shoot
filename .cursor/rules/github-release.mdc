@@ -4,4 +4,8 @@ When the user asks to **cut / ship / publish a GitHub release**, read and follow
 
 Primary script: **`scripts/pns_github_release.ps1`** (`-PrepareOnly` then commit, `-Publish -SkipPrepare`).
 
+**Naming:** stable semver (`0.14.0`), GitHub title **`Point & Shoot {version}`**, APK `Point-and-Shoot-{version}.apk`. Do not auto-increment `-beta.N`.
+
+**Signed APK:** `/ship` and `-Publish` require production signing. Fail if debug-key fallback. Never commit `keystore.properties` or the `.jks`.
+
 About links: **`PnsExternalUrl.kt`** + **`AboutScreen.kt`** (Settings → About & heritage).

@@ -13,7 +13,7 @@ Upstream template: [agent-project-bootstrap](https://github.com/edwardlthompson/
 | `/bootstrap` | init → prune → setup → gates | Agent | No |
 | `/verify` | docs → gates → ci | Agent | No |
 | `/build` | plan → approval → feature → gates | Plan then Agent | No |
-| `/ship` | prerelease → push → regress | Agent | **Yes** |
+| `/ship` | prerelease → push → regress (stable **Point & Shoot x.y.z**, signed APK) | Agent | **Yes** |
 | `/maintain` | triage → dependabot → audit | Agent | No |
 
 ## Atomic commands

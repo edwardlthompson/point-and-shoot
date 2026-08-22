@@ -69,11 +69,11 @@ android {
         applicationId = "dev.pointandshoot"
         minSdk = 28
         targetSdk = 36
-        // versionName: semver (user-visible; Keep a Changelog / GitHub tag v-prefix).
+        // versionName: stable semver (user-visible Point & Shoot x.y.z; GitHub tag v-prefix).
         // versionCode: monotonic integer for Play/Obtainium upgrades; release script uses
-        // semverOrIncrement policy (scripts/pns_release_naming.ps1) — never decrease.
-        versionCode = 22016
-        versionName = "0.14.0-beta.22"
+        // incrementOnly (scripts/pns_release_naming.ps1) — never decrease.
+        versionCode = 22017
+        versionName = "0.14.0"
         // Legacy target: app hit ClassNotFound on large Compose entrypoints when they landed in
         // secondary dex. Keep multidex explicitly enabled to ensure all classesN.dex are loaded.
         multiDexEnabled = true

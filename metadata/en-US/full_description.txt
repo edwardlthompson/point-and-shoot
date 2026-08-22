@@ -1,28 +1,30 @@
-Point & Shoot is a fully open-source pro camera app for Android 9+ (API 28+).
+Point & Shoot is a fully open-source camera for people who actually shoot.
 
-Built for shooters who want predictable Camera2 behavior, RAW-first workflows, and honest capability gating across devices — not a one-size-fits-all OEM clone.
+Predictable Camera2 controls, a finder you can trust, and files that open in Lightroom — not a clever OEM clone. What the hardware cannot do stays hidden. Apache-2.0. No Play Services. No proprietary blobs.
 
-<b>Fleet-first correctness</b>
-• On-device capability matrix and parity tooling
-• Controls hide when the hardware cannot deliver (no fake toggles)
-• Primary USB validation lane: OnePlus 12 (CPH2583)
+<b>The finder</b>
+• 3:4 live preview, professional readout, 7×3 quick grid
+• Command dial A / M / H / S / BKT / Macro
+• Photo, Video, and Webcam on the tray
+• LUTs, focus peaking, histogram, horizon, eye-AF (when the device has it)
 
-<b>Capture</b>
-• DNG (RAW12 / RAW_SENSOR) stills with strict loadability gates
-• Bracket bursts, ZSL/HDR still modes where supported
-• Hardware JPEG companion path
-• In-app MP4 (H.264/HEVC); HFR via MediaCodec when matrix allows
+<b>Stills</b>
+• Loadable DNG, optional hardware JPEG
+• Brackets, burst, ZSL / HDR where supported
+• Silent, airplane-safe, and intervalometer recipes
+• Geotag Off / Coarse / Precise — DNG is never EXIF-rewritten
 
-<b>Preview & HUD</b>
-• Portrait engine with professional readout strip and command dial
-• Built-in and imported LUT preview (GLES)
-• Focus peaking, histogram, horizon level, eye-AF overlay (device-dependent)
+<b>Video and out</b>
+• H.264 / HEVC, high frame rate and HDR10 when the stack allows
+• RAW video lane, dual video, timecode and meters
+• USB webcam for Camera / Zoom / Teams on Lineage
+• HDMI / MJPEG clean feed, Wear OS remote or timer
 
-<b>FOSS commitment</b>
-• Apache-2.0 license
-• No proprietary blobs
-• No Google Play Services dependencies
+<b>Gallery</b>
+• Compare, stack cull, keywords, travel days
+• Share DNG + JPEG as one shot
+• Trim, LUT bake, vault, Immich / WebDAV, evidence hash
 
-Updates: GitHub Releases and Obtainium today. F-Droid submission is in progress using metadata in this repository.
+Updates: GitHub Releases and Obtainium. F-Droid submission is in progress.
 
 Issue tracker: https://github.com/edwardlthompson/point-and-shoot/issues

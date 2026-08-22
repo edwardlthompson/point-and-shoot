@@ -12,10 +12,14 @@
 
 .PARAMETER OutDir
   Host folder for the renamed APK (default: dist).
+
+.PARAMETER AllowDebugKey
+  Permit debug-key fallback. Forbidden for /ship and pns_github_release -Publish.
 #>
 param(
     [switch]$SkipAssemble,
-    [string]$OutDir = "dist"
+    [string]$OutDir = "dist",
+    [switch]$AllowDebugKey
 )
 
 Set-StrictMode -Version Latest
@@ -52,15 +56,25 @@ function Get-AndroidSdkDir([string]$root) {
     throw "sdk.dir not found in local.properties"
 }
 
-function Find-Zipalign([string]$sdkDir) {
+function Find-BuildTool([string]$sdkDir, [string]$leafWin, [string]$leafUnix) {
     $bt = Join-Path $sdkDir "build-tools"
     if (-not (Test-Path -LiteralPath $bt)) { throw "No build-tools under $sdkDir" }
     $dirs = Get-ChildItem -LiteralPath $bt -Directory | Sort-Object Name -Descending
     foreach ($d in $dirs) {
-        $exe = Join-Path $d.FullName "zipalign.exe"
-        if (Test-Path -LiteralPath $exe) { return $exe }
+        $win = Join-Path $d.FullName $leafWin
+        if (Test-Path -LiteralPath $win) { return $win }
+        $unix = Join-Path $d.FullName $leafUnix
+        if (Test-Path -LiteralPath $unix) { return $unix }
     }
-    throw "zipalign.exe not found under $bt"
+    throw "$leafWin / $leafUnix not found under $bt"
+}
+
+function Find-Zipalign([string]$sdkDir) {
+    return Find-BuildTool $sdkDir "zipalign.exe" "zipalign"
+}
+
+function Find-Apksigner([string]$sdkDir) {
+    return Find-BuildTool $sdkDir "apksigner.bat" "apksigner"
 }
 
 Push-Location $repoRoot
@@ -76,9 +90,23 @@ try {
         -Template $config.apkFileNameTemplate
     Write-Host "[pns_release_packaging] versionName=$versionName artifact=$destApkName"
 
+    if (-not $AllowDebugKey) {
+        Assert-PnsReleaseSigningReady -RepoRoot $repoRoot
+    }
+
     if (-not $SkipAssemble) {
-        & "$PSScriptRoot\pns_gradlew.ps1" :app:assembleRelease
-        if ($LASTEXITCODE -ne 0) { throw "assembleRelease failed" }
+        $assembleOut = & "$PSScriptRoot\pns_gradlew.ps1" :app:assembleRelease 2>&1
+        $assembleCode = $LASTEXITCODE
+        $assembleOut | ForEach-Object { Write-Host $_ }
+        if ($assembleCode -ne 0) { throw "assembleRelease failed" }
+        $joined = ($assembleOut | Out-String)
+        if ($joined -match 'falling back to debug key') {
+            if ($AllowDebugKey) {
+                Write-Host "[pns_release_packaging] WARNING: debug-key fallback (AllowDebugKey)"
+            } else {
+                throw "assembleRelease used debug-key fallback. /ship requires keystore.properties or ANDROID_KEYSTORE_*."
+            }
+        }
     }
 
     $srcApk = Join-Path $repoRoot "app\build\outputs\apk\release\app-release.apk"
@@ -100,6 +128,21 @@ try {
     Write-Host "[pns_release_packaging] zipalign: $zipalign"
     & $zipalign -c -v 4 $destApk
     if ($LASTEXITCODE -ne 0) { throw "zipalign verification failed" }
+
+    $apksigner = Find-Apksigner $sdkDir
+    Write-Host "[pns_release_packaging] apksigner: $apksigner"
+    $certLines = & $apksigner verify --print-certs $destApk 2>&1
+    $certCode = $LASTEXITCODE
+    $certOut = $certLines | Out-String
+    if ($certCode -ne 0) { throw "apksigner verify failed" }
+    Write-Host $certOut
+    if ($certOut -match 'CN=Android Debug') {
+        if ($AllowDebugKey) {
+            Write-Host "[pns_release_packaging] WARNING: APK is debug-signed (AllowDebugKey)"
+        } else {
+            throw "APK is debug-signed (CN=Android Debug). /ship requires a production keystore."
+        }
+    }
 
     $runsDir = Join-Path $repoRoot "hfr-runs"
     if (-not (Test-Path -LiteralPath $runsDir)) {

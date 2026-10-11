@@ -277,7 +277,7 @@ dependencies {
     // Pure-JVM unit tests for engine-agnostic helpers (BracketPlan, HighlightMeter,
     // formatTimecode). Tests live in app/src/test/java and run via :app:testDebugUnitTest.
     testImplementation(libs.junit)
-    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito:mockito-core:5.23.0")
     // Real org.json on the unit-test classpath so EncoderAttemptJsonAdapter.decode
     // can be tested against in-memory JSONObject fixtures (the Android stub jar
     // throws "Stub!" for org.json calls otherwise). MIT-licensed; covered in LICENSES.md.

@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    @Suppress("CyclomaticComplexMethod")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

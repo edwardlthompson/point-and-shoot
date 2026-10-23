@@ -5891,6 +5891,7 @@ private fun PreviewEngineChromeShell(
     }
 }
 
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod", "FunctionNaming")
 @Composable
 private fun PreviewEngineContent(
     padding: PaddingValues,
@@ -11592,6 +11593,8 @@ private class PreviewController(
 
         private const val AF_SHUTTER_GATE_TIMEOUT_MS = 2800L
 
+        /** Blown-region H path: faster AE-comp refresh than the default 900 ms quiet path. */
+        private const val HIGHLIGHT_AE_REFRESH_MIN_GAP_MS = 120L
         private const val CAMERA_FAULT_REOPEN_WINDOW_MS = 4_000L
         private const val CAMERA_FAULT_REOPEN_MAX_ATTEMPTS = 2
         private const val CAMERA_FAULT_RETRY_DEFER_MS = 240L
@@ -12284,7 +12287,7 @@ private class PreviewController(
     private val highlightMeterMinIntervalMs: Long = 380L
 
     /** Min gap between AE-comp-driven [refreshRepeatingPreviewOnly] calls in Highlight (H) mode. */
-    private val highlightAeRefreshMinGapMs: Long = 120L
+    private val highlightAeRefreshMinGapMs: Long = HIGHLIGHT_AE_REFRESH_MIN_GAP_MS
 
     private var lastHighlightAeRefreshWallMs: Long = 0L
 
@@ -14100,6 +14103,7 @@ private class PreviewController(
         return if (stillEmbedLocationInFiles) CaptureLocationBridge.snapshot() else null
     }
 
+    @Suppress("ReturnCount")
     private fun shouldSkipStablePreviewPipelineRestart(
         camId: String,
         surf: Surface,
@@ -19559,6 +19563,7 @@ private class PreviewController(
         }
     }
 
+    @Suppress("ReturnCount")
     private fun scheduleCameraFaultRecovery(
         camId: String,
         reason: String,
@@ -22183,6 +22188,7 @@ private class PreviewController(
     }
 
     /** @return true when a new repeating request was submitted. */
+    @Suppress("ReturnCount", "NestedBlockDepth")
     private fun refreshRepeatingPreviewOnlyBody(): Boolean {
         if (videoRecordingSessionRebuildPending || captureSessionAsyncConfigurePending) {
             Log.d(

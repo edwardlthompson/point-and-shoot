@@ -191,6 +191,14 @@ detekt {
     baseline = file("$rootDir/config/detekt/baseline.xml")
 }
 
+tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+    // Studio JBR may be JDK 25+; detekt CLI only accepts --jvm-target through 22.
+    jvmTarget = "17"
+}
+tasks.withType<io.gitlab.arturbosch.detekt.DetektCreateBaselineTask>().configureEach {
+    jvmTarget = "17"
+}
+
 kover {
     reports {
         filters {

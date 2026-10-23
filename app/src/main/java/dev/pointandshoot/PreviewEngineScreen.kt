@@ -768,6 +768,7 @@ private fun buildPreviewTrayModeSnapshot(
     hud: HudSettings,
     fps: Int,
     primeFocalTargetEqMm: Int?,
+    commandDialMode: CommandDialMode,
 ): PreviewTrayModeSnapshot =
     PreviewTrayModeSnapshot(
         readout = controller.captureReadoutState(),
@@ -776,6 +777,7 @@ private fun buildPreviewTrayModeSnapshot(
         enableVideoStabilizationPreview = hud.enableVideoStabilizationPreview,
         videoShutterAngle = hud.videoShutterAngle,
         primeFocalTargetEqMm = primeFocalTargetEqMm,
+        commandDialMode = commandDialMode,
     )
 
 private fun applyPreviewTrayModeSnapshot(
@@ -806,7 +808,7 @@ private fun applyPreviewTrayModeSnapshot(
             "eis=${snapshot.enableVideoStabilizationPreview} angle=${snapshot.videoShutterAngle} " +
             "iso=${restoredIso} ss=${snapshot.readout.manualExposureNs} " +
             "isoRange=${snapshot.readout.isoBand.menuLabel} " +
-            "primeEq=${snapshot.primeFocalTargetEqMm ?: "-"}",
+            "primeEq=${snapshot.primeFocalTargetEqMm ?: "-"} dial=${snapshot.commandDialMode.name}",
     )
 }
 
@@ -1331,6 +1333,19 @@ fun PreviewEngineScreen(
     var videoTraySnapshot by remember {
         mutableStateOf(PreviewTrayModeStore.load(appContext, photo = false))
     }
+    /** Shared with [PreviewEngineContent] so ON_STOP / tray toggle persist the Mode dial per tray. */
+    val commandDialModeState =
+        remember(adbInitialDial, resolvedInitialPrimaryPhoto) {
+            mutableStateOf(
+                adbInitialDial
+                    ?: if (resolvedInitialPrimaryPhoto) {
+                        photoTraySnapshot.commandDialMode
+                    } else {
+                        videoTraySnapshot.commandDialMode
+                    },
+            )
+        }
+    var commandDialMode by commandDialModeState
     var initialTrayModeApplied by remember { mutableStateOf(false) }
     val rawOrBracketAutomation = adbSequentialRawStills > 0 || adbBracketPattern != null
     // Photo-primary: stay below 120 so [createSession] can attach RAW ([canCaptureRawStill]). Use **60** for
@@ -1401,6 +1416,7 @@ fun PreviewEngineScreen(
     val selectedFpsForTraySave = rememberUpdatedState(selectedFps)
     val primaryPhotoForTraySave = rememberUpdatedState(primaryPhoto)
     val primeTargetForTraySave = rememberUpdatedState(primeFocalTargetEqMm)
+    val commandDialForTraySave = rememberUpdatedState(commandDialMode)
     val lifecycleOwnerForTraySave = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwnerForTraySave, controller, appContext) {
         val observer =
@@ -1412,6 +1428,7 @@ fun PreviewEngineScreen(
                             hud = hudState.current,
                             fps = selectedFpsForTraySave.value,
                             primeFocalTargetEqMm = primeTargetForTraySave.value,
+                            commandDialMode = commandDialForTraySave.value,
                         )
                     val isPhoto = primaryPhotoForTraySave.value
                     if (isPhoto) {
@@ -4176,12 +4193,17 @@ fun PreviewEngineScreen(
                 return@LaunchedEffect
             }
         WorkflowPresets.logApplied(context, preset)
-        HudSettings.saveCommandDialMode(context, preset.commandDialMode)
+        primaryPhoto = preset.primaryPhoto
+        commandDialMode = preset.commandDialMode
+        PreviewTrayModeStore.saveCommandDialMode(
+            context,
+            photo = preset.primaryPhoto,
+            mode = preset.commandDialMode,
+        )
         val profile = ImagingProfile.byId(preset.imagingProfileId)
         composedStillIntent =
             ComposedStillIntent.fromLegacyImagingProfile(profile, jpegCompanionOn = true)
         HudSettings.saveImagingProfile(context, profile)
-        primaryPhoto = preset.primaryPhoto
         preset.fps?.let { fps ->
             selectedFps = fps
             userSelectedFps = fps
@@ -5704,6 +5726,7 @@ fun PreviewEngineScreen(
         adbCalibrateGrabSmoke = adbCalibrateGrabSmoke,
         controller = controller,
         primaryPhoto = primaryPhoto,
+        commandDialModeState = commandDialModeState,
         showWifiDirectTetherBanner = wifiDirectTetherBound,
         onPrimaryPhotoChange = { next ->
             val outgoingSnap =
@@ -5712,6 +5735,7 @@ fun PreviewEngineScreen(
                     hud = hudState.current,
                     fps = selectedFps,
                     primeFocalTargetEqMm = primeFocalTargetEqMm,
+                    commandDialMode = commandDialMode,
                 )
             if (primaryPhoto) {
                 photoTraySnapshot = outgoingSnap
@@ -5722,6 +5746,7 @@ fun PreviewEngineScreen(
             }
             primaryPhoto = next
             val incomingSnap = if (next) photoTraySnapshot else videoTraySnapshot
+            commandDialMode = incomingSnap.commandDialMode
             applyPreviewTrayModeSnapshot(
                 controller,
                 hudState,
@@ -5797,12 +5822,17 @@ fun PreviewEngineScreen(
         onThemeModeChange = onThemeModeChange,
         onApplyWorkflowPreset = { preset ->
             WorkflowPresets.logApplied(context, preset)
-            HudSettings.saveCommandDialMode(context, preset.commandDialMode)
+            primaryPhoto = preset.primaryPhoto
+            commandDialMode = preset.commandDialMode
+            PreviewTrayModeStore.saveCommandDialMode(
+                context,
+                photo = preset.primaryPhoto,
+                mode = preset.commandDialMode,
+            )
             val profile = ImagingProfile.byId(preset.imagingProfileId)
             composedStillIntent =
                 ComposedStillIntent.fromLegacyImagingProfile(profile, jpegCompanionOn = true)
             HudSettings.saveImagingProfile(context, profile)
-            primaryPhoto = preset.primaryPhoto
             preset.fps?.let { fps ->
                 selectedFps = fps
                 userSelectedFps = fps
@@ -5925,6 +5955,7 @@ private fun PreviewEngineContent(
     adbCalibrateGrabSmoke: Boolean = false,
     controller: PreviewController,
     primaryPhoto: Boolean,
+    commandDialModeState: androidx.compose.runtime.MutableState<CommandDialMode>,
     showWifiDirectTetherBanner: Boolean = false,
     onPrimaryPhotoChange: (Boolean) -> Unit,
     adbAutomationVideoDcg: Boolean = false,
@@ -6005,35 +6036,33 @@ private fun PreviewEngineContent(
     val fpsTargetEditable =
         CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto) == CaptureMediaFamily.Video || isSweeping
     val captureScope = rememberCoroutineScope()
-    var commandDialMode by remember(adbInitialDial) {
-        mutableStateOf(
-            adbInitialDial ?: HudSettings.loadCommandDialMode(context),
-        )
-    }
-    LaunchedEffect(primaryPhoto, visibilityCtx, adbInitialDial) {
-        val allowed =
-            FleetChromeVisibility.filterCommandDialModes(
-                CaptureMediaFamily.commandDialModesFor(CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto)),
-                visibilityCtx,
+    var commandDialMode by commandDialModeState
+    // Clamp only Photo↔Video family mismatches (e.g. H on video). Do **not** clamp on
+    // [FleetChromeVisibility] — matrix/catalog can briefly hide H/Dual on cold start and was
+    // wiping restored dial prefs to Auto (REG-20261022-003).
+    LaunchedEffect(primaryPhoto, adbInitialDial) {
+        val familyAllowed =
+            CaptureMediaFamily.commandDialModesFor(
+                CaptureMediaFamily.fromPrimaryPhoto(primaryPhoto),
             ).toSet()
-        if (commandDialMode !in allowed) {
+        if (commandDialMode !in familyAllowed) {
             if (adbInitialDial != null && commandDialMode == adbInitialDial) {
                 return@LaunchedEffect
             }
             commandDialMode = CommandDialMode.Auto
-            HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
+            PreviewTrayModeStore.saveCommandDialMode(context, photo = primaryPhoto, CommandDialMode.Auto)
         }
     }
     LaunchedEffect(commandDialMode, primaryPhoto, monochromeCameraId) {
         if (commandDialMode != CommandDialMode.Monochrome) return@LaunchedEffect
         if (!primaryPhoto) {
             commandDialMode = CommandDialMode.Auto
-            HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
+            PreviewTrayModeStore.saveCommandDialMode(context, photo = false, CommandDialMode.Auto)
             return@LaunchedEffect
         }
         val monoId = monochromeCameraId ?: run {
             commandDialMode = CommandDialMode.Auto
-            HudSettings.saveCommandDialMode(context, CommandDialMode.Auto)
+            PreviewTrayModeStore.saveCommandDialMode(context, photo = true, CommandDialMode.Auto)
             Log.i("PNS.ChromeUx", "monochromeDial unavailable=no_mono_camera")
             return@LaunchedEffect
         }
@@ -6164,7 +6193,11 @@ private fun PreviewEngineContent(
                 try {
                     if (commandDialMode != CommandDialMode.M) {
                         commandDialMode = CommandDialMode.M
-                        HudSettings.saveCommandDialMode(context, CommandDialMode.M)
+                        PreviewTrayModeStore.saveCommandDialMode(
+                            context,
+                            photo = primaryPhoto,
+                            mode = CommandDialMode.M,
+                        )
                     }
                     controller.ensureManualFocusForDialM()
                     RackFocusPull.run(context, near, far, settings.rackFocusDurationMs) { diopters ->
@@ -7586,7 +7619,11 @@ private fun PreviewEngineContent(
                                 currentDial = commandDialMode,
                                 setFocus = { controller.setPreviewFocusSelection(it) },
                             )
-                        HudSettings.saveCommandDialMode(context, commandDialMode)
+                        PreviewTrayModeStore.saveCommandDialMode(
+                            context,
+                            photo = primaryPhoto,
+                            mode = commandDialMode,
+                        )
                     },
                 )
             }
@@ -7770,7 +7807,11 @@ private fun PreviewEngineContent(
                                                         controller.setPreviewFocusSelection(it)
                                                     },
                                                 )
-                                            HudSettings.saveCommandDialMode(context, commandDialMode)
+                                            PreviewTrayModeStore.saveCommandDialMode(
+                                                context,
+                                                photo = primaryPhoto,
+                                                mode = commandDialMode,
+                                            )
                                             modeMenuExpanded = false
                                             Log.i(
                                                 "PNS.ChromeUx",
@@ -11535,14 +11576,14 @@ private class PreviewController(
 
         /** When [SurfaceTexture.setDefaultBufferSize] races teardown, retry after layout catches up. */
         private const val SURFACE_TEXTURE_BUFFER_RETRY_DELAY_MS = 120L
-        /** EMA alpha when [highlightDarkenEngageEma] falls (slower release — less brighten pump). */
-        private const val HIGHLIGHT_ENGAGE_EMA_FALL_ALPHA = 0.22
+        /** EMA alpha when [highlightDarkenEngageEma] falls (release stop-down). */
+        private const val HIGHLIGHT_ENGAGE_EMA_FALL_ALPHA = 0.35
 
-        /** EMA alpha when [highlightDarkenEngageEma] rises (very slow — protect highlights, less breathing). */
-        private const val HIGHLIGHT_ENGAGE_EMA_RISE_ALPHA = 0.07
+        /** EMA alpha when engagement rises — fast so Auto→H feels instant on blown highlights. */
+        private const val HIGHLIGHT_ENGAGE_EMA_RISE_ALPHA = 0.85
 
-        /** Skip YUV histogram until preview repeating settles (garbage 0xFF frames). */
-        private const val HIGHLIGHT_METER_SESSION_WARMUP_MS = 2200L
+        /** Short settle only; long warmup made H match Auto for seconds after a dial tap. */
+        private const val HIGHLIGHT_METER_SESSION_WARMUP_MS = 280L
 
         // Video constants moved to VideoRecordingController (Sprint 12.4)
 
@@ -11554,6 +11595,13 @@ private class PreviewController(
         private const val CAMERA_FAULT_REOPEN_WINDOW_MS = 4_000L
         private const val CAMERA_FAULT_REOPEN_MAX_ATTEMPTS = 2
         private const val CAMERA_FAULT_RETRY_DEFER_MS = 240L
+        /** Cap deferred recoveries while open/configure/teardown is still draining. */
+        private const val CAMERA_FAULT_DEFER_CAP = 16
+        /**
+         * After recovery exhausts (or defer cap), suppress further auto-reopen for this long.
+         * Without this, a new 4s window resets attempts forever → disconnect↔toast loop.
+         */
+        private const val CAMERA_FAULT_STORM_COOLDOWN_MS = 30_000L
         /** Cool-down after [closeCamera] before another full teardown (HAL checkPidStatus storms). */
         private const val MIN_PIPELINE_TEARDOWN_INTERVAL_MS = 450L
         private const val CAMERA_FAULT_START_REPEAT_BACKOFF_MS = 650L
@@ -11661,6 +11709,9 @@ private class PreviewController(
     private var cameraFaultRecoveryCameraId: String? = null
     private var cameraFaultRecoveryWindowStartMs: Long = 0L
     private var cameraFaultRecoveryAttempts: Int = 0
+    private var cameraFaultRecoveryDeferCount: Int = 0
+    /** Uptime deadline; while [SystemClock.uptimeMillis] is below this, auto-reopen is suppressed. */
+    private var cameraFaultRecoveryExhaustedUntilMs: Long = 0L
     private var lastPipelineTeardownMs: Long = 0L
     @Volatile private var hfrRecoveryFpsCap: Int? = null
     @Volatile private var hfrRecoveryCapUntilMs: Long = 0L
@@ -12216,12 +12267,24 @@ private class PreviewController(
     @Volatile
     private var lastAppliedHighlightComp: Int? = null
 
+    /**
+     * Bumped when a new preview repeating starts while H metering is wanted.
+     * [highlightCompCommittedEpoch] tracks the last epoch that actually received AE-comp on
+     * setRepeating — prevents Auto↔H toggles from marking [lastAppliedHighlightComp] applied
+     * while [refreshRepeatingPreviewOnlyBody] no-ops (configure pending / null session).
+     */
+    @Volatile
+    private var highlightRepeatingEpoch: Long = 0L
+
+    @Volatile
+    private var highlightCompCommittedEpoch: Long = -1L
+
     private var lastHighlightProcessWallMs: Long = 0L
 
     private val highlightMeterMinIntervalMs: Long = 380L
 
     /** Min gap between AE-comp-driven [refreshRepeatingPreviewOnly] calls in Highlight (H) mode. */
-    private val highlightAeRefreshMinGapMs: Long = 900L
+    private val highlightAeRefreshMinGapMs: Long = 120L
 
     private var lastHighlightAeRefreshWallMs: Long = 0L
 
@@ -12695,6 +12758,8 @@ private class PreviewController(
             cameraFaultRecoveryCameraId = null
             cameraFaultRecoveryWindowStartMs = 0L
             cameraFaultRecoveryAttempts = 0
+            cameraFaultRecoveryDeferCount = 0
+            cameraFaultRecoveryExhaustedUntilMs = 0L
             tapMeteringRect = null
             manualIsoOverride = null
             manualExposureNsOverride = null
@@ -14051,8 +14116,43 @@ private class PreviewController(
                 cameraDeviceOpenPending
         if (sessionBusy) return false
         if (wantsRawStillSurfacesInSession() && rawImageReader == null) return false
+        // Auto→H (or hist/QR) must attach YUV; skip-stable would leave metering dead.
+        if (sessionNeedsYuvAnalysisSurface() && yuvImageReader == null) return false
         if (PnsUsbWebcam.active && PnsWebcamEncoder.generation != webcamEncoderGenApplied) return false
         return true
+    }
+
+    /** Same YUV gate as [createSession] — used so skip-stable cannot strand H without an analysis reader. */
+    private fun sessionNeedsYuvAnalysisSurface(): Boolean {
+        val omitYuvForPureHalRawStillSession =
+            StillCaptureIqPolicy.OMIT_YUV_ANALYSIS_FOR_PURE_HAL_RAW_SESSION &&
+                PureHalDngSavePolicy.ENABLED &&
+                rawImageReader != null
+        return PreviewSessionRegularOutputsPolicy.wantsYuvAnalysis(
+            PreviewSessionRegularOutputsPolicy.YuvAnalysisInput(
+                lifecycleBackgroundPaused = lifecycleBackgroundPaused,
+                commandDialMode = commandDialMode,
+                desiredFps = desiredFps,
+                automationSuppressFacePipeline = automationSuppressFacePipeline,
+                previewHistogramEnabled = previewHistogramEnabled,
+                highlightClipZebraEnabled = highlightClipZebraEnabled,
+                hudFaceOverlayEnabled = hudFaceOverlayEnabled,
+                smileStillEnabled = smileStillEnabled,
+                wantsReadoutExposureChase = wantsReadoutExposureChase(),
+                omitYuvForPureHalRawStillSession = omitYuvForPureHalRawStillSession,
+            ),
+        )
+    }
+
+    /**
+     * After a new repeating request while H is active: re-open the warmup window and force AE-comp
+     * re-commit. Required on the skip-stable dial path (no [startRepeating]) — otherwise
+     * [resetHighlightMeterPipelineState] leaves [highlightMeterSessionAnchorWallMs]=0 forever.
+     */
+    private fun armHighlightMeterAfterRepeatingStart() {
+        highlightRepeatingEpoch += 1L
+        highlightCompCommittedEpoch = -1L
+        highlightMeterSessionAnchorWallMs = SystemClock.elapsedRealtime()
     }
 
     private fun pipelineTeardownDeferMs(): Long {
@@ -19243,11 +19343,16 @@ private class PreviewController(
             // Same camera + buffer size: skip full teardown, but still rebuild the repeating
             // request so same-lens prime-eq crops (35/50 on wide, 85/150 on tele) and FocalMode
             // crops apply. Skipping entirely left SCALER_CROP stuck at full array (OP13 USB).
+            // Re-arm H only when dial reset left anchor=0 (Auto↔H). Re-arming every skip-stable
+            // (crop/FPS) resets epoch + warmup and thrash-refreshes AE via stopRepeating.
             Log.d(
                 tag,
                 "maybeRestartBody: skip stable pipeline cam=$camId ${ws?.width}x${ws?.height} " +
                     "gen=$generation; refresh repeating",
             )
+            if (wantsHighlightMetering() && highlightMeterSessionAnchorWallMs <= 0L) {
+                armHighlightMeterAfterRepeatingStart()
+            }
             refreshRepeatingPreviewOnlyBody()
             return
         }
@@ -19460,6 +19565,14 @@ private class PreviewController(
     ) {
         val h = handler ?: return
         val now = SystemClock.uptimeMillis()
+        if (now < cameraFaultRecoveryExhaustedUntilMs) {
+            Log.w(
+                tag,
+                "camera fault recovery suppressed camId=$camId reason=$reason " +
+                    "cooldownLeftMs=${cameraFaultRecoveryExhaustedUntilMs - now}",
+            )
+            return
+        }
         val inWindow =
             cameraFaultRecoveryCameraId == camId &&
                 (now - cameraFaultRecoveryWindowStartMs) <= CAMERA_FAULT_REOPEN_WINDOW_MS
@@ -19475,12 +19588,14 @@ private class PreviewController(
             cameraFaultRecoveryCameraId = camId
             cameraFaultRecoveryWindowStartMs = now
             cameraFaultRecoveryAttempts = 0
+            cameraFaultRecoveryDeferCount = 0
         }
         val desiredCam = selectedCameraId ?: camId
         if (fallbackFromUnstableHfr(desiredCam, reason)) {
             cameraFaultRecoveryCameraId = desiredCam
             cameraFaultRecoveryWindowStartMs = now
             cameraFaultRecoveryAttempts = 0
+            cameraFaultRecoveryDeferCount = 0
             maybeRestartBody()
             return
         }
@@ -19498,27 +19613,51 @@ private class PreviewController(
                 cameraFaultRecoveryCameraId = fallbackCam
                 cameraFaultRecoveryWindowStartMs = now
                 cameraFaultRecoveryAttempts = 0
+                cameraFaultRecoveryDeferCount = 0
                 maybeRestartBody()
                 return
             }
+            cameraFaultRecoveryExhaustedUntilMs = now + CAMERA_FAULT_STORM_COOLDOWN_MS
             Log.w(
                 tag,
                 "camera fault recovery exhausted camId=$camId reason=$reason " +
-                    "attempts=$cameraFaultRecoveryAttempts windowMs=$CAMERA_FAULT_REOPEN_WINDOW_MS",
+                    "attempts=$cameraFaultRecoveryAttempts windowMs=$CAMERA_FAULT_REOPEN_WINDOW_MS " +
+                    "stormCooldownMs=$CAMERA_FAULT_STORM_COOLDOWN_MS",
             )
             return
         }
         if (device != null || session != null || cameraDeviceOpenPending || captureSessionAsyncConfigurePending) {
+            cameraFaultRecoveryDeferCount += 1
+            if (cameraFaultRecoveryDeferCount > CAMERA_FAULT_DEFER_CAP) {
+                cameraFaultRecoveryExhaustedUntilMs = now + CAMERA_FAULT_STORM_COOLDOWN_MS
+                Log.w(
+                    tag,
+                    "camera fault recovery defer-cap camId=$camId reason=$reason " +
+                        "defers=$cameraFaultRecoveryDeferCount stormCooldownMs=$CAMERA_FAULT_STORM_COOLDOWN_MS",
+                )
+                return
+            }
             Log.w(
                 tag,
                 "camera fault recovery defer camId=$camId reason=$reason desired=$desiredCam " +
-                    "openPending=$cameraDeviceOpenPending configurePending=$captureSessionAsyncConfigurePending",
+                    "openPending=$cameraDeviceOpenPending configurePending=$captureSessionAsyncConfigurePending " +
+                    "defer=$cameraFaultRecoveryDeferCount",
             )
             h.postDelayed({ scheduleCameraFaultRecovery(camId, reason) }, CAMERA_FAULT_RETRY_DEFER_MS)
             return
         }
         val sinceTeardown = now - lastPipelineTeardownMs
         if (sinceTeardown < CAMERA_FAULT_START_REPEAT_BACKOFF_MS) {
+            cameraFaultRecoveryDeferCount += 1
+            if (cameraFaultRecoveryDeferCount > CAMERA_FAULT_DEFER_CAP) {
+                cameraFaultRecoveryExhaustedUntilMs = now + CAMERA_FAULT_STORM_COOLDOWN_MS
+                Log.w(
+                    tag,
+                    "camera fault recovery defer-cap (backoff) camId=$camId reason=$reason " +
+                        "defers=$cameraFaultRecoveryDeferCount stormCooldownMs=$CAMERA_FAULT_STORM_COOLDOWN_MS",
+                )
+                return
+            }
             val delay = CAMERA_FAULT_START_REPEAT_BACKOFF_MS - sinceTeardown
             Log.w(
                 tag,
@@ -19528,6 +19667,7 @@ private class PreviewController(
             return
         }
         cameraFaultRecoveryAttempts += 1
+        cameraFaultRecoveryDeferCount = 0
         val attempt = cameraFaultRecoveryAttempts
         Log.w(
             tag,
@@ -20564,14 +20704,32 @@ private class PreviewController(
         highlightDarkenEngageEma = Double.NaN
         lastHighlightAeRefreshWallMs = 0L
         highlightMeterSessionAnchorWallMs = 0L
+        highlightCompCommittedEpoch = -1L
     }
 
-    /** Debounced repeating request refresh when Highlight (H) AE compensation changes. */
-    private fun refreshRepeatingPreviewForHighlightMeter() {
+    /**
+     * Debounced repeating request refresh when Highlight (H) AE compensation changes.
+     * @return false when skipped (debounce, session not ready, or setRepeating failed) — caller
+     * must **not** treat [lastAppliedHighlightComp] as committed.
+     */
+    private fun tryRefreshRepeatingPreviewForHighlightMeter(): Boolean {
+        if (videoRecordingSessionRebuildPending || captureSessionAsyncConfigurePending) return false
+        if (session == null || device == null || previewSurface == null) return false
+        if (yuvImageReader == null) return false
         val now = SystemClock.elapsedRealtime()
-        if (now - lastHighlightAeRefreshWallMs < highlightAeRefreshMinGapMs) return
+        if (now - lastHighlightAeRefreshWallMs < highlightAeRefreshMinGapMs) return false
+        val h = handler ?: return false
+        val applied =
+            if (Looper.myLooper() == h.looper) {
+                refreshRepeatingPreviewOnlyBody()
+            } else {
+                // Must apply on camera handler; post-and-forget would lie about success.
+                false
+            }
+        if (!applied) return false
         lastHighlightAeRefreshWallMs = now
-        refreshRepeatingPreviewOnly()
+        highlightCompCommittedEpoch = highlightRepeatingEpoch
+        return true
     }
 
     /**
@@ -20893,9 +21051,13 @@ private class PreviewController(
     private fun highlightEvForReadoutChase(hist: IntArray): Double? {
         if (HighlightMeter.isUntrustedAnalysisHistogram(hist)) return null
         val highlightWall = SystemClock.elapsedRealtime()
+        // Dial reset clears the anchor; if skip-stable failed to re-arm, lazy-start warmup here.
+        if (highlightMeterSessionAnchorWallMs <= 0L) {
+            highlightMeterSessionAnchorWallMs = highlightWall
+            return null
+        }
         val warmupReady =
-            highlightMeterSessionAnchorWallMs > 0L &&
-                highlightWall - highlightMeterSessionAnchorWallMs >= highlightMeterSessionWarmupMs
+            highlightWall - highlightMeterSessionAnchorWallMs >= highlightMeterSessionWarmupMs
         if (!warmupReady) return null
         val bd = HighlightMeter.suggestEvCorrectionBreakdown(hist)
         val engageSm = smoothHighlightDarkenEngagement(bd.darkenEngagement)
@@ -22020,20 +22182,21 @@ private class PreviewController(
         }
     }
 
-    private fun refreshRepeatingPreviewOnlyBody() {
+    /** @return true when a new repeating request was submitted. */
+    private fun refreshRepeatingPreviewOnlyBody(): Boolean {
         if (videoRecordingSessionRebuildPending || captureSessionAsyncConfigurePending) {
             Log.d(
                 tag,
                 "refreshRepeatingPreviewOnly: skip (rebuildPending=$videoRecordingSessionRebuildPending " +
                     "configurePending=$captureSessionAsyncConfigurePending)",
             )
-            return
+            return false
         }
-        val sess = session ?: return
-        val cam = device ?: return
-        val surf = previewSurface ?: return
-        val camId = selectedCameraId ?: return
-        val h = handler ?: return
+        val sess = session ?: return false
+        val cam = device ?: return false
+        val surf = previewSurface ?: return false
+        val camId = selectedCameraId ?: return false
+        val h = handler ?: return false
         try {
             val constrained =
                 runCatching {
@@ -22058,7 +22221,7 @@ private class PreviewController(
                     if (fallbackFromUnstableHfr(camId, "no_high_speed_range")) {
                         maybeRestartBody()
                     }
-                    return
+                    return false
                 }
                 val req = buildPreviewCaptureRequest(cam, surf, fpsRange, camId)
                 val hs = sess as? android.hardware.camera2.CameraConstrainedHighSpeedCaptureSession
@@ -22068,26 +22231,22 @@ private class PreviewController(
                         .exceptionOrNull()
                         ?.let { Log.w(tag, "refreshRepeatingPreviewOnly stopRepeating: ${it.message}") }
                     sess.setRepeatingBurst(list, fpsMeasuringCallback(), h)
-                } else {
-                    Log.w(tag, "refreshRepeatingPreviewOnly: createHighSpeedRequestList returned null")
+                    return true
                 }
-                return
+                Log.w(tag, "refreshRepeatingPreviewOnly: createHighSpeedRequestList returned null")
+                return false
             }
             val req = buildPreviewCaptureRequest(cam, surf, fpsRange, camId)
-            val recordingActive =
-                inAppVideoRecordingArmed &&
-                    videoController.isRecorderStarted() &&
-                    !hfrEncoderOnlyRecordActive
-            if (!recordingActive) {
-                runCatching { sess.stopRepeating() }
-                    .exceptionOrNull()
-                    ?.let { Log.w(tag, "refreshRepeatingPreviewOnly stopRepeating: ${it.message}") }
-            }
+            // Regular sessions: setRepeatingRequest replaces the prior stream. stopRepeating first
+            // (especially on H AE-comp refresh every ~900ms) opens a gap some HALs treat as a fault.
             sess.setRepeatingRequest(req, fpsMeasuringCallback(), h)
+            return true
         } catch (e: CameraAccessException) {
             Log.w(tag, "refreshRepeatingPreviewOnly failed: ${e.reason}")
+            return false
         } catch (t: Throwable) {
             Log.w(tag, "refreshRepeatingPreviewOnly failed: ${t.message}")
+            return false
         }
     }
 
@@ -22440,19 +22599,36 @@ private class PreviewController(
                                     null
                                 }
                             if (comp != null && !wantsReadoutExposureChase()) {
+                                val needsCommit =
+                                    highlightCompCommittedEpoch != highlightRepeatingEpoch
                                 val shouldPostComp =
-                                    comp != lastAppliedHighlightComp &&
+                                    needsCommit ||
                                         (
-                                            passesDeadband ||
-                                                (comp == 0 && lastAppliedHighlightComp != null)
-                                        )
+                                            comp != lastAppliedHighlightComp &&
+                                                (
+                                                    passesDeadband ||
+                                                        (comp == 0 && lastAppliedHighlightComp != null)
+                                                    )
+                                            )
                                 if (shouldPostComp) {
                                     val camHandler = handler
                                     if (camHandler != null) {
                                         camHandler.post {
                                             if (!wantsHighlightMetering() || yuvImageReader == null) return@post
-                                            if (comp == lastAppliedHighlightComp) return@post
+                                            val alreadyCommitted =
+                                                comp == lastAppliedHighlightComp &&
+                                                    highlightCompCommittedEpoch == highlightRepeatingEpoch
+                                            if (alreadyCommitted) return@post
+                                            // Set before refresh — [aeHighlightCompensationValue] reads this.
+                                            val previousComp = lastAppliedHighlightComp
+                                            val previousEpoch = highlightCompCommittedEpoch
                                             lastAppliedHighlightComp = if (comp == 0) null else comp
+                                            if (!tryRefreshRepeatingPreviewForHighlightMeter()) {
+                                                // Not on camera thread / not ready: revert so we retry.
+                                                lastAppliedHighlightComp = previousComp
+                                                highlightCompCommittedEpoch = previousEpoch
+                                                return@post
+                                            }
                                             Log.d(
                                                 tag,
                                                 "HighlightMeter ev=${"%.2f".format(evForDrive)} aeComp=$comp",
@@ -22473,7 +22649,6 @@ private class PreviewController(
                                                     "highlightMeter ev=${"%.2f".format(evForDrive)} aeComp=$comp dial=H$diagSuffix",
                                                 )
                                             }
-                                            refreshRepeatingPreviewForHighlightMeter()
                                         }
                                     }
                                 }
@@ -23102,8 +23277,11 @@ private class PreviewController(
 
             sess.setRepeatingRequest(req, fpsMeasuringCallback(), handler)
             lastStatus = "Preview running (normal)"
+            // Healthy stream: clear storm cooldown so a later one-off disconnect can still recover.
+            cameraFaultRecoveryExhaustedUntilMs = 0L
+            cameraFaultRecoveryDeferCount = 0
             if (wantsHighlightMetering()) {
-                highlightMeterSessionAnchorWallMs = SystemClock.elapsedRealtime()
+                armHighlightMeterAfterRepeatingStart()
             }
             Log.d(tag, "Normal repeatingRequest started")
             scheduleReadoutChromeUxFallback()

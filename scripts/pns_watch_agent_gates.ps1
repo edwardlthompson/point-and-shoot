@@ -28,7 +28,7 @@ pns_watch_agent_gates.ps1 — bootstrap gate router (PowerShell)
   -Step usb-capture -> pns_capture_pipeline_verify.ps1
   -Step usb-chrome  -> pns_chrome_ux_gate.ps1
 
-  Batch slash commands: docs/BATCH_COMMANDS.md (25 commands; /verify, /ship, …)
+  Batch slash commands: docs/BATCH_COMMANDS.md (28 commands; /verify, /ship, …)
 
   -Autofix          -> run pns_changelog_gate.ps1 before tier0 (safe doc drift only)
   -Once             -> single invocation (default; no watch loop)

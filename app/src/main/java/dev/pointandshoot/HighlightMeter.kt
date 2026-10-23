@@ -24,9 +24,9 @@ import kotlin.math.pow
  *    (diffuse / normal indoor-outdoor) or many pixels sit in upper mid-tones.
  * 3. Tiered minimum darken EV when above the **effective** ceiling (stronger near 255).
  * 4. [DEFAULT_HIGHLIGHT_DARKEN_GAIN] multiplies **negative** EV (kept modest to avoid clamp pegging).
- * 5. **Clip-save engagement:** negative EV is scaled by a weight that stays **~0** until the
- *    histogram shows **near-clip** stress (upper tail / 99.5th percentile / mass at bin 245+), then
- *    ramps toward **1** so flat and mid-key scenes match **Auto** while highlights get protection.
+ * 5. **Clip-save engagement:** negative EV is scaled by engagement. Flat / mid-key stay near **Auto**;
+ *    **blown** regions (≥1% @255 or peak ≥250) force engagement **1.0** so Auto→H instantly
+ *    stop-downs to expose-for-highlights (window-in-dark-room).
  *
  * Pure data + pure functions; Phase 1 plugs the histogram from downsampled YUV preview.
  */
@@ -235,10 +235,14 @@ object HighlightMeter {
 
     /**
      * Weight in **[0, 1]** for how much **negative EV** (exposure pull to save highlights) applies.
-     * Stays **~0** until **near-clip** signals appear so **H ≈ Auto** on flat / mid-key frames; ramps
-     * as bin **245+** mass, **99.5th percentile** luma, or the metered peak approach clipping.
+     * Stays **~0** on flat / mid-key frames; ramps as bin **245+** mass, **99.5th percentile** luma,
+     * or the metered peak enter the bright band (peak from ~210, p99.5 from ~200) — not only
+     * near-clip 255 — so H is visibly darker than Auto on windows / skies.
      */
     fun darkenEngagementWeight(fracAtOrAbove245: Double, p995Bin: Int, pMetered: Int): Double {
+        // Hard clip in the metered peak → full engagement immediately (blown Auto highlights).
+        if (pMetered >= CLIP_PEAK_FULL_ENGAGE) return 1.0
+        if (fracAtOrAbove245 >= CLIP_FRAC245_FULL_ENGAGE) return 1.0
         val w245 =
             smoothstep01(
                 ((fracAtOrAbove245 - CLIP_FRAC245_LOW) /
@@ -258,53 +262,73 @@ object HighlightMeter {
     }
 
     /**
-     * When bulk luminance is low but only a **moderate** fraction sits at bin 255, do not apply the
-     * full clip-save pull (avoids pegging min AE comp on mostly-dark scenes with a small window /
-     * lamp tail). Tiny speculars (frac255 ≪ 1%) still keep strong engagement via [modestTail] near 0.
+     * Softens engagement only for **tiny** specular tails on dark bulk (filament / glint).
+     * Any real blown region (≈≥1% at bin 255) keeps **full** engagement — classic window-in-a-dark-room
+     * must stop down immediately in H (expose-for-highlights), not match Auto.
      */
     fun bulkHighlightTailEngagementScale(p50: Int, fracAt255: Double): Double {
-        if (fracAt255 >= BULK_TAIL_FRAC255_HIGH || p50 >= BULK_P50_BRIGHT) return 1.0
-        // Tiny speculars / filaments: keep full engagement (do not soften sun-disk pulls).
+        // Blown highlight area in frame → always protect (do not soft-match Auto).
+        if (fracAt255 >= BULK_BLOWN_FRAC255) return 1.0
+        if (p50 >= BULK_P50_BRIGHT) return 1.0
+        // Sub-percent specular / filament: keep full pull.
         if (fracAt255 < BULK_TAIL_FRAC255_LOW) return 1.0
+        // Between tiny and blown on a dark bulk: mild soften only (glints, not windows).
         val darkBulk =
             smoothstep01((BULK_P50_DARK_REF - p50.toDouble()) / BULK_P50_DARK_SPAN)
         val modestTail =
-            smoothstep01((BULK_TAIL_FRAC255_HIGH - fracAt255) / (BULK_TAIL_FRAC255_HIGH - BULK_TAIL_FRAC255_LOW))
+            smoothstep01((BULK_BLOWN_FRAC255 - fracAt255) / (BULK_BLOWN_FRAC255 - BULK_TAIL_FRAC255_LOW))
         return (1.0 - darkBulk * modestTail * BULK_TAIL_ENGAGE_SUPPRESS).coerceIn(BULK_TAIL_ENGAGE_MIN, 1.0)
     }
 
     private const val BULK_P50_DARK_REF: Double = 62.0
     private const val BULK_P50_DARK_SPAN: Double = 35.0
     private const val BULK_P50_BRIGHT: Int = 66
-    /** Tail mass below this is treated as specular / filament (full engagement). */
-    private const val BULK_TAIL_FRAC255_LOW: Double = 0.02
-    private const val BULK_TAIL_FRAC255_HIGH: Double = 0.14
-    private const val BULK_TAIL_ENGAGE_SUPPRESS: Double = 0.88
-    private const val BULK_TAIL_ENGAGE_MIN: Double = 0.12
+    /** Below this: specular / filament — full engagement. */
+    private const val BULK_TAIL_FRAC255_LOW: Double = 0.003
+    /**
+     * At/above this fraction of pixels at bin 255, treat as a blown region (window / sky / lamp face)
+     * and apply full highlight-protect engagement.
+     */
+    private const val BULK_BLOWN_FRAC255: Double = 0.01
+    private const val BULK_TAIL_ENGAGE_SUPPRESS: Double = 0.55
+    private const val BULK_TAIL_ENGAGE_MIN: Double = 0.35
 
     /** No near-clip mass and modest 99.5% bin → do not brighten toward the highlight ceiling. */
     private fun shouldSuppressPositiveBrighten(fracAtOrAbove245: Double, p995Bin: Int): Boolean =
         fracAtOrAbove245 < POSITIVE_SUPPRESS_FRAC245 && p995Bin < POSITIVE_SUPPRESS_P995
 
     /** Fraction of pixels at or above bin 245; ramps engagement for clip-save behavior. */
-    private const val CLIP_FRAC245_LOW: Double = 7e-6
+    private const val CLIP_FRAC245_LOW: Double = 5e-5
 
-    private const val CLIP_FRAC245_HIGH: Double = 0.00085
+    private const val CLIP_FRAC245_HIGH: Double = 0.0025
 
-    /** 99.5th percentile below this → treat as no highlight headroom to manage (Auto-like). */
-    private const val CLIP_P995_LOW: Double = 214.0
+    /**
+     * 99.5th percentile below this → treat as no highlight headroom (Auto-like).
+     * Mid-key bulk (~160–195) stays neutral; bright windows/skies (p99.5 often ≥210) engage
+     * before full near-clip 255.
+     */
+    private const val CLIP_P995_LOW: Double = 200.0
 
-    private const val CLIP_P995_HIGH: Double = 248.0
+    private const val CLIP_P995_HIGH: Double = 242.0
 
-    /** Metered highlight bin must approach white before peak-alone engagement ramps. */
-    private const val CLIP_P_LOW: Double = 234.0
+    /**
+     * Metered highlight bin for peak-alone engagement.
+     * Was 234 (near-clip only) — that made H look identical to Auto on many bright scenes.
+     */
+    private const val CLIP_P_LOW: Double = 210.0
 
     /** YUV garbage frame: nearly all pixels at bin 255 with bright median. */
     private const val UNTRUSTED_GARBAGE_FRAC255: Double = 0.92
 
     private const val UNTRUSTED_GARBAGE_P50_MIN: Int = 247
 
-    private const val CLIP_P_HIGH: Double = 252.0
+    private const val CLIP_P_HIGH: Double = 250.0
+
+    /** Metered peak at/above this → engagement 1.0 (Auto has blown that region). */
+    private const val CLIP_PEAK_FULL_ENGAGE: Int = 250
+
+    /** Near-clip mass at/above this → engagement 1.0. */
+    private const val CLIP_FRAC245_FULL_ENGAGE: Double = 0.002
 
     private const val POSITIVE_SUPPRESS_FRAC245: Double = 9e-6
     private const val POSITIVE_SUPPRESS_P995: Int = 154

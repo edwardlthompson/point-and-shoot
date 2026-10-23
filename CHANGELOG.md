@@ -4,7 +4,16 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+### Fixed
+
+- **Cold start opens the camera again** — Sticky Safe Mode no longer hijacks every launch into the Engineering hub. Hub stays under Settings → Developer settings (or ADB `pns_screen=probehub`). Highlight (H) “save-the-highlights” metering re-verified on USB after the launch fix.
+- **Last mode sticks on cold open** — Photo/Video tray and each tray’s Mode dial (e.g. Photo **H**, Video Dual) restore after force-stop / relaunch. Switching to Video no longer wipes Photo H via a single global dial pref.
+
+### Changed
+
+- **Highlight (H) after Auto↔H toggles** — Dial changes that skip a full camera rebuild re-arm highlight metering so H keeps darkening blown highlights instead of freezing on Auto exposure.
+- **Camera reconnect storm** — Fault recovery no longer loops “Camera disconnected. Reopening…” forever after HAL disconnects; cooldown + skip-stable H re-arm guard stop the thrash.
+
 ## [0.14.1] - 2026-08-22
 
 Gallery title no longer shoves the viewer down; signed-tag CI no longer blocks the APK.

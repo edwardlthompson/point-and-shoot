@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-06-05 (EXODUS 4K fleet honesty — `video.4k_regular` gate, parity session proof, API 28 legacy record policy).
+**Last synced with tree:** 2026-10-22 (H expose-for-highlights: blown regions full engagement + fast Auto→H response).
 
 **Related deep dives (not duplicated here):**
 
@@ -97,12 +97,15 @@
 | Session warmup before AE comp | **2200 ms** after repeating start | `highlightMeterSessionWarmupMs` — skips 0xFF garbage YUV |
 | Untrusted histogram guard | `HighlightMeter.isUntrustedAnalysisHistogram` | Rejects near-all-255 frames (frac255 &gt; 0.92, p50 ≥ 247) |
 | AE comp refresh min gap | **900 ms** | `highlightAeRefreshMinGapMs` |
+| Skip-stable H re-arm | Only when `highlightMeterSessionAnchorWallMs ≤ 0` | Avoids epoch/warmup reset thrash on crop/FPS skip-stable (`REG-20261022-004`) |
+| Regular refresh `stopRepeating` | **No** (setRepeating replaces) | Constrained-HS still stops before burst |
+| Fault recovery storm cooldown | **30 s** after max attempts / defer cap **16** | `CAMERA_FAULT_STORM_COOLDOWN_MS` — stops disconnect↔toast loop |
 | Darken only | **true** | `highlightMeterDarkenOnly` — no positive EV pump |
 | EV stability zone (snap to 0) | **0.24** | `highlightEvStabilityZone` |
 | Darken bypass snap | **≤ −0.11 EV** | `highlightMeterStabilityDarkenBypassEv` |
 | Deadband darken | **0.095** | `highlightMeterEvDeadbandDarken` |
 | Deadband brighten | **0.155** (unused when darken-only) | `highlightMeterEvDeadbandBrighten` |
-| Darken engagement EMA | `HighlightMeter.suggestEvCorrectionBreakdown` → `smoothHighlightDarkenEngagement` | Reduces breathing |
+| Darken engagement EMA | `HighlightMeter.suggestEvCorrectionBreakdown` → `smoothHighlightDarkenEngagement` | Fast rise (α≈0.85). **Blown regions** (≥1% @255 or peak ≥250) → engagement **1.0** (window-in-dark-room must stop down vs Auto). Warmup **280 ms**; AE-comp refresh **≥120 ms** |
 
 **CaptureRequest:** While AE stays **ON**, sets `CONTROL_AE_EXPOSURE_COMPENSATION` from smoothed EV (`HighlightMeterSupport.evToCompensationIndex`). On **H**, face tracking sets **AF** regions only — not `CONTROL_AE_REGIONS` (global highlight meter). **RAW / bracket stills** also omit face **AE** regions (`includeFaceAeRegions=false`) so metering matches ProShot/ReferenceCam HAL default; preview face AE unchanged. Log tag: **`PNS.ChromeUx`** / adb **`HighlightMeter`** lines (~3.5 s throttle, includes `p50` / `f255` diag).
 
@@ -580,7 +583,7 @@ Chrome **video format chip** maps to `InAppVideoFormatSelection` (codec / fps / 
 | `pns_preview_experimental_master` | M22.9 — seed `HudSettings.enableExperimentalAppBreakingFeatures` for max-res unlock proof lane |
 | `pns_preview_experimental_max_res_unlock` | M22.9 — seed `HudSettings.enableExperimentalMaxResolutionUnlock` (CPH2583 root lane) |
 | `pns_preview_experimental_vendor_session` | M22.9 — seed `HudSettings.enableExperimentalVendorSessionKeys` (independent vendor key lane) |
-| `pns_preview_force_safe_mode` | M22.9 — force `ExperimentalSafeModeStore.safe_mode_active=true`, disable experimental flags, and verify fail-closed recovery |
+| `pns_preview_force_safe_mode` | M22.9 — force `ExperimentalSafeModeStore.safe_mode_active=true`, disable experimental flags, and verify fail-closed recovery. **Safe Mode does not open the Engineering hub** — cold start stays on live preview (`launchScreen` null/`preview`); hub is Settings → Developer or ADB `pns_screen=probehub`. `markAppLaunchHealthy` (Activity `onStart`) clears sticky Safe Mode so crash-loop recovery cannot pin every subsequent icon launch to the hub. |)
 | `pns_preview_max_res_sweep_session_keys` | M22.9b — CSV vendor **session** keys to sweep on camera `2` during still session-template build (`maxResSweep scope=session ...`) |
 | `pns_preview_max_res_sweep_request_keys` | M22.9b — CSV vendor **request** keys to sweep on camera `2` during still request build (`maxResSweep scope=request ...`) |
 | `pns_preview_timelapse_mode` | 15.27 — `off` / `photo` / `video` → `HudSettings.timeLapseMode` |
@@ -711,7 +714,7 @@ Log: `PNS.PowerThermal longRunningPaused=true/false`.
 
 **Tray surface restore:** `PreviewLastSurfacePrefs` (`pns_preview_last_surface.xml`) stores the last **Photo** / **Video** / in-app **Gallery** tray surface. Cold start restores it unless ADB `pns_preview_primary_photo`, `MediaStore` video capture intents, or still/video return contracts override. Saved on tray changes and `ON_STOP` via `LaunchedEffect` in `PreviewEngineScreen`.
 
-**Tray mode settings (photo vs video):** `PreviewTrayModeStore` (`pns_tray_mode_settings.xml`) snapshots per-tray readout overrides (ISO / shutter / AWB / AE lock / ISO auto range), target FPS, OIS, EIS, video shutter-angle preset, and last prime focal target. On Photo ↔ Video FAB toggle, the outgoing mode is saved and the incoming mode is restored (`PNS.ChromeUx trayModeRestore=…`), including focal-target restore for each tray mode. Video locked SS from shutter-angle presets no longer carries into photo mode. **STAB chip** reflects live HUD toggles synced to [PreviewController] (`setLiveHudSettings`); EIS is hidden when manual sensor / locked shutter blocks preview EIS (same rule as [PreviewStabilization.applyToRequest]). Labels: **OIS** / **EIS** / **OIS+EIS** when active; **Off** when advertised but disabled. Readout strip auto-scales chip typography to fit AF + STAB + LUT chips (incl. angle-prefixed SS); bottom tray height **76 dp** (was 92). Still shutter taps now queue while previous captures process; top status line reports queue progress (`Still queue X/Y - pending N`).
+**Tray mode settings (photo vs video):** `PreviewTrayModeStore` (`pns_tray_mode_settings.xml`) snapshots per-tray readout overrides (ISO / shutter / AWB / AE lock / ISO auto range), target FPS, OIS, EIS, video shutter-angle preset, last prime focal target, and **command dial** (photo_dial / ideo_dial). Cold open restores last surface **and** that tray dial (Photo+H / Video Dual stay independent). Video clamp-to-Auto writes only the active tray (does not wipe photo H). Legacy HudSettings dial key stays synced; unset default is Auto. On Photo ↔ Video FAB toggle, the outgoing mode is saved and the incoming mode is restored (`PNS.ChromeUx trayModeRestore=…`), including focal-target restore for each tray mode. Video locked SS from shutter-angle presets no longer carries into photo mode. **STAB chip** reflects live HUD toggles synced to [PreviewController] (`setLiveHudSettings`); EIS is hidden when manual sensor / locked shutter blocks preview EIS (same rule as [PreviewStabilization.applyToRequest]). Labels: **OIS** / **EIS** / **OIS+EIS** when active; **Off** when advertised but disabled. Readout strip auto-scales chip typography to fit AF + STAB + LUT chips (incl. angle-prefixed SS); bottom tray height **76 dp** (was 92). Still shutter taps now queue while previous captures process; top status line reports queue progress (`Still queue X/Y - pending N`).
 
 **PO.1 memory (Sprint PO.1):** `PnsBitmapGuard` (`PNS.Bitmap`) tracks gallery/tray bitmap recycle; `PnsMediaStoreGallery` (`PNS.GalleryIndex`) indexes `DCIM/Point & Shoot` via `RELATIVE_PATH` + `QUERY_ARG_LIMIT` (lazy EXIF on selection); preview session logs `PNS.MemoryProfiler` (10 s interval, CSV under app external `memory_profiles/`). Gate: `scripts/pns_memory_profiler.ps1`.
 

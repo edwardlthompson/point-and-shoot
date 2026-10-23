@@ -507,7 +507,7 @@ Use these from repo root unless a script documents otherwise.
 | `pns_local_dev_parallel.ps1` | Milestone **T.15** — Tier 0 host gates (no Gradle); **8** jobs when bootstrap validate enabled (**`-SkipBootstrap`** for legacy 7-job lane); **PS7+** parallel — see **`docs/LOCAL_FIRST_DEV_LOOP.md`**. |
 | `pns_validate_bootstrap.ps1` | Sprint **TM.0** — bootstrap template file/label/module scaffold gate (wired in Tier 0). |
 | `pns_watch_agent_gates.ps1` | Sprint **TM.0** — routes **`-Step tier0|tier1|tier2|usb-capture|usb-chrome|bootstrap`**; batch supers in `.cursor/commands/` — see `docs/BATCH_COMMANDS.md`. |
-| `pns_check_batch_commands.ps1` | Bootstrap v0.10 — registry sync for **25** `.cursor/commands/*.md` files. |
+| `pns_check_batch_commands.ps1` | Bootstrap batch registry — sync for **28** `.cursor/commands/*.md` files (23 atomic + 5 super). |
 | `pns_check_github_ci.ps1` | Poll **Toolchain verify**, **Security scan**, **CodeQL** on a commit (`-WaitSeconds 300`). |
 | `pns_agent_worktree_bootstrap.ps1` | Milestone **T.15** — `-Create` / `-Remove` / `-List` for `feature/agent-*` worktrees. |
 | `pns_milestone_t_gate.ps1` | Milestone **T** closure — `pns_local_dev_parallel.ps1` + `pns_prerelease_gate.ps1 -SkipGradle`; writes `hfr-runs/milestone_t_gate_*/`. |

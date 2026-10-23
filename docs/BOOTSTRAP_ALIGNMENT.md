@@ -13,7 +13,7 @@ This file is the gap analysis + decision record for the 0.10.0 → 0.15.0 migrat
 ### Already matched (kept)
 
 - Core agent surface: `AGENTS.md`, `AGENT_MEMORY.md`, `BUILD_PLAN.md`, `BUILD_PLAN_COMPLETED.md`, `COMPLETED_TASKS.md`, `DECISION_LOG.md` + `docs/adr/`, `KNOWLEDGE_BASE.md`, `PROMPT_LIBRARY.md`, `SECURITY.md`, `CONTRIBUTING.md`
-- 25 → 26 batch commands (added `/cleanup`), `batch-commands.mdc`, `docs/BATCH_COMMANDS.md`, `docs/help/BATCH_COMMANDS.md`
+- Batch commands: **28** `.cursor/commands/*.md` (23 atomic + 5 super; was 25 → 26 with `/cleanup`, then more), `batch-commands.mdc`, `docs/BATCH_COMMANDS.md`, `docs/help/BATCH_COMMANDS.md`
 - Host gate: `scripts/pns_validate_bootstrap.ps1` (Tier 0)
 - Local-first tiers: `docs/LOCAL_FIRST_DEV_LOOP.md`
 - Project CRITICAL `.cursor/rules/*` (DNG, tele, fleet, chrome, etc.)

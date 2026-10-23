@@ -207,9 +207,16 @@ class HighlightMeterTest {
     }
 
     @Test
-    fun `dark bulk with modest clip tail scales engagement down`() {
+    fun `dark bulk with blown window frac keeps full engagement`() {
+        // Window-in-dark-room: must not soft-match Auto (expose-for-highlights).
         val scale = HighlightMeter.bulkHighlightTailEngagementScale(p50 = 30, fracAt255 = 0.057)
-        assertTrue("expected partial engagement scale; was $scale", scale in 0.15..0.45)
+        assertEquals(1.0, scale, 1e-9)
+    }
+
+    @Test
+    fun `dark bulk with tiny glint between thresholds softens slightly`() {
+        val scale = HighlightMeter.bulkHighlightTailEngagementScale(p50 = 30, fracAt255 = 0.006)
+        assertTrue("expected mild soften for tiny glint; was $scale", scale in 0.35..0.95)
     }
 
     @Test

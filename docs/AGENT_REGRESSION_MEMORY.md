@@ -34,6 +34,58 @@
 
 ## Active entries
 
+### REG-20261022-004 — Camera disconnect↔reopen storm breaker
+
+- **Status:** active
+- **Area:** preview / session
+- **Symptom:** App appears stuck in a loop: repeated “Camera disconnected. Reopening…” toasts, `onDisconnected` + `maybeRestart` thrash (dozens of disconnects in seconds).
+- **Cause:** (1) Fault recovery opened a fresh 4s window (attempts=0) forever after each window expired. (2) Defer-while-busy path could postDelayed forever without counting attempts. (3) Skip-stable always called `armHighlightMeterAfterRepeatingStart`, resetting H epoch/warmup on every crop/FPS refresh → AE `stopRepeating` thrash.
+- **Fix shipped:** 30s storm cooldown after attempt/defer exhaustion; defer cap 16; skip-stable re-arms H only when `highlightMeterSessionAnchorWallMs<=0`; regular `refreshRepeatingPreviewOnly` no longer `stopRepeating` before `setRepeatingRequest`.
+- **Do not:** Reset fault attempts on every new short window without a cooldown; re-arm H on every skip-stable while already warm; call `stopRepeating` on every H AE-comp refresh.
+- **Proves OK:** USB soak ≥30s with `onDisconnected` count near 0 after sideload; if HAL faults, logs show `stormCooldownMs=` / `recovery suppressed` instead of endless reopen.
+- **Also test:** Auto↔H still arms H (`highlightMeter aeComp=`); `pns_highlight_meter_verify.ps1`.
+- **Touches:** `PreviewEngineScreen.kt`
+- **Conflicts with:** REG-20261022-002 (re-arm still required when anchor=0 on skip-stable)
+
+### REG-20261022-003 — Cold start restores last tray + per-tray dial
+
+- **Status:** active
+- **Area:** chrome / launch
+- **Symptom:** Leaving Photo+H then opening Video (or cold-starting after Video) could wipe H; cold open did not reliably return to last Photo/Video + dial.
+- **Cause:** Single global `HudSettings.command_dial_mode`; video family clamp wrote Auto and overwrote photo H. Tray snapshots omitted dial. Fleet visibility briefly hid H/Dual on cold start and the clamp effect persisted Auto over the restored dial.
+- **Fix shipped:** `PreviewTrayModeStore` `photo_dial`/`video_dial`; cold start from `PreviewLastSurfacePrefs` + tray dial; family-only clamp (not fleet filter) saves active tray only; backup include `pns_tray_mode_settings.xml`.
+- **Do not:** Persist dial only globally; clamp video→Auto into the photo tray prefs; auto-clamp dial on `FleetChromeVisibility` false during matrix warm-up.
+- **Proves OK:** Set Photo+H, force-stop, cold MAIN → `command_dial=H` + `primary_photo=true`; Video Dual then Photo → H restored; `PreviewTrayModeStoreTest`.
+- **Also test:** ADB `pns_preview_dial` / `pns_preview_primary_photo` still override restore.
+- **Touches:** `PreviewTrayModeSettings.kt`, `PreviewEngineScreen.kt`, `HudSettings.kt`, `pns_backup_rules.xml`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
+### REG-20261022-002 — H AE-comp must not stick after Auto↔H toggles
+
+- **Status:** active
+- **Area:** preview / highlight metering
+- **Symptom:** Highlight **H** works for a few seconds, then after switching Auto↔H a few times the viewfinder stops responding to blown highlights (behaves like Auto). Mid-session Auto→H screenshots match Auto luma; no further `highlightMeter` lines.
+- **Cause:** (1) `lastAppliedHighlightComp` marked applied when `refreshRepeatingPreviewOnlyBody` no-oped while tryRefresh returned success. (2) Dial change calls `resetHighlightMeterPipelineState` (anchor=0) then `maybeRestartBody` **skip stable** → `refreshRepeating` only — never re-arms `highlightMeterSessionAnchorWallMs`, so warmup never becomes ready. (3) Skip-stable also ignored missing YUV when Auto→H needs analysis.
+- **Fix shipped:** Boolean refresh + epoch commit; `armHighlightMeterAfterRepeatingStart` on skip-stable and `startRepeating`; skip-stable refused when YUV needed but absent; lazy anchor arm in `highlightEvForReadoutChase`.
+- **Do not:** Treat AE-comp as applied when setRepeating was skipped; clear H anchor on dial reset without re-arm on skip-stable; skip-stable when `sessionNeedsYuvAnalysisSurface && yuvImageReader==null`.
+- **Proves OK:** Mid-session UI Auto↔H torture — H finder mean luma ≪ Auto; `highlightMeter aeComp=` after each return to H; `pns_highlight_meter_verify.ps1`.
+- **Also test:** `pns_chrome_ux_gate.ps1` when touching dial/session restart.
+- **Touches:** `PreviewEngineScreen.kt`
+- **Conflicts with:** REG-20260621-001 (complementary H path); REG-20260806-001 (skip-stable refresh must stay)
+
+### REG-20261022-001 — Safe Mode must not remap cold start to Engineering hub
+
+- **Status:** active
+- **Area:** chrome / launch
+- **Symptom:** Every cold start opened Engineering hub (`DebugMenuScreen` / `probehub`) instead of live preview
+- **Cause:** Sticky `ExperimentalSafeModeStore.safe_mode_active` forced `launchScreen = probehub` in `MainActivity`; `markAppLaunchHealthy` never cleared the flag
+- **Fix shipped:** Safe Mode keeps toast + `disableExperimentalFlags` only; `LaunchScreenPolicy` never remaps to hub; `markAppLaunchHealthy` → `clearSafeMode`; home-icon (`FLAG_ACTIVITY_RESET_TASK_IF_NEEDED`) strips sticky `pns_screen`
+- **Do not:** Remap Safe Mode → `probehub` again; clear Safe Mode only mid-crash before healthy `onStart`
+- **Proves OK:** `LaunchScreenPolicyTest`; USB cold MAIN+LAUNCHER not Engineering; ADB `pns_screen=probehub` still opens hub; `--ez pns_preview_force_safe_mode true` stays on preview
+- **Also test:** `pns_highlight_meter_verify.ps1` (H dial reachable after launch fix)
+- **Touches:** `MainActivity.kt`, `ExperimentalSafeModeStore.kt`, `LaunchScreenPolicy.kt`, `docs/PNS_TECHNICAL_SETTINGS.md`
+- **Conflicts with:** none
+
 ### REG-20260806-001 — Same-camera prime-eq crops must refresh repeating (not skip-stable no-op)
 
 - **Status:** active

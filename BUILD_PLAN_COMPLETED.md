@@ -34,6 +34,42 @@ Shipped tasks grouped by **app area** for manual review. Open agent rows: **[BUI
 28. [Milestone H — completed sprints](#milestone-h--completed-sprints)
 29. [Milestone T — Template alignment](#milestone-t--template-alignment)
 30. [Milestone 28 — Feature richness (Waves A–D)](#milestone-28--feature-richness-waves-a-d)
+31. [Recent archive (2026-10-22)](#recent-archive-2026-10-22)
+
+---
+
+## Recent archive (2026-10-22)
+
+### Sprint LAUNCH-2026-10-22 — Cold start → preview (Safe Mode)
+
+- ✅ `[AGENT]` LAUNCH.1 — Stop Safe Mode → `probehub` remap in `MainActivity`; keep toast + `disableExperimentalFlags`
+- ✅ `[AGENT]` LAUNCH.2 — `ExperimentalSafeModeStore.markAppLaunchHealthy` also clears Safe Mode
+- ✅ `[AGENT]` LAUNCH.3 — Home-icon (`FLAG_ACTIVITY_RESET_TASK_IF_NEEDED`) strips sticky `pns_screen`; ADB `am start` keeps route
+- ✅ `[AGENT]` LAUNCH.4 — JVM `LaunchScreenPolicyTest`
+- ✅ `[AGENT]` LAUNCH.5 — `docs/PNS_TECHNICAL_SETTINGS.md` Safe Mode / hub note
+- ✅ `[ADB]` LAUNCH.USB-1 — Cold MAIN+LAUNCHER → not Engineering hub; ADB `pns_screen=probehub` → Engineering hub; `force-stop` after (serial `8bf09993`)
+- ✅ `[ADB]` LAUNCH.USB-2 — `--ez pns_preview_force_safe_mode true` cold start stays off hub; next cold start still not hub (`markAppLaunchHealthy` clear)
+
+**Gates:** `LaunchScreenPolicyTest` PASS · USB · REG-20261022-001.
+
+### Sprint H-METER-2026-10-22 — Save The Highlights restore (agent closed)
+
+- ✅ `[ADB]` H.USB-1 — `pns_highlight_meter_verify.ps1` **PASS** (`highlight_meter_verify_20261022_191444`)
+- ✅ `[ADB]` H.USB-2 — `-AutoAeOnly` **PASS** (`highlight_meter_verify_20261022_191552`)
+- ✅ `[AGENT]` H.TRIAGE — Software path OK; user “broken” coincided with Safe Mode → Engineering hub (LAUNCH)
+- ✅ `[AGENT]` H.FIX — No code change required after USB proof
+
+**Residual on board:** 🔲 `[HUMAN]` H.SCENE — bright window / sky torture.
+
+### Sprint BOOTSTRAP-1.x — BOOT.2 only (doc drift)
+
+- ✅ `[AGENT]` BOOT.2 — Fix batch-count doc drift (**28** commands) in `AGENTS.md`, `pns_watch_agent_gates.ps1`, `docs/BOOTSTRAP_ALIGNMENT.md`; session example sprint pointer
+
+**Residual on board:** BOOT.1 / BOOT.3 / BOOT.4 (HUMAN / AGENT / AUTO).
+
+### Sprints IDEAS-2026-08-21 … IDEAS-2026-08-21m (agent closed)
+
+Donate/update → install harden → storage → library desk → Wear/HDMI → USB webcam. Full row lists lived on `BUILD_PLAN.md` until 2026-10-22 cleanup; agent Sequential complete. USB notes: most lanes not USB-proven; DNG/chrome locks unchanged; Webcam tray third state shipped.
 
 ---
 

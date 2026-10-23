@@ -82,7 +82,8 @@ class MainActivity : ComponentActivity() {
         applySecureLockscreenWindowPolicyIfNeeded(intent)
 
         // Capture before consume/strip — `am start -n …/MainActivity` still matches MAIN+LAUNCHER.
-        val gateLaunchScreen = intent?.getStringExtra(EXTRA_PNS_SCREEN)?.trim()?.takeIf { it.isNotEmpty() }
+        val homeIconLaunch = LaunchScreenPolicy.isHomeLauncherIconLaunch(intent)
+        var gateLaunchScreen = intent?.getStringExtra(EXTRA_PNS_SCREEN)?.trim()?.takeIf { it.isNotEmpty() }
         val gateVideoAutomationSec =
             (intent?.getIntExtra(EXTRA_PNS_PREVIEW_AUTOMATION_IN_APP_VIDEO_SEC, 0) ?: 0).coerceIn(0, 120)
         val gateRawVideoAutomationSec =
@@ -92,10 +93,14 @@ class MainActivity : ComponentActivity() {
 
         val previewLaunchExtras = consumePreviewLaunchExtras(applicationContext, intent)
 
-        // Launcher icon must not replay sticky ADB route/automation extras from a prior gate session.
-        if (isLauncherMainIntent(intent) && !adbPreviewGateLaunch) {
+        // Home icon must not replay sticky ADB route/automation extras (RESET_TASK_IF_NEEDED).
+        // ADB `am start` keeps `pns_screen` / video secs — it typically lacks that launcher flag.
+        if (homeIconLaunch || (isLauncherMainIntent(intent) && !adbPreviewGateLaunch)) {
             intent?.stripPreviewVideoAutomationExtras()
             intent?.removeExtra(EXTRA_PNS_SCREEN)
+            if (homeIconLaunch) {
+                gateLaunchScreen = null
+            }
         }
 
         if (intent?.getBooleanExtra(EXTRA_PNS_PREVIEW_HDR10_LIVE_PREVIEW, false) == true) {
@@ -132,7 +137,22 @@ class MainActivity : ComponentActivity() {
         hideSystemBarsForImmersive()
         PnsWindowPreferredRefreshRate.applyUpTo(this)
 
-        var launchScreen = gateLaunchScreen ?: resolveLaunchScreenForMain(intent)
+        val safeModeActive = ExperimentalSafeModeStore.isSafeModeActive(this)
+        if (safeModeActive) {
+            ExperimentalSafeModeStore.disableExperimentalFlags(this)
+            Toast.makeText(
+                this,
+                "Safe Mode: experimental unlock lanes disabled after crash loop.",
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+        // Safe Mode must not remap to Engineering hub — hub is Settings → Developer / ADB probehub.
+        val launchScreen =
+            LaunchScreenPolicy.effectiveLaunchScreen(
+                gateOrResolvedScreen = gateLaunchScreen ?: resolveLaunchScreenForMain(intent),
+                safeModeActive = safeModeActive,
+                homeLauncherIconLaunch = homeIconLaunch,
+            )
         when (intent?.action) {
             MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA,
             MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA_SECURE,
@@ -140,19 +160,9 @@ class MainActivity : ComponentActivity() {
                 Log.i(
                     "PNS.HardwareKey",
                     "coldLaunch action=${intent.action} extras=${intent.extras?.keySet()?.joinToString()} " +
-                        "launchScreen=${launchScreen ?: "null"}",
+                        "launchScreen=${launchScreen ?: "null"} safeMode=$safeModeActive",
                 )
             }
-        }
-        val safeModeActive = ExperimentalSafeModeStore.isSafeModeActive(this)
-        if (safeModeActive) {
-            ExperimentalSafeModeStore.disableExperimentalFlags(this)
-            launchScreen = PNS_SCREEN_PROBE_HUB
-            Toast.makeText(
-                this,
-                "Safe Mode: experimental unlock lanes disabled after crash loop.",
-                Toast.LENGTH_LONG,
-            ).show()
         }
         val imageCaptureReturn = resolveImageCaptureReturn()
         val videoCaptureReturn = resolveVideoCaptureReturn()

@@ -3,10 +3,11 @@ package dev.pointandshoot
 import android.content.Context
 
 /**
- * Per-tray (photo vs video) readout + HUD slice restored when the user toggles the Photo/Video FAB.
+ * Per-tray (photo vs video) readout + HUD slice restored when the user toggles the Photo/Video FAB
+ * and on cold start for the last [PreviewLastSurface].
  *
- * Persisted in SharedPreferences so each mode keeps its last ISO/shutter/AWB, FPS, OIS/EIS, and
- * video shutter-angle preset across app restarts.
+ * Persisted in SharedPreferences so each mode keeps its last ISO/shutter/AWB, FPS, OIS/EIS,
+ * video shutter-angle preset, prime focal target, and **command dial** across app restarts.
  */
 data class PreviewTrayReadoutSnapshot(
     val manualIso: Int? = null,
@@ -23,6 +24,8 @@ data class PreviewTrayModeSnapshot(
     val enableVideoStabilizationPreview: Boolean = false,
     val videoShutterAngle: String = VideoShutterAngle.Free.name,
     val primeFocalTargetEqMm: Int? = null,
+    /** Last Mode-dial program for this tray (Photo H vs Video Dual stay independent). */
+    val commandDialMode: CommandDialMode = CommandDialMode.Auto,
 ) {
     companion object {
         fun defaults(photo: Boolean): PreviewTrayModeSnapshot =
@@ -44,7 +47,9 @@ object PreviewTrayModeStore {
         val p = prefix(photo)
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!prefs.contains("${p}fps")) {
-            return PreviewTrayModeSnapshot.defaults(photo)
+            return PreviewTrayModeSnapshot.defaults(photo).copy(
+                commandDialMode = migrateDialFromLegacyHud(context, photo),
+            )
         }
         val isoBandName =
             prefs.getString("${p}iso_band", ReadoutIsoBand.FULL.persistValue())
@@ -75,6 +80,7 @@ object PreviewTrayModeStore {
                     ?: VideoShutterAngle.Free.name,
             primeFocalTargetEqMm =
                 prefs.getInt("${p}prime_eq_mm", Int.MIN_VALUE).takeIf { it != Int.MIN_VALUE },
+            commandDialMode = loadDial(prefs, p, context, photo),
         )
     }
 
@@ -90,6 +96,7 @@ object PreviewTrayModeStore {
             putBoolean("${p}ois", snapshot.enableLensOpticalStabilization)
             putBoolean("${p}eis", snapshot.enableVideoStabilizationPreview)
             putString("${p}shutter_angle", snapshot.videoShutterAngle)
+            putString("${p}dial", snapshot.commandDialMode.name)
             if (snapshot.primeFocalTargetEqMm != null) {
                 putInt("${p}prime_eq_mm", snapshot.primeFocalTargetEqMm)
             } else {
@@ -113,7 +120,58 @@ object PreviewTrayModeStore {
                 remove("${p}awb_mode")
             }
         }.apply()
+        // Keep legacy global key in sync with the *active* tray for older readers / backup.
+        HudSettings.saveCommandDialMode(context, snapshot.commandDialMode)
     }
+
+    /**
+     * Writes only the dial field for one tray without clobbering the other tray's program
+     * (e.g. video clamp to Auto must not erase photo **H**).
+     */
+    fun saveCommandDialMode(
+        context: Context,
+        photo: Boolean,
+        mode: CommandDialMode,
+    ) {
+        val snap = load(context, photo).copy(commandDialMode = mode)
+        save(context, photo, snap)
+    }
+
+    /** Pure helper for JVM tests — maps a stored dial name into an allowed mode for [photo]. */
+    fun resolveStoredDial(
+        storedName: String?,
+        photo: Boolean,
+        legacyGlobal: CommandDialMode? = null,
+    ): CommandDialMode {
+        val parsed =
+            storedName?.let { name ->
+                CommandDialMode.entries.firstOrNull { it.name == name }
+            }
+        val candidate = parsed ?: legacyGlobal ?: CommandDialMode.Auto
+        val family =
+            if (photo) CaptureMediaFamily.Photo else CaptureMediaFamily.Video
+        val allowed = CaptureMediaFamily.commandDialModesFor(family)
+        return if (candidate in allowed) candidate else CommandDialMode.Auto
+    }
+
+    private fun loadDial(
+        prefs: android.content.SharedPreferences,
+        prefix: String,
+        context: Context,
+        photo: Boolean,
+    ): CommandDialMode {
+        val stored = prefs.getString("${prefix}dial", null)
+        val legacy =
+            if (stored == null) {
+                HudSettings.loadCommandDialMode(context)
+            } else {
+                null
+            }
+        return resolveStoredDial(stored, photo, legacy)
+    }
+
+    private fun migrateDialFromLegacyHud(context: Context, photo: Boolean): CommandDialMode =
+        resolveStoredDial(null, photo, HudSettings.loadCommandDialMode(context))
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

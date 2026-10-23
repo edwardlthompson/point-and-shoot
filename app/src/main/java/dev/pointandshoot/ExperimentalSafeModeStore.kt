@@ -30,12 +30,13 @@ object ExperimentalSafeModeStore {
         }
     }
 
+    /**
+     * Call from [android.app.Activity.onStart] after a successful bring-up.
+     * Resets the crash-loop counter **and** clears sticky Safe Mode so the next cold start
+     * is not stuck on the Engineering hub (hub remains Settings → Developer / ADB `probehub`).
+     */
     fun markAppLaunchHealthy(context: Context) {
-        context.applicationContext
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(KEY_LAUNCH_ATTEMPTS, 0)
-            .apply()
+        clearSafeMode(context)
     }
 
     fun isSafeModeActive(context: Context): Boolean =

@@ -475,11 +475,14 @@ data class HudSettings(
                 .apply()
         }
 
-        /** Last shooting-mode dial selection (persists across launches). */
+        /**
+         * Legacy global dial key (kept for backup / older builds). Prefer
+         * [PreviewTrayModeStore] per Photo/Video tray for cold-start restore.
+         */
         fun loadCommandDialMode(context: Context): CommandDialMode {
             val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val name = prefs.getString(KEY_COMMAND_DIAL_MODE, null) ?: return CommandDialMode.M
-            return CommandDialMode.entries.firstOrNull { it.name == name } ?: CommandDialMode.M
+            val name = prefs.getString(KEY_COMMAND_DIAL_MODE, null) ?: return CommandDialMode.Auto
+            return CommandDialMode.entries.firstOrNull { it.name == name } ?: CommandDialMode.Auto
         }
 
         fun saveCommandDialMode(context: Context, mode: CommandDialMode) {

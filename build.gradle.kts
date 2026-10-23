@@ -14,12 +14,12 @@ subprojects {
     configurations.configureEach {
         resolutionStrategy.eachDependency {
             if (requested.group == "io.netty") {
-                useVersion("4.1.136.Final")
-                because("Align Netty for Gradle tool transitive CVEs (security-scan lockfile gate; CVE-2026-56819+)")
+                useVersion("4.1.137.Final")
+                because("Align Netty for Gradle tool transitive CVEs (security-scan lockfile gate; CVE-2026-75595)")
             }
             if (requested.group == "org.bouncycastle") {
-                useVersion("1.84")
-                because("Align BouncyCastle for Gradle tool transitive CVEs (security-scan lockfile gate)")
+                useVersion("1.85")
+                because("Align BouncyCastle for Gradle tool transitive CVEs (security-scan lockfile gate; CVE-2026-8763/13506)")
             }
         }
     }

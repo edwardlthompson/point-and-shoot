@@ -1,0 +1,17 @@
+{
+  "transport": "grok-bot",
+  "enabled": false,
+  "channel": "",
+  "allow": [],
+  "readonly": true,
+  "card_ttl_s": 1800,
+  "quiet_hours": "23:00-07:00",
+  "notify": {
+    "digest": "weekly",
+    "main_red": "immediate",
+    "yolo_off": "immediate",
+    "wave_result": "per-wave",
+    "release_ready": "immediate",
+    "decision_needed": "immediate"
+  }
+}

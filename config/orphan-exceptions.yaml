@@ -1,0 +1,6 @@
+# Orphan exceptions: each entry needs reason + expiry (ISO date).
+exceptions: []
+# Example:
+# - path: examples/web/src/legacy/demo.ts
+#   reason: Kept for upgrade sim until Sprint N
+#   expiry: "2027-01-01"

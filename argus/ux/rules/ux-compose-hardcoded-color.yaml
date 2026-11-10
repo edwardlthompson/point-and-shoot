@@ -1,0 +1,8 @@
+id: UX-COMPOSE-HARDCODED-COLOR
+stacks: ["android"]
+native: detekt
+pattern: "Color\\(0x"
+exclude_globs: ["**/ui/theme/Color.kt", "**/*.md"]
+fixtures:
+  pass: argus/ux/fixtures/ux-compose-color.pass.kt
+  fail: argus/ux/fixtures/ux-compose-color.fail.kt

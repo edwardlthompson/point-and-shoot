@@ -1,0 +1,61 @@
+{
+  "manifest_version": 1,
+  "contract_version": 2,
+  "published": "2026-11-09T22:51:36Z",
+  "tree_sha256": "7801c9bb6e40df7f8efe316e980dff411a86f11fff768ee09a676b9191ccb844",
+  "rules": [
+    {
+      "id": "brand-icon",
+      "version": "1.0.0",
+      "min_contract": 2,
+      "stacks": [
+        "web",
+        "android",
+        "python",
+        "node",
+        "multi"
+      ],
+      "fix_class": "agent",
+      "yolo_safe": false
+    },
+    {
+      "id": "layout",
+      "version": "1.0.0",
+      "min_contract": 2,
+      "stacks": [
+        "web",
+        "android",
+        "python",
+        "node",
+        "multi"
+      ],
+      "fix_class": "agent",
+      "yolo_safe": false
+    },
+    {
+      "id": "orphans",
+      "version": "1.0.0",
+      "min_contract": 2,
+      "stacks": [
+        "web",
+        "android",
+        "python",
+        "node",
+        "multi"
+      ],
+      "fix_class": "agent",
+      "yolo_safe": true
+    },
+    {
+      "id": "ux-law",
+      "version": "1.0.0",
+      "min_contract": 2,
+      "stacks": [
+        "web",
+        "android"
+      ],
+      "fix_class": "agent",
+      "yolo_safe": true
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "template_version": "0.15.0",
+  "template_version": "1.13.0",
   "repo_mode": "reference",
   "license": "Apache-2.0",
   "upstream": "edwardlthompson/agent-project-bootstrap",
@@ -15,23 +15,116 @@
     "build_plan": "BUILD_PLAN.md"
   },
   "files": [
-    { "path": "docs/START_HERE.md", "purpose": "Single entry point; Reference mode", "read_when": "session_start" },
-    { "path": "docs/CURSOR_MODES.md", "purpose": "Cursor Ask/Plan/Agent/Debug router", "read_when": "session_start" },
-    { "path": "docs/FOR_AGENTS.md", "purpose": "Agent protocol for this product", "read_when": "session_start" },
-    { "path": "docs/INITIALIZATION_PROMPT.md", "purpose": "Already-initialized notice; no re-scaffold", "read_when": "bootstrap_session_start" },
-    { "path": "docs/UPGRADING_FROM_TEMPLATE.md", "purpose": "Cherry-pick guide for upstream bumps", "read_when": "template_upgrade" },
-    { "path": "docs/BOOTSTRAP_ALIGNMENT.md", "purpose": "Gap analysis and migration decisions", "read_when": "template_upgrade" },
-    { "path": "docs/BOOTSTRAP_TEMPLATE_MAP.md", "purpose": "Template → P&S path aliases", "read_when": "session_start" },
-    { "path": "docs/SECURITY_TRIAGE.md", "purpose": "Weekly CVE / Dependabot triage", "read_when": "security_triage" },
-    { "path": "AGENTS.md", "purpose": "Automation hub + CRITICAL camera locks", "read_when": "session_start" },
-    { "path": "BUILD_PLAN.md", "purpose": "Active sprint board with AGENT/HUMAN/ADB/AUTO", "read_when": "session_start" },
-    { "path": "HUMAN_BACKLOG.md", "purpose": "Deferred HUMAN/ADB automation failures", "read_when": "session_start" },
-    { "path": ".template-version", "purpose": "Pinned bootstrap template semver", "read_when": "update_check" },
-    { "path": ".template-update.json", "purpose": "Update checker config", "read_when": "update_check" },
-    { "path": "scripts/pns_validate_bootstrap.ps1", "purpose": "Host bootstrap compliance gate", "read_when": "validation" },
-    { "path": "scripts/pns_check_template_updates.ps1", "purpose": "Poll upstream releases", "read_when": "update_check" },
-    { "path": "scripts/pns_check_batch_commands.ps1", "purpose": "Batch command registry sync", "read_when": "validation" },
-    { "path": "scripts/pns_check_repo_hygiene.ps1", "purpose": "Tracked-artifact hygiene smoke", "read_when": "validation" }
+    {
+      "path": "docs/START_HERE.md",
+      "purpose": "Single entry point; Reference mode",
+      "read_when": "session_start"
+    },
+    {
+      "path": "docs/CURSOR_MODES.md",
+      "purpose": "Cursor Ask/Plan/Agent/Debug router",
+      "read_when": "session_start"
+    },
+    {
+      "path": "docs/FOR_AGENTS.md",
+      "purpose": "Agent protocol for this product",
+      "read_when": "session_start"
+    },
+    {
+      "path": "docs/INITIALIZATION_PROMPT.md",
+      "purpose": "Already-initialized notice; no re-scaffold",
+      "read_when": "bootstrap_session_start"
+    },
+    {
+      "path": "docs/UPGRADING_FROM_TEMPLATE.md",
+      "purpose": "Cherry-pick guide for upstream bumps",
+      "read_when": "template_upgrade"
+    },
+    {
+      "path": "docs/BOOTSTRAP_ALIGNMENT.md",
+      "purpose": "Gap analysis and migration decisions",
+      "read_when": "template_upgrade"
+    },
+    {
+      "path": "docs/BOOTSTRAP_TEMPLATE_MAP.md",
+      "purpose": "Template → P&S path aliases",
+      "read_when": "session_start"
+    },
+    {
+      "path": "docs/SECURITY_TRIAGE.md",
+      "purpose": "Weekly CVE / Dependabot triage",
+      "read_when": "security_triage"
+    },
+    {
+      "path": "AGENTS.md",
+      "purpose": "Automation hub + CRITICAL camera locks",
+      "read_when": "session_start"
+    },
+    {
+      "path": "BUILD_PLAN.md",
+      "purpose": "Active sprint board with AGENT/HUMAN/ADB/AUTO",
+      "read_when": "session_start"
+    },
+    {
+      "path": "HUMAN_BACKLOG.md",
+      "purpose": "Deferred HUMAN/ADB automation failures",
+      "read_when": "session_start"
+    },
+    {
+      "path": ".template-version",
+      "purpose": "Pinned bootstrap template semver",
+      "read_when": "update_check"
+    },
+    {
+      "path": ".template-update.json",
+      "purpose": "Update checker config",
+      "read_when": "update_check"
+    },
+    {
+      "path": "scripts/pns_validate_bootstrap.ps1",
+      "purpose": "Host bootstrap compliance gate",
+      "read_when": "validation"
+    },
+    {
+      "path": "scripts/pns_check_template_updates.ps1",
+      "purpose": "Poll upstream releases",
+      "read_when": "update_check"
+    },
+    {
+      "path": "scripts/pns_check_batch_commands.ps1",
+      "purpose": "Batch command registry sync",
+      "read_when": "validation"
+    },
+    {
+      "path": "scripts/pns_check_repo_hygiene.ps1",
+      "purpose": "Tracked-artifact hygiene smoke",
+      "read_when": "validation"
+    },
+    {
+      "path": ".github/workflows/argus-remote-stub.yml",
+      "purpose": "CI remote status no-op when disabled",
+      "status": "not_started"
+    },
+    {
+      "path": ".github/workflows/argus-rules-manifest.yml",
+      "purpose": "Publish rules.manifest.json on main",
+      "status": "not_started"
+    },
+    {
+      "path": "argus.contract.json",
+      "purpose": "Argus contract markers",
+      "status": "not_started"
+    },
+    {
+      "path": "argus.remote.json",
+      "purpose": "Argus remote off switch",
+      "status": "not_started"
+    },
+    {
+      "path": "rules.manifest.json",
+      "purpose": "Rules manifest",
+      "status": "not_started"
+    }
   ],
   "modules": {
     "android": {
@@ -47,7 +140,14 @@
       "note": "Template modules/android maps to pns-* Gradle libraries; do not copy inactive template examples"
     }
   },
-  "inactive_stacks": ["web", "python", "node", "go", "rust", "lightroom"],
+  "inactive_stacks": [
+    "web",
+    "python",
+    "node",
+    "go",
+    "rust",
+    "lightroom"
+  ],
   "roadmap": {
     "active": "BUILD_PLAN.md",
     "completed_archive": "BUILD_PLAN_COMPLETED.md",

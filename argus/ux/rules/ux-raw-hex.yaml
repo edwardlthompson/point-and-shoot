@@ -1,0 +1,8 @@
+id: UX-RAW-HEX
+stacks: ["web"]
+native: eslint
+pattern: "#[0-9A-Fa-f]{6}\\b"
+exclude_globs: ["**/design-tokens.css", "**/*.md"]
+fixtures:
+  pass: argus/ux/fixtures/ux-raw-hex.pass.css
+  fail: argus/ux/fixtures/ux-raw-hex.fail.css

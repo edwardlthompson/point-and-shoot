@@ -21,6 +21,10 @@ subprojects {
                 useVersion("1.85")
                 because("Align BouncyCastle for Gradle tool transitive CVEs (security-scan lockfile gate; CVE-2026-8763/13506)")
             }
+            if (requested.group == "com.google.guava" && requested.name == "guava") {
+                useVersion("33.7.2")
+                because("Align Guava for Trivy dependency scan (CVE-2026-102554)")
+            }
         }
     }
 }

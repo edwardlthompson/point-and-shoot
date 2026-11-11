@@ -1,0 +1,11 @@
+---
+description: Fifteen UX law checks (web + Compose); see docs/UX_LAW.md
+globs:
+  - examples/web/**
+  - examples/android/**
+alwaysApply: false
+---
+
+# UX law
+
+Follow [`docs/UX_LAW.md`](../../docs/UX_LAW.md). Prefer native linters (eslint, detekt/ktlint, ruff) before regex. Gate: `python3 scripts/check-ux-contract.py --baseline`.

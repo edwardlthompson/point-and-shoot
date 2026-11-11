@@ -1,0 +1,8 @@
+id: brand-icon
+version: "1.0.0"
+min_contract: 2
+stacks: ["web", "android", "python", "node", "multi"]
+fix_class: agent
+yolo_safe: false
+signal: BRAND-ICON-MISSING
+summary: Canonical PNG + brand.json icon_sha256; no stub placeholders.

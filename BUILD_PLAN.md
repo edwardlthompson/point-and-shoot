@@ -1,4 +1,4 @@
-﻿## Build plan (Point & Shoot)
+## Build plan (Point & Shoot)
 
 **Purpose:** Active open work only. Shipped → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** · stub **[COMPLETED_TASKS.md](COMPLETED_TASKS.md)**.
 
@@ -147,3 +147,7 @@ Parity intake: `pns_fleet_parity_sweep.ps1 -Mode Delta` · `docs/FLEET_PARITY_BU
 
 - **Version:** 2026-10-22 — HUMAN consolidated + AUTO promotions (keystore/F-Droid/ADB/Dependabot/Scorecard).
 - **Owner:** Maintainer closes Milestone H after HUMAN list + release sign-off.
+
+## News inbox (synced)
+
+- 🔲 [AGENT] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m

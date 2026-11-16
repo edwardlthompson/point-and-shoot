@@ -1,7 +1,7 @@
 # Phase 0 — Full inventory + trajectory analysis
 
 **Product:** Point & Shoot (`dev.pointandshoot`) — Edward’s FOSS pro camera for Android (Kotlin / Camera2).  
-**This document:** Phase 0 of a locked multiplatform migration process. **Documentation only.** No app code was changed. No UI toolkit, language, or shared-runtime was selected. No design brief.
+**This document:** Phase 0 of a locked multiplatform migration process. **Documentation only** for the inventory itself. Edward’s answers (2026-11-16) are recorded under **Decisions** below. Later phases live beside this file: [`DESIGN_BRIEF.md`](DESIGN_BRIEF.md), [`TECH_DECISION.md`](TECH_DECISION.md), [`PARITY_CHECKLIST.md`](PARITY_CHECKLIST.md). No app code was changed in this PR.
 
 **Tree inventoried:** `main` at `a3ab663` (2026-11-16). Shipped product version **0.14.2** (`versionCode` **22019**).  
 **Build on this agent:** **not run.** OpenJDK 21 is present; Android SDK (`ANDROID_HOME` / `local.properties`) is not. Device USB verification was **not** run.
@@ -42,7 +42,7 @@ Point & Shoot is a **Camera2-first Android camera** with a **locked portrait chr
 **Top iOS constraints (do not hack around):**
 
 1. **No Camera2.** Logical multi-camera, `physicalCameraTotalResults`, RAW12/RAW10 packing, Qualcomm session vendor keys, `SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION`, Dual Conversion Gain session params, and the locked DNG pairing rules have **no 1:1 AVFoundation map**.
-2. **ProRAW ≠ this app’s DNG.** Apple ProRAW is a supported Apple RAW path (**Durable** as *a* RAW still). Matching **Adobe-loadable Camera2 DNG strip layout**, Bayer AsShotNeutral sync, and “never `ExifInterface` on DNG” is **not** the same file. Treat ProRAW as **Fallback** unless Edward later specifies a ProRAW product contract.
+2. **ProRAW ≠ this app’s DNG.** Apple ProRAW is a supported Apple RAW path. Edward (2026-11-16): **ProRAW is ACCEPTABLE** on iPhone — iOS RAW does **not** need Camera2 DNG strip layout. Android DNG loadability locks stay Android-only.
 3. **Per-lens access is partial.** `AVCaptureDevice.DiscoverySession` + virtual devices can switch UW/wide/tele on many iPhones (**Durable** for native primes). Dodge-style **73 / 85 / 150 mm on one mid-tele with `SCALER_CROP_REGION`** is **Fallback** (digital crop in the capture pipeline) or **Omit** if the crop must match Android HAL crop tags in DNG.
 4. **iPhone cannot be a USB UVC gadget**, cannot grant Magisk/KernelSU vendor keys, cannot host Lineage `svc usb setFunctions uvc`, and cannot be a default-camera `IMAGE_CAPTURE` provider for Android apps. Those are **Omit**.
 5. **Background camera + Quick Settings tiles + lockscreen `STILL_IMAGE_CAMERA_SECURE`** are Android-shaped. iOS Control Center / Shortcuts / lock-screen Camera are **Fallback**, not the same contract.
@@ -53,30 +53,62 @@ Point & Shoot is a **Camera2-first Android camera** with a **locked portrait chr
 2. **Tether + gallery companion already exist in the Android app** (`TetheredCaptureServer` :28765, LAN roll :28766, library desk). Desktop value is likely **those**, not a 7×3 phone chrome on a mouse.
 3. **UVC from phone → desktop** is already the webcam story (Lineage DeviceAsWebcam). A desktop *app* that *is* the camera is a different product.
 
-**Desktop-value assessment (question for Edward, not a decision):** see §1.18. Honest split: **high value** = tethered capture control, RAW/DNG review + library desk, settings/preset sync, LAN proofing. **Low / unclear value** = portrait 7×3 finder chrome, volume shutter, QS tiles, root vendor keys, NightScape HAL stacking, USB-gadget webcam *from* the desktop machine.
+**Desktop-value (decided 2026-11-16 — COMPANION):** tethered phone capture console (`:28765`), MJPEG live view (`:28770`), UVC **host** (phone-as-webcam and real USB cameras; output is **not** DNG), RAW review + library desk, LAN roll/proofing/offload, settings/preset sync. **Not** a phone-camera clone and **not** pixel-identical 7×3 finder chrome on a monitor. See §1.18 and Decisions.
 
 ---
 
 ## Open questions for Edward
 
-1. **What is desktop *for*?** Pick one or more, explicitly: (a) tethered phone capture console, (b) RAW/gallery companion, (c) settings/preset sync hub, (d) capture from PC webcam / USB cameras, (e) something else. Do not imply “full finder parity on a monitor” unless you want that.
-2. **Is iOS a second *camera* with the same chrome, or a companion?** Full capture parity vs PhotoKit library + Watch remote + sync.
-3. **ProRAW vs Camera2 DNG:** Is an iPhone still allowed to write Apple ProRAW (Fallback), or must files be Adobe-openable DNG with the current loadability lock (likely Omit / different pipeline)?
-4. **Locked chrome:** Does “no redesign” mean pixel-identical 7×3 portrait chrome on iPhone and desktop, or identical *information architecture* with platform chrome (Dynamic Island, window chrome, menu bar)?
-5. **Wear OS:** Ship watchOS / a desktop remote in v1 of the port, or keep `:wear` Android-only?
-6. **ML Kit (ADR-0006):** iOS Vision is a Durable face/eye fallback. Confirm FOSS/privacy bar if a future iOS build uses Vision (on-device) vs dropping eye-AF overlay.
-7. **Root-only / Qualcomm vendor keys / max-res unlock (CPH2583):** Confirm **Omit** on iOS and desktop (recommended).
-8. **USB webcam gadget:** Confirm **Omit** on iOS; on desktop, is the desktop app a *UVC host* (talk to the phone) or a *UVC device*?
-9. **F-Droid / Obtainium / GitHub Releases:** What are the iOS and desktop distribution channels (TestFlight, direct IPA, Homebrew, Windows installer, Flathub)? Out of Phase 0 but blocks later phases.
-10. **Catalog rows marked Planned / NotApplicable / ProbeOnly** (panorama, computational HDR, Preview Shots, ML Kit QR, UltraHDR, DEPTH, ProRes, Dual-ISO merge): keep as future Android-only, or put on the shared roadmap?
-11. **`DCIM/Point & Shoot` vs `DCIM/PointAndShoot`:** some gallery finish/redact/LUT-bake paths use the unspaced folder. Is that a bug to fix on Android before any port, or two trees by design?
-12. **Settings export bundle as the cross-device preset format?** `SettingsExportBundle` + SAF JSON already exists.
-13. **GitHub Issues are unused** (0 open). Keep `BUILD_PLAN.md` as the only backlog, or start using Issues for migration work?
-14. **News inbox P3 ideas** (RAW-referenced ETTR/zebras from RawLens *concept only*, CameraX quirk study, Kotlin 2.5): in or out of migration scope?
-15. **Parity debt** (`docs/FLEET_PARITY_DEBT_LEDGER.md`, 115 rows) vs migration: freeze Android feature set first, or migrate while still proving AV1/HEIC/JXL/spatial on CPH2583?
-16. **Capture journal:** README/CHANGELOG advertise a photographer-readable journal. Code only records in memory and dumps `latestLine()` into the bug pack. Ship a settings/gallery UI, keep it diagnostics-only, or drop the README claim?
-17. **Incomplete product systems:** Motion trip is an arm toggle with no shutter hook. Astro and Document recipes are enum labels only (Concert/Museum mute shutter+flash; Airplane suppresses launch prompts). Finish them on Android first, or tag **Omit/Partial** for every platform?
-18. **Dual-video PiP overlay** (`docs/M14_12_DUAL_VIDEO.md` “later sprint”) vs stacked v1 already shipped — in or out of migration parity?
+Answered **2026-11-16**. The numbered list is kept as the historical prompt. Binding answers are in **Decisions** immediately below. Do not re-ask these in later phases unless Edward overrides.
+
+1. **What is desktop *for*?** → **COMPANION** (a + d + gallery + LAN + presets). Not a phone-camera clone.
+2. **Is iOS a second *camera*?** → **FULL** camera app, all Android functionality iOS can do without hacks.
+3. **ProRAW vs Camera2 DNG?** → **ProRAW ACCEPTABLE.** iPhone RAW need not be Camera2 DNG.
+4. **Locked chrome?** → **ADAPT** to iPhone (Dynamic Island, safe areas, platform conventions). Same **information architecture / flow**, not pixel-identical.
+5. **Wear OS / watchOS?** → **defaulted:** watchOS later, after iOS capture parity; Wear stays as-is.
+6. **ML Kit / Vision?** → **defaulted:** iOS uses on-device Vision; Android should prefer a FOSS/flavored detector because ML Kit blocks F-Droid.
+7. **Root / Qualcomm / max-res?** → **defaulted: Omit** on iOS and desktop.
+8. **USB webcam gadget?** → **defaulted:** Omit on iOS; desktop is a UVC **host**.
+9. **Distribution?** → **defaulted:** TestFlight/App Store; GitHub Releases + Flathub/AppImage; MSIX/installer; macOS best-effort.
+10. **Planned / ProbeOnly catalog?** → **defaulted:** Android-only future work, not migration parity.
+11. **DCIM folder split?** → **BUG.** Single tree **`DCIM/PointAndShoot`** (no spaces). Separate Android fix PR from `main`.
+12. **Settings export as preset format?** → **defaulted: yes** (`SettingsExportBundle`).
+13. **GitHub Issues vs BUILD_PLAN?** → **defaulted:** keep `BUILD_PLAN.md`.
+14. **News-inbox P3?** → **defaulted: out of scope.**
+15. **Parity debt vs freeze?** → **defaulted:** freeze Android feature set at migration start; debt ledger stays Android work.
+16. **Capture journal UI?** → **PARTIAL** on all platforms (with Q17). Do not implement in migration.
+17. **Motion trip / Astro / Document?** → **PARTIAL** on all platforms, Android included. Do not implement in migration.
+18. **Dual-video PiP overlay?** → **defaulted: out of migration parity.** Stacked dual-video v1 remains in inventory.
+
+---
+
+## Decisions (Edward, 2026-11-16)
+
+Binding product decisions for Phases 1–3. Sources: Edward’s Phase 0 answers. Items marked **defaulted, Edward may override** were not independently re-litigated; they follow the defaults he supplied for remaining questions.
+
+| ID | Decision | Status |
+|----|----------|--------|
+| Q1 | **Desktop = COMPANION**, not a phone-camera clone. In scope: **(a)** tethered phone capture console (existing HTTP `:28765`, MJPEG live view `:28770`); **(d)** USB webcam / connected-camera capture as a **UVC host** (phone-as-webcam **and** real USB/connected cameras; webcam output is **not** DNG); plus RAW review + library desk; LAN roll / proofing / offload; settings / preset sync. Out of scope as the desktop *primary* UI: portrait 7×3 finder chrome, volume shutter as a product, QS tiles, root vendor keys, NightScape HAL, USB-gadget webcam *from* the desktop machine. | **stated** |
+| Q2 | **iOS = FULL camera app** with **all** the same functionality as Android, as far as iOS allows **without hacks**. Anything iOS truly cannot do is listed in a Fallback/Omit table — **no silent drops**. | **stated** |
+| Q3 | **Apple ProRAW is ACCEPTABLE** on iPhone. iOS RAW does **not** need to be DNG in Android’s Camera2 strip layout. Android DNG loadability / pairing locks stay Android. | **stated** |
+| Q4 | **Design: ADAPT** to iPhone (Dynamic Island, safe areas, platform conventions) while keeping the same **general design flow / information architecture** of the locked chrome (charcoal/orange, 3:4 finder, 7×3 grid *flow*). **Not** pixel-identical. | **stated** |
+| Q16+Q17 | Unfinished systems — **motion trip**, **Astro** and **Document** recipes, **capture journal UI** — are **PARTIAL on every platform, Android included**. **Do not implement them as part of migration.** Concert / Museum / Airplane recipes that *are* wired stay in the inventory. | **stated** |
+| Q11 | `DCIM/Point & Shoot` vs `DCIM/PointAndShoot` is a **BUG**. Standardize on **`DCIM/PointAndShoot`** (no spaces). A separate fix PR from `main` is being opened. **Migration docs assume that single tree.** PhotoKit / desktop folders use the same unspaced product name. | **stated** |
+| Q5 | watchOS remote = **later sprint after iOS capture parity**. `:wear` stays as-is for this migration. | **defaulted, Edward may override** |
+| Q6 | iOS face/eye uses **Apple Vision, on-device, no cloud**. ML Kit is also a **F-Droid blocker** on Android — prefer a FOSS/flavored detector there (does not unblock F-Droid in this PR). | **defaulted, Edward may override** |
+| Q7 | Root / Qualcomm vendor keys / CPH2583 max-res unlock = **Omit** on iOS and desktop. | **defaulted, Edward may override** |
+| Q8 | USB **gadget** webcam = **Omit** on iOS. Desktop is a UVC **HOST**. | **defaulted, Edward may override** |
+| Q9 | Distribution: iOS **TestFlight / App Store**; Linux **GitHub Releases + Flathub / AppImage**; Windows **MSIX / installer**; **macOS best-effort**. Android GitHub Releases / Obtainium / F-Droid unchanged. | **defaulted, Edward may override** |
+| Q10 | Catalog **Planned / ProbeOnly / NotApplicable** rows stay **Android-only future work**, not migration parity. | **defaulted, Edward may override** |
+| Q12 | **`SettingsExportBundle` is the cross-device preset format.** | **defaulted, Edward may override** |
+| Q13 | Keep **`BUILD_PLAN.md` as the backlog** (GitHub Issues unused). | **defaulted, Edward may override** |
+| Q14 | News-inbox P3 ideas are **out of migration scope**. | **defaulted, Edward may override** |
+| Q15 | **Freeze the Android feature set at migration start.** The fleet parity-debt ledger stays **Android work**, not a migration sprint. | **defaulted, Edward may override** |
+| Q18 | Dual-video **PiP overlay** is **out of migration parity**. Shipped stacked dual-video v1 remains an inventory item for iOS if AVFoundation multi-cam can do it without hacks (see design brief). | **defaulted, Edward may override** |
+
+**PARTIAL (all platforms, not a migration deliverable):** motion trip shutter hook; Astro recipe; Document recipe; capture journal consumer UI.
+
+**Also not migration parity (defaulted):** watchOS remote; Planned/ProbeOnly catalog rows; news-inbox ideas; fleet parity-debt closure; dual-video PiP overlay.
 
 ---
 
@@ -525,7 +557,7 @@ Video: interleaved HS vs regular; MediaCodec before HS burst; mux PTS rules for 
 | Cloud backup | `CloudCaptureBackup` SAF folder, optional Wi-Fi-only |
 | Bitmaps | `PnsBitmapGuard` recycle |
 
-Some finish/redact/LUT paths write `DCIM/PointAndShoot` (no spaces) — **inconsistency vs primary tree** (`LogLutBakeExport.kt`, `GalleryRedact.kt`, `GalleryVideoFinish.kt`). Flagged as open question 11.
+Some finish/redact/LUT paths already write `DCIM/PointAndShoot` (no spaces) (`LogLutBakeExport.kt`, `GalleryRedact.kt`, `GalleryVideoFinish.kt`). **Q11 decided:** that unspaced name is the **single** tree; spaced `Point & Shoot` is the bug to fix on Android (separate PR), not a second product folder.
 
 **iOS:** Durable via PhotoKit (albums, live photo pairs). Keywords/collections Durable. Immich/WebDAV Durable. SHA-256 Durable. System share sheet Durable.  
 **Desktop:** **High value Durable** — this is a natural desktop app (Lightroom-adjacent culling, DNG open, WebDAV). Android MediaStore queries become filesystem/PhotoKit/WinRT.
@@ -536,7 +568,7 @@ Some finish/redact/LUT paths write `DCIM/PointAndShoot` (no spaces) — **incons
 
 `CaptureStorage.kt`:
 
-- Folder: **`DCIM/Point & Shoot`** (stills and video).  
+- Folder: **`DCIM/PointAndShoot`** (stills and video). **Edward 2026-11-16:** the spaced `DCIM/Point & Shoot` tree is a **bug**; migration assumes the unspaced name. A separate Android fix PR from `main` is being opened. Historical code/docs may still say `Point & Shoot` until that PR lands.  
 - Name: `pns_{yyyyMMdd'T'HHmmss'Z'}_{profileId}_{seq:04}[_{suffix}].{ext}`  
 - Ext: `dng`, `jpg`, `heic`, `mp.jpg`, `tiff`, `avif`, `jxl`, `mp4`, `webm`, `mcraw`  
 - `IS_PENDING` until close.  
@@ -846,7 +878,7 @@ The app’s honesty model **is** the fleet matrix. A port that greys out feature
 
 ---
 
-## 1.18 Desktop value assessment (question for Edward)
+## 1.18 Desktop value assessment (**decided COMPANION**)
 
 A pro **phone** camera’s worth on desktop is **not** “the same 7×3 finder with a mouse.”
 
@@ -863,7 +895,7 @@ A pro **phone** camera’s worth on desktop is **not** “the same 7×3 finder w
 | **Root vendor keys, NightScape HAL, 4K120 HS** | None on a PC GPU/webcam. | **Omit** (remain phone-side) |
 | **Wear remote from desktop** | Niche. | **Fallback** |
 
-**Recommendation to ask, not to decide:** treat desktop as a **companion + tether + library** with optional live view *from the phone’s stream* (MJPEG :28770 already exists), and keep the locked shooting chrome on **handheld** (Android + iOS). If Edward wants a full desktop *camera*, that is a second product with UVC/Blackmagic-class inputs — still no Camera2 DNG.
+**Decided (Edward 2026-11-16):** desktop is that companion + tether + library + **UVC host** (webcam output is not DNG). Locked shooting chrome stays on **handheld** (Android + iOS). UVC capture on desktop is a connected-camera recorder, not Camera2 DNG parity.
 
 ---
 
@@ -871,14 +903,14 @@ A pro **phone** camera’s worth on desktop is **not** “the same 7×3 finder w
 
 | Android behavior | iOS | Desktop |
 |------------------|-----|---------|
-| Camera2 RAW12/DNG loadability pipeline | **Fallback** ProRAW / **Omit** identical DNG | **Omit** capture; **Durable** review |
+| Camera2 RAW12/DNG loadability pipeline | **Durable** as Apple ProRAW (Q3); **Omit** identical Camera2 DNG | **Omit** capture; **Durable** review |
 | Logical multicam DNG pairing locks | **Omit** | **Omit** |
 | Qualcomm session vendor keys | **Omit** | **Omit** |
 | Root / Magisk / max-res unlock | **Omit** | **Omit** |
 | CameraX Night/Bokeh | **Fallback** Portrait/Night photo | **Omit** |
 | Lineage USB UVC gadget | **Omit** | Host **Durable**; gadget **Omit** |
 | HDMI Presentation + PixelCopy | **Fallback** AirPlay | **Fallback** window |
-| MediaStore `DCIM/Point & Shoot` | **Fallback** PhotoKit | **Durable** folder |
+| MediaStore `DCIM/PointAndShoot` (Q11 single tree) | **Fallback** PhotoKit album of the same name | **Durable** folder |
 | `ACTION_IMAGE_CAPTURE` provider | **Omit** | **Omit** |
 | QS tiles | **Fallback** Control Center | **Omit** |
 | Home widget still | **Fallback** WidgetKit (no live HAL) | **Omit** |
@@ -890,10 +922,10 @@ A pro **phone** camera’s worth on desktop is **not** “the same 7×3 finder w
 | Quick Settings DND policy permission | **Omit** | **Omit** |
 | Foreground? (none today) | n/a | n/a |
 | GLES `GLSurfaceView` LUT | **Durable** Metal | **Durable** GL/Vulkan/Metal |
-| ML Kit faces | **Fallback** Vision | **Fallback** / **Omit** |
+| ML Kit faces | **Durable** Vision on-device (Q6) | **Fallback** / **Omit** |
 | ZXing QR | **Durable** | **Durable** |
 | Fleet hide-unavailable | **Durable** policy | **Durable** policy |
-| 7×3 locked chrome | **Durable** on iPhone portrait | **Fallback** |
+| 7×3 locked chrome | **Durable** as *flow / IA* on iPhone portrait (Q4 adapt, not pixels) | **Omit** as primary UI (companion); **Fallback** only if a tether live-view pane reuses chips |
 | Tether HTTP | **Durable** | **Durable** (high value) |
 | In-app GitHub APK install | **Omit** | **Fallback** installer |
 | F-Droid / Obtainium | **Omit** | **Omit** / **Fallback** |
@@ -983,12 +1015,12 @@ A multiplatform toolkit pick would need a **new ADR** — not this Phase 0 docum
 - `libpns_native.so` is a stub/facade — native encode is not the shipping still path.  
 - GitHub Issues unused; process is BUILD_PLAN + HUMAN list.  
 - F-Droid `IssueTracker` URL exists but has 0 open issues.  
-- Dual folder names `Point & Shoot` vs `PointAndShoot` may be accidental.  
-- Desktop “true cross-platform with full feature and design parity” **conflicts** with Omit-tagged HAL features unless desktop is defined as companion — **inferred tension**; ask Edward (§1.18, question 1).
+- Dual folder names were a **bug** (Q11); migration assumes `DCIM/PointAndShoot`.  
+- Desktop “true cross-platform with full feature and design parity” is resolved as **companion** (Q1), not a phone-chrome clone — Omit-tagged HAL features stay phone-side.
 
 ## 2.10 Commit-history themes (stated via git log)
 
-Recent `main`: news-bot inbox, Argus/bootstrap parent sync, Dependabot Compose/core/mockito, security Netty/BouncyCastle, F-Droid SHA pins, **0.14.2 launch/H/reconnect**, Wear/webcam/gallery desk beta.22, ProShot AE precapture, H metering, QR restore, Milestone 28 richness, 4K120 honesty. Trajectory is **stabilize Android camera + FOSS distribution**, not a documented iOS/desktop program — **this Phase 0 inventory is the first migration artifact**.
+Recent `main`: news-bot inbox, Argus/bootstrap parent sync, Dependabot Compose/core/mockito, security Netty/BouncyCastle, F-Droid SHA pins, **0.14.2 launch/H/reconnect**, Wear/webcam/gallery desk beta.22, ProShot AE precapture, H metering, QR restore, Milestone 28 richness, 4K120 honesty. Trajectory through 0.14.2 is **stabilize Android camera + FOSS distribution**. This inventory plus DESIGN_BRIEF / TECH_DECISION / PARITY_CHECKLIST (same PR, 2026-11-16) is the start of the documented iOS + desktop companion program.
 
 ## 2.11 TODOs in tree
 
@@ -1000,11 +1032,11 @@ A `TODO`/`FIXME` grep over `*.kt`/`*.md` did not surface a living in-code TODO b
 
 | Field | Value |
 |-------|-------|
-| Phase | 0 — inventory + trajectory only |
-| Authoring | Cursor cloud agent, 2026-11-16; follow-up pass same day after parallel inventory greps |
+| Phase | 0 — inventory + trajectory; Decisions recorded 2026-11-16 |
+| Authoring | Cursor cloud agent, 2026-11-16 |
 | App code | Untouched |
-| Technology pick | None |
-| Design brief | Not written (later phase) |
-| Next phase (not this PR) | Edward answers open questions; then a design brief that preserves locked chrome and Omit/Fallback tags |
+| Technology pick | See [`TECH_DECISION.md`](TECH_DECISION.md) (Phase 2, same PR) |
+| Design brief | See [`DESIGN_BRIEF.md`](DESIGN_BRIEF.md) (Phase 1, same PR) |
+| Next | Phase 4 = BUILD_PLAN `MIG.*` — **not started** |
 
 **Related Android SoT (do not duplicate into a second inventory):** `docs/PNS_TECHNICAL_SETTINGS.md`, `docs/preview-chrome-layout-style-guide.md`, `AGENTS.md` CRITICAL locks, `KNOWLEDGE_BASE.md`.

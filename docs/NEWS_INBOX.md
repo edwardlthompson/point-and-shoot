@@ -17,3 +17,13 @@ A Cursor planning agent should review these items and fold the useful ones into 
 - [x] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — The scripts import Pillow and the TIFF-save overflow affects all versions through 12.3.0. Label: `[AGENT]` · Priority: P1 · https://github.com/advisories/GHSA-xcvg-w56q-r89m (synced to BUILD_PLAN)
 - [ ] Review CameraX device-quirk and OOM patterns from SmileID — Proven fixes for OEM orientation, stretching and low-RAM crashes apply to a pro camera pipeline. Label: `[AGENT]` · Priority: P3 · https://developer.android.com/blog/posts/smileid-camerax-android-identity-verification
 - [ ] Smoke-test Kotlin 2.5.0-RC and bump Gradle wrapper — Catches compiler regressions before 2.5.0 stable. Label: `[AGENT]` · Priority: P3 · https://github.com/JetBrains/kotlin/releases/tag/v2.5.0-RC
+
+## 2026-11-16
+
+**News and updates**
+
+- RawLens 2.2.85/2.2.86: GPL-3.0 RAW camera for Android that meters off the RAW data (ETTR auto-exposure, RAW clipping zebras, false colour and spot meter relative to sensor clip); the new releases cut merge time and memory. [source](https://github.com/matthew777777/RawLens/releases/tag/2.2.86) · [thread](https://discuss.pixls.us/t/rawlens-bringing-desktop-raw-processing-to-an-open-source-android-camera/62220)
+
+**Tasks for the planning agent**
+
+- [ ] Evaluate RAW-referenced ETTR and drive zebras/false colour from RAW sensor-clip levels — The app already has false colour, zebras, Ultra HDR and JPEG XL, but they read the processed preview; idea source only, since RawLens is GPL-3.0 and this repo is Apache-2.0 (copy no code). Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.2.86

@@ -12,10 +12,14 @@ import com.google.mlkit.vision.face.FaceLandmark
 import java.util.concurrent.TimeUnit
 
 /**
- * ML Kit face rectangles on the YUV analysis stream, mapped into **preview buffer** space for
- * [FaceTrackOverlay] when Camera2 [STATISTICS_FACES] is empty. Geometry uses
- * [TexturePreviewFit.mapYuvRectToFaceTrackBoxBuffer] so boxes match the GLES preview shader +
- * overlay mapping. With [LANDMARK_MODE_ALL], pupil marks are mapped for [EyeAfOverlay].
+ * Play / GitHub / Obtainium YUV face fallback when Camera2 [STATISTICS_FACES] is empty.
+ *
+ * F-Droid `foss` builds use AOSP [android.media.FaceDetector] instead
+ * (`app/src/foss/.../MlKitFaceTrackSupport.kt`) — same call sites, no GMS.
+ *
+ * Geometry uses [TexturePreviewFit.mapYuvRectToFaceTrackBoxBuffer] so boxes match the GLES
+ * preview shader + overlay mapping. With [LANDMARK_MODE_ALL], pupil marks are mapped for
+ * [EyeAfOverlay].
  */
 object MlKitFaceTrackSupport {
 

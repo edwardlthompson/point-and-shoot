@@ -17,7 +17,7 @@ Use the repo-generated SDK field list (regenerate with `scripts/pns_gen_camera2_
 | **YUV format** | `ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888`. |
 | **Stride** | Y plane copied into a **tight `width × height`** buffer when `rowStride != width` or the buffer is padded (`copyYPlaneTight`); **requires `pixelStride == 1`** for the Y plane (ZXing `PlanarYUVLuminanceSource` expects dense luminance rows). |
 | **Throttle** | Minimum **~280 ms** between decode attempts on the analysis thread ([`QR_SCAN_DECODE_MIN_INTERVAL_MS`](../app/src/main/java/dev/pointandshoot/QrScanScreen.kt)); `STRATEGY_KEEP_ONLY_LATEST` on `ImageAnalysis`. |
-| **Decode** | **ZXing** `MultiFormatReader` (QR, Aztec, Data Matrix, PDF417, common 1D). **ML Kit barcode** is intentionally **not** used (FOSS dep-audit allows only pinned `com.google.mlkit:face-detection`). |
+| **Decode** | **ZXing** `MultiFormatReader` (QR, Aztec, Data Matrix, PDF417, common 1D). **ML Kit barcode** is not used on either flavor. |
 | **Threading** | Decode runs on a **single-thread executor**; UI updates are posted to the **main** executor. |
 
 ## Fleet / vendor follow-up

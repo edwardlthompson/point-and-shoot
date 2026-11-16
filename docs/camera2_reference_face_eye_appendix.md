@@ -17,9 +17,10 @@ There is **no separate** public Camera2 “eye tracking” key: eyes are carried
 - **Heuristic filter:** `VendorFaceEyeKeyNames.kt` — vendor-ish name (`com.` / `org.` / `vendor`) **and** substring list (`face`, `eye`, `iris`, `tracking`, `portrait`, …). **Not exhaustive** for every OEM spelling.
 - **Production use:** `VendorKeyGuard.kt` — any vendor tag must be gated before set.
 
-### ML Kit (YUV analysis fallback)
+### YUV analysis fallback (when `STATISTICS_FACES` is empty)
 
-- `MlKitFaceTrackSupport` — `FaceDetectorOptions` **FAST** + **`LANDMARK_MODE_ALL`**; boxes + optional eye landmarks mapped to preview buffer space (`TexturePreviewFit`).
+- **play:** `MlKitFaceTrackSupport` — ML Kit `FaceDetectorOptions` **FAST** + **`LANDMARK_MODE_ALL`**.
+- **foss:** same type in `app/src/foss` — AOSP `android.media.FaceDetector` + `FaceDetectorGeometry`.
 - Geometry: `MlFaceHudDetections`, `FaceTrackOverlay`, `EyeAfOverlay`, `FaceDetectAdapter`.
 
 ### Point & Shoot — where it lives

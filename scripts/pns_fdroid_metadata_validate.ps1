@@ -58,8 +58,8 @@ if ($yaml -notmatch 'License:\s*Apache-2\.0') {
 if ($yaml -notmatch '(?m)^Builds:\s*$') {
   Add-Fail "metadata.yml missing Builds: block"
 }
-if ($yaml -notmatch 'gradle:\s*\n\s+-\s+yes') {
-  Add-Fail "metadata.yml Builds must enable gradle (gradle: yes)"
+if ($yaml -notmatch 'gradle:\s*\n\s+-\s+(yes|fossRelease)') {
+  Add-Fail "metadata.yml Builds must enable gradle (gradle: yes or fossRelease)"
 }
 
 if ($gradle -notmatch 'versionCode\s*=\s*(\d+)') {
@@ -145,6 +145,19 @@ function Test-ScreenshotDir {
 
 Test-ScreenshotDir -RelativeDir "metadata\en-US\images\phoneScreenshots" -Label "phoneScreenshots"
 Test-ScreenshotDir -RelativeDir "metadata\en-US\images\sevenInchScreenshots" -Label "sevenInchScreenshots"
+
+$fastlaneEn = Join-Path $ProjectRoot "fastlane\metadata\android\en-US"
+foreach ($leaf in @("title.txt", "short_description.txt", "full_description.txt")) {
+  $p = Join-Path $fastlaneEn $leaf
+  if (-not (Test-Path -LiteralPath $p)) {
+    Add-Fail "missing fastlane/metadata/android/en-US/$leaf (F-Droid scrape path)"
+  }
+}
+Test-ScreenshotDir -RelativeDir "fastlane\metadata\android\en-US\images\phoneScreenshots" -Label "fastlane phoneScreenshots"
+$fastlaneIcon = Join-Path $fastlaneEn "images\icon.png"
+if (-not (Test-Path -LiteralPath $fastlaneIcon)) {
+  Add-Fail "missing fastlane/metadata/android/en-US/images/icon.png"
+}
 
 if ($failures.Count -gt 0) {
   Write-Host "FDROID METADATA GATE: FAIL ($($failures.Count) issue(s))"

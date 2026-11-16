@@ -25,14 +25,20 @@ Description: |-
   • RAW stills (DNG) with loadability gates; hardware JPEG companion
   • In-app H.264/HEVC video, HFR via MediaCodec where the device matrix allows
   • Built-in + imported LUT preview; calibration tools; engineering diagnostics hub
-  • Apache-2.0 only — no proprietary blobs, no Google Play Services
+  • Apache-2.0 foss flavor — Camera2 + android.media.FaceDetector; no Play Services / ML Kit
 
-  Distribution today: GitHub Releases and Obtainium. F-Droid listing is planned;
-  this folder holds store metadata and build hints for maintainers.
+  Distribution: F-Droid builds :app:assembleFossRelease. GitHub/Obtainium ship the
+  play flavor (on-device ML Kit face fallback). Fastlane lives at repo-root
+  fastlane/metadata/android/.
 
 RepoType: git
 
 # F-Droid builder recipe (Gradle + NDK). Tag must exist on GitHub for reproducible builds.
+# v0.14.2 predates the foss/play flavor split — do not retag it.
+# After the next version bump, fdroiddata should use gradle: fossRelease,
+# scandelete play-only paths (app/play.gradle, app/src/play, app/src/playRelease,
+# app/proguard-play-rules.pro), JDK 21, and platforms;android-37.0. Full YAML is
+# in the flavor-split PR description (no fdroiddata fork branch yet).
 Builds:
   - versionName: '0.14.2'
     versionCode: 22019

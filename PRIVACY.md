@@ -17,7 +17,7 @@ Point & Shoot is a **FOSS pro camera** app. We do **not** sell personal data. Th
 | EXIF privacy strip | **Opt-in** (Settings → strip identifying EXIF from new still JPEG exports). |
 | Public leaderboard | **Opt-in only** (Settings → connectivity). Submits capability summaries you explicitly approve. |
 | LAN / WebDAV | **Opt-in only** when you configure endpoints in Settings. |
-| Face / eye HUD | **On-device** ML Kit processing; frames are not uploaded for face detection. |
+| Face / eye HUD | **On-device only.** foss (F-Droid): Camera2 `STATISTICS_FACES` + `android.media.FaceDetector`. play (GitHub/Obtainium): same Camera2 path plus ML Kit YUV fallback. Frames are not uploaded. |
 
 ## Data processed on your device
 
@@ -27,9 +27,12 @@ The app captures photos and videos you trigger. Still RAW (DNG), JPEG, and in-ap
 
 Optional **Strip EXIF privacy tags** (Settings) removes GPS, device make/model, software, and capture timestamps from **JPEG** still exports on the encode lane (`PNS.Reader`). DNG post-save metadata enrichment is skipped when strip is enabled; DNG files are never rewritten with `ExifInterface.saveAttributes()` (loadability lock).
 
-### On-device machine learning (ML Kit)
+### On-device face detection
 
-When face / eye alignment HUD features are enabled and supported on your device, the app uses **`com.google.mlkit:face-detection`** **on-device**. Detection runs locally on preview/analysis frames; we do not operate a backend that receives those frames for ML Kit.
+Face / eye HUD is processed **on-device**. We do not operate a backend that receives preview frames.
+
+- **foss (F-Droid):** Camera2 `STATISTICS_FACE_DETECT_MODE` / `STATISTICS_FACES` (primary) and AOSP `android.media.FaceDetector` on the YUV analysis stream when the HAL reports no faces. Smile-triggered still uses a mouth-band luma heuristic, not ML Kit classification.
+- **play (GitHub / Obtainium):** the same Camera2 primary path, with **`com.google.mlkit:face-detection`** as the YUV fallback (and ML Kit smile classification). That library pulls Play Services / Firebase encoder transitives into the play APK only. The foss APK does not include them.
 
 ### Diagnostics and engineering probes
 

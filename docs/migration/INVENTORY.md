@@ -29,8 +29,8 @@ Point & Shoot is a **Camera2-first Android camera** with a **locked portrait chr
 | Class | Count |
 |-------|------:|
 | Consumer-facing full screens / routes | **12** |
-| In-preview modal sheets / pickers / dialogs | **28** |
-| Finder overlays / HUD layers | **18** |
+| In-preview modal sheets / pickers / dialogs | **29** |
+| Finder overlays / HUD layers | **19** |
 | Engineering / probe screens | **22** |
 | Wear screens | **1** (`WearRemoteActivity`) |
 | Extra Android entry surfaces (intents, widget, QS tiles, share) | **10** |
@@ -74,6 +74,9 @@ Point & Shoot is a **Camera2-first Android camera** with a **locked portrait chr
 13. **GitHub Issues are unused** (0 open). Keep `BUILD_PLAN.md` as the only backlog, or start using Issues for migration work?
 14. **News inbox P3 ideas** (RAW-referenced ETTR/zebras from RawLens *concept only*, CameraX quirk study, Kotlin 2.5): in or out of migration scope?
 15. **Parity debt** (`docs/FLEET_PARITY_DEBT_LEDGER.md`, 115 rows) vs migration: freeze Android feature set first, or migrate while still proving AV1/HEIC/JXL/spatial on CPH2583?
+16. **Capture journal:** README/CHANGELOG advertise a photographer-readable journal. Code only records in memory and dumps `latestLine()` into the bug pack. Ship a settings/gallery UI, keep it diagnostics-only, or drop the README claim?
+17. **Incomplete product systems:** Motion trip is an arm toggle with no shutter hook. Astro and Document recipes are enum labels only (Concert/Museum mute shutter+flash; Airplane suppresses launch prompts). Finish them on Android first, or tag **Omit/Partial** for every platform?
+18. **Dual-video PiP overlay** (`docs/M14_12_DUAL_VIDEO.md` “later sprint”) vs stacked v1 already shipped — in or out of migration parity?
 
 ---
 
@@ -158,10 +161,10 @@ Navigation is **not** Navigation-Compose. `MainActivity` hosts `CameraCapabiliti
 
 | # | Screen | How reached | File | What it does |
 |---|--------|-------------|------|----------------|
-| C1 | **Welcome / permissions** | First launch until complete | `WelcomePermissionsScreen.kt`, `WelcomeFlowConfig.kt` | Ordered CAMERA (required), RECORD_AUDIO, legacy storage, location (optional) with rationale copy |
+| C1 | **Welcome / permissions** | First launch until complete | `WelcomePermissionsScreen.kt`, `WelcomeFlowConfig.kt` | Runtime steps: CAMERA (required), RECORD_AUDIO, legacy storage, location (optional). **Also two informational cards** (not `uses-permission` dialogs): Vibration (manifest-only haptic) and optional Do Not Disturb policy. Replay via hub “Reset permission welcome” |
 | C2 | **Live preview (engine)** | Default after welcome; `pns_screen=preview`; deep link `pointandshoot://preview\|camera\|video`; system camera intents | `PreviewEngineScreen.kt` (~23k lines) | Entire shooting chrome + Camera2 session |
-| C3 | **In-app gallery** | Tray thumb; `pns_preview_open_gallery`; deep link `…://gallery` | `BespokeGalleryScreen.kt` | 3:4 pager, specs, share/delete groups, pinch/zoom, open external |
-| C4 | **Library desk** | Gallery overflow | `PnsLibraryDeskScreen.kt` | Tabs: Days, Cull, Library, Travel, Finish, Offload, Privacy |
+| C3 | **In-app gallery** | Tray thumb; `pns_preview_open_gallery`; deep link `…://gallery` | `BespokeGalleryScreen.kt` | Grid + 3:4 pager (`ContentScale.Fit`), pinch/pan, **double-tap zoom**, EXIF/specs, video inline player, batch share, delete + 30 s undo (`GalleryTrash`), compare (`GalleryComparePane`), “What this file is”, system-gallery escape hatch |
+| C4 | **Library desk** | Gallery overflow → `Dialog` | `PnsLibraryDeskScreen.kt` | **Days** contact sheets; **Cull** reject/keep/hero; **Library** rating 0–5, keywords, collections, DNG XMP (`DngXmpSidecar`); **Travel** GPS day buckets + Syncthing hint; **Finish** trim / frame extract / LUT bake; **Offload** SAF export, vault copy keepers (`GalleryVault`), Immich `POST /api/assets` or WebDAV (`GalleryPublish`, HTTPS-only, ≤12); **Privacy** redact, SHA-256, bug pack |
 | C5 | **About & heritage** | Settings → About; `pns_screen=about`; `pns_preview_show_about` | `AboutScreen.kt` | Credits, Venmo, updates, NOTICE/LICENSE, JPEG artist/copyright |
 | C6 | **Calibrate** | Settings / hub; `pns_screen=calibrate` | `CalibrateScreen.kt` | ColorChecker Classic 24 chart, auto-detect quad, apply WB/CCM |
 | C7 | **Import LUT** | Hub / settings; `pns_screen=lutimport` | `LutImporterScreen.kt` | Import `.cube`; listed in LUT picker |
@@ -204,6 +207,7 @@ From `CameraCapabilitiesProbe.kt`:
 | `lutimport` | LUT import |
 | `native` | Native diagnostics |
 | `rootsettings` | Root-only enhancements |
+| `diagnostics` | **Not mapped** in `CameraCapabilitiesProbe.kt`. `pns_native_encoder_verify.ps1` passes this extra; it falls through to hub root. Do not treat as a real screen |
 | (Dodge mapping) | Via hub “Dodge lens mapping” → `DodgeMappingScreen.kt` |
 | (Fleet matrix) | `FleetMatrixHubScreen.kt` |
 
@@ -245,7 +249,7 @@ All live on `PreviewEngineScreen.kt` unless noted. Style: `docs/preview-chrome-s
 | D15 | Focus-mode picker | Readout AF chip — `PreviewFocusModePickerDialog.kt` |
 | D16 | Still LUT picker | Readout Still LUT |
 | D17 | Video LUT picker | Readout Video LUT |
-| D18 | IMG / still format flow | Tray still-format FAB — `StillFormatPickerSheet.kt` (MAX → color space → sensor res → RAW → compressed) |
+| D18 | IMG / still format flow | **Primary:** tray still-format FAB. **Also:** long-press readout IMG chip (`PreviewReadoutStrip.onImgChipLongClick`). Sheet: `StillFormatPickerSheet.kt` (MAX → color space → sensor res → RAW → compressed) |
 | D19 | Video format picker | Tray video-format FAB — `VideoFormatPickerSheet.kt` (incl. Audio step) |
 | D20 | Command dial menu | Tray mode dial |
 | D21 | Timer / Single / Burst | Grid Timer tile |
@@ -256,6 +260,7 @@ All live on `PreviewEngineScreen.kt` unless noted. Style: `docs/preview-chrome-s
 | D26 | Self-timer countdown on finder | Timer > 0 then shutter |
 | D27 | Burst status in top band | During burst |
 | D28 | Settings search | Settings home search field — `ChromeSettingsSearch.kt` |
+| D29 | Donate / GitHub-update launch dialogs | `PnsLaunchPrompts.kt` after a normal (non-ADB) launch; skipped when airplane-safe, recording, or other capture busy flags |
 
 **iOS:** Durable as sheets/popovers.  
 **Desktop:** Durable as windows/panels; 7×3 modal-from-grid is Fallback.
@@ -281,7 +286,8 @@ All live on `PreviewEngineScreen.kt` unless noted. Style: `docs/preview-chrome-s
 | Storage remaining | **on** | video minutes |
 | Video tally | **on** | |
 | Preview status line | as needed | queue, burst fps, disconnect |
-| Concurrent rear PiP inset | off / catalog `preview.pip` | `ConcurrentPipPreviewController` |
+| Concurrent rear PiP inset | off / catalog `preview.pip` | `ConcurrentPipPreviewController` — **preview-only** concurrent rear inset; not the dual-video encode overlay |
+| Scene vendor hint chip | HUD toggle default **off** | `HudSettings.showSceneVendorHints` + `SceneVendorHintProbe` (`PNS.SceneHint`). Probe always runs at app start. Toggle description says “logs keys”; `summaryForReadout()` is **not** wired to `PreviewReadoutStrip`. KDoc claims HUD readout feed — that surface is missing |
 
 **iOS:** Histogram/peaking/zebras/grids **Durable** as GPU overlays (Metal). Horizon Durable (CoreMotion). Eye-AF Durable via Vision (Fallback vs ML Kit). Chart calibration Durable. Dual-cam PiP Durable on supported devices (multi-cam session limits).  
 **Desktop:** Overlays Durable in a preview widget. Eye-AF Fallback (webcam face APIs) or Omit. Horizon Omit unless a phone is tethered.
@@ -303,7 +309,9 @@ All live on `PreviewEngineScreen.kt` unless noted. Style: `docs/preview-chrome-s
 7. 7×3 rail weight **1f** (`PreviewChromeGrid7x3` + focal row). Settings at **r2c6**.  
 8. Bottom tray height **76.dp**: gallery thumb 48.dp, format FAB (mode-dependent), **center shutter**, Photo/Video/Webcam toggle **left of** mode dial.
 
-Landscape: finder beside rail; portrait chrome stays the locked spec (`README.md`, activity `fullUser`).
+Landscape (`PnsFormFactor.kt` / `PnsAdaptivePreviewChrome`): after the top inset band, a `Row` with finder `weight(1.65f)` and a right column `weight(1f)` holding readout + rail + tray. Same band *contents* as portrait; only flex geometry changes. Chrome glyphs stay upright via `DeviceUiRotation` / `chromeGlyphRotation` (tiles do not twist with the sensor). Foldable two-pane helper exists (`PnsFoldableTwoPane`: width≥600, w>h, smallest≥500) and is **not** the default preview route.
+
+Manual focus on the finder is **horizontal drag** (`PreviewManualFocusDrag.kt`) so vertical swipes remain front/rear. Do not document it as vertical.
 
 **iOS:** Durable if you keep the same stack in a portrait iPhone layout. Safe-area insets are Durable. Landscape split is Durable.  
 **Desktop:** **Fallback** — window chrome, menu bar, and mouse density fight a 7×3 phone grid. See §1.18.
@@ -379,7 +387,7 @@ YUV exposure chase (one axis locked): target median bin **34**, deadband 6, etc.
 | Qr | QR | ZXing on YUV; **not on rotary UI** — separate entry | AlwaysShow catalog |
 | Dual | DUAL | Rear+front stacked one MP4; **video only** | `video.dual` |
 
-Fresh-install dial in automation paths: **M**; user pref via `HudSettings.saveCommandDialMode`. Per-tray dial: `PreviewTrayModeStore` `photo_dial` / `video_dial`.
+Fresh-install / tray default dial: **Auto** (`HudSettings` when no stored name; `PreviewTrayModeStore.commandDialMode = Auto`). ADB automation often seeds **M** (`pns_preview_dial`); do not confuse that with the user default. Per-tray dial: `PreviewTrayModeStore` `photo_dial` / `video_dial`.
 
 **H mode:** software YUV path unless root vendor-extra opt-in (`VendorHighlightAePrefs`). Requires `desiredFps < 120` and YUV analysis. Darken-only. Face AF regions only (not AE) on H. See `docs/PNS_TECHNICAL_SETTINGS.md` §2.
 
@@ -414,7 +422,7 @@ Fresh-install dial in automation paths: **M**; user pref via `HudSettings.saveCo
 | Flash | Grid + settings; strength 25–100% API 35+ | Default **Auto** |
 | Timer | 0 / 3 / 5 / 10 s | Default 0 |
 | Burst | Tap burst count; long-press JPEG train 17 ms fleet max | RAW burst serialized |
-| FPS | Target FPS sheet; adaptive thermal/battery caps | Default before UI sync often **120** |
+| FPS | Target FPS sheet; adaptive thermal/battery caps | Tray store defaults **90 photo / 60 video** (`PreviewTrayModeSettings`). Session/controller may still seed **120** before UI sync — two numbers; do not collapse them |
 | OIS / EIS | Video settings + STAB chip | OIS default on; EIS default off; EIS skipped ≥120 |
 | LUT | Readout + importer | Built-ins + `.cube` |
 | Smile still | HUD | ML Kit smile ≥0.85, 4.5 s cooldown |
@@ -424,10 +432,12 @@ Fresh-install dial in automation paths: **M**; user pref via `HudSettings.saveCo
 | HDR10 live preview | HUD | Default off |
 | Post-RAW sensitivity boost | HUD | Default off |
 | ZSL pre-capture ring | HUD | Default off |
-| Intervalometer / time-lapse | HUD + recipes | |
-| Motion trip / bulb / focus stack | `PnsProductPrefs` | |
+| Intervalometer / time-lapse | HUD + recipes | Photo vs video `timeLapseMode`; ISO ramp `ramp_iso_s/e` (default 100→800) when `ramp_on` |
+| Motion trip | `PnsProductPrefs.trip_armed` + `PnsMotionTrip.shouldFire` | **Arm toggle in product settings only.** No shutter hook in `PreviewEngineScreen.kt` — helper + unit test exist; live auto-shutter is **not wired**. Treat as incomplete, not a shipped capture path |
+| Bulb / focus stack | `bulb_armed`, `focus_stack_n` default 5 | Prefs + UI labels; do not assume a full bulb/stack capture engine without a later code pass |
+| Capture recipes | `PnsProductPrefs.CaptureRecipe` | **Concert / Museum:** on preview start, shutter volume 0 + flash Off. **Airplane:** `airplaneSafe()` suppresses donate/update dialogs (`PnsLaunchPrompts`). **Astro / Document:** enum + settings labels only — **no** capture-path wiring in `PreviewEngineScreen.kt` |
 | Picture profiles | `ProPictureProfiles` | |
-| Power profile | Performance / Balanced / Endurance | Caps FPS  unbounded / 60 / 30 |
+| Power profile | Performance / Balanced / Endurance | **Default Balanced** (cap 60). Performance unbounded; Endurance cap 30. Store `pns_power_profile` — **not** in Auto Backup allow-list |
 | Workflow presets | street / portrait / video_log / macro_video | `pns_workflow_presets` |
 
 **iOS:** Most listed controls Durable where AVFoundation exposes them. Smile Durable (Vision). Burst Durable. Intervalometer Durable. Vendor research keys / post-RAW boost / DCG **Omit**.  
@@ -472,7 +482,7 @@ ZSL (`still.zsl`, `ZslStillFrameRing`), HDR still mode (`StillCaptureMode.HdrSti
 | Color | SDR BT.709, HLG Main10, flat/cine, HDR10 on DCG stacks |
 | Resolutions | 720p–8K where HAL+encoder prove it; 8K → MediaCodec |
 | FPS | 24/30/60/120/240/480 with honesty labels (`VideoDeliveryHonesty`, `hs120_sub4k` vs `true_4k120`) |
-| Dual video | Stacked front/rear one MP4, 1080×1920 @ 30 (`docs/M14_12_DUAL_VIDEO.md`) |
+| Dual video | **Shipped v1:** vertical stack front-top / rear-bottom, one MP4, 1080×1920 @ 30 (`DualVideoRecordingController`, `docs/M14_12_DUAL_VIDEO.md`). LG-style **draggable PiP overlay** is explicitly “may follow in a later sprint” — **stated, not shipped**. Concurrent rear PiP (`preview.pip`) is a **preview inset**, not dual-file encode |
 | Multicam Melt | Partial; thermal-limited (`MulticamMeltRecordingController`) |
 | Dual-ISO video | Experimental stub (`DualIsoVideoMerger`) |
 | Time-lapse video | JPEG frames → H.264 30 fps |
@@ -511,7 +521,7 @@ Video: interleaved HS vs regular; MediaCodec before HS burst; mux PTS rules for 
 | Finish | Trim, pull frame, bake LUT (`LogLutBakeExport`), vault copy |
 | Offload | Immich / WebDAV (`NetworkStorageClient`), folder SAF export, LAN `/proofing` |
 | Privacy | Redact-before-share (`GalleryRedact`), SHA-256 evidence (`GalleryEvidence`), bug pack (`PnsBugReportPack`) |
-| Journal | Last saved / failed stills |
+| Journal | `CaptureJournal` in-memory ring (max 50). Recorded from still save/fail in `PreviewEngineScreen.kt`. **Consumer UI is missing:** only `PnsBugReportPack` prints `latestLine()`. README / CHANGELOG claim “last saved and failed stills — no logcat required” (**stated** copy vs **inferred** gap) |
 | Cloud backup | `CloudCaptureBackup` SAF folder, optional Wi-Fi-only |
 | Bitmaps | `PnsBitmapGuard` recycle |
 
@@ -608,10 +618,10 @@ See `HudSettings.kt` and `docs/PNS_TECHNICAL_SETTINGS.md` §9. Notable defaults:
 |-------|---------------------|
 | `pns_composition_guides` | crop OFF, grid OFF |
 | `pns_ux_settings` | theme System; photo chrome stays charcoal in all themes |
-| `pns_tray_mode_settings` | per-tray FPS, OIS/EIS, angle, prime, readout locks, dial |
+| `pns_tray_mode_settings` | per-tray FPS (**90 photo / 60 video**), OIS/EIS, angle, prime, readout locks, dial **Auto** |
 | `pns_preview_last_surface` | last Photo/Video/Gallery |
-| `pns_product_systems` | geotag mode, recipes (concert/museum/airplane/astro/document), ISO ramp 100–800, focus stack 5, HDMI on, MJPEG off, USB webcam off, XMP sidecar **true**, strip GPS on share **true** |
-| `pns_power_profile` | Performance / Balanced / Endurance |
+| `pns_product_systems` | geotag mode; recipes (see below); ISO ramp 100–800; focus stack 5; HDMI on; MJPEG off; USB webcam off; XMP sidecar **true**; strip GPS on share **true**. **Not** in Auto Backup allow-list (`pns_backup_rules.xml`) |
+| `pns_power_profile` | **Default Balanced.** Not in Auto Backup allow-list |
 | `pns_jpeg_credits` | optional artist/copyright |
 | `pns_updates` | **not** backed up |
 | `pns_connectivity` | LAN/WebDAV/leaderboard toggles |
@@ -627,7 +637,7 @@ See `HudSettings.kt` and `docs/PNS_TECHNICAL_SETTINGS.md` §9. Notable defaults:
 | `ExperimentalSafeModeStore` | crash-loop recovery; does **not** steal launch to hub |
 | `SettingsExportBundle` | JSON export/import via SAF |
 
-Android Auto Backup allow-list: `app/src/main/res/xml/pns_backup_rules.xml` (prefs only; **not** DCIM, LUTs, update cache).
+Android Auto Backup allow-list: `app/src/main/res/xml/pns_backup_rules.xml` (prefs only; **not** DCIM, LUTs, update cache). **Also omitted from backup:** `pns_product_systems`, `pns_power_profile`, `pns_updates` (recipes, geotag mode, power profile, update cache would not restore after reinstall via Auto Backup).
 
 Settings search index (`ChromeSettingsSearch.kt`) is the consumer setting inventory used by the in-preview search field — shutter mode, timer, burst, shutter sound, flash, geotag, EXIF strip, on-screen shutter, tap-to-capture, volume keys, BT remote, hardware camera key, max brightness, DND preview/record, peaking, focus mode, histogram, horizon, eye-AF, tally, OIS, EIS, shutter angle, ISO band, crop, grid, FPS, Wear, HDMI/MJPEG, About/updates/Venmo/Obtainium/NOTICE/LICENSE/JPEG credits.
 
@@ -809,7 +819,7 @@ The app’s honesty model **is** the fleet matrix. A port that greys out feature
 | Quirk / lock | Path |
 |--------------|------|
 | Hide unavailable; root-blue + toast | `FleetUiVisibilityGate.kt` |
-| Catalog ~200 rows | `CameraCapabilityCatalog.kt` + `CameraCapabilityCatalogExpansion.kt` |
+| Catalog **CATALOG_VERSION = 6**; **84** `CatalogRow(` in the base registry + expansion loops (gate treats expansion as 115 → ≥170 total; ~200 with codec×tier) | `CameraCapabilityCatalog.kt`, `CameraCapabilityCatalogExpansion.kt`, `scripts/pns_capability_catalog_gate.ps1` |
 | CPH2583 primary | `AGENTS.md` |
 | Legacy SKU independent cameras 2/3/4, empty physical IDs | DNG pairing docs |
 | Dodge 73/85/150 | ADR-0003 |
@@ -965,7 +975,11 @@ A multiplatform toolkit pick would need a **new ADR** — not this Phase 0 docum
 
 - Settings export JSON is the natural cross-device preset format (`product.settings_export` shipped).  
 - Tether API is already a desktop/companion protocol.  
-- Concurrent PiP and Multicam Melt are shipped/partial but not README-headline.  
+- Concurrent PiP (preview inset) and Multicam Melt are shipped/partial but not README-headline. Dual-video **encode** is stacked; LG-style PiP overlay is **stated later**, not shipped (`docs/M14_12_DUAL_VIDEO.md`).  
+- Capture journal is **stated** in README/CHANGELOG as a user-facing list; **inferred** gap: no Compose consumer besides `PnsBugReportPack.latestLine()`.  
+- Motion trip / Astro / Document recipes are **stated** as product-system labels; **inferred** incomplete (arm/enum only).  
+- Scene vendor hints: HUD toggle + always-on probe; readout chip **not** wired despite KDoc.  
+- TalkBack / a11y dump gate: **H.6 agent** closed (`BUILD_PLAN_COMPLETED.md`); formal gallery TalkBack was deferred in the 2026-05-22 gallery sign-off note — treat H.6 USB dump as done, gallery TalkBack as possibly still HUMAN-feel.  
 - `libpns_native.so` is a stub/facade — native encode is not the shipping still path.  
 - GitHub Issues unused; process is BUILD_PLAN + HUMAN list.  
 - F-Droid `IssueTracker` URL exists but has 0 open issues.  
@@ -987,7 +1001,7 @@ A `TODO`/`FIXME` grep over `*.kt`/`*.md` did not surface a living in-code TODO b
 | Field | Value |
 |-------|-------|
 | Phase | 0 — inventory + trajectory only |
-| Authoring | Cursor cloud agent, 2026-11-16 |
+| Authoring | Cursor cloud agent, 2026-11-16; follow-up pass same day after parallel inventory greps |
 | App code | Untouched |
 | Technology pick | None |
 | Design brief | Not written (later phase) |

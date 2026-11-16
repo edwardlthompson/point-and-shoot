@@ -3,6 +3,10 @@
 # Writes go to PointAndShoot (no spaces). Reads also include the legacy
 # "Point & Shoot" folder. Do not move or delete user files.
 #
+# USB gate pre-clean (rm) must target $PnsDcimRemoteCanonical only.
+# Never rm $PnsDcimRemoteLegacy — new captures only land in the canonical
+# tree, so wiping the legacy tree would delete preserved user stills/clips.
+#
 # Dot-source:  . (Join-Path $PSScriptRoot "pns_dcim_paths.ps1")
 
 $script:PnsDcimFolderCanonical = "PointAndShoot"

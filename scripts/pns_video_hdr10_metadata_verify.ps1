@@ -74,7 +74,8 @@ if (Test-Path -LiteralPath $apk) {
 Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
 Start-Sleep -Milliseconds 600
 Invoke-AdbCmd logcat -c 2>$null
-Invoke-AdbCmd shell "rm -f '/sdcard/DCIM/PointAndShoot/'*.mp4 '/sdcard/DCIM/Point & Shoot/'*.mp4" 2>$null
+# Canonical DCIM only — do not wipe legacy Point & Shoot (user captures)
+Invoke-AdbCmd shell "rm -f '/sdcard/DCIM/PointAndShoot/'*.mp4" 2>$null
 
 Write-Host "Launching preview: DCG (pns_preview_video_dcg) @ 60fps, ${RecordSec}s record..."
 Invoke-AdbCmd shell am start -W -n "dev.pointandshoot/.MainActivity" `

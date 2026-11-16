@@ -6,7 +6,7 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ### Fixed
 
-- **DCIM folder** — Stills, video, gallery trim/frame extract, redact, and LUT bake all write to `DCIM/PointAndShoot` (no spaces). The in-app gallery and library desk still show files already saved under the legacy `DCIM/Point & Shoot` folder. Existing files are not moved or deleted.
+- **DCIM folder** — Stills, video, gallery trim/frame extract, redact, and LUT bake all write to `DCIM/PointAndShoot` (no spaces). The in-app gallery and library desk still show files already saved under the legacy `DCIM/Point & Shoot` folder. Existing files are not moved or deleted. USB verify scripts that pre-clean DCIM only delete from the canonical folder.
 
 ## [0.14.2] - 2026-10-22
 

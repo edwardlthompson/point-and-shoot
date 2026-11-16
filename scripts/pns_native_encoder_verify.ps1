@@ -122,8 +122,8 @@ $avifResult = @{ tested = $false; pass = $false; fileSize = 0; error = $null }
 if ($Encoder -eq "JXL" -or $Encoder -eq "Both") {
     Write-Log "=== Testing JXL encode path ==="
     
-    # Clear DCIM and logcat
-    & $adb @deviceArgs shell "rm -f '/sdcard/DCIM/PointAndShoot'/*.jxl '/sdcard/DCIM/Point & Shoot'/*.jxl 2>/dev/null; rm -f '/sdcard/DCIM/PointAndShoot'/*.jpg '/sdcard/DCIM/Point & Shoot'/*.jpg 2>/dev/null" 2>&1 | Out-Null
+    # Clear canonical DCIM only (legacy Point & Shoot still holds user files)
+    & $adb @deviceArgs shell "rm -f '/sdcard/DCIM/PointAndShoot'/*.jxl '/sdcard/DCIM/PointAndShoot'/*.jpg 2>/dev/null" 2>&1 | Out-Null
     & $adb @deviceArgs logcat -c 2>&1 | Out-Null
     
     # Trigger hardware JPEG capture with tonal (JXL) encoding
@@ -175,7 +175,8 @@ if ($Encoder -eq "AVIF" -or $Encoder -eq "Both") {
     # For AVIF, we need HDR10+ settings - this requires specific preview settings
     # AVIF path typically activates when enableHdr10LivePreview is true
     
-    & $adb @deviceArgs shell "rm -f '/sdcard/DCIM/PointAndShoot'/*.avif '/sdcard/DCIM/Point & Shoot'/*.avif 2>/dev/null" 2>&1 | Out-Null
+    # Canonical DCIM only — do not wipe legacy Point & Shoot
+    & $adb @deviceArgs shell "rm -f '/sdcard/DCIM/PointAndShoot'/*.avif 2>/dev/null" 2>&1 | Out-Null
     & $adb @deviceArgs logcat -c 2>&1 | Out-Null
     
     # Launch with HDR10 preview flag which should trigger AVIF path

@@ -4,7 +4,9 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+### Security
+
+- **Guava CVE-2026-102554** — Align `com.google.guava:guava` to patched **33.7.2-android** (app runtime) and **33.7.2-jre** (unit-test / AGP test-platform classpaths). The previous unsuffixed `33.7.2` force is not a Maven artifact, so `app/gradle.lockfile` still pinned 32.0.1-jre and 33.3.1/33.5.0 for Trivy.
 ## [0.14.2] - 2026-10-22
 
 **Release notes:** **APK:** `Point-and-Shoot-0.14.2.apk`

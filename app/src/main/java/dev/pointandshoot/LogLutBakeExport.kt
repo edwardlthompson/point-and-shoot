@@ -9,7 +9,6 @@ import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
 import java.io.File
 import java.util.zip.ZipEntry
@@ -27,7 +26,7 @@ object LogLutBakeExport {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, "baked_${name.substringBeforeLast('.')}.jpg")
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                 if (Build.VERSION.SDK_INT >= 29) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM + "/PointAndShoot")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, PnsDcimPaths.RELATIVE_PATH)
                 }
             }
         val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)

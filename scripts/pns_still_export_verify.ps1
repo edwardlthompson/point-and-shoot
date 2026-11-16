@@ -94,7 +94,6 @@ if ($captureExit -eq 0) {
     $adbExe = (Get-Command adb -ErrorAction Stop).Source
     $adbPrefix = @()
     if ($Serial) { $adbPrefix += @("-s", $Serial) }
-    $remoteDir = "/sdcard/DCIM/Point & Shoot"
     $ext =
         switch ($Format) {
             "heic" { ".heic" }
@@ -109,7 +108,10 @@ if ($captureExit -eq 0) {
         $matchPath =
             @($findResult.StdOut -split "`r?`n") |
                 ForEach-Object { "$_".Trim() } |
-                Where-Object { $_ -like "*/Point & Shoot/*" -and $_.ToLower().EndsWith($ext) } |
+                Where-Object {
+                    $isPns = ($_ -like "*/PointAndShoot/*") -or ($_ -like "*/Point & Shoot/*")
+                    $isPns -and $_.ToLower().EndsWith($ext)
+                } |
                 Sort-Object -Descending |
                 Select-Object -First 1
         if (-not [string]::IsNullOrWhiteSpace($matchPath)) {

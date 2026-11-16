@@ -18,8 +18,8 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * Writes capture outputs to MediaStore per [STORAGE_STRATEGY.md](../../../../STORAGE_STRATEGY.md).
  *
- *   * All profiles -> `DCIM/Point & Shoot/`
- *   * Video        -> `DCIM/Point & Shoot/` (same DCIM tree as stills)
+ *   * All profiles -> `DCIM/PointAndShoot/` ([PnsDcimPaths.RELATIVE_PATH])
+ *   * Video        -> `DCIM/PointAndShoot/` (same DCIM tree as stills)
  *   * Diagnostics  -> app-private external files (no MediaStore insert)
  *
  * The writer uses the `IS_PENDING` flag (API 29+) so partial files are never
@@ -37,8 +37,6 @@ import java.util.concurrent.atomic.AtomicLong
 object CaptureStorage {
 
     private const val TAG = "PNS.Storage"
-    private const val ROOT_RELATIVE_PATH = "DCIM/Point & Shoot"
-    private const val VIDEO_ROOT_RELATIVE_PATH = "DCIM/Point & Shoot"
 
     private val timestampFormatter: DateTimeFormatter =
         DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").withZone(ZoneOffset.UTC)
@@ -216,10 +214,10 @@ object CaptureStorage {
     }
 
     /**
-     * Same as [openOutput] for video files under `DCIM/Point & Shoot/`.
+     * Same as [openOutput] for video files under [PnsDcimPaths.RELATIVE_PATH].
      * Pair with [MediaRecorder.applyCaptureGeotag] before [MediaRecorder.prepare] for in-file GPS.
      */
-    /** RAW video `.mcraw` under `DCIM/Point & Shoot/` (Video MediaStore row, octet-stream body). */
+    /** RAW video `.mcraw` under [PnsDcimPaths.RELATIVE_PATH] (Video MediaStore row, octet-stream body). */
     fun openMcrawVideoOutput(
         context: Context,
         profile: ImagingProfile,
@@ -396,12 +394,12 @@ object CaptureStorage {
         return "pns_${ts}_${profile.id}_${seqStr}$extra.${kind.extension}"
     }
 
-    private fun relativePath(profile: ImagingProfile): String {
-        return ROOT_RELATIVE_PATH
+    internal fun relativePath(@Suppress("UNUSED_PARAMETER") profile: ImagingProfile): String {
+        return PnsDcimPaths.RELATIVE_PATH
     }
 
-    private fun videoRelativePath(profile: ImagingProfile): String {
-        return VIDEO_ROOT_RELATIVE_PATH
+    internal fun videoRelativePath(@Suppress("UNUSED_PARAMETER") profile: ImagingProfile): String {
+        return PnsDcimPaths.RELATIVE_PATH
     }
 
     /**

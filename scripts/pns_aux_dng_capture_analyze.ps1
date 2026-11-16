@@ -229,21 +229,23 @@ foreach ($slot in $slots) {
         $report.Add("(no capture/dng lines in logcat)")
     }
 
-    $remoteDcim = "/sdcard/DCIM/Point & Shoot"
+    $remoteDcimCanonical = "/sdcard/DCIM/PointAndShoot"
+    $remoteDcimLegacy = "/sdcard/DCIM/Point & Shoot"
+    $remoteDcimFind = "'$remoteDcimCanonical' '$remoteDcimLegacy'"
     $picked = $null
     $savedLine = Get-Content $logFile -ErrorAction SilentlyContinue |
         Select-String -Pattern "captureRawStill 1/1 ok=true saved=([^\s]+\.dng)" |
         Select-Object -Last 1
     if ($savedLine -and $savedLine.Matches.Count -gt 0) {
         $baseName = $savedLine.Matches[0].Groups[1].Value.Trim()
-        $picked = "$remoteDcim/$baseName"
+        $picked = "$remoteDcimCanonical/$baseName"
         Write-Host "[capture_analyze] logcat picked $baseName"
     }
     if (-not $picked) {
         $findOut = if ($Serial) {
-            & adb -s $Serial shell "find '$remoteDcim' -name '*.dng' 2>/dev/null"
+            & adb -s $Serial shell "find $remoteDcimFind -name '*.dng' 2>/dev/null"
         } else {
-            & adb shell "find '$remoteDcim' -name '*.dng' 2>/dev/null"
+            & adb shell "find $remoteDcimFind -name '*.dng' 2>/dev/null"
         }
         $allDngs = ($findOut -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "\.dng$" }
         $newDngs = @()

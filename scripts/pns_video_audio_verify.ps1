@@ -112,9 +112,9 @@ Write-Log "  - Video prepared with audio: $(if ($videoPrepared) { 'YES' } else {
 Write-Log "  - Video saved successfully: $(if ($videoSaved) { 'YES' } else { 'NO' })"
 
 # Find the saved video file
-$dcimPath = "/sdcard/DCIM/Point & Shoot"
-$escapedPath = "'/sdcard/DCIM/Point & Shoot'"
-$videoFiles = & $adb @deviceArgs shell "ls -t $escapedPath/pns_*.mp4 2>/dev/null | head -1" 2>&1 | Select-String "pns_"
+$dcimPath = "/sdcard/DCIM/PointAndShoot"
+$escapedPath = "'/sdcard/DCIM/PointAndShoot' '/sdcard/DCIM/Point & Shoot'"
+$videoFiles = & $adb @deviceArgs shell "ls -t '/sdcard/DCIM/PointAndShoot'/pns_*.mp4 '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1" 2>&1 | Select-String "pns_"
 
 if (-not $videoFiles) {
     Write-Log "ERROR: No video file found in $dcimPath"

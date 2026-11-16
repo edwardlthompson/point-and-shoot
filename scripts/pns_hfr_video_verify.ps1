@@ -141,8 +141,8 @@ Write-Log "  - HFR rejected: $(if ($hfrRejected) { 'YES' } else { 'NO' })"
 Write-Log "  - High-speed session: $(if ($highSpeedSession) { 'YES' } else { 'NO' })"
 
 # Find the saved video file
-$escapedPath = "'/sdcard/DCIM/Point & Shoot'"
-$videoFiles = & $adb @deviceArgs shell "ls -t $escapedPath/pns_*.mp4 2>/dev/null | head -1" 2>&1 | Select-String "pns_"
+$escapedPath = "'/sdcard/DCIM/PointAndShoot' '/sdcard/DCIM/Point & Shoot'"
+$videoFiles = & $adb @deviceArgs shell "ls -t '/sdcard/DCIM/PointAndShoot'/pns_*.mp4 '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1" 2>&1 | Select-String "pns_"
 
 $result = @{}
 if ($videoSaved -and $videoFiles) {

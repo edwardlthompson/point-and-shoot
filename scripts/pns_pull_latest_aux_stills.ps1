@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Pull the latest N DNG and JPEG files from DCIM/Point & Shoot for aux color comparison.
+  Pull the latest N DNG and JPEG files from DCIM/PointAndShoot (and legacy DCIM/Point & Shoot) for aux color comparison.
 
 .DESCRIPTION
   Wide (M23) DNG is the color reference; M14 UW and M73 native tele are compared.
@@ -55,13 +55,13 @@ $outDir = Join-Path $projRoot "hfr-runs\pull_aux_stills_$stamp"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 Write-Host "[pull_aux_stills] -> $outDir"
 
-$remoteDcim = "/sdcard/DCIM/Point & Shoot"
+$remoteDcimFind = "'/sdcard/DCIM/PointAndShoot' '/sdcard/DCIM/Point & Shoot'"
 
 function Get-LatestRemoteFiles([string]$Pattern, [int]$Count) {
     if ($Serial) {
-        $listR = & adb -s $Serial shell "find '$remoteDcim' -name '$Pattern' 2>/dev/null"
+        $listR = & adb -s $Serial shell "find $remoteDcimFind -name '$Pattern' 2>/dev/null"
     } else {
-        $listR = & adb shell "find '$remoteDcim' -name '$Pattern' 2>/dev/null"
+        $listR = & adb shell "find $remoteDcimFind -name '$Pattern' 2>/dev/null"
     }
     $paths = @($listR -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match "\." })
     $withMtime = @()

@@ -274,11 +274,11 @@ function Write-MediaStorePnsProbe([string]$OutDir) {
     }
 
     $sb = [System.Text.StringBuilder]::new()
-    [void]$sb.AppendLine("=== ls '/sdcard/DCIM/Point & Shoot/' ===")
-    [void]$sb.AppendLine((Invoke-AdbShellOneLiner "ls -la '/sdcard/DCIM/Point & Shoot/'") -join "`n")
+    [void]$sb.AppendLine("=== ls '/sdcard/DCIM/PointAndShoot/' ===")
+    [void]$sb.AppendLine((Invoke-AdbShellOneLiner "ls -la '/sdcard/DCIM/PointAndShoot/'") -join "`n")
     [void]$sb.AppendLine("")
-    [void]$sb.AppendLine("=== ls '/sdcard/DCIM/Point & Shoot/Ultra-Max/' ===")
-    [void]$sb.AppendLine((Invoke-AdbShellOneLiner "ls -la '/sdcard/DCIM/Point & Shoot/Ultra-Max/'") -join "`n")
+    [void]$sb.AppendLine("=== ls '/sdcard/DCIM/Point & Shoot/' (legacy) ===")
+    [void]$sb.AppendLine((Invoke-AdbShellOneLiner "ls -la '/sdcard/DCIM/Point & Shoot/'") -join "`n")
     [void]$sb.AppendLine("")
     [void]$sb.AppendLine("=== find /sdcard/DCIM pns_*.(dng|jxl|avif) maxdepth 4 (first 40) ===")
     # toybox find on device: keep pattern simple (three runs) for OEM compatibility.
@@ -330,7 +330,7 @@ function Write-MediaStorePnsProbe([string]$OutDir) {
         mediaTailArtifact = "mediastore_images_tail.txt"
         mediaTailPnsRows   = [int]$pnsMediaRows
         mediaTailPnsDisplayNameHits = [int]$pnsDisplayHits
-        contentQueryNote  = "ls uses single-quoted paths (ampersand-safe). Tail grep counts rows mentioning DCIM/Point & Shoot; mediaTailPnsDisplayNameHits counts `pns_<UTC>_` display_name prefixes in the tail."
+        contentQueryNote  = "ls lists DCIM/PointAndShoot and legacy DCIM/Point & Shoot. Tail grep counts rows mentioning DCIM/Point*Shoot; mediaTailPnsDisplayNameHits counts `pns_<UTC>_` display_name prefixes in the tail."
     }
     $probeJson = Join-Path $OutDir "mediastore_probe.json"
     $probeObj | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $probeJson -Encoding utf8

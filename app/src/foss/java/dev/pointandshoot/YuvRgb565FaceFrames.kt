@@ -11,10 +11,35 @@ import kotlin.math.min
 
 /**
  * Downscaled RGB_565 frames for [android.media.FaceDetector] from Camera2 YUV_420_888.
+ *
+ * Plane reads follow [HfrYuvImageCopier]: valid bytes are buffer `position()`..`limit()`,
+ * not `capacity()`. Absolute [ByteBuffer.get] throws at `limit`.
  */
 internal object YuvRgb565FaceFrames {
 
     const val MAX_LONG_SIDE = 320
+    private const val NEUTRAL_CHROMA = 128
+    private const val LUMA_OFFSET = 16
+    private const val YUV_Y_SCALE = 298
+    private const val YUV_R_V = 409
+    private const val YUV_G_U = 100
+    private const val YUV_G_V = 208
+    private const val YUV_B_U = 516
+    private const val YUV_ROUND = 128
+    private const val YUV_SHIFT = 8
+    private const val BYTE_MASK = 0xFF
+    private const val RGB565_R_SHIFT = 3
+    private const val RGB565_G_SHIFT = 2
+    private const val RGB565_PACK_R = 11
+    private const val RGB565_PACK_G = 5
+    private const val LUMA_R = 299
+    private const val LUMA_G = 587
+    private const val LUMA_B = 114
+    private const val LUMA_DEN = 1000
+    private const val MIN_MOUTH_W = 6
+    private const val MIN_MOUTH_H = 3
+    private const val MIN_DIM = 2
+    private const val DEGREES_CIRCLE = 360
 
     data class PreparedFrame(
         val bitmap: Bitmap,
@@ -36,14 +61,18 @@ internal object YuvRgb565FaceFrames {
         val yPlane = image.planes.getOrNull(0) ?: return null
         val uPlane = image.planes.getOrNull(1) ?: return null
         val vPlane = image.planes.getOrNull(2) ?: return null
-        val yBytes = copyPlaneTight(yPlane, yuvW, yuvH, luma = true) ?: return null
+        val uvW = (yuvW + 1) / 2
+        val uvH = (yuvH + 1) / 2
+        val yBytes = copyPlaneTight(yPlane, yuvW, yuvH) ?: return null
+        val uBytes = copyPlaneTight(uPlane, uvW, uvH) ?: return null
+        val vBytes = copyPlaneTight(vPlane, uvW, uvH) ?: return null
         val longSide = max(yuvW, yuvH)
         val scale = if (longSide <= MAX_LONG_SIDE) 1f else longSide / MAX_LONG_SIDE.toFloat()
-        var outW = FaceDetectorGeometry.evenFloor((yuvW / scale).toInt())
-        var outH = max(2, (yuvH / scale).toInt())
+        val outW = FaceDetectorGeometry.evenFloor((yuvW / scale).toInt())
+        val outH = max(MIN_DIM, (yuvH / scale).toInt())
         val rgb565 = Bitmap.createBitmap(outW, outH, Bitmap.Config.RGB_565)
-        fillRgb565(rgb565, yBytes, yuvW, yuvH, uPlane, vPlane)
-        val rot = ((rotationDegrees % 360) + 360) % 360
+        fillRgb565(rgb565, yBytes, uBytes, vBytes, yuvW, yuvH, uvW)
+        val rot = ((rotationDegrees % DEGREES_CIRCLE) + DEGREES_CIRCLE) % DEGREES_CIRCLE
         val upright =
             if (rot == 0) {
                 rgb565
@@ -77,48 +106,52 @@ internal object YuvRgb565FaceFrames {
     fun mouthLuma(bitmap: Bitmap, hint: FaceDetectorGeometry.FaceHint): ByteArray? {
         val w = hint.mouthRight - hint.mouthLeft
         val h = hint.mouthBottom - hint.mouthTop
-        if (w < 6 || h < 3) return null
+        if (w < MIN_MOUTH_W || h < MIN_MOUTH_H) return null
         val out = ByteArray(w * h)
         val pixels = IntArray(w * h)
         bitmap.getPixels(pixels, 0, w, hint.mouthLeft, hint.mouthTop, w, h)
         for (i in pixels.indices) {
             val c = pixels[i]
-            val r = (c shr 16) and 0xFF
-            val g = (c shr 8) and 0xFF
-            val b = c and 0xFF
-            out[i] = ((r * 299 + g * 587 + b * 114) / 1000).toByte()
+            val r = (c shr 16) and BYTE_MASK
+            val g = (c shr 8) and BYTE_MASK
+            val b = c and BYTE_MASK
+            out[i] = ((r * LUMA_R + g * LUMA_G + b * LUMA_B) / LUMA_DEN).toByte()
         }
         return out
     }
 
+    /**
+     * Tight packed copy of one plane. Uses [ByteBuffer.position] as the sample origin
+     * and [ByteBuffer.limit] as the exclusive end — never [ByteBuffer.capacity] or [ByteBuffer.clear].
+     */
     private fun copyPlaneTight(
         plane: Image.Plane,
         width: Int,
         height: Int,
-        luma: Boolean,
     ): ByteArray? {
         val pixelStride = plane.pixelStride
         val rowStride = plane.rowStride
-        if (pixelStride < 1 || rowStride < width) return null
         val buf = plane.buffer.duplicate()
-        buf.clear()
-        val sampleW = if (luma) width else (width + 1) / 2
-        val sampleH = if (luma) height else (height + 1) / 2
-        val out = ByteArray(sampleW * sampleH)
+        val start = buf.position()
+        val end = buf.limit()
+        val neededEnd = YuvPlaneLayout.neededEnd(start, width, height, rowStride, pixelStride)
+            ?: return null
+        if (neededEnd > end) return null
+        val out = ByteArray(width * height)
         val rowScratch = ByteArray(rowStride)
-        for (y in 0 until sampleH) {
-            val pos = y * rowStride
-            if (pos >= buf.capacity()) return null
+        for (y in 0 until height) {
+            val pos = start + y * rowStride
+            if (!YuvPlaneLayout.inRange(pos, start, end)) return null
             buf.position(pos)
-            val toRead = min(rowStride, buf.remaining())
+            val toRead = min(rowStride, end - pos)
             buf.get(rowScratch, 0, toRead)
             if (pixelStride == 1) {
-                System.arraycopy(rowScratch, 0, out, y * sampleW, sampleW)
+                System.arraycopy(rowScratch, 0, out, y * width, min(width, toRead))
             } else {
-                var d = y * sampleW
+                var d = y * width
                 var s = 0
                 var x = 0
-                while (x < sampleW && s < toRead) {
+                while (x < width && s < toRead) {
                     out[d] = rowScratch[s]
                     d++
                     s += pixelStride
@@ -132,34 +165,36 @@ internal object YuvRgb565FaceFrames {
     private fun fillRgb565(
         dest: Bitmap,
         yBytes: ByteArray,
+        uBytes: ByteArray,
+        vBytes: ByteArray,
         yuvW: Int,
         yuvH: Int,
-        uPlane: Image.Plane,
-        vPlane: Image.Plane,
+        uvW: Int,
     ) {
         val outW = dest.width
         val outH = dest.height
         val packed = ShortArray(outW * outH)
-        val uBuf = uPlane.buffer.duplicate()
-        val vBuf = vPlane.buffer.duplicate()
-        val uRow = uPlane.rowStride
-        val vRow = vPlane.rowStride
-        val uPix = uPlane.pixelStride
-        val vPix = vPlane.pixelStride
-        val uCap = uBuf.capacity()
-        val vCap = vBuf.capacity()
+        val uvLast = uBytes.size
         for (oy in 0 until outH) {
             val iy = (oy * yuvH) / outH
             val yRow = iy * yuvW
             val cy = iy / 2
             for (ox in 0 until outW) {
                 val ix = (ox * yuvW) / outW
-                val y = yBytes[yRow + ix].toInt() and 0xFF
-                val cx = ix / 2
-                val uIndex = cy * uRow + cx * uPix
-                val vIndex = cy * vRow + cx * vPix
-                val u = if (uIndex in 0 until uCap) uBuf.get(uIndex).toInt() and 0xFF else 128
-                val v = if (vIndex in 0 until vCap) vBuf.get(vIndex).toInt() and 0xFF else 128
+                val y = yBytes[yRow + ix].toInt() and BYTE_MASK
+                val uvIndex = cy * uvW + ix / 2
+                val u =
+                    if (uvIndex in 0 until uvLast) {
+                        uBytes[uvIndex].toInt() and BYTE_MASK
+                    } else {
+                        NEUTRAL_CHROMA
+                    }
+                val v =
+                    if (uvIndex in 0 until vBytes.size) {
+                        vBytes[uvIndex].toInt() and BYTE_MASK
+                    } else {
+                        NEUTRAL_CHROMA
+                    }
                 packed[oy * outW + ox] = yuvToRgb565(y, u, v)
             }
         }
@@ -170,13 +205,18 @@ internal object YuvRgb565FaceFrames {
     }
 
     private fun yuvToRgb565(y: Int, u: Int, v: Int): Short {
-        val c = y - 16
-        val d = u - 128
-        val e = v - 128
-        val r = ((298 * c + 409 * e + 128) shr 8).coerceIn(0, 255)
-        val g = ((298 * c - 100 * d - 208 * e + 128) shr 8).coerceIn(0, 255)
-        val b = ((298 * c + 516 * d + 128) shr 8).coerceIn(0, 255)
-        val packed = ((r shr 3) shl 11) or ((g shr 2) shl 5) or (b shr 3)
+        val c = y - LUMA_OFFSET
+        val d = u - NEUTRAL_CHROMA
+        val e = v - NEUTRAL_CHROMA
+        val r = ((YUV_Y_SCALE * c + YUV_R_V * e + YUV_ROUND) shr YUV_SHIFT).coerceIn(0, BYTE_MASK)
+        val g =
+            ((YUV_Y_SCALE * c - YUV_G_U * d - YUV_G_V * e + YUV_ROUND) shr YUV_SHIFT)
+                .coerceIn(0, BYTE_MASK)
+        val b = ((YUV_Y_SCALE * c + YUV_B_U * d + YUV_ROUND) shr YUV_SHIFT).coerceIn(0, BYTE_MASK)
+        val packed =
+            ((r shr RGB565_R_SHIFT) shl RGB565_PACK_R) or
+                ((g shr RGB565_G_SHIFT) shl RGB565_PACK_G) or
+                (b shr RGB565_R_SHIFT)
         return packed.toShort()
     }
 }

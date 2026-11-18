@@ -55,6 +55,7 @@ Maps the Cursor **Project Initialization Prompt** template to this repo. **Do no
 | `AGENTS.md` | [`AGENTS.md`](AGENTS.md) | New/changed automation scripts, CRITICAL locks, template map |
 | `AGENT_MEMORY.md` | [`AGENT_MEMORY.md`](AGENT_MEMORY.md) | Session startup, milestone boundary, handoff to fresh chat only |
 | `KNOWLEDGE_BASE.md` | [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) | New SoT doc, code entry point, or gate script; milestone boundary |
+| Multiplatform migration | [`docs/migration/`](docs/migration/) | Phase 0 inventory · Phase 1 design brief · Phase 2 tech decision · Phase 3 parity checklist; BUILD_PLAN `MIG.*`; re-read before any port work |
 | `PROMPT_LIBRARY.md` | [`PROMPT_LIBRARY.md`](PROMPT_LIBRARY.md) | New high-value agent workflow prompt |
 | `docs/adr/` | [`docs/adr/`](docs/adr/) | Major architectural trade-off — **append** ADR; never rewrite history |
 | `DECISION_LOG.md` | [`DECISION_LOG.md`](DECISION_LOG.md) | Index when adding ADR-0008+ |

@@ -11,7 +11,6 @@ import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
 import java.io.File
 
@@ -116,7 +115,7 @@ object GalleryVideoFinish {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                 if (Build.VERSION.SDK_INT >= 29) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM + "/PointAndShoot")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, PnsDcimPaths.RELATIVE_PATH)
                 }
             }
         val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return null
@@ -134,7 +133,7 @@ object GalleryVideoFinish {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, name)
                 put(MediaStore.MediaColumns.MIME_TYPE, mime)
                 if (Build.VERSION.SDK_INT >= 29) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM + "/PointAndShoot")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, PnsDcimPaths.RELATIVE_PATH)
                 }
             }
         val uri = context.contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values) ?: return null

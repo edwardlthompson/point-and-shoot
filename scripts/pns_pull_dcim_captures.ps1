@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  adb pull of **DCIM/Point & Shoot** (still + Ultra-Max) to the host for desktop RAW / HDR validation.
+  adb pull of **DCIM/PointAndShoot** (canonical) and legacy **DCIM/Point & Shoot** to the host for desktop RAW / HDR validation.
 
 .DESCRIPTION
   Supports the **Sprint 7.3 / Milestone H.1** gate: copy indexed captures off the device, then open samples in desktop tools per **STORAGE_STRATEGY.md**.
@@ -110,18 +110,31 @@ if ([string]::IsNullOrWhiteSpace($OutDir)) {
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-# Single-quoted remote path: device shell / adb must see **Point & Shoot** as one token (ampersand-safe).
-$remoteDcim = '/sdcard/DCIM/Point & Shoot'
+# Canonical write folder plus legacy spaced folder (do not migrate files on device).
+$dcimPaths = Join-Path $PSScriptRoot "pns_dcim_paths.ps1"
+if (Test-Path -LiteralPath $dcimPaths) { . $dcimPaths }
+$remoteDirs = if ($script:PnsDcimRemoteDirs) { @($script:PnsDcimRemoteDirs) } else {
+    @("/sdcard/DCIM/PointAndShoot", "/sdcard/DCIM/Point & Shoot")
+}
 
-Write-Host "`[pull_dcim] pulling $remoteDcim -> $OutDir"
-if ($Serial) {
-    & adb -s $Serial pull $remoteDcim $OutDir
+$pulledAny = $false
+foreach ($remoteDcim in $remoteDirs) {
+    Write-Host "`[pull_dcim] pulling $remoteDcim -> $OutDir"
+    if ($Serial) {
+        & adb -s $Serial pull $remoteDcim $OutDir
+    }
+    else {
+        & adb pull $remoteDcim $OutDir
+    }
+    if ($LASTEXITCODE -eq 0) {
+        $pulledAny = $true
+    }
+    else {
+        Write-Host "`[pull_dcim] WARN: pull of $remoteDcim exited $LASTEXITCODE (folder may be absent)"
+    }
 }
-else {
-    & adb pull $remoteDcim $OutDir
-}
-if ($LASTEXITCODE -ne 0) {
-    throw "adb pull failed exit=$LASTEXITCODE"
+if (-not $pulledAny) {
+    throw "adb pull failed for every P&S DCIM folder"
 }
 
 Write-Host "`[pull_dcim] OK. Next (human): open **pns_*.dng** / **.avif** / **.jxl** in desktop tools; on device open the same folder in the OEM gallery (**STORAGE_STRATEGY.md**, **BUILD_PLAN** Sprint 7.3 / Milestone H.1)."

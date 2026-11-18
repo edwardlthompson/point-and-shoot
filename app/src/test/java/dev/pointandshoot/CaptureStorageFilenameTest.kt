@@ -115,6 +115,15 @@ class CaptureStorageFilenameTest {
     }
 
     @Test
+    fun stillAndVideoRelativePath_useCanonicalDcimPointAndShoot() {
+        assertEquals("DCIM/PointAndShoot", CaptureStorage.relativePath(ImagingProfile.StandardPro))
+        assertEquals("DCIM/PointAndShoot", CaptureStorage.relativePath(ImagingProfile.UltraMax))
+        assertEquals("DCIM/PointAndShoot", CaptureStorage.relativePath(ImagingProfile.JpegOnly))
+        assertEquals("DCIM/PointAndShoot", CaptureStorage.videoRelativePath(ImagingProfile.StandardPro))
+        assertEquals(PnsDcimPaths.RELATIVE_PATH, CaptureStorage.relativePath(ImagingProfile.StandardPro))
+    }
+
+    @Test
     fun `MIME types are non-empty for every capture kind`() {
         for (kind in CaptureStorage.CaptureKind.entries) {
             val mime = kind.mimeType

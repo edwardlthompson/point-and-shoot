@@ -89,9 +89,16 @@ if ($logRaw -match "captureIndependentTonalStill[^\r\n]*saved=(pns_[^\r\n]+\.jpg
 $pullDir = Join-Path $outDir "dcim"
 New-Item -ItemType Directory -Force -Path $pullDir | Out-Null
 if ($savedName) {
-    $remote = "/sdcard/DCIM/Point & Shoot/$savedName"
     $local = Join-Path $pullDir $savedName
-    adb -s $Serial pull $remote $local 2>&1 | Out-Host
+    $pulled = $false
+    foreach ($dir in @("/sdcard/DCIM/PointAndShoot", "/sdcard/DCIM/Point & Shoot")) {
+        $remote = "$dir/$savedName"
+        adb -s $Serial pull $remote $local 2>&1 | Out-Host
+        if (Test-Path $local) { $pulled = $true; break }
+    }
+    if (-not $pulled) {
+        Write-Host "WARN: could not pull $savedName from canonical or legacy DCIM folder"
+    }
     $jpeg = if (Test-Path $local) { Get-Item $local } else { $null }
 } else {
     & (Join-Path $repo "scripts\pns_pull_dcim_captures.ps1") -Serial $Serial -OutDir $pullDir | Out-Host

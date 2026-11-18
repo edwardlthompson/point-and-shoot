@@ -8,7 +8,7 @@
 - **LOW STORAGE** + red text when **&lt; 5 minutes** remain at the current estimate.
 - Toggle: **Settings → HUD → Storage remaining (video)**.
 
-Free space is read from primary shared storage (`StatFs` on `Environment.getExternalStorageDirectory()`), same tree as `DCIM/Point & Shoot`.
+Free space is read from primary shared storage (`StatFs` on `Environment.getExternalStorageDirectory()`), same tree as `DCIM/PointAndShoot` (legacy `DCIM/Point & Shoot` still listed in-app).
 
 ## ADB gate
 

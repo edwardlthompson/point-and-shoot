@@ -97,7 +97,7 @@ while ((Get-Date) -lt $deadline) {
 }
 
 # Pull newest P&S DNG newer than run start when possible
-$remoteList = adb -s $Serial shell "ls -t '/sdcard/DCIM/Point & Shoot/'*.dng 2>/dev/null | head -3"
+$remoteList = adb -s $Serial shell "ls -t '/sdcard/DCIM/PointAndShoot/'*.dng '/sdcard/DCIM/Point & Shoot/'*.dng 2>/dev/null | head -3"
 $remote = ($remoteList | Select-Object -First 1).ToString().Trim()
 if ($remote -and $ok) {
     adb -s $Serial pull $remote (Join-Path $outDir "pns_${Cell}.dng") | Out-Host

@@ -74,7 +74,8 @@ if (Test-Path -LiteralPath $apk) {
 Invoke-AdbCmd shell am force-stop dev.pointandshoot 2>$null
 Start-Sleep -Milliseconds 600
 Invoke-AdbCmd logcat -c 2>$null
-Invoke-AdbCmd shell "rm -f '/sdcard/DCIM/Point and Shoot/'*.mp4" 2>$null
+# Canonical DCIM only — do not wipe legacy Point & Shoot (user captures)
+Invoke-AdbCmd shell "rm -f '/sdcard/DCIM/PointAndShoot/'*.mp4" 2>$null
 
 Write-Host "Launching preview: DCG (pns_preview_video_dcg) @ 60fps, ${RecordSec}s record..."
 Invoke-AdbCmd shell am start -W -n "dev.pointandshoot/.MainActivity" `
@@ -119,8 +120,12 @@ if ($videoSaved -and $hasFfprobe) {
     Write-Host "Pulling video file from device..."
     $pullDir = "$outDir\pulled"
     New-Item -ItemType Directory -Force -Path $pullDir | Out-Null
-    $dcimPath = "/storage/emulated/0/DCIM/Point & Shoot"
-    $lsOut = (Invoke-AdbCmd shell "ls '$dcimPath/'" 2>&1) | Where-Object { $_ -match "pns_.*\.mp4" } | Select-Object -Last 1
+    $dcimPath = $null
+    $lsOut = $null
+    foreach ($candidate in @("/storage/emulated/0/DCIM/PointAndShoot", "/storage/emulated/0/DCIM/Point & Shoot")) {
+        $lsOut = (Invoke-AdbCmd shell "ls '$candidate/'" 2>&1) | Where-Object { $_ -match "pns_.*\.mp4" } | Select-Object -Last 1
+        if ($lsOut) { $dcimPath = $candidate; break }
+    }
     $newestFile = if ($lsOut) { ([string]$lsOut).Trim() } else { $null }
     if ($newestFile) {
         $realPath = "$dcimPath/$newestFile"

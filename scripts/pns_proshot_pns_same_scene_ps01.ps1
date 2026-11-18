@@ -170,7 +170,7 @@ foreach ($slot in $slotList) {
         if ($text -match "captureRawStill 1/1 ok=false") { break }
     }
     if (-not $ok) { throw "P&S PS01 capture failed for slot $slot — see $logPath" }
-    $remoteList = adb -s $Serial shell "ls -t '/sdcard/DCIM/Point & Shoot/'*.dng 2>/dev/null | head -1"
+    $remoteList = adb -s $Serial shell "ls -t '/sdcard/DCIM/PointAndShoot/'*.dng '/sdcard/DCIM/Point & Shoot/'*.dng 2>/dev/null | head -1"
     $remote = ($remoteList | Select-Object -First 1).ToString().Trim()
     $local = Join-Path $outDir "pns_ps01_mm${slot}.dng"
     Invoke-Adb @("pull", $remote, $local) | Out-Host

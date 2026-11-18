@@ -4,7 +4,7 @@ package dev.pointandshoot
 object SyncthingDcimLayout {
     fun relativePath(item: MediaItem): String {
         val day = GalleryLibrary.dayKey(item.date)
-        return "PointAndShoot/$day/${item.displayName}"
+        return "${PnsDcimPaths.FOLDER_NAME}/$day/${item.displayName}"
     }
 
     fun folderName(epochSec: Long): String = GalleryLibrary.dayKey(epochSec)

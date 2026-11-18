@@ -6,8 +6,8 @@ This document records the decision and rationale for **where Point & Shoot write
 
 | Imaging profile | Format(s) | Default destination | Indexed in MediaStore? | Manual export available? |
 |---|---|---|---|---|
-| **Standard Pro** | `.dng` (lossless) + `.avif` (10-bit HDR) | `MediaStore.Images` (`DCIM/Point & Shoot/`) | Yes | Yes (SAF "Save as ...") |
-| **Ultra-Max** | `.dng` (RAW12 uncompressed) + `.jxl` (12-bit) | `MediaStore.Images` (`DCIM/Point & Shoot/Ultra-Max/`) | Yes for DNG; AVIF / JXL added when the system MediaProvider learns the MIME types | Yes (SAF "Save as ...") |
+| **Standard Pro** | `.dng` (lossless) + `.avif` (10-bit HDR) | `MediaStore.Images` (`DCIM/PointAndShoot/`) | Yes | Yes (SAF "Save as ...") |
+| **Ultra-Max** | `.dng` (RAW12 uncompressed) + `.jxl` (12-bit) | `MediaStore.Images` (`DCIM/PointAndShoot/`) | Yes for DNG; AVIF / JXL added when the system MediaProvider learns the MIME types | Yes (SAF "Save as ...") |
 | **Probe artifacts** | `.json`, `.md`, `.txt` | App-private external files (`getExternalFilesDir(null)`) | No | Yes (`adb pull` or in-app SAF export) |
 
 Rationale and the constraints behind each row are below.
@@ -22,9 +22,9 @@ Rationale and the constraints behind each row are below.
 
 ## Capture outputs (DNG / AVIF / JXL)
 
-### Default: `MediaStore` insert into `DCIM/Point & Shoot/`
+### Default: `MediaStore` insert into `DCIM/PointAndShoot/`
 
-* Subfolder per imaging profile (`DCIM/Point & Shoot/` for Standard Pro, `DCIM/Point & Shoot/Ultra-Max/` for Ultra-Max). Stills and video share the same DCIM tree so gallery apps index alongside the device camera roll.
+* All imaging profiles share one tree (`DCIM/PointAndShoot/` via [`PnsDcimPaths`](modules/pns-core/src/main/java/dev/pointandshoot/PnsDcimPaths.kt)). Stills and video share that DCIM tree so gallery apps index alongside the device camera roll. The in-app gallery also **reads** the legacy `DCIM/Point & Shoot/` folder so existing files stay visible; the app does not move or delete them.
 * Filenames use a deterministic pattern: `pns_<utc>_<profile>_<seq>.<ext>` (e.g., `pns_20260507T203015Z_standard_pro_0001.dng`).
 * MIME types:
   * `image/x-adobe-dng` for DNG (recognized by AOSP MediaProvider since Q).
@@ -57,12 +57,12 @@ Rationale and the constraints behind each row are below.
 * [ ] [ADB] Outputs are written reliably with predictable naming.
   * Implementation gate (Phase 1): unit test on the filename builder; on-device smoke after first capture.
 * [ ] [ADB] Files appear in gallery apps (when MediaStore) / export works (when app-private).
-  * Validation gate: scroll the LineageOS Gallery + run `cmd content query --uri content://media/external/images/media` after a capture; **`pns_adb_preview_validate.ps1`** writes **`mediastore_probe.json`** (`dcimHasPnsCapture`, `mediaTailPnsRows`, optional `mediaTailPnsDisplayNameHits`) plus **`ls_dcim_point_and_shoot.txt`** (ampersand-safe **`ls`** + **`Ultra-Max/`** + **`find`**) and **`mediastore_images_tail.txt`** under the run folder (BUILD_PLAN Sprint 7.3). **`dcimHasPnsCapture`** reflects **`pns_*.{dng,jxl,avif}`** on disk; **`mediaTailPnsRows`** may stay **0** on OEMs where the tail does not include **`relative_path`**. Prior false **`dcimHasPnsCapture=false`** was caused by **`adb shell`** splitting **`Point & Shoot`** on **`&`** when **`ls`** arguments were not one quoted shell command.
+  * Validation gate: scroll the LineageOS Gallery + run `cmd content query --uri content://media/external/images/media` after a capture; **`pns_adb_preview_validate.ps1`** writes **`mediastore_probe.json`** (`dcimHasPnsCapture`, `mediaTailPnsRows`, optional `mediaTailPnsDisplayNameHits`) plus **`ls_dcim_point_and_shoot.txt`** (**`ls`** of **`DCIM/PointAndShoot/`** and the legacy **`DCIM/Point & Shoot/`** tree + **`find`**) and **`mediastore_images_tail.txt`** under the run folder (BUILD_PLAN Sprint 7.3). **`dcimHasPnsCapture`** reflects **`pns_*.{dng,jxl,avif}`** on disk; **`mediaTailPnsRows`** may stay **0** on OEMs where the tail does not include **`relative_path`**. The canonical folder has no spaces or `&`; quote the legacy path if you still list it.
 * [ ] [HOST] Pull + verify files open in desktop tooling.
-  * Validation gate: **`scripts/pns_pull_dcim_captures.ps1`** (or manual **`adb pull '/sdcard/DCIM/Point & Shoot'`** …), then open in `darktable` (DNG), `imv`/`gthumb` (AVIF), and `djxl` (JXL).
+  * Validation gate: **`scripts/pns_pull_dcim_captures.ps1`** (or manual **`adb pull /sdcard/DCIM/PointAndShoot`** plus the legacy **`'/sdcard/DCIM/Point & Shoot'`** tree), then open in `darktable` (DNG), `imv`/`gthumb` (AVIF), and `djxl` (JXL).
 
 ## Open questions (to resolve in Phase 1)
 
 * **JXL MediaProvider support on LineageOS 23:** if the MIME type is rejected by the insert call, fall back to a `.jxl` file in the Documents collection or app-private storage and surface a one-time UI hint.
 * **HEIF / HEIC compatibility:** out of scope (proprietary HEVC encoder dependency). We deliberately ship AVIF (FOSS AV1) and JXL instead.
-* **DCIM vs `Pictures/`:** The app inserts under **`DCIM/Point & Shoot/`** via **`MediaStore` `RELATIVE_PATH`** (see **`CaptureStorage.kt`**) so outputs sit in the conventional camera-roll tree; we are not using a `Pictures/…`-only layout for indexed stills.
+* **DCIM vs `Pictures/`:** The app inserts under **`DCIM/PointAndShoot/`** via **`MediaStore` `RELATIVE_PATH`** (see **`PnsDcimPaths.kt`** / **`CaptureStorage.kt`**) so outputs sit in the conventional camera-roll tree; we are not using a `Pictures/…`-only layout for indexed stills.

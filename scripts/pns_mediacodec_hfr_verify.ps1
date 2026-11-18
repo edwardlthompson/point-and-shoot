@@ -209,8 +209,8 @@ pns_mediacodec_hfr_verify.ps1 - HFR/codec matrix verify
             }
         }
         if (-not (Test-Path $localMp4) -or ((Get-Item $localMp4).Length -lt 50000)) {
-            $dcim = "/sdcard/DCIM/Point & Shoot"
-            $latestVideo = (Invoke-AdbCmd shell "ls -t '$dcim'/pns_*.mp4 2>/dev/null | head -1" 2>&1) -join "`n"
+            $dcim = "/sdcard/DCIM/PointAndShoot"
+            $latestVideo = (Invoke-AdbCmd shell "ls -t '$dcim'/pns_*.mp4 '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1" 2>&1) -join "`n"
             $latestVideo = ($latestVideo -split "`n" | Where-Object { $_ -match "pns_.*\.mp4" } | Select-Object -First 1)
             if ($latestVideo) {
                 $latestVideo = $latestVideo.Trim()
@@ -218,8 +218,8 @@ pns_mediacodec_hfr_verify.ps1 - HFR/codec matrix verify
             }
         }
         if ((Test-Path $localMp4) -and ((Get-Item $localMp4).Length -ge 50000)) { return $localMp4 }
-        $dcim = "/sdcard/DCIM/Point & Shoot"
-        $latestVideo = (Invoke-AdbCmd shell "ls -t '$dcim'/pns_*.mp4 2>/dev/null | head -1" 2>&1) -join "`n"
+        $dcim = "/sdcard/DCIM/PointAndShoot"
+        $latestVideo = (Invoke-AdbCmd shell "ls -t '$dcim'/pns_*.mp4 '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1" 2>&1) -join "`n"
         $latestVideo = ($latestVideo -split "`n" | Where-Object { $_ -match "pns_.*\.mp4" } | Select-Object -First 1)
         if ($latestVideo) {
             $latestVideo = $latestVideo.Trim()

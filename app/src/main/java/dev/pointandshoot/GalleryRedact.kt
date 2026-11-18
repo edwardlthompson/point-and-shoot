@@ -11,7 +11,6 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.provider.MediaStore
 
 /** Blur/box faces-ish regions on a JPEG copy, then share. Never edits DNG. */
@@ -54,7 +53,7 @@ object GalleryRedact {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, "redact_${displayName.substringBeforeLast('.')}.jpg")
                 put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
                 if (Build.VERSION.SDK_INT >= 29) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DCIM + "/PointAndShoot")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, PnsDcimPaths.RELATIVE_PATH)
                 }
             }
         val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)

@@ -27,3 +27,15 @@ A Cursor planning agent should review these items and fold the useful ones into 
 **Tasks for the planning agent**
 
 - [ ] Evaluate RAW-referenced ETTR and drive zebras/false colour from RAW sensor-clip levels — The app already has false colour, zebras, Ultra HDR and JPEG XL, but they read the processed preview; idea source only, since RawLens is GPL-3.0 and this repo is Apache-2.0 (copy no code). Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.2.86
+
+## 2026-11-18
+
+Catch-up for Nov 17–18 (the daily brief did not run those mornings).
+
+**News and updates**
+
+- RawLens 2.3.94 makes Sigmoid the default tone mapper, adds a DNG develop queue (Sigmoid/Basic/AgX), and speeds Lucas–Kanade Reloaded merges about 3× on measured mobile runs. Idea source only (GPL-3.0). [source](https://github.com/matthew777777/RawLens/releases/tag/2.3.94)
+
+**Tasks for the planning agent**
+
+- [ ] Evaluate Sigmoid tone mapping and a DNG develop queue as idea sources — The earlier ETTR/zebra task still stands; 2.3.94's default Sigmoid curve and batch DNG develop are separate borrowing ideas. Copy no GPL-3.0 code. Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.3.94

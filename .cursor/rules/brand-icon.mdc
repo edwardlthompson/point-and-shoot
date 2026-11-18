@@ -1,0 +1,17 @@
+---
+description: Brand icon contract — owned PNG + icon_sha256; no stub placeholders
+globs:
+  - branding/**
+  - branding/brand.json
+  - branding/assets/**
+alwaysApply: false
+---
+
+# Brand icon
+
+- Canonical PNG: `branding/assets/app-icon-1024.png` (512×512, ≥400 bytes)
+- Metadata: `branding/brand.json` (`icon`, `icon_sha256`, `source`, `brand_name`, `tokens`)
+- Inheritance: if `icon_sha256` matches the template stock hash, treat as **inherited** (fail until rebrand)
+- Never ship stub SVG placeholders (&lt;400 bytes) as the app icon SoT
+- On `BRAND-ICON-MISSING`: write a design brief in the PR; do not generate placeholder marks
+- Gate: `python3 scripts/check-brand-icon.py` (see `docs/BRAND_ICON.md`)

@@ -1,0 +1,41 @@
+# News Inbox
+
+Auto-collected inbox of news, upstream updates, security fixes, and ideas relevant to this repo, appended daily by News Bot.
+A Cursor planning agent should review these items and fold the useful ones into BUILD_PLAN; entries are append-only, newest at the bottom.
+
+
+## 2026-11-13
+
+**News and updates**
+
+- Pillow heap overflow when saving TIFF via libtiff (CVE-2026-128067, high); affects <= 12.3.0, fixed in 13.0.0. [source](https://github.com/advisories/GHSA-xcvg-w56q-r89m)
+- Android Developers case study: SmileID used CameraX to handle OEM orientation quirks, aspect stretching and OOM across 18,000+ devices. [source](https://developer.android.com/blog/posts/smileid-camerax-android-identity-verification)
+- Kotlin 2.5.0-RC released (fixes a reified Enum<T> inference regression); Gradle 9.9.1 / 8.14.7 patch releases. [source](https://github.com/JetBrains/kotlin/releases/tag/v2.5.0-RC)
+
+**Tasks for the planning agent**
+
+- [x] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — The scripts import Pillow and the TIFF-save overflow affects all versions through 12.3.0. Label: `[AGENT]` · Priority: P1 · https://github.com/advisories/GHSA-xcvg-w56q-r89m (synced to BUILD_PLAN)
+- [ ] Review CameraX device-quirk and OOM patterns from SmileID — Proven fixes for OEM orientation, stretching and low-RAM crashes apply to a pro camera pipeline. Label: `[AGENT]` · Priority: P3 · https://developer.android.com/blog/posts/smileid-camerax-android-identity-verification
+- [ ] Smoke-test Kotlin 2.5.0-RC and bump Gradle wrapper — Catches compiler regressions before 2.5.0 stable. Label: `[AGENT]` · Priority: P3 · https://github.com/JetBrains/kotlin/releases/tag/v2.5.0-RC
+
+## 2026-11-16
+
+**News and updates**
+
+- RawLens 2.2.85/2.2.86: GPL-3.0 RAW camera for Android that meters off the RAW data (ETTR auto-exposure, RAW clipping zebras, false colour and spot meter relative to sensor clip); the new releases cut merge time and memory. [source](https://github.com/matthew777777/RawLens/releases/tag/2.2.86) · [thread](https://discuss.pixls.us/t/rawlens-bringing-desktop-raw-processing-to-an-open-source-android-camera/62220)
+
+**Tasks for the planning agent**
+
+- [ ] Evaluate RAW-referenced ETTR and drive zebras/false colour from RAW sensor-clip levels — The app already has false colour, zebras, Ultra HDR and JPEG XL, but they read the processed preview; idea source only, since RawLens is GPL-3.0 and this repo is Apache-2.0 (copy no code). Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.2.86
+
+## 2026-11-18
+
+Catch-up for Nov 17–18 (the daily brief did not run those mornings).
+
+**News and updates**
+
+- RawLens 2.3.94 makes Sigmoid the default tone mapper, adds a DNG develop queue (Sigmoid/Basic/AgX), and speeds Lucas–Kanade Reloaded merges about 3× on measured mobile runs. Idea source only (GPL-3.0). [source](https://github.com/matthew777777/RawLens/releases/tag/2.3.94)
+
+**Tasks for the planning agent**
+
+- [ ] Evaluate Sigmoid tone mapping and a DNG develop queue as idea sources — The earlier ETTR/zebra task still stands; 2.3.94's default Sigmoid curve and batch DNG develop are separate borrowing ideas. Copy no GPL-3.0 code. Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.3.94

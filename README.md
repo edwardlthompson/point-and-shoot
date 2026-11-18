@@ -112,3 +112,10 @@ This repo is a product, then a workshop. Start at [docs/START_HERE.md](docs/STAR
 ```
 
 License: [Apache-2.0](LICENSE) · Notices: [NOTICE](NOTICE) · [LICENSES.md](LICENSES.md) · [CHANGELOG.md](CHANGELOG.md) · [SECURITY.md](SECURITY.md)
+
+## What this is not
+
+- A finished commercial product promise
+- A place for secrets or production credentials
+- An unbounded scope — see README goals above
+

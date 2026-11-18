@@ -1,4 +1,97 @@
-﻿## Build plan (Point & Shoot)
+# Build Plan
+
+<!-- remaining-tally -->
+**Remaining:** (tally on next sync)
+<!-- /remaining-tally -->
+
+Live board. Canonical shape: agent-project-bootstrap `BUILD_PLAN_TEMPLATE.md`.
+Finished work: [`COMPLETED_TASKS.md`](COMPLETED_TASKS.md).
+
+**Who:** `AGENT` code · `HUMAN` person · `ADB` device · `AUTO` CI/scripts
+**Venue (AGENT only):** `[LOCAL]` This Computer · `[CLOUD]` Cursor Cloud
+**State:** 🔲 open · ✅ done · ❌ blocked
+
+Format: `🔲 [AGENT][LOCAL] Short task — scope: path/prefix`.
+
+### Open PRs (synced)
+
+> Auto-managed. Do not hand-edit inside the markers.
+
+<!-- open-prs-sync:begin -->
+_No open Dependabot or Release Please PRs._
+<!-- open-prs-sync:end -->
+
+### Template gaps (synced)
+
+> Auto-managed. Do not hand-edit inside the markers.
+
+<!-- template-gaps-sync:begin -->
+_No template gaps._
+<!-- template-gaps-sync:end -->
+
+### Waiting on a person
+
+- 🔲 `[HUMAN]` Write primary CPH2583 serial into gitignored `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL=…`) — one-time; AUTO warns if stale
+- 🔲 `[HUMAN]` Owner GitLab login confirmed
+- 🔲 `[HUMAN]` Confirm offline backup of gitignored `release.keystore` + `keystore.properties` (AUTO verifies local keystore/pins; custody is human)
+- 🔲 `[HUMAN]` BOOT.1 — Approve bootstrap **0.15 → 1.10** upgrade scope (~19 slash commands / which 1.x docs)
+- 🔲 `[HUMAN]` Decide whether OpenSSF Scorecard becomes a **required** branch-protection check (workflow already non-blocking)
+- 🔲 `[HUMAN]` Dependabot — merge / defer / dismiss version PRs and any Critical/High exceptions (AUTO lists; human decides)
+- 🔲 `[HUMAN]` ColorChecker Classic under controlled illuminant (unblocks AGENT de2000 gate)
+- 🔲 `[HUMAN]` H.SCENE — Bright window / sky torture for dial **H** (flat indoor can look “broken” by design)
+- 🔲 `[HUMAN]` HUD / LUT aesthetics · immersive mode feel
+- 🔲 `[HUMAN] H.8.1` Eye/face overlay on glass (AGENT pixel gate is separate)
+- 🔲 `[HUMAN] H.8.2` Dual-video stacked framing
+- 🔲 `[HUMAN] H.8.3 CRI-033` H.265 DCG @4K colors
+- 🔲 `[HUMAN] H.8.5` False color on grey card + highlight scene
+- 🔲 `[HUMAN] CRI-035` ACR open + color sign-off on OP13 aux DNGs (`hfr-runs/aux_dng_capture_analyze_20260613_014424`; integrity gates already scripted)
+- 🔲 `[HUMAN] CRI-034` Store listing — `metadata/en-US/` + Play listing creative
+- 🔲 `[HUMAN] CRI-034` `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review (AUTO structural checks above)
+- 🔲 `[HUMAN]` Community announcements
+
+### Local agent (This Computer)
+
+Standing queue for This Computer. Rows: `🔲 [AGENT][LOCAL] … — scope: path`.
+
+<!-- local-agent-lane:begin -->
+- `[AGENT][LOCAL]` · `[HUMAN]` · `[ADB]` · `[AUTO]` — 🔲 open · ✅ done · ❌ blocked
+- 🔲 `[AGENT][LOCAL]` BOOT.3 — After **HUMAN BOOT.1**: `/upgrade` per `docs/UPGRADING_FROM_TEMPLATE.md`; bump `.template-version`; rewrite `docs/BOOTSTRAP_ALIGNMENT.md`; selective `/tour` `/shape` `/resume` `/adr` `/update-deps`
+- 🔲 `[AGENT][LOCAL] CRI-032` `pns_eye_af_pixel_gate.ps1` — FAIL without face in frame (needs USB face scene)
+- ❌ `[AGENT][LOCAL]` `pns_colorchecker_de2000_gate.py` — blocked on **HUMAN** ColorChecker capture
+- 🔲 `[AUTO]` BOOT.4 — Weekly **Scorecard** + **template-update** checker on `main` (`.github/workflows/scorecard.yml` · `pns_check_template_updates.ps1` / `.template-update.json`)
+- 🔲 `[AUTO]` Dependabot — Assert **0** open Critical/High alerts (or fail closed into triage); list open version PRs for `/dependabot` (see `docs/SECURITY_TRIAGE.md`)
+- 🔲 `[AUTO]` Security scan + CodeQL green on `main` (release gate mirror)
+- 🔲 `[AUTO]` ADB env health — `PNS_ADB_SERIAL` present in `scripts/pns_adb_device.env` and matches an online `adb devices` serial when a device is connected (`pns_adb_serial.ps1` / gate warn)
+- 🔲 `[AUTO]` Keystore + pin drift — `pns_keystore_verify.ps1` vs `scripts/pns_keystore_expected.json`; flag if `leaderboard-ingest/config/signing_pins.json` SHA does not match release cert
+- 🔲 `[AUTO]` F-Droid / store metadata structure — `pns_fdroid_metadata_validate.ps1` (does **not** replace creative CRI-034 review)
+- 🔲 `[AUTO]` PRIVACY / NOTICE / README link presence — `pns_repro_build_verify.ps1` host subset (does **not** replace creative copy sign-off)
+- | Open human | `^- 🔲 \[HUMAN\]` |
+- | Open agent | `^- 🔲 \[AGENT\]` |
+- | Open AUTO | `^- 🔲 \[AUTO\]` |
+- | Blocked | `^- ❌` |
+- 🔲 [AGENT][LOCAL] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
+<!-- local-agent-lane:end -->
+
+### Cloud agent (Cursor Cloud)
+
+Standing queue for Cursor Cloud. Rows: `🔲 [AGENT][CLOUD] … — scope: path`.
+
+<!-- cloud-agent-lane:begin -->
+_No cloud agent items._
+<!-- cloud-agent-lane:end -->
+
+## Archive
+
+Older sprints: [`COMPLETED_TASKS.md`](COMPLETED_TASKS.md).
+
+## Preserved source board
+
+Quoted so no prior task is lost. Prefer the lanes above; do not invent work.
+
+<details>
+<summary>Previous board</summary>
+
+## Build plan (Point & Shoot)
 
 **Purpose:** Active open work only. Shipped → **[BUILD_PLAN_COMPLETED.md](BUILD_PLAN_COMPLETED.md)** · stub **[COMPLETED_TASKS.md](COMPLETED_TASKS.md)**.
 
@@ -147,3 +240,9 @@ Parity intake: `pns_fleet_parity_sweep.ps1 -Mode Delta` · `docs/FLEET_PARITY_BU
 
 - **Version:** 2026-10-22 — HUMAN consolidated + AUTO promotions (keystore/F-Droid/ADB/Dependabot/Scorecard).
 - **Owner:** Maintainer closes Milestone H after HUMAN list + release sign-off.
+
+## News inbox (synced)
+
+- 🔲 [AGENT] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
+
+</details>

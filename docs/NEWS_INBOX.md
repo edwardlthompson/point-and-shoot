@@ -39,3 +39,15 @@ Catch-up for Nov 17–18 (the daily brief did not run those mornings).
 **Tasks for the planning agent**
 
 - [ ] Evaluate Sigmoid tone mapping and a DNG develop queue as idea sources — The earlier ETTR/zebra task still stands; 2.3.94's default Sigmoid curve and batch DNG develop are separate borrowing ideas. Copy no GPL-3.0 code. Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.3.94
+
+## 2026-11-19
+
+**News and updates**
+
+- Jetpack Compose November '26 release is stable: Compose BOM 2026.11.01 (Compose 1.13) with Material3 1.5.0. The BOM needs Kotlin 2.2+ and compileSdk 37.1. Material3 1.5.0 breaks Slider/RangeSlider source (stateless overloads deprecated, `onValueChange` now required, RangeSliderState activeRangeStart/End renamed to startValue/endValue); SecureTextField now defaults to system obfuscation, and clickables play platform click sounds by default. [source](https://developer.android.com/blog/posts/jetpack-compose-november-2026-release) · [Material3 notes](https://developer.android.com/jetpack/androidx/releases/compose-material3)
+- CameraX 1.7.0 is stable: Camera2Interop V2 (no opt-in) exposes OutputConfiguration/SessionConfiguration, use cases can bind to physical cameras, FocusMeteringAction gains AE/AWB lock while staying in continuous AF, plus Quality.QHD and codec/bitrate control. Camera2Interop V1 and `getExtensionEnabledCameraSelector()` are deprecated. [source](https://developer.android.com/jetpack/androidx/releases/camera)
+
+**Tasks for the planning agent**
+
+- [ ] Bump Compose BOM 2026.09.00 to 2026.11.01 (Compose 1.13 / Material3 1.5.0) and fix Slider/RangeSlider call sites — Material3 1.5.0 makes `onValueChange` required on Slider/RangeSlider (3 files here call Slider/RangeSlider) and the BOM requires Kotlin 2.2+ and compileSdk 37.1, so a Dependabot/Argus BOM bump will fail unless AGP accepts 37.1 and the call sites are fixed first. Label: `[AGENT]` · Priority: P2 · https://developer.android.com/blog/posts/jetpack-compose-november-2026-release (not synced: no /build queue)
+- [ ] Upgrade CameraX 1.6.1 to 1.7.0 and migrate Camera2Interop V1 / getExtensionEnabledCameraSelector to V2 / ExtensionSessionConfig, then evaluate physical-lens binding and AE/AWB lock with continuous AF for the pro modes — the app mixes Camera2 and CameraX, so V1 deprecations will warn, and the new 3A and physical-camera APIs map onto its A/M/H/S dial and lens switching. Label: `[AGENT]` · Priority: P2 · https://developer.android.com/jetpack/androidx/releases/camera (not synced: no /build queue)

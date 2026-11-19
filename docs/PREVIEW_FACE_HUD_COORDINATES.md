@@ -34,6 +34,6 @@ flowchart LR
   B --> T
 ```
 
-## ML fallback
+## YUV fallback
 
-When the YUV analysis stream is present, **`MlKitFaceTrackSupport`** maps detections through **`TexturePreviewFit.mapYuvRectToFaceTrackBoxBuffer`** into buffer space, then the same **`mapBufferToView`** step as above. HFR sessions often omit YUV; the statistics path above is the one that must stay self-consistent at **≥120 fps**.
+When the YUV analysis stream is present, **`MlKitFaceTrackSupport`** (play: ML Kit; foss: `android.media.FaceDetector`) maps detections through **`TexturePreviewFit.mapYuvRectToFaceTrackBoxBuffer`** into buffer space, then the same **`mapBufferToView`** step as above. HFR sessions often omit YUV; the statistics path above is the one that must stay self-consistent at **≥120 fps**.

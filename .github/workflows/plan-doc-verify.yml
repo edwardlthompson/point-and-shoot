@@ -20,6 +20,7 @@ on:
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
       - 'metadata/**'
+      - 'fastlane/**'
   pull_request:
     paths:
       - 'PROBE_BUILD_PLAN.md'
@@ -38,6 +39,7 @@ on:
       - 'PERFORMANCE_BUDGETS.md'
       - 'STORAGE_STRATEGY.md'
       - 'metadata/**'
+      - 'fastlane/**'
 
 concurrency:
   group: plan-doc-${{ github.workflow }}-${{ github.ref }}

@@ -1014,8 +1014,14 @@ private fun hudToggleRows(
         HudToggleRow(
             title = "Smile-triggered still (13V.17)",
             description =
-                "Photo mode: ML Kit smile probability fires the tray still path (~4.5 s cooldown). " +
-                    "Uses YUV analysis; enable Eye-AF or this toggle alone.",
+                if (BuildConfig.FOSS_DISTRIBUTION) {
+                    "Photo mode: AOSP FaceDetector mouth-band score fires the tray still path " +
+                        "(~4.5 s cooldown). Camera2 STATISTICS_FACES remains the primary HUD. " +
+                        "Uses YUV analysis; enable Eye-AF or this toggle alone."
+                } else {
+                    "Photo mode: ML Kit smile probability fires the tray still path (~4.5 s cooldown). " +
+                        "Uses YUV analysis; enable Eye-AF or this toggle alone."
+                },
             enabled = settings.enableSmileTriggeredStill,
             onChange = { checked -> patch { it.copy(enableSmileTriggeredStill = checked) } },
         ),

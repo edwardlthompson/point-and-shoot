@@ -46,13 +46,13 @@ Complex camera/HAL issues may require USB proof on fleet hardware; we will keep 
 | **Dependabot** | [`.github/dependabot.yml`](.github/dependabot.yml) | GitHub Actions + Gradle (grouped) |
 | **Dependency Review** | [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) | PR dependency vulns (fail on High+) |
 | **OpenSSF Scorecard** | [`.github/workflows/scorecard.yml`](.github/workflows/scorecard.yml) | Weekly supply-chain scorecard (informational until human enables required check) |
-| **FOSS dep-audit** | [`scripts/pns_verify_toolchain.ps1`](scripts/pns_verify_toolchain.ps1) | Blocks Play Services / Firebase / ads SDKs |
+| **FOSS dep-audit** | [`scripts/pns_verify_toolchain.ps1`](scripts/pns_verify_toolchain.ps1) | Blocks Play Services / Firebase / ads in foss/main; ML Kit only in `app/play.gradle` |
 
 **Weekly triage playbook:** [`docs/SECURITY_TRIAGE.md`](docs/SECURITY_TRIAGE.md).
 
 ## Scope notes
 
-- **ML Kit face detection** is an intentional on-device exception — see [ADR-0006](docs/adr/0006-mlkit-face-detection-exception.md).
+- **ML Kit face detection** is play-flavor only (GitHub / Obtainium). The F-Droid `foss` flavor uses Camera2 `STATISTICS_FACES` plus AOSP `android.media.FaceDetector` — see [ADR-0011](docs/adr/0011-foss-play-distribution-flavors.md) (supersedes [ADR-0006](docs/adr/0006-mlkit-face-detection-exception.md)).
 - Release signing keys and `keystore.properties` must **never** be committed (see [`.gitignore`](.gitignore)).
 - Device serials belong in gitignored [`scripts/pns_adb_device.env`](scripts/pns_adb_device.env) only.
 

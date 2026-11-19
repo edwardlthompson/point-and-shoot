@@ -1,6 +1,6 @@
 # Point & Shoot - toolchain verification gate (run after Kotlin or PowerShell changes).
 # Proves: Gradle assembleDebug, UTF-8 for every scripts/*.ps1 + Kotlin sources (main + unit-test),
-#         PowerShell parse OK, FOSS dep-audit (Play / Firebase / broad ML Kit guarded; face-detection allowed),
+#         PowerShell parse OK, FOSS dep-audit (Play / Firebase / ML Kit forbidden except app/play.gradle),
 #         and (with -RunTests) :app:detekt, :pns-*:detekt, :app:lintDebug, :app:testDebugUnitTest, :app:koverVerify.
 # CI (`.github/workflows/toolchain-verify.yml`) invokes `-RunTests` so Gradle runs once for assemble + tests.
 # Usage:
@@ -124,6 +124,18 @@ if (-not $SkipGradle.IsPresent) {
   [void]$report.Add("SKIP: Gradle (-SkipGradle)")
 }
 
+$fossScan = Join-Path $PSScriptRoot "pns_fdroid_foss_scan.ps1"
+if (Test-Path -LiteralPath $fossScan) {
+  Write-Verify "F-Droid foss scanner (no GMS/ML Kit in foss source/APK)"
+  & $fossScan -ProjectRoot $ProjectRoot
+  if ($LASTEXITCODE -ne 0) {
+    [void]$report.Add("FAIL: foss F-Droid scan (run pns_fdroid_foss_scan.ps1)")
+    $failed = $true
+  } else {
+    [void]$report.Add("OK: foss F-Droid scan (no GMS/ML Kit/Firebase)")
+  }
+}
+
 $scriptFiles = @(
   Get-ChildItem -LiteralPath $PSScriptRoot -Filter "*.ps1" -File -ErrorAction SilentlyContinue |
     Sort-Object -Property Name
@@ -244,7 +256,8 @@ if (Test-Path -LiteralPath $perfBudgetGate) {
 # FOSS dependency audit: reject proprietary / Play Services groups in any Gradle build script
 # or version catalog. Scope: any .gradle, .gradle.kts, libs.versions.toml under the project root,
 # excluding build/ and .gradle/ caches.
-# Note: `com.google.mlkit:face-detection` is allowed (on-device Face HUD fallback); keep other ML Kit / Play stacks out.
+# Play-only exception: `com.google.mlkit:face-detection` may appear in `app/play.gradle`
+# (F-Droid rm's that file). foss / main Gradle files must stay GMS-free.
 $forbiddenGroups = @(
   'com.google.android.gms',     # Play Services
   'com.google.firebase',        # Firebase
@@ -276,16 +289,22 @@ foreach ($f in $auditPaths) {
   $text = ''
   try { $text = [System.IO.File]::ReadAllText($f.FullName) } catch { $text = '' }
   if ([string]::IsNullOrEmpty($text)) { continue }
+  $rel = $f.FullName.Replace('\','/')
+  $isPlayExtras = $rel -match '/app/play\.gradle$'
   foreach ($g in $forbiddenGroups) {
     if ($text -match [regex]::Escape($g)) {
       [void]$report.Add(("FAIL: dep-audit {0} references forbidden group '{1}'" -f $f.FullName, $g))
       $failed = $true
     }
   }
-  # Block other ML Kit artifacts while allowing face-detection only.
-  if ($text -match 'com\.google\.mlkit' -and $text -notmatch 'com\.google\.mlkit:face-detection') {
-    [void]$report.Add(("FAIL: dep-audit {0} references com.google.mlkit other than face-detection" -f $f.FullName))
-    $failed = $true
+  if ($text -match 'com\.google\.mlkit') {
+    if (-not $isPlayExtras) {
+      [void]$report.Add(("FAIL: dep-audit {0} references com.google.mlkit outside app/play.gradle (foss must stay GMS-free)" -f $f.FullName))
+      $failed = $true
+    } elseif ($text -notmatch 'com\.google\.mlkit:face-detection') {
+      [void]$report.Add(("FAIL: dep-audit {0} references com.google.mlkit other than face-detection" -f $f.FullName))
+      $failed = $true
+    }
   }
 }
 [void]$report.Add(("OK: dep-audit (no Play Services / proprietary SDK references in {0} Gradle file(s))" -f $audited))

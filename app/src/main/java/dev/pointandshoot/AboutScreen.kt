@@ -103,8 +103,15 @@ private fun AboutHeritageBody(
     liveHalHfrMaxByCameraId: Map<String, Int?>,
 ) {
     ChromeSettingsIntroText(
-        "FOSS pro camera for legacy dodge-class devices on LineageOS 23 (Android 16 / API 36). " +
-            "Apache-2.0 — no proprietary blobs, no Google Play Services.",
+        if (BuildConfig.FOSS_DISTRIBUTION) {
+            "FOSS pro camera for legacy dodge-class devices on LineageOS 23 (Android 16 / API 36). " +
+                "Apache-2.0 — no proprietary blobs, no Google Play Services. Face / eye HUD uses " +
+                "Camera2 STATISTICS_FACES and android.media.FaceDetector."
+        } else {
+            "FOSS pro camera for legacy dodge-class devices on LineageOS 23 (Android 16 / API 36). " +
+                "Apache-2.0 — no proprietary blobs. GitHub/Obtainium builds include on-device ML Kit " +
+                "face detection (no cloud); the F-Droid foss flavor does not."
+        },
     )
     ChromeSettingsIntroText(
         "Imaging profiles: Standard Pro and Ultra-Max write DNG; JPEG only uses the " +

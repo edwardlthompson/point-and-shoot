@@ -2,7 +2,7 @@
 
 In-repo **fastlane-style** metadata for a future [F-Droid](https://f-droid.org/) / [fdroiddata](https://gitlab.com/fdroid/fdroiddata) merge request.
 
-**User-facing distribution today:** GitHub Releases + Obtainium — see root [`README.md`](../README.md).
+**User-facing distribution:** GitHub Releases + Obtainium (`play` flavor) and F-Droid (`foss` flavor, `:app:assembleFossRelease`). F-Droid also scrapes root [`fastlane/metadata/android/`](../fastlane/metadata/android/).
 
 ## Layout
 
@@ -40,4 +40,5 @@ Store copy in `en-US/*.txt` is **agent-drafted** (fleet-first). Milestone **H.5*
 
 - Application ID **`dev.pointandshoot`**
 - **Apache-2.0** — matches [`LICENSE`](../LICENSE)
-- No proprietary blobs / no Play Services (FOSS audit in `pns_verify_toolchain.ps1`)
+- foss APK: no proprietary blobs / no Play Services (FOSS audit + `pns_fdroid_foss_scan.ps1`)
+- play APK: on-device ML Kit face fallback only (`app/play.gradle`)

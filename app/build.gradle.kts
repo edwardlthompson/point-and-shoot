@@ -102,12 +102,12 @@ android {
     }
 
     signingConfigs {
-        // Fallback: allow `assembleRelease` without a separate keystore (debug key; internal / probe builds only).
-        create("releaseDebugKey") {
-            initWith(signingConfigs.getByName("debug"))
+        // F-Droid strips this block. Use maybeCreate/findByName so a stripped
+        // recipe still configures release without a prebuild sed.
+        maybeCreate("releaseDebugKey").apply {
+            signingConfigs.findByName("debug")?.let { initWith(it) }
         }
-        // Real release-signing config (env vars OR keystore.properties; both gitignored).
-        create("release") {
+        maybeCreate("release").apply {
             releaseSigning?.let { rs ->
                 storeFile = rs.storeFile
                 storePassword = rs.storePassword
@@ -117,16 +117,35 @@ android {
         }
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("play") {
+            dimension = "distribution"
+            isDefault = true
+            buildConfigField("boolean", "FOSS_DISTRIBUTION", "false")
+            buildConfigField("String", "FACE_TRACK_BACKEND", "\"mlkit\"")
+            proguardFile("proguard-play-rules.pro")
+        }
+        create("foss") {
+            dimension = "distribution"
+            buildConfigField("boolean", "FOSS_DISTRIBUTION", "true")
+            buildConfigField("String", "FACE_TRACK_BACKEND", "\"camera2_face_detector\"")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            val releaseCfg = signingConfigs.findByName("release")
+            val debugKeyCfg = signingConfigs.findByName("releaseDebugKey")
+            val debugCfg = signingConfigs.findByName("debug")
             signingConfig = if (releaseSigning != null) {
                 logger.lifecycle("[pns] release signing source = ${releaseSigning.source}")
-                signingConfigs.getByName("release")
+                releaseCfg ?: debugCfg
             } else {
                 logger.lifecycle("[pns] release signing source = none (falling back to debug key)")
-                signingConfigs.getByName("releaseDebugKey")
+                debugKeyCfg ?: debugCfg
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -172,7 +191,7 @@ android {
     }
 
     baselineProfile {
-        // Generated `baseline-prof.txt` lives in src/main/ (see :baselineprofile:generateBaselineProfile).
+        // Generated profiles live in src/playRelease/generated/baselineProfiles/.
         saveInSrc = true
     }
 }
@@ -277,8 +296,8 @@ dependencies {
     implementation(libs.androidx.graphics.core)
     implementation(libs.androidx.exifinterface)
     implementation("androidx.documentfile:documentfile:1.1.0")
-    // Face HUD fallback when Camera2 STATISTICS_FACES is empty (common on some OEM preview streams).
-    implementation(libs.google.mlkit.face.detection)
+    // Face HUD fallback: play flavor adds ML Kit via play.gradle. foss uses
+    // Camera2 STATISTICS_FACES + android.media.FaceDetector (app/src/foss).
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -290,6 +309,11 @@ dependencies {
     // can be tested against in-memory JSONObject fixtures (the Android stub jar
     // throws "Stub!" for org.json calls otherwise). MIT-licensed; covered in LICENSES.md.
     testImplementation(libs.org.json)
+}
+
+// Play-only ML Kit. Missing after F-Droid `rm app/play.gradle` — foss still builds.
+if (file("play.gradle").isFile) {
+    apply(from = "play.gradle")
 }
 
 // Milestone T.11 — Gradle dependency locking for libs.versions.toml catalog.
@@ -491,6 +515,29 @@ fun pnsPatchNinjaLlvm(project: Project, cxxRoot: File, llvmAr: String, llvmRanli
     }
 }
 
+fun pnsCopyPlayApkToLegacyPath(buildType: String) {
+    val srcDir = layout.buildDirectory.get().asFile.resolve("outputs/apk/play/$buildType")
+    val destDir = layout.buildDirectory.get().asFile.resolve("outputs/apk/$buildType")
+    val dest = destDir.resolve("app-$buildType.apk")
+    val src =
+        srcDir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(".apk") && !it.name.endsWith(".apk.idsig") }
+            ?: return
+    destDir.mkdirs()
+    src.copyTo(dest, overwrite = true)
+    logger.lifecycle("[pns] copied ${src.name} -> ${dest.relativeTo(project.projectDir)}")
+}
+
+fun pnsAliasTask(alias: String, targets: List<String>) {
+    if (tasks.findByName(alias) != null) return
+    val present = targets.filter { tasks.findByName(it) != null }
+    if (present.isEmpty()) return
+    tasks.register(alias) {
+        dependsOn(present)
+        group = "verification"
+        description = "Alias $alias → ${present.joinToString()}"
+    }
+}
+
 afterEvaluate {
     val cxxRoot = layout.projectDirectory.dir(".cxx").asFile
     val (llvmAr, llvmRanlib) = pnsNdkLlvmTools(project)
@@ -500,4 +547,11 @@ afterEvaluate {
             pnsPatchNinjaLlvm(project, cxxRoot, llvmAr, llvmRanlib)
         }
     }
+    tasks.findByName("assemblePlayDebug")?.doLast { pnsCopyPlayApkToLegacyPath("debug") }
+    tasks.findByName("assemblePlayRelease")?.doLast { pnsCopyPlayApkToLegacyPath("release") }
+    pnsAliasTask(
+        "testDebugUnitTest",
+        listOf("testPlayDebugUnitTest", "testFossDebugUnitTest"),
+    )
+    pnsAliasTask("lintDebug", listOf("lintPlayDebug", "lintFossDebug"))
 }

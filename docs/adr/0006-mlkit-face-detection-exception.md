@@ -1,6 +1,6 @@
 # ADR-0006 — ML Kit face detection FOSS exception
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0011](0011-foss-play-distribution-flavors.md)
 - **Date:** 2026-06-12
 
 ## Context

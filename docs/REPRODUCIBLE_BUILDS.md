@@ -24,7 +24,7 @@ Commit the updated `app/gradle.lockfile` in the same change.
 
 ## SOURCE_DATE_EPOCH
 
-Release CI (`.github/workflows/build-signed.yml`) sets `SOURCE_DATE_EPOCH` from the checked-out Git commit timestamp before `:app:assembleRelease`. Local reproducible attempt:
+Release CI (`.github/workflows/build-signed.yml`) sets `SOURCE_DATE_EPOCH` from the checked-out Git commit timestamp before `:app:assembleRelease` (play default + foss). Local reproducible attempt:
 
 ```powershell
 $env:SOURCE_DATE_EPOCH = git log -1 --format=%ct

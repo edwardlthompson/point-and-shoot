@@ -1,0 +1,3 @@
+Fixed Highlight (H) metering warmup and garbage-frame guard; face tracking no longer biases AE on H dial.
+
+Restored QR scan in Photo programs on the mode dial (fleet visibility AlwaysShow).

@@ -13,8 +13,8 @@ alwaysApply: true
 
 ## Distribution
 
-- GitHub Releases / Obtainium as primary sideload channel
-- F-Droid metadata under `metadata/`
+- GitHub Releases / Obtainium as primary sideload channel (`play` flavor)
+- F-Droid `foss` flavor (no ML Kit / GMS); scrape `fastlane/metadata/android/` plus in-repo `metadata/`
 
 ## Privacy & Telemetry
 

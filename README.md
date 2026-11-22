@@ -12,7 +12,7 @@
 
 <p align="center">
   Predictable controls. Honest hardware. Files that open where you edit.<br />
-  No Play Services. No proprietary blobs. Apache-2.0.
+  F-Droid foss build: no Play Services. No proprietary blobs. Apache-2.0.
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@ Most phone cameras try to be clever. Point & Shoot tries to be **a camera**.
 
 You get a finder you can trust, a readout you can read in sunlight, and files you can take into Lightroom. What the hardware cannot do stays hidden — no greyed-out theater. What it can do, you drive: aperture, shutter, ISO, LUT, focal length, Photo / Video / Webcam.
 
-**Get it:** [GitHub Releases](https://github.com/edwardlthompson/point-and-shoot/releases/latest) · [Obtainium](https://github.com/ImranR98/Obtainium) (`https://github.com/edwardlthompson/point-and-shoot`) · F-Droid listing in progress
+**Get it:** [GitHub Releases](https://github.com/edwardlthompson/point-and-shoot/releases/latest) · [Obtainium](https://github.com/ImranR98/Obtainium) (`https://github.com/edwardlthompson/point-and-shoot`) · F-Droid (`foss` flavor, listing in progress)
 
 ---
 

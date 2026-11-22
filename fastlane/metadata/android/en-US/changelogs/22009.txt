@@ -1,0 +1,1 @@
+Milestone 28 closure: dual video mode, spatial audio, extension handoff; panorama/comp HDR spikes deferred; catalog v6.

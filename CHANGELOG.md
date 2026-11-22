@@ -4,7 +4,14 @@ All notable changes to **Point & Shoot** are documented here. The project adhere
 
 ## Unreleased
 
-_(Nothing yet - add user-visible deltas here; run `pns_changelog_gate.ps1` before milestone gates.)_
+### Added
+
+- **F-Droid `foss` flavor** — Camera2 `STATISTICS_FACES` plus AOSP `android.media.FaceDetector` for face / eye HUD; no ML Kit, Play Services, or Firebase. GitHub / Obtainium **`play`** builds keep the previous ML Kit YUV fallback. Smile-triggered still in foss uses a mouth-band heuristic (still off by default).
+
+### Changed
+
+- Store copy and About distinguish foss (F-Droid) from play (GitHub/Obtainium). Root `fastlane/metadata/android/` is the F-Droid scrape path.
+
 ## [0.14.2] - 2026-10-22
 
 **Release notes:** **APK:** `Point-and-Shoot-0.14.2.apk`

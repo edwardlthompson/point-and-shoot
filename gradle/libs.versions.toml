@@ -21,7 +21,6 @@ paparazzi = "2.0.0-alpha05"
 orgJson = "20240303"
 exifInterface = "1.4.0"
 documentfile = "1.1.0"
-mlkitFaceDetection = "16.1.7"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -49,8 +48,6 @@ androidx-documentfile = { module = "androidx.documentfile:documentfile", version
 
 junit = { module = "junit:junit", version.ref = "junit" }
 org-json = { module = "org.json:json", version.ref = "orgJson" }
-
-google-mlkit-face-detection = { module = "com.google.mlkit:face-detection", version.ref = "mlkitFaceDetection" }
 
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileInstaller" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "junitExt" }

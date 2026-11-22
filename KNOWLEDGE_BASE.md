@@ -14,11 +14,12 @@ Curated map of **canonical docs → code → gates**. Index only — do not dupl
 | Performance targets | [PERFORMANCE_BUDGETS.md](PERFORMANCE_BUDGETS.md) | Cold start, preview FPS, capture latency |
 | Storage | [STORAGE_STRATEGY.md](STORAGE_STRATEGY.md) | MediaStore / DCIM layout |
 | License | [LICENSE](LICENSE) | **Apache-2.0** (not MIT) |
-| Distribution | [CLI_BUILD_AND_SIDELOAD.md](CLI_BUILD_AND_SIDELOAD.md) | GitHub/Obtainium `play`; F-Droid `foss` ([ADR-0011](docs/adr/0011-foss-play-distribution-flavors.md)); fastlane + [`metadata/`](metadata/); privacy [`PRIVACY.md`](PRIVACY.md) |
+| Distribution | [CLI_BUILD_AND_SIDELOAD.md](CLI_BUILD_AND_SIDELOAD.md) | GitHub Releases, Obtainium; F-Droid metadata in [`metadata/`](metadata/); privacy [`PRIVACY.md`](PRIVACY.md) |
 | Reproducible builds | [docs/REPRODUCIBLE_BUILDS.md](docs/REPRODUCIBLE_BUILDS.md) | Lockfile, SOURCE_DATE_EPOCH, LUT pins · `pns_repro_build_verify.ps1` |
 | Code review planning intake | [docs/CODE_REVIEW_PLANNING_INTAKE.md](docs/CODE_REVIEW_PLANNING_INTAKE.md) | Full-project audit `CRI-*` rows for sprint promotion |
 | Multi-agent parallel | [docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md](docs/MULTI_AGENT_PARALLEL_ORCHESTRATION.md) | Worktrees, schema lock · `pns_agent_worktree_bootstrap.ps1` |
-| M28 peer benchmark | [BUILD_PLAN.md](BUILD_PLAN.md) Milestone 28 · [docs/CAMERA_APP_PIPELINE_BENCHMARK.md](docs/CAMERA_APP_PIPELINE_BENCHMARK.md) (Sprint 28.0) | `pns_camera_app_pipeline_scan.ps1` | Kotlin 2.1+, Jetpack Compose, Camera2, NDK (C++23). Min/target/compile SDK 28 / 36 / 36. foss Gradle is GMS-free; play may add ML Kit (`pns_verify_toolchain.ps1` + `pns_fdroid_foss_scan.ps1`).
+| Multiplatform migration | [docs/migration/INVENTORY.md](docs/migration/INVENTORY.md) · [DESIGN_BRIEF.md](docs/migration/DESIGN_BRIEF.md) · [TECH_DECISION.md](docs/migration/TECH_DECISION.md) · [PARITY_CHECKLIST.md](docs/migration/PARITY_CHECKLIST.md) | Phases 0–3 docs; BUILD_PLAN MIG.*; Phase 4 not started |
+| M28 peer benchmark | [BUILD_PLAN.md](BUILD_PLAN.md) Milestone 28 · [docs/CAMERA_APP_PIPELINE_BENCHMARK.md](docs/CAMERA_APP_PIPELINE_BENCHMARK.md) (Sprint 28.0) | `pns_camera_app_pipeline_scan.ps1` | Kotlin 2.1+, Jetpack Compose, Camera2, NDK (C++23). Min/target/compile SDK 28 / 36 / 36. No Play Services / Firebase in Gradle (FOSS audit in `pns_verify_toolchain.ps1`).
 
 ---
 

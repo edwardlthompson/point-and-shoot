@@ -25,4 +25,10 @@ One-page index of [Architecture Decision Records](docs/adr/README.md). **Append 
 
 **Related (not ADRs):** regression ledger [`docs/AGENT_REGRESSION_MEMORY.md`](docs/AGENT_REGRESSION_MEMORY.md) · curated index [`KNOWLEDGE_BASE.md`](KNOWLEDGE_BASE.md) · active plan [`BUILD_PLAN.md`](BUILD_PLAN.md) Milestone H + **H.CRI-0…7**.
 
+### 2026-11-16 — Multiplatform migration Phases 0–3 (not an ADR yet)
+
+- **Product:** iOS = full camera (adapt chrome, ProRAW OK); desktop = companion (tether / MJPEG / UVC host / library / presets). [`docs/migration/INVENTORY.md`](docs/migration/INVENTORY.md) Decisions.
+- **Stack (file when Phase 4 starts as ADR-0011+):** KMP core + Compose Multiplatform companion/library UI + native shooting pipelines. [`docs/migration/TECH_DECISION.md`](docs/migration/TECH_DECISION.md).
+- **Brief:** [`docs/migration/DESIGN_BRIEF.md`](docs/migration/DESIGN_BRIEF.md) binding; deviations need Edward.
+
 *Milestone H — link gate: `scripts/pns_template_doc_link_check.ps1`*

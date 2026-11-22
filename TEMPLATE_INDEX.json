@@ -66,6 +66,26 @@
       "read_when": "session_start"
     },
     {
+      "path": "docs/migration/INVENTORY.md",
+      "purpose": "Phase 0 multiplatform inventory + Edward 2026-11-16 decisions",
+      "read_when": "migration"
+    },
+    {
+      "path": "docs/migration/DESIGN_BRIEF.md",
+      "purpose": "Phase 1 binding design brief",
+      "read_when": "migration"
+    },
+    {
+      "path": "docs/migration/TECH_DECISION.md",
+      "purpose": "Phase 2 stack decision (KMP + CMP companion + native shooting)",
+      "read_when": "migration"
+    },
+    {
+      "path": "docs/migration/PARITY_CHECKLIST.md",
+      "purpose": "Phase 3 parity checklist",
+      "read_when": "migration"
+    },
+    {
       "path": "HUMAN_BACKLOG.md",
       "purpose": "Deferred HUMAN/ADB automation failures",
       "read_when": "session_start"

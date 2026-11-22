@@ -12,10 +12,11 @@ reports drift (new dep, removed dep, version mismatch), update **both**
 this file and re-run the gate.
 
 > Transitive dependencies are not enumerated here - the FOSS dep-audit in
-> `pns_verify_toolchain.ps1` rejects Play Services / Firebase / broad ML Kit
-> pulls except the pinned **`com.google.mlkit:face-detection`** coordinate
-> (on-device Face HUD), plus Play Billing / Ads. A full CycloneDX-style SBOM
-> with transitive resolution remains a Phase-1 follow-up.
+> `pns_verify_toolchain.ps1` rejects Play Services / Firebase / ML Kit in
+> foss/main Gradle files. **`com.google.mlkit:face-detection`** is Play-flavor
+> only (`app/play.gradle`; F-Droid `rm`s it). foss uses Camera2
+> `STATISTICS_FACES` plus `android.media.FaceDetector`. A full CycloneDX-style
+> SBOM with transitive resolution remains a Phase-1 follow-up.
 
 ## Apache-2.0 statement
 
@@ -45,7 +46,7 @@ is verified to be license-compatible with Apache-2.0 redistribution.
 | com.google.zxing:core | 3.5.3 | Apache-2.0 | ZXing (barcode / QR decode) |
 | androidx.graphics:graphics-core | 1.0.0-alpha05 | Apache-2.0 | Jetpack |
 | androidx.exifinterface:exifinterface | 1.4.0 | Apache-2.0 | Jetpack |
-| com.google.mlkit:face-detection | 16.1.7 | Apache-2.0 | Google ML Kit (on-device) |
+| com.google.mlkit:face-detection | 16.1.7 | Apache-2.0 | Play flavor only (`app/play.gradle`); not in foss APK |
 | androidx.profileinstaller:profileinstaller | 1.4.1 | Apache-2.0 | Jetpack (startup profiles) |
 
 ## Debug-only dependencies (debug APK only, not in release)

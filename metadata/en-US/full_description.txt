@@ -1,6 +1,6 @@
 Point & Shoot is a fully open-source camera for people who actually shoot.
 
-Predictable Camera2 controls, a finder you can trust, and files that open in Lightroom — not a clever OEM clone. What the hardware cannot do stays hidden. Apache-2.0. No Play Services. No proprietary blobs.
+Predictable Camera2 controls, a finder you can trust, and files that open in Lightroom — not a clever OEM clone. What the hardware cannot do stays hidden. Apache-2.0. The F-Droid build is the foss flavor: no Play Services, no ML Kit, no Firebase. Face / eye HUD uses Camera2 STATISTICS_FACES and android.media.FaceDetector.
 
 <b>The finder</b>
 • 3:4 live preview, professional readout, 7×3 quick grid
@@ -25,6 +25,6 @@ Predictable Camera2 controls, a finder you can trust, and files that open in Lig
 • Share DNG + JPEG as one shot
 • Trim, LUT bake, vault, Immich / WebDAV, evidence hash
 
-Updates: GitHub Releases and Obtainium. F-Droid submission is in progress.
+Updates: F-Droid (foss), GitHub Releases and Obtainium (play flavor, on-device ML Kit face fallback).
 
 Issue tracker: https://github.com/edwardlthompson/point-and-shoot/issues

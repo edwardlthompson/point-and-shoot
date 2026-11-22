@@ -37,8 +37,10 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:assembleDebug
 ```
 
-APK output:
-- `app\build\outputs\apk\debug\app-debug.apk`
+APK output (play is the default flavor; copied to the legacy path):
+- `app\build\outputs\apk\debug\app-debug.apk` (play debug)
+- `app\build\outputs\apk\play\debug\app-play-debug.apk`
+- `app\build\outputs\apk\foss\debug\app-foss-debug.apk` (`:app:assembleFossDebug`)
 
 ### 2) Sideload to device
 
@@ -130,11 +132,13 @@ Metadata lives under [`metadata/`](metadata/README.md). Gate: `.\scripts\pns_fdr
 
 Typical F-Droid builder steps (see also `metadata/metadata.yml` `Builds:`):
 
-1. Checkout a **tagged** release (same `versionCode` / `versionName` as `app/build.gradle.kts`).
-2. Install SDK platform **36**, build-tools **36.0.0**, and NDK **26.3.11579264** (matches `app/build.gradle.kts`).
+1. Checkout a **tagged** release that includes the `foss` flavor (same `versionCode` / `versionName` as `app/build.gradle.kts`).
+2. Install SDK platform **37**, build-tools, and NDK **26.3.11579264** (matches `app/build.gradle.kts`).
 3. Export `SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)` before Gradle.
-4. Run `./gradlew :app:assembleRelease` (runs `:downloadBundledLuts` via `preBuild` when LUT specs are configured).
-5. Sign with F-Droid's release keystore policy (project ships maintainer-signed GitHub APKs separately).
+4. `rm` play-only paths (`app/src/play`, `app/src/playRelease`, `app/play.gradle`) then run `./gradlew :app:assembleFossRelease`.
+5. Sign with F-Droid's release keystore policy (project ships maintainer-signed GitHub **play** APKs separately).
+
+Fastlane scrape path: `fastlane/metadata/android/en-US/` (icon + phone screenshots are real device captures).
 
 Dependency versions are pinned via `gradle/libs.versions.toml` + `app/gradle.lockfile`.
 Refresh locks after catalog bumps: `.\scripts\pns_gradlew.ps1 :app:dependencies --write-locks`.

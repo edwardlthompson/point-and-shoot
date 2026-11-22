@@ -12,7 +12,7 @@
 | Agent automation | `AGENTS.md` |
 | Locked invariants (short) | `.cursor/rules/*.mdc` where applicable |
 
-**Last synced with tree:** 2026-10-22 (H expose-for-highlights: blown regions full engagement + fast Auto→H response).
+**Last synced with tree:** 2026-11-16 (foss/play flavors: F-Droid FaceDetector fallback; play keeps ML Kit).
 
 **Related deep dives (not duplicated here):**
 
@@ -421,7 +421,7 @@ Full regression table: `docs/REVERTED_FEATURES_RESTORE_LIST.md` §8.
 | `enableHdr10LivePreview` | **false** | Dynamic range profile probe |
 | `enableResearchAfBracketing` | **false** | Qualcomm session vendor key |
 | `enableResearchHfrAICameraHSR` | **false** | Qualcomm HFR session key |
-| `enableSmileTriggeredStill` | **false** | ML Kit smile → still |
+| `enableSmileTriggeredStill` | **false** | play: ML Kit smile → still; foss: mouth-band `FossSmileEstimator` |
 | `focusPeakingColor` | **Off** | GL shader path |
 | `selectedLutForStills` / `Video` | **None** | Per-mode LUT memory |
 | `hardwareJpegIspBias` | **0** (chart apply sets **-2**) | [PreviewJpegProcessingHints] — edge/NR/tonemap/CC modes |

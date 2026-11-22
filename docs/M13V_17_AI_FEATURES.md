@@ -4,8 +4,8 @@ Optional “AI-adjacent” features: smile-triggered still, OEM scene vendor key
 
 ## Smile-triggered still
 
-- **Policy:** `SmileStillCapturePolicy` — threshold **0.85**, **4.5 s** cooldown.
-- **Detection:** `MlKitFaceTrackSupport.maxSmilingProbability()` with lazy `CLASSIFICATION_MODE_ALL` detector on the preview YUV path when HUD **Smile-triggered still** is on and primary mode is photo (not recording / sweep).
+- **Policy:** `SmileStillCapturePolicy` — threshold **0.70**, **4.5 s** cooldown.
+- **Detection:** `MlKitFaceTrackSupport.maxSmilingProbability()` on the preview YUV path when HUD **Smile-triggered still** is on and primary mode is photo (not recording / sweep). **play:** ML Kit `CLASSIFICATION_MODE_ALL`. **foss:** `FossSmileEstimator` mouth-band luma.
 - **Capture:** `PreviewController.runSmileStillIfNeeded()` → tray still capture ref (same path as shutter DNG).
 - **HUD:** Settings → HUD → **Smile-triggered still** (default off).
 

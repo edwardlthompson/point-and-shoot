@@ -1,0 +1,1 @@
+RAW still AE precapture now settles like ProShot: CONTROL_AE_PRECAPTURE_TRIGGER on the repeating preview stream, then stopRepeating and TEMPLATE_STILL_CAPTURE (RAW±JPEG). Keeps AE lock, AsShotNeutral sync, and lens-shading map off.

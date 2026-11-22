@@ -1,0 +1,6 @@
+// Play / GitHub / Obtainium only. F-Droid recipes `rm` this file before scan.
+// Groovy (not .kts): Android Lint's UastGradleVisitor crashes on extra Kotlin scripts.
+// Do not reference this coordinate from app/build.gradle.kts or libs.versions.toml.
+dependencies {
+    playImplementation "com.google.mlkit:face-detection:16.1.7"
+}

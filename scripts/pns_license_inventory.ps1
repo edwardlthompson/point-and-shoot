@@ -58,7 +58,7 @@ $LicenseMap = @{
   'com.google.zxing:core'                        = @{ Spdx = 'Apache-2.0'; Scope = 'runtime'; Notes = 'ZXing core (decode only); https://github.com/zxing/zxing' }
   'androidx.graphics:graphics-core'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
   'androidx.exifinterface:exifinterface'         = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
-  'com.google.mlkit:face-detection'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime'; Notes = 'ML Kit on-device; see https://developers.google.com/ml-kit/terms' }
+  'com.google.mlkit:face-detection'              = @{ Spdx = 'Apache-2.0'; Scope = 'runtime'; Notes = 'Play flavor only (app/play.gradle); foss uses Camera2 + android.media.FaceDetector' }
   'androidx.profileinstaller:profileinstaller'   = @{ Spdx = 'Apache-2.0'; Scope = 'runtime' }
 
   # Debug-only
@@ -118,7 +118,24 @@ function Get-CatalogCoordinates([string]$tomlText) {
   return $coords | Sort-Object -Unique
 }
 
-$coords = Get-CatalogCoordinates $text
+function Get-PlayFlavorCoordinates([string]$playGradlePath) {
+  if (-not (Test-Path -LiteralPath $playGradlePath)) { return @() }
+  $playText = [System.IO.File]::ReadAllText($playGradlePath)
+  $found = [regex]::Matches($playText, '"((?:com|org|androidx|io)\.[^"]+:[^"]+:[^"]+)"') |
+    ForEach-Object { $_.Groups[1].Value }
+  $modules = @()
+  foreach ($c in $found) {
+    $parts = $c -split ':'
+    if ($parts.Count -ge 2) { $modules += ($parts[0] + ':' + $parts[1]) }
+  }
+  return $modules | Sort-Object -Unique
+}
+
+$playGradle = Join-Path $ProjectRoot "app/play.gradle"
+$coords = @()
+$coords += Get-CatalogCoordinates $text
+$coords += Get-PlayFlavorCoordinates $playGradle
+$coords = $coords | Sort-Object -Unique
 
 $missingFromMap = @()
 $missingFromCatalog = @()

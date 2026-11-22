@@ -1,0 +1,3 @@
+Engineering: H.CRI-5 monolith extraction (preview session modules) and T.14 unified mock preview (GLES test pattern + Pro HUD without Camera2).
+
+Maintainer notes: CRI program closure, OP13 regression lane, RAW video lane fix — see CHANGELOG.md on GitHub for full 0.14.0-beta.11 history.

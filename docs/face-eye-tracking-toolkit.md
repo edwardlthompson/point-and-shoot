@@ -48,7 +48,7 @@ Exported markdown includes:
 | Face + eye geometry | `CaptureResult.STATISTICS_FACES` read each frame; **Eye-AF overlay** documents reliance on FULL mode (`EyeAfOverlay.kt`, `CapabilityGate` gates overlay on FULL). |
 | AF / AE regions | `CONTROL_AF_REGIONS` for tap and face-priority metering (`PreviewEngineScreen`). |
 | Capability snapshot | `HardwareCapsSnapshot` sets `hasFaceDetectFull` from `STATISTICS_INFO_AVAILABLE_FACE_DETECT_MODES`. |
-| ML fallback | When `STATISTICS_FACES` is empty or unreliable, ML Kit path (`MlKitFaceTrackSupport.kt`, `FaceDetectAdapter.kt`) feeds overlays. |
+| YUV fallback | When `STATISTICS_FACES` is empty: **play** uses ML Kit (`app/src/play/.../MlKitFaceTrackSupport.kt`); **foss** uses AOSP `android.media.FaceDetector` (`app/src/foss/...`). Same overlay mapping. |
 | Vendor macro (not face, but AF-relevant context) | `com.oplus.macro.closeup.enable` via `VendorKeyGuard` / `HardwareCapsSnapshot.VENDOR_MACRO_CLOSEUP_REQUEST` for ultra-wide close-up. |
 
 ---
@@ -80,9 +80,9 @@ Every root feature has a **non-root fallback** documented in `RootCapability.FEA
 
 ## 5. Gaps and OEM variance
 
-- **`STATISTICS_FACES` empty or eye fields zero** while mode is FULL → rely on **ML Kit** path or accept degraded Eye-AF overlay.
+- **`STATISTICS_FACES` empty or eye fields zero** while mode is FULL → YUV fallback (**play:** ML Kit; **foss:** AOSP `FaceDetector`) or accept degraded Eye-AF overlay.
 - **Vendor keys** differ per device — treat PROBE_RESULTS as source of truth per fleet device.
-- **No public HAL guarantee** for continuous “eye tracking” separate from face rectangles; Eye-AF UX is **best-effort** from statistics + ML.
+- **No public HAL guarantee** for continuous “eye tracking” separate from face rectangles; Eye-AF UX is **best-effort** from statistics + the flavor YUV fallback.
 
 ---
 

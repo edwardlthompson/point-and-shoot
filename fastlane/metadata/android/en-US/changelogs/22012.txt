@@ -1,0 +1,1 @@
+Gate CONTROL_ZOOM_RATIO behind API 30 so RAW still zoom reset is safe on Android 9–10.

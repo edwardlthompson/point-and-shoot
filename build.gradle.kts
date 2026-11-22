@@ -22,7 +22,10 @@ subprojects {
                 because("Align BouncyCastle for Gradle tool transitive CVEs (security-scan lockfile gate; CVE-2026-8763/13506)")
             }
             if (requested.group == "com.google.guava" && requested.name == "guava") {
-                useVersion("33.7.2")
+                // Bare 33.7.2 is not published; keep -jre vs -android classifiers.
+                val aligned =
+                    if (requested.version.orEmpty().endsWith("-jre")) "33.7.2-jre" else "33.7.2-android"
+                useVersion(aligned)
                 because("Align Guava for Trivy dependency scan (CVE-2026-102554)")
             }
         }

@@ -70,6 +70,7 @@ Standing queue for This Computer. Rows: `🔲 [AGENT][LOCAL] … — scope: path
 - | Open AUTO | `^- 🔲 \[AUTO\]` |
 - | Blocked | `^- ❌` |
 - 🔲 [AGENT][LOCAL] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
+- 🔲 [AGENT][LOCAL] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
 <!-- local-agent-lane:end -->
 
 ### Cloud agent (Cursor Cloud)
@@ -240,9 +241,3 @@ Parity intake: `pns_fleet_parity_sweep.ps1 -Mode Delta` · `docs/FLEET_PARITY_BU
 
 - **Version:** 2026-10-22 — HUMAN consolidated + AUTO promotions (keystore/F-Droid/ADB/Dependabot/Scorecard).
 - **Owner:** Maintainer closes Milestone H after HUMAN list + release sign-off.
-
-## News inbox (synced)
-
-- 🔲 [AGENT] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
-
-</details>

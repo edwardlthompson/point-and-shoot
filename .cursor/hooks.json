@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "python3 .cursor/hooks/session_start_context.py"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "python3 .cursor/hooks/before_shell_guard.py"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "python3 .cursor/hooks/after_edit_encoding.py"
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "python3 .cursor/hooks/subagent_scope_inject.py"
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "python3 .cursor/hooks/mcp_audit.py"
+      }
+    ]
+  }
+}

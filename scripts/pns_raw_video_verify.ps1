@@ -171,8 +171,12 @@ $magicOk = $false
 $pulledBytes = 0L
 $pulledPath = ""
 if ($rawSaved) {
-    $dcimPath = "/storage/emulated/0/DCIM/Point & Shoot"
-    $lsOut = (Invoke-AdbCmd shell "ls '$dcimPath/'" 2>&1) | Where-Object { $_ -match "\.mcraw" } | Select-Object -Last 1
+    $dcimPath = $null
+    $lsOut = $null
+    foreach ($candidate in @("/storage/emulated/0/DCIM/PointAndShoot", "/storage/emulated/0/DCIM/Point & Shoot")) {
+        $lsOut = (Invoke-AdbCmd shell "ls '$candidate/'" 2>&1) | Where-Object { $_ -match "\.mcraw" } | Select-Object -Last 1
+        if ($lsOut) { $dcimPath = $candidate; break }
+    }
     $newestFile = if ($lsOut) { ([string]$lsOut).Trim() } else { $null }
     if ($newestFile) {
         $realPath = "$dcimPath/$newestFile"

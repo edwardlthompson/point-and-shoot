@@ -12,7 +12,7 @@ Curated map of **canonical docs → code → gates**. Index only — do not dupl
 | Architecture | [CAPTURE_ARCHITECTURE.md](CAPTURE_ARCHITECTURE.md) | Threading, capture pipeline |
 | Dodge product profile | [DODGE_PROFILE.md](DODGE_PROFILE.md) | Tele 73/85/150 mm routing reference |
 | Performance targets | [PERFORMANCE_BUDGETS.md](PERFORMANCE_BUDGETS.md) | Cold start, preview FPS, capture latency |
-| Storage | [STORAGE_STRATEGY.md](STORAGE_STRATEGY.md) | MediaStore / DCIM layout |
+| Storage | [STORAGE_STRATEGY.md](STORAGE_STRATEGY.md) | MediaStore / `DCIM/PointAndShoot` ([`PnsDcimPaths`](modules/pns-core/src/main/java/dev/pointandshoot/PnsDcimPaths.kt); gallery also reads legacy `DCIM/Point & Shoot`) |
 | License | [LICENSE](LICENSE) | **Apache-2.0** (not MIT) |
 | Distribution | [CLI_BUILD_AND_SIDELOAD.md](CLI_BUILD_AND_SIDELOAD.md) | GitHub Releases, Obtainium; F-Droid metadata in [`metadata/`](metadata/); privacy [`PRIVACY.md`](PRIVACY.md) |
 | Reproducible builds | [docs/REPRODUCIBLE_BUILDS.md](docs/REPRODUCIBLE_BUILDS.md) | Lockfile, SOURCE_DATE_EPOCH, LUT pins · `pns_repro_build_verify.ps1` |

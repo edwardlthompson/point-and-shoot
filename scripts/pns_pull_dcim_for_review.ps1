@@ -63,18 +63,20 @@ if (-not $OutDir) {
 }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-$dcimPath = "/sdcard/DCIM/Point & Shoot"
+$dcimFind = "'/sdcard/DCIM/PointAndShoot' '/sdcard/DCIM/Point & Shoot'"
+$dcimCanonical = "/sdcard/DCIM/PointAndShoot"
+$dcimLegacy = "/sdcard/DCIM/Point & Shoot"
 
 # Find files modified in last N hours
 $findMtime = "-mmin -$($SinceHours * 60)"
 Write-Log "Finding files modified in last $SinceHours hours..."
 
-$files = & $adb @deviceArgs shell "find '$dcimPath' -type f $findMtime 2>/dev/null | sort" 2>&1
+$files = & $adb @deviceArgs shell "find $dcimFind -type f $findMtime 2>/dev/null | sort" 2>&1
 
 if (-not $files -or $files -match "No such file") {
-    Write-Log "No recent files found in $dcimPath"
+    Write-Log "No recent files found in $dcimFind"
     # Try listing all files
-    $files = & $adb @deviceArgs shell "ls -t '$dcimPath'/*.dng '$dcimPath'/*.jpg '$dcimPath'/*.mp4 2>/dev/null | head -20" 2>&1
+    $files = & $adb @deviceArgs shell "ls -t '$dcimCanonical'/*.dng '$dcimCanonical'/*.jpg '$dcimCanonical'/*.mp4 '$dcimLegacy'/*.dng '$dcimLegacy'/*.jpg '$dcimLegacy'/*.mp4 2>/dev/null | head -20" 2>&1
 }
 
 $pullCount = 0

@@ -138,7 +138,7 @@ $hasBt709Flat = ($log -match "colorVui=bt709-flat")
 $hasFlatProfile = ($log -match "colorProfile=flat_cine")
 $hasHlgTag = ($log -match "colorVui=bt2020-hlg|transfer=hlg")
 $hasHdrTag = ($log -match "colorVui=bt2020-hlg|colorVui=bt2020-hdr10|colorVui=bt2020")
-$latest = (Invoke-Adb @("shell", "ls -t '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1") -join "`n")
+$latest = (Invoke-Adb @("shell", "ls -t '/sdcard/DCIM/PointAndShoot'/pns_*.mp4 '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1") -join "`n")
 $fallbackClipFound = ($latest -match "pns_.*\.mp4")
 
 $pass = $false

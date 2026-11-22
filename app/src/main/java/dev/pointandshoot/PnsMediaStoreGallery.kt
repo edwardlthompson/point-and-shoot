@@ -11,11 +11,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Sprint **PO.1** — indexed MediaStore reads for in-app gallery (P&S DCIM tree only, capped row count).
+ * Sprint **PO.1** — indexed MediaStore reads for in-app gallery (canonical
+ * [PnsDcimPaths.RELATIVE_PATH] plus legacy `DCIM/Point & Shoot`, capped row count).
  */
 object PnsMediaStoreGallery {
     private const val TAG = "PNS.GalleryIndex"
-    private const val PNS_DCIM_RELATIVE_PATH = "DCIM/Point & Shoot"
     const val DEFAULT_MAX_ITEMS = 500
 
     /**
@@ -51,16 +51,18 @@ object PnsMediaStoreGallery {
             Log.i(
                 TAG,
                 "loadIndex count=${sorted.size} ms=${System.currentTimeMillis() - start} " +
-                    "images=$imageCount videos=$videoCount pathFilter=$PNS_DCIM_RELATIVE_PATH",
+                    "images=$imageCount videos=$videoCount pathFilter=${PnsDcimPaths.readRelativePaths()}",
             )
             sorted
         }
 
-    internal fun dcimRelativePathLikeArg(): String = "$PNS_DCIM_RELATIVE_PATH%"
+    internal fun dcimRelativePathLikeArg(): String = PnsDcimPaths.canonicalRelativePathLikeArg()
+
+    internal fun dcimRelativePathLikeArgs(): Array<String> = PnsDcimPaths.relativePathLikeArgs()
 
     internal fun pnsRelativePathSelection(): Pair<String, Array<String>>? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
-        return "${MediaStore.MediaColumns.RELATIVE_PATH} LIKE ?" to arrayOf(dcimRelativePathLikeArg())
+        return PnsDcimPaths.relativePathSqlClause(MediaStore.MediaColumns.RELATIVE_PATH)
     }
 
     private fun queryCollection(

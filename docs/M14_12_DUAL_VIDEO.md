@@ -46,7 +46,7 @@ flowchart TB
 1. Rear: existing preview session (no encoder surface attached in Dual mode).
 2. Front: [DualVideoFrontCameraController] → aux OES texture.
 3. [LutCameraPreviewRenderer] draws stacked layout to display + recordable EGL window surface.
-4. Stop → muxer finalizes under `Movies/PointAndShoot/`.
+4. Stop → muxer finalizes under `DCIM/PointAndShoot/` ([`PnsDcimPaths`](../modules/pns-core/src/main/java/dev/pointandshoot/PnsDcimPaths.kt) / `CaptureStorage`).
 
 ## HAL / fleet risks
 

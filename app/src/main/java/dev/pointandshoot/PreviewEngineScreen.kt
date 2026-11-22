@@ -4435,7 +4435,7 @@ fun PreviewEngineScreen(
         }
         Log.i(
             "PNS.ChromeUx",
-            "inAppVideoShellRequest fps=$selectedFps cam=$camForVideo out=DCIM/Point and Shoot (MediaStore)",
+            "inAppVideoShellRequest fps=$selectedFps cam=$camForVideo out=${PnsDcimPaths.RELATIVE_PATH} (MediaStore)",
         )
         controller.applyInAppVideoRecordingShell(
             wantRecord = true,

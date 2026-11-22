@@ -5,7 +5,7 @@
 .DESCRIPTION
   - Streams logcat to host (Camera2, HAL, DngCreator, ReferenceCam process).
   - Polls dumpsys media.camera for CONNECT/DISCONNECT (leaf camera id per lens).
-  - Detects new ReferenceCam DNGs under /sdcard/DCIM (timestamp files, not Point & Shoot).
+  - Detects new ReferenceCam DNGs under /sdcard/DCIM (timestamp files, not PointAndShoot / Point & Shoot).
   - Optional -TryUiAutomation: tap lens row + shutter (1440x3168 legacy device; calibrate with -Calibrate).
   - Default: supervised — you switch lens + shoot; script records timing and pulls artifacts.
 

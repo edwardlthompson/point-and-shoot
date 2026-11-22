@@ -41,7 +41,7 @@ sealed class ImagingProfile(
 
     /**
      * Hardware JPEG still only (no RAW [ImageReader], no DNG). Folder layout matches [StandardPro]
-     * under `DCIM/Point & Shoot/` per BUILD_PLAN Milestone 10 Sprint 10.3.
+     * under [PnsDcimPaths.RELATIVE_PATH] per BUILD_PLAN Milestone 10 Sprint 10.3.
      */
     data object JpegOnly : ImagingProfile(
         id = "jpeg_only",

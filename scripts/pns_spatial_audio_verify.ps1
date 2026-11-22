@@ -121,8 +121,7 @@ for ($attempt = 1; $attempt -le [Math]::Max(1, $MaxAttempts); $attempt++) {
     $spatialMeta = $log -match "spatialAudioMeta=stereo"
 
     $localMp4 = Join-Path $outDir ("clip_attempt_{0:D2}.mp4" -f $attempt)
-    $dcim = "/sdcard/DCIM/Point & Shoot"
-    $latest = (Invoke-Adb @("shell", "ls -t '$dcim'/pns_*.mp4 2>/dev/null | head -1") 2>&1) -join "`n"
+    $latest = (Invoke-Adb @("shell", "ls -t '/sdcard/DCIM/PointAndShoot'/pns_*.mp4 '/sdcard/DCIM/Point & Shoot'/pns_*.mp4 2>/dev/null | head -1") 2>&1) -join "`n"
     $latest = ($latest -split "`n" | Where-Object { $_ -match "pns_.*\.mp4" } | Select-Object -First 1)
     if ($latest) {
         $latest = $latest.Trim()

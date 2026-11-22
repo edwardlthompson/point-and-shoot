@@ -53,14 +53,14 @@ function AdbShell([string]$cmd) {
 # All DNGs under DCIM; exclude Point and Shoot folder
 $findOut = AdbShell "find /sdcard/DCIM -name '*.dng' 2>/dev/null"
 $paths = @($findOut -split "`n" | ForEach-Object { $_.Trim() } | Where-Object {
-        $_ -match "\.dng$" -and $_ -notmatch "Point.and.Shoot" -and $_ -notmatch "Point & Shoot"
+        $_ -match "\.dng$" -and $_ -notmatch "PointAndShoot" -and $_ -notmatch "Point.and.Shoot" -and $_ -notmatch "Point & Shoot"
     })
 
 if ($paths.Count -eq 0) {
     Write-Host "[referenceapp_ref] no non-P&S DNGs under DCIM; trying /sdcard"
     $findOut = AdbShell "find /sdcard -maxdepth 5 -name '*.dng' 2>/dev/null"
     $paths = @($findOut -split "`n" | ForEach-Object { $_.Trim() } | Where-Object {
-            $_ -match "\.dng$" -and $_ -notmatch "Point.and.Shoot" -and $_ -notmatch "Point & Shoot"
+            $_ -match "\.dng$" -and $_ -notmatch "PointAndShoot" -and $_ -notmatch "Point.and.Shoot" -and $_ -notmatch "Point & Shoot"
         })
 }
 

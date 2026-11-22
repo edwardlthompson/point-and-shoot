@@ -23,7 +23,7 @@ Point & Shoot is a **FOSS pro camera** app. We do **not** sell personal data. Th
 
 ### Camera, microphone, and storage
 
-The app captures photos and videos you trigger. Still RAW (DNG), JPEG, and in-app video files are written to **local storage** (typically `DCIM/Point & Shoot/` or paths you choose). Audio is recorded only when you start video recording with audio enabled.
+The app captures photos and videos you trigger. Still RAW (DNG), JPEG, and in-app video files are written to **local storage** (typically `DCIM/PointAndShoot/` or paths you choose). Files previously saved under `DCIM/Point & Shoot/` remain on device and still appear in the in-app gallery. Audio is recorded only when you start video recording with audio enabled.
 
 Optional **Strip EXIF privacy tags** (Settings) removes GPS, device make/model, software, and capture timestamps from **JPEG** still exports on the encode lane (`PNS.Reader`). DNG post-save metadata enrichment is skipped when strip is enabled; DNG files are never rewritten with `ExifInterface.saveAttributes()` (loadability lock).
 

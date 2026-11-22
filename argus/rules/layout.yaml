@@ -1,0 +1,8 @@
+id: layout
+version: "1.0.0"
+min_contract: 2
+stacks: ["web", "android", "python", "node", "multi"]
+fix_class: agent
+yolo_safe: false
+signal: LAYOUT-DRIFT
+summary: One location per asset class per docs/LAYOUT.md and docs/DIRECTORY_RULES.md.

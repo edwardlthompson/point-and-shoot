@@ -1,0 +1,24 @@
+{
+  "contract_version": 2,
+  "min_rule_version": "1.0.0",
+  "parent_hash": null,
+  "required_files": [
+    "branding/brand.json",
+    "branding/brand.schema.json",
+    "branding/assets/app-icon-1024.png",
+    "config/tokens.json",
+    "ux-baseline.json",
+    ".goldenpath.json",
+    "argus.contract.json"
+  ],
+  "signals": [
+    "BRAND-ICON-MISSING",
+    "BRAND-ICON-PLACEHOLDER",
+    "BRAND-ICON-INHERITED",
+    "CONTRACT-STALE",
+    "GOLDENPATH-ORPHAN-TREE",
+    "UX-RAW-HEX"
+  ],
+  "layout_required": false,
+  "notes": "parent_hash is filled when a child caches rules from the template manifest (Part 2)."
+}

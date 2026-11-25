@@ -63,3 +63,13 @@ Catch-up for Nov 17–18 (the daily brief did not run those mornings).
 
 - [ ] Bump the Gradle wrapper 9.5.1 to 9.9.2 and commit the regenerated wrapper jar and distributionSha256Sum — the patch fixes four High build-tool vulnerabilities (SFTP host keys, snapshot dependency verification, TestKit temp dir, daemon registry). It also picks up the 9.3 Critical version-catalog code-execution fix this wrapper lacks. Run ./gradlew wrapper --gradle-version=<ver> in the wrapper (gradle/wrapper/). Label: `[AGENT]` · Priority: P2 · https://docs.gradle.org/9.9.2/release-notes.html (not synced: no /build queue)
 - [ ] Decide whether to verify your identity and register this app with Google before January 2027 — if yes, create an Android Developer Console account and register the package name(s) with the SHA-256 of the GitHub Releases signing key (plus F-Droid's key if F-Droid re-signs it); if no, add an "advanced flow" install note to the README. The app is sideloaded (GitHub Releases/Obtainium/F-Droid), exactly the installs the rollout gates, and this is a personal identity/policy call. Label: `[HUMAN]` · Priority: P2 · https://developer.android.com/blog/posts/android-developer-verification-2027 (not synced: no /build queue)
+
+## 2026-11-25
+
+**News and updates**
+
+- RawLens 2.4.20 (Nov 21) adds LK-R HDR highlight reconstruction (rebuild a clipped channel from unclipped neighbors so bright clouds keep shape), and a lighter viewfinder. Useful reference for point-and-shoot's pro exposure tools; this repo still has no /build queue. [2.4.20](https://github.com/matthew777777/RawLens/releases/tag/2.4.20)
+
+**Tasks for the planning agent**
+
+- - [ ] Read RawLens 2.4.20's LK-R highlight-reconstruction approach (rebuild a single clipped channel from unclipped neighbors) and decide whether a similar local preview belongs in the pro exposure tools — inspiration, not a port of their code. Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.4.20 (not synced: no /build queue)

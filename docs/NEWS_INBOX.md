@@ -73,3 +73,13 @@ Catch-up for Nov 17–18 (the daily brief did not run those mornings).
 **Tasks for the planning agent**
 
 - - [ ] Read RawLens 2.4.20's LK-R highlight-reconstruction approach (rebuild a single clipped channel from unclipped neighbors) and decide whether a similar local preview belongs in the pro exposure tools — inspiration, not a port of their code. Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.4.20 (not synced: no /build queue)
+
+## 2026-11-27
+
+**News and updates**
+
+- RawLens [2.4.58](https://github.com/matthew777777/RawLens/releases/tag/2.4.58) (Nov 27, GPL-3.0) adds a Vulkan DCT denoiser that runs on Bayer data before demosaicing, a ~4× faster MFSR night-burst merge (8 × 12.5 MP in ~4 s on a Mali-G615, peak memory ~1.7 → ~1.3 GB), its own TinyDNG v3 writer (DngCreator kept as fallback in Automatic mode, black/white levels repaired before save), and AAC audio in video. For point-and-shoot the overlap is DNG writing: `TiffDngColorMatrixPatch.kt` post-patches DngCreator output because DngCreator can't set some aux-camera tags, and a writer-first design would remove that. Idea source only; copy no code.
+
+**Tasks for the planning agent**
+
+- [ ] Evaluate a native DNG writer path (DngCreator as fallback) instead of post-patching DngCreator output in TiffDngColorMatrixPatch, and look at a CFA-domain denoise for bursts — Owning the writer removes the aux-camera tag patching, and RawLens's numbers show a pre-demosaic GPU denoise is practical on mid-range phones. Label: `[AGENT]` · Priority: P3 · https://github.com/matthew777777/RawLens/releases/tag/2.4.58

@@ -6,6 +6,11 @@ on:
     paths:
       - 'PROBE_BUILD_PLAN.md'
       - 'BUILD_PLAN.md'
+      - 'scripts/check-build-plan-tally.sh'
+      - 'scripts/refresh-build-plan-tally.sh'
+      - 'scripts/lib/build_plan_tally.py'
+      - 'scripts/lib/resolve-python.sh'
+      - 'scripts/lib/resolve-tools.sh'
       - 'KNOWLEDGE_BASE.md'
       - 'AGENT_MEMORY.md'
       - 'PROMPT_LIBRARY.md'
@@ -25,6 +30,11 @@ on:
     paths:
       - 'PROBE_BUILD_PLAN.md'
       - 'BUILD_PLAN.md'
+      - 'scripts/check-build-plan-tally.sh'
+      - 'scripts/refresh-build-plan-tally.sh'
+      - 'scripts/lib/build_plan_tally.py'
+      - 'scripts/lib/resolve-python.sh'
+      - 'scripts/lib/resolve-tools.sh'
       - 'KNOWLEDGE_BASE.md'
       - 'AGENT_MEMORY.md'
       - 'PROMPT_LIBRARY.md'
@@ -55,6 +65,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Check BUILD_PLAN remaining tally
+        run: bash scripts/check-build-plan-tally.sh
 
       - name: SkipGradle (scripts + Kotlin UTF-8 scan)
         shell: pwsh

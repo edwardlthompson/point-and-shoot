@@ -1,7 +1,7 @@
 # Build Plan
 
 <!-- remaining-tally -->
-**Remaining:** (tally on next sync)
+**Remaining:** AGENT 7 · LOCAL 7 · CLOUD 0 · AUTO 7 · HUMAN 18 · ADB 0 · **32 open**
 <!-- /remaining-tally -->
 
 Live board. Canonical shape: agent-project-bootstrap `BUILD_PLAN_TEMPLATE.md`.
@@ -31,46 +31,44 @@ _No template gaps._
 
 ### Waiting on a person
 
-- 🔲 `[HUMAN]` Write primary CPH2583 serial into gitignored `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL=…`) — one-time; AUTO warns if stale
-- 🔲 `[HUMAN]` Owner GitLab login confirmed
-- 🔲 `[HUMAN]` Confirm offline backup of gitignored `release.keystore` + `keystore.properties` (AUTO verifies local keystore/pins; custody is human)
-- 🔲 `[HUMAN]` BOOT.1 — Approve bootstrap **0.15 → 1.10** upgrade scope (~19 slash commands / which 1.x docs)
-- 🔲 `[HUMAN]` Decide whether OpenSSF Scorecard becomes a **required** branch-protection check (workflow already non-blocking)
-- 🔲 `[HUMAN]` Dependabot — merge / defer / dismiss version PRs and any Critical/High exceptions (AUTO lists; human decides)
-- 🔲 `[HUMAN]` ColorChecker Classic under controlled illuminant (unblocks AGENT de2000 gate)
-- 🔲 `[HUMAN]` H.SCENE — Bright window / sky torture for dial **H** (flat indoor can look “broken” by design)
-- 🔲 `[HUMAN]` HUD / LUT aesthetics · immersive mode feel
-- 🔲 `[HUMAN] H.8.1` Eye/face overlay on glass (AGENT pixel gate is separate)
-- 🔲 `[HUMAN] H.8.2` Dual-video stacked framing
-- 🔲 `[HUMAN] H.8.3 CRI-033` H.265 DCG @4K colors
-- 🔲 `[HUMAN] H.8.5` False color on grey card + highlight scene
-- 🔲 `[HUMAN] CRI-035` ACR open + color sign-off on OP13 aux DNGs (`hfr-runs/aux_dng_capture_analyze_20260613_014424`; integrity gates already scripted)
-- 🔲 `[HUMAN] CRI-034` Store listing — `metadata/en-US/` + Play listing creative
-- 🔲 `[HUMAN] CRI-034` `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review (AUTO structural checks above)
-- 🔲 `[HUMAN]` Community announcements
+- 🔲 [HUMAN] Write primary CPH2583 serial into gitignored `scripts/pns_adb_device.env` (`PNS_ADB_SERIAL=…`) — one-time; AUTO warns if stale
+- 🔲 [HUMAN] Owner GitLab login confirmed
+- 🔲 [HUMAN] Confirm offline backup of gitignored `release.keystore` + `keystore.properties` (AUTO verifies local keystore/pins; custody is human)
+- 🔲 [HUMAN] BOOT.1 — Approve bootstrap **0.15 → 1.10** upgrade scope (~19 slash commands / which 1.x docs)
+- 🔲 [HUMAN] Decide whether OpenSSF Scorecard becomes a **required** branch-protection check (workflow already non-blocking)
+- 🔲 [HUMAN] Dependabot — merge / defer / dismiss version PRs and any Critical/High exceptions (AUTO lists; human decides)
+- 🔲 [HUMAN] Decide whether to verify your identity and register this app with Google before January 2027 (Android Developer Console + package/signing SHA-256, or add an advanced-flow install note to the README) (news P2, 2026-11-20) https://developer.android.com/blog/posts/android-developer-verification-2027
+- 🔲 [HUMAN] ColorChecker Classic under controlled illuminant (unblocks AGENT de2000 gate)
+- 🔲 [HUMAN] H.SCENE — Bright window / sky torture for dial **H** (flat indoor can look “broken” by design)
+- 🔲 [HUMAN] HUD / LUT aesthetics · immersive mode feel
+- 🔲 [HUMAN] H.8.1 Eye/face overlay on glass (AGENT pixel gate is separate)
+- 🔲 [HUMAN] H.8.2 Dual-video stacked framing
+- 🔲 [HUMAN] H.8.3 CRI-033 H.265 DCG @4K colors
+- 🔲 [HUMAN] H.8.5 False color on grey card + highlight scene
+- 🔲 [HUMAN] CRI-035 ACR open + color sign-off on OP13 aux DNGs (`hfr-runs/aux_dng_capture_analyze_20260613_014424`; integrity gates already scripted)
+- 🔲 [HUMAN] CRI-034 Store listing — `metadata/en-US/` + Play listing creative
+- 🔲 [HUMAN] CRI-034 `PRIVACY.md`, `NOTICE`, F-Droid `metadata/` creative review (AUTO structural checks above)
+- 🔲 [HUMAN] Community announcements
 
 ### Local agent (This Computer)
 
 Standing queue for This Computer. Rows: `🔲 [AGENT][LOCAL] … — scope: path`.
 
 <!-- local-agent-lane:begin -->
-- `[AGENT][LOCAL]` · `[HUMAN]` · `[ADB]` · `[AUTO]` — 🔲 open · ✅ done · ❌ blocked
-- 🔲 `[AGENT][LOCAL]` BOOT.3 — After **HUMAN BOOT.1**: `/upgrade` per `docs/UPGRADING_FROM_TEMPLATE.md`; bump `.template-version`; rewrite `docs/BOOTSTRAP_ALIGNMENT.md`; selective `/tour` `/shape` `/resume` `/adr` `/update-deps`
-- 🔲 `[AGENT][LOCAL] CRI-032` `pns_eye_af_pixel_gate.ps1` — FAIL without face in frame (needs USB face scene)
-- ❌ `[AGENT][LOCAL]` `pns_colorchecker_de2000_gate.py` — blocked on **HUMAN** ColorChecker capture
-- 🔲 `[AUTO]` BOOT.4 — Weekly **Scorecard** + **template-update** checker on `main` (`.github/workflows/scorecard.yml` · `pns_check_template_updates.ps1` / `.template-update.json`)
-- 🔲 `[AUTO]` Dependabot — Assert **0** open Critical/High alerts (or fail closed into triage); list open version PRs for `/dependabot` (see `docs/SECURITY_TRIAGE.md`)
-- 🔲 `[AUTO]` Security scan + CodeQL green on `main` (release gate mirror)
-- 🔲 `[AUTO]` ADB env health — `PNS_ADB_SERIAL` present in `scripts/pns_adb_device.env` and matches an online `adb devices` serial when a device is connected (`pns_adb_serial.ps1` / gate warn)
-- 🔲 `[AUTO]` Keystore + pin drift — `pns_keystore_verify.ps1` vs `scripts/pns_keystore_expected.json`; flag if `leaderboard-ingest/config/signing_pins.json` SHA does not match release cert
-- 🔲 `[AUTO]` F-Droid / store metadata structure — `pns_fdroid_metadata_validate.ps1` (does **not** replace creative CRI-034 review)
-- 🔲 `[AUTO]` PRIVACY / NOTICE / README link presence — `pns_repro_build_verify.ps1` host subset (does **not** replace creative copy sign-off)
-- | Open human | `^- 🔲 \[HUMAN\]` |
-- | Open agent | `^- 🔲 \[AGENT\]` |
-- | Open AUTO | `^- 🔲 \[AUTO\]` |
-- | Blocked | `^- ❌` |
 - 🔲 [AGENT][LOCAL] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
-- 🔲 [AGENT][LOCAL] Pin pillow>=13.0.0 for JPEG/DNG compare scripts — scope: scripts/ (news P1, 2026-11-13) https://github.com/advisories/GHSA-xcvg-w56q-r89m
+- 🔲 [AGENT][LOCAL] Bump the Gradle wrapper 9.5.1 to 9.9.2 and commit the regenerated wrapper jar and distributionSha256Sum — scope: gradle/wrapper/ (news P2, 2026-11-20) https://docs.gradle.org/9.9.2/release-notes.html
+- 🔲 [AGENT][LOCAL] Bump Compose BOM 2026.09.00 to 2026.11.01 (Compose 1.13 / Material3 1.5.0) and fix Slider/RangeSlider call sites — scope: gradle/libs.versions.toml,app/,modules/ (news P2, 2026-11-19) https://developer.android.com/blog/posts/jetpack-compose-november-2026-release
+- 🔲 [AGENT][LOCAL] Upgrade CameraX 1.6.1 to 1.7.0 and migrate Camera2Interop V1 / getExtensionEnabledCameraSelector to V2 / ExtensionSessionConfig, then evaluate physical-lens binding and AE/AWB lock with continuous AF for the pro modes — scope: gradle/libs.versions.toml,app/,modules/ (news P2, 2026-11-19) https://developer.android.com/jetpack/androidx/releases/camera
+- 🔲 [AGENT][LOCAL] CRI-032 pns_eye_af_pixel_gate.ps1 — FAIL without face in frame (needs USB face scene) — scope: scripts/pns_eye_af_pixel_gate.ps1
+- 🔲 [AGENT][LOCAL] BOOT.3 — After **HUMAN BOOT.1**: `/upgrade` per `docs/UPGRADING_FROM_TEMPLATE.md`; bump `.template-version`; rewrite `docs/BOOTSTRAP_ALIGNMENT.md`; selective `/tour` `/shape` `/resume` `/adr` `/update-deps` — scope: docs/,.cursor/commands/,.template-version
+- ❌ [AGENT][LOCAL] pns_colorchecker_de2000_gate.py — blocked on **HUMAN** ColorChecker capture — scope: scripts/pns_colorchecker_de2000_gate.py
+- 🔲 [AUTO] BOOT.4 — Weekly **Scorecard** + **template-update** checker on `main` — scope: .github/workflows/scorecard.yml,scripts/pns_check_template_updates.ps1,.template-update.json
+- 🔲 [AUTO] Dependabot — Assert **0** open Critical/High alerts (or fail closed into triage); list open version PRs for `/dependabot` — scope: docs/SECURITY_TRIAGE.md
+- 🔲 [AUTO] Security scan + CodeQL green on `main` (release gate mirror) — scope: .github/workflows/
+- 🔲 [AUTO] ADB env health — `PNS_ADB_SERIAL` present in `scripts/pns_adb_device.env` and matches an online `adb devices` serial when a device is connected — scope: scripts/pns_adb_serial.ps1
+- 🔲 [AUTO] Keystore + pin drift — `pns_keystore_verify.ps1` vs `scripts/pns_keystore_expected.json`; flag if `leaderboard-ingest/config/signing_pins.json` SHA does not match release cert — scope: scripts/pns_keystore_verify.ps1,scripts/pns_keystore_expected.json
+- 🔲 [AUTO] F-Droid / store metadata structure — `pns_fdroid_metadata_validate.ps1` (does **not** replace creative CRI-034 review) — scope: scripts/pns_fdroid_metadata_validate.ps1,metadata/
+- 🔲 [AUTO] PRIVACY / NOTICE / README link presence — `pns_repro_build_verify.ps1` host subset (does **not** replace creative copy sign-off) — scope: scripts/pns_repro_build_verify.ps1,PRIVACY.md,NOTICE,README.md
 <!-- local-agent-lane:end -->
 
 ### Cloud agent (Cursor Cloud)
